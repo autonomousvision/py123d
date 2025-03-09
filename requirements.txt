@@ -1,0 +1,46 @@
+nuplan-devkit @ git+https://github.com/motional/nuplan-devkit/@nuplan-devkit-v1.2
+
+# nuplan requirements
+aioboto3
+aiofiles
+bokeh==2.4.3 
+casadi
+control==0.9.1 
+Fiona 
+geopandas>=0.12.1 
+guppy3==3.1.2
+hydra-core==1.1.0rc1  
+joblib
+matplotlib  
+nest_asyncio  
+numpy
+opencv-python
+pandas    
+Pillow   
+psutil  
+pyarrow 
+pyinstrument 
+pyogrio 
+pyquaternion>=0.9.5 
+pytest    
+rasterio  
+ray 
+retry
+rtree 
+scipy  
+selenium 
+setuptools==65.5.1
+Shapely==2.0.7
+SQLAlchemy==1.4.27  
+sympy  
+tornado 
+tqdm  
+ujson  
+notebook
+
+# torch & lighting
+torch==2.6.0
+torchvision==0.21.0
+pytorch-lightning==2.5.0
+tensorboard
+protobuf==4.25.3
