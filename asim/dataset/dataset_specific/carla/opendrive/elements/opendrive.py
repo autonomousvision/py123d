@@ -3,14 +3,16 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Type
+from typing import List, Optional
 from xml.etree.ElementTree import Element, parse
 
 import numpy as np
 import numpy.typing as npt
 from shapely.geometry import LineString
 
-LINE_STEP_SIZE: float = 0.1  # [m]
+from asim.dataset.dataset_specific.carla.opendrive.elements.geometry import Arc, Geometry, Line
+
+LINE_STEP_SIZE: float = 1  # [m]
 
 
 @dataclass
@@ -223,86 +225,20 @@ class PlanView:
 
     @property
     def xy(self) -> npt.NDArray[np.float64]:
+        geometries_xy: List[npt.NDArray[np.float64]] = []
+        for geometry in self.geometries:
+            geometries_xy.append(geometry.xy)
+        return np.concatenate(geometries_xy, axis=0, dtype=np.float64)
 
+    def get_xy(self, s: float) -> npt.NDArray[np.float64]:
+        s_offset: float = 0.0
+        for geometry in self.geometries:
+            if geometry.length + s_offset >= s:
+                return geometry.get_xy(s - s_offset)
+            s_offset += geometry.length
+
+    def get_dxy(self, s: float) -> npt.NDArray[np.float64]:
         pass
-
-
-@dataclass
-class Geometry:
-    s: float
-    x: float
-    y: float
-    hdg: float
-    length: float
-
-    @property
-    def linestring(self) -> LineString:
-        return LineString(self.xy)
-
-    @property
-    def xy(self) -> npt.NDArray[np.float64]:
-        raise NotImplementedError
-
-
-@dataclass
-class Line(Geometry):
-    @classmethod
-    def parse(cls, geometry_element: Element) -> Type[Geometry]:
-        args = {key: float(geometry_element.get(key)) for key in ["s", "x", "y", "hdg", "length"]}
-        return cls(**args)
-
-    @property
-    def linestring(self) -> LineString:
-        return LineString(self.xy)
-
-    @property
-    def xy(self) -> npt.NDArray[np.float64]:
-        s_line = np.arange(self.s, self.length + LINE_STEP_SIZE, LINE_STEP_SIZE, dtype=np.float64)
-        s_line = np.clip(s_line, self.s, self.length)
-        initial_point = np.array([self.x, self.y], dtype=np.float64)
-        dxy = np.concatenate([s_line[..., None] * np.cos(self.hdg), s_line[..., None] * np.sin(self.hdg)], axis=-1)
-        return initial_point + dxy
-
-
-@dataclass
-class Arc(Geometry):
-
-    curvature: float
-
-    @classmethod
-    def parse(cls, geometry_element: Element) -> Type[Geometry]:
-        args = {key: float(geometry_element.get(key)) for key in ["s", "x", "y", "hdg", "length"]}
-        args["curvature"] = float(geometry_element.find("arc").get("curvature"))
-        return cls(**args)
-
-    @property
-    def linestring(self) -> LineString:
-        return LineString(self.xy)
-
-    @property
-    def xy(self) -> npt.NDArray[np.float64]:
-        s_line = np.arange(self.s, self.length + LINE_STEP_SIZE, LINE_STEP_SIZE, dtype=np.float64)
-        s_line = np.clip(s_line, self.s, self.length)
-
-        # radius = 1.0 / self.curvature
-        # hdg = self.hdg + s_line * self.curvature
-        # x = self.x + radius * (np.sin(hdg) - np.sin(self.hdg))
-        # y = self.y + radius * (np.cos(self.hdg) - np.cos(hdg))
-        # return np.concatenate([x[..., None], y[..., None]], axis=-1)
-
-        c = self.curvature
-        hdg = self.hdg - np.pi / 2
-
-        a = 2 / c * np.sin(s_line * c / 2)
-        alpha = (np.pi - s_line * c) / 2 - hdg
-
-        dx = -1 * a * np.cos(alpha)
-        dy = a * np.sin(alpha)
-        dxy = np.concatenate([dx[..., None], dy[..., None]], axis=-1)
-
-        initial_point = np.array([self.x, self.y], dtype=np.float64)
-
-        return initial_point + dxy
 
 
 @dataclass
@@ -327,27 +263,21 @@ class Lanes:
 
 @dataclass
 class LaneOffset:
-    s: float = None
-    type: str = None
-    material: Optional[str] = None
-    color: Optional[str] = None
-    width: Optional[float] = None
-    lane_change: Optional[str] = None
+    """Section 11.4"""
+
+    s: float
+    a: float
+    b: float
+    c: float
+    d: float
 
     def __post_init__(self):
         # NOTE: added assertion/filtering to check for element type or consistency
         pass
 
     @classmethod
-    def parse(cls, lane_offset_element: Optional[Element]) -> LaneOffset:
-        args = {}
-        args["s"] = float(lane_offset_element.get("s"))
-        args["type"] = lane_offset_element.get("type")
-        args["material"] = lane_offset_element.get("material")
-        args["color"] = lane_offset_element.get("color")
-        if lane_offset_element.get("width") is not None:
-            args["width"] = float(lane_offset_element.get("width"))
-        args["lane_change"] = lane_offset_element.get("lane_change")
+    def parse(cls, lane_offset_element: Element) -> LaneOffset:
+        args = {key: float(lane_offset_element.get(key)) for key in ["s", "a", "b", "c", "d"]}
         return LaneOffset(**args)
 
 
@@ -396,7 +326,7 @@ class Lane:
     level: bool
 
     widths: List[Width]
-    # road_marks: List[RoadMarks]  # NOTE: not implemented
+    road_marks: List[RoadMark]
 
     predecessor: Optional[int] = None
     successor: Optional[int] = None
@@ -407,7 +337,6 @@ class Lane:
 
     @classmethod
     def parse(cls, lane_element: Optional[Element]) -> Lane:
-        # TODO: implement
         args = {}
         args["id"] = lane_element.get("id")
         args["type"] = lane_element.get("type")
@@ -423,6 +352,11 @@ class Lane:
         for width_element in lane_element.findall("width"):
             widths.append(Width.parse(width_element))
         args["widths"] = widths
+
+        road_marks: List[Width] = []
+        for road_mark_element in lane_element.findall("roadMark"):
+            road_marks.append(RoadMark.parse(road_mark_element))
+        args["road_marks"] = road_marks
 
         return Lane(**args)
 
@@ -444,6 +378,32 @@ class Width:
         args["c"] = float(width_element.get("c"))
         args["d"] = float(width_element.get("d"))
         return Width(**args)
+
+
+@dataclass
+class RoadMark:
+    s_offset: float = None
+    type: str = None
+    material: Optional[str] = None
+    color: Optional[str] = None
+    width: Optional[float] = None
+    lane_change: Optional[str] = None
+
+    def __post_init__(self):
+        # NOTE: added assertion/filtering to check for element type or consistency
+        pass
+
+    @classmethod
+    def parse(cls, road_mark_element: Optional[Element]) -> RoadMark:
+        args = {}
+        args["s_offset"] = float(road_mark_element.get("sOffset"))
+        args["type"] = road_mark_element.get("type")
+        args["material"] = road_mark_element.get("material")
+        args["color"] = road_mark_element.get("color")
+        if road_mark_element.get("width") is not None:
+            args["width"] = float(road_mark_element.get("width"))
+        args["lane_change"] = road_mark_element.get("lane_change")
+        return RoadMark(**args)
 
 
 @dataclass
