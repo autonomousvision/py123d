@@ -76,6 +76,6 @@ class Arc(Geometry):
         interpolated_se2 = self.start_se2
         interpolated_se2[SE2Index.X] += dx
         interpolated_se2[SE2Index.Y] += dy
-        interpolated_se2[SE2Index.Y] += s * self.curvature
+        interpolated_se2[SE2Index.HEADING] += s * self.curvature
 
         return interpolated_se2
