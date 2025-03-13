@@ -49,7 +49,7 @@ class PlanView:
     def length(self) -> float:
         return float(self.geometry_lengths[-1])
 
-    def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
+    def interpolate_se2(self, s: float, t: float = 0.0, is_last_pos: bool = False) -> npt.NDArray[np.float64]:
 
         try:
             # get index of geometry which is at s_pos
@@ -57,14 +57,6 @@ class PlanView:
             sub_idx = np.argmin(self.geometry_lengths[mask] - s)
             geo_idx = np.arange(self.geometry_lengths.shape[0])[mask][sub_idx] - 1
         except ValueError:
-
-            # # warnings.warn(f"{s} clipped to {0.0} {self.geometry_lengths[-1]}")
-            # print(f"{s} clipped to {0.0} {self.geometry_lengths[-1]}")
-            # s = np.clip(s, 0.0, self.geometry_lengths[-1], dtype=np.float64)
-            # # geo_idx = self.geometry_lengths.size - 2
-            # geo_idx = 0
-            # # geo_idx = max(0, self.geometry_lengths.size - 2)
-
             # s_pos is after last geometry because of rounding error
             if np.isclose(s, self.geometry_lengths[-1], 0.01, 0.01):  # todo parameter
                 geo_idx = self.geometry_lengths.size - 2
@@ -73,10 +65,6 @@ class PlanView:
                     f"Tried to calculate a position outside of the borders of the reference path at s={s}"
                     f", but path has only length of l={self.length}"
                 )
-                # print(f"{s} clipped to {0.0} {self.geometry_lengths[-1]}")
-                # s = np.clip(s, 0.0, self.geometry_lengths[-1], dtype=np.float64)
-                # geo_idx = self.geometry_lengths.size - 2
-                # # geo_idx = 0
 
         return self.geometries[geo_idx].interpolate_se2(s - self.geometry_lengths[geo_idx], t)
 
@@ -145,7 +133,7 @@ class Border:
             len(self.width_coefficient_offsets) - 1,
         )
 
-    def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
+    def interpolate_se2(self, s: float, t: float = 0.0, is_last_pos: bool = False) -> npt.NDArray[np.float64]:
         # Last reference has to be a reference geometry (PlanView)
         # Offset of all inner lanes (Border)
         # calculate position of reference border
@@ -153,17 +141,16 @@ class Border:
             s = 0
 
         try:
-            se2 = self.reference.interpolate_se2(self.s_offset + s)
+            se2 = self.reference.interpolate_se2(self.s_offset + s, is_last_pos=is_last_pos)
         except TypeError:
-            se2 = self.reference.interpolate_se2(np.round(self.s_offset + s, 3))
+            se2 = self.reference.interpolate_se2(np.round(self.s_offset + s, 3), is_last_pos=is_last_pos)
 
         if len(self.width_coefficients) == 0 or len(self.width_coefficient_offsets) == 0:
             raise Exception("No entries for width definitions.")
 
         # Find correct coefficients
         # find which width segment is at s_pos
-
-        width_idx = self._get_width_index(s, is_last_pos=False)
+        width_idx = self._get_width_index(s, is_last_pos=is_last_pos)
         # width_idx = min(width_idx, len(self.width_coefficient_offsets)-1)
         # Calculate width at s_pos
         distance = (
