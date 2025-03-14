@@ -17,7 +17,7 @@ class OpenDRIVE:
     header: Header
 
     roads: List[Road]
-    # controllers: List[Controllers] = EMPTY_LIST_FIELD # NOTE: not implemented
+    controllers: List[Controller]
     junctions: List[Junction]
 
     @classmethod
@@ -30,6 +30,11 @@ class OpenDRIVE:
         for road_element in root_element.findall("road"):
             roads.append(Road.parse(road_element))
         args["roads"] = roads
+
+        controllers: List[Controller] = []
+        for controller_element in root_element.findall("controller"):
+            controllers.append(Controller.parse(controller_element))
+        args["controllers"] = controllers
 
         junctions: List[Junction] = []
         for junction_element in root_element.findall("junction"):
@@ -194,11 +199,96 @@ class Speed:
 
 
 @dataclass
+class Controller:
+    name: str
+    id: int
+    sequence: int
+    controls: List[Control]
+
+    @classmethod
+    def parse(cls, controller_element: Optional[Element]) -> Junction:
+
+        args = {}
+        args["name"] = controller_element.get("name")
+        args["id"] = float(controller_element.get("id"))
+        args["sequence"] = float(controller_element.get("sequence"))
+
+        controls: List[Control] = []
+        for control_element in controller_element.findall("control"):
+            controls.append(Control.parse(control_element))
+        args["controls"] = controls
+
+        return Controller(**args)
+
+
+@dataclass
+class Control:
+
+    signal_id: str
+    type: str
+
+    @classmethod
+    def parse(cls, control_element: Optional[Element]) -> Control:
+        args = {}
+        args["signal_id"] = control_element.get("signalId")
+        args["type"] = control_element.get("type")
+        return Control(**args)
+
+
+@dataclass
 class Junction:
-    dummy: str = None
+    id: int
+    name: str
+    connections: List[Connection]
 
     @classmethod
     def parse(cls, junction_element: Optional[Element]) -> Junction:
-        # TODO: implement
+        args = {}
 
-        return Junction()
+        args["id"] = int(junction_element.get("id"))
+        args["name"] = junction_element.get("name")
+
+        connections: List[Connection] = []
+        for connection_element in junction_element.findall("connection"):
+            connections.append(Connection.parse(connection_element))
+        args["connections"] = connections
+
+        return Junction(**args)
+
+
+@dataclass
+class Connection:
+    id: int
+    incoming_road: int
+    connecting_road: int
+    contact_point: str
+    lane_links: List[LaneLink]
+
+    @classmethod
+    def parse(cls, connection_element: Optional[Element]) -> Connection:
+        args = {}
+
+        args["id"] = int(connection_element.get("id"))
+        args["incoming_road"] = int(connection_element.get("incomingRoad"))
+        args["connecting_road"] = int(connection_element.get("connectingRoad"))
+        args["contact_point"] = connection_element.get("contact_point")
+
+        lane_links: List[LaneLink] = []
+        for lane_link_element in connection_element.findall("laneLink"):
+            lane_links.append(LaneLink.parse(lane_link_element))
+        args["lane_links"] = lane_links
+
+        return Connection(**args)
+
+
+@dataclass
+class LaneLink:
+    start: int  # NOTE: named "from" in xml
+    end: int  # NOTE: named "to" in xml
+
+    @classmethod
+    def parse(cls, lane_link_element: Optional[Element]) -> LaneLink:
+        args = {}
+        args["start"] = lane_link_element.get("from")
+        args["end"] = lane_link_element.get("to")
+        return LaneLink(**args)
