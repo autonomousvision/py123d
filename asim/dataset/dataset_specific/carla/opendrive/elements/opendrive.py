@@ -8,11 +8,9 @@ from xml.etree.ElementTree import Element, parse
 from asim.dataset.dataset_specific.carla.opendrive.elements.lane import Lanes
 from asim.dataset.dataset_specific.carla.opendrive.elements.reference import PlanView
 
-LINE_STEP_SIZE: float = 1  # [m]
-
 
 @dataclass
-class OpenDRIVE:
+class OpenDrive:
 
     header: Header
 
@@ -21,7 +19,7 @@ class OpenDRIVE:
     junctions: List[Junction]
 
     @classmethod
-    def parse(cls, root_element: Element) -> OpenDRIVE:
+    def parse(cls, root_element: Element) -> OpenDrive:
 
         args = {}
         args["header"] = Header.parse(root_element.find("header"))
@@ -41,12 +39,12 @@ class OpenDRIVE:
             junctions.append(Junction.parse(junction_element))
         args["junctions"] = junctions
 
-        return OpenDRIVE(**args)
+        return OpenDrive(**args)
 
     @classmethod
-    def parse_from_file(cls, file_path: Path) -> OpenDRIVE:
+    def parse_from_file(cls, file_path: Path) -> OpenDrive:
         tree = parse(file_path)
-        return OpenDRIVE.parse(tree.getroot())
+        return OpenDrive.parse(tree.getroot())
 
 
 @dataclass
@@ -68,8 +66,8 @@ class Header:
     @classmethod
     def parse(cls, header_element: Optional[Element]) -> Header:
         """
-        :param header_element: XML element containing the OpenDRIVE header.
-        :return: instance of OpenDRIVE header dataclass.
+        :param header_element: XML element containing the OpenDrive header.
+        :return: instance of OpenDrive header dataclass.
         """
         args = {}
         if header_element is not None:
@@ -91,7 +89,7 @@ class Header:
 
 @dataclass
 class Road:
-    id: str
+    id: int
     junction: Optional[str]
     length: float  # [m]
     name: Optional[str]
@@ -116,7 +114,7 @@ class Road:
         # TODO: implement
         args = {}
 
-        args["id"] = road_element.get("id")
+        args["id"] = int(road_element.get("id"))
         args["junction"] = road_element.get("junction") if road_element.get("junction") != "-1" else None
         args["length"] = float(road_element.get("length"))
         args["name"] = road_element.get("name")
@@ -151,18 +149,18 @@ class Link:
 @dataclass
 class PredecessorSuccessor:
     element_type: Optional[str] = None
-    element_id: Optional[str] = None
+    element_id: Optional[int] = None
     contact_point: Optional[str] = None
 
     def __post_init__(self):
         # NOTE: added assertion/filtering to check for element type or consistency
-        pass
+        assert self.contact_point is None or self.contact_point in ["start", "end"]
 
     @classmethod
     def parse(cls, element: Element) -> PredecessorSuccessor:
         args = {}
         args["element_type"] = element.get("elementType")
-        args["element_id"] = element.get("elementId")
+        args["element_id"] = int(element.get("elementId"))
         args["contact_point"] = element.get("contactPoint")
         return PredecessorSuccessor(**args)
 
@@ -271,7 +269,7 @@ class Connection:
         args["id"] = int(connection_element.get("id"))
         args["incoming_road"] = int(connection_element.get("incomingRoad"))
         args["connecting_road"] = int(connection_element.get("connectingRoad"))
-        args["contact_point"] = connection_element.get("contact_point")
+        args["contact_point"] = connection_element.get("contactPoint")
 
         lane_links: List[LaneLink] = []
         for lane_link_element in connection_element.findall("laneLink"):
@@ -289,6 +287,6 @@ class LaneLink:
     @classmethod
     def parse(cls, lane_link_element: Optional[Element]) -> LaneLink:
         args = {}
-        args["start"] = lane_link_element.get("from")
-        args["end"] = lane_link_element.get("to")
+        args["start"] = int(lane_link_element.get("from"))
+        args["end"] = int(lane_link_element.get("to"))
         return LaneLink(**args)

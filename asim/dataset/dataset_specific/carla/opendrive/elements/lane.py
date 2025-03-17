@@ -31,6 +31,14 @@ class Lanes:
         args["lane_sections"] = lane_sections
         return Lanes(**args)
 
+    @property
+    def num_lane_sections(self):
+        return len(self.lane_sections)
+
+    @property
+    def last_lane_section_idx(self):
+        return self.num_lane_sections - 1
+
 
 @dataclass
 class LaneOffset:

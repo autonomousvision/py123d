@@ -1,11 +1,11 @@
 import matplotlib.pyplot as plt
 
 from asim.common.visualization.color.lib.opendrive import OPENDRIVE_LANE_TYPES
-from asim.dataset.dataset_specific.carla.opendrive.convert_opendrive_map import convert_opendrive_map
-from asim.dataset.dataset_specific.carla.opendrive.elements.opendrive import OpenDRIVE
+from asim.dataset.dataset_specific.carla.opendrive.elements.opendrive import OpenDrive
+from asim.dataset.dataset_specific.carla.opendrive.opendrive_converter import convert_opendrive_map
 
 
-def plot_opendrive_map(opendrive: OpenDRIVE) -> None:
+def plot_opendrive_map(opendrive: OpenDrive) -> None:
 
     fig, ax = plt.subplots(figsize=(10, 10))
 
