@@ -18,12 +18,12 @@ def convert_opendrive_map(opendrive: OpenDRIVE) -> Dict[str, List[ODLaneGroupHel
         lane_section_lengths: List[float] = [ls.s for ls in road.lanes.lane_sections] + [road.length]
 
         for idx, lane_section in enumerate(road.lanes.lane_sections):
-            parametric_lanes_ = lane_section_to_lane_group_helper(
+            lane_group_helpers = lane_section_to_lane_group_helper(
                 lane_section,
                 reference_border,
                 lane_section_lengths[idx],
                 lane_section_lengths[idx + 1],
             )
-            road_lane_groups[road.id].extend(parametric_lanes_)
+            road_lane_groups[road.id].extend(lane_group_helpers)
 
     return road_lane_groups

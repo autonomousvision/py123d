@@ -9,7 +9,7 @@ from xml.etree.ElementTree import Element
 import numpy as np
 import numpy.typing as npt
 
-from asim.common.geometry.array_representations import SE2Index
+from asim.common.geometry.base_enum import StateSE2Index
 from asim.common.geometry.utils import normalize_angle
 from asim.dataset.dataset_specific.carla.opendrive.elements.geometry import Arc, Geometry, Line
 from asim.dataset.dataset_specific.carla.opendrive.elements.lane import LaneOffset
@@ -160,9 +160,9 @@ class Border:
             )
             + t
         )
-        ortho = normalize_angle(se2[SE2Index.HEADING] + np.pi / 2)
-        se2[SE2Index.X] += distance * np.cos(ortho)
-        se2[SE2Index.Y] += distance * np.sin(ortho)
+        ortho = normalize_angle(se2[StateSE2Index.YAW] + np.pi / 2)
+        se2[StateSE2Index.X] += distance * np.cos(ortho)
+        se2[StateSE2Index.Y] += distance * np.sin(ortho)
 
-        se2[SE2Index.HEADING] = normalize_angle(se2[SE2Index.HEADING])
+        se2[StateSE2Index.YAW] = normalize_angle(se2[StateSE2Index.YAW])
         return se2

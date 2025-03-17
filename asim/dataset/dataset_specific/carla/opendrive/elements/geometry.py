@@ -6,7 +6,7 @@ from xml.etree.ElementTree import Element
 import numpy as np
 import numpy.typing as npt
 
-from asim.common.geometry.array_representations import SE2Index
+from asim.common.geometry.base_enum import StateSE2Index
 
 
 @dataclass
@@ -19,10 +19,10 @@ class Geometry:
 
     @property
     def start_se2(self) -> npt.NDArray[np.float64]:
-        start_se2 = np.zeros(len(SE2Index), dtype=np.float64)
-        start_se2[SE2Index.X] = self.x
-        start_se2[SE2Index.Y] = self.y
-        start_se2[SE2Index.HEADING] = self.hdg
+        start_se2 = np.zeros(len(StateSE2Index), dtype=np.float64)
+        start_se2[StateSE2Index.X] = self.x
+        start_se2[StateSE2Index.Y] = self.y
+        start_se2[StateSE2Index.YAW] = self.hdg
         return start_se2
 
     def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
@@ -42,8 +42,8 @@ class Line(Geometry):
         # s = np.clip(s, 0.0, self.length - self.s)
 
         interpolated_se2 = self.start_se2
-        interpolated_se2[SE2Index.X] += s * np.cos(self.hdg)
-        interpolated_se2[SE2Index.Y] += s * np.sin(self.hdg)
+        interpolated_se2[StateSE2Index.X] += s * np.cos(self.hdg)
+        interpolated_se2[StateSE2Index.Y] += s * np.sin(self.hdg)
 
         if t != 0.0:
             pass
@@ -74,8 +74,8 @@ class Arc(Geometry):
         dy = a * np.sin(alpha)
 
         interpolated_se2 = self.start_se2
-        interpolated_se2[SE2Index.X] += dx
-        interpolated_se2[SE2Index.Y] += dy
-        interpolated_se2[SE2Index.HEADING] += s * self.curvature
+        interpolated_se2[StateSE2Index.X] += dx
+        interpolated_se2[StateSE2Index.Y] += dy
+        interpolated_se2[StateSE2Index.YAW] += s * self.curvature
 
         return interpolated_se2
