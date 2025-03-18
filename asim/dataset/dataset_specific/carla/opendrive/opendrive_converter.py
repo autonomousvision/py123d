@@ -1,13 +1,22 @@
 import warnings
 from typing import Dict, List, Optional
 
+import geopandas as gpd
 import numpy as np
+import pandas as pd
+import shapely.geometry as geom
 
+from asim.common.geometry.base_enum import StateSE2Index
 from asim.dataset.dataset_specific.carla.opendrive.conversion.group_collections import (
+    OpenDriveLaneGroupHelper,
     OpenDriveLaneHelper,
     lane_section_to_lane_helpers,
 )
-from asim.dataset.dataset_specific.carla.opendrive.conversion.id_system import build_lane_id, derive_lane_section_id
+from asim.dataset.dataset_specific.carla.opendrive.conversion.id_system import (
+    build_lane_id,
+    derive_lane_section_id,
+    lane_group_id_from_lane_id,
+)
 from asim.dataset.dataset_specific.carla.opendrive.elements.opendrive import Junction, OpenDrive, Road
 from asim.dataset.dataset_specific.carla.opendrive.elements.reference import Border
 
@@ -25,6 +34,7 @@ class OpenDriveConverter:
 
         # loaded during conversion
         self.lane_helper_dict: Dict[str, OpenDriveLaneHelper] = {}
+        self.lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper] = {}
 
     def run(self) -> None:
         self._collect_lane_helpers()
@@ -32,6 +42,7 @@ class OpenDriveConverter:
         self._update_connection_from_junctions()
         self._flip_and_set_connections()
         self._post_process_connections()
+        self._collect_lane_groups()
 
     def _collect_lane_helpers(self) -> None:
         for road in self.opendrive.roads:
@@ -201,3 +212,188 @@ class OpenDriveConverter:
                 else:
                     valid_predecessor_lane_ids.append(predecessor_lane_id)
             self.lane_helper_dict[lane_id].predecessor_lane_ids = valid_predecessor_lane_ids
+
+    def _collect_lane_groups(self) -> None:
+        def _collect_lane_helper_of_id(lane_group_id: str) -> List[OpenDriveLaneHelper]:
+            lane_helpers: List[OpenDriveLaneHelper] = []
+            for lane_id, lane_helper in self.lane_helper_dict.items():
+                if (lane_helper.type in ["driving"]) and (lane_group_id_from_lane_id(lane_id) == lane_group_id):
+                    lane_helpers.append(lane_helper)
+            return lane_helpers
+
+        all_lane_group_ids = list(
+            set([lane_group_id_from_lane_id(lane_id) for lane_id in self.lane_helper_dict.keys()])
+        )
+
+        for lane_group_id in all_lane_group_ids:
+            lane_group_lane_helper = _collect_lane_helper_of_id(lane_group_id)
+            if len(lane_group_lane_helper) >= 1:
+                self.lane_group_helper_dict[lane_group_id] = OpenDriveLaneGroupHelper(
+                    lane_group_id, lane_group_lane_helper
+                )
+
+    def _extract_lane_dataframe(self) -> None:
+
+        lane_ids = []
+        predecessor_lane_ids = []
+        successor_lane_ids = []
+        left_boundaries = []
+        right_boundaries = []
+        baseline_paths = []
+        geometries = []
+
+        for lane_helper in self.lane_helper_dict.values():
+            if lane_helper.type == "driving":
+                lane_ids.append(lane_helper.lane_id)
+                predecessor_lane_ids.append(lane_helper.predecessor_lane_ids)
+                successor_lane_ids.append(lane_helper.successor_lane_ids)
+                left_boundaries.append(geom.LineString(lane_helper.inner_polyline[..., StateSE2Index.XY]))
+                right_boundaries.append(geom.LineString(lane_helper.outer_polyline[..., StateSE2Index.XY]))
+                baseline_paths.append(geom.LineString(lane_helper.center_polyline[..., StateSE2Index.XY]))
+                geometries.append(lane_helper.shapely_polygon)
+
+        data = pd.DataFrame(
+            {
+                "lane_id": lane_ids,
+                "predecessor_lane_ids": predecessor_lane_ids,
+                "successor_lane_ids": successor_lane_ids,
+                "left_boundary": left_boundaries,
+                "right_boundary": right_boundaries,
+                "baseline_path": baseline_paths,
+            }
+        )
+        gdf = gpd.GeoDataFrame(data, geometry=geometries)
+        return gdf
+
+    def _extract_walkways_dataframe(self) -> None:
+
+        ids = []
+        predecessor_ids = []
+        successor_ids = []
+        left_boundaries = []
+        right_boundaries = []
+        geometries = []
+
+        for lane_helper in self.lane_helper_dict.values():
+            if lane_helper.type == "sidewalk":
+                ids.append(lane_helper.lane_id)
+                predecessor_ids.append(lane_helper.predecessor_lane_ids)
+                successor_ids.append(lane_helper.successor_lane_ids)
+                left_boundaries.append(geom.LineString(lane_helper.inner_polyline[..., StateSE2Index.XY]))
+                right_boundaries.append(geom.LineString(lane_helper.outer_polyline[..., StateSE2Index.XY]))
+                geometries.append(lane_helper.shapely_polygon)
+
+        data = pd.DataFrame(
+            {
+                "id": ids,
+                "predecessor_ids": predecessor_ids,
+                "successor_ids": successor_ids,
+                "left_boundary": left_boundaries,
+                "right_boundary": left_boundaries,
+            }
+        )
+        gdf = gpd.GeoDataFrame(data, geometry=geometries)
+        return gdf
+
+    def _extract_carpark_dataframe(self) -> None:
+        ids = []
+        predecessor_ids = []
+        successor_ids = []
+        left_boundaries = []
+        right_boundaries = []
+        geometries = []
+
+        for lane_helper in self.lane_helper_dict.values():
+            if lane_helper.type == "parking":
+                ids.append(lane_helper.lane_id)
+                predecessor_ids.append(lane_helper.predecessor_lane_ids)
+                successor_ids.append(lane_helper.successor_lane_ids)
+                left_boundaries.append(geom.LineString(lane_helper.inner_polyline[..., StateSE2Index.XY]))
+                right_boundaries.append(geom.LineString(lane_helper.outer_polyline[..., StateSE2Index.XY]))
+                geometries.append(lane_helper.shapely_polygon)
+
+        data = pd.DataFrame(
+            {
+                "id": ids,
+                "predecessor_ids": predecessor_ids,
+                "successor_ids": successor_ids,
+                "left_boundary": left_boundaries,
+                "right_boundary": left_boundaries,
+            }
+        )
+        gdf = gpd.GeoDataFrame(data, geometry=geometries)
+        return gdf
+
+    def _extract_generic_drivable_area_dataframe(self) -> None:
+        ids = []
+        predecessor_ids = []
+        successor_ids = []
+        left_boundaries = []
+        right_boundaries = []
+        geometries = []
+
+        for lane_helper in self.lane_helper_dict.values():
+            if lane_helper.type in ["none", "border", "bidirectional"]:
+                ids.append(lane_helper.lane_id)
+                predecessor_ids.append(lane_helper.predecessor_lane_ids)
+                successor_ids.append(lane_helper.successor_lane_ids)
+                left_boundaries.append(geom.LineString(lane_helper.inner_polyline[..., StateSE2Index.XY]))
+                right_boundaries.append(geom.LineString(lane_helper.outer_polyline[..., StateSE2Index.XY]))
+                geometries.append(lane_helper.shapely_polygon)
+
+        data = pd.DataFrame(
+            {
+                "id": ids,
+                "predecessor_ids": predecessor_ids,
+                "successor_ids": successor_ids,
+                "left_boundary": left_boundaries,
+                "right_boundary": left_boundaries,
+            }
+        )
+        gdf = gpd.GeoDataFrame(data, geometry=geometries)
+        return gdf
+
+    def _extract_intersections_dataframe(self) -> None:
+
+        # ids = []
+        # interior_lane_groups = []
+
+        # left_boundaries = []
+        # right_boundaries = []
+        # geometries = []
+
+        # for junction_idx, junction in self.junction_dict.items():
+        #     for connection in junction.connections:
+        #         connection.connecting_road
+
+        #     print()
+        pass
+
+    def _extract_lane_group_dataframe(self) -> None:
+
+        lane_group_ids = []
+        predecessor_lane_group_ids = []
+        successor_lane_group_ids = []
+        left_boundaries = []
+        right_boundaries = []
+        geometries = []
+
+        for lane_group_helper in self.lane_group_helper_dict.values():
+            lane_group_ids.append(lane_group_helper.lane_group_id)
+            predecessor_lane_group_ids.append(lane_group_helper.predecessor_lane_group_ids)
+            successor_lane_group_ids.append(lane_group_helper.successor_lane_group_ids)
+            left_boundaries.append(geom.LineString(lane_group_helper.inner_polyline[..., StateSE2Index.XY]))
+            right_boundaries.append(geom.LineString(lane_group_helper.outer_polyline[..., StateSE2Index.XY]))
+            geometries.append(lane_group_helper.shapely_polygon)
+
+        data = pd.DataFrame(
+            {
+                "lane_group_id": lane_group_ids,
+                "predecessor_lane_group_id": predecessor_lane_group_ids,
+                "successor_lane_group_id": successor_lane_group_ids,
+                "left_boundary": left_boundaries,
+                "right_boundary": right_boundaries,
+            }
+        )
+        gdf = gpd.GeoDataFrame(data, geometry=geometries)
+        return gdf

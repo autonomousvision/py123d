@@ -17,3 +17,12 @@ def derive_lane_id(lane_group_id: Union[int, str], lane_idx: Union[int, str]) ->
 def build_lane_id(road_idx: Union[int, str], lane_section_idx: Union[int, str], lane_idx: Union[int, str]) -> str:
     side = "right" if int(lane_idx) < 0 else "left"
     return f"{road_idx}_{lane_section_idx}_{side}_{lane_idx}"
+
+
+def build_lane_group_id(road_idx: Union[int, str], lane_section_idx: Union[int, str], side: str) -> str:
+    return f"{road_idx}_{lane_section_idx}_{side}"
+
+
+def lane_group_id_from_lane_id(lane_id: str) -> str:
+    road_idx, lane_section_idx, side, _ = lane_id.split("_")
+    return build_lane_group_id(road_idx, lane_section_idx, side)

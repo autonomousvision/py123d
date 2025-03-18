@@ -6,7 +6,11 @@ import numpy as np
 import numpy.typing as npt
 import shapely
 
-from asim.dataset.dataset_specific.carla.opendrive.conversion.id_system import derive_lane_group_id, derive_lane_id
+from asim.dataset.dataset_specific.carla.opendrive.conversion.id_system import (
+    derive_lane_group_id,
+    derive_lane_id,
+    lane_group_id_from_lane_id,
+)
 from asim.dataset.dataset_specific.carla.opendrive.elements.lane import Lane, LaneSection
 from asim.dataset.dataset_specific.carla.opendrive.elements.reference import Border
 
@@ -58,7 +62,7 @@ class OpenDriveLaneHelper:
         is_last_space[-1] = True
         inner_polyline = np.array(
             [
-                self.inner_border.interpolate_se2(s - self.s_range[0], is_last_pos=is_last)
+                self.inner_border.interpolate_se2(self.s_inner_offset + s - self.s_range[0], is_last_pos=is_last)
                 for s, is_last in zip(s_positions, is_last_space)
             ],
             dtype=np.float64,
@@ -82,6 +86,51 @@ class OpenDriveLaneHelper:
     @property
     def center_polyline(self):
         return np.concatenate([self.inner_polyline[None, ...], self.outer_polyline[None, ...]], axis=0).mean(axis=0)
+
+    @property
+    def shapely_polygon(self) -> shapely.Polygon:
+        inner_polyline = self.inner_polyline[..., :2][::-1]
+        outer_polyline = self.outer_polyline[..., :2]
+        polygon_exterior = np.concatenate([inner_polyline, outer_polyline], axis=0, dtype=np.float64)
+
+        return shapely.Polygon(polygon_exterior)
+
+
+@dataclass
+class OpenDriveLaneGroupHelper:
+
+    lane_group_id: str
+    lane_helpers: List[OpenDriveLaneHelper]
+
+    # loaded during __post_init__
+    predecessor_lane_group_ids: Optional[List[str]] = None
+    successor_lane_group_ids: Optional[List[str]] = None
+
+    def __post_init__(self):
+
+        predecessor_lane_group_ids = []
+        successor_lane_group__ids = []
+        for lane_helper in self.lane_helpers:
+            for predecessor_lane_id in lane_helper.predecessor_lane_ids:
+                predecessor_lane_group_ids.append(lane_group_id_from_lane_id(predecessor_lane_id))
+            for successor_lane_id in lane_helper.successor_lane_ids:
+                successor_lane_group__ids.append(lane_group_id_from_lane_id(successor_lane_id))
+        self.predecessor_lane_group_ids: List[str] = list(set(predecessor_lane_group_ids))
+        self.successor_lane_group_ids: List[str] = list(set(successor_lane_group__ids))
+
+        assert len(set([lane_group_id_from_lane_id(lane_helper.lane_id) for lane_helper in self.lane_helpers])) == 1
+
+    @cached_property
+    def inner_polyline(self):
+        lane_helper_ids = [lane_helper.open_drive_lane.id for lane_helper in self.lane_helpers]
+        inner_lane_helper_idx = np.argmin(lane_helper_ids) if lane_helper_ids[0] > 0 else np.argmax(lane_helper_ids)
+        return self.lane_helpers[inner_lane_helper_idx].inner_polyline
+
+    @cached_property
+    def outer_polyline(self):
+        lane_helper_ids = [lane_helper.open_drive_lane.id for lane_helper in self.lane_helpers]
+        outer_lane_helper_idx = np.argmax(lane_helper_ids) if lane_helper_ids[0] > 0 else np.argmin(lane_helper_ids)
+        return self.lane_helpers[outer_lane_helper_idx].outer_polyline
 
     @property
     def shapely_polygon(self) -> shapely.Polygon:
