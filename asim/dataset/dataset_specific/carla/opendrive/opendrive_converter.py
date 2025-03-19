@@ -46,7 +46,7 @@ class OpenDriveConverter:
 
     def _collect_lane_helpers(self) -> None:
         for road in self.opendrive.roads:
-            reference_border = Border.from_plan_view(road.plan_view, road.lanes.lane_offsets)
+            reference_border = Border.from_plan_view(road.plan_view, road.lanes.lane_offsets, road.elevation_profile)
             lane_section_lengths: List[float] = [ls.s for ls in road.lanes.lane_sections] + [road.length]
             for idx, lane_section in enumerate(road.lanes.lane_sections):
                 lane_section_id = derive_lane_section_id(road.id, idx)
@@ -186,11 +186,11 @@ class OpenDriveConverter:
         for lane_id in self.lane_helper_dict.keys():
             self.lane_helper_dict[lane_id]
 
-            centerline = self.lane_helper_dict[lane_id].center_polyline
+            centerline = self.lane_helper_dict[lane_id].center_polyline_se2
 
             valid_successor_lane_ids: List[str] = []
             for successor_lane_id in self.lane_helper_dict[lane_id].successor_lane_ids:
-                successor_centerline = self.lane_helper_dict[successor_lane_id].center_polyline
+                successor_centerline = self.lane_helper_dict[successor_lane_id].center_polyline_se2
                 distance = np.linalg.norm(centerline[-1, :2] - successor_centerline[0, :2])
                 if distance > CONNECTION_DISTANCE_THRESHOLD:
                     if ENABLE_WARNING:
@@ -203,7 +203,7 @@ class OpenDriveConverter:
 
             valid_predecessor_lane_ids: List[str] = []
             for predecessor_lane_id in self.lane_helper_dict[lane_id].predecessor_lane_ids:
-                predecessor_centerline = self.lane_helper_dict[predecessor_lane_id].center_polyline
+                predecessor_centerline = self.lane_helper_dict[predecessor_lane_id].center_polyline_se2
                 distance = np.linalg.norm(centerline[0, :2] - predecessor_centerline[-1, :2])
                 if distance > CONNECTION_DISTANCE_THRESHOLD:
                     if ENABLE_WARNING:
@@ -249,9 +249,9 @@ class OpenDriveConverter:
                 lane_ids.append(lane_helper.lane_id)
                 predecessor_lane_ids.append(lane_helper.predecessor_lane_ids)
                 successor_lane_ids.append(lane_helper.successor_lane_ids)
-                left_boundaries.append(geom.LineString(lane_helper.inner_polyline[..., StateSE2Index.XY]))
-                right_boundaries.append(geom.LineString(lane_helper.outer_polyline[..., StateSE2Index.XY]))
-                baseline_paths.append(geom.LineString(lane_helper.center_polyline[..., StateSE2Index.XY]))
+                left_boundaries.append(geom.LineString(lane_helper.inner_polyline_se2[..., StateSE2Index.XY]))
+                right_boundaries.append(geom.LineString(lane_helper.outer_polyline_se2[..., StateSE2Index.XY]))
+                baseline_paths.append(geom.LineString(lane_helper.center_polyline_se2[..., StateSE2Index.XY]))
                 geometries.append(lane_helper.shapely_polygon)
 
         data = pd.DataFrame(
@@ -281,8 +281,8 @@ class OpenDriveConverter:
                 ids.append(lane_helper.lane_id)
                 predecessor_ids.append(lane_helper.predecessor_lane_ids)
                 successor_ids.append(lane_helper.successor_lane_ids)
-                left_boundaries.append(geom.LineString(lane_helper.inner_polyline[..., StateSE2Index.XY]))
-                right_boundaries.append(geom.LineString(lane_helper.outer_polyline[..., StateSE2Index.XY]))
+                left_boundaries.append(geom.LineString(lane_helper.inner_polyline_se2[..., StateSE2Index.XY]))
+                right_boundaries.append(geom.LineString(lane_helper.outer_polyline_se2[..., StateSE2Index.XY]))
                 geometries.append(lane_helper.shapely_polygon)
 
         data = pd.DataFrame(
@@ -310,8 +310,8 @@ class OpenDriveConverter:
                 ids.append(lane_helper.lane_id)
                 predecessor_ids.append(lane_helper.predecessor_lane_ids)
                 successor_ids.append(lane_helper.successor_lane_ids)
-                left_boundaries.append(geom.LineString(lane_helper.inner_polyline[..., StateSE2Index.XY]))
-                right_boundaries.append(geom.LineString(lane_helper.outer_polyline[..., StateSE2Index.XY]))
+                left_boundaries.append(geom.LineString(lane_helper.inner_polyline_se2[..., StateSE2Index.XY]))
+                right_boundaries.append(geom.LineString(lane_helper.outer_polyline_se2[..., StateSE2Index.XY]))
                 geometries.append(lane_helper.shapely_polygon)
 
         data = pd.DataFrame(
@@ -339,8 +339,8 @@ class OpenDriveConverter:
                 ids.append(lane_helper.lane_id)
                 predecessor_ids.append(lane_helper.predecessor_lane_ids)
                 successor_ids.append(lane_helper.successor_lane_ids)
-                left_boundaries.append(geom.LineString(lane_helper.inner_polyline[..., StateSE2Index.XY]))
-                right_boundaries.append(geom.LineString(lane_helper.outer_polyline[..., StateSE2Index.XY]))
+                left_boundaries.append(geom.LineString(lane_helper.inner_polyline_se2[..., StateSE2Index.XY]))
+                right_boundaries.append(geom.LineString(lane_helper.outer_polyline_se2[..., StateSE2Index.XY]))
                 geometries.append(lane_helper.shapely_polygon)
 
         data = pd.DataFrame(
@@ -384,8 +384,8 @@ class OpenDriveConverter:
             lane_group_ids.append(lane_group_helper.lane_group_id)
             predecessor_lane_group_ids.append(lane_group_helper.predecessor_lane_group_ids)
             successor_lane_group_ids.append(lane_group_helper.successor_lane_group_ids)
-            left_boundaries.append(geom.LineString(lane_group_helper.inner_polyline[..., StateSE2Index.XY]))
-            right_boundaries.append(geom.LineString(lane_group_helper.outer_polyline[..., StateSE2Index.XY]))
+            left_boundaries.append(geom.LineString(lane_group_helper.inner_polyline_se2[..., StateSE2Index.XY]))
+            right_boundaries.append(geom.LineString(lane_group_helper.outer_polyline_se2[..., StateSE2Index.XY]))
             geometries.append(lane_group_helper.shapely_polygon)
 
         data = pd.DataFrame(

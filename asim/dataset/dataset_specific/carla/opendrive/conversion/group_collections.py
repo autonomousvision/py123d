@@ -6,6 +6,7 @@ import numpy as np
 import numpy.typing as npt
 import shapely
 
+from asim.common.geometry.base_enum import StateSE2Index
 from asim.dataset.dataset_specific.carla.opendrive.conversion.id_system import (
     derive_lane_group_id,
     derive_lane_id,
@@ -14,7 +15,7 @@ from asim.dataset.dataset_specific.carla.opendrive.conversion.id_system import (
 from asim.dataset.dataset_specific.carla.opendrive.elements.lane import Lane, LaneSection
 from asim.dataset.dataset_specific.carla.opendrive.elements.reference import Border
 
-step_size = 1.0
+step_size = 0.1
 
 
 @dataclass
@@ -44,7 +45,7 @@ class OpenDriveLaneHelper:
     def type(self) -> str:
         return self.open_drive_lane.type
 
-    @property
+    @cached_property
     def _s_positions(self) -> npt.NDArray[np.float64]:
         length = self.s_range[1] - self.s_range[0]
         return np.linspace(
@@ -56,41 +57,71 @@ class OpenDriveLaneHelper:
         )
 
     @cached_property
-    def inner_polyline(self):
-        s_positions = self._s_positions
-        is_last_space = np.zeros(len(s_positions), dtype=bool)
-        is_last_space[-1] = True
+    def _is_last_mask(self) -> npt.NDArray[np.float64]:
+        is_last_mask = np.zeros(len(self._s_positions), dtype=bool)
+        is_last_mask[-1] = True
+        return is_last_mask
+
+    @cached_property
+    def inner_polyline_se2(self) -> npt.NDArray[np.float64]:
         inner_polyline = np.array(
             [
                 self.inner_border.interpolate_se2(self.s_inner_offset + s - self.s_range[0], is_last_pos=is_last)
-                for s, is_last in zip(s_positions, is_last_space)
+                for s, is_last in zip(self._s_positions, self._is_last_mask)
             ],
             dtype=np.float64,
         )
         return np.flip(inner_polyline, axis=0) if self.id > 0 else inner_polyline
 
     @cached_property
-    def outer_polyline(self):
-        s_positions = self._s_positions
-        is_last_space = np.zeros(len(s_positions), dtype=bool)
-        is_last_space[-1] = True
+    def inner_polyline_3d(self) -> npt.NDArray[np.float64]:
+        inner_polyline = np.array(
+            [
+                self.inner_border.interpolate_3d(self.s_inner_offset + s - self.s_range[0], is_last_pos=is_last)
+                for s, is_last in zip(self._s_positions, self._is_last_mask)
+            ],
+            dtype=np.float64,
+        )
+        return np.flip(inner_polyline, axis=0) if self.id > 0 else inner_polyline
+
+    @cached_property
+    def outer_polyline_se2(self) -> npt.NDArray[np.float64]:
         outer_polyline = np.array(
             [
                 self.outer_border.interpolate_se2(s - self.s_range[0], is_last_pos=is_last)
-                for s, is_last in zip(s_positions, is_last_space)
+                for s, is_last in zip(self._s_positions, self._is_last_mask)
+            ],
+            dtype=np.float64,
+        )
+        return np.flip(outer_polyline, axis=0) if self.id > 0 else outer_polyline
+
+    @cached_property
+    def outer_polyline_3d(self) -> npt.NDArray[np.float64]:
+        outer_polyline = np.array(
+            [
+                self.outer_border.interpolate_3d(s - self.s_range[0], is_last_pos=is_last)
+                for s, is_last in zip(self._s_positions, self._is_last_mask)
             ],
             dtype=np.float64,
         )
         return np.flip(outer_polyline, axis=0) if self.id > 0 else outer_polyline
 
     @property
-    def center_polyline(self):
-        return np.concatenate([self.inner_polyline[None, ...], self.outer_polyline[None, ...]], axis=0).mean(axis=0)
+    def center_polyline_se2(self) -> npt.NDArray[np.float64]:
+        return np.concatenate([self.inner_polyline_se2[None, ...], self.outer_polyline_se2[None, ...]], axis=0).mean(
+            axis=0
+        )
+
+    @property
+    def center_polyline_3d(self) -> npt.NDArray[np.float64]:
+        return np.concatenate([self.outer_polyline_3d[None, ...], self.inner_polyline_3d[None, ...]], axis=0).mean(
+            axis=0
+        )
 
     @property
     def shapely_polygon(self) -> shapely.Polygon:
-        inner_polyline = self.inner_polyline[..., :2][::-1]
-        outer_polyline = self.outer_polyline[..., :2]
+        inner_polyline = self.inner_polyline_se2[..., StateSE2Index.XY][::-1]
+        outer_polyline = self.outer_polyline_se2[..., StateSE2Index.XY]
         polygon_exterior = np.concatenate([inner_polyline, outer_polyline], axis=0, dtype=np.float64)
 
         return shapely.Polygon(polygon_exterior)
@@ -121,23 +152,22 @@ class OpenDriveLaneGroupHelper:
         assert len(set([lane_group_id_from_lane_id(lane_helper.lane_id) for lane_helper in self.lane_helpers])) == 1
 
     @cached_property
-    def inner_polyline(self):
+    def inner_polyline_se2(self):
         lane_helper_ids = [lane_helper.open_drive_lane.id for lane_helper in self.lane_helpers]
         inner_lane_helper_idx = np.argmin(lane_helper_ids) if lane_helper_ids[0] > 0 else np.argmax(lane_helper_ids)
-        return self.lane_helpers[inner_lane_helper_idx].inner_polyline
+        return self.lane_helpers[inner_lane_helper_idx].inner_polyline_se2
 
     @cached_property
-    def outer_polyline(self):
+    def outer_polyline_se2(self):
         lane_helper_ids = [lane_helper.open_drive_lane.id for lane_helper in self.lane_helpers]
         outer_lane_helper_idx = np.argmax(lane_helper_ids) if lane_helper_ids[0] > 0 else np.argmin(lane_helper_ids)
-        return self.lane_helpers[outer_lane_helper_idx].outer_polyline
+        return self.lane_helpers[outer_lane_helper_idx].outer_polyline_se2
 
     @property
     def shapely_polygon(self) -> shapely.Polygon:
-        inner_polyline = self.inner_polyline[..., :2][::-1]
-        outer_polyline = self.outer_polyline[..., :2]
+        inner_polyline = self.inner_polyline_se2[..., StateSE2Index.XY][::-1]
+        outer_polyline = self.outer_polyline_se2[..., StateSE2Index.XY]
         polygon_exterior = np.concatenate([inner_polyline, outer_polyline], axis=0, dtype=np.float64)
-
         return shapely.Polygon(polygon_exterior)
 
 
@@ -187,6 +217,8 @@ def _create_outer_lane_border(
         args["s_offset"] = lane_section.s
 
     args["reference"] = lane_borders[-1]
+    args["elevation_profile"] = lane_borders[-1].elevation_profile
+
     width_coefficient_offsets = []
     width_coefficients = []
 

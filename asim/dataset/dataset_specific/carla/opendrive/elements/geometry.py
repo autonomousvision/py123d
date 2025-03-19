@@ -31,21 +31,16 @@ class Geometry:
 
 @dataclass
 class Line(Geometry):
+
     @classmethod
     def parse(cls, geometry_element: Element) -> Geometry:
         args = {key: float(geometry_element.get(key)) for key in ["s", "x", "y", "hdg", "length"]}
         return cls(**args)
 
     def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
-        assert s >= 0.0, f"s = {s}"
-
         interpolated_se2 = self.start_se2
         interpolated_se2[StateSE2Index.X] += s * np.cos(self.hdg)
         interpolated_se2[StateSE2Index.Y] += s * np.sin(self.hdg)
-
-        if t != 0.0:
-            pass
-
         return interpolated_se2
 
 

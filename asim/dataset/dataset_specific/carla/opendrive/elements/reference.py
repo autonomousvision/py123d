@@ -9,8 +9,9 @@ from xml.etree.ElementTree import Element
 import numpy as np
 import numpy.typing as npt
 
-from asim.common.geometry.base_enum import StateSE2Index
+from asim.common.geometry.base_enum import Point3DIndex, StateSE2Index
 from asim.common.geometry.utils import normalize_angle
+from asim.dataset.dataset_specific.carla.opendrive.elements.elevation import ElevationProfile
 from asim.dataset.dataset_specific.carla.opendrive.elements.geometry import Arc, Geometry, Line
 from asim.dataset.dataset_specific.carla.opendrive.elements.lane import LaneOffset
 
@@ -77,6 +78,8 @@ class PlanView:
 class Border:
 
     reference: Union[Border, PlanView]
+    elevation_profile: ElevationProfile
+
     width_coefficient_offsets: List[float]
     width_coefficients: List[List[float]]
 
@@ -90,9 +93,15 @@ class Border:
         self.length = float(self.reference.length)
 
     @classmethod
-    def from_plan_view(cls, plan_view: PlanView, lane_offsets: List[LaneOffset]) -> Border:
+    def from_plan_view(
+        cls,
+        plan_view: PlanView,
+        lane_offsets: List[LaneOffset],
+        elevation_profile: ElevationProfile,
+    ) -> Border:
         args = {}
         args["reference"] = plan_view
+        args["elevation_profile"] = elevation_profile
 
         width_coefficient_offsets = []
         width_coefficients = []
@@ -167,6 +176,27 @@ class Border:
         ortho = normalize_angle(se2[StateSE2Index.YAW] + np.pi / 2)
         se2[StateSE2Index.X] += distance * np.cos(ortho)
         se2[StateSE2Index.Y] += distance * np.sin(ortho)
-
         se2[StateSE2Index.YAW] = normalize_angle(se2[StateSE2Index.YAW])
+
         return se2
+
+    def interpolate_3d(self, s: float, t: float = 0.0, is_last_pos: bool = False) -> npt.NDArray[np.float64]:
+
+        point_3d = np.zeros(len(Point3DIndex), dtype=np.float64)
+
+        se2 = self.interpolate_se2(s, t, is_last_pos=is_last_pos)
+        point_3d[Point3DIndex.X] = se2[StateSE2Index.X]
+        point_3d[Point3DIndex.Y] = se2[StateSE2Index.Y]
+
+        if len(self.elevation_profile.elevations) > 0:
+            elevations = self.elevation_profile.elevations
+            elevation_s_values = [elevation.s for elevation in elevations] + [self.length]
+            elevation_idx = np.argmax(
+                [(elevation_s_values[idx] <= s <= elevation_s_values[idx + 1]) for idx in range(len(elevations))]
+            )
+            elevation = elevations[elevation_idx]
+            point_3d[Point3DIndex.Z] = np.polynomial.polynomial.polyval(
+                s - elevation.s, elevation.polynomial_coefficients
+            )
+
+        return point_3d
