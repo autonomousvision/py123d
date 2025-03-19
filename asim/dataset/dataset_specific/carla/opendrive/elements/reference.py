@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import warnings
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from functools import cached_property
 from typing import List, Optional, Union
@@ -34,9 +34,13 @@ class PlanView:
                 geometry = Line.parse(geometry_element)
             elif geometry_element.find("arc") is not None:
                 geometry = Arc.parse(geometry_element)
-            else:
-                warnings.warn(f"Warning..... Unknown geometry type {str(geometry_element)}")
+            elif geometry_element.find("spiral") is not None:
+                # geometry = Arc.parse(geometry_element)
+                # TODO
                 continue
+            else:
+                geometry_str = ET.tostring(geometry_element, encoding="unicode")
+                raise NotImplementedError(f"Geometry not implemented: {geometry_str}")
             geometries.append(geometry)
         args["geometries"] = geometries
         return PlanView(**args)

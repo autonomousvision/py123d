@@ -97,6 +97,7 @@ class OpenDriveConverter:
 
                 assert successor_lane_id in self.lane_helper_dict.keys()
                 self.lane_helper_dict[lane_id].successor_lane_ids.append(successor_lane_id)
+                self.lane_helper_dict[successor_lane_id].predecessor_lane_ids.append(lane_id)
 
             predecessor_lane_idx = self.lane_helper_dict[lane_id].open_drive_lane.predecessor
             if predecessor_lane_idx is not None:
@@ -242,6 +243,7 @@ class OpenDriveConverter:
         baseline_paths = []
         geometries = []
 
+        # TODO: Extract speed limit and convert to mps
         for lane_helper in self.lane_helper_dict.values():
             if lane_helper.type == "driving":
                 lane_ids.append(lane_helper.lane_id)

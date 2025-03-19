@@ -39,8 +39,6 @@ class Line(Geometry):
     def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
         assert s >= 0.0, f"s = {s}"
 
-        # s = np.clip(s, 0.0, self.length - self.s)
-
         interpolated_se2 = self.start_se2
         interpolated_se2[StateSE2Index.X] += s * np.cos(self.hdg)
         interpolated_se2[StateSE2Index.Y] += s * np.sin(self.hdg)
