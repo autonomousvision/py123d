@@ -31,7 +31,6 @@ class Geometry:
 
 @dataclass
 class Line(Geometry):
-
     @classmethod
     def parse(cls, geometry_element: Element) -> Geometry:
         args = {key: float(geometry_element.get(key)) for key in ["s", "x", "y", "hdg", "length"]}

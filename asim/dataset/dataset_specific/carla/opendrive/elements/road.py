@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import Optional
 from xml.etree.ElementTree import Element
 
-
 from asim.dataset.dataset_specific.carla.opendrive.elements.elevation import ElevationProfile, LateralProfile
 from asim.dataset.dataset_specific.carla.opendrive.elements.lane import Lanes
 from asim.dataset.dataset_specific.carla.opendrive.elements.reference import PlanView
