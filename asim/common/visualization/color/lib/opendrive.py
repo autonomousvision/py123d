@@ -22,8 +22,8 @@ OPENDRIVE_LANE_TYPES: Dict[str, Color] = {
     "rail": Color("#382bb2"),
     "restricted": Color("#ff671b"),
     "shoulder": Color("#006241"),
-    # "walking": Color("#79242f"),
-    "sidewalk": Color("#79242f"),
+    "walking": Color("#79242f"),
+    "sidewalk": Color("#79242f"),  # Used in CARLA maps
     "slipLane": Color("#00945e"),
     "stop": Color("#92d5ac"),
     "tram": Color("#6d6de2"),
@@ -53,5 +53,5 @@ OPENDRIVE_LANE_CUSTOM: Dict[str, Color] = {
     "slipLane": Color("#00945e"),
     "stop": Color("#92d5ac"),
     "tram": Color("#6d6de2"),
-    "bidirectional": Color("#727272ff"),
+    "bidirectional": Color("#727272ff"),  # Used in CARLA maps
 }

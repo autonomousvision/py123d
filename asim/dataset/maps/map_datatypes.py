@@ -13,6 +13,8 @@ class MapObjectType(IntEnum):
     INTERSECTION = 2
     CROSSWALK = 3
     WALKWAYS = 4
+    PARKING = 5
+    GENERIC_DRIVABLE_AREA = 6
 
     # TODO
 

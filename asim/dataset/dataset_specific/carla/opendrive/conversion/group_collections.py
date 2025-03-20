@@ -15,7 +15,7 @@ from asim.dataset.dataset_specific.carla.opendrive.conversion.id_system import (
 from asim.dataset.dataset_specific.carla.opendrive.elements.lane import Lane, LaneSection
 from asim.dataset.dataset_specific.carla.opendrive.elements.reference import Border
 
-step_size = 0.1
+step_size = 1.0
 
 
 @dataclass
@@ -48,18 +48,16 @@ class OpenDriveLaneHelper:
     @cached_property
     def _s_positions(self) -> npt.NDArray[np.float64]:
         length = self.s_range[1] - self.s_range[0]
-        return np.linspace(
-            self.s_range[0],
-            self.s_range[1],
-            int(np.ceil(length / step_size)) + 1,
-            endpoint=True,
-            dtype=np.float64,
+        _s_positions = np.linspace(
+            self.s_range[0], self.s_range[1], int(np.ceil(length / step_size)) + 1, endpoint=True, dtype=np.float64
         )
+        _s_positions[..., -1] = np.clip(_s_positions[..., -1], 0.0, self.s_range[-1])
+        return _s_positions
 
     @cached_property
     def _is_last_mask(self) -> npt.NDArray[np.float64]:
         is_last_mask = np.zeros(len(self._s_positions), dtype=bool)
-        is_last_mask[-1] = True
+        # is_last_mask[-1] = True
         return is_last_mask
 
     @cached_property
