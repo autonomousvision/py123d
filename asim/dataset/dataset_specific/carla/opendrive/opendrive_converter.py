@@ -251,6 +251,7 @@ class OpenDriveConverter:
                 left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
                 right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
                 baseline_paths.append(shapely.LineString(lane_helper.center_polyline_3d))
+                geometries.append(lane_helper.shapely_polygon)
 
         data = pd.DataFrame(
             {
@@ -397,3 +398,31 @@ class OpenDriveConverter:
         )
         gdf = gpd.GeoDataFrame(data, geometry=geometries)
         return gdf
+
+
+def convert_ids_to_integers(df: pd.DataFrame) -> pd.DataFrame:
+
+    result_df = df.copy()
+
+    # Create a mapping from string IDs to integer IDs
+    unique_ids = df["id"].unique()
+    id_mapping = {str_id: idx for idx, str_id in enumerate(unique_ids)}
+
+    # Create reverse mapping for debugging/reference
+    reverse_mapping = {idx: str_id for str_id, idx in id_mapping.items()}
+
+    # Update the ID column
+    # result_df["original_id"] = result_df["id"]  # Keep original IDs for reference
+    result_df["id"] = result_df["id"].map(id_mapping)
+
+    # Function to convert a list of string IDs to integer IDs
+    def convert_id_list(id_list: List[str]) -> List[int]:
+        if id_list is None:
+            return []
+        return [id_mapping.get(id_str, -1) for id_str in id_list]
+
+    # Update predecessor_ids and successor_ids
+    result_df["predecessor_ids"] = result_df["predecessor_ids"].apply(convert_id_list)
+    result_df["successor_ids"] = result_df["successor_ids"].apply(convert_id_list)
+
+    return result_df, id_mapping, reverse_mapping

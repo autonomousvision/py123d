@@ -149,17 +149,31 @@ class OpenDriveLaneGroupHelper:
 
         assert len(set([lane_group_id_from_lane_id(lane_helper.lane_id) for lane_helper in self.lane_helpers])) == 1
 
-    @cached_property
-    def inner_polyline_se2(self):
+    def _get_inner_lane_helper(self) -> OpenDriveLaneHelper:
         lane_helper_ids = [lane_helper.open_drive_lane.id for lane_helper in self.lane_helpers]
         inner_lane_helper_idx = np.argmin(lane_helper_ids) if lane_helper_ids[0] > 0 else np.argmax(lane_helper_ids)
-        return self.lane_helpers[inner_lane_helper_idx].inner_polyline_se2
+        return self.lane_helpers[inner_lane_helper_idx]
+
+    def _get_outer_lane_helper(self) -> OpenDriveLaneHelper:
+        lane_helper_ids = [lane_helper.open_drive_lane.id for lane_helper in self.lane_helpers]
+        outer_lane_helper_idx = np.argmax(lane_helper_ids) if lane_helper_ids[0] > 0 else np.argmin(lane_helper_ids)
+        return self.lane_helpers[outer_lane_helper_idx]
+
+    @cached_property
+    def inner_polyline_se2(self):
+        return self._get_inner_lane_helper().inner_polyline_se2
 
     @cached_property
     def outer_polyline_se2(self):
-        lane_helper_ids = [lane_helper.open_drive_lane.id for lane_helper in self.lane_helpers]
-        outer_lane_helper_idx = np.argmax(lane_helper_ids) if lane_helper_ids[0] > 0 else np.argmin(lane_helper_ids)
-        return self.lane_helpers[outer_lane_helper_idx].outer_polyline_se2
+        return self._get_outer_lane_helper().outer_polyline_se2
+
+    @cached_property
+    def inner_polyline_3d(self):
+        return self._get_inner_lane_helper().inner_polyline_3d
+
+    @cached_property
+    def outer_polyline_3d(self):
+        return self._get_outer_lane_helper().outer_polyline_3d
 
     @property
     def shapely_polygon(self) -> shapely.Polygon:
