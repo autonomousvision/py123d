@@ -18,6 +18,7 @@ from asim.dataset.dataset_specific.carla.opendrive.conversion.id_system import (
 )
 from asim.dataset.dataset_specific.carla.opendrive.elements.opendrive import Junction, OpenDrive, Road
 from asim.dataset.dataset_specific.carla.opendrive.elements.reference import Border
+from asim.dataset.maps.map_datatypes import MapObjectType
 
 ENABLE_WARNING: bool = False
 CONNECTION_DISTANCE_THRESHOLD: float = 0.1  # [m]
@@ -35,13 +36,37 @@ class OpenDriveConverter:
         self.lane_helper_dict: Dict[str, OpenDriveLaneHelper] = {}
         self.lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper] = {}
 
-    def run(self) -> None:
+    def run(self, map_name: str) -> None:
+
+        # Run processing for map elements
         self._collect_lane_helpers()
         self._update_connection_from_links()
         self._update_connection_from_junctions()
         self._flip_and_set_connections()
         self._post_process_connections()
         self._collect_lane_groups()
+
+        # Collect data frames and store
+        lane_df = self._extract_lane_dataframe()
+        walkways_df = self._extract_walkways_dataframe()
+        carpark_df = self._extract_carpark_dataframe()
+        generic_drivable_area_df = self._extract_generic_drivable_area_dataframe()
+        # intersections_df = converter._extract_intersections_dataframe()
+        lane_group_df = self._extract_lane_group_dataframe()
+
+        # Store dataframes
+        map_file_name = f"{map_name}.gpkg"
+        lane_df.to_file(map_file_name, layer=MapObjectType.LANE.serialize(), driver="GPKG")
+        walkways_df.to_file(map_file_name, layer=MapObjectType.WALKWAYS.serialize(), driver="GPKG", mode="a")
+        carpark_df.to_file(map_file_name, layer=MapObjectType.CARPARK.serialize(), driver="GPKG", mode="a")
+        generic_drivable_area_df.to_file(
+            map_file_name,
+            layer=MapObjectType.GENERIC_DRIVABLE.serialize(),
+            driver="GPKG",
+            mode="a",
+        )
+        # intersections_df.to_file(map_file_name, layer="intersections_df", driver="GPKG", mode="a")
+        lane_group_df.to_file(map_file_name, layer=MapObjectType.LANE_GROUP.serialize(), driver="GPKG", mode="a")
 
     def _collect_lane_helpers(self) -> None:
         for road in self.opendrive.roads:
@@ -232,7 +257,7 @@ class OpenDriveConverter:
                     lane_group_id, lane_group_lane_helper
                 )
 
-    def _extract_lane_dataframe(self) -> None:
+    def _extract_lane_dataframe(self) -> gpd.GeoDataFrame:
 
         ids = []
         predecessor_ids = []
@@ -266,7 +291,7 @@ class OpenDriveConverter:
         gdf = gpd.GeoDataFrame(data, geometry=geometries)
         return gdf
 
-    def _extract_walkways_dataframe(self) -> None:
+    def _extract_walkways_dataframe(self) -> gpd.GeoDataFrame:
 
         ids = []
         predecessor_ids = []
@@ -296,7 +321,7 @@ class OpenDriveConverter:
         gdf = gpd.GeoDataFrame(data, geometry=geometries)
         return gdf
 
-    def _extract_carpark_dataframe(self) -> None:
+    def _extract_carpark_dataframe(self) -> gpd.GeoDataFrame:
         ids = []
         predecessor_ids = []
         successor_ids = []
@@ -325,7 +350,7 @@ class OpenDriveConverter:
         gdf = gpd.GeoDataFrame(data, geometry=geometries)
         return gdf
 
-    def _extract_generic_drivable_area_dataframe(self) -> None:
+    def _extract_generic_drivable_area_dataframe(self) -> gpd.GeoDataFrame:
         ids = []
         predecessor_ids = []
         successor_ids = []
@@ -354,7 +379,7 @@ class OpenDriveConverter:
         gdf = gpd.GeoDataFrame(data, geometry=geometries)
         return gdf
 
-    def _extract_intersections_dataframe(self) -> None:
+    def _extract_intersections_dataframe(self) -> gpd.GeoDataFrame:
 
         # ids = []
         # interior_lane_groups = []
@@ -370,7 +395,7 @@ class OpenDriveConverter:
         #     print()
         pass
 
-    def _extract_lane_group_dataframe(self) -> None:
+    def _extract_lane_group_dataframe(self) -> gpd.GeoDataFrame:
 
         lane_group_ids = []
         predecessor_lane_group_ids = []

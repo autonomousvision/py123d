@@ -1,29 +1,48 @@
 from __future__ import annotations
 
 import abc
-from typing import List
+from typing import Dict, List, Optional
 
+from asim.common.geometry.base import Point2D
+from asim.dataset.maps.abstract_map_objects import AbstractMapObject
 from asim.dataset.maps.map_datatypes import MapObjectType
+
+# TODO:
+# add docstrings
+# rename methods
 
 
 class AbstractMap(abc.ABC):
-    """
-    Interface for generic scenarios Map API.
-    """
-
-    @abc.abstractmethod
-    def get_available_map_objects(self) -> List[MapObjectType]:
-        """
-        Returns the available map objects types.
-        :return: A list of MapObjectType.
-        """
-
     @property
     @abc.abstractmethod
     def map_name(self) -> str:
-        """
-        :return: name of the location where the map is.
-        """
+        pass
+
+    @abc.abstractmethod
+    def initialize(self) -> None:
+        pass
+
+    @abc.abstractmethod
+    def get_available_map_objects(self) -> List[MapObjectType]:
+        pass
+
+    @abc.abstractmethod
+    def get_map_object(self, object_id: str, layer: MapObjectType) -> Optional[AbstractMapObject]:
+        pass
+
+    @abc.abstractmethod
+    def get_all_map_objects(self, point_2d: Point2D, layer: MapObjectType) -> List[AbstractMapObject]:
+        pass
+
+    @abc.abstractmethod
+    def is_in_layer(self, point: Point2D, layer: MapObjectType) -> bool:
+        pass
+
+    @abc.abstractmethod
+    def get_proximal_map_objects(
+        self, point: Point2D, radius: float, layers: List[MapObjectType]
+    ) -> Dict[MapObjectType, List[AbstractMapObject]]:
+        pass
 
 
 # class AbstractMap(abc.ABC):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import IntEnum
 
-from asim.common.geometry.enum import classproperty
+from asim.common.utils.enums import classproperty
 
 
 class Point2DIndex(IntEnum):

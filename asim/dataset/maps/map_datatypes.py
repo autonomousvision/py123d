@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from enum import IntEnum
+
+from asim.common.utils.enums import SerialIntEnum
 
 
-class MapObjectType(IntEnum):
+class MapObjectType(SerialIntEnum):
     """
     Enum for SemanticMapLayers.
     """
@@ -13,13 +14,11 @@ class MapObjectType(IntEnum):
     INTERSECTION = 2
     CROSSWALK = 3
     WALKWAYS = 4
-    PARKING = 5
-    GENERIC_DRIVABLE_AREA = 6
-
-    # TODO
+    CARPARK = 5
+    GENERIC_DRIVABLE = 6
 
 
-class TrafficLightStatusType(IntEnum):
+class TrafficLightStatusType(SerialIntEnum):
     """
     Enum for TrafficLightStatusType.
     """
@@ -28,15 +27,6 @@ class TrafficLightStatusType(IntEnum):
     YELLOW = 1
     RED = 2
     UNKNOWN = 3
-
-    def serialize(self) -> str:
-        """Serialize the type when saving."""
-        return self.name
-
-    @classmethod
-    def deserialize(cls, key: str) -> TrafficLightStatusType:
-        """Deserialize the type when loading from a string."""
-        return TrafficLightStatusType.__members__[key]
 
 
 # STOP_LINE = 2
