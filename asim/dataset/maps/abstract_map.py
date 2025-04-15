@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 
 from asim.common.geometry.base import Point2D
 from asim.dataset.maps.abstract_map_objects import AbstractMapObject
-from asim.dataset.maps.map_datatypes import MapObjectType
+from asim.dataset.maps.map_datatypes import MapSurfaceType
 
 # TODO:
 # add docstrings
@@ -23,25 +23,25 @@ class AbstractMap(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_available_map_objects(self) -> List[MapObjectType]:
+    def get_available_map_objects(self) -> List[MapSurfaceType]:
         pass
 
     @abc.abstractmethod
-    def get_map_object(self, object_id: str, layer: MapObjectType) -> Optional[AbstractMapObject]:
+    def get_map_object(self, object_id: str, layer: MapSurfaceType) -> Optional[AbstractMapObject]:
         pass
 
     @abc.abstractmethod
-    def get_all_map_objects(self, point_2d: Point2D, layer: MapObjectType) -> List[AbstractMapObject]:
+    def get_all_map_objects(self, point_2d: Point2D, layer: MapSurfaceType) -> List[AbstractMapObject]:
         pass
 
     @abc.abstractmethod
-    def is_in_layer(self, point: Point2D, layer: MapObjectType) -> bool:
+    def is_in_layer(self, point: Point2D, layer: MapSurfaceType) -> bool:
         pass
 
     @abc.abstractmethod
     def get_proximal_map_objects(
-        self, point: Point2D, radius: float, layers: List[MapObjectType]
-    ) -> Dict[MapObjectType, List[AbstractMapObject]]:
+        self, point: Point2D, radius: float, layers: List[MapSurfaceType]
+    ) -> Dict[MapSurfaceType, List[AbstractMapObject]]:
         pass
 
 

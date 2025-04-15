@@ -5,6 +5,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import shapely
+import ast
 
 from asim.dataset.dataset_specific.carla.opendrive.conversion.group_collections import (
     OpenDriveLaneGroupHelper,
@@ -18,7 +19,7 @@ from asim.dataset.dataset_specific.carla.opendrive.conversion.id_system import (
 )
 from asim.dataset.dataset_specific.carla.opendrive.elements.opendrive import Junction, OpenDrive, Road
 from asim.dataset.dataset_specific.carla.opendrive.elements.reference import Border
-from asim.dataset.maps.map_datatypes import MapObjectType
+from asim.dataset.maps.map_datatypes import MapSurfaceType
 
 ENABLE_WARNING: bool = False
 CONNECTION_DISTANCE_THRESHOLD: float = 0.1  # [m]
@@ -50,23 +51,23 @@ class OpenDriveConverter:
         lane_df = self._extract_lane_dataframe()
         walkways_df = self._extract_walkways_dataframe()
         carpark_df = self._extract_carpark_dataframe()
-        generic_drivable_area_df = self._extract_generic_drivable_area_dataframe()
+        generic_drivable_area_df = self._extract_generic_drivable_dataframe()
         # intersections_df = converter._extract_intersections_dataframe()
         lane_group_df = self._extract_lane_group_dataframe()
 
         # Store dataframes
         map_file_name = f"{map_name}.gpkg"
-        lane_df.to_file(map_file_name, layer=MapObjectType.LANE.serialize(), driver="GPKG")
-        walkways_df.to_file(map_file_name, layer=MapObjectType.WALKWAYS.serialize(), driver="GPKG", mode="a")
-        carpark_df.to_file(map_file_name, layer=MapObjectType.CARPARK.serialize(), driver="GPKG", mode="a")
+        lane_df.to_file(map_file_name, layer=MapSurfaceType.LANE.serialize(), driver="GPKG")
+        walkways_df.to_file(map_file_name, layer=MapSurfaceType.WALKWAY.serialize(), driver="GPKG", mode="a")
+        carpark_df.to_file(map_file_name, layer=MapSurfaceType.CARPARK.serialize(), driver="GPKG", mode="a")
         generic_drivable_area_df.to_file(
             map_file_name,
-            layer=MapObjectType.GENERIC_DRIVABLE.serialize(),
+            layer=MapSurfaceType.GENERIC_DRIVABLE.serialize(),
             driver="GPKG",
             mode="a",
         )
         # intersections_df.to_file(map_file_name, layer="intersections_df", driver="GPKG", mode="a")
-        lane_group_df.to_file(map_file_name, layer=MapObjectType.LANE_GROUP.serialize(), driver="GPKG", mode="a")
+        lane_group_df.to_file(map_file_name, layer=MapSurfaceType.LANE_GROUP.serialize(), driver="GPKG", mode="a")
 
     def _collect_lane_helpers(self) -> None:
         for road in self.opendrive.roads:
@@ -259,7 +260,7 @@ class OpenDriveConverter:
 
     def _extract_lane_dataframe(self) -> gpd.GeoDataFrame:
 
-        ids = []
+        lane_ids = []
         predecessor_ids = []
         successor_ids = []
         left_boundaries = []
@@ -270,7 +271,7 @@ class OpenDriveConverter:
         # TODO: Extract speed limit and convert to mps
         for lane_helper in self.lane_helper_dict.values():
             if lane_helper.type == "driving":
-                ids.append(lane_helper.lane_id)
+                lane_ids.append(lane_helper.lane_id)
                 predecessor_ids.append(lane_helper.predecessor_lane_ids)
                 successor_ids.append(lane_helper.successor_lane_ids)
                 left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
@@ -280,7 +281,7 @@ class OpenDriveConverter:
 
         data = pd.DataFrame(
             {
-                "id": ids,
+                "id": lane_ids,
                 "predecessor_ids": predecessor_ids,
                 "successor_ids": successor_ids,
                 "left_boundary": left_boundaries,
@@ -350,7 +351,7 @@ class OpenDriveConverter:
         gdf = gpd.GeoDataFrame(data, geometry=geometries)
         return gdf
 
-    def _extract_generic_drivable_area_dataframe(self) -> gpd.GeoDataFrame:
+    def _extract_generic_drivable_dataframe(self) -> gpd.GeoDataFrame:
         ids = []
         predecessor_ids = []
         successor_ids = []
@@ -397,6 +398,9 @@ class OpenDriveConverter:
 
     def _extract_lane_group_dataframe(self) -> gpd.GeoDataFrame:
 
+        # TODO:
+        # - Add
+
         lane_group_ids = []
         predecessor_lane_group_ids = []
         successor_lane_group_ids = []
@@ -414,9 +418,9 @@ class OpenDriveConverter:
 
         data = pd.DataFrame(
             {
-                "lane_group_id": lane_group_ids,
-                "predecessor_lane_group_id": predecessor_lane_group_ids,
-                "successor_lane_group_id": successor_lane_group_ids,
+                "id": lane_group_ids,
+                "predecessor_ids": predecessor_lane_group_ids,
+                "successor_ids": successor_lane_group_ids,
                 "left_boundary": left_boundaries,
                 "right_boundary": right_boundaries,
             }

@@ -4,7 +4,7 @@ from __future__ import annotations
 from asim.common.utils.enums import SerialIntEnum
 
 
-class MapObjectType(SerialIntEnum):
+class MapSurfaceType(SerialIntEnum):
     """
     Enum for SemanticMapLayers.
     """
@@ -13,7 +13,7 @@ class MapObjectType(SerialIntEnum):
     LANE_GROUP = 1
     INTERSECTION = 2
     CROSSWALK = 3
-    WALKWAYS = 4
+    WALKWAY = 4
     CARPARK = 5
     GENERIC_DRIVABLE = 6
 
