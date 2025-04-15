@@ -18,10 +18,12 @@ colors = {
 
 def _plot_map_on_ax(ax: plt.Axes, map_api: AbstractMap, point_2d: Point2D, radius: float) -> None:
 
-    layers: List[MapSurfaceType] = [MapSurfaceType.LANE, MapSurfaceType.GENERIC_DRIVABLE, MapSurfaceType.CARPARK]
+    # layers: List[MapSurfaceType] = [MapSurfaceType.LANE, MapSurfaceType.GENERIC_DRIVABLE, MapSurfaceType.CARPARK]
+    layers: List[MapSurfaceType] = [MapSurfaceType.LANE]
 
     map_objects_dict = map_api.get_proximal_map_objects(point_2d, radius=radius, layers=layers)
     for layer, map_objects in map_objects_dict.items():
         for map_object in map_objects:
+            print(map_object.shapely_polygon.exterior.xy)
             ax.fill(*map_object.shapely_polygon.exterior.xy, color=colors[layer], alpha=0.5)
     ax.set_title(f"Map: {map_api.map_name}")

@@ -5,7 +5,6 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import shapely
-import ast
 
 from asim.dataset.dataset_specific.carla.opendrive.conversion.group_collections import (
     OpenDriveLaneGroupHelper,
@@ -26,6 +25,8 @@ CONNECTION_DISTANCE_THRESHOLD: float = 0.1  # [m]
 
 
 class OpenDriveConverter:
+    # TODO: create general map interface similar to nuplan, ...
+
     def __init__(self, opendrive: OpenDrive):
 
         self.opendrive: OpenDrive = opendrive
@@ -261,6 +262,7 @@ class OpenDriveConverter:
     def _extract_lane_dataframe(self) -> gpd.GeoDataFrame:
 
         lane_ids = []
+        lane_group_ids = []
         predecessor_ids = []
         successor_ids = []
         left_boundaries = []
@@ -272,6 +274,7 @@ class OpenDriveConverter:
         for lane_helper in self.lane_helper_dict.values():
             if lane_helper.type == "driving":
                 lane_ids.append(lane_helper.lane_id)
+                lane_group_ids.append(lane_group_id_from_lane_id(lane_helper.lane_id))
                 predecessor_ids.append(lane_helper.predecessor_lane_ids)
                 successor_ids.append(lane_helper.successor_lane_ids)
                 left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
@@ -282,6 +285,7 @@ class OpenDriveConverter:
         data = pd.DataFrame(
             {
                 "id": lane_ids,
+                "lane_group_id": lane_group_ids,
                 "predecessor_ids": predecessor_ids,
                 "successor_ids": successor_ids,
                 "left_boundary": left_boundaries,

@@ -115,7 +115,7 @@ class Speed:
     unit: Optional[str] = None
 
     @classmethod
-    def parse(cls, speed_element: Optional[Element]) -> RoadType:
+    def parse(cls, speed_element: Optional[Element]) -> Speed:
         args = {}
         if speed_element is not None:
             args["max"] = float(speed_element.get("max"))

@@ -13,8 +13,8 @@ class Polyline2D:
     linestring: LineString
 
     @classmethod
-    def from_linestring(cls, polyline_array: npt.NDArray[np.float32]) -> Polyline2D:
-        raise NotImplementedError
+    def from_linestring(cls, linestring: npt.NDArray[np.float32]) -> Polyline2D:
+        raise Polyline2D(linestring)
 
     @classmethod
     def from_array(cls, polyline_array: npt.NDArray[np.float32]) -> Polyline2D:

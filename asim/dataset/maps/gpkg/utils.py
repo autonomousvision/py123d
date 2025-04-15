@@ -23,14 +23,12 @@ def get_row_with_value(elements: gpd.geodataframe.GeoDataFrame, column_label: st
     :param desired_value: key which is compared with the values of column_label entry.
     :return row from GeoDataFrame.
     """
-    # if column_label == "id":
-    #     return elements.loc[desired_value]
+    if column_label == "fid":
+        return elements.loc[desired_value]
 
-    # matching_rows = get_all_rows_with_value(elements, column_label, desired_value)
-    # assert len(matching_rows) > 0, f"Could not find the desired key = {desired_value}"
-    # assert len(matching_rows) == 1, (
-    #     f"{len(matching_rows)} matching keys found. Expected to only find one." "Try using get_all_rows_with_value"
-    # )
-
-    # return matching_rows.iloc[0]
-    return elements.loc[elements[column_label] == desired_value].iloc[0]
+    matching_rows = get_all_rows_with_value(elements, column_label, desired_value)
+    assert len(matching_rows) > 0, f"Could not find the desired key = {desired_value}"
+    assert len(matching_rows) == 1, (
+        f"{len(matching_rows)} matching keys found. Expected to only find one." "Try using get_all_rows_with_value"
+    )
+    return matching_rows.iloc[0]

@@ -30,6 +30,8 @@ from asim.dataset.maps.abstract_map_objects import (
 )
 from asim.dataset.maps.map_datatypes import MapSurfaceType
 
+USE_ARROW: bool = True
+
 
 class GPKGMap(AbstractMap):
 
@@ -61,7 +63,9 @@ class GPKGMap(AbstractMap):
         for map_layer in list(MapSurfaceType):
             map_layer_name = map_layer.serialize()
             if map_layer_name in available_layers:
-                self._gpd_dataframes[map_layer] = gpd.read_file(self._file_path, layer=map_layer_name)
+                self._gpd_dataframes[map_layer] = gpd.read_file(
+                    self._file_path, layer=map_layer_name, use_arrow=USE_ARROW
+                )
             else:
                 warnings.warn(f"GPKGMap: {map_layer_name} not available in {str(self._file_path)}")
 
