@@ -24,6 +24,10 @@ from asim.dataset.maps.map_datatypes import MapSurfaceType
 ENABLE_WARNING: bool = False
 CONNECTION_DISTANCE_THRESHOLD: float = 0.1  # [m]
 
+# TODO:
+# - add Intersections
+# - add speed limits
+
 
 class OpenDriveConverter:
     # TODO: create general map interface similar to nuplan, ...

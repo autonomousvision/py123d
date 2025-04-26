@@ -19,7 +19,6 @@ from asim.dataset.maps.map_datatypes import MapSurfaceType
 # CARPARK = 5
 # GENERIC_DRIVABLE = 6
 
-MapSurfaceType.LANE
 
 NUPLAN_MAPS_ROOT = os.environ["NUPLAN_MAPS_ROOT"]
 MAP_LOCATIONS = {"sg-one-north", "us-ma-boston", "us-nv-las-vegas-strip", "us-pa-pittsburgh-hazelwood"}
@@ -61,9 +60,11 @@ class NuPlanMapConverter:
         self._load_dataframes(map_file_path)
 
         lane_df = self._extract_lane_dataframe()
-        map_file_name = f"{map_name}.gpkg"
+        walkway_df = self._extract_lane_dataframe()
+
+        map_file_name = f"nuplan_{map_name}.gpkg"
         lane_df.to_file(map_file_name, layer=MapSurfaceType.LANE.serialize(), driver="GPKG")
-        # walkways_df.to_file(map_file_name, layer=MapSurfaceType.WALKWAY.serialize(), driver="GPKG", mode="a")
+        walkway_df.to_file(map_file_name, layer=MapSurfaceType.WALKWAY.serialize(), driver="GPKG", mode="a")
         # carpark_df.to_file(map_file_name, layer=MapSurfaceType.CARPARK.serialize(), driver="GPKG", mode="a")
 
         # Extract lane dataframe
@@ -85,8 +86,8 @@ class NuPlanMapConverter:
                 warnings.filterwarnings("ignore")
 
                 gdf_in_pixel_coords = pyogrio.read_dataframe(map_file_path, layer=layer_name, fid_as_index=True)
-                # gdf_in_utm_coords = gdf_in_pixel_coords.to_crs(projection_system)
-                gdf_in_utm_coords = gdf_in_pixel_coords
+                gdf_in_utm_coords = gdf_in_pixel_coords.to_crs(projection_system)
+                # gdf_in_utm_coords = gdf_in_pixel_coords
 
                 # For backwards compatibility, cast the index to string datatype.
                 #   and mirror it to the "fid" column.
@@ -97,12 +98,15 @@ class NuPlanMapConverter:
 
     def _extract_lane_dataframe(self) -> gpd.GeoDataFrame:
         assert self._gdf is not None, "Call `.initialize()` before retrieving data!"
-        return self._extract_nuplan_lane_dataframe()
+        lane_df = self._extract_nuplan_lane_dataframe()
+        lane_connector_df = self._extract_nuplan_lane_connector_dataframe()
+        combined_df = pd.concat([lane_df, lane_connector_df], ignore_index=True)
+        return combined_df
 
     def _extract_nuplan_lane_dataframe(self) -> gpd.GeoDataFrame:
         assert self._gdf is not None, "Call `.initialize()` before retrieving data!"
 
-        lane_ids = self._gdf["lanes_polygons"].lane_fid.to_list()
+        ids = self._gdf["lanes_polygons"].lane_fid.to_list()
         lane_group_ids = self._gdf["lanes_polygons"].lane_group_fid.to_list()
         speed_limits_mps = self._gdf["lanes_polygons"].speed_limit_mps.to_list()
         predecessor_ids = []
@@ -112,7 +116,7 @@ class NuPlanMapConverter:
         baseline_paths = []
         geometries = self._gdf["lanes_polygons"].geometry.to_list()
 
-        for lane_id in lane_ids:
+        for lane_id in ids:
 
             # 1. predecessor_ids, successor_ids
             _predecessor_ids = get_all_rows_with_value(
@@ -144,8 +148,9 @@ class NuPlanMapConverter:
 
         data = pd.DataFrame(
             {
-                "id": lane_ids,
+                "id": ids,
                 "lane_group_id": lane_group_ids,
+                "speed_limits_mps": speed_limits_mps,
                 "predecessor_ids": predecessor_ids,
                 "successor_ids": successor_ids,
                 "left_boundary": left_boundaries,
@@ -158,4 +163,56 @@ class NuPlanMapConverter:
         return gdf
 
     def _extract_nuplan_lane_connector_dataframe(self) -> None:
-        pass
+        assert self._gdf is not None, "Call `.initialize()` before retrieving data!"
+        ids = self._gdf["lane_connectors"].fid.to_list()
+        lane_group_ids = self._gdf["lane_connectors"].lane_group_connector_fid.to_list()
+        speed_limits_mps = self._gdf["lane_connectors"].speed_limit_mps.to_list()
+        predecessor_ids = []
+        successor_ids = []
+        left_boundaries = []
+        right_boundaries = []
+        baseline_paths = []
+        geometries = []
+
+        for lane_id in ids:
+            # 1. predecessor_ids, successor_ids
+            lane_connector_row = get_row_with_value(self._gdf["lane_connectors"], "fid", str(lane_id))
+            predecessor_ids.append([lane_connector_row["entry_lane_fid"]])
+            successor_ids.append([lane_connector_row["exit_lane_fid"]])
+
+            # 2. left_boundaries, right_boundaries
+            lane_connector_polygons_row = get_row_with_value(
+                self._gdf["gen_lane_connectors_scaled_width_polygons"], "lane_connector_fid", str(lane_id)
+            )
+            left_boundary_fid = lane_connector_polygons_row["left_boundary_fid"]
+            left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
+            left_boundaries.append(left_boundary)
+
+            right_boundary_fid = lane_connector_polygons_row["right_boundary_fid"]
+            right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
+            right_boundaries.append(right_boundary)
+
+            # 3. baseline_paths
+            baseline_path = get_row_with_value(self._gdf["baseline_paths"], "lane_connector_fid", float(lane_id))[
+                "geometry"
+            ]
+            baseline_paths.append(baseline_path)
+
+            # 4. geometries
+            geometries.append(lane_connector_polygons_row.geometry)
+
+        data = pd.DataFrame(
+            {
+                "id": ids,
+                "lane_group_id": lane_group_ids,
+                "speed_limits_mps": speed_limits_mps,
+                "predecessor_ids": predecessor_ids,
+                "successor_ids": successor_ids,
+                "left_boundary": left_boundaries,
+                "right_boundary": right_boundaries,
+                "baseline_path": baseline_paths,
+            }
+        )
+
+        gdf = gpd.GeoDataFrame(data, geometry=geometries)
+        return gdf
