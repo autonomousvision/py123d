@@ -104,9 +104,14 @@ class GPKGMap(AbstractMap):
         self, point_2d: Point2D, radius: float, layers: List[MapSurfaceType]
     ) -> Dict[MapSurfaceType, List[AbstractMapObject]]:
         """Inherited, see superclass."""
-        x_min, x_max = point_2d.x - radius, point_2d.x + radius
-        y_min, y_max = point_2d.y - radius, point_2d.y + radius
-        patch = geom.box(x_min, y_min, x_max, y_max)
+        # TODO: use circle instead of box
+        center_point = geom.Point(point_2d.x, point_2d.y)
+        patch = center_point.buffer(radius)
+        # TODO: create separate method for arbitrary shapes
+
+        # x_min, x_max = point_2d.x - radius, point_2d.x + radius
+        # y_min, y_max = point_2d.y - radius, point_2d.y + radius
+        # patch = geom.box(x_min, y_min, x_max, y_max)
 
         supported_layers = self.get_available_map_objects()
         unsupported_layers = [layer for layer in layers if layer not in supported_layers]

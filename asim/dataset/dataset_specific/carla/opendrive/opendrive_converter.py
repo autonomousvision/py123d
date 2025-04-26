@@ -18,6 +18,7 @@ from asim.dataset.dataset_specific.carla.opendrive.conversion.id_system import (
 )
 from asim.dataset.dataset_specific.carla.opendrive.elements.opendrive import Junction, OpenDrive, Road
 from asim.dataset.dataset_specific.carla.opendrive.elements.reference import Border
+from asim.dataset.dataset_specific.carla.opendrive.id_mapping import IntIDMapping
 from asim.dataset.maps.map_datatypes import MapSurfaceType
 
 ENABLE_WARNING: bool = False
@@ -55,6 +56,8 @@ class OpenDriveConverter:
         generic_drivable_area_df = self._extract_generic_drivable_dataframe()
         # intersections_df = converter._extract_intersections_dataframe()
         lane_group_df = self._extract_lane_group_dataframe()
+
+        self._convert_ids_to_int(lane_df, walkways_df, carpark_df, generic_drivable_area_df, lane_group_df)
 
         # Store dataframes
         map_file_name = f"{map_name}.gpkg"
@@ -261,7 +264,7 @@ class OpenDriveConverter:
 
     def _extract_lane_dataframe(self) -> gpd.GeoDataFrame:
 
-        lane_ids = []
+        ids = []
         lane_group_ids = []
         predecessor_ids = []
         successor_ids = []
@@ -273,7 +276,7 @@ class OpenDriveConverter:
         # TODO: Extract speed limit and convert to mps
         for lane_helper in self.lane_helper_dict.values():
             if lane_helper.type == "driving":
-                lane_ids.append(lane_helper.lane_id)
+                ids.append(lane_helper.lane_id)
                 lane_group_ids.append(lane_group_id_from_lane_id(lane_helper.lane_id))
                 predecessor_ids.append(lane_helper.predecessor_lane_ids)
                 successor_ids.append(lane_helper.successor_lane_ids)
@@ -284,7 +287,7 @@ class OpenDriveConverter:
 
         data = pd.DataFrame(
             {
-                "id": lane_ids,
+                "id": ids,
                 "lane_group_id": lane_group_ids,
                 "predecessor_ids": predecessor_ids,
                 "successor_ids": successor_ids,
@@ -293,14 +296,11 @@ class OpenDriveConverter:
                 "baseline_path": baseline_paths,
             }
         )
-        gdf = gpd.GeoDataFrame(data, geometry=geometries)
-        return gdf
+        return gpd.GeoDataFrame(data, geometry=geometries)
 
     def _extract_walkways_dataframe(self) -> gpd.GeoDataFrame:
 
         ids = []
-        predecessor_ids = []
-        successor_ids = []
         left_boundaries = []
         right_boundaries = []
         geometries = []
@@ -308,8 +308,6 @@ class OpenDriveConverter:
         for lane_helper in self.lane_helper_dict.values():
             if lane_helper.type == "sidewalk":
                 ids.append(lane_helper.lane_id)
-                predecessor_ids.append(lane_helper.predecessor_lane_ids)
-                successor_ids.append(lane_helper.successor_lane_ids)
                 left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
                 right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
                 geometries.append(lane_helper.shapely_polygon)
@@ -317,19 +315,15 @@ class OpenDriveConverter:
         data = pd.DataFrame(
             {
                 "id": ids,
-                "predecessor_ids": predecessor_ids,
-                "successor_ids": successor_ids,
                 "left_boundary": left_boundaries,
                 "right_boundary": left_boundaries,
             }
         )
-        gdf = gpd.GeoDataFrame(data, geometry=geometries)
-        return gdf
+        return gpd.GeoDataFrame(data, geometry=geometries)
 
     def _extract_carpark_dataframe(self) -> gpd.GeoDataFrame:
+
         ids = []
-        predecessor_ids = []
-        successor_ids = []
         left_boundaries = []
         right_boundaries = []
         geometries = []
@@ -337,8 +331,6 @@ class OpenDriveConverter:
         for lane_helper in self.lane_helper_dict.values():
             if lane_helper.type == "parking":
                 ids.append(lane_helper.lane_id)
-                predecessor_ids.append(lane_helper.predecessor_lane_ids)
-                successor_ids.append(lane_helper.successor_lane_ids)
                 left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
                 right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
                 geometries.append(lane_helper.shapely_polygon)
@@ -346,19 +338,15 @@ class OpenDriveConverter:
         data = pd.DataFrame(
             {
                 "id": ids,
-                "predecessor_ids": predecessor_ids,
-                "successor_ids": successor_ids,
                 "left_boundary": left_boundaries,
                 "right_boundary": left_boundaries,
             }
         )
-        gdf = gpd.GeoDataFrame(data, geometry=geometries)
-        return gdf
+        return gpd.GeoDataFrame(data, geometry=geometries)
 
     def _extract_generic_drivable_dataframe(self) -> gpd.GeoDataFrame:
+
         ids = []
-        predecessor_ids = []
-        successor_ids = []
         left_boundaries = []
         right_boundaries = []
         geometries = []
@@ -366,8 +354,6 @@ class OpenDriveConverter:
         for lane_helper in self.lane_helper_dict.values():
             if lane_helper.type in ["none", "border", "bidirectional"]:
                 ids.append(lane_helper.lane_id)
-                predecessor_ids.append(lane_helper.predecessor_lane_ids)
-                successor_ids.append(lane_helper.successor_lane_ids)
                 left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
                 right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
                 geometries.append(lane_helper.shapely_polygon)
@@ -375,16 +361,14 @@ class OpenDriveConverter:
         data = pd.DataFrame(
             {
                 "id": ids,
-                "predecessor_ids": predecessor_ids,
-                "successor_ids": successor_ids,
                 "left_boundary": left_boundaries,
                 "right_boundary": left_boundaries,
             }
         )
-        gdf = gpd.GeoDataFrame(data, geometry=geometries)
-        return gdf
+        return gpd.GeoDataFrame(data, geometry=geometries)
 
     def _extract_intersections_dataframe(self) -> gpd.GeoDataFrame:
+        # TODO: Add method to extract intersections
 
         # ids = []
         # interior_lane_groups = []
@@ -402,10 +386,10 @@ class OpenDriveConverter:
 
     def _extract_lane_group_dataframe(self) -> gpd.GeoDataFrame:
 
-        # TODO:
-        # - Add
+        # TODO: Add interior lanes
 
-        lane_group_ids = []
+        ids = []
+        lane_ids = []
         predecessor_lane_group_ids = []
         successor_lane_group_ids = []
         left_boundaries = []
@@ -413,7 +397,9 @@ class OpenDriveConverter:
         geometries = []
 
         for lane_group_helper in self.lane_group_helper_dict.values():
-            lane_group_ids.append(lane_group_helper.lane_group_id)
+            lane_group_helper: OpenDriveLaneGroupHelper
+            ids.append(lane_group_helper.lane_group_id)
+            lane_ids.append([lane_helper.lane_id for lane_helper in lane_group_helper.lane_helpers])
             predecessor_lane_group_ids.append(lane_group_helper.predecessor_lane_group_ids)
             successor_lane_group_ids.append(lane_group_helper.successor_lane_group_ids)
             left_boundaries.append(shapely.LineString(lane_group_helper.inner_polyline_3d))
@@ -422,40 +408,45 @@ class OpenDriveConverter:
 
         data = pd.DataFrame(
             {
-                "id": lane_group_ids,
+                "id": ids,
+                "lane_ids": lane_ids,
                 "predecessor_ids": predecessor_lane_group_ids,
                 "successor_ids": successor_lane_group_ids,
                 "left_boundary": left_boundaries,
                 "right_boundary": right_boundaries,
             }
         )
-        gdf = gpd.GeoDataFrame(data, geometry=geometries)
-        return gdf
 
+        return gpd.GeoDataFrame(data, geometry=geometries)
 
-def convert_ids_to_integers(df: pd.DataFrame) -> pd.DataFrame:
+    @staticmethod
+    def _convert_ids_to_int(
+        lane_df: gpd.GeoDataFrame,
+        walkways_df: gpd.GeoDataFrame,
+        carpark_df: gpd.GeoDataFrame,
+        generic_drivable_area_df: gpd.GeoDataFrame,
+        lane_group_df: gpd.GeoDataFrame,
+    ) -> None:
 
-    result_df = df.copy()
+        # initialize id mappings
+        lane_id_mapping = IntIDMapping.from_series(lane_df["id"])
+        walkway_id_mapping = IntIDMapping.from_series(walkways_df["id"])
+        carpark_id_mapping = IntIDMapping.from_series(carpark_df["id"])
+        # TODO: add id mapping for intersections
+        generic_drivable_id_mapping = IntIDMapping.from_series(generic_drivable_area_df["id"])
+        lane_group_id_mapping = IntIDMapping.from_series(lane_group_df["id"])
 
-    # Create a mapping from string IDs to integer IDs
-    unique_ids = df["id"].unique()
-    id_mapping = {str_id: idx for idx, str_id in enumerate(unique_ids)}
+        # Adjust cross reference in lane_df and lane_group_df
+        lane_df["lane_group_id"] = lane_df["lane_group_id"].map(lane_group_id_mapping.str_to_int)
+        lane_group_df["lane_ids"] = lane_group_df["lane_ids"].apply(lambda x: lane_id_mapping.map_list(x))
 
-    # Create reverse mapping for debugging/reference
-    reverse_mapping = {idx: str_id for str_id, idx in id_mapping.items()}
+        # Adjust predecessor/successor in lane_df and lane_group_df
+        for column in ["predecessor_ids", "successor_ids"]:
+            lane_df[column] = lane_df[column].apply(lambda x: lane_id_mapping.map_list(x))
+            lane_group_df[column] = lane_group_df[column].apply(lambda x: lane_group_id_mapping.map_list(x))
 
-    # Update the ID column
-    # result_df["original_id"] = result_df["id"]  # Keep original IDs for reference
-    result_df["id"] = result_df["id"].map(id_mapping)
-
-    # Function to convert a list of string IDs to integer IDs
-    def convert_id_list(id_list: List[str]) -> List[int]:
-        if id_list is None:
-            return []
-        return [id_mapping.get(id_str, -1) for id_str in id_list]
-
-    # Update predecessor_ids and successor_ids
-    result_df["predecessor_ids"] = result_df["predecessor_ids"].apply(convert_id_list)
-    result_df["successor_ids"] = result_df["successor_ids"].apply(convert_id_list)
-
-    return result_df, id_mapping, reverse_mapping
+        lane_df["id"] = lane_df["id"].map(lane_id_mapping.str_to_int)
+        walkways_df["id"] = walkways_df["id"].map(walkway_id_mapping.str_to_int)
+        carpark_df["id"] = carpark_df["id"].map(carpark_id_mapping.str_to_int)
+        generic_drivable_area_df["id"] = generic_drivable_area_df["id"].map(generic_drivable_id_mapping.str_to_int)
+        lane_group_df["id"] = lane_group_df["id"].map(lane_group_id_mapping.str_to_int)
