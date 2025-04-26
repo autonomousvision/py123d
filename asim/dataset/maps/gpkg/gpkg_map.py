@@ -1,32 +1,24 @@
 from __future__ import annotations
 
+import warnings
 from collections import defaultdict
 from typing import Callable, Dict, List, Optional
-import warnings
 
 import geopandas as gpd
 import shapely.geometry as geom
 
+from asim.common.geometry.base import Point2D
 from asim.dataset.dataset_specific.carla.opendrive.elements.opendrive import Path
 from asim.dataset.maps.abstract_map import AbstractMap
-
-
-from asim.common.geometry.base import Point2D
+from asim.dataset.maps.abstract_map_objects import AbstractMapObject
 from asim.dataset.maps.gpkg.gpkg_map_objects import (
+    GPKGCarpark,
+    GPKGCrosswalk,
+    GPKGGenericDrivable,
+    GPKGIntersection,
     GPKGLane,
     GPKGLaneGroup,
-    GPKGIntersection,
-    GPKGCrosswalk,
-    GPKGCarpark,
     GPKGWalkway,
-    GPKGGenericDrivable,
-)
-
-from asim.dataset.maps.abstract_map_objects import (
-    AbstractIntersection,
-    AbstractLane,
-    AbstractLaneGroup,
-    AbstractMapObject,
 )
 from asim.dataset.maps.map_datatypes import MapSurfaceType
 
@@ -34,7 +26,6 @@ USE_ARROW: bool = True
 
 
 class GPKGMap(AbstractMap):
-
     def __init__(self, file_path: Path) -> None:
 
         self._file_path = file_path

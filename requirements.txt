@@ -48,3 +48,4 @@ torchvision==0.21.0
 pytorch-lightning==2.5.0
 tensorboard
 protobuf==4.25.3
+pre-commit

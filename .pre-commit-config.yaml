@@ -45,7 +45,7 @@ repos:
     - id: flake8
       language_version: python3.10
 
--   repo: https://github.com/kynan/nbstripout
-    rev: 0.6.1
-    hooks:
-    -   id: nbstripout
+# -   repo: https://github.com/kynan/nbstripout
+#     rev: 0.6.1
+#     hooks:
+#     -   id: nbstripout

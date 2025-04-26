@@ -1,5 +1,6 @@
 # TODO: Maybe move this somewhere else
 
+
 def mps_to_kmph(mps: float) -> float:
     """
     Convert meters per second to kilometers per hour.

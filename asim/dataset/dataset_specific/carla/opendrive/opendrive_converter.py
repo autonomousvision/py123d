@@ -26,6 +26,7 @@ CONNECTION_DISTANCE_THRESHOLD: float = 0.1  # [m]
 
 # TODO:
 # - add Intersections
+# - add crosswalks
 # - add speed limits
 
 
@@ -389,8 +390,6 @@ class OpenDriveConverter:
         pass
 
     def _extract_lane_group_dataframe(self) -> gpd.GeoDataFrame:
-
-        # TODO: Add interior lanes
 
         ids = []
         lane_ids = []

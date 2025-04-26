@@ -1,10 +1,10 @@
 from typing import List
+
 import matplotlib.pyplot as plt
 
 from asim.common.geometry.base import Point2D
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.maps.map_datatypes import MapSurfaceType
-
 
 colors = {
     MapSurfaceType.LANE: "grey",

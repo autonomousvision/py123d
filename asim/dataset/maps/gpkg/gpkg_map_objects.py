@@ -1,22 +1,21 @@
 from __future__ import annotations
 
-from functools import cached_property
-from typing import List, Optional
-import geopandas as gpd
 import ast
+from functools import cached_property
+from typing import List
 
-
+import geopandas as gpd
 import shapely.geometry as geom
 
 from asim.dataset.maps.abstract_map_objects import (
-    AbstractSurfaceMapObject,
+    AbstractCarpark,
+    AbstractCrosswalk,
+    AbstractGenericDrivable,
+    AbstractIntersection,
     AbstractLane,
     AbstractLaneGroup,
-    AbstractIntersection,
-    AbstractCrosswalk,
+    AbstractSurfaceMapObject,
     AbstractWalkway,
-    AbstractCarpark,
-    AbstractGenericDrivable,
 )
 from asim.dataset.maps.gpkg.utils import get_row_with_value
 
@@ -47,7 +46,6 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
 
 # "id", "predecessor_ids", "successor_ids", "left_boundary", "right_boundary", "baseline_path", "geometry"
 class GPKGLane(GPKGSurfaceObject, AbstractLane):
-
     def __init__(self, object_id: str, object_df: gpd.GeoDataFrame) -> None:
         super().__init__(object_id, object_df)
 
@@ -66,7 +64,6 @@ class GPKGLane(GPKGSurfaceObject, AbstractLane):
 
 # "lane_group_id", "predecessor_lane_group_id", "successor_lane_group_id", "left_boundary", "right_boundary", "geometry"
 class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
-
     def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)
 
@@ -84,30 +81,25 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
 
 
 class GPKGIntersection(GPKGSurfaceObject, AbstractIntersection):
-
     def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)
 
 
 class GPKGCrosswalk(GPKGSurfaceObject, AbstractCrosswalk):
-
     def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)
 
 
 class GPKGCarpark(GPKGSurfaceObject, AbstractCarpark):
-
     def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)
 
 
 class GPKGWalkway(GPKGSurfaceObject, AbstractWalkway):
-
     def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)
 
 
 class GPKGGenericDrivable(GPKGSurfaceObject, AbstractGenericDrivable):
-
     def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)

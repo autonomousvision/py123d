@@ -5,7 +5,6 @@ from typing import List
 
 import shapely.geometry as geom
 
-from asim.common.geometry.line.polylines import Polyline2D, Polyline3D
 from asim.dataset.maps.map_datatypes import MapSurfaceType
 
 
@@ -56,7 +55,6 @@ class AbstractSurfaceMapObject(AbstractMapObject):
 
 
 class AbstractLane(AbstractSurfaceMapObject):
-
     @property
     def surface_type(self) -> MapSurfaceType:
         return MapSurfaceType.LANE
@@ -79,7 +77,6 @@ class AbstractLane(AbstractSurfaceMapObject):
 
 
 class AbstractLaneGroup(AbstractSurfaceMapObject):
-
     @property
     def surface_type(self) -> MapSurfaceType:
         return MapSurfaceType.LANE_GROUP
@@ -102,35 +99,30 @@ class AbstractLaneGroup(AbstractSurfaceMapObject):
 
 
 class AbstractIntersection(AbstractSurfaceMapObject):
-
     @property
     def surface_type(self) -> MapSurfaceType:
         return MapSurfaceType.INTERSECTION
 
 
 class AbstractCrosswalk(AbstractSurfaceMapObject):
-
     @property
     def surface_type(self) -> MapSurfaceType:
         return MapSurfaceType.CROSSWALK
 
 
 class AbstractWalkway(AbstractSurfaceMapObject):
-
     @property
     def surface_type(self) -> MapSurfaceType:
         return MapSurfaceType.WALKWAY
 
 
 class AbstractCarpark(AbstractSurfaceMapObject):
-
     @property
     def surface_type(self) -> MapSurfaceType:
         return MapSurfaceType.CARPARK
 
 
 class AbstractGenericDrivable(AbstractSurfaceMapObject):
-
     @property
     def surface_type(self) -> MapSurfaceType:
         return MapSurfaceType.GENERIC_DRIVABLE

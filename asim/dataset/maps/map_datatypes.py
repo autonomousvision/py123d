@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 from asim.common.utils.enums import SerialIntEnum
 
 

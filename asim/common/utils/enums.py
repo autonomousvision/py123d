@@ -12,7 +12,6 @@ class classproperty(object):
 
 
 class SerialIntEnum(IntEnum):
-
     def serialize(self, lower: bool = True) -> str:
         """Serialize the type when saving."""
         # Allow for lower/upper case letters during serialize

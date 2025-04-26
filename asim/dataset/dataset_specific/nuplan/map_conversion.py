@@ -1,7 +1,7 @@
 import os
+import warnings
 from pathlib import Path
 from typing import Dict, List, Optional
-import warnings
 
 import geopandas as gpd
 import pandas as pd
@@ -9,7 +9,6 @@ import pyogrio
 
 from asim.dataset.maps.gpkg.utils import get_all_rows_with_value, get_row_with_value
 from asim.dataset.maps.map_datatypes import MapSurfaceType
-
 
 # LANE = 0
 # LANE_GROUP = 1
@@ -43,12 +42,9 @@ GPKG_LAYERS: List[str] = [
 
 
 class NuPlanMapConverter:
-    # TODO: create general map interface similar to carla
-
     def __init__(self):
 
         self._gdf: Optional[Dict[str, gpd.GeoDataFrame]] = None
-        pass
 
     def convert(self, map_name: str = "us-pa-pittsburgh-hazelwood") -> None:
         assert map_name in MAP_LOCATIONS, f"Map name {map_name} is not supported."
@@ -60,10 +56,12 @@ class NuPlanMapConverter:
         self._load_dataframes(map_file_path)
 
         lane_df = self._extract_lane_dataframe()
-        walkway_df = self._extract_lane_dataframe()
+        lane_group_df = self._extract_lane_group_dataframe()
+        walkway_df = self._extract_walkway_dataframe()
 
         map_file_name = f"nuplan_{map_name}.gpkg"
         lane_df.to_file(map_file_name, layer=MapSurfaceType.LANE.serialize(), driver="GPKG")
+        lane_group_df.to_file(map_file_name, layer=MapSurfaceType.LANE_GROUP.serialize(), driver="GPKG", mode="a")
         walkway_df.to_file(map_file_name, layer=MapSurfaceType.WALKWAY.serialize(), driver="GPKG", mode="a")
         # carpark_df.to_file(map_file_name, layer=MapSurfaceType.CARPARK.serialize(), driver="GPKG", mode="a")
 
@@ -216,3 +214,120 @@ class NuPlanMapConverter:
 
         gdf = gpd.GeoDataFrame(data, geometry=geometries)
         return gdf
+
+    def _extract_lane_group_dataframe(self) -> gpd.GeoDataFrame:
+        assert self._gdf is not None, "Call `.initialize()` before retrieving data!"
+        lane_group_df = self._extract_nuplan_lane_group_dataframe()
+        lane_connector_group_df = self._extract_nuplan_lane_connector_group_dataframe()
+        combined_df = pd.concat([lane_group_df, lane_connector_group_df], ignore_index=True)
+        return combined_df
+
+    def _extract_nuplan_lane_group_dataframe(self) -> gpd.GeoDataFrame:
+        assert self._gdf is not None, "Call `.initialize()` before retrieving data!"
+        ids = self._gdf["lane_groups_polygons"].fid.to_list()
+        lane_ids = []
+        intersection_ids = [None] * len(ids)
+        predecessor_lane_group_ids = []
+        successor_lane_group_ids = []
+        left_boundaries = []
+        right_boundaries = []
+        geometries = self._gdf["lane_groups_polygons"].geometry.to_list()
+
+        for lane_group_id in ids:
+            # 1. lane_ids
+            lane_ids_ = get_all_rows_with_value(
+                self._gdf["lanes_polygons"],
+                "lane_group_fid",
+                lane_group_id,
+            )["fid"].tolist()
+            lane_ids.append(lane_ids_)
+
+            # 2. predecessor_lane_group_ids, successor_lane_group_ids
+            predecessor_lane_group_ids_ = get_all_rows_with_value(
+                self._gdf["lane_group_connectors"],
+                "to_lane_group_fid",
+                lane_group_id,
+            )["fid"].tolist()
+            successor_lane_group_ids_ = get_all_rows_with_value(
+                self._gdf["lane_group_connectors"],
+                "from_lane_group_fid",
+                lane_group_id,
+            )["fid"].tolist()
+            predecessor_lane_group_ids.append(predecessor_lane_group_ids_)
+            successor_lane_group_ids.append(successor_lane_group_ids_)
+
+            # 3. left_boundaries, right_boundaries
+            lane_group_row = get_row_with_value(self._gdf["lane_groups_polygons"], "fid", str(lane_group_id))
+            left_boundary_fid = lane_group_row["left_boundary_fid"]
+            left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
+            left_boundaries.append(left_boundary)
+
+            right_boundary_fid = lane_group_row["right_boundary_fid"]
+            right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
+            right_boundaries.append(right_boundary)
+
+        data = pd.DataFrame(
+            {
+                "id": ids,
+                "lane_group_id": lane_ids,
+                "intersection_id": intersection_ids,
+                "predecessor_lane_group_ids": predecessor_lane_group_ids,
+                "successor_lane_group_ids": successor_lane_group_ids,
+                "left_boundary": left_boundaries,
+                "right_boundary": left_boundaries,
+            }
+        )
+        gdf = gpd.GeoDataFrame(data, geometry=geometries)
+        return gdf
+
+    def _extract_nuplan_lane_connector_group_dataframe(self) -> gpd.GeoDataFrame:
+        assert self._gdf is not None, "Call `.initialize()` before retrieving data!"
+        ids = self._gdf["lane_group_connectors"].fid.to_list()
+        lane_ids = []
+        intersection_ids = self._gdf["lane_group_connectors"].intersection_fid.to_list()
+        predecessor_lane_group_ids = []
+        successor_lane_group_ids = []
+        left_boundaries = []
+        right_boundaries = []
+        geometries = self._gdf["lane_group_connectors"].geometry.to_list()
+
+        for lane_group_connector_id in ids:
+            # 1. lane_ids
+            lane_ids_ = get_all_rows_with_value(
+                self._gdf["lane_connectors"], "lane_group_connector_fid", lane_group_connector_id
+            )["fid"].tolist()
+            lane_ids.append(lane_ids_)
+
+            # 2. predecessor_lane_group_ids, successor_lane_group_ids
+            lane_group_connector_row = get_row_with_value(
+                self._gdf["lane_group_connectors"], "fid", lane_group_connector_id
+            )
+            predecessor_lane_group_ids.append([lane_group_connector_row["from_lane_group_fid"]])
+            successor_lane_group_ids.append([lane_group_connector_row["to_lane_group_fid"]])
+
+            # 3. left_boundaries, right_boundaries
+            left_boundary_fid = lane_group_connector_row["left_boundary_fid"]
+            left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
+            right_boundary_fid = lane_group_connector_row["right_boundary_fid"]
+            right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
+            left_boundaries.append(left_boundary)
+            right_boundaries.append(right_boundary)
+
+        data = pd.DataFrame(
+            {
+                "id": ids,
+                "lane_group_id": lane_ids,
+                "intersection_id": intersection_ids,
+                "predecessor_lane_group_ids": predecessor_lane_group_ids,
+                "successor_lane_group_ids": successor_lane_group_ids,
+                "left_boundary": left_boundaries,
+                "right_boundary": left_boundaries,
+            }
+        )
+        gdf = gpd.GeoDataFrame(data, geometry=geometries)
+        return gdf
+
+    def _extract_walkway_dataframe(self) -> gpd.GeoDataFrame:
+        assert self._gdf is not None, "Call `.initialize()` before retrieving data!"
+        data = pd.DataFrame({"id": self._gdf["walkways"].fid.to_list()})
+        return gpd.GeoDataFrame(data, geometry=self._gdf["walkways"].geometry.to_list())
