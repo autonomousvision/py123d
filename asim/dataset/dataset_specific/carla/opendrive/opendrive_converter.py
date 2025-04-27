@@ -56,10 +56,12 @@ class OpenDriveConverter:
         walkways_df = self._extract_walkways_dataframe()
         carpark_df = self._extract_carpark_dataframe()
         generic_drivable_area_df = self._extract_generic_drivable_dataframe()
-        # intersections_df = self._extract_intersections_dataframe()
+        intersections_df = self._extract_intersections_dataframe()
         lane_group_df = self._extract_lane_group_dataframe()
 
-        self._convert_ids_to_int(lane_df, walkways_df, carpark_df, generic_drivable_area_df, lane_group_df)
+        self._convert_ids_to_int(
+            lane_df, walkways_df, carpark_df, generic_drivable_area_df, lane_group_df, intersections_df
+        )
 
         # Store dataframes
         map_file_name = f"{map_name}.gpkg"
@@ -72,7 +74,7 @@ class OpenDriveConverter:
             driver="GPKG",
             mode="a",
         )
-        # intersections_df.to_file(map_file_name, layer="intersections_df", driver="GPKG", mode="a")
+        intersections_df.to_file(map_file_name, layer="intersections_df", driver="GPKG", mode="a")
         lane_group_df.to_file(map_file_name, layer=MapSurfaceType.LANE_GROUP.serialize(), driver="GPKG", mode="a")
 
     def _collect_lane_helpers(self) -> None:
@@ -374,21 +376,12 @@ class OpenDriveConverter:
         return gpd.GeoDataFrame(data, geometry=geometries)
 
     def _extract_intersections_dataframe(self) -> gpd.GeoDataFrame:
-        # TODO: Add method to extract intersections
-
-        # ids = []
-        # interior_lane_groups = []
-
-        # left_boundaries = []
-        # right_boundaries = []
-        # geometries = []
-
-        # for junction_idx, junction in self.junction_dict.items():
-        #     for connection in junction.connections:
-        #         connection.connecting_road
-
-        #     print()
-        pass
+        ids = []
+        lane_group_ids = []
+        geometries = []
+        data = pd.DataFrame({"id": ids, "lane_group_ids": lane_group_ids})
+        # TODO: Implement and extract intersection geometries
+        return gpd.GeoDataFrame(data, geometry=geometries)
 
     def _extract_lane_group_dataframe(self) -> gpd.GeoDataFrame:
 
@@ -423,6 +416,9 @@ class OpenDriveConverter:
 
         return gpd.GeoDataFrame(data, geometry=geometries)
 
+    def _extract_crosswalk_dataframe(self) -> gpd.GeoDataFrame:
+        pass
+
     @staticmethod
     def _convert_ids_to_int(
         lane_df: gpd.GeoDataFrame,
@@ -430,6 +426,7 @@ class OpenDriveConverter:
         carpark_df: gpd.GeoDataFrame,
         generic_drivable_area_df: gpd.GeoDataFrame,
         lane_group_df: gpd.GeoDataFrame,
+        intersections_df: gpd.GeoDataFrame,
     ) -> None:
 
         # initialize id mappings
