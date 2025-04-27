@@ -130,21 +130,36 @@ class GPKGMap(AbstractMap):
 
     def _get_lane(self, id: str) -> Optional[GPKGLane]:
         return (
-            GPKGLane(id, self._gpd_dataframes[MapSurfaceType.LANE])
+            GPKGLane(
+                id,
+                self._gpd_dataframes[MapSurfaceType.LANE],
+                self._gpd_dataframes[MapSurfaceType.LANE_GROUP],
+                self._gpd_dataframes[MapSurfaceType.INTERSECTION],
+            )
             if id in self._gpd_dataframes[MapSurfaceType.LANE]["id"].tolist()
             else None
         )
 
     def _get_lane_group(self, id: str) -> Optional[GPKGLaneGroup]:
         return (
-            GPKGLaneGroup(id, self._gpd_dataframes[MapSurfaceType.LANE_GROUP])
+            GPKGLaneGroup(
+                id,
+                self._gpd_dataframes[MapSurfaceType.LANE_GROUP],
+                self._gpd_dataframes[MapSurfaceType.LANE],
+                self._gpd_dataframes[MapSurfaceType.INTERSECTION],
+            )
             if id in self._gpd_dataframes[MapSurfaceType.LANE_GROUP]["id"].tolist()
             else None
         )
 
     def _get_intersection(self, id: str) -> Optional[GPKGIntersection]:
         return (
-            GPKGIntersection(id, self._gpd_dataframes[MapSurfaceType.INTERSECTION])
+            GPKGIntersection(
+                id,
+                self._gpd_dataframes[MapSurfaceType.INTERSECTION],
+                self._gpd_dataframes[MapSurfaceType.LANE],
+                self._gpd_dataframes[MapSurfaceType.LANE_GROUP],
+            )
             if id in self._gpd_dataframes[MapSurfaceType.INTERSECTION]["id"].tolist()
             else None
         )
