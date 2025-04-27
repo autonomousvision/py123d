@@ -26,3 +26,8 @@ def build_lane_group_id(road_idx: Union[int, str], lane_section_idx: Union[int, 
 def lane_group_id_from_lane_id(lane_id: str) -> str:
     road_idx, lane_section_idx, side, _ = lane_id.split("_")
     return build_lane_group_id(road_idx, lane_section_idx, side)
+
+
+def road_id_from_lane_id(lane_id: str) -> str:
+    road_idx, lane_section_idx, side, _ = lane_id.split("_")
+    return road_idx

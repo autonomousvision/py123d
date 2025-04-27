@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import List, Optional
 from xml.etree.ElementTree import Element
 
 from asim.dataset.dataset_specific.carla.opendrive.elements.elevation import ElevationProfile, LateralProfile
@@ -17,7 +17,7 @@ class Road:
     name: Optional[str]
 
     link: Link
-    road_type: RoadType
+    road_types: List[RoadType]
     plan_view: PlanView
     elevation_profile: ElevationProfile
     lateral_profile: LateralProfile
@@ -32,9 +32,7 @@ class Road:
 
     @classmethod
     def parse(cls, road_element: Element) -> Road:
-        # TODO: implement
         args = {}
-        # try:
 
         args["id"] = int(road_element.get("id"))
         args["junction"] = road_element.get("junction") if road_element.get("junction") != "-1" else None
@@ -42,15 +40,17 @@ class Road:
         args["name"] = road_element.get("name")
 
         args["link"] = Link.parse(road_element.find("link"))
-        args["road_type"] = RoadType.parse(road_element.find("type"))
+
+        road_types: List[RoadType] = []
+        for road_type_element in road_element.findall("type"):
+            road_types.append(RoadType.parse(road_type_element))
+        args["road_types"] = road_types
+
         args["plan_view"] = PlanView.parse(road_element.find("planView"))
         args["elevation_profile"] = ElevationProfile.parse(road_element.find("elevationProfile"))
         args["lateral_profile"] = LateralProfile.parse(road_element.find("lateralProfile"))
 
         args["lanes"] = Lanes.parse(road_element.find("lanes"))
-        # except:
-        #     road_name = road_element.get("name")
-        #     print(f"Failure in road {road_name}")
 
         return Road(**args)
 

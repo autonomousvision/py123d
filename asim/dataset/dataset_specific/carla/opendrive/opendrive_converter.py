@@ -27,12 +27,9 @@ CONNECTION_DISTANCE_THRESHOLD: float = 0.1  # [m]
 # TODO:
 # - add Intersections
 # - add crosswalks
-# - add speed limits
 
 
 class OpenDriveConverter:
-    # TODO: create general map interface similar to nuplan, ...
-
     def __init__(self, opendrive: OpenDrive):
 
         self.opendrive: OpenDrive = opendrive
@@ -59,7 +56,7 @@ class OpenDriveConverter:
         walkways_df = self._extract_walkways_dataframe()
         carpark_df = self._extract_carpark_dataframe()
         generic_drivable_area_df = self._extract_generic_drivable_dataframe()
-        # intersections_df = converter._extract_intersections_dataframe()
+        # intersections_df = self._extract_intersections_dataframe()
         lane_group_df = self._extract_lane_group_dataframe()
 
         self._convert_ids_to_int(lane_df, walkways_df, carpark_df, generic_drivable_area_df, lane_group_df)
@@ -90,6 +87,7 @@ class OpenDriveConverter:
                     reference_border,
                     lane_section_lengths[idx],
                     lane_section_lengths[idx + 1],
+                    road.road_types,
                 )
                 self.lane_helper_dict.update(lane_helpers_)
 
@@ -271,6 +269,7 @@ class OpenDriveConverter:
 
         ids = []
         lane_group_ids = []
+        speed_limits_mps = []
         predecessor_ids = []
         successor_ids = []
         left_boundaries = []
@@ -283,6 +282,7 @@ class OpenDriveConverter:
             if lane_helper.type == "driving":
                 ids.append(lane_helper.lane_id)
                 lane_group_ids.append(lane_group_id_from_lane_id(lane_helper.lane_id))
+                speed_limits_mps.append(lane_helper.speed_limit_mps)
                 predecessor_ids.append(lane_helper.predecessor_lane_ids)
                 successor_ids.append(lane_helper.successor_lane_ids)
                 left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
@@ -294,6 +294,7 @@ class OpenDriveConverter:
             {
                 "id": ids,
                 "lane_group_id": lane_group_ids,
+                "speed_limit_mps": speed_limits_mps,
                 "predecessor_ids": predecessor_ids,
                 "successor_ids": successor_ids,
                 "left_boundary": left_boundaries,

@@ -7,6 +7,7 @@ import numpy.typing as npt
 import shapely
 
 from asim.common.geometry.base_enum import StateSE2Index
+from asim.common.geometry.units import kmph_to_mps, mph_to_mps
 from asim.dataset.dataset_specific.carla.opendrive.conversion.id_system import (
     derive_lane_group_id,
     derive_lane_id,
@@ -14,8 +15,10 @@ from asim.dataset.dataset_specific.carla.opendrive.conversion.id_system import (
 )
 from asim.dataset.dataset_specific.carla.opendrive.elements.lane import Lane, LaneSection
 from asim.dataset.dataset_specific.carla.opendrive.elements.reference import Border
+from asim.dataset.dataset_specific.carla.opendrive.elements.road import RoadType
 
-step_size = 1.0
+# TODO: Add to config
+STEP_SIZE = 1.0
 
 
 @dataclass
@@ -27,6 +30,7 @@ class OpenDriveLaneHelper:
     s_range: Tuple[float, float]
     inner_border: Border
     outer_border: Border
+    speed_limit_mps: Optional[float]
     reverse: bool = False
 
     # lazy loaded
@@ -49,7 +53,7 @@ class OpenDriveLaneHelper:
     def _s_positions(self) -> npt.NDArray[np.float64]:
         length = self.s_range[1] - self.s_range[0]
         _s_positions = np.linspace(
-            self.s_range[0], self.s_range[1], int(np.ceil(length / step_size)) + 1, endpoint=True, dtype=np.float64
+            self.s_range[0], self.s_range[1], int(np.ceil(length / STEP_SIZE)) + 1, endpoint=True, dtype=np.float64
         )
         _s_positions[..., -1] = np.clip(_s_positions[..., -1], 0.0, self.s_range[-1])
         return _s_positions
@@ -189,6 +193,7 @@ def lane_section_to_lane_helpers(
     reference_border: Border,
     s_min: float,
     s_max: float,
+    road_types: List[RoadType],
 ) -> Dict[str, OpenDriveLaneHelper]:
 
     lane_helpers: Dict[str, OpenDriveLaneHelper] = {}
@@ -211,6 +216,7 @@ def lane_section_to_lane_helpers(
                 s_range=(s_min, s_max),
                 inner_border=lane_borders[-2],
                 outer_border=lane_borders[-1],
+                speed_limit_mps=_get_speed_limit_mps(s_min, s_max, road_types),
             )
             lane_helpers[lane_id] = lane_helper
 
@@ -241,3 +247,24 @@ def _create_outer_lane_border(
     args["width_coefficient_offsets"] = width_coefficient_offsets
     args["width_coefficients"] = width_coefficients
     return Border(**args)
+
+
+def _get_speed_limit_mps(s_min: float, s_max: float, road_types: List[RoadType]) -> Optional[float]:
+
+    # NOTE: Likely not correct way to extract speed limit from CARLA maps, but serves as a placeholder
+    speed_limit_mps: Optional[float] = None
+    s_road_types = [road_type.s for road_type in road_types] + [float("inf")]
+
+    if len(road_types) > 0:
+        # 1. Find current road type
+        for road_type_idx, road_type in enumerate(road_types):
+            if s_min >= road_type.s and s_min < s_road_types[road_type_idx + 1]:
+                if road_type.speed is not None:
+                    if road_type.speed.unit == "mps":
+                        speed_limit_mps = road_type.speed.max
+                    elif road_type.speed.unit == "km/h":
+                        speed_limit_mps = kmph_to_mps(road_type.speed.max)
+                    elif road_type.speed.unit == "mph":
+                        speed_limit_mps = mph_to_mps(road_type.speed.max)
+                break
+    return speed_limit_mps
