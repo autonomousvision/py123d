@@ -6,6 +6,7 @@ from xml.etree.ElementTree import Element
 
 from asim.dataset.dataset_specific.carla.opendrive.elements.elevation import ElevationProfile, LateralProfile
 from asim.dataset.dataset_specific.carla.opendrive.elements.lane import Lanes
+from asim.dataset.dataset_specific.carla.opendrive.elements.objects import Object
 from asim.dataset.dataset_specific.carla.opendrive.elements.reference import PlanView
 
 
@@ -22,6 +23,7 @@ class Road:
     elevation_profile: ElevationProfile
     lateral_profile: LateralProfile
     lanes: Lanes
+    objects: List[Object]
 
     rule: Optional[str] = None  # NOTE: ignored
 
@@ -51,6 +53,12 @@ class Road:
         args["lateral_profile"] = LateralProfile.parse(road_element.find("lateralProfile"))
 
         args["lanes"] = Lanes.parse(road_element.find("lanes"))
+
+        objects: List[Object] = []
+        if road_element.find("objects") is not None:
+            for object_element in road_element.find("objects").findall("object"):
+                objects.append(Object.parse(object_element))
+        args["objects"] = objects
 
         return Road(**args)
 

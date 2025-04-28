@@ -16,6 +16,10 @@ from asim.dataset.dataset_specific.carla.opendrive.conversion.id_system import (
     derive_lane_section_id,
     lane_group_id_from_lane_id,
 )
+from asim.dataset.dataset_specific.carla.opendrive.conversion.objects_collections import (
+    OpenDriveObjectHelper,
+    get_object_helper,
+)
 from asim.dataset.dataset_specific.carla.opendrive.elements.opendrive import Junction, OpenDrive, Road
 from asim.dataset.dataset_specific.carla.opendrive.elements.reference import Border
 from asim.dataset.dataset_specific.carla.opendrive.id_mapping import IntIDMapping
@@ -40,6 +44,7 @@ class OpenDriveConverter:
         # loaded during conversion
         self.lane_helper_dict: Dict[str, OpenDriveLaneHelper] = {}
         self.lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper] = {}
+        self.object_helper_dict: Dict[str, OpenDriveObjectHelper] = {}
 
     def run(self, map_name: str) -> None:
 
@@ -50,6 +55,7 @@ class OpenDriveConverter:
         self._flip_and_set_connections()
         self._post_process_connections()
         self._collect_lane_groups()
+        self._collect_crosswalks()
 
         # Collect data frames and store
         lane_df = self._extract_lane_dataframe()
@@ -266,6 +272,18 @@ class OpenDriveConverter:
                 self.lane_group_helper_dict[lane_group_id] = OpenDriveLaneGroupHelper(
                     lane_group_id, lane_group_lane_helper
                 )
+
+    def _collect_crosswalks(self) -> None:
+        for road in self.opendrive.roads:
+            if len(road.objects) < 1:
+                continue
+
+            reference_border = Border.from_plan_view(road.plan_view, road.lanes.lane_offsets, road.elevation_profile)
+
+            for object in road.objects:
+                if object.name in ["SimpleCrosswalk"]:
+                    get_object_helper(object, reference_border)
+                    # self.object_helper_dict[object_helper.object_id] = object_helper
 
     def _extract_lane_dataframe(self) -> gpd.GeoDataFrame:
 

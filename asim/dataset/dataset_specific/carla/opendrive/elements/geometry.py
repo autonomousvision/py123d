@@ -37,9 +37,15 @@ class Line(Geometry):
         return cls(**args)
 
     def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
-        interpolated_se2 = self.start_se2
+
+        interpolated_se2 = self.start_se2.copy()
         interpolated_se2[StateSE2Index.X] += s * np.cos(self.hdg)
         interpolated_se2[StateSE2Index.Y] += s * np.sin(self.hdg)
+
+        if t != 0.0:
+            interpolated_se2[StateSE2Index.X] += t * np.cos(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
+            interpolated_se2[StateSE2Index.Y] += t * np.sin(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
+
         return interpolated_se2
 
 
@@ -65,9 +71,13 @@ class Arc(Geometry):
         dx = -1 * a * np.cos(alpha)
         dy = a * np.sin(alpha)
 
-        interpolated_se2 = self.start_se2
+        interpolated_se2 = self.start_se2.copy()
         interpolated_se2[StateSE2Index.X] += dx
         interpolated_se2[StateSE2Index.Y] += dy
         interpolated_se2[StateSE2Index.YAW] += s * self.curvature
+
+        if t != 0.0:
+            interpolated_se2[StateSE2Index.X] += t * np.cos(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
+            interpolated_se2[StateSE2Index.Y] += t * np.sin(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
 
         return interpolated_se2
