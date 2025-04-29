@@ -12,7 +12,7 @@ class Object:
     name: str
     s: float
     t: float
-    zOffset: float
+    z_offset: float
     hdg: float
     roll: float
     pitch: float
@@ -35,7 +35,7 @@ class Object:
         args["name"] = object_element.get("name")
         args["s"] = float(object_element.get("s"))
         args["t"] = float(object_element.get("t"))
-        args["zOffset"] = float(object_element.get("zOffset"))
+        args["z_offset"] = float(object_element.get("zOffset"))
         args["hdg"] = float(object_element.get("hdg"))
         args["roll"] = float(object_element.get("roll"))
         args["pitch"] = float(object_element.get("pitch"))
@@ -58,7 +58,7 @@ class CornerLocal:
     u: float
     v: float
     z: float
-    height: Optional[float]
+    height: Optional[float] = None
 
     @classmethod
     def parse(cls, corner_element: Optional[Element]) -> CornerLocal:
@@ -68,3 +68,4 @@ class CornerLocal:
         args["z"] = float(corner_element.get("z"))
         if corner_element.get("height") is not None:
             args["height"] = float(corner_element.get("height"))
+        return CornerLocal(**args)

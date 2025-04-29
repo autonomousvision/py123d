@@ -64,9 +64,16 @@ class OpenDriveConverter:
         generic_drivable_area_df = self._extract_generic_drivable_dataframe()
         intersections_df = self._extract_intersections_dataframe()
         lane_group_df = self._extract_lane_group_dataframe()
+        crosswalk_df = self._extract_crosswalk_dataframe()
 
         self._convert_ids_to_int(
-            lane_df, walkways_df, carpark_df, generic_drivable_area_df, lane_group_df, intersections_df
+            lane_df,
+            walkways_df,
+            carpark_df,
+            generic_drivable_area_df,
+            lane_group_df,
+            intersections_df,
+            crosswalk_df,
         )
 
         # Store dataframes
@@ -80,8 +87,9 @@ class OpenDriveConverter:
             driver="GPKG",
             mode="a",
         )
-        intersections_df.to_file(map_file_name, layer="intersections_df", driver="GPKG", mode="a")
+        intersections_df.to_file(map_file_name, layer=MapSurfaceType.INTERSECTION.serialize(), driver="GPKG", mode="a")
         lane_group_df.to_file(map_file_name, layer=MapSurfaceType.LANE_GROUP.serialize(), driver="GPKG", mode="a")
+        crosswalk_df.to_file(map_file_name, layer=MapSurfaceType.CROSSWALK.serialize(), driver="GPKG", mode="a")
 
     def _collect_lane_helpers(self) -> None:
         for road in self.opendrive.roads:
@@ -275,15 +283,13 @@ class OpenDriveConverter:
 
     def _collect_crosswalks(self) -> None:
         for road in self.opendrive.roads:
-            if len(road.objects) < 1:
+            if len(road.objects) == 0:
                 continue
-
             reference_border = Border.from_plan_view(road.plan_view, road.lanes.lane_offsets, road.elevation_profile)
-
             for object in road.objects:
-                if object.name in ["SimpleCrosswalk"]:
-                    get_object_helper(object, reference_border)
-                    # self.object_helper_dict[object_helper.object_id] = object_helper
+                if object.type in ["crosswalk"]:
+                    object_helper = get_object_helper(object, reference_border)
+                    self.object_helper_dict[object_helper.object_id] = object_helper
 
     def _extract_lane_dataframe(self) -> gpd.GeoDataFrame:
 
@@ -435,7 +441,16 @@ class OpenDriveConverter:
         return gpd.GeoDataFrame(data, geometry=geometries)
 
     def _extract_crosswalk_dataframe(self) -> gpd.GeoDataFrame:
-        pass
+        ids = []
+        outlines = []
+        geometries = []
+        for object_helper in self.object_helper_dict.values():
+            ids.append(object_helper.object_id)
+            outlines.append(shapely.LineString(object_helper.outline_3d))
+            geometries.append(object_helper.shapely_polygon)
+
+        data = pd.DataFrame({"id": ids, "outline": outlines})
+        return gpd.GeoDataFrame(data, geometry=geometries)
 
     @staticmethod
     def _convert_ids_to_int(
@@ -445,6 +460,7 @@ class OpenDriveConverter:
         generic_drivable_area_df: gpd.GeoDataFrame,
         lane_group_df: gpd.GeoDataFrame,
         intersections_df: gpd.GeoDataFrame,
+        crosswalk_df: gpd.GeoDataFrame,
     ) -> None:
 
         # initialize id mappings

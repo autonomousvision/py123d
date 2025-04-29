@@ -20,6 +20,8 @@ from asim.dataset.dataset_specific.carla.opendrive.elements.road import RoadType
 # TODO: Add to config
 STEP_SIZE = 1.0
 
+# TODO: make naming consistent with objects_collections.py
+
 
 @dataclass
 class OpenDriveLaneHelper:
