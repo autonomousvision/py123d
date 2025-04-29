@@ -5,6 +5,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import shapely
+from shapely.ops import polygonize, unary_union
 
 from asim.dataset.dataset_specific.carla.opendrive.conversion.group_collections import (
     OpenDriveLaneGroupHelper,
@@ -15,6 +16,7 @@ from asim.dataset.dataset_specific.carla.opendrive.conversion.id_system import (
     build_lane_id,
     derive_lane_section_id,
     lane_group_id_from_lane_id,
+    road_id_from_lane_group_id,
 )
 from asim.dataset.dataset_specific.carla.opendrive.conversion.objects_collections import (
     OpenDriveObjectHelper,
@@ -30,7 +32,6 @@ CONNECTION_DISTANCE_THRESHOLD: float = 0.1  # [m]
 
 # TODO:
 # - add Intersections
-# - add crosswalks
 
 
 class OpenDriveConverter:
@@ -281,6 +282,21 @@ class OpenDriveConverter:
                     lane_group_id, lane_group_lane_helper
                 )
 
+        def _collect_lane_group_ids_of_road(road_id: int) -> List[str]:
+            lane_group_ids: List[str] = []
+            for lane_group_id in self.lane_group_helper_dict.keys():
+                if int(road_id_from_lane_group_id(lane_group_id)) == road_id:
+                    lane_group_ids.append(lane_group_id)
+            return lane_group_ids
+
+        for junction in self.junction_dict.values():
+            for connection in junction.connections:
+                connecting_road = self.road_dict[connection.connecting_road]
+                connecting_lane_group_ids = _collect_lane_group_ids_of_road(connecting_road.id)
+                for connecting_lane_group_id in connecting_lane_group_ids:
+                    if connecting_lane_group_id in self.lane_group_helper_dict.keys():
+                        self.lane_group_helper_dict[connecting_lane_group_id].junction_id = junction.id
+
     def _collect_crosswalks(self) -> None:
         for road in self.opendrive.roads:
             if len(road.objects) == 0:
@@ -400,9 +416,25 @@ class OpenDriveConverter:
         return gpd.GeoDataFrame(data, geometry=geometries)
 
     def _extract_intersections_dataframe(self) -> gpd.GeoDataFrame:
+        def _find_lane_group_helpers_with_junction_id(junction_id: int) -> List[OpenDriveLaneGroupHelper]:
+            return [
+                lane_group_helper
+                for lane_group_helper in self.lane_group_helper_dict.values()
+                if lane_group_helper.junction_id == junction_id
+            ]
+
         ids = []
         lane_group_ids = []
         geometries = []
+        for junction in self.junction_dict.values():
+            lane_group_helpers = _find_lane_group_helpers_with_junction_id(junction.id)
+            lane_group_ids_ = [lane_group_helper.lane_group_id for lane_group_helper in lane_group_helpers]
+            polygon = extract_exteriors_polygon(lane_group_helpers)
+
+            ids.append(junction.id)
+            lane_group_ids.append(lane_group_ids_)
+            geometries.append(polygon)
+
         data = pd.DataFrame({"id": ids, "lane_group_ids": lane_group_ids})
         # TODO: Implement and extract intersection geometries
         return gpd.GeoDataFrame(data, geometry=geometries)
@@ -413,6 +445,7 @@ class OpenDriveConverter:
         lane_ids = []
         predecessor_lane_group_ids = []
         successor_lane_group_ids = []
+        intersection_ids = []
         left_boundaries = []
         right_boundaries = []
         geometries = []
@@ -423,8 +456,9 @@ class OpenDriveConverter:
             lane_ids.append([lane_helper.lane_id for lane_helper in lane_group_helper.lane_helpers])
             predecessor_lane_group_ids.append(lane_group_helper.predecessor_lane_group_ids)
             successor_lane_group_ids.append(lane_group_helper.successor_lane_group_ids)
-            left_boundaries.append(shapely.LineString(lane_group_helper.inner_polyline_3d))
-            right_boundaries.append(shapely.LineString(lane_group_helper.outer_polyline_3d))
+            intersection_ids.append(lane_group_helper.junction_id)
+            left_boundaries.append(shapely.LineString(lane_group_helper.inner_polyline_3d[..., :2]))
+            right_boundaries.append(shapely.LineString(lane_group_helper.outer_polyline_3d[..., :2]))
             geometries.append(lane_group_helper.shapely_polygon)
 
         data = pd.DataFrame(
@@ -433,6 +467,7 @@ class OpenDriveConverter:
                 "lane_ids": lane_ids,
                 "predecessor_ids": predecessor_lane_group_ids,
                 "successor_ids": successor_lane_group_ids,
+                "intersection_id": intersection_ids,
                 "left_boundary": left_boundaries,
                 "right_boundary": right_boundaries,
             }
@@ -463,6 +498,8 @@ class OpenDriveConverter:
         crosswalk_df: gpd.GeoDataFrame,
     ) -> None:
 
+        # NOTE: intersection and crosswalk ids are already integers
+
         # initialize id mappings
         lane_id_mapping = IntIDMapping.from_series(lane_df["id"])
         walkway_id_mapping = IntIDMapping.from_series(walkways_df["id"])
@@ -485,3 +522,30 @@ class OpenDriveConverter:
         carpark_df["id"] = carpark_df["id"].map(carpark_id_mapping.str_to_int)
         generic_drivable_area_df["id"] = generic_drivable_area_df["id"].map(generic_drivable_id_mapping.str_to_int)
         lane_group_df["id"] = lane_group_df["id"].map(lane_group_id_mapping.str_to_int)
+
+        intersections_df["lane_group_ids"] = intersections_df["lane_group_ids"].apply(
+            lambda x: lane_group_id_mapping.map_list(x)
+        )
+
+
+# TODO: move this somewhere else and improve
+def extract_exteriors_polygon(lane_group_helpers: List[OpenDriveLaneGroupHelper]) -> shapely.Polygon:
+
+    # Step 1: Extract all boundary line segments
+    all_polygons = []
+    for lane_group_helper in lane_group_helpers:
+        all_polygons.append(lane_group_helper.shapely_polygon)
+
+    # Step 2: Merge all boundaries and extract the enclosed polygons
+    merged_boundaries = unary_union(all_polygons)
+
+    # Step 3: Generate polygons from the merged lines
+    polygons = list(polygonize(merged_boundaries))
+
+    # Step 4: Select the polygon that represents the intersection
+    # Usually it's the largest polygon
+    if len(polygons) == 1:
+        return polygons[0]
+    else:
+        # Take the largest polygon if there are multiple
+        return max(polygons, key=lambda p: p.area)

@@ -23,6 +23,7 @@ def _plot_map_on_ax(ax: plt.Axes, map_api: AbstractMap, point_2d: Point2D, radiu
         MapSurfaceType.GENERIC_DRIVABLE,
         MapSurfaceType.CARPARK,
         MapSurfaceType.CROSSWALK,
+        MapSurfaceType.INTERSECTION,
     ]
     # layers: List[MapSurfaceType] = [MapSurfaceType.LANE]
 

@@ -140,6 +140,7 @@ class OpenDriveLaneGroupHelper:
     # loaded during __post_init__
     predecessor_lane_group_ids: Optional[List[str]] = None
     successor_lane_group_ids: Optional[List[str]] = None
+    junction_id: Optional[int] = None
 
     def __post_init__(self):
 
