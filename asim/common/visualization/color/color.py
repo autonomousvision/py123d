@@ -20,3 +20,7 @@ class Color:
     @property
     def rgb_norm(self) -> Tuple[float, float, float]:
         return tuple([c / 255 for c in self.rgb])
+
+    @property
+    def rgba_norm(self) -> Tuple[float, float, float]:
+        return tuple([c / 255 for c in self.rgba])

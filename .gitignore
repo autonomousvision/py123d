@@ -14,3 +14,6 @@
 *.out
 *.err
 *.gz
+
+*.pdf
+*.gpkg
