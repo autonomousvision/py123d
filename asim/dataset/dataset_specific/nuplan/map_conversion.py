@@ -51,7 +51,12 @@ class NuPlanMapConverter:
 
         # find map.pkg path
         # TODO: make this more general
-        map_file_path = Path(NUPLAN_MAPS_ROOT) / "us-pa-pittsburgh-hazelwood" / "9.17.1937" / "map.gpkg"
+        # map_file_path = Path(NUPLAN_MAPS_ROOT) / "us-pa-pittsburgh-hazelwood" / "9.17.1937" / "map.gpkg"
+        # map_file_path = "/home/daniel/nuplan/dataset/maps/us-nv-las-vegas-strip/9.15.1915/map.gpkg"
+        # map_name = "us-nv-las-vegas-strip"
+        # map_file_path = "/home/daniel/nuplan/dataset/maps/us-ma-boston/9.12.1817/map.gpkg"
+        map_file_path = "/home/daniel/nuplan/dataset/maps/us-pa-pittsburgh-hazelwood/9.17.1937/map.gpkg"
+        # map_file_path = "/home/daniel/nuplan/dataset/maps/sg-one-north/9.17.1964/map.gpkg"
 
         self._load_dataframes(map_file_path)
 

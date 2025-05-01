@@ -468,12 +468,15 @@ class OpenDriveConverter:
                 "predecessor_ids": predecessor_lane_group_ids,
                 "successor_ids": successor_lane_group_ids,
                 "intersection_id": intersection_ids,
-                "left_boundary": left_boundaries,
-                "right_boundary": right_boundaries,
+                # "left_boundary": left_boundaries,
+                # "right_boundary": right_boundaries,
             }
         )
+        gdf = gpd.GeoDataFrame(data, geometry=geometries)
+        gdf["left_boundary"] = left_boundaries
+        gdf["right_boundary"] = right_boundaries
 
-        return gpd.GeoDataFrame(data, geometry=geometries)
+        return gdf
 
     def _extract_crosswalk_dataframe(self) -> gpd.GeoDataFrame:
         ids = []

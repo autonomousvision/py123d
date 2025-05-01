@@ -139,7 +139,7 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
     @property
     def lanes(self) -> List[GPKGLane]:
         """Inherited, see superclass."""
-        lane_ids = ast.literal_eval(self._object_row.predecessor_ids)
+        lane_ids = ast.literal_eval(self._object_row.lane_ids)
         return [
             GPKGLane(
                 lane_id,
@@ -181,15 +181,15 @@ class GPKGIntersection(GPKGSurfaceObject, AbstractIntersection):
     @property
     def lane_groups(self) -> List[GPKGLaneGroup]:
         """Inherited, see superclass."""
-        lane_group_ids = ast.literal_eval(self._object_row.predecessor_ids)
+        lane_group_ids = ast.literal_eval(self._object_row.lane_group_ids)
         return [
-            GPKGLane(
-                lane_id,
+            GPKGLaneGroup(
+                lane_group_id,
+                self._lane_group_df,
                 self._lane_df,
                 self._object_df,
-                self._intersection_df,
             )
-            for lane_id in lane_group_ids
+            for lane_group_id in lane_group_ids
         ]
 
 

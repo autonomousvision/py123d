@@ -6,6 +6,7 @@ from typing import Callable, Dict, List, Optional
 
 import geopandas as gpd
 import shapely.geometry as geom
+from shapely import wkt
 
 from asim.common.geometry.base import Point2D
 from asim.dataset.dataset_specific.carla.opendrive.elements.opendrive import Path
@@ -23,6 +24,17 @@ from asim.dataset.maps.gpkg.gpkg_map_objects import (
 from asim.dataset.maps.map_datatypes import MapSurfaceType
 
 USE_ARROW: bool = True
+
+
+def load_gdf_with_geometry_columns(gdf: gpd.GeoDataFrame, geometry_column_names: List[str] = []):
+
+    # Convert string geometry columns back to shapely objects
+    for col in geometry_column_names:
+        if col in gdf.columns and isinstance(gdf[col].iloc[0], str):
+            try:
+                gdf[col] = gdf[col].apply(lambda x: wkt.loads(x) if isinstance(x, str) else x)
+            except Exception as e:
+                print(f"Warning: Could not convert column {col} to geometry: {str(e)}")
 
 
 class GPKGMap(AbstractMap):
@@ -57,6 +69,7 @@ class GPKGMap(AbstractMap):
                 self._gpd_dataframes[map_layer] = gpd.read_file(
                     self._file_path, layer=map_layer_name, use_arrow=USE_ARROW
                 )
+                load_gdf_with_geometry_columns(self._gpd_dataframes[map_layer], geometry_column_names=["baseline_path"])
             else:
                 warnings.warn(f"GPKGMap: {map_layer_name} not available in {str(self._file_path)}")
 

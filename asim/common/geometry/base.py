@@ -118,6 +118,10 @@ class Point3D:
         array[Point3DIndex.Z] = self.z
         return array
 
+    @property
+    def point_2d(self) -> Point2D:
+        return Point2D(self.x, self.y)
+
     def __iter__(self) -> Iterable[float]:
         """
         :return: iterator of tuples (x, y)

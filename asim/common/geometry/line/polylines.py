@@ -35,17 +35,19 @@ class Polyline2D:
         raise NotImplementedError
 
 
+@dataclass
 class PolylineSE2:
     # TODO: implement this class
     pass
 
 
+@dataclass
 class Polyline3D:
 
     linestring: geom.LineString
 
     @classmethod
-    def from_linestring(cls, linestring: npt.NDArray[np.float32]) -> Polyline2D:
+    def from_linestring(cls, linestring: geom.LineString) -> Polyline3D:
         return (
             Polyline3D(linestring)
             if linestring.has_z
@@ -56,7 +58,12 @@ class Polyline3D:
     def polyline_2d(self) -> Polyline2D:
         return Polyline2D.from_linestring(self.linestring)
 
+    @property
+    def array(self) -> Polyline2D:
+        return np.array(self.linestring.coords, dtype=np.float64)
 
+
+@dataclass
 class PolylineSE3:
     # TODO: implement this class
     pass
