@@ -7,7 +7,7 @@ from asim.common.geometry.tranform_2d import translate_along_yaw
 
 
 @dataclass
-class BoundingBox:
+class BoundingBox3D:
 
     center: Point3D
     yaw: float

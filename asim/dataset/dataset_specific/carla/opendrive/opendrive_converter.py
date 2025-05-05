@@ -30,9 +30,6 @@ from asim.dataset.maps.map_datatypes import MapSurfaceType
 ENABLE_WARNING: bool = False
 CONNECTION_DISTANCE_THRESHOLD: float = 0.1  # [m]
 
-# TODO:
-# - add Intersections
-
 
 class OpenDriveConverter:
     def __init__(self, opendrive: OpenDrive):
@@ -429,14 +426,16 @@ class OpenDriveConverter:
         for junction in self.junction_dict.values():
             lane_group_helpers = _find_lane_group_helpers_with_junction_id(junction.id)
             lane_group_ids_ = [lane_group_helper.lane_group_id for lane_group_helper in lane_group_helpers]
-            polygon = extract_exteriors_polygon(lane_group_helpers)
+            if len(lane_group_ids_) == 0:
+                warnings.warn(f"Skipped Junction {junction.id} without drivable lanes!")
+                continue
 
+            polygon = extract_exteriors_polygon(lane_group_helpers)
             ids.append(junction.id)
             lane_group_ids.append(lane_group_ids_)
             geometries.append(polygon)
 
         data = pd.DataFrame({"id": ids, "lane_group_ids": lane_group_ids})
-        # TODO: Implement and extract intersection geometries
         return gpd.GeoDataFrame(data, geometry=geometries)
 
     def _extract_lane_group_dataframe(self) -> gpd.GeoDataFrame:

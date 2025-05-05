@@ -63,7 +63,7 @@ class OpenDriveLaneHelper:
     @cached_property
     def _is_last_mask(self) -> npt.NDArray[np.float64]:
         is_last_mask = np.zeros(len(self._s_positions), dtype=bool)
-        # is_last_mask[-1] = True
+        is_last_mask[-1] = True
         return is_last_mask
 
     @cached_property
