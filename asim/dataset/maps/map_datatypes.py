@@ -17,17 +17,6 @@ class MapSurfaceType(SerialIntEnum):
     GENERIC_DRIVABLE = 6
 
 
-class TrafficLightStatusType(SerialIntEnum):
-    """
-    Enum for TrafficLightStatusType.
-    """
-
-    GREEN = 0
-    YELLOW = 1
-    RED = 2
-    UNKNOWN = 3
-
-
 # STOP_LINE = 2
 # TURN_STOP = 3
 # CROSSWALK = 4
