@@ -129,9 +129,9 @@ class NuPlanDataset:
                 lb.yaw
         FROM lidar_box AS lb
         LEFT JOIN track AS tr ON lb.track_token = tr.token
-
-        WHERE lidar_pc_token IN ({('?,'*len(binary_lpc_tokens))[:-1]}) AND category_name IN ('vehicle', 'bicycle', 'pedestrian')
+        WHERE lidar_pc_token IN ({('?,'*len(binary_lpc_tokens))[:-1]})
         """
+        # WHERE lidar_pc_token IN ({('?,'*len(binary_lpc_tokens))[:-1]}) AND category_name IN ('vehicle', 'bicycle', 'pedestrian')
         return pd.read_sql_query(query, self.connection, params=binary_lpc_tokens)
 
     def get_traffic_light_status(self, binary_lpc_tokens: List[bytearray]) -> pd.DataFrame:

@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import IntEnum
 from typing import Iterable
 
 import numpy as np
 import numpy.typing as npt
 
-from asim.common.geometry.base_enum import Point2DIndex, Point3DIndex, StateSE2Index
+from asim.common.utils.enums import classproperty
+
+
+class Point2DIndex(IntEnum):
+    X = 0
+    Y = 1
 
 
 @dataclass
@@ -43,6 +49,16 @@ class Point2D:
     def __hash__(self) -> int:
         """Hash method"""
         return hash((self.x, self.y))
+
+
+class StateSE2Index(IntEnum):
+    X = 0
+    Y = 1
+    YAW = 2
+
+    @classproperty
+    def XY(cls) -> slice:
+        return slice(cls.X, cls.Y + 1)
 
 
 @dataclass
@@ -91,6 +107,17 @@ class StateSE2:
         return hash((self.x, self.y))
 
 
+class Point3DIndex(IntEnum):
+
+    X = 0
+    Y = 1
+    Z = 2
+
+    @classproperty
+    def XY(cls) -> slice:
+        return slice(cls.X, cls.Y + 1)
+
+
 @dataclass
 class Point3D:
     """Class to represents 2D points."""
@@ -131,3 +158,67 @@ class Point3D:
     def __hash__(self) -> int:
         """Hash method"""
         return hash((self.x, self.y, self.z))
+
+
+class StateSE3Index(IntEnum):
+    # TODO: implement
+
+    X = 0
+    Y = 1
+    Z = 2
+    ROLL = 3
+    PITCH = 4
+    YAW = 5
+
+    @classproperty
+    def XY(cls) -> slice:
+        return slice(cls.X, cls.Y + 1)
+
+    @classproperty
+    def XYZ(cls) -> slice:
+        return slice(cls.X, cls.Z + 1)
+
+    @classproperty
+    def ROTATION_XYZ(cls) -> slice:
+        return slice(cls.ROLL, cls.YAW + 1)
+
+
+@dataclass
+class StateSE3:
+    """Class to represents 2D points."""
+
+    x: float  # [m] location
+    y: float  # [m] location
+    z: float  # [m] location
+    roll: float
+    pitch: float
+    yaw: float
+    __slots__ = "x", "y", "z", "roll", "pitch", "yaw"
+
+    @classmethod
+    def from_array(cls, array: npt.NDArray[np.float64]) -> Point3D:
+        assert array.ndim == 1
+        assert array.shape[0] == len(StateSE3Index)
+        return StateSE3(
+            array[StateSE3Index.X],
+            array[StateSE3Index.Y],
+            array[StateSE3Index.Z],
+            array[StateSE3Index.ROLL],
+            array[StateSE3Index.PITCH],
+            array[StateSE3Index.YAW],
+        )
+
+    @property
+    def array(self) -> npt.NDArray[np.float64]:
+        array = np.zeros(len(StateSE3Index), dtype=np.float64)
+        array[StateSE3Index.X] = self.x
+        array[StateSE3Index.Y] = self.y
+        array[StateSE3Index.Z] = self.z
+        array[StateSE3Index.ROLL] = self.roll
+        array[StateSE3Index.PITCH] = self.pitch
+        array[StateSE3Index.YAW] = self.yaw
+        return array
+
+    @property
+    def state_se2(self) -> StateSE2:
+        return StateSE2(self.x, self.y, self.yaw)

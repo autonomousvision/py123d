@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import warnings
 from collections import defaultdict
+from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 import geopandas as gpd
@@ -9,7 +10,6 @@ import shapely.geometry as geom
 from shapely import wkt
 
 from asim.common.geometry.base import Point2D
-from asim.dataset.dataset_specific.carla.opendrive.elements.opendrive import Path
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.maps.abstract_map_objects import AbstractMapObject
 from asim.dataset.maps.gpkg.gpkg_map_objects import (
