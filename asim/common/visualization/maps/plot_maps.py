@@ -36,13 +36,19 @@ def _plot_map_on_ax_v2(ax: plt.Axes, map_api: AbstractMap, point_2d: Point2D, ra
         MapSurfaceType.CARPARK,
         MapSurfaceType.CROSSWALK,
         MapSurfaceType.INTERSECTION,
+        MapSurfaceType.WALKWAY,
     ]
     # layers: List[MapSurfaceType] = [MapSurfaceType.LANE]
 
     map_objects_dict = map_api.get_proximal_map_objects(point_2d, radius=radius, layers=layers)
     for layer, map_objects in map_objects_dict.items():
         for map_object in map_objects:
-            if layer in [MapSurfaceType.GENERIC_DRIVABLE, MapSurfaceType.CARPARK, MapSurfaceType.CROSSWALK]:
+            if layer in [
+                MapSurfaceType.GENERIC_DRIVABLE,
+                MapSurfaceType.CARPARK,
+                MapSurfaceType.CROSSWALK,
+                MapSurfaceType.WALKWAY,
+            ]:
 
                 ax.fill(
                     *map_object.shapely_polygon.exterior.xy, color=MAP_SURFACE_COLORS[layer].hex, alpha=1.0, zorder=1
@@ -54,6 +60,7 @@ def _plot_map_on_ax_v2(ax: plt.Axes, map_api: AbstractMap, point_2d: Point2D, ra
             if layer in [MapSurfaceType.LANE]:
                 map_object: AbstractLane
                 ax.plot(*map_object.centerline.array[:, :2].T, color="grey", alpha=1.0, linestyle="dashed", zorder=2)
+
     ax.set_title(f"Map: {map_api.map_name}")
 
 

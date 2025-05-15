@@ -46,7 +46,7 @@ class GPKGMap(AbstractMap):
             MapSurfaceType.LANE_GROUP: self._get_lane_group,
             MapSurfaceType.INTERSECTION: self._get_intersection,
             MapSurfaceType.CROSSWALK: self._get_crosswalk,
-            MapSurfaceType.WALKWAY: self._get_generic_drivable,
+            MapSurfaceType.WALKWAY: self._get_walkway,
             MapSurfaceType.CARPARK: self._get_carpark,
             MapSurfaceType.GENERIC_DRIVABLE: self._get_generic_drivable,
         }

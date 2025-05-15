@@ -19,6 +19,13 @@ from asim.dataset.maps.map_datatypes import MapSurfaceType
 # GENERIC_DRIVABLE = 6
 
 
+MAP_FILES = {
+    "sg-one-north": "sg-one-north/9.17.1964/map.gpkg",
+    "us-ma-boston": "us-ma-boston/9.12.1817/map.gpkg",
+    "us-nv-las-vegas-strip": "us-nv-las-vegas-strip/9.15.1915/map.gpkg",
+    "us-pa-pittsburgh-hazelwood": "us-pa-pittsburgh-hazelwood/9.17.1937/map.gpkg",
+}
+
 NUPLAN_MAPS_ROOT = os.environ["NUPLAN_MAPS_ROOT"]
 MAP_LOCATIONS = {"sg-one-north", "us-ma-boston", "us-nv-las-vegas-strip", "us-pa-pittsburgh-hazelwood"}
 GPKG_LAYERS: List[str] = [
@@ -49,15 +56,7 @@ class NuPlanMapConverter:
     def convert(self, map_name: str = "us-pa-pittsburgh-hazelwood") -> None:
         assert map_name in MAP_LOCATIONS, f"Map name {map_name} is not supported."
 
-        # find map.pkg path
-        # TODO: make this more general
-        # map_file_path = Path(NUPLAN_MAPS_ROOT) / "us-pa-pittsburgh-hazelwood" / "9.17.1937" / "map.gpkg"
-        # map_file_path = "/home/daniel/nuplan/dataset/maps/us-nv-las-vegas-strip/9.15.1915/map.gpkg"
-        # map_name = "us-nv-las-vegas-strip"
-        # map_file_path = "/home/daniel/nuplan/dataset/maps/us-ma-boston/9.12.1817/map.gpkg"
-        map_file_path = "/home/daniel/nuplan/dataset/maps/us-pa-pittsburgh-hazelwood/9.17.1937/map.gpkg"
-        # map_file_path = "/home/daniel/nuplan/dataset/maps/sg-one-north/9.17.1964/map.gpkg"
-
+        map_file_path = Path(NUPLAN_MAPS_ROOT) / MAP_FILES[map_name]
         self._load_dataframes(map_file_path)
 
         lane_df = self._extract_lane_dataframe()
