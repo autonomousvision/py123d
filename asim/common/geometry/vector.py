@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+from enum import IntEnum
+
 import numpy as np
 
 from asim.common.geometry.base import Point2D, Point3D
+
+
+class Vector2DIndex(IntEnum):
+    X = 0
+    Y = 1
 
 
 class Vector2D(Point2D):
@@ -21,6 +28,12 @@ class Vector2D(Point2D):
     def magnitude(self) -> float:
         """Calculate the magnitude of the vector."""
         return np.linalg.norm(self.array)
+
+
+class Vector3DIndex(IntEnum):
+    X = 0
+    Y = 1
+    Z = 2
 
 
 class Vector3D(Point3D):

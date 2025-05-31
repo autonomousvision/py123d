@@ -1,10 +1,21 @@
-import glob
-import sqlite3
+import os
 from pathlib import Path
-from typing import Dict, Final, Generator, Iterable, List, Optional
+from typing import Dict, Final, List, Tuple
 
-import pandas as pd
+import pyarrow as pa
+from nuplan.common.geometry.compute import get_pacifica_parameters
+from nuplan.database.nuplan_db_orm.lidar_box import LidarBox
+from nuplan.database.nuplan_db_orm.lidar_pc import LidarPc
+from nuplan.database.nuplan_db_orm.nuplandb import NuPlanDB
+from tqdm import tqdm
 
+from asim.common.geometry.base import StateSE3
+from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3, BoundingBoxSE3Index
+from asim.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
+from asim.common.geometry.vector import Vector3D
+from asim.common.vehicle_state.ego_state import DynamicVehicleState, EgoVehicleState, EgoVehicleStateIndex
+from asim.dataset.arrow.multiple_table import save_arrow_tables
+from asim.dataset.observation.agent_datatypes import BoundingBoxType
 from asim.dataset.observation.traffic_light import TrafficLightStatusType
 
 NUPLAN_DT: Final[float] = 0.05
@@ -26,127 +37,216 @@ NUPLAN_TRAFFIC_STATUS_DICT: Final[Dict[str, TrafficLightStatusType]] = {
     "red": TrafficLightStatusType.RED,
     "unknown": TrafficLightStatusType.UNKNOWN,
 }
+NUPLAN_DETECTION_NAME_DICT = {
+    "vehicle": BoundingBoxType.VEHICLE,
+    "bicycle": BoundingBoxType.BICYCLE,
+    "pedestrian": BoundingBoxType.PEDESTRIAN,
+    "traffic_cone": BoundingBoxType.TRAFFIC_CONE,
+    "barrier": BoundingBoxType.BARRIER,
+    "czone_sign": BoundingBoxType.CZONE_SIGN,
+    "generic_object": BoundingBoxType.GENERIC_OBJECT,
+}
+
+NUPLAN_DATA_ROOT = Path(os.environ["NUPLAN_DATA_ROOT"])
 
 
 class NuPlanDataset:
-    def __init__(self, dataset_path: Path, subfolder: str) -> None:
-        self.base_path: Path = dataset_path / subfolder
+    def __init__(self, output_path: Path, split: str) -> None:
+        assert split in [
+            "train",
+            "val",
+            "test",
+            "mini",
+        ], f"Invalid split: {split}. Must be one of ['train', 'val', 'test', 'mini']."
+        self._log_path: Path = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "splits" / split
 
-        self.connection: sqlite3.Connection = None
-        self.cursor: sqlite3.Cursor = None
+        self._split: str = split
+        self._output_path: Path = output_path
 
-        self.scenes: List[Dict[str, str]] = self._load_scenes()
+    def convert(self, log_name: str) -> None:
 
-    def open_db(self, db_filename: str) -> None:
-        self.connection = sqlite3.connect(str(self.base_path / db_filename))
-        self.connection.row_factory = sqlite3.Row
-        self.cursor = self.connection.cursor()
+        log_path = self._log_path / f"{log_name}.db"
+        if not log_path.exists():
+            raise FileNotFoundError(f"Log path {log_path} does not exist.")
 
-    def execute_query_one(self, query_text: str, query_params: Optional[Iterable] = None) -> sqlite3.Row:
-        self.cursor.execute(query_text, query_params if query_params is not None else [])
-        return self.cursor.fetchone()
+        log_db = NuPlanDB(NUPLAN_DATA_ROOT, str(log_path), None)
 
-    def execute_query_all(self, query_text: str, query_params: Optional[Iterable] = None) -> List[sqlite3.Row]:
-        self.cursor.execute(query_text, query_params if query_params is not None else [])
-        return self.cursor.fetchall()
+        tables: Dict[str, pa.Table] = {}
 
-    def execute_query_iter(
-        self, query_text: str, query_params: Optional[Iterable] = None
-    ) -> Generator[sqlite3.Row, None, None]:
-        self.cursor.execute(query_text, query_params if query_params is not None else [])
+        tables["metadata_table"] = self._get_metadata_table(log_db)
+        tables["recording_table"] = self._get_recording_table(log_db)
 
-        for row in self.cursor:
-            yield row
+        # multi_table = ArrowMultiTableFile(self._output_path / self._split / f"{log_name}.arrow")
+        log_file_path = self._output_path / self._split / f"{log_name}.arrow"
+        if not log_file_path.parent.exists():
+            log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def _load_scenes(self) -> List[Dict[str, str]]:
-        scene_info_query = """
-        SELECT  sc.token AS scene_token,
-                log.location,
-                log.logfile,
-                (
-                    SELECT count(*)
-                    FROM lidar_pc AS lpc
-                    WHERE lpc.scene_token = sc.token
-                ) AS num_timesteps
-        FROM scene AS sc
-        LEFT JOIN log ON sc.log_token = log.token
-        """
-        scenes: List[Dict[str, str]] = []
+        save_arrow_tables(tables, log_file_path)
 
-        for log_filename in glob.glob(str(self.base_path / "*.db")):
-            self.open_db(log_filename)
+    def _get_metadata_table(self, log_db: NuPlanDB) -> pa.Table:
+        import asim
 
-            for row in self.execute_query_iter(scene_info_query):
-                scenes.append(
-                    {
-                        "name": f"{row['logfile']}={row['scene_token'].hex()}",
-                        "location": _NUPLAN_SQL_MAP_FRIENDLY_NAMES_DICT[row["location"]],
-                        "num_timesteps": row["num_timesteps"],
-                    }
-                )
+        metadata = {
+            "recording_id": log_db.log.token,
+            "location": log_db.log.map_version,
+            "vehicle_name": log_db.log.vehicle_name,
+            "version": str(asim.__version__),
+        }
+        metadata_fields = []
+        metadata_values = []
+        for key, value in metadata.items():
+            metadata_fields.append(key)
+            metadata_values.append(pa.scalar(value))
 
-            self.close_db()
+        return pa.Table.from_arrays([pa.array([value]) for value in metadata_values], metadata_fields)
 
-        return scenes
+    def _get_recording_table(self, log_db: NuPlanDB) -> pa.Table:
 
-    def get_scene_frames(self, scene_token_str: str) -> pd.DataFrame:
-        query = """
-        SELECT  lpc.token AS lpc_token,
-                ep.x AS ego_x,
-                ep.y AS ego_y,
-                ep.z AS ego_z,
-                ep.qw AS ego_qw,
-                ep.qx AS ego_qx,
-                ep.qy AS ego_qy,
-                ep.qz AS ego_qz,
-                ep.vx AS ego_vx,
-                ep.vy AS ego_vy,
-                ep.acceleration_x AS ego_ax,
-                ep.acceleration_y AS ego_ay
-        FROM lidar_pc AS lpc
-        LEFT JOIN ego_pose AS ep ON lpc.ego_pose_token = ep.token
-        WHERE scene_token = ?
-        ORDER BY lpc.timestamp ASC;
-        """
-        # log_filename, scene_token_str = scene.name.split("=")
-        scene_token = bytearray.fromhex(scene_token_str)
+        log_db.log.token
+        log_db.log.map_version
+        log_db.log.vehicle_name
 
-        return pd.read_sql_query(query, self.connection, index_col="lpc_token", params=(scene_token,))
+        timestamp_log: List[int] = []
 
-    def get_detected_agents(self, binary_lpc_tokens: List[bytearray]) -> pd.DataFrame:
-        query = f"""
-        SELECT  lb.lidar_pc_token,
-                lb.track_token,
-                (SELECT category.name FROM category WHERE category.token = tr.category_token) AS category_name,
-                tr.width,
-                tr.length,
-                tr.height,
-                lb.x,
-                lb.y,
-                lb.z,
-                lb.vx,
-                lb.vy,
-                lb.yaw
-        FROM lidar_box AS lb
-        LEFT JOIN track AS tr ON lb.track_token = tr.token
-        WHERE lidar_pc_token IN ({('?,'*len(binary_lpc_tokens))[:-1]})
-        """
-        # WHERE lidar_pc_token IN ({('?,'*len(binary_lpc_tokens))[:-1]}) AND category_name IN ('vehicle', 'bicycle', 'pedestrian')
-        return pd.read_sql_query(query, self.connection, params=binary_lpc_tokens)
+        agents_state_log: List[List[List[float]]] = []
+        agents_token_log: List[List[str]] = []
+        agents_type_log: List[List[int]] = []
 
-    def get_traffic_light_status(self, binary_lpc_tokens: List[bytearray]) -> pd.DataFrame:
-        query = f"""
-        SELECT  tls.lidar_pc_token AS lidar_pc_token,
-                tls.lane_connector_id AS lane_id,
-                tls.status AS raw_status
-        FROM traffic_light_status AS tls
-        WHERE lidar_pc_token IN ({('?,'*len(binary_lpc_tokens))[:-1]});
-        """
-        df = pd.read_sql_query(query, self.connection, params=binary_lpc_tokens)
-        df["status"] = df["raw_status"].map(NUPLAN_TRAFFIC_STATUS_DICT)
-        df["lane_id"] = df["lane_id"].astype(str)
-        return df.drop(columns=["raw_status"])
+        ego_states_log: List[List[float]] = []
 
-    def close_db(self) -> None:
-        self.cursor.close()
-        self.connection.close()
+        traffic_light_ids_log: List[List[int]] = []
+        traffic_light_types_log: List[List[int]] = []
+        scenario_tags_log: List[List[str]] = []
+
+        for lidar_pc in tqdm(log_db.lidar_pc, dynamic_ncols=True):
+            lidar_pc_token: str = lidar_pc.token
+
+            # 1. Timestamp (time_us)
+            timestamp_log.append(lidar_pc.timestamp)
+
+            # 2. Non-ego agents
+            agents_state, agents_token, agents_types = _extract_agents(lidar_pc)
+            agents_state_log.append(agents_state)
+            agents_token_log.append(agents_token)
+            agents_type_log.append(agents_types)
+
+            # 3. Ego state
+            ego_states_log.append(_extract_ego_state(lidar_pc))
+
+            # 4. Traffic lights
+            traffic_light_ids, traffic_light_types = _extract_traffic_lights(log_db, lidar_pc_token)
+            traffic_light_ids_log.append(traffic_light_ids)
+            traffic_light_types_log.append(traffic_light_types)
+
+            # 5. Scenario Types
+            scenario_tags_log.append(_extract_scenario_tag(log_db, lidar_pc_token))
+
+        recording_data = {
+            "timestamp": timestamp_log,
+            "agents_state": agents_state_log,
+            "agents_token": agents_token_log,
+            "agents_types": agents_type_log,
+            "ego_states": ego_states_log,
+            "traffic_light_ids": traffic_light_ids_log,
+            "traffic_light_types": traffic_light_types_log,
+            "scenario_tag": scenario_tags_log,
+        }
+
+        # Create a PyArrow Table
+        recording_schema = pa.schema(
+            [
+                ("timestamp", pa.int64()),
+                ("agents_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
+                ("agents_token", pa.list_(pa.string())),
+                ("agents_types", pa.list_(pa.int16())),
+                ("ego_states", pa.list_(pa.float64(), len(EgoVehicleStateIndex))),
+                ("traffic_light_ids", pa.list_(pa.int64())),
+                ("traffic_light_types", pa.list_(pa.int16())),
+                ("scenario_tag", pa.list_(pa.string())),
+            ]
+        )
+        return pa.Table.from_pydict(recording_data, schema=recording_schema)
+
+
+def _extract_agents(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[str], List[int]]:
+    agents_state: List[List[float]] = []
+    agents_token: List[str] = []
+    agents_types: List[int] = []
+
+    for lidar_box in lidar_pc.lidar_boxes:
+        lidar_box: LidarBox
+        center = StateSE3(
+            x=lidar_box.x,
+            y=lidar_box.y,
+            z=lidar_box.z,
+            roll=DEFAULT_ROLL,
+            pitch=DEFAULT_PITCH,
+            yaw=lidar_box.yaw,
+        )
+        bounding_box_se3 = BoundingBoxSE3(center, lidar_box.length, lidar_box.width, lidar_box.height)
+
+        agents_state.append(bounding_box_se3.array)
+        agents_token.append(lidar_box.track_token)
+        agents_types.append(int(NUPLAN_DETECTION_NAME_DICT[lidar_box.category.name]))
+
+    return agents_state, agents_token, agents_types
+
+
+def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
+
+    yaw, pitch, roll = lidar_pc.ego_pose.quaternion.yaw_pitch_roll
+    vehicle_parameters = get_pacifica_parameters()
+    # TODO: Convert rear axle to center
+
+    bounding_box = BoundingBoxSE3(
+        center=StateSE3(
+            x=lidar_pc.ego_pose.x,
+            y=lidar_pc.ego_pose.y,
+            z=lidar_pc.ego_pose.z,
+            roll=roll,
+            pitch=pitch,
+            yaw=yaw,
+        ),
+        length=vehicle_parameters.length,
+        width=vehicle_parameters.width,
+        height=vehicle_parameters.height,
+    )
+    dynamic_state = DynamicVehicleState(
+        velocity=Vector3D(
+            x=lidar_pc.ego_pose.vx,
+            y=lidar_pc.ego_pose.vy,
+            z=lidar_pc.ego_pose.vz,
+        ),
+        acceleration=Vector3D(
+            x=lidar_pc.ego_pose.acceleration_x,
+            y=lidar_pc.ego_pose.acceleration_y,
+            z=lidar_pc.ego_pose.acceleration_z,
+        ),
+        angular_velocity=Vector3D(
+            x=lidar_pc.ego_pose.angular_rate_x,
+            y=lidar_pc.ego_pose.angular_rate_y,
+            z=lidar_pc.ego_pose.angular_rate_z,
+        ),
+    )
+
+    return EgoVehicleState(bounding_box=bounding_box, dynamic_state=dynamic_state).array.tolist()
+
+
+def _extract_traffic_lights(log_db: NuPlanDB, lidar_pc_token: str) -> Tuple[List[int], List[int]]:
+    traffic_light_ids: List[int] = []
+    traffic_light_types: List[int] = []
+    traffic_lights = log_db.traffic_light_status.select_many(lidar_pc_token=lidar_pc_token)
+    for traffic_light in traffic_lights:
+        traffic_light_ids.append(int(traffic_light.lane_connector_id))
+        traffic_light_types.append(int(NUPLAN_TRAFFIC_STATUS_DICT[traffic_light.status].value))
+    return traffic_light_ids, traffic_light_types
+
+
+def _extract_scenario_tag(log_db: NuPlanDB, lidar_pc_token: str) -> List[str]:
+
+    scenario_tags = [
+        scenario_tag.type for scenario_tag in log_db.scenario_tag.select_many(lidar_pc_token=lidar_pc_token)
+    ]
+    if len(scenario_tags) == 0:
+        scenario_tags = ["unknown"]
+    return scenario_tags

@@ -10,15 +10,6 @@ import pyogrio
 from asim.dataset.maps.gpkg.utils import get_all_rows_with_value, get_row_with_value
 from asim.dataset.maps.map_datatypes import MapSurfaceType
 
-# LANE = 0
-# LANE_GROUP = 1
-# INTERSECTION = 2
-# CROSSWALK = 3
-# WALKWAY = 4
-# CARPARK = 5
-# GENERIC_DRIVABLE = 6
-
-
 MAP_FILES = {
     "sg-one-north": "sg-one-north/9.17.1964/map.gpkg",
     "us-ma-boston": "us-ma-boston/9.12.1817/map.gpkg",
