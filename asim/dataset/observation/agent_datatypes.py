@@ -3,7 +3,7 @@ from __future__ import annotations
 from asim.common.utils.enums import SerialIntEnum
 
 
-class BoundingBoxType(SerialIntEnum):
+class DetectionType(SerialIntEnum):
     """
     Enum for agents in asim.
     """

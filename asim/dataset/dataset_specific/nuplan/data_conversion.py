@@ -15,7 +15,7 @@ from asim.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from asim.common.geometry.vector import Vector3D
 from asim.common.vehicle_state.ego_state import DynamicVehicleState, EgoVehicleState, EgoVehicleStateIndex
 from asim.dataset.arrow.multiple_table import save_arrow_tables
-from asim.dataset.observation.agent_datatypes import BoundingBoxType
+from asim.dataset.observation.agent_datatypes import DetectionType
 from asim.dataset.observation.traffic_light import TrafficLightStatusType
 
 NUPLAN_DT: Final[float] = 0.05
@@ -38,13 +38,13 @@ NUPLAN_TRAFFIC_STATUS_DICT: Final[Dict[str, TrafficLightStatusType]] = {
     "unknown": TrafficLightStatusType.UNKNOWN,
 }
 NUPLAN_DETECTION_NAME_DICT = {
-    "vehicle": BoundingBoxType.VEHICLE,
-    "bicycle": BoundingBoxType.BICYCLE,
-    "pedestrian": BoundingBoxType.PEDESTRIAN,
-    "traffic_cone": BoundingBoxType.TRAFFIC_CONE,
-    "barrier": BoundingBoxType.BARRIER,
-    "czone_sign": BoundingBoxType.CZONE_SIGN,
-    "generic_object": BoundingBoxType.GENERIC_OBJECT,
+    "vehicle": DetectionType.VEHICLE,
+    "bicycle": DetectionType.BICYCLE,
+    "pedestrian": DetectionType.PEDESTRIAN,
+    "traffic_cone": DetectionType.TRAFFIC_CONE,
+    "barrier": DetectionType.BARRIER,
+    "czone_sign": DetectionType.CZONE_SIGN,
+    "generic_object": DetectionType.GENERIC_OBJECT,
 }
 
 NUPLAN_DATA_ROOT = Path(os.environ["NUPLAN_DATA_ROOT"])
