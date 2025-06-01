@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
+from typing import Union
 
 import numpy as np
 import numpy.typing as npt
@@ -108,3 +109,6 @@ class BoundingBoxSE3:
     @property
     def shapely_polygon(self) -> shapely.geometry.Polygon:
         return self.bounding_box_se2.shapely_polygon
+
+
+BoundingBox = Union[BoundingBoxSE2, BoundingBoxSE3]

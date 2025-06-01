@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import os
 import warnings
 from collections import defaultdict
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 import geopandas as gpd
 import shapely.geometry as geom
-from shapely import wkt
 
 from asim.common.geometry.base import Point2D
 from asim.dataset.maps.abstract_map import AbstractMap
@@ -21,20 +22,10 @@ from asim.dataset.maps.gpkg.gpkg_map_objects import (
     GPKGLaneGroup,
     GPKGWalkway,
 )
+from asim.dataset.maps.gpkg.utils import load_gdf_with_geometry_columns
 from asim.dataset.maps.map_datatypes import MapSurfaceType
 
 USE_ARROW: bool = True
-
-
-def load_gdf_with_geometry_columns(gdf: gpd.GeoDataFrame, geometry_column_names: List[str] = []):
-
-    # Convert string geometry columns back to shapely objects
-    for col in geometry_column_names:
-        if col in gdf.columns and isinstance(gdf[col].iloc[0], str):
-            try:
-                gdf[col] = gdf[col].apply(lambda x: wkt.loads(x) if isinstance(x, str) else x)
-            except Exception as e:
-                print(f"Warning: Could not convert column {col} to geometry: {str(e)}")
 
 
 class GPKGMap(AbstractMap):
@@ -204,3 +195,11 @@ class GPKGMap(AbstractMap):
             if id in self._gpd_dataframes[MapSurfaceType.GENERIC_DRIVABLE]["id"].tolist()
             else None
         )
+
+
+@lru_cache(maxsize=32)
+def get_map_api_from_names(dataset_name: str, location_name: str) -> GPKGMap:
+    ASIM_MAPS_ROOT = Path(os.environ.get("ASIM_MAPS_ROOT"))
+    gpkg_path = ASIM_MAPS_ROOT / f"{dataset_name}_{location_name}.gpkg"
+    assert gpkg_path.is_file(), f"{dataset_name}_{location_name}.gpkg not found in {str(ASIM_MAPS_ROOT)}."
+    return GPKGMap(gpkg_path)

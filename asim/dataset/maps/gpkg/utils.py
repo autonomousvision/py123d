@@ -1,5 +1,19 @@
+from typing import List
+
 import geopandas as gpd
 import numpy as np
+from shapely import wkt
+
+
+def load_gdf_with_geometry_columns(gdf: gpd.GeoDataFrame, geometry_column_names: List[str] = []):
+    # TODO: refactor
+    # Convert string geometry columns back to shapely objects
+    for col in geometry_column_names:
+        if col in gdf.columns and isinstance(gdf[col].iloc[0], str):
+            try:
+                gdf[col] = gdf[col].apply(lambda x: wkt.loads(x) if isinstance(x, str) else x)
+            except Exception as e:
+                print(f"Warning: Could not convert column {col} to geometry: {str(e)}")
 
 
 def get_all_rows_with_value(

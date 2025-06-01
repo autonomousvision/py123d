@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Set
+
 from asim.common.utils.enums import SerialIntEnum
 
 
@@ -16,3 +18,17 @@ class DetectionType(SerialIntEnum):
     BARRIER = 4  # Solid barriers that can be either temporary or permanent.
     CZONE_SIGN = 5  # Temporary signs that indicate construction zones.
     GENERIC_OBJECT = 6  # Animals, debris, pushable/pullable objects, permanent poles.
+
+
+DYNAMIC_DETECTION_TYPES: Set[DetectionType] = {
+    DetectionType.VEHICLE,
+    DetectionType.BICYCLE,
+    DetectionType.PEDESTRIAN,
+}
+
+STATIC_DETECTION_TYPES: Set[DetectionType] = {
+    DetectionType.TRAFFIC_CONE,
+    DetectionType.BARRIER,
+    DetectionType.CZONE_SIGN,
+    DetectionType.GENERIC_OBJECT,
+}

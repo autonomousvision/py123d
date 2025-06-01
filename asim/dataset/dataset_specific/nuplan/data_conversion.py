@@ -15,8 +15,8 @@ from asim.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from asim.common.geometry.vector import Vector3D
 from asim.common.vehicle_state.ego_state import DynamicVehicleState, EgoVehicleState, EgoVehicleStateIndex
 from asim.dataset.arrow.multiple_table import save_arrow_tables
-from asim.dataset.observation.agent_datatypes import DetectionType
-from asim.dataset.observation.traffic_light import TrafficLightStatusType
+from asim.dataset.observation.detection.detection import TrafficLightStatus
+from asim.dataset.observation.detection.detection_types import DetectionType
 
 NUPLAN_DT: Final[float] = 0.05
 NUPLAN_FULL_MAP_NAME_DICT: Final[Dict[str, str]] = {
@@ -32,10 +32,10 @@ _NUPLAN_SQL_MAP_FRIENDLY_NAMES_DICT: Final[Dict[str, str]] = {
     "us-pa-pittsburgh-hazelwood": "pittsburgh",
 }
 
-NUPLAN_TRAFFIC_STATUS_DICT: Final[Dict[str, TrafficLightStatusType]] = {
-    "green": TrafficLightStatusType.GREEN,
-    "red": TrafficLightStatusType.RED,
-    "unknown": TrafficLightStatusType.UNKNOWN,
+NUPLAN_TRAFFIC_STATUS_DICT: Final[Dict[str, TrafficLightStatus]] = {
+    "green": TrafficLightStatus.GREEN,
+    "red": TrafficLightStatus.RED,
+    "unknown": TrafficLightStatus.UNKNOWN,
 }
 NUPLAN_DETECTION_NAME_DICT = {
     "vehicle": DetectionType.VEHICLE,
@@ -108,9 +108,9 @@ class NuPlanDataset:
 
         timestamp_log: List[int] = []
 
-        agents_state_log: List[List[List[float]]] = []
-        agents_token_log: List[List[str]] = []
-        agents_type_log: List[List[int]] = []
+        detections_state_log: List[List[List[float]]] = []
+        detections_token_log: List[List[str]] = []
+        detections_type_log: List[List[int]] = []
 
         ego_states_log: List[List[float]] = []
 
@@ -125,10 +125,10 @@ class NuPlanDataset:
             timestamp_log.append(lidar_pc.timestamp)
 
             # 2. Non-ego agents
-            agents_state, agents_token, agents_types = _extract_agents(lidar_pc)
-            agents_state_log.append(agents_state)
-            agents_token_log.append(agents_token)
-            agents_type_log.append(agents_types)
+            detections_state, detections_token, detections_types = _extract_detections(lidar_pc)
+            detections_state_log.append(detections_state)
+            detections_token_log.append(detections_token)
+            detections_type_log.append(detections_types)
 
             # 3. Ego state
             ego_states_log.append(_extract_ego_state(lidar_pc))
@@ -143,9 +143,9 @@ class NuPlanDataset:
 
         recording_data = {
             "timestamp": timestamp_log,
-            "agents_state": agents_state_log,
-            "agents_token": agents_token_log,
-            "agents_types": agents_type_log,
+            "agents_state": detections_state_log,
+            "agents_token": detections_token_log,
+            "agents_types": detections_type_log,
             "ego_states": ego_states_log,
             "traffic_light_ids": traffic_light_ids_log,
             "traffic_light_types": traffic_light_types_log,
@@ -168,10 +168,10 @@ class NuPlanDataset:
         return pa.Table.from_pydict(recording_data, schema=recording_schema)
 
 
-def _extract_agents(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[str], List[int]]:
-    agents_state: List[List[float]] = []
-    agents_token: List[str] = []
-    agents_types: List[int] = []
+def _extract_detections(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[str], List[int]]:
+    detections_state: List[List[float]] = []
+    detections_token: List[str] = []
+    detections_types: List[int] = []
 
     for lidar_box in lidar_pc.lidar_boxes:
         lidar_box: LidarBox
@@ -185,11 +185,11 @@ def _extract_agents(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[str], Li
         )
         bounding_box_se3 = BoundingBoxSE3(center, lidar_box.length, lidar_box.width, lidar_box.height)
 
-        agents_state.append(bounding_box_se3.array)
-        agents_token.append(lidar_box.track_token)
-        agents_types.append(int(NUPLAN_DETECTION_NAME_DICT[lidar_box.category.name]))
+        detections_state.append(bounding_box_se3.array)
+        detections_token.append(lidar_box.track_token)
+        detections_types.append(int(NUPLAN_DETECTION_NAME_DICT[lidar_box.category.name]))
 
-    return agents_state, agents_token, agents_types
+    return detections_state, detections_token, detections_types
 
 
 def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
