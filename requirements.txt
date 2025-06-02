@@ -38,6 +38,7 @@ tqdm
 ujson
 notebook
 pre-commit
+cachetools
 
 # asim
 lxml

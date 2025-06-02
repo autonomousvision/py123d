@@ -13,7 +13,7 @@ from asim.common.geometry.base import StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3, BoundingBoxSE3Index
 from asim.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from asim.common.geometry.vector import Vector3D
-from asim.common.vehicle_state.ego_state import DynamicVehicleState, EgoVehicleState, EgoVehicleStateIndex
+from asim.common.vehicle_state.ego_vehicle_state import DynamicVehicleState, EgoVehicleState, EgoVehicleStateIndex
 from asim.dataset.arrow.multiple_table import save_arrow_tables
 from asim.dataset.observation.detection.detection import TrafficLightStatus
 from asim.dataset.observation.detection.detection_types import DetectionType
@@ -87,7 +87,7 @@ class NuPlanDataset:
         import asim
 
         metadata = {
-            "recording_id": log_db.log.token,
+            "dataset": "nuplan",
             "location": log_db.log.map_version,
             "vehicle_name": log_db.log.vehicle_name,
             "version": str(asim.__version__),
@@ -124,7 +124,7 @@ class NuPlanDataset:
             # 1. Timestamp (time_us)
             timestamp_log.append(lidar_pc.timestamp)
 
-            # 2. Non-ego agents
+            # 2. box detections
             detections_state, detections_token, detections_types = _extract_detections(lidar_pc)
             detections_state_log.append(detections_state)
             detections_token_log.append(detections_token)
@@ -143,9 +143,9 @@ class NuPlanDataset:
 
         recording_data = {
             "timestamp": timestamp_log,
-            "agents_state": detections_state_log,
-            "agents_token": detections_token_log,
-            "agents_types": detections_type_log,
+            "detections_state": detections_state_log,
+            "detections_token": detections_token_log,
+            "detections_type": detections_type_log,
             "ego_states": ego_states_log,
             "traffic_light_ids": traffic_light_ids_log,
             "traffic_light_types": traffic_light_types_log,
@@ -156,9 +156,9 @@ class NuPlanDataset:
         recording_schema = pa.schema(
             [
                 ("timestamp", pa.int64()),
-                ("agents_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
-                ("agents_token", pa.list_(pa.string())),
-                ("agents_types", pa.list_(pa.int16())),
+                ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
+                ("detections_token", pa.list_(pa.string())),
+                ("detections_type", pa.list_(pa.int16())),
                 ("ego_states", pa.list_(pa.float64(), len(EgoVehicleStateIndex))),
                 ("traffic_light_ids", pa.list_(pa.int64())),
                 ("traffic_light_types", pa.list_(pa.int16())),

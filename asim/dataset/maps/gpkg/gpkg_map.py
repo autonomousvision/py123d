@@ -198,8 +198,8 @@ class GPKGMap(AbstractMap):
 
 
 @lru_cache(maxsize=32)
-def get_map_api_from_names(dataset_name: str, location_name: str) -> GPKGMap:
+def get_map_api_from_names(dataset: str, location: str) -> GPKGMap:
     ASIM_MAPS_ROOT = Path(os.environ.get("ASIM_MAPS_ROOT"))
-    gpkg_path = ASIM_MAPS_ROOT / f"{dataset_name}_{location_name}.gpkg"
-    assert gpkg_path.is_file(), f"{dataset_name}_{location_name}.gpkg not found in {str(ASIM_MAPS_ROOT)}."
+    gpkg_path = ASIM_MAPS_ROOT / f"{dataset}_{location}.gpkg"
+    assert gpkg_path.is_file(), f"{dataset}_{location}.gpkg not found in {str(ASIM_MAPS_ROOT)}."
     return GPKGMap(gpkg_path)

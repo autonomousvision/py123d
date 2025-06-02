@@ -12,7 +12,7 @@ from asim.dataset.observation.detection.detection_types import DetectionType
 
 
 @dataclass
-class DetectionMetdata:
+class DetectionMetadata:
 
     detection_type: DetectionType
     timepoint: TimePoint
@@ -23,15 +23,15 @@ class DetectionMetdata:
 @dataclass
 class BoxDetectionSE2:
 
-    metadata: DetectionMetdata
-    bounding_box_se3: BoundingBoxSE2
+    metadata: DetectionMetadata
+    bounding_box_se2: BoundingBoxSE2
     velocity: Optional[Vector2D] = None
 
 
 @dataclass
 class BoxDetectionSE3:
 
-    metadata: DetectionMetdata
+    metadata: DetectionMetadata
     bounding_box_se3: BoundingBoxSE3
     velocity: Optional[Vector3D] = None
 

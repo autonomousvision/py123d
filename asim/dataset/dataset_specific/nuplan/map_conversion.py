@@ -40,8 +40,9 @@ GPKG_LAYERS: List[str] = [
 
 
 class NuPlanMapConverter:
-    def __init__(self):
+    def __init__(self, map_path: Path) -> None:
 
+        self._map_path: Path = map_path
         self._gdf: Optional[Dict[str, gpd.GeoDataFrame]] = None
 
     def convert(self, map_name: str = "us-pa-pittsburgh-hazelwood") -> None:
@@ -58,7 +59,10 @@ class NuPlanMapConverter:
         carpark_df = self._extract_carpark_dataframe()
         generic_drivable_df = self._extract_generic_drivable_dataframe()
 
-        map_file_name = f"nuplan_{map_name}.gpkg"
+        if not self._map_path.exists():
+            self._map_path.mkdir(parents=True, exist_ok=True)
+
+        map_file_name = self._map_path / f"nuplan_{map_name}.gpkg"
         lane_df.to_file(map_file_name, layer=MapSurfaceType.LANE.serialize(), driver="GPKG")
         lane_group_df.to_file(map_file_name, layer=MapSurfaceType.LANE_GROUP.serialize(), driver="GPKG", mode="a")
         intersection_df.to_file(map_file_name, layer=MapSurfaceType.INTERSECTION.serialize(), driver="GPKG", mode="a")
