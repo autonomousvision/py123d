@@ -60,7 +60,10 @@ class GPKGMap(AbstractMap):
                 self._gpd_dataframes[map_layer] = gpd.read_file(
                     self._file_path, layer=map_layer_name, use_arrow=USE_ARROW
                 )
-                load_gdf_with_geometry_columns(self._gpd_dataframes[map_layer], geometry_column_names=["baseline_path"])
+                load_gdf_with_geometry_columns(
+                    self._gpd_dataframes[map_layer],
+                    geometry_column_names=["baseline_path", "right_boundary", "left_boundary"],
+                )
             else:
                 warnings.warn(f"GPKGMap: {map_layer_name} not available in {str(self._file_path)}")
 

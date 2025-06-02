@@ -222,3 +222,7 @@ class StateSE3:
     @property
     def state_se2(self) -> StateSE2:
         return StateSE2(self.x, self.y, self.yaw)
+
+    @property
+    def point_3d(self) -> Point3D:
+        return Point3D(self.x, self.y, self.z)
