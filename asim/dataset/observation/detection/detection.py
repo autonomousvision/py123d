@@ -27,6 +27,10 @@ class BoxDetectionSE2:
     bounding_box_se2: BoundingBoxSE2
     velocity: Optional[Vector2D] = None
 
+    @property
+    def shapely_polygon(self):
+        return self.bounding_box_se2.shapely_polygon
+
 
 @dataclass
 class BoxDetectionSE3:
@@ -35,12 +39,19 @@ class BoxDetectionSE3:
     bounding_box_se3: BoundingBoxSE3
     velocity: Optional[Vector3D] = None
 
+    @property
+    def shapely_polygon(self):
+        return self.bounding_box_se3.shapely_polygon
+
 
 BoxDetection = Union[BoxDetectionSE2, BoxDetectionSE3]
 
 
 @dataclass
 class BoxDetectionWrapper:
+    # TODO:
+    # - Add occupancy map property
+
     box_detections: List[BoxDetection]
 
 
