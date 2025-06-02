@@ -1,14 +1,21 @@
 from functools import lru_cache
-from typing import Any, Dict
+from typing import Union
 
 import matplotlib.pyplot as plt
+import numpy as np
+import shapely.affinity as affinity
 import shapely.geometry as geom
 
+from asim.common.geometry.base import StateSE2, StateSE3
 from asim.common.visualization.color.color import WHITE
 from asim.common.visualization.color.config import PlotConfig
 
 
-def add_shapely_polygon_to_ax(ax: plt.Axes, polygon: geom.Polygon, plot_config: PlotConfig) -> plt.Axes:
+def add_shapely_polygon_to_ax(
+    ax: plt.Axes,
+    polygon: geom.Polygon,
+    plot_config: PlotConfig,
+) -> plt.Axes:
     """
     Adds shapely polygon to birds-eye-view visualization
     :param ax: matplotlib ax object
@@ -19,6 +26,8 @@ def add_shapely_polygon_to_ax(ax: plt.Axes, polygon: geom.Polygon, plot_config: 
 
     def _add_element_helper(element: geom.Polygon):
         """Helper to add single polygon to ax"""
+        if plot_config.smoothing_radius is not None:
+            element = element.buffer(-plot_config.smoothing_radius).buffer(plot_config.smoothing_radius)
         exterior_x, exterior_y = element.exterior.xy
         ax.fill(
             exterior_x,
@@ -53,10 +62,10 @@ def add_shapely_polygon_to_ax(ax: plt.Axes, polygon: geom.Polygon, plot_config: 
     return ax
 
 
-def add_linestring_to_ax(
+def add_shapely_linestring_to_ax(
     ax: plt.Axes,
     linestring: geom.LineString,
-    config: Dict[str, Any],
+    plot_config: PlotConfig,
 ) -> plt.Axes:
     """
     Adds shapely linestring (polyline) to birds-eye-view visualization
@@ -68,39 +77,38 @@ def add_linestring_to_ax(
 
     x, y = linestring.xy
     ax.plot(
-        y,
         x,
-        color=config["line_color"].hex,
-        alpha=config["line_color_alpha"],
-        linewidth=config["line_width"],
-        linestyle=config["line_style"],
-        zorder=config["zorder"],
+        y,
+        color=plot_config.line_color.hex,
+        alpha=plot_config.line_color_alpha,
+        linewidth=plot_config.line_width,
+        linestyle=plot_config.line_style,
+        zorder=plot_config.zorder,
     )
     return ax
 
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=32)
 def get_pose_triangle(size: float) -> geom.Polygon:
     """Create a triangle shape for the pose."""
     half_size = size / 2
     return geom.Polygon(
         [
             [-half_size, -half_size],
-            [0, half_size],
-            [half_size, -half_size],
-            [0, -size / 4],
+            [half_size, 0],
+            [-half_size, half_size],
+            [-size / 4, 0],
         ]
     )
 
 
-# def _geometry_local_coords(geometry: Any, origin: StateSE2) -> Any:
-#     """Helper for transforming shapely geometry in coord-frame"""
-#     a = np.cos(origin.heading)
-#     b = np.sin(origin.heading)
-#     d = -np.sin(origin.heading)
-#     e = np.cos(origin.heading)
-#     xoff = -origin.x
-#     yoff = -origin.y
-#     translated_geometry = affinity.affine_transform(geometry, [1, 0, 0, 1, xoff, yoff])
-#     rotated_geometry = affinity.affine_transform(translated_geometry, [a, b, d, e, 0, 0])
-#     return rotated_geometry
+def shapely_geometry_local_coords(
+    geometry: geom.base.BaseGeometry, origin: Union[StateSE2, StateSE3]
+) -> geom.base.BaseGeometry:
+    """Helper for transforming shapely geometry in coord-frame"""
+    # TODO: move somewhere else for general use
+    cos, sin = np.cos(-origin.yaw), np.sin(-origin.yaw)
+    xoff, yoff = origin.x, origin.y
+    rotated_geometry = affinity.affine_transform(geometry, [cos, sin, -sin, cos, 0, 0])
+    translated_geometry = affinity.affine_transform(rotated_geometry, [1, 0, 0, 1, xoff, yoff])
+    return translated_geometry
