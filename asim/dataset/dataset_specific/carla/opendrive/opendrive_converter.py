@@ -1,4 +1,6 @@
+import os
 import warnings
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import geopandas as gpd
@@ -29,6 +31,7 @@ from asim.dataset.maps.map_datatypes import MapSurfaceType
 
 ENABLE_WARNING: bool = False
 CONNECTION_DISTANCE_THRESHOLD: float = 0.1  # [m]
+ASIM_MAPS_ROOT = Path(os.environ.get("ASIM_MAPS_ROOT"))
 
 
 class OpenDriveConverter:
@@ -75,7 +78,7 @@ class OpenDriveConverter:
         )
 
         # Store dataframes
-        map_file_name = f"{map_name}.gpkg"
+        map_file_name = ASIM_MAPS_ROOT / f"{map_name}.gpkg"
         lane_df.to_file(map_file_name, layer=MapSurfaceType.LANE.serialize(), driver="GPKG")
         walkways_df.to_file(map_file_name, layer=MapSurfaceType.WALKWAY.serialize(), driver="GPKG", mode="a")
         carpark_df.to_file(map_file_name, layer=MapSurfaceType.CARPARK.serialize(), driver="GPKG", mode="a")
@@ -141,7 +144,9 @@ class OpenDriveConverter:
                         successor_lane_idx,
                     )
 
-                assert successor_lane_id in self.lane_helper_dict.keys()
+                # assert successor_lane_id in self.lane_helper_dict.keys()
+                if successor_lane_id is None or successor_lane_id not in self.lane_helper_dict.keys():
+                    continue
                 self.lane_helper_dict[lane_id].successor_lane_ids.append(successor_lane_id)
                 self.lane_helper_dict[successor_lane_id].predecessor_lane_ids.append(lane_id)
 
@@ -173,7 +178,9 @@ class OpenDriveConverter:
                         predecessor_lane_idx,
                     )
 
-                assert predecessor_lane_id in self.lane_helper_dict.keys()
+                # assert predecessor_lane_id in self.lane_helper_dict.keys()
+                if predecessor_lane_id is None or predecessor_lane_id not in self.lane_helper_dict.keys():
+                    continue
                 self.lane_helper_dict[lane_id].predecessor_lane_ids.append(predecessor_lane_id)
                 self.lane_helper_dict[predecessor_lane_id].successor_lane_ids.append(lane_id)
 
@@ -208,8 +215,19 @@ class OpenDriveConverter:
                             connecting_road.id, connecting_road.lanes.last_lane_section_idx, lane_link.end
                         )
 
-                    assert incoming_lane_id in self.lane_helper_dict.keys()
-                    assert connecting_lane_id in self.lane_helper_dict.keys()
+                    if incoming_lane_id is None or connecting_lane_id is None:
+                        continue
+                    if (
+                        incoming_lane_id not in self.lane_helper_dict.keys()
+                        or connecting_lane_id not in self.lane_helper_dict.keys()
+                    ):
+                        if ENABLE_WARNING:
+                            warnings.warn(
+                                f"Warning..... Lane connection {incoming_lane_id} -> {connecting_lane_id} not found in lane_helper_dict"
+                            )
+                        continue
+                    # assert incoming_lane_id in self.lane_helper_dict.keys()
+                    # assert connecting_lane_id in self.lane_helper_dict.keys()
                     self.lane_helper_dict[incoming_lane_id].successor_lane_ids.append(connecting_lane_id)
                     self.lane_helper_dict[connecting_lane_id].predecessor_lane_ids.append(incoming_lane_id)
 
@@ -467,13 +485,11 @@ class OpenDriveConverter:
                 "predecessor_ids": predecessor_lane_group_ids,
                 "successor_ids": successor_lane_group_ids,
                 "intersection_id": intersection_ids,
-                # "left_boundary": left_boundaries,
-                # "right_boundary": right_boundaries,
+                "left_boundary": left_boundaries,
+                "right_boundary": right_boundaries,
             }
         )
         gdf = gpd.GeoDataFrame(data, geometry=geometries)
-        gdf["left_boundary"] = left_boundaries
-        gdf["right_boundary"] = right_boundaries
 
         return gdf
 

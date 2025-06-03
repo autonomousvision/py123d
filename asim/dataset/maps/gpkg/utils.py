@@ -9,7 +9,7 @@ def load_gdf_with_geometry_columns(gdf: gpd.GeoDataFrame, geometry_column_names:
     # TODO: refactor
     # Convert string geometry columns back to shapely objects
     for col in geometry_column_names:
-        if col in gdf.columns and isinstance(gdf[col].iloc[0], str):
+        if col in gdf.columns and len(gdf) > 0 and isinstance(gdf[col].iloc[0], str):
             try:
                 gdf[col] = gdf[col].apply(lambda x: wkt.loads(x) if isinstance(x, str) else x)
             except Exception as e:

@@ -118,7 +118,7 @@ class NuPlanDataset:
         traffic_light_types_log: List[List[int]] = []
         scenario_tags_log: List[List[str]] = []
 
-        for lidar_pc in tqdm(log_db.lidar_pc, dynamic_ncols=True):
+        for lidar_pc in tqdm(log_db.lidar_pc[::2], dynamic_ncols=True):
             lidar_pc_token: str = lidar_pc.token
 
             # 1. Timestamp (time_us)
