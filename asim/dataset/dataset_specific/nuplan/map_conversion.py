@@ -4,8 +4,10 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import pyogrio
+from shapely.geometry import LineString
 
 from asim.dataset.maps.gpkg.utils import get_all_rows_with_value, get_row_with_value
 from asim.dataset.maps.map_datatypes import MapSurfaceType
@@ -137,14 +139,18 @@ class NuPlanMapConverter:
             lane_series = get_row_with_value(self._gdf["lanes_polygons"], "fid", str(lane_id))
             left_boundary_fid = lane_series["left_boundary_fid"]
             left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
-            left_boundaries.append(left_boundary)
 
             right_boundary_fid = lane_series["right_boundary_fid"]
             right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
-            right_boundaries.append(right_boundary)
 
             # 3. baseline_paths
             baseline_path = get_row_with_value(self._gdf["baseline_paths"], "lane_fid", float(lane_id))["geometry"]
+
+            left_boundary = align_boundary_direction(baseline_path, left_boundary)
+            right_boundary = align_boundary_direction(baseline_path, right_boundary)
+
+            left_boundaries.append(left_boundary)
+            right_boundaries.append(right_boundary)
             baseline_paths.append(baseline_path)
 
         data = pd.DataFrame(
@@ -189,16 +195,20 @@ class NuPlanMapConverter:
             )
             left_boundary_fid = lane_connector_polygons_row["left_boundary_fid"]
             left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
-            left_boundaries.append(left_boundary)
 
             right_boundary_fid = lane_connector_polygons_row["right_boundary_fid"]
             right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
-            right_boundaries.append(right_boundary)
 
             # 3. baseline_paths
             baseline_path = get_row_with_value(self._gdf["baseline_paths"], "lane_connector_fid", float(lane_id))[
                 "geometry"
             ]
+
+            left_boundary = align_boundary_direction(baseline_path, left_boundary)
+            right_boundary = align_boundary_direction(baseline_path, right_boundary)
+
+            left_boundaries.append(left_boundary)
+            right_boundaries.append(right_boundary)
             baseline_paths.append(baseline_path)
 
             # 4. geometries
@@ -362,3 +372,26 @@ class NuPlanMapConverter:
         # NOTE: drops: creator_id
         data = pd.DataFrame({"id": self._gdf["generic_drivable_areas"].fid.to_list()})
         return gpd.GeoDataFrame(data, geometry=self._gdf["generic_drivable_areas"].geometry.to_list())
+
+
+def flip_linestring(linestring: LineString) -> LineString:
+    return LineString(linestring.coords[::-1])
+
+
+def lines_same_direction(centerline: LineString, boundary: LineString) -> bool:
+    center_start = np.array(centerline.coords[0])
+    center_end = np.array(centerline.coords[-1])
+    boundary_start = np.array(boundary.coords[0])
+    boundary_end = np.array(boundary.coords[-1])
+
+    # Distance from centerline start to boundary start + centerline end to boundary end
+    same_dir_dist = np.linalg.norm(center_start - boundary_start) + np.linalg.norm(center_end - boundary_end)
+    opposite_dir_dist = np.linalg.norm(center_start - boundary_end) + np.linalg.norm(center_end - boundary_start)
+
+    return same_dir_dist <= opposite_dir_dist
+
+
+def align_boundary_direction(centerline: LineString, boundary: LineString) -> LineString:
+    if not lines_same_direction(centerline, boundary):
+        return flip_linestring(boundary)
+    return boundary
