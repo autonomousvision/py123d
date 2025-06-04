@@ -3,13 +3,13 @@ nuplan-devkit @ git+https://github.com/motional/nuplan-devkit/@nuplan-devkit-v1.
 # nuplan requirements
 aioboto3
 aiofiles
-bokeh==2.4.3
+bokeh
 casadi
-control==0.9.1
+control
 Fiona
-geopandas>=0.12.1
-guppy3==3.1.2
-hydra-core==1.1.0rc1
+geopandas
+guppy3
+hydra-core
 joblib
 matplotlib
 nest_asyncio
@@ -21,7 +21,7 @@ psutil
 pyarrow
 pyinstrument
 pyogrio
-pyquaternion>=0.9.5
+pyquaternion
 pytest
 rasterio
 ray
@@ -29,8 +29,8 @@ retry
 rtree
 scipy
 selenium
-setuptools==65.5.1
-Shapely==2.0.7
+setuptools
+shapely==2.1.1
 SQLAlchemy==1.4.27
 sympy
 tornado
@@ -40,8 +40,11 @@ notebook
 pre-commit
 cachetools
 
+
 # asim
 lxml
+trimesh
+viser
 
 # torch & lighting
 torch==2.6.0
