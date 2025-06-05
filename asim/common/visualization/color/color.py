@@ -4,7 +4,7 @@ from typing import Dict, Tuple
 from PIL import ImageColor
 
 
-@dataclass
+@dataclass(frozen=True)
 class Color:
 
     hex: str

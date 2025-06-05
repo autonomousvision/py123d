@@ -25,18 +25,25 @@ def add_default_map_on_ax(ax: plt.Axes, map_api: AbstractMap, point_2d: Point2D,
     map_objects_dict = map_api.get_proximal_map_objects(point_2d, radius=radius, layers=layers)
     for layer, map_objects in map_objects_dict.items():
         for map_object in map_objects:
-            if layer in [
-                MapSurfaceType.LANE_GROUP,
-                MapSurfaceType.GENERIC_DRIVABLE,
-                MapSurfaceType.CARPARK,
-                MapSurfaceType.CROSSWALK,
-                MapSurfaceType.INTERSECTION,
-                MapSurfaceType.WALKWAY,
-            ]:
-                add_shapely_polygon_to_ax(ax, map_object.shapely_polygon, MAP_SURFACE_CONFIG[layer])
-            if layer in [MapSurfaceType.LANE]:
-                map_object: AbstractLane
-                add_shapely_linestring_to_ax(ax, map_object.centerline.linestring, CENTERLINE_CONFIG)
+            try:
+                if layer in [
+                    MapSurfaceType.LANE_GROUP,
+                    MapSurfaceType.GENERIC_DRIVABLE,
+                    MapSurfaceType.CARPARK,
+                    MapSurfaceType.CROSSWALK,
+                    MapSurfaceType.INTERSECTION,
+                    MapSurfaceType.WALKWAY,
+                ]:
+                    add_shapely_polygon_to_ax(ax, map_object.shapely_polygon, MAP_SURFACE_CONFIG[layer])
+                if layer in [MapSurfaceType.LANE]:
+                    map_object: AbstractLane
+                    add_shapely_linestring_to_ax(ax, map_object.centerline.linestring, CENTERLINE_CONFIG)
+            except Exception:
+                import traceback
+
+                print(f"Error adding map object of type {layer.name} and id {map_object.id}")
+                traceback.print_exc()
+
                 # ax.plot(*map_object.centerline.array[:, :2].T, color="grey", alpha=1.0, linestyle="dashed", zorder=2)
 
     ax.set_title(f"Map: {map_api.map_name}")
