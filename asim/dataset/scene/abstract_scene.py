@@ -15,6 +15,10 @@ class AbstractScene(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def get_number_of_iterations(self) -> int:
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def get_timepoint_at_iteration(self, iteration: int) -> TimePoint:
         raise NotImplementedError
 

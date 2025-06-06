@@ -31,6 +31,9 @@ class ArrowScene(AbstractScene):
     def map_api(self) -> AbstractMap:
         return self._map_api
 
+    def get_number_of_iterations(self) -> int:
+        return len(self._recording_table)
+
     def get_timepoint_at_iteration(self, iteration: int) -> TimePoint:
         return get_timepoint_from_arrow_table(self._recording_table, iteration)
 

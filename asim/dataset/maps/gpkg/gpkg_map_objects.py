@@ -59,7 +59,6 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
         outline_3d_array = self.outline_3d.array
         _, faces = trimesh.creation.triangulate_polygon(geom.Polygon(outline_3d_array[:, Point3DIndex.XY]))
         # NOTE: Optional add color information to the mesh
-        print(outline_3d_array.shape, faces.shape, np.array(self.shapely_polygon.exterior.coords).shape)
         return trimesh.Trimesh(vertices=outline_3d_array, faces=faces)
 
 
