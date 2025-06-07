@@ -5,8 +5,11 @@ from functools import cached_property
 from typing import List, Optional
 
 import geopandas as gpd
+import numpy as np
 import shapely.geometry as geom
+import trimesh
 
+from asim.common.geometry.base import Point3DIndex
 from asim.common.geometry.line.polylines import Polyline3D
 from asim.dataset.maps.abstract_map_objects import (
     AbstractCarpark,
@@ -44,6 +47,19 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
     @cached_property
     def _object_row(self) -> gpd.GeoSeries:
         return get_row_with_value(self._object_df, "id", self.id)
+
+    @cached_property
+    def outline_3d(self) -> Polyline3D:
+        """Inherited, see superclass."""
+        return Polyline3D.from_linestring(geom.LineString(self.shapely_polygon.exterior.coords))
+
+    @property
+    def trimesh_mesh(self) -> trimesh.Trimesh:
+        """Inherited, see superclass."""
+        outline_3d_array = self.outline_3d.array
+        _, faces = trimesh.creation.triangulate_polygon(geom.Polygon(outline_3d_array[:, Point3DIndex.XY]))
+        # NOTE: Optional add color information to the mesh
+        return trimesh.Trimesh(vertices=outline_3d_array, faces=faces)
 
 
 class GPKGLane(GPKGSurfaceObject, AbstractLane):
@@ -89,6 +105,13 @@ class GPKGLane(GPKGSurfaceObject, AbstractLane):
     def centerline(self) -> Polyline3D:
         """Inherited, see superclass."""
         return Polyline3D.from_linestring(self._object_row.baseline_path)
+
+    @property
+    def outline_3d(self) -> Polyline3D:
+        """Inherited, see superclass."""
+        outline_array = np.vstack((self.left_boundary.array, self.right_boundary.array[::-1]))
+        outline_array = np.vstack((outline_array, outline_array[0]))
+        return Polyline3D.from_linestring(geom.LineString(outline_array))
 
     @property
     def lane_group(self) -> GPKGLaneGroup:
@@ -137,9 +160,15 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
         return Polyline3D.from_linestring(self._object_row.right_boundary)
 
     @property
+    def outline_3d(self) -> Polyline3D:
+        """Inherited, see superclass."""
+        outline_array = np.vstack((self.left_boundary.array, self.right_boundary.array[::-1]))
+        return Polyline3D.from_linestring(geom.LineString(outline_array))
+
+    @property
     def lanes(self) -> List[GPKGLane]:
         """Inherited, see superclass."""
-        lane_ids = ast.literal_eval(self._object_row.predecessor_ids)
+        lane_ids = ast.literal_eval(self._object_row.lane_ids)
         return [
             GPKGLane(
                 lane_id,
@@ -181,15 +210,15 @@ class GPKGIntersection(GPKGSurfaceObject, AbstractIntersection):
     @property
     def lane_groups(self) -> List[GPKGLaneGroup]:
         """Inherited, see superclass."""
-        lane_group_ids = ast.literal_eval(self._object_row.predecessor_ids)
+        lane_group_ids = ast.literal_eval(self._object_row.lane_group_ids)
         return [
-            GPKGLane(
-                lane_id,
+            GPKGLaneGroup(
+                lane_group_id,
+                self._lane_group_df,
                 self._lane_df,
                 self._object_df,
-                self._intersection_df,
             )
-            for lane_id in lane_group_ids
+            for lane_group_id in lane_group_ids
         ]
 
 

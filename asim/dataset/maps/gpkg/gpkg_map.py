@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import os
 import warnings
 from collections import defaultdict
+from functools import lru_cache
+from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 import geopandas as gpd
 import shapely.geometry as geom
 
 from asim.common.geometry.base import Point2D
-from asim.dataset.dataset_specific.carla.opendrive.elements.opendrive import Path
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.maps.abstract_map_objects import AbstractMapObject
 from asim.dataset.maps.gpkg.gpkg_map_objects import (
@@ -20,6 +22,7 @@ from asim.dataset.maps.gpkg.gpkg_map_objects import (
     GPKGLaneGroup,
     GPKGWalkway,
 )
+from asim.dataset.maps.gpkg.utils import load_gdf_with_geometry_columns
 from asim.dataset.maps.map_datatypes import MapSurfaceType
 
 USE_ARROW: bool = True
@@ -34,7 +37,7 @@ class GPKGMap(AbstractMap):
             MapSurfaceType.LANE_GROUP: self._get_lane_group,
             MapSurfaceType.INTERSECTION: self._get_intersection,
             MapSurfaceType.CROSSWALK: self._get_crosswalk,
-            MapSurfaceType.WALKWAY: self._get_generic_drivable,
+            MapSurfaceType.WALKWAY: self._get_walkway,
             MapSurfaceType.CARPARK: self._get_carpark,
             MapSurfaceType.GENERIC_DRIVABLE: self._get_generic_drivable,
         }
@@ -56,6 +59,10 @@ class GPKGMap(AbstractMap):
             if map_layer_name in available_layers:
                 self._gpd_dataframes[map_layer] = gpd.read_file(
                     self._file_path, layer=map_layer_name, use_arrow=USE_ARROW
+                )
+                load_gdf_with_geometry_columns(
+                    self._gpd_dataframes[map_layer],
+                    geometry_column_names=["baseline_path", "right_boundary", "left_boundary"],
                 )
             else:
                 warnings.warn(f"GPKGMap: {map_layer_name} not available in {str(self._file_path)}")
@@ -191,3 +198,11 @@ class GPKGMap(AbstractMap):
             if id in self._gpd_dataframes[MapSurfaceType.GENERIC_DRIVABLE]["id"].tolist()
             else None
         )
+
+
+@lru_cache(maxsize=32)
+def get_map_api_from_names(dataset: str, location: str) -> GPKGMap:
+    ASIM_MAPS_ROOT = Path(os.environ.get("ASIM_MAPS_ROOT"))
+    gpkg_path = ASIM_MAPS_ROOT / f"{dataset}_{location}.gpkg"
+    assert gpkg_path.is_file(), f"{dataset}_{location}.gpkg not found in {str(ASIM_MAPS_ROOT)}."
+    return GPKGMap(gpkg_path)

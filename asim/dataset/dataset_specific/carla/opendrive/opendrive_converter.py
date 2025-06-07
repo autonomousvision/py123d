@@ -1,4 +1,6 @@
+import os
 import warnings
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import geopandas as gpd
@@ -29,9 +31,7 @@ from asim.dataset.maps.map_datatypes import MapSurfaceType
 
 ENABLE_WARNING: bool = False
 CONNECTION_DISTANCE_THRESHOLD: float = 0.1  # [m]
-
-# TODO:
-# - add Intersections
+ASIM_MAPS_ROOT = Path(os.environ.get("ASIM_MAPS_ROOT"))
 
 
 class OpenDriveConverter:
@@ -78,7 +78,7 @@ class OpenDriveConverter:
         )
 
         # Store dataframes
-        map_file_name = f"{map_name}.gpkg"
+        map_file_name = ASIM_MAPS_ROOT / f"{map_name}.gpkg"
         lane_df.to_file(map_file_name, layer=MapSurfaceType.LANE.serialize(), driver="GPKG")
         walkways_df.to_file(map_file_name, layer=MapSurfaceType.WALKWAY.serialize(), driver="GPKG", mode="a")
         carpark_df.to_file(map_file_name, layer=MapSurfaceType.CARPARK.serialize(), driver="GPKG", mode="a")
@@ -144,7 +144,9 @@ class OpenDriveConverter:
                         successor_lane_idx,
                     )
 
-                assert successor_lane_id in self.lane_helper_dict.keys()
+                # assert successor_lane_id in self.lane_helper_dict.keys()
+                if successor_lane_id is None or successor_lane_id not in self.lane_helper_dict.keys():
+                    continue
                 self.lane_helper_dict[lane_id].successor_lane_ids.append(successor_lane_id)
                 self.lane_helper_dict[successor_lane_id].predecessor_lane_ids.append(lane_id)
 
@@ -176,7 +178,9 @@ class OpenDriveConverter:
                         predecessor_lane_idx,
                     )
 
-                assert predecessor_lane_id in self.lane_helper_dict.keys()
+                # assert predecessor_lane_id in self.lane_helper_dict.keys()
+                if predecessor_lane_id is None or predecessor_lane_id not in self.lane_helper_dict.keys():
+                    continue
                 self.lane_helper_dict[lane_id].predecessor_lane_ids.append(predecessor_lane_id)
                 self.lane_helper_dict[predecessor_lane_id].successor_lane_ids.append(lane_id)
 
@@ -211,8 +215,19 @@ class OpenDriveConverter:
                             connecting_road.id, connecting_road.lanes.last_lane_section_idx, lane_link.end
                         )
 
-                    assert incoming_lane_id in self.lane_helper_dict.keys()
-                    assert connecting_lane_id in self.lane_helper_dict.keys()
+                    if incoming_lane_id is None or connecting_lane_id is None:
+                        continue
+                    if (
+                        incoming_lane_id not in self.lane_helper_dict.keys()
+                        or connecting_lane_id not in self.lane_helper_dict.keys()
+                    ):
+                        if ENABLE_WARNING:
+                            warnings.warn(
+                                f"Warning..... Lane connection {incoming_lane_id} -> {connecting_lane_id} not found in lane_helper_dict"
+                            )
+                        continue
+                    # assert incoming_lane_id in self.lane_helper_dict.keys()
+                    # assert connecting_lane_id in self.lane_helper_dict.keys()
                     self.lane_helper_dict[incoming_lane_id].successor_lane_ids.append(connecting_lane_id)
                     self.lane_helper_dict[connecting_lane_id].predecessor_lane_ids.append(incoming_lane_id)
 
@@ -429,14 +444,16 @@ class OpenDriveConverter:
         for junction in self.junction_dict.values():
             lane_group_helpers = _find_lane_group_helpers_with_junction_id(junction.id)
             lane_group_ids_ = [lane_group_helper.lane_group_id for lane_group_helper in lane_group_helpers]
-            polygon = extract_exteriors_polygon(lane_group_helpers)
+            if len(lane_group_ids_) == 0:
+                warnings.warn(f"Skipped Junction {junction.id} without drivable lanes!")
+                continue
 
+            polygon = extract_exteriors_polygon(lane_group_helpers)
             ids.append(junction.id)
             lane_group_ids.append(lane_group_ids_)
             geometries.append(polygon)
 
         data = pd.DataFrame({"id": ids, "lane_group_ids": lane_group_ids})
-        # TODO: Implement and extract intersection geometries
         return gpd.GeoDataFrame(data, geometry=geometries)
 
     def _extract_lane_group_dataframe(self) -> gpd.GeoDataFrame:
@@ -472,8 +489,9 @@ class OpenDriveConverter:
                 "right_boundary": right_boundaries,
             }
         )
+        gdf = gpd.GeoDataFrame(data, geometry=geometries)
 
-        return gpd.GeoDataFrame(data, geometry=geometries)
+        return gdf
 
     def _extract_crosswalk_dataframe(self) -> gpd.GeoDataFrame:
         ids = []

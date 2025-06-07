@@ -14,7 +14,7 @@ setuptools.setup(
     name="asim",
     version="0.0.1",
     author="Daniel Dauner",
-    author_email="daniel.dauner@uni-tuebingen.de",
+    author_email="daniel.dauner@gmail.com",
     description="TODO",
     url="https://github.com/autonomousvision/asim",
     python_requires=">=3.9",

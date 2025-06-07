@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 import shapely
 
-from asim.common.geometry.base_enum import StateSE2Index
+from asim.common.geometry.base import StateSE2Index
 from asim.common.geometry.units import kmph_to_mps, mph_to_mps
 from asim.dataset.dataset_specific.carla.opendrive.conversion.id_system import (
     derive_lane_group_id,
@@ -63,7 +63,7 @@ class OpenDriveLaneHelper:
     @cached_property
     def _is_last_mask(self) -> npt.NDArray[np.float64]:
         is_last_mask = np.zeros(len(self._s_positions), dtype=bool)
-        # is_last_mask[-1] = True
+        is_last_mask[-1] = True
         return is_last_mask
 
     @cached_property

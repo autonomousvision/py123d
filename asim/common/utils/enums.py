@@ -22,3 +22,8 @@ class SerialIntEnum(IntEnum):
         """Deserialize the type when loading from a string."""
         # Allow for lower/upper case letters during deserialize
         return cls.__members__[key.upper()] if key.islower() else cls.__members__[key]
+
+    @classmethod
+    def from_int(cls, value: int) -> SerialIntEnum:
+        """Get the enum from an int."""
+        return cls(value)

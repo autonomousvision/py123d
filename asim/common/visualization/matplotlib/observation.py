@@ -1,0 +1,83 @@
+from typing import Union
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from asim.common.geometry.base import Point2D
+from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
+from asim.common.geometry.tranform_2d import translate_along_yaw
+from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleState
+from asim.common.visualization.color.config import PlotConfig
+from asim.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VEHICLE_CONFIG, TRAFFIC_LIGHT_CONFIG
+from asim.common.visualization.matplotlib.utils import (
+    add_shapely_linestring_to_ax,
+    add_shapely_polygon_to_ax,
+    get_pose_triangle,
+    shapely_geometry_local_coords,
+)
+from asim.dataset.maps.abstract_map import AbstractMap
+from asim.dataset.maps.abstract_map_objects import AbstractLane
+from asim.dataset.maps.map_datatypes import MapSurfaceType
+from asim.dataset.observation.detection.detection import BoxDetectionWrapper
+from asim.dataset.scene.abstract_scene import TrafficLightDetectionWrapper
+
+
+def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionWrapper) -> None:
+    for box_detection in box_detections:
+        # TODO: Optionally, continue on boxes outside of plot.
+        plot_config = BOX_DETECTION_CONFIG[box_detection.metadata.detection_type]
+        add_bounding_box_to_ax(ax, box_detection.bounding_box, plot_config)
+
+
+def add_ego_vehicle_to_ax(ax: plt.Axes, ego_vehicle_state: EgoVehicleState) -> None:
+    add_bounding_box_to_ax(ax, ego_vehicle_state.bounding_box, EGO_VEHICLE_CONFIG)
+
+
+def add_traffic_lights_to_ax(
+    ax: plt.Axes, traffic_light_detections: TrafficLightDetectionWrapper, map_api: AbstractMap
+) -> None:
+    for traffic_light_detection in traffic_light_detections:
+        lane: AbstractLane = map_api.get_map_object(str(traffic_light_detection.lane_id), MapSurfaceType.LANE)
+        if lane is not None:
+            add_shapely_linestring_to_ax(
+                ax,
+                lane.centerline.linestring,
+                TRAFFIC_LIGHT_CONFIG[traffic_light_detection.status],
+            )
+        else:
+            raise ValueError(f"Lane with id {traffic_light_detection.lane_id} not found in map {map_api.map_name}.")
+
+
+def add_bounding_box_to_ax(
+    ax: plt.Axes,
+    bounding_box: Union[BoundingBoxSE2, BoundingBoxSE3],
+    plot_config: PlotConfig,
+) -> None:
+
+    add_shapely_polygon_to_ax(ax, bounding_box.shapely_polygon, plot_config)
+
+    if plot_config.marker_style is not None:
+        assert plot_config.marker_style in ["-", "^"], f"Unknown marker style: {plot_config.marker_style}"
+        if plot_config.marker_style == "-":
+            center_se2 = (
+                bounding_box.center if isinstance(bounding_box, BoundingBoxSE2) else bounding_box.center.state_se2
+            )
+            arrow = np.zeros((2, 2), dtype=np.float64)
+            arrow[0] = center_se2.point_2d.array
+            arrow[1] = translate_along_yaw(center_se2, Point2D(bounding_box.length / 2.0 + 0.5, 0.0)).point_2d.array
+            ax.plot(
+                arrow[:, 0],
+                arrow[:, 1],
+                color=plot_config.line_color.hex,
+                alpha=plot_config.line_color_alpha,
+                linewidth=plot_config.line_width,
+                zorder=plot_config.zorder,
+                linestyle=plot_config.line_style,
+            )
+        elif plot_config.marker_style == "^":
+            marker_size = min(plot_config.marker_size, min(bounding_box.length, bounding_box.width))
+            marker_polygon = get_pose_triangle(marker_size)
+            global_marker_polygon = shapely_geometry_local_coords(marker_polygon, bounding_box.center)
+            add_shapely_polygon_to_ax(ax, global_marker_polygon, plot_config)
+        else:
+            raise ValueError(f"Unknown marker style: {plot_config.marker_style}")

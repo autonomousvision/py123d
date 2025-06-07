@@ -6,7 +6,7 @@ from xml.etree.ElementTree import Element
 import numpy as np
 import numpy.typing as npt
 
-from asim.common.geometry.base_enum import StateSE2Index
+from asim.common.geometry.base import StateSE2Index
 
 
 @dataclass

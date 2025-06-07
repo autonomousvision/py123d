@@ -9,7 +9,7 @@ from xml.etree.ElementTree import Element
 import numpy as np
 import numpy.typing as npt
 
-from asim.common.geometry.base_enum import Point3DIndex, StateSE2Index
+from asim.common.geometry.base import Point3DIndex, StateSE2Index
 from asim.common.geometry.utils import normalize_angle
 from asim.dataset.dataset_specific.carla.opendrive.elements.elevation import ElevationProfile
 from asim.dataset.dataset_specific.carla.opendrive.elements.geometry import Arc, Geometry, Line

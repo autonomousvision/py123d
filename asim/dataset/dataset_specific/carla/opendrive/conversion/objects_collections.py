@@ -5,8 +5,7 @@ import numpy as np
 import numpy.typing as npt
 import shapely
 
-from asim.common.geometry.base import Point2D, Point3D, StateSE2
-from asim.common.geometry.base_enum import Point3DIndex
+from asim.common.geometry.base import Point2D, Point3D, Point3DIndex, StateSE2
 from asim.common.geometry.tranform_2d import translate_along_yaw
 from asim.common.geometry.utils import normalize_angle
 from asim.dataset.dataset_specific.carla.opendrive.elements.objects import Object

@@ -4,6 +4,7 @@ import abc
 from typing import List, Optional
 
 import shapely.geometry as geom
+import trimesh
 
 from asim.common.geometry.line.polylines import Polyline3D
 from asim.dataset.maps.map_datatypes import MapSurfaceType
@@ -44,19 +45,25 @@ class AbstractSurfaceMapObject(AbstractMapObject):
         :return: map surface type
         """
 
-    # @property
-    # @abc.abstractmethod
-    # def outline_3d(self) -> Polyline3D:
-    #     pass
+    @property
+    @abc.abstractmethod
+    def outline_3d(self) -> Polyline3D:
+        """
+        Returns the 3D outline of the map object.
+        :return: 3D polyline
+        """
+
+    @property
+    @abc.abstractmethod
+    def trimesh_mesh(self) -> trimesh.Trimesh:
+        """
+        Returns a triangle mesh of the map surface.
+        :return: Trimesh
+        """
 
     # @property
     # @abc.abstractmethod
     # def outline_2d(self) -> Polyline2D:
-    #     pass
-
-    # @property
-    # @abc.abstractmethod
-    # def trimesh(self) -> ...:
     #     pass
 
 
