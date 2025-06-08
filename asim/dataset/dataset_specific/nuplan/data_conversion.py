@@ -1,14 +1,18 @@
+import gc
 import os
 from pathlib import Path
-from typing import Dict, Final, List, Tuple
+from typing import Dict, Final, List, Tuple, Union
 
 import pyarrow as pa
+import yaml
 from nuplan.common.geometry.compute import get_pacifica_parameters
 from nuplan.database.nuplan_db_orm.lidar_box import LidarBox
 from nuplan.database.nuplan_db_orm.lidar_pc import LidarPc
 from nuplan.database.nuplan_db_orm.nuplandb import NuPlanDB
+from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 from tqdm import tqdm
 
+import asim.dataset.dataset_specific.nuplan.utils as nuplan_utils
 from asim.common.geometry.base import StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3, BoundingBoxSE3Index
 from asim.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
@@ -24,12 +28,6 @@ NUPLAN_FULL_MAP_NAME_DICT: Final[Dict[str, str]] = {
     "singapore": "sg-one-north",
     "las_vegas": "us-nv-las-vegas-strip",
     "pittsburgh": "us-pa-pittsburgh-hazelwood",
-}
-_NUPLAN_SQL_MAP_FRIENDLY_NAMES_DICT: Final[Dict[str, str]] = {
-    "us-ma-boston": "boston",
-    "sg-one-north": "singapore",
-    "las_vegas": "las_vegas",
-    "us-pa-pittsburgh-hazelwood": "pittsburgh",
 }
 
 NUPLAN_TRAFFIC_STATUS_DICT: Final[Dict[str, TrafficLightStatus]] = {
@@ -50,122 +48,184 @@ NUPLAN_DETECTION_NAME_DICT = {
 NUPLAN_DATA_ROOT = Path(os.environ["NUPLAN_DATA_ROOT"])
 
 
+def create_splits_logs() -> Dict[str, List[str]]:
+    yaml_filepath = Path(nuplan_utils.__path__[0]) / "log_splits.yaml"
+    with open(yaml_filepath, "r") as stream:
+        splits = yaml.safe_load(stream)
+
+    return splits["log_splits"]
+
+
 class NuPlanDataset:
-    def __init__(self, output_path: Path, split: str) -> None:
-        assert split in [
-            "train",
-            "val",
-            "test",
-            "mini",
-        ], f"Invalid split: {split}. Must be one of ['train', 'val', 'test', 'mini']."
-        self._log_path: Path = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "splits" / split
+    def __init__(self, splits: List[str], output_path: Path) -> None:
+        for split in splits:
+            assert (
+                split in self.available_splits
+            ), f"Split {split} is not available. Available splits: {self.available_splits}"
 
-        self._split: str = split
+        self._splits: List[str] = splits
         self._output_path: Path = output_path
+        self._log_paths_per_split: Dict[str, List[Path]] = self._collect_log_paths()
 
-    def convert(self, log_name: str) -> None:
+    def _collect_log_paths(self) -> Dict[str, List[Path]]:
+        # NOTE: the nuplan mini folder has an internal train, val, test structure, all stored in "mini".
+        # The complete dataset is saved in the "trainval" folder (train and val), or in the "test" folder (for test).
+        subsplit_log_names: Dict[str, List[str]] = create_splits_logs()
+        log_paths_per_split: Dict[str, List[Path]] = {}
 
-        log_path = self._log_path / f"{log_name}.db"
-        if not log_path.exists():
-            raise FileNotFoundError(f"Log path {log_path} does not exist.")
+        for split in self._splits:
+            subsplit = split.split("_")[-1]
+            assert subsplit in ["train", "val", "test"]
+            if split in ["nuplan_train", "nuplan_val"]:
+                log_path = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "splits" / "trainval"
+            elif split in ["nuplan_test"]:
+                log_path = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "splits" / "test"
+            elif split in ["nuplan_mini_train", "nuplan_mini_val", "nuplan_mini_test"]:
+                log_path = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "splits" / "mini"
 
-        log_db = NuPlanDB(NUPLAN_DATA_ROOT, str(log_path), None)
+            all_log_files_in_path = [log_file for log_file in log_path.glob("*.db")]
+            all_log_names = set([log_file.stem for log_file in all_log_files_in_path])
+            split_log_names = set(subsplit_log_names[subsplit])
+            log_paths = [log_path / f"{log_name}.db" for log_name in list(all_log_names & split_log_names)]
+            log_paths_per_split[split] = log_paths
 
-        tables: Dict[str, pa.Table] = {}
+        return log_paths_per_split
 
-        tables["metadata_table"] = self._get_metadata_table(log_db)
-        tables["recording_table"] = self._get_recording_table(log_db)
+    @property
+    def available_splits(self) -> List[str]:
+        return [
+            "nuplan_train",
+            "nuplan_val",
+            "nuplan_test",
+            "nuplan_mini_train",
+            "nuplan_mini_val",
+            "nuplan_mini_test",
+        ]
 
-        # multi_table = ArrowMultiTableFile(self._output_path / self._split / f"{log_name}.arrow")
-        log_file_path = self._output_path / self._split / f"{log_name}.arrow"
-        if not log_file_path.parent.exists():
-            log_file_path.parent.mkdir(parents=True, exist_ok=True)
+    def convert(self, worker: WorkerPool) -> None:
+        log_args = [
+            {
+                "log_path": log_path,
+                "output_path": self._output_path,
+                "split": split,
+            }
+            for split, log_paths in self._log_paths_per_split.items()
+            for log_path in log_paths
+        ]
 
-        save_arrow_tables(tables, log_file_path)
+        worker_map(worker, convert_nuplan_log_to_arrow, log_args)
 
-    def _get_metadata_table(self, log_db: NuPlanDB) -> pa.Table:
-        import asim
 
-        metadata = {
-            "dataset": "nuplan",
-            "location": log_db.log.map_version,
-            "vehicle_name": log_db.log.vehicle_name,
-            "version": str(asim.__version__),
-        }
-        metadata_fields = []
-        metadata_values = []
-        for key, value in metadata.items():
-            metadata_fields.append(key)
-            metadata_values.append(pa.scalar(value))
+def convert_nuplan_log_to_arrow(args: List[Dict[str, Union[List[str], List[Path]]]]) -> None:
+    def convert_log_internal(args: List[Dict[str, Union[List[str], List[Path]]]]) -> None:
+        for log_info in args:
+            log_path: Path = log_info["log_path"]
+            output_path: Path = log_info["output_path"]
+            split: str = log_info["split"]
 
-        return pa.Table.from_arrays([pa.array([value]) for value in metadata_values], metadata_fields)
+            if not log_path.exists():
+                raise FileNotFoundError(f"Log path {log_path} does not exist.")
 
-    def _get_recording_table(self, log_db: NuPlanDB) -> pa.Table:
+            log_db = NuPlanDB(NUPLAN_DATA_ROOT, str(log_path), None)
+            tables: Dict[str, pa.Table] = {}
+            tables["metadata_table"] = _get_metadata_table(log_db)
+            tables["recording_table"] = _get_recording_table(log_db)
+            log_file_path = output_path / split / f"{log_path.stem}.arrow"
+            if not log_file_path.parent.exists():
+                log_file_path.parent.mkdir(parents=True, exist_ok=True)
+            save_arrow_tables(tables, log_file_path)
 
-        log_db.log.token
-        log_db.log.map_version
-        log_db.log.vehicle_name
+            del tables, log_db
 
-        timestamp_log: List[int] = []
+    result = convert_log_internal(args)
+    gc.collect()
+    return result
 
-        detections_state_log: List[List[List[float]]] = []
-        detections_token_log: List[List[str]] = []
-        detections_type_log: List[List[int]] = []
 
-        ego_states_log: List[List[float]] = []
+def _get_metadata_table(log_db: NuPlanDB) -> pa.Table:
+    import asim
 
-        traffic_light_ids_log: List[List[int]] = []
-        traffic_light_types_log: List[List[int]] = []
-        scenario_tags_log: List[List[str]] = []
+    metadata = {
+        "dataset": "nuplan",
+        "location": log_db.log.map_version,
+        "vehicle_name": log_db.log.vehicle_name,
+        "version": str(asim.__version__),
+    }
+    metadata_fields = []
+    metadata_values = []
+    for key, value in metadata.items():
+        metadata_fields.append(key)
+        metadata_values.append(pa.scalar(value))
 
-        for lidar_pc in tqdm(log_db.lidar_pc[::2], dynamic_ncols=True):
-            lidar_pc_token: str = lidar_pc.token
+    return pa.Table.from_arrays([pa.array([value]) for value in metadata_values], metadata_fields)
 
-            # 1. Timestamp (time_us)
-            timestamp_log.append(lidar_pc.timestamp)
 
-            # 2. box detections
-            detections_state, detections_token, detections_types = _extract_detections(lidar_pc)
-            detections_state_log.append(detections_state)
-            detections_token_log.append(detections_token)
-            detections_type_log.append(detections_types)
+def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
 
-            # 3. Ego state
-            ego_states_log.append(_extract_ego_state(lidar_pc))
+    log_db.log.token
+    log_db.log.map_version
+    log_db.log.vehicle_name
 
-            # 4. Traffic lights
-            traffic_light_ids, traffic_light_types = _extract_traffic_lights(log_db, lidar_pc_token)
-            traffic_light_ids_log.append(traffic_light_ids)
-            traffic_light_types_log.append(traffic_light_types)
+    timestamp_log: List[int] = []
 
-            # 5. Scenario Types
-            scenario_tags_log.append(_extract_scenario_tag(log_db, lidar_pc_token))
+    detections_state_log: List[List[List[float]]] = []
+    detections_token_log: List[List[str]] = []
+    detections_type_log: List[List[int]] = []
 
-        recording_data = {
-            "timestamp": timestamp_log,
-            "detections_state": detections_state_log,
-            "detections_token": detections_token_log,
-            "detections_type": detections_type_log,
-            "ego_states": ego_states_log,
-            "traffic_light_ids": traffic_light_ids_log,
-            "traffic_light_types": traffic_light_types_log,
-            "scenario_tag": scenario_tags_log,
-        }
+    ego_states_log: List[List[float]] = []
 
-        # Create a PyArrow Table
-        recording_schema = pa.schema(
-            [
-                ("timestamp", pa.int64()),
-                ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
-                ("detections_token", pa.list_(pa.string())),
-                ("detections_type", pa.list_(pa.int16())),
-                ("ego_states", pa.list_(pa.float64(), len(EgoVehicleStateIndex))),
-                ("traffic_light_ids", pa.list_(pa.int64())),
-                ("traffic_light_types", pa.list_(pa.int16())),
-                ("scenario_tag", pa.list_(pa.string())),
-            ]
-        )
-        return pa.Table.from_pydict(recording_data, schema=recording_schema)
+    traffic_light_ids_log: List[List[int]] = []
+    traffic_light_types_log: List[List[int]] = []
+    scenario_tags_log: List[List[str]] = []
+
+    for lidar_pc in tqdm(log_db.lidar_pc[::2], dynamic_ncols=True):
+        lidar_pc_token: str = lidar_pc.token
+
+        # 1. Timestamp (time_us)
+        timestamp_log.append(lidar_pc.timestamp)
+
+        # 2. box detections
+        detections_state, detections_token, detections_types = _extract_detections(lidar_pc)
+        detections_state_log.append(detections_state)
+        detections_token_log.append(detections_token)
+        detections_type_log.append(detections_types)
+
+        # 3. Ego state
+        ego_states_log.append(_extract_ego_state(lidar_pc))
+
+        # 4. Traffic lights
+        traffic_light_ids, traffic_light_types = _extract_traffic_lights(log_db, lidar_pc_token)
+        traffic_light_ids_log.append(traffic_light_ids)
+        traffic_light_types_log.append(traffic_light_types)
+
+        # 5. Scenario Types
+        scenario_tags_log.append(_extract_scenario_tag(log_db, lidar_pc_token))
+
+    recording_data = {
+        "timestamp": timestamp_log,
+        "detections_state": detections_state_log,
+        "detections_token": detections_token_log,
+        "detections_type": detections_type_log,
+        "ego_states": ego_states_log,
+        "traffic_light_ids": traffic_light_ids_log,
+        "traffic_light_types": traffic_light_types_log,
+        "scenario_tag": scenario_tags_log,
+    }
+
+    # Create a PyArrow Table
+    recording_schema = pa.schema(
+        [
+            ("timestamp", pa.int64()),
+            ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
+            ("detections_token", pa.list_(pa.string())),
+            ("detections_type", pa.list_(pa.int16())),
+            ("ego_states", pa.list_(pa.float64(), len(EgoVehicleStateIndex))),
+            ("traffic_light_ids", pa.list_(pa.int64())),
+            ("traffic_light_types", pa.list_(pa.int16())),
+            ("scenario_tag", pa.list_(pa.string())),
+        ]
+    )
+    return pa.Table.from_pydict(recording_data, schema=recording_schema)
 
 
 def _extract_detections(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[str], List[int]]:

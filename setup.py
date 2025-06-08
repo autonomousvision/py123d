@@ -12,7 +12,7 @@ with open("requirements.txt") as f:
 # Installs
 setuptools.setup(
     name="asim",
-    version="0.0.1",
+    version="0.0.3",
     author="Daniel Dauner",
     author_email="daniel.dauner@gmail.com",
     description="TODO",
