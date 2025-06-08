@@ -102,7 +102,7 @@ def get_bounding_box_meshes(scene: AbstractScene, iteration: int, center: Point3
 def get_map_meshes(scene: AbstractScene, center: Point3D):
     map_surface_types = [MapSurfaceType.LANE, MapSurfaceType.WALKWAY, MapSurfaceType.CROSSWALK, MapSurfaceType.CARPARK]
 
-    radius = 400
+    radius = 1000
     map_objects_dict = scene.map_api.get_proximal_map_objects(center.point_2d, radius=radius, layers=map_surface_types)
     output = {}
 

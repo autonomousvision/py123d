@@ -1,9 +1,6 @@
-import time
-
-import trimesh
 import viser
 
-from asim.common.visualization.viser.utils import get_bounding_box_meshes, get_map_meshes
+from asim.common.visualization.viser.utils import get_map_meshes
 from asim.dataset.scene.abstract_scene import AbstractScene
 
 # from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
@@ -65,28 +62,29 @@ class ViserVisualizationServer:
             # Toggle frame visibility when the timestep slider changes.
             @gui_timestep.on_update
             def _(_) -> None:
-                nonlocal current_frame_handle, prev_timestep
-                current_timestep = gui_timestep.value
+                # nonlocal current_frame_handle, prev_timestep
+                # current_timestep = gui_timestep.value
 
-                start = time.time()
-                # with self.server.atomic():
-                mew_frame_handle = self.server.scene.add_frame(f"/frame{gui_timestep.value}", show_axes=False)
-                meshes = []
-                for name, mesh in get_bounding_box_meshes(scene, gui_timestep.value, initial_center).items():
-                    meshes.append(mesh)
-                self.server.scene.add_mesh_trimesh(
-                    f"/frame{gui_timestep.value}/detections",
-                    trimesh.util.concatenate(meshes),
-                    visible=True,
-                )
-                prev_timestep = current_timestep
+                # start = time.time()
+                # # with self.server.atomic():
+                # mew_frame_handle = self.server.scene.add_frame(f"/frame{gui_timestep.value}", show_axes=False)
+                # meshes = []
+                # for name, mesh in get_bounding_box_meshes(scene, gui_timestep.value, initial_center).items():
+                #     meshes.append(mesh)
+                # self.server.scene.add_mesh_trimesh(
+                #     f"/frame{gui_timestep.value}/detections",
+                #     trimesh.util.concatenate(meshes),
+                #     visible=True,
+                # )
+                # prev_timestep = current_timestep
 
-                rendering_time = time.time() - start
-                sleep_time = 1.0 / gui_framerate.value - rendering_time
-                time.sleep(max(sleep_time, 0.0))
-                current_frame_handle.remove()
-                current_frame_handle = mew_frame_handle
-                self.server.flush()  # Optional!
+                # rendering_time = time.time() - start
+                # sleep_time = 1.0 / gui_framerate.value - rendering_time
+                # time.sleep(max(sleep_time, 0.0))
+                # current_frame_handle.remove()
+                # current_frame_handle = mew_frame_handle
+                # self.server.flush()  # Optional!
+                pass
 
             # Load in frames.
             current_frame_handle = self.server.scene.add_frame(f"/frame{gui_timestep.value}", show_axes=False)

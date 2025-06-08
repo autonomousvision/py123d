@@ -51,7 +51,12 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
     @cached_property
     def outline_3d(self) -> Polyline3D:
         """Inherited, see superclass."""
-        return Polyline3D.from_linestring(geom.LineString(self.shapely_polygon.exterior.coords))
+        outline_3d: Optional[Polyline3D] = None
+        if "outline" in self._object_df.columns:
+            outline_3d = Polyline3D.from_linestring(self._object_row.outline)
+        else:
+            outline_3d = Polyline3D.from_linestring(geom.LineString(self.shapely_polygon.exterior.coords))
+        return outline_3d
 
     @property
     def trimesh_mesh(self) -> trimesh.Trimesh:
