@@ -1,16 +1,24 @@
 import gzip
 import json
 from pathlib import Path
-from typing import Dict, Final, List
+from typing import Dict, Final, List, Tuple
 
+import numpy as np
 import pyarrow as pa
 from tqdm import tqdm
 
+from asim.common.geometry.base import Point3D
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
 from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleStateIndex
 from asim.dataset.arrow.multiple_table import save_arrow_tables
+from asim.dataset.maps.abstract_map import AbstractMap, MapSurfaceType
+from asim.dataset.maps.abstract_map_objects import AbstractLane
+from asim.dataset.scene.arrow_scene import get_map_api_from_names
 
 CARLA_DT: Final[float] = 0.1
+
+
+TRAFFIC_LIGHT_ASSIGNMENT_DISTANCE: Final[float] = 1.0  # [m]
 
 
 def _load_json_gz(path: Path) -> Dict:
@@ -34,10 +42,13 @@ class CarlaDataset:
             raise FileNotFoundError(f"Log path {log_path} does not exist.")
 
         bounding_box_paths = sorted([bb_path for bb_path in (log_path / "boxes").iterdir()])
+        map_name = _load_json_gz(bounding_box_paths[0])["location"]
+        map_api = get_map_api_from_names("carla", map_name)
+
         tables: Dict[str, pa.Table] = {}
 
-        tables["metadata_table"] = self._get_metadata_table(_load_json_gz(bounding_box_paths[0])["location"])
-        tables["recording_table"] = self._get_recording_table(bounding_box_paths)
+        tables["metadata_table"] = self._get_metadata_table(map_name)
+        tables["recording_table"] = self._get_recording_table(bounding_box_paths, map_api)
 
         # multi_table = ArrowMultiTableFile(self._output_path / self._split / f"{log_name}.arrow")
         log_file_path = self._output_path / self._split / f"{log_name}.arrow"
@@ -63,7 +74,7 @@ class CarlaDataset:
 
         return pa.Table.from_arrays([pa.array([value]) for value in metadata_values], metadata_fields)
 
-    def _get_recording_table(self, bounding_box_paths: List[Path]) -> pa.Table:
+    def _get_recording_table(self, bounding_box_paths: List[Path], map_api: AbstractMap) -> pa.Table:
 
         timestamp_log: List[int] = []
 
@@ -79,13 +90,17 @@ class CarlaDataset:
 
         for box_path in tqdm(bounding_box_paths):
             data = _load_json_gz(box_path)
+            traffic_light_ids, traffic_light_types = _extract_traffic_light_data(
+                data["traffic_light_states"], data["traffic_light_positions"], map_api
+            )
+
             timestamp_log.append(data["timestamp"])
             detections_state_log.append(data["detections_state"])
             detections_token_log.append(data["detections_token"])
             detections_type_log.append(data["detections_types"])
             ego_states_log.append(data["ego_state"])
-            traffic_light_ids_log.append(data["traffic_light_ids"])
-            traffic_light_types_log.append(data["traffic_light_types"])
+            traffic_light_ids_log.append(traffic_light_ids)
+            traffic_light_types_log.append(traffic_light_types)
             scenario_tags_log.append(data["scenario_tag"])
 
         recording_data = {
@@ -115,3 +130,25 @@ class CarlaDataset:
         recording_table = recording_table.sort_by([("timestamp", "ascending")])
 
         return recording_table
+
+
+def _extract_traffic_light_data(
+    traffic_light_states: List[int], traffic_light_positions: List[List[float]], map_api: AbstractMap
+) -> Tuple[List[int], List[int]]:
+    traffic_light_types: List[int] = []
+    traffic_light_ids: List[int] = []
+    for traffic_light_state, traffic_light_waypoints in zip(traffic_light_states, traffic_light_positions):
+        for traffic_light_waypoint in traffic_light_waypoints:
+            point_3d = Point3D(*traffic_light_waypoint)
+            nearby_lanes = map_api.get_proximal_map_objects(
+                point_3d, TRAFFIC_LIGHT_ASSIGNMENT_DISTANCE, [MapSurfaceType.LANE]
+            )[MapSurfaceType.LANE]
+
+            for lane in nearby_lanes:
+                lane: AbstractLane
+                lane_start_point = lane.centerline.array[0]
+                distance_to_lane_start = np.linalg.norm(lane_start_point - point_3d.array)
+                if distance_to_lane_start < TRAFFIC_LIGHT_ASSIGNMENT_DISTANCE:
+                    traffic_light_ids.append(int(lane.id))
+                    traffic_light_types.append(traffic_light_state)
+    return traffic_light_ids, traffic_light_types

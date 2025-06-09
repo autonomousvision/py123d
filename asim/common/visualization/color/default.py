@@ -203,6 +203,13 @@ TRAFFIC_LIGHT_CONFIG: Dict[TrafficLightStatus, PlotConfig] = {
         line_style="--",
         zorder=3,
     ),
+    TrafficLightStatus.OFF: PlotConfig(
+        line_color=TAB_10[5],
+        line_color_alpha=1.0,
+        line_width=1.0,
+        line_style="--",
+        zorder=3,
+    ),
     TrafficLightStatus.UNKNOWN: PlotConfig(
         line_color=TAB_10[5],
         line_color_alpha=1.0,

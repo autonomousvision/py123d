@@ -37,7 +37,7 @@ def add_traffic_lights_to_ax(
     ax: plt.Axes, traffic_light_detections: TrafficLightDetectionWrapper, map_api: AbstractMap
 ) -> None:
     for traffic_light_detection in traffic_light_detections:
-        lane: AbstractLane = map_api.get_map_object(str(traffic_light_detection.lane_id), MapSurfaceType.LANE)
+        lane: AbstractLane = map_api.get_map_object(int(traffic_light_detection.lane_id), MapSurfaceType.LANE)
         if lane is not None:
             add_shapely_linestring_to_ax(
                 ax,

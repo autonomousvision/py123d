@@ -11,7 +11,6 @@ from asim.dataset.maps.map_datatypes import MapSurfaceType
 
 
 def add_default_map_on_ax(ax: plt.Axes, map_api: AbstractMap, point_2d: Point2D, radius: float) -> None:
-
     layers: List[MapSurfaceType] = [
         MapSurfaceType.LANE,
         MapSurfaceType.LANE_GROUP,
@@ -23,6 +22,7 @@ def add_default_map_on_ax(ax: plt.Axes, map_api: AbstractMap, point_2d: Point2D,
     ]
 
     map_objects_dict = map_api.get_proximal_map_objects(point_2d, radius=radius, layers=layers)
+
     for layer, map_objects in map_objects_dict.items():
         for map_object in map_objects:
             try:

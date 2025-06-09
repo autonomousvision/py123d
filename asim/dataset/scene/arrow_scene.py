@@ -18,7 +18,7 @@ from asim.dataset.scene.abstract_scene import AbstractScene
 
 class ArrowScene(AbstractScene):
     def __init__(self, arrow_file_path: Path) -> None:
-
+        self._arrow_log_path = arrow_file_path
         self._arrow_multi_table = ArrowMultiTableFile(arrow_file_path)
 
         self._metadata: LogMetadata = LogMetadata.from_arrow_table(self._arrow_multi_table.get_table("metadata_table"))
