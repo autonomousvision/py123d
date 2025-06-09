@@ -564,7 +564,12 @@ def extract_exteriors_polygon(lane_group_helpers: List[OpenDriveLaneGroupHelper]
         all_polygons.append(lane_group_helper.shapely_polygon)
 
     # Step 2: Merge all boundaries and extract the enclosed polygons
+    # try:
     merged_boundaries = unary_union(all_polygons)
+    # except Exception as e:
+    #     warnings.warn(f"Topological error during polygon union: {e}")
+    #     print([(helper.lane_group_id, poly.is_valid) for poly, helper in zip(all_polygons, lane_group_helpers)])
+    #     merged_boundaries = unary_union([poly for poly in all_polygons if poly.is_valid])
 
     # Step 3: Generate polygons from the merged lines
     polygons = list(polygonize(merged_boundaries))

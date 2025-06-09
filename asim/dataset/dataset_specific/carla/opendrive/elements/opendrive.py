@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
@@ -25,7 +26,13 @@ class OpenDrive:
 
         roads: List[Road] = []
         for road_element in root_element.findall("road"):
-            roads.append(Road.parse(road_element))
+            try:
+                roads.append(Road.parse(road_element))
+            except Exception as e:
+                print(
+                    f"Error parsing road element with id/name {road_element.get('id')}/{road_element.get('name')}: {e}"
+                )
+                traceback.print_exc()
         args["roads"] = roads
 
         controllers: List[Controller] = []

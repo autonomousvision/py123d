@@ -12,7 +12,7 @@ import numpy.typing as npt
 from asim.common.geometry.base import Point3DIndex, StateSE2Index
 from asim.common.geometry.utils import normalize_angle
 from asim.dataset.dataset_specific.carla.opendrive.elements.elevation import ElevationProfile
-from asim.dataset.dataset_specific.carla.opendrive.elements.geometry import Arc, Geometry, Line
+from asim.dataset.dataset_specific.carla.opendrive.elements.geometry import Arc, Geometry, Line, Spiral
 from asim.dataset.dataset_specific.carla.opendrive.elements.lane import LaneOffset
 
 
@@ -36,9 +36,7 @@ class PlanView:
             elif geometry_element.find("arc") is not None:
                 geometry = Arc.parse(geometry_element)
             elif geometry_element.find("spiral") is not None:
-                # geometry = Arc.parse(geometry_element)
-                # TODO
-                continue
+                geometry = Spiral.parse(geometry_element)
             else:
                 geometry_str = ET.tostring(geometry_element, encoding="unicode")
                 raise NotImplementedError(f"Geometry not implemented: {geometry_str}")

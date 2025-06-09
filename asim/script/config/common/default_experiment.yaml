@@ -1,6 +1,4 @@
 defaults:
-  - traffic_agents_policy/log_replay_traffic_agents
-  - traffic_agents_policy/navsim_IDM_traffic_agents
   - default_dataset_paths
   - _self_
 
@@ -8,4 +6,4 @@ defaults:
 experiment_name: ???
 date_format: '%Y.%m.%d.%H.%M.%S'
 experiment_uid: ${now:${date_format}}
-output_dir: ${oc.env:NAVSIM_EXP_ROOT}/${experiment_name}/${experiment_uid} # path where output csv is saved
+output_dir: ${oc.env:ASIM_EXP_ROOT}/${experiment_name}/${experiment_uid} # path where output csv is saved
