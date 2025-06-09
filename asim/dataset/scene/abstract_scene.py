@@ -14,6 +14,11 @@ class AbstractScene(abc.ABC):
     def map_api(self) -> AbstractMap:
         raise NotImplementedError
 
+    @property
+    @abc.abstractmethod
+    def log_name(self) -> str:
+        raise NotImplementedError
+
     @abc.abstractmethod
     def get_number_of_iterations(self) -> int:
         raise NotImplementedError

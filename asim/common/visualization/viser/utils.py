@@ -1,7 +1,10 @@
+import numpy as np
+import numpy.typing as npt
 import trimesh
 
 from asim.common.geometry.base import Point3D
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
+from asim.common.geometry.line.polylines import Polyline3D
 from asim.common.visualization.color.config import PlotConfig
 from asim.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VEHICLE_CONFIG, MAP_SURFACE_CONFIG
 from asim.dataset.maps.abstract_map import MapSurfaceType
@@ -132,3 +135,46 @@ def get_map_meshes(scene: AbstractScene, center: Point3D):
         output[f"{map_surface_type.serialize()}"] = trimesh.util.concatenate(surface_meshes)
 
     return output
+
+
+def get_trimesh_from_boundaries(
+    left_boundary: Polyline3D, right_boundary: Polyline3D, resolution: float = 1.0
+) -> trimesh.Trimesh:
+    resolution = 1.0  # [m]
+
+    average_length = (left_boundary.length + right_boundary.length) / 2
+    num_samples = int(average_length // resolution)
+    left_boundary_array = _interpolate_polyline(left_boundary, num_samples=num_samples)
+    right_boundary_array = _interpolate_polyline(right_boundary, num_samples=num_samples)
+    return _create_lane_mesh_from_boundary_arrays(left_boundary_array, right_boundary_array)
+
+
+def _interpolate_polyline(polyline_3d: Polyline3D, num_samples: int = 20) -> npt.NDArray[np.float64]:
+    distances = np.linspace(0, polyline_3d.length, num=num_samples, endpoint=True, dtype=np.float64)
+    return polyline_3d.interpolate(distances)
+
+
+def _create_lane_mesh_from_boundary_arrays(
+    left_boundary_array: npt.NDArray[np.float64],
+    right_boundary_array: npt.NDArray[np.float64],
+) -> trimesh.Trimesh:
+
+    # Ensure both polylines have the same number of points
+    if left_boundary_array.shape[0] != right_boundary_array.shape[0]:
+        raise ValueError("Both polylines must have the same number of points")
+
+    n_points = left_boundary_array.shape[0]
+
+    # Combine vertices from both polylines
+    vertices = np.vstack([left_boundary_array, right_boundary_array])
+
+    # Create faces by connecting corresponding points on the two polylines
+    faces = []
+    for i in range(n_points - 1):
+        faces.append([i, i + n_points, i + 1])
+        faces.append([i + 1, i + n_points, i + n_points + 1])
+
+    faces = np.array(faces)
+    mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
+    mesh.visual.face_colors = MAP_SURFACE_CONFIG[MapSurfaceType.LANE].fill_color.rgba
+    return mesh

@@ -1,14 +1,21 @@
-from typing import Union
+from typing import List, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
+import shapely.geometry as geom
 
 from asim.common.geometry.base import Point2D
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
 from asim.common.geometry.tranform_2d import translate_along_yaw
 from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleState
 from asim.common.visualization.color.config import PlotConfig
-from asim.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VEHICLE_CONFIG, TRAFFIC_LIGHT_CONFIG
+from asim.common.visualization.color.default import (
+    BOX_DETECTION_CONFIG,
+    CENTERLINE_CONFIG,
+    EGO_VEHICLE_CONFIG,
+    MAP_SURFACE_CONFIG,
+    TRAFFIC_LIGHT_CONFIG,
+)
 from asim.common.visualization.matplotlib.utils import (
     add_shapely_linestring_to_ax,
     add_shapely_polygon_to_ax,
@@ -20,6 +27,45 @@ from asim.dataset.maps.abstract_map_objects import AbstractLane
 from asim.dataset.maps.map_datatypes import MapSurfaceType
 from asim.dataset.observation.detection.detection import BoxDetectionWrapper
 from asim.dataset.scene.abstract_scene import TrafficLightDetectionWrapper
+
+
+def add_default_map_on_ax(ax: plt.Axes, map_api: AbstractMap, point_2d: Point2D, radius: float) -> None:
+    layers: List[MapSurfaceType] = [
+        MapSurfaceType.LANE,
+        MapSurfaceType.LANE_GROUP,
+        MapSurfaceType.GENERIC_DRIVABLE,
+        MapSurfaceType.CARPARK,
+        MapSurfaceType.CROSSWALK,
+        MapSurfaceType.INTERSECTION,
+        MapSurfaceType.WALKWAY,
+    ]
+    x_min, x_max = point_2d.x - radius, point_2d.x + radius
+    y_min, y_max = point_2d.y - radius, point_2d.y + radius
+    patch = geom.box(x_min, y_min, x_max, y_max)
+    map_objects_dict = map_api.query(geometry=patch, layers=layers, predicate="intersects")
+
+    for layer, map_objects in map_objects_dict.items():
+        for map_object in map_objects:
+            try:
+                if layer in [
+                    MapSurfaceType.LANE_GROUP,
+                    MapSurfaceType.GENERIC_DRIVABLE,
+                    MapSurfaceType.CARPARK,
+                    MapSurfaceType.CROSSWALK,
+                    MapSurfaceType.INTERSECTION,
+                    MapSurfaceType.WALKWAY,
+                ]:
+                    add_shapely_polygon_to_ax(ax, map_object.shapely_polygon, MAP_SURFACE_CONFIG[layer])
+                if layer in [MapSurfaceType.LANE]:
+                    map_object: AbstractLane
+                    add_shapely_linestring_to_ax(ax, map_object.centerline.linestring, CENTERLINE_CONFIG)
+            except Exception:
+                import traceback
+
+                print(f"Error adding map object of type {layer.name} and id {map_object.id}")
+                traceback.print_exc()
+
+    ax.set_title(f"Map: {map_api.map_name}")
 
 
 def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionWrapper) -> None:
@@ -37,7 +83,7 @@ def add_traffic_lights_to_ax(
     ax: plt.Axes, traffic_light_detections: TrafficLightDetectionWrapper, map_api: AbstractMap
 ) -> None:
     for traffic_light_detection in traffic_light_detections:
-        lane: AbstractLane = map_api.get_map_object(int(traffic_light_detection.lane_id), MapSurfaceType.LANE)
+        lane: AbstractLane = map_api.get_map_object(str(traffic_light_detection.lane_id), MapSurfaceType.LANE)
         if lane is not None:
             add_shapely_linestring_to_ax(
                 ax,

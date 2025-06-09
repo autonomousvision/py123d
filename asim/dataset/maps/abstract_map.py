@@ -3,6 +3,8 @@ from __future__ import annotations
 import abc
 from typing import Dict, List, Optional
 
+import shapely
+
 from asim.common.geometry.base import Point2D
 from asim.dataset.maps.abstract_map_objects import AbstractMapObject
 from asim.dataset.maps.map_datatypes import MapSurfaceType
@@ -44,9 +46,18 @@ class AbstractMap(abc.ABC):
     ) -> Dict[MapSurfaceType, List[AbstractMapObject]]:
         pass
 
+    @abc.abstractmethod
+    def query(
+        self,
+        geometry: shapely.Geometry,
+        layers: List[MapSurfaceType],
+        predicate: Optional[str] = None,
+        sort: bool = False,
+        distance: Optional[float] = None,
+    ) -> Dict[MapSurfaceType, List[AbstractMapObject]]:
+        pass
 
-# class AbstractMap(abc.ABC):
-#     """
+
 #     Interface for generic scenarios Map API.
 #     """
 

@@ -31,6 +31,10 @@ class ArrowScene(AbstractScene):
     def map_api(self) -> AbstractMap:
         return self._map_api
 
+    @property
+    def log_name(self) -> str:
+        return str(self._arrow_log_path.stem)
+
     def get_number_of_iterations(self) -> int:
         return len(self._recording_table)
 
