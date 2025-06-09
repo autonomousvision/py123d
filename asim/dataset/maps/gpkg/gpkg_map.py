@@ -130,9 +130,8 @@ class GPKGMap(AbstractMap):
         :param layer: desired layer to check.
         :return: A list of map objects.
         """
-        layer_df = self._gpd_dataframes[layer]
-        map_object_ids = layer_df[layer_df["geometry"].intersects(patch)]["id"]
-
+        intersects_index = list(self._gpd_dataframes[layer].sindex.query(patch, predicate="intersects"))
+        map_object_ids = self._gpd_dataframes[layer].iloc[intersects_index]["id"]
         return [self.get_map_object(map_object_id, layer) for map_object_id in map_object_ids]
 
     def _get_lane(self, id: str) -> Optional[GPKGLane]:
@@ -205,4 +204,6 @@ def get_map_api_from_names(dataset: str, location: str) -> GPKGMap:
     ASIM_MAPS_ROOT = Path(os.environ.get("ASIM_MAPS_ROOT"))
     gpkg_path = ASIM_MAPS_ROOT / f"{dataset}_{location}.gpkg"
     assert gpkg_path.is_file(), f"{dataset}_{location}.gpkg not found in {str(ASIM_MAPS_ROOT)}."
-    return GPKGMap(gpkg_path)
+    map_api = GPKGMap(gpkg_path)
+    map_api.initialize()
+    return map_api
