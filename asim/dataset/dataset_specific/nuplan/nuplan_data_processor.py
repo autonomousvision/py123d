@@ -19,6 +19,7 @@ from asim.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from asim.common.geometry.vector import Vector3D
 from asim.common.vehicle_state.ego_vehicle_state import DynamicVehicleState, EgoVehicleState, EgoVehicleStateIndex
 from asim.dataset.arrow.multiple_table import save_arrow_tables
+from asim.dataset.dataset_specific.raw_data_processor import RawDataProcessor
 from asim.dataset.observation.detection.detection import TrafficLightStatus
 from asim.dataset.observation.detection.detection_types import DetectionType
 
@@ -56,15 +57,16 @@ def create_splits_logs() -> Dict[str, List[str]]:
     return splits["log_splits"]
 
 
-class NuPlanDataset:
-    def __init__(self, splits: List[str], output_path: Path) -> None:
+class NuplanDataProcessor(RawDataProcessor):
+    def __init__(self, splits: List[str], log_path: Union[Path, str], output_path: Union[Path, str]) -> None:
         for split in splits:
             assert (
-                split in self.available_splits
+                split in self.get_available_splits()
             ), f"Split {split} is not available. Available splits: {self.available_splits}"
 
         self._splits: List[str] = splits
-        self._output_path: Path = output_path
+        self._log_path: Path = Path(log_path)
+        self._output_path: Path = Path(output_path)
         self._log_paths_per_split: Dict[str, List[Path]] = self._collect_log_paths()
 
     def _collect_log_paths(self) -> Dict[str, List[Path]]:
@@ -91,8 +93,7 @@ class NuPlanDataset:
 
         return log_paths_per_split
 
-    @property
-    def available_splits(self) -> List[str]:
+    def get_available_splits(self) -> List[str]:
         return [
             "nuplan_train",
             "nuplan_val",
@@ -136,10 +137,11 @@ def convert_nuplan_log_to_arrow(args: List[Dict[str, Union[List[str], List[Path]
             save_arrow_tables(tables, log_file_path)
 
             del tables, log_db
+            gc.collect()
 
-    result = convert_log_internal(args)
+    convert_log_internal(args)
     gc.collect()
-    return result
+    return []
 
 
 def _get_metadata_table(log_db: NuPlanDB) -> pa.Table:
@@ -225,7 +227,9 @@ def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
             ("scenario_tag", pa.list_(pa.string())),
         ]
     )
-    return pa.Table.from_pydict(recording_data, schema=recording_schema)
+    recording_table = pa.Table.from_pydict(recording_data, schema=recording_schema)
+    recording_table = recording_table.sort_by([("timestamp", "ascending")])
+    return recording_table
 
 
 def _extract_detections(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[str], List[int]]:
