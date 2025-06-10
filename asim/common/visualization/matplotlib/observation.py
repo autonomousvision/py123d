@@ -26,6 +26,7 @@ from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.maps.abstract_map_objects import AbstractLane
 from asim.dataset.maps.map_datatypes import MapSurfaceType
 from asim.dataset.observation.detection.detection import BoxDetectionWrapper
+from asim.dataset.observation.detection.detection_types import DetectionType
 from asim.dataset.scene.abstract_scene import TrafficLightDetectionWrapper
 
 
@@ -71,6 +72,8 @@ def add_default_map_on_ax(ax: plt.Axes, map_api: AbstractMap, point_2d: Point2D,
 def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionWrapper) -> None:
     for box_detection in box_detections:
         # TODO: Optionally, continue on boxes outside of plot.
+        if box_detection.metadata.detection_type == DetectionType.GENERIC_OBJECT:
+            continue
         plot_config = BOX_DETECTION_CONFIG[box_detection.metadata.detection_type]
         add_bounding_box_to_ax(ax, box_detection.bounding_box, plot_config)
 

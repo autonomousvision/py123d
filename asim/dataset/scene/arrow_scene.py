@@ -1,4 +1,7 @@
 from pathlib import Path
+from typing import Optional
+
+import pyarrow as pa
 
 from asim.common.time.time_point import TimePoint
 from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleState
@@ -19,16 +22,20 @@ from asim.dataset.scene.abstract_scene import AbstractScene
 class ArrowScene(AbstractScene):
     def __init__(self, arrow_file_path: Path) -> None:
         self._arrow_log_path = arrow_file_path
-        self._arrow_multi_table = ArrowMultiTableFile(arrow_file_path)
+        self._metadata: Optional[LogMetadata] = None
+        self._recording_table: Optional[pa.Table] = None
 
-        self._metadata: LogMetadata = LogMetadata.from_arrow_table(self._arrow_multi_table.get_table("metadata_table"))
-        self._recording_table = self._arrow_multi_table.get_table("recording_table")
+        self._map_api: Optional[AbstractMap] = None
 
-        self._map_api: AbstractMap = get_map_api_from_names(self._metadata.dataset, self._metadata.location)
-        self._map_api.initialize()
+    def __reduce__(self):
+        return (self.__class__, (self._arrow_log_path,))
+
+    def initialize(self) -> None:
+        self._lazy_initialize()
 
     @property
     def map_api(self) -> AbstractMap:
+        self._lazy_initialize()
         return self._map_api
 
     @property
@@ -36,16 +43,30 @@ class ArrowScene(AbstractScene):
         return str(self._arrow_log_path.stem)
 
     def get_number_of_iterations(self) -> int:
+        self._lazy_initialize()
         return len(self._recording_table)
 
     def get_timepoint_at_iteration(self, iteration: int) -> TimePoint:
+        self._lazy_initialize()
         return get_timepoint_from_arrow_table(self._recording_table, iteration)
 
     def get_ego_vehicle_state_at_iteration(self, iteration: int) -> EgoVehicleState:
+        self._lazy_initialize()
         return get_ego_vehicle_state_from_arrow_table(self._recording_table, iteration)
 
     def get_box_detections_at_iteration(self, iteration: int) -> BoxDetectionWrapper:
+        self._lazy_initialize()
         return get_box_detections_from_arrow_table(self._recording_table, iteration)
 
     def get_traffic_light_detections_at_iteration(self, iteration: int) -> TrafficLightDetectionWrapper:
+        self._lazy_initialize()
         return get_traffic_light_detections_from_arrow_table(self._recording_table, iteration)
+
+    def _lazy_initialize(self) -> None:
+        if self._metadata is None:
+            arrow_multi_table = ArrowMultiTableFile(self._arrow_log_path)
+            self._metadata = LogMetadata.from_arrow_table(arrow_multi_table.get_table("metadata_table"))
+            self._recording_table = arrow_multi_table.get_table("recording_table")
+        if self._map_api is None:
+            self._map_api = get_map_api_from_names(self._metadata.dataset, self._metadata.location)
+            self._map_api.initialize()

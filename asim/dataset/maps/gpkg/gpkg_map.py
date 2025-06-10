@@ -53,23 +53,23 @@ class GPKGMap(AbstractMap):
 
     def initialize(self) -> None:
         """Inherited, see superclass."""
-
-        available_layers = list(gpd.list_layers(self._file_path).name)
-        for map_layer in list(MapSurfaceType):
-            map_layer_name = map_layer.serialize()
-            if map_layer_name in available_layers:
-                self._gpd_dataframes[map_layer] = gpd.read_file(
-                    self._file_path, layer=map_layer_name, use_arrow=USE_ARROW
-                )
-                load_gdf_with_geometry_columns(
-                    self._gpd_dataframes[map_layer],
-                    geometry_column_names=["baseline_path", "right_boundary", "left_boundary", "outline"],
-                )
-                # TODO: remove the temporary fix and enforce consistent id types in the GPKG files
-                if "id" in self._gpd_dataframes[map_layer].columns:
-                    self._gpd_dataframes[map_layer]["id"] = self._gpd_dataframes[map_layer]["id"].astype(str)
-            else:
-                warnings.warn(f"GPKGMap: {map_layer_name} not available in {str(self._file_path)}")
+        if len(self._gpd_dataframes) == 0:
+            available_layers = list(gpd.list_layers(self._file_path).name)
+            for map_layer in list(MapSurfaceType):
+                map_layer_name = map_layer.serialize()
+                if map_layer_name in available_layers:
+                    self._gpd_dataframes[map_layer] = gpd.read_file(
+                        self._file_path, layer=map_layer_name, use_arrow=USE_ARROW
+                    )
+                    load_gdf_with_geometry_columns(
+                        self._gpd_dataframes[map_layer],
+                        geometry_column_names=["baseline_path", "right_boundary", "left_boundary", "outline"],
+                    )
+                    # TODO: remove the temporary fix and enforce consistent id types in the GPKG files
+                    if "id" in self._gpd_dataframes[map_layer].columns:
+                        self._gpd_dataframes[map_layer]["id"] = self._gpd_dataframes[map_layer]["id"].astype(str)
+                else:
+                    warnings.warn(f"GPKGMap: {map_layer_name} not available in {str(self._file_path)}")
 
     def _assert_initialize(self) -> None:
         "Checks if `.initialize()` was called, before retrieving data."

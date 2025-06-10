@@ -56,8 +56,8 @@ def render_scene_as_mp4(
 ) -> None:
 
     if end_idx is None:
-        end_idx = len(scene._recording_table)
-    end_idx = min(end_idx, len(scene._recording_table))
+        end_idx = scene.get_number_of_iterations()
+    end_idx = min(end_idx, len(scene.get_number_of_iterations()))
 
     fig, ax = plt.subplots(figsize=(10, 10))
 

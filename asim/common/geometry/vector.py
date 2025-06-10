@@ -52,3 +52,7 @@ class Vector3D(Point3D):
     def magnitude(self) -> float:
         """Calculate the magnitude of the vector."""
         return np.linalg.norm(self.array)
+
+    @property
+    def vector_2(self) -> Vector2D:
+        return Vector2D(self.x, self.y)
