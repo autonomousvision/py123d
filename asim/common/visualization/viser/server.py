@@ -21,7 +21,6 @@ class ViserVisualizationServer:
 
     def set_scene(self, scene: AbstractScene) -> None:
         num_frames = scene.get_number_of_iterations()
-        # num_frames = 10
         initial_center = scene.get_ego_vehicle_state_at_iteration(0).bounding_box.center
         with self.server.gui.add_folder("Playback"):
 

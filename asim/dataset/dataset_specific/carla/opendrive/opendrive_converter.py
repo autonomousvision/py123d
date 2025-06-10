@@ -364,24 +364,24 @@ class OpenDriveConverter:
     def _extract_walkways_dataframe(self) -> gpd.GeoDataFrame:
 
         ids = []
-        left_boundaries = []
-        right_boundaries = []
+        # left_boundaries = []
+        # right_boundaries = []
         outlines = []
         geometries = []
 
         for lane_helper in self.lane_helper_dict.values():
             if lane_helper.type == "sidewalk":
                 ids.append(lane_helper.lane_id)
-                left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
-                right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
+                # left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
+                # right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
                 outlines.append(shapely.LineString(lane_helper.outline_polyline_3d))
                 geometries.append(lane_helper.shapely_polygon)
 
         data = pd.DataFrame(
             {
                 "id": ids,
-                "left_boundary": left_boundaries,
-                "right_boundary": left_boundaries,
+                # "left_boundary": left_boundaries,
+                # "right_boundary": left_boundaries,
                 "outline": outlines,
             }
         )
@@ -390,24 +390,24 @@ class OpenDriveConverter:
     def _extract_carpark_dataframe(self) -> gpd.GeoDataFrame:
 
         ids = []
-        left_boundaries = []
-        right_boundaries = []
+        # left_boundaries = []
+        # right_boundaries = []
         outlines = []
         geometries = []
 
         for lane_helper in self.lane_helper_dict.values():
             if lane_helper.type == "parking":
                 ids.append(lane_helper.lane_id)
-                left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
-                right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
+                # left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
+                # right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
                 outlines.append(shapely.LineString(lane_helper.outline_polyline_3d))
                 geometries.append(lane_helper.shapely_polygon)
 
         data = pd.DataFrame(
             {
                 "id": ids,
-                "left_boundary": left_boundaries,
-                "right_boundary": left_boundaries,
+                # "left_boundary": left_boundaries,
+                # "right_boundary": right_boundaries,
                 "outline": outlines,
             }
         )
@@ -416,24 +416,24 @@ class OpenDriveConverter:
     def _extract_generic_drivable_dataframe(self) -> gpd.GeoDataFrame:
 
         ids = []
-        left_boundaries = []
-        right_boundaries = []
+        # left_boundaries = []
+        # right_boundaries = []
         outlines = []
         geometries = []
 
         for lane_helper in self.lane_helper_dict.values():
             if lane_helper.type in ["none", "border", "bidirectional"]:
                 ids.append(lane_helper.lane_id)
-                left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
-                right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
+                # left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
+                # right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
                 outlines.append(shapely.LineString(lane_helper.outline_polyline_3d))
                 geometries.append(lane_helper.shapely_polygon)
 
         data = pd.DataFrame(
             {
                 "id": ids,
-                "left_boundary": left_boundaries,
-                "right_boundary": left_boundaries,
+                # "left_boundary": left_boundaries,
+                # "right_boundary": left_boundaries,
                 "outline": outlines,
             }
         )

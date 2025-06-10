@@ -57,6 +57,7 @@ def render_scene_as_mp4(
 
     if end_idx is None:
         end_idx = len(scene._recording_table)
+    end_idx = min(end_idx, len(scene._recording_table))
 
     fig, ax = plt.subplots(figsize=(10, 10))
 

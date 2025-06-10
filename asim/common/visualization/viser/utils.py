@@ -105,7 +105,7 @@ def get_bounding_box_meshes(scene: AbstractScene, iteration: int, center: Point3
 def get_map_meshes(scene: AbstractScene, center: Point3D):
     map_surface_types = [MapSurfaceType.LANE, MapSurfaceType.WALKWAY, MapSurfaceType.CROSSWALK, MapSurfaceType.CARPARK]
 
-    radius = 1000
+    radius = 500
     map_objects_dict = scene.map_api.get_proximal_map_objects(center.point_2d, radius=radius, layers=map_surface_types)
     output = {}
 
@@ -116,10 +116,11 @@ def get_map_meshes(scene: AbstractScene, center: Point3D):
             # outline_line = extract_outline_line(map_surface, center, z=0)
             trimesh_mesh = map_surface.trimesh_mesh
             if map_surface_type in [MapSurfaceType.WALKWAY, MapSurfaceType.CROSSWALK]:
-                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2 - 0.05).array
+                # trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2 - 0.05).array
+                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z + 1.777 / 2 - 0.05).array
             else:
-
-                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2).array
+                # trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2).array
+                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z + 1.777 / 2).array
             trimesh_mesh.visual.face_colors = MAP_SURFACE_CONFIG[map_surface_type].fill_color.rgba
             surface_meshes.append(trimesh_mesh)
 
