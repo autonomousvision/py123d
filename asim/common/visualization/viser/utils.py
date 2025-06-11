@@ -116,23 +116,13 @@ def get_map_meshes(scene: AbstractScene, center: Point3D):
             # outline_line = extract_outline_line(map_surface, center, z=0)
             trimesh_mesh = map_surface.trimesh_mesh
             if map_surface_type in [MapSurfaceType.WALKWAY, MapSurfaceType.CROSSWALK]:
-                # trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2 - 0.05).array
-                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z + 1.777 / 2 - 0.05).array
+                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2 - 0.05).array
+                # trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z + 1.777 / 2 - 0.05).array
             else:
-                # trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2).array
-                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z + 1.777 / 2).array
+                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2).array
+                # trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z + 1.777 / 2).array
             trimesh_mesh.visual.face_colors = MAP_SURFACE_CONFIG[map_surface_type].fill_color.rgba
             surface_meshes.append(trimesh_mesh)
-
-            # pbr_material = trimesh.visual.material.PBRMaterial(
-            #     baseColorFactor=[r / 255.0 for r in MAP_SURFACE_CONFIG[map_surface_type].fill_color.rgba],  # Your desired color (RGBA, 0-1 range)
-            #     metallicFactor=1.0,  # 0.0 = non-metallic (more matte)
-            #     roughnessFactor=0.9,  # 0.8 = quite rough (less shiny, 0=mirror, 1=completely rough)
-            #     emissiveFactor=[0.0, 0.0, 0.0],  # No emission
-            #     alphaCutoff=0.75,  # Alpha threshold for transparency
-            #     doubleSided=False,  # Single-sided material
-            # )
-            # trimesh_mesh.visual.material = pbr_material
         output[f"{map_surface_type.serialize()}"] = trimesh.util.concatenate(surface_meshes)
 
     return output
@@ -144,7 +134,7 @@ def get_trimesh_from_boundaries(
     resolution = 1.0  # [m]
 
     average_length = (left_boundary.length + right_boundary.length) / 2
-    num_samples = int(average_length // resolution)
+    num_samples = int(average_length // resolution) + 1
     left_boundary_array = _interpolate_polyline(left_boundary, num_samples=num_samples)
     right_boundary_array = _interpolate_polyline(right_boundary, num_samples=num_samples)
     return _create_lane_mesh_from_boundary_arrays(left_boundary_array, right_boundary_array)
