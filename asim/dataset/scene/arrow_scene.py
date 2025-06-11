@@ -11,7 +11,6 @@ from asim.dataset.arrow.conversion import (
     get_timepoint_from_arrow_table,
     get_traffic_light_detections_from_arrow_table,
 )
-from asim.dataset.arrow.multiple_table import ArrowMultiTableFile
 from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.maps.gpkg.gpkg_map import get_map_api_from_names
@@ -22,16 +21,16 @@ from asim.dataset.scene.abstract_scene import AbstractScene
 class ArrowScene(AbstractScene):
     def __init__(self, arrow_file_path: Path) -> None:
         self._arrow_log_path = arrow_file_path
-        self._metadata: Optional[LogMetadata] = None
-        self._recording_table: Optional[pa.Table] = None
 
+        with pa.memory_map(str(arrow_file_path), "rb") as source:
+            recording_table = pa.ipc.open_file(source).read_all()
+
+        self._recording_table: pa.Table = recording_table
+        self._metadata: LogMetadata = LogMetadata.from_arrow_table(recording_table)
         self._map_api: Optional[AbstractMap] = None
 
     def __reduce__(self):
         return (self.__class__, (self._arrow_log_path,))
-
-    def initialize(self) -> None:
-        self._lazy_initialize()
 
     @property
     def map_api(self) -> AbstractMap:
@@ -63,10 +62,6 @@ class ArrowScene(AbstractScene):
         return get_traffic_light_detections_from_arrow_table(self._recording_table, iteration)
 
     def _lazy_initialize(self) -> None:
-        if self._metadata is None:
-            arrow_multi_table = ArrowMultiTableFile(self._arrow_log_path)
-            self._metadata = LogMetadata.from_arrow_table(arrow_multi_table.get_table("metadata_table"))
-            self._recording_table = arrow_multi_table.get_table("recording_table")
         if self._map_api is None:
             self._map_api = get_map_api_from_names(self._metadata.dataset, self._metadata.location)
             self._map_api.initialize()

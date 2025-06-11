@@ -1,9 +1,12 @@
 import gc
+import json
 import os
+from dataclasses import asdict
 from pathlib import Path
 from typing import Dict, Final, List, Tuple, Union
 
 import pyarrow as pa
+import pyarrow.ipc as ipc
 import yaml
 from nuplan.common.geometry.compute import get_pacifica_parameters
 from nuplan.database.nuplan_db_orm.lidar_box import LidarBox
@@ -18,8 +21,8 @@ from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3, Bound
 from asim.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from asim.common.geometry.vector import Vector3D
 from asim.common.vehicle_state.ego_vehicle_state import DynamicVehicleState, EgoVehicleState, EgoVehicleStateIndex
-from asim.dataset.arrow.multiple_table import save_arrow_tables
 from asim.dataset.dataset_specific.raw_data_processor import RawDataProcessor
+from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.observation.detection.detection import TrafficLightStatus
 from asim.dataset.observation.detection.detection_types import DetectionType
 
@@ -114,7 +117,8 @@ class NuplanDataProcessor(RawDataProcessor):
             for log_path in log_paths
         ]
 
-        worker_map(worker, convert_nuplan_log_to_arrow, log_args)
+        metadata_list = worker_map(worker, convert_nuplan_log_to_arrow, log_args)
+        print(len(metadata_list))
 
 
 def convert_nuplan_log_to_arrow(args: List[Dict[str, Union[List[str], List[Path]]]]) -> None:
@@ -128,38 +132,36 @@ def convert_nuplan_log_to_arrow(args: List[Dict[str, Union[List[str], List[Path]
                 raise FileNotFoundError(f"Log path {log_path} does not exist.")
 
             log_db = NuPlanDB(NUPLAN_DATA_ROOT, str(log_path), None)
-            tables: Dict[str, pa.Table] = {}
-            tables["metadata_table"] = _get_metadata_table(log_db)
-            tables["recording_table"] = _get_recording_table(log_db)
+            # tables["metadata_table"] = _get_metadata_table(log_db)
+            recording_table = _get_recording_table(log_db)
+            metadata = _get_metadata(log_db)
+            recording_table = recording_table.replace_schema_metadata({"log_metadata": json.dumps(asdict(metadata))})
+
             log_file_path = output_path / split / f"{log_path.stem}.arrow"
+
             if not log_file_path.parent.exists():
                 log_file_path.parent.mkdir(parents=True, exist_ok=True)
-            save_arrow_tables(tables, log_file_path)
 
-            del tables, log_db
+            with pa.OSFile(str(log_file_path), "wb") as sink:
+                with ipc.new_file(sink, recording_table.schema) as writer:
+                    writer.write_table(recording_table)
+
+            del recording_table, log_db
             gc.collect()
+        return []
 
     convert_log_internal(args)
     gc.collect()
     return []
 
 
-def _get_metadata_table(log_db: NuPlanDB) -> pa.Table:
-    import asim
+def _get_metadata(log_db: NuPlanDB) -> LogMetadata:
 
-    metadata = {
-        "dataset": "nuplan",
-        "location": log_db.log.map_version,
-        "vehicle_name": log_db.log.vehicle_name,
-        "version": str(asim.__version__),
-    }
-    metadata_fields = []
-    metadata_values = []
-    for key, value in metadata.items():
-        metadata_fields.append(key)
-        metadata_values.append(pa.scalar(value))
-
-    return pa.Table.from_arrays([pa.array([value]) for value in metadata_values], metadata_fields)
+    return LogMetadata(
+        dataset="nuplan",
+        log_name=log_db.log_name,
+        location=log_db.log.map_version,
+    )
 
 
 def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
