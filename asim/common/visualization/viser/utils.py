@@ -116,11 +116,15 @@ def get_map_meshes(scene: AbstractScene, center: Point3D):
             # outline_line = extract_outline_line(map_surface, center, z=0)
             trimesh_mesh = map_surface.trimesh_mesh
             if map_surface_type in [MapSurfaceType.WALKWAY, MapSurfaceType.CROSSWALK]:
-                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2 - 0.05).array
-                # trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z + 1.777 / 2 - 0.05).array
+                # trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2 - 0.05).array
+                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z + 1.777 / 2 - 0.05).array
             else:
-                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2).array
-                # trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z + 1.777 / 2).array
+                # trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2).array
+                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z + 1.777 / 2).array
+
+            if not scene.log_metadata.map_has_z:
+                trimesh_mesh.vertices += Point3D(x=0, y=0, z=center.z).array
+
             trimesh_mesh.visual.face_colors = MAP_SURFACE_CONFIG[map_surface_type].fill_color.rgba
             surface_meshes.append(trimesh_mesh)
         output[f"{map_surface_type.serialize()}"] = trimesh.util.concatenate(surface_meshes)

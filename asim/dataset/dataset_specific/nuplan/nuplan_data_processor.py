@@ -19,6 +19,7 @@ import asim.dataset.dataset_specific.nuplan.utils as nuplan_utils
 from asim.common.geometry.base import StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3, BoundingBoxSE3Index
 from asim.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
+from asim.common.geometry.transform.se3 import translate_se3_along_x, translate_se3_along_z
 from asim.common.geometry.vector import Vector3D
 from asim.common.vehicle_state.ego_vehicle_state import DynamicVehicleState, EgoVehicleState, EgoVehicleStateIndex
 from asim.dataset.dataset_specific.raw_data_processor import RawDataProcessor
@@ -161,6 +162,7 @@ def _get_metadata(log_db: NuPlanDB) -> LogMetadata:
         dataset="nuplan",
         log_name=log_db.log_name,
         location=log_db.log.map_version,
+        map_has_z=False,
     )
 
 
@@ -264,15 +266,25 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
     vehicle_parameters = get_pacifica_parameters()
     # TODO: Convert rear axle to center
 
-    bounding_box = BoundingBoxSE3(
-        center=StateSE3(
-            x=lidar_pc.ego_pose.x,
-            y=lidar_pc.ego_pose.y,
-            z=lidar_pc.ego_pose.z,
-            roll=roll,
-            pitch=pitch,
-            yaw=yaw,
+    rear_axle_pose = StateSE3(
+        x=lidar_pc.ego_pose.x,
+        y=lidar_pc.ego_pose.y,
+        z=lidar_pc.ego_pose.z,
+        roll=roll,
+        pitch=pitch,
+        yaw=yaw,
+    )
+    # NOTE: the height to rear axle is not provided in the nuplan dataset.
+    center = translate_se3_along_z(
+        translate_se3_along_x(
+            rear_axle_pose,
+            vehicle_parameters.rear_axle_to_center,
         ),
+        vehicle_parameters.height / 3,
+    )
+
+    bounding_box = BoundingBoxSE3(
+        center=center,
         length=vehicle_parameters.length,
         width=vehicle_parameters.width,
         height=vehicle_parameters.height,

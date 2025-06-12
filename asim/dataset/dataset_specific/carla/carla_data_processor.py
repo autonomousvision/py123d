@@ -107,7 +107,7 @@ def convert_carla_log_to_arrow(args: List[Dict[str, Union[List[str], List[Path]]
 
 
 def _get_metadata(location: str, log_name: str) -> LogMetadata:
-    return LogMetadata(dataset="carla", log_name=log_name, location=location)
+    return LogMetadata(dataset="carla", log_name=log_name, location=location, map_has_z=True)
 
 
 def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -> pa.Table:

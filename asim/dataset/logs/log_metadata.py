@@ -12,6 +12,7 @@ class LogMetadata:
     dataset: str
     log_name: str
     location: str
+    map_has_z: bool
 
     @classmethod
     def from_arrow_table(cls, table: pa.Table) -> LogMetadata:

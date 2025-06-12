@@ -41,6 +41,10 @@ class ArrowScene(AbstractScene):
     def log_name(self) -> str:
         return str(self._arrow_log_path.stem)
 
+    @property
+    def log_metadata(self) -> LogMetadata:
+        return self._metadata
+
     def get_number_of_iterations(self) -> int:
         self._lazy_initialize()
         return len(self._recording_table)
