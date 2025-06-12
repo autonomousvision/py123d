@@ -13,6 +13,7 @@ from tqdm import tqdm
 
 from asim.common.geometry.base import Point3D
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
+from asim.common.geometry.vector import Vector3DIndex
 from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleStateIndex
 from asim.dataset.dataset_specific.nuplan.nuplan_data_processor import worker_map
 from asim.dataset.dataset_specific.raw_data_processor import RawDataProcessor
@@ -115,6 +116,7 @@ def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -
     timestamp_log: List[int] = []
 
     detections_state_log: List[List[List[float]]] = []
+    detections_velocity_log: List[List[List[float]]] = []
     detections_token_log: List[List[str]] = []
     detections_type_log: List[List[int]] = []
 
@@ -132,6 +134,7 @@ def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -
 
         timestamp_log.append(data["timestamp"])
         detections_state_log.append(data["detections_state"])
+        detections_velocity_log.append(data["detections_velocity"])
         detections_token_log.append(data["detections_token"])
         detections_type_log.append(data["detections_types"])
         ego_states_log.append(data["ego_state"])
@@ -142,6 +145,7 @@ def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -
     recording_data = {
         "timestamp": timestamp_log,
         "detections_state": detections_state_log,
+        "detections_velocity": detections_velocity_log,
         "detections_token": detections_token_log,
         "detections_type": detections_type_log,
         "ego_states": ego_states_log,
@@ -154,6 +158,7 @@ def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -
         [
             ("timestamp", pa.int64()),
             ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
+            ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
             ("detections_token", pa.list_(pa.string())),
             ("detections_type", pa.list_(pa.int16())),
             ("ego_states", pa.list_(pa.float64(), len(EgoVehicleStateIndex))),

@@ -6,7 +6,7 @@ import pyarrow as pa
 
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from asim.common.time.time_point import TimePoint
-from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleState
+from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleState, Vector3D
 from asim.dataset.maps.abstract_map import List
 from asim.dataset.observation.detection.detection import (
     BoxDetection,
@@ -36,8 +36,9 @@ def get_box_detections_from_arrow_table(arrow_table: pa.Table, index: int) -> Bo
     timepoint = get_timepoint_from_arrow_table(arrow_table, index)
     box_detections: List[BoxDetection] = []
 
-    for detection_state, detection_token, detection_type in zip(
+    for detection_state, detection_velocity, detection_token, detection_type in zip(
         arrow_table["detections_state"][index].as_py(),
+        arrow_table["detections_velocity"][index].as_py(),
         arrow_table["detections_token"][index].as_py(),
         arrow_table["detections_type"][index].as_py(),
     ):
@@ -49,7 +50,7 @@ def get_box_detections_from_arrow_table(arrow_table: pa.Table, index: int) -> Bo
                 confidence=None,
             ),
             bounding_box_se3=BoundingBoxSE3.from_array(np.array(detection_state)),
-            velocity=None,
+            velocity=Vector3D.from_array(np.array(detection_velocity)) if detection_velocity else None,
         )
         box_detections.append(box_detection)
     return BoxDetectionWrapper(box_detections=box_detections)

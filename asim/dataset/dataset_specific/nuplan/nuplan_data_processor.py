@@ -20,7 +20,7 @@ from asim.common.geometry.base import StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3, BoundingBoxSE3Index
 from asim.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from asim.common.geometry.transform.se3 import translate_se3_along_x, translate_se3_along_z
-from asim.common.geometry.vector import Vector3D
+from asim.common.geometry.vector import Vector3D, Vector3DIndex
 from asim.common.vehicle_state.ego_vehicle_state import DynamicVehicleState, EgoVehicleState, EgoVehicleStateIndex
 from asim.dataset.dataset_specific.raw_data_processor import RawDataProcessor
 from asim.dataset.logs.log_metadata import LogMetadata
@@ -175,6 +175,7 @@ def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
     timestamp_log: List[int] = []
 
     detections_state_log: List[List[List[float]]] = []
+    detections_velocity_log: List[List[List[float]]] = []
     detections_token_log: List[List[str]] = []
     detections_type_log: List[List[int]] = []
 
@@ -191,8 +192,9 @@ def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
         timestamp_log.append(lidar_pc.timestamp)
 
         # 2. box detections
-        detections_state, detections_token, detections_types = _extract_detections(lidar_pc)
+        detections_state, detections_velocity, detections_token, detections_types = _extract_detections(lidar_pc)
         detections_state_log.append(detections_state)
+        detections_velocity_log.append(detections_velocity)
         detections_token_log.append(detections_token)
         detections_type_log.append(detections_types)
 
@@ -210,6 +212,7 @@ def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
     recording_data = {
         "timestamp": timestamp_log,
         "detections_state": detections_state_log,
+        "detections_velocity": detections_velocity_log,
         "detections_token": detections_token_log,
         "detections_type": detections_type_log,
         "ego_states": ego_states_log,
@@ -223,6 +226,7 @@ def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
         [
             ("timestamp", pa.int64()),
             ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
+            ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
             ("detections_token", pa.list_(pa.string())),
             ("detections_type", pa.list_(pa.int16())),
             ("ego_states", pa.list_(pa.float64(), len(EgoVehicleStateIndex))),
@@ -236,8 +240,9 @@ def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
     return recording_table
 
 
-def _extract_detections(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[str], List[int]]:
+def _extract_detections(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[List[float]], List[str], List[int]]:
     detections_state: List[List[float]] = []
+    detections_velocity: List[List[float]] = []
     detections_token: List[str] = []
     detections_types: List[int] = []
 
@@ -254,10 +259,11 @@ def _extract_detections(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[str]
         bounding_box_se3 = BoundingBoxSE3(center, lidar_box.length, lidar_box.width, lidar_box.height)
 
         detections_state.append(bounding_box_se3.array)
+        detections_velocity.append(lidar_box.velocity)
         detections_token.append(lidar_box.track_token)
         detections_types.append(int(NUPLAN_DETECTION_NAME_DICT[lidar_box.category.name]))
 
-    return detections_state, detections_token, detections_types
+    return detections_state, detections_velocity, detections_token, detections_types
 
 
 def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
