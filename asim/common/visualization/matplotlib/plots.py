@@ -71,5 +71,5 @@ def render_scene_as_mp4(
     pbar = tqdm(total=len(frames), desc=f"Rendering {scene.log_name} as MP4")
     ani = animation.FuncAnimation(fig, update, frames=frames, repeat=False)
 
-    ani.save(output_path / f"{scene.log_name}.mp4", writer="ffmpeg", fps=fps, dpi=300)
+    ani.save(output_path / f"{scene.log_name}.mp4", writer="ffmpeg", fps=fps, dpi=dpi)
     plt.close(fig)
