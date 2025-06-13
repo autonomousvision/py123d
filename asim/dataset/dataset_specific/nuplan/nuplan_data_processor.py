@@ -181,6 +181,7 @@ def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
     traffic_light_ids_log: List[List[int]] = []
     traffic_light_types_log: List[List[int]] = []
     scenario_tags_log: List[List[str]] = []
+    route_lane_group_ids_log: List[List[int]] = []
 
     step_interval: float = int(TARGET_DT / NUPLAN_DT)
     for lidar_pc in tqdm(log_db.lidar_pc[::step_interval], dynamic_ncols=True):
@@ -208,6 +209,15 @@ def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
         # 5. Scenario Types
         scenario_tags_log.append(_extract_scenario_tag(log_db, lidar_pc_token))
 
+        # 6. route lane group ids
+        route_lane_group_ids_log.append(
+            [
+                int(roadblock_id)
+                for roadblock_id in str(lidar_pc.scene.roadblock_ids).split(" ")
+                if len(roadblock_id) > 0
+            ]
+        )
+
     recording_data = {
         "token": token_log,
         "timestamp": timestamp_log,
@@ -219,6 +229,7 @@ def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
         "traffic_light_ids": traffic_light_ids_log,
         "traffic_light_types": traffic_light_types_log,
         "scenario_tag": scenario_tags_log,
+        "route_lane_group_ids": route_lane_group_ids_log,
     }
 
     # Create a PyArrow Table
@@ -234,6 +245,7 @@ def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
             ("traffic_light_ids", pa.list_(pa.int64())),
             ("traffic_light_types", pa.list_(pa.int16())),
             ("scenario_tag", pa.list_(pa.string())),
+            ("route_lane_group_ids", pa.list_(pa.int64())),
         ]
     )
     recording_table = pa.Table.from_pydict(recording_data, schema=recording_schema)

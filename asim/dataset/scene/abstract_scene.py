@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
+from typing import List
 
 from asim.common.time.time_point import TimePoint
 from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleState
@@ -49,6 +50,10 @@ class AbstractScene(abc.ABC):
 
     @abc.abstractmethod
     def get_traffic_light_detections_at_iteration(self, iteration: int) -> TrafficLightDetectionWrapper:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_route_lane_group_ids(self, iteration: int) -> List[int]:
         raise NotImplementedError
 
     def open(self) -> None:

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
@@ -19,10 +19,11 @@ def _plot_scene_on_ax(ax: plt.Axes, scene: AbstractScene, iteration: int = 0, ra
     ego_vehicle_state = scene.get_ego_vehicle_state_at_iteration(iteration)
     box_detections = scene.get_box_detections_at_iteration(iteration)
     traffic_light_detections = scene.get_traffic_light_detections_at_iteration(iteration)
+    route_lane_group_ids = scene.get_route_lane_group_ids(iteration)
     map_api = scene.map_api
 
     point_2d = ego_vehicle_state.bounding_box.center.state_se2.point_2d
-    add_default_map_on_ax(ax, map_api, point_2d, radius=radius)
+    add_default_map_on_ax(ax, map_api, point_2d, radius=radius, route_lane_group_ids=route_lane_group_ids)
     add_traffic_lights_to_ax(ax, traffic_light_detections, map_api)
 
     add_box_detections_to_ax(ax, box_detections)
@@ -46,7 +47,7 @@ def plot_scene_at_iteration(
 
 def render_scene_animation(
     scene: AbstractScene,
-    output_path: Path,
+    output_path: Union[str, Path],
     start_idx: int = 0,
     end_idx: Optional[int] = None,
     step: int = 10,
@@ -56,6 +57,8 @@ def render_scene_animation(
     radius: float = 80,
 ) -> None:
     assert format in ["mp4", "gif"], "Format must be either 'mp4' or 'gif'."
+    output_path = Path(output_path)
+    output_path.mkdir(parents=True, exist_ok=True)
 
     scene.open()
 

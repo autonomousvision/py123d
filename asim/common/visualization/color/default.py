@@ -179,6 +179,15 @@ CENTERLINE_CONFIG: PlotConfig = PlotConfig(
     line_style="--",
     zorder=3,
 )
+ROUTE_CONFIG: PlotConfig = PlotConfig(
+    fill_color=Color("#f2c6c0ff"),
+    fill_color_alpha=1.0,
+    line_color=Color("#f2c6c0ff"),
+    line_color_alpha=0.0,
+    line_width=1.0,
+    line_style="-",
+    zorder=2,
+)
 
 
 TRAFFIC_LIGHT_CONFIG: Dict[TrafficLightStatus, PlotConfig] = {

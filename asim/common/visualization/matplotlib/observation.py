@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,6 +14,7 @@ from asim.common.visualization.color.default import (
     CENTERLINE_CONFIG,
     EGO_VEHICLE_CONFIG,
     MAP_SURFACE_CONFIG,
+    ROUTE_CONFIG,
     TRAFFIC_LIGHT_CONFIG,
 )
 from asim.common.visualization.matplotlib.utils import (
@@ -29,7 +30,13 @@ from asim.dataset.observation.detection.detection import BoxDetectionWrapper
 from asim.dataset.scene.abstract_scene import TrafficLightDetectionWrapper
 
 
-def add_default_map_on_ax(ax: plt.Axes, map_api: AbstractMap, point_2d: Point2D, radius: float) -> None:
+def add_default_map_on_ax(
+    ax: plt.Axes,
+    map_api: AbstractMap,
+    point_2d: Point2D,
+    radius: float,
+    route_lane_group_ids: Optional[List[int]] = None,
+) -> None:
     layers: List[MapSurfaceType] = [
         MapSurfaceType.LANE,
         MapSurfaceType.LANE_GROUP,
@@ -47,8 +54,12 @@ def add_default_map_on_ax(ax: plt.Axes, map_api: AbstractMap, point_2d: Point2D,
     for layer, map_objects in map_objects_dict.items():
         for map_object in map_objects:
             try:
+                if layer in [MapSurfaceType.LANE_GROUP] and route_lane_group_ids is not None:
+                    if route_lane_group_ids is not None and int(map_object.id) in route_lane_group_ids:
+                        add_shapely_polygon_to_ax(ax, map_object.shapely_polygon, ROUTE_CONFIG)
+                    else:
+                        add_shapely_polygon_to_ax(ax, map_object.shapely_polygon, MAP_SURFACE_CONFIG[layer])
                 if layer in [
-                    MapSurfaceType.LANE_GROUP,
                     MapSurfaceType.GENERIC_DRIVABLE,
                     MapSurfaceType.CARPARK,
                     MapSurfaceType.CROSSWALK,

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import pyarrow as pa
 
@@ -93,8 +93,12 @@ class ArrowScene(AbstractScene):
 
     def get_traffic_light_detections_at_iteration(self, iteration: int) -> TrafficLightDetectionWrapper:
         self._lazy_initialize()
-
         return get_traffic_light_detections_from_arrow_table(self._recording_table, self._get_table_index(iteration))
+
+    def get_route_lane_group_ids(self, iteration: int) -> List[int]:
+        self._lazy_initialize()
+        table_index = self._get_table_index(iteration)
+        return self._recording_table["route_lane_group_ids"][table_index].as_py()
 
     def _lazy_initialize(self) -> None:
         self.open()

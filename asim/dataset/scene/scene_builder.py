@@ -82,8 +82,21 @@ def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) 
     if filter.map_names is not None and log_metadata.map_name not in filter.map_names:
         return scene_extraction_infos
 
-    start_idx = int(filter.history_s / log_metadata.timestep_seconds)
-    end_idx = len(recording_table) - int(filter.duration_s / log_metadata.timestep_seconds)
+    start_idx = int(filter.history_s / log_metadata.timestep_seconds)  # if filter.history_s is not None else 0
+    end_idx = (
+        len(recording_table) - int(filter.duration_s / log_metadata.timestep_seconds)
+        if filter.duration_s is not None
+        else len(recording_table)
+    )
+    if filter.duration_s is None:
+        return [
+            SceneExtractionInfo(
+                initial_idx=start_idx,
+                duration_s=(end_idx - start_idx) * log_metadata.timestep_seconds,
+                history_s=filter.history_s if filter.history_s is not None else 0.0,
+                iteration_duration_s=log_metadata.timestep_seconds,
+            )
+        ]
 
     scene_token_set = set(filter.scene_tokens) if filter.scene_tokens else None
 

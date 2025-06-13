@@ -12,7 +12,7 @@ import pyarrow.ipc as ipc
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool
 from tqdm import tqdm
 
-from asim.common.geometry.base import Point3D
+from asim.common.geometry.base import Point2D, Point3D
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
 from asim.common.geometry.vector import Vector3DIndex
 from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleStateIndex
@@ -139,12 +139,14 @@ def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -
     traffic_light_ids_log: List[List[int]] = []
     traffic_light_types_log: List[List[int]] = []
     scenario_tags_log: List[List[str]] = []
+    route_lane_group_ids_log: List[List[str]] = []
 
     for box_path in tqdm(bounding_box_paths):
         data = _load_json_gz(box_path)
         traffic_light_ids, traffic_light_types = _extract_traffic_light_data(
             data["traffic_light_states"], data["traffic_light_positions"], map_api
         )
+        route_lane_group_ids = _extract_route_lane_group_ids(data["route"], map_api)
 
         timestamp_log.append(data["timestamp"])
         detections_state_log.append(data["detections_state"])
@@ -155,6 +157,7 @@ def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -
         traffic_light_ids_log.append(traffic_light_ids)
         traffic_light_types_log.append(traffic_light_types)
         scenario_tags_log.append(data["scenario_tag"])
+        route_lane_group_ids_log.append(route_lane_group_ids)
 
     recording_data = {
         "token": tokens,
@@ -167,6 +170,7 @@ def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -
         "traffic_light_ids": traffic_light_ids_log,
         "traffic_light_types": traffic_light_types_log,
         "scenario_tag": scenario_tags_log,
+        "route_lane_group_ids": route_lane_group_ids_log,
     }
 
     recording_schema = pa.schema(
@@ -181,6 +185,7 @@ def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -
             ("traffic_light_ids", pa.list_(pa.int64())),
             ("traffic_light_types", pa.list_(pa.int16())),
             ("scenario_tag", pa.list_(pa.string())),
+            ("route_lane_group_ids", pa.list_(pa.int64())),
         ]
     )
     recording_table = pa.Table.from_pydict(recording_data, schema=recording_schema)
@@ -209,3 +214,36 @@ def _extract_traffic_light_data(
                     traffic_light_ids.append(int(lane.id))
                     traffic_light_types.append(traffic_light_state)
     return traffic_light_ids, traffic_light_types
+
+
+def _extract_route_lane_group_ids(route: List[List[float]], map_api: AbstractMap) -> List[int]:
+
+    route = np.array(route, dtype=np.float64)
+    route[..., 1] = -route[..., 1]  # Unreal coordinate system to ISO 8855
+    route = route[::2]
+
+    route_lane_group_ids: List[int] = []
+
+    for point in route[:200]:
+        point_2d = Point2D(point[0], point[1])
+        nearby_lane_groups = map_api.query(point_2d.shapely_point, [MapSurfaceType.LANE_GROUP], predicate="intersects")[
+            MapSurfaceType.LANE_GROUP
+        ]
+        if len(nearby_lane_groups) == 0:
+            continue
+        elif len(nearby_lane_groups) > 1:
+            possible_lane_group_ids = [lane_group.id for lane_group in nearby_lane_groups]
+            if len(route_lane_group_ids) > 0:
+                prev_lane_group_id = route_lane_group_ids[-1]
+                if prev_lane_group_id in possible_lane_group_ids:
+                    continue
+                else:
+                    # TODO: Choose with least heading difference?
+                    route_lane_group_ids.append(int(nearby_lane_groups[0].id))
+            else:
+                # TODO: Choose with least heading difference?
+                route_lane_group_ids.append(int(nearby_lane_groups[0].id))
+        elif len(nearby_lane_groups) == 1:
+            route_lane_group_ids.append(int(nearby_lane_groups[0].id))
+
+    return list(dict.fromkeys(route_lane_group_ids))  # Remove duplicates while preserving order
