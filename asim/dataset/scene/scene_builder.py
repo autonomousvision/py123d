@@ -4,9 +4,11 @@ from typing import Iterator, List, Optional, Set, Union
 
 from nuplan.planning.utils.multithreading.worker_pool import WorkerPool
 
+from asim.dataset.arrow.helper import open_arrow_arrow_table
 from asim.dataset.dataset_specific.nuplan.nuplan_data_processor import worker_map
+from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.scene.abstract_scene import AbstractScene
-from asim.dataset.scene.arrow_scene import ArrowScene
+from asim.dataset.scene.arrow_scene import ArrowScene, SceneExtractionInfo
 from asim.dataset.scene.scene_filter import SceneFilter
 
 
@@ -27,7 +29,7 @@ class ArrowSceneBuilder:
         filter_log_names = set(filter.log_names) if filter.log_names else None
         log_paths = _discover_log_paths(self._dataset_path, split_names, filter_log_names)
         if len(log_paths) == 0:
-            return iter([])
+            return []
         scenes = worker_map(worker, partial(_extract_scenes_from_logs, filter=filter), log_paths)
         return scenes
 
@@ -59,5 +61,58 @@ def _discover_log_paths(dataset_path: Path, split_names: Set[str], log_names: Op
 def _extract_scenes_from_logs(log_paths: List[Path], filter: SceneFilter) -> List[AbstractScene]:
     scenes: List[AbstractScene] = []
     for log_path in log_paths:
-        scenes.append(ArrowScene(log_path))
+        scene_extraction_infos = _get_scene_extraction_info(log_path, filter)
+        for scene_extraction_info in scene_extraction_infos:
+            scenes.append(
+                ArrowScene(
+                    arrow_file_path=log_path,
+                    scene_extraction_info=scene_extraction_info,
+                )
+            )
     return scenes
+
+
+def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) -> List[SceneExtractionInfo]:
+    scene_extraction_infos: List[SceneExtractionInfo] = []
+
+    recording_table = open_arrow_arrow_table(log_path)
+    log_metadata = LogMetadata.from_arrow_table(recording_table)
+
+    # 1. Filter map name
+    if filter.map_names is not None and log_metadata.map_name not in filter.map_names:
+        return scene_extraction_infos
+
+    start_idx = int(filter.history_s / log_metadata.timestep_seconds)
+    end_idx = len(recording_table) - int(filter.duration_s / log_metadata.timestep_seconds)
+
+    scene_token_set = set(filter.scene_tokens) if filter.scene_tokens else None
+
+    for idx in range(start_idx, end_idx):
+        scene_extraction_info: Optional[SceneExtractionInfo] = None
+
+        if scene_token_set is None:
+            scene_extraction_info = SceneExtractionInfo(
+                initial_idx=idx,
+                duration_s=filter.duration_s,
+                history_s=filter.history_s,
+                iteration_duration_s=log_metadata.timestep_seconds,
+            )
+        elif str(recording_table["token"][idx]) in scene_token_set:
+            scene_extraction_info = SceneExtractionInfo(
+                initial_idx=idx,
+                duration_s=filter.duration_s,
+                history_s=filter.history_s,
+                iteration_duration_s=log_metadata.timestep_seconds,
+            )
+
+        if scene_extraction_info is not None:
+            # TODO: add more options
+            if filter.timestamp_threshold_s is not None and len(scene_extraction_infos) > 0:
+                iteration_delta = idx - scene_extraction_infos[-1].initial_idx
+                if (iteration_delta * log_metadata.timestep_seconds) < filter.timestamp_threshold_s:
+                    continue
+
+            scene_extraction_infos.append(scene_extraction_info)
+
+    del recording_table, log_metadata
+    return scene_extraction_infos

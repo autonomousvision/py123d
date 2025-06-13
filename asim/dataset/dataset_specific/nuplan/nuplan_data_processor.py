@@ -27,6 +27,7 @@ from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.observation.detection.detection import TrafficLightStatus
 from asim.dataset.observation.detection.detection_types import DetectionType
 
+TARGET_DT: Final[float] = 0.1
 NUPLAN_DT: Final[float] = 0.05
 NUPLAN_FULL_MAP_NAME_DICT: Final[Dict[str, str]] = {
     "boston": "us-ma-boston",
@@ -72,6 +73,7 @@ class NuplanDataProcessor(RawDataProcessor):
         self._log_path: Path = Path(log_path)
         self._output_path: Path = Path(output_path)
         self._log_paths_per_split: Dict[str, List[Path]] = self._collect_log_paths()
+        self._target_dt: float = 0.1
 
     def _collect_log_paths(self) -> Dict[str, List[Path]]:
         # NOTE: the nuplan mini folder has an internal train, val, test structure, all stored in "mini".
@@ -118,8 +120,7 @@ class NuplanDataProcessor(RawDataProcessor):
             for log_path in log_paths
         ]
 
-        metadata_list = worker_map(worker, convert_nuplan_log_to_arrow, log_args)
-        print(len(metadata_list))
+        worker_map(worker, convert_nuplan_log_to_arrow, log_args)
 
 
 def convert_nuplan_log_to_arrow(args: List[Dict[str, Union[List[str], List[Path]]]]) -> None:
@@ -133,9 +134,14 @@ def convert_nuplan_log_to_arrow(args: List[Dict[str, Union[List[str], List[Path]
                 raise FileNotFoundError(f"Log path {log_path} does not exist.")
 
             log_db = NuPlanDB(NUPLAN_DATA_ROOT, str(log_path), None)
-            # tables["metadata_table"] = _get_metadata_table(log_db)
             recording_table = _get_recording_table(log_db)
-            metadata = _get_metadata(log_db)
+            metadata = LogMetadata(
+                dataset="nuplan",
+                log_name=log_db.log_name,
+                location=log_db.log.map_version,
+                timestep_seconds=TARGET_DT,
+                map_has_z=False,
+            )
             recording_table = recording_table.replace_schema_metadata({"log_metadata": json.dumps(asdict(metadata))})
 
             log_file_path = output_path / split / f"{log_path.stem}.arrow"
@@ -156,22 +162,13 @@ def convert_nuplan_log_to_arrow(args: List[Dict[str, Union[List[str], List[Path]
     return []
 
 
-def _get_metadata(log_db: NuPlanDB) -> LogMetadata:
-
-    return LogMetadata(
-        dataset="nuplan",
-        log_name=log_db.log_name,
-        location=log_db.log.map_version,
-        map_has_z=False,
-    )
-
-
 def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
 
     log_db.log.token
     log_db.log.map_version
     log_db.log.vehicle_name
 
+    token_log: List[str] = []
     timestamp_log: List[int] = []
 
     detections_state_log: List[List[List[float]]] = []
@@ -185,10 +182,12 @@ def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
     traffic_light_types_log: List[List[int]] = []
     scenario_tags_log: List[List[str]] = []
 
-    for lidar_pc in tqdm(log_db.lidar_pc[::2], dynamic_ncols=True):
+    step_interval: float = int(TARGET_DT / NUPLAN_DT)
+    for lidar_pc in tqdm(log_db.lidar_pc[::step_interval], dynamic_ncols=True):
         lidar_pc_token: str = lidar_pc.token
 
-        # 1. Timestamp (time_us)
+        # 1. Token + Timestamp (time_us)
+        token_log.append(lidar_pc_token)
         timestamp_log.append(lidar_pc.timestamp)
 
         # 2. box detections
@@ -210,6 +209,7 @@ def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
         scenario_tags_log.append(_extract_scenario_tag(log_db, lidar_pc_token))
 
     recording_data = {
+        "token": token_log,
         "timestamp": timestamp_log,
         "detections_state": detections_state_log,
         "detections_velocity": detections_velocity_log,
@@ -224,6 +224,7 @@ def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
     # Create a PyArrow Table
     recording_schema = pa.schema(
         [
+            ("token", pa.string()),
             ("timestamp", pa.int64()),
             ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
             ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),

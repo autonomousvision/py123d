@@ -1,5 +1,6 @@
 import gc
 import gzip
+import hashlib
 import json
 from dataclasses import asdict
 from pathlib import Path
@@ -22,9 +23,7 @@ from asim.dataset.maps.abstract_map import AbstractMap, MapSurfaceType
 from asim.dataset.maps.abstract_map_objects import AbstractLane
 from asim.dataset.scene.arrow_scene import get_map_api_from_names
 
-CARLA_DT: Final[float] = 0.1
-
-
+CARLA_DT: Final[float] = 0.1  # [s]
 TRAFFIC_LIGHT_ASSIGNMENT_DISTANCE: Final[float] = 1.0  # [m]
 
 
@@ -33,6 +32,14 @@ def _load_json_gz(path: Path) -> Dict:
     with gzip.open(path, "rt") as f:
         data = json.load(f)
     return data
+
+
+def create_token(input_data: str) -> str:
+    if isinstance(input_data, str):
+        input_data = input_data.encode("utf-8")
+
+    hash_obj = hashlib.sha256(input_data)
+    return hash_obj.hexdigest()[:16]
 
 
 class CarlaDataProcessor(RawDataProcessor):
@@ -108,11 +115,18 @@ def convert_carla_log_to_arrow(args: List[Dict[str, Union[List[str], List[Path]]
 
 
 def _get_metadata(location: str, log_name: str) -> LogMetadata:
-    return LogMetadata(dataset="carla", log_name=log_name, location=location, map_has_z=True)
+    return LogMetadata(
+        dataset="carla",
+        log_name=log_name,
+        location=location,
+        timestep_seconds=CARLA_DT,
+        map_has_z=True,
+    )
 
 
 def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -> pa.Table:
-
+    log_path = bounding_box_paths[0].parent.parent.stem
+    tokens: List[str] = [create_token(f"{str(log_path)}_{path.stem}") for path in bounding_box_paths]
     timestamp_log: List[int] = []
 
     detections_state_log: List[List[List[float]]] = []
@@ -143,6 +157,7 @@ def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -
         scenario_tags_log.append(data["scenario_tag"])
 
     recording_data = {
+        "token": tokens,
         "timestamp": timestamp_log,
         "detections_state": detections_state_log,
         "detections_velocity": detections_velocity_log,
@@ -156,6 +171,7 @@ def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -
 
     recording_schema = pa.schema(
         [
+            ("token", pa.string()),
             ("timestamp", pa.int64()),
             ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
             ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),

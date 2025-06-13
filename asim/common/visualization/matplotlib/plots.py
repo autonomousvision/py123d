@@ -44,7 +44,7 @@ def plot_scene_at_iteration(
     return fig, ax
 
 
-def render_scene_as_mp4(
+def render_scene_animation(
     scene: AbstractScene,
     output_path: Path,
     start_idx: int = 0,
@@ -52,8 +52,12 @@ def render_scene_as_mp4(
     step: int = 10,
     fps: float = 20.0,
     dpi: int = 300,
+    format: str = "mp4",
     radius: float = 80,
 ) -> None:
+    assert format in ["mp4", "gif"], "Format must be either 'mp4' or 'gif'."
+
+    scene.open()
 
     if end_idx is None:
         end_idx = scene.get_number_of_iterations()
@@ -71,5 +75,6 @@ def render_scene_as_mp4(
     pbar = tqdm(total=len(frames), desc=f"Rendering {scene.log_name} as MP4")
     ani = animation.FuncAnimation(fig, update, frames=frames, repeat=False)
 
-    ani.save(output_path / f"{scene.log_name}.mp4", writer="ffmpeg", fps=fps, dpi=dpi)
+    ani.save(output_path / f"{scene.log_name}_{scene.token}.{format}", writer="ffmpeg", fps=fps, dpi=dpi)
     plt.close(fig)
+    scene.close()

@@ -102,7 +102,7 @@ BOX_DETECTION_CONFIG: Dict[DetectionType, PlotConfig] = {
         line_color_alpha=1.0,
         line_width=1.0,
         line_style="-",
-        marker_style=HEADING_MARKER_STYLE,
+        marker_style=None,
         marker_size=1.0,
         zorder=2,
     ),
