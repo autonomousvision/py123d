@@ -58,6 +58,7 @@ class Road:
         if road_element.find("objects") is not None:
             for object_element in road_element.find("objects").findall("object"):
                 objects.append(Object.parse(object_element))
+
         args["objects"] = objects
 
         return Road(**args)

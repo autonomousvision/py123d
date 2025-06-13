@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import abc
+from dataclasses import dataclass
+from typing import List
 
 from asim.common.time.time_point import TimePoint
 from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleState
+from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.observation.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 
@@ -12,6 +15,21 @@ class AbstractScene(abc.ABC):
     @property
     @abc.abstractmethod
     def map_api(self) -> AbstractMap:
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def log_name(self) -> str:
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def token(self) -> str:
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def log_metadata(self) -> LogMetadata:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -33,3 +51,30 @@ class AbstractScene(abc.ABC):
     @abc.abstractmethod
     def get_traffic_light_detections_at_iteration(self, iteration: int) -> TrafficLightDetectionWrapper:
         raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_route_lane_group_ids(self, iteration: int) -> List[int]:
+        raise NotImplementedError
+
+    def open(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+
+@dataclass(frozen=True)
+class SceneExtractionInfo:
+
+    initial_idx: int
+    duration_s: float
+    history_s: float
+    iteration_duration_s: float
+
+    @property
+    def number_of_iterations(self) -> int:
+        return int(self.duration_s / self.iteration_duration_s)
+
+    @property
+    def end_idx(self) -> int:
+        return self.initial_idx + self.number_of_iterations

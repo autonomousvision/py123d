@@ -1,0 +1,11 @@
+
+# ASIM
+asim_devkit_root: ${oc.env:ASIM_DEVKIT_ROOT}
+asim_maps_root: ${oc.env:ASIM_MAPS_ROOT}
+asim_data_root: ${oc.env:ASIM_DATA_ROOT}
+
+
+# nuplan
+nuplan_devkit_root: ${oc.env:NUPLAN_DEVKIT_ROOT}
+nuplan_maps_root: ${oc.env:NUPLAN_MAPS_ROOT}
+nuplan_data_root: ${oc.env:NUPLAN_DATA_ROOT}

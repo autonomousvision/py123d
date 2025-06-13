@@ -6,6 +6,7 @@ from typing import Iterable
 
 import numpy as np
 import numpy.typing as npt
+import shapely.geometry as geom
 
 from asim.common.utils.enums import classproperty
 
@@ -39,6 +40,10 @@ class Point2D:
         array[Point2DIndex.X] = self.x
         array[Point2DIndex.Y] = self.y
         return array
+
+    @property
+    def shapely_point(self) -> geom.Point:
+        return geom.Point(self.x, self.y)
 
     def __iter__(self) -> Iterable[float]:
         """
@@ -148,6 +153,10 @@ class Point3D:
     @property
     def point_2d(self) -> Point2D:
         return Point2D(self.x, self.y)
+
+    @property
+    def shapely_point(self) -> geom.Point:
+        return geom.Point(self.x, self.y, self.z)
 
     def __iter__(self) -> Iterable[float]:
         """

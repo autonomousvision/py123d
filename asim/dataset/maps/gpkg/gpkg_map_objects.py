@@ -11,6 +11,7 @@ import trimesh
 
 from asim.common.geometry.base import Point3DIndex
 from asim.common.geometry.line.polylines import Polyline3D
+from asim.common.visualization.viser.utils import get_trimesh_from_boundaries
 from asim.dataset.maps.abstract_map_objects import (
     AbstractCarpark,
     AbstractCrosswalk,
@@ -51,7 +52,12 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
     @cached_property
     def outline_3d(self) -> Polyline3D:
         """Inherited, see superclass."""
-        return Polyline3D.from_linestring(geom.LineString(self.shapely_polygon.exterior.coords))
+        outline_3d: Optional[Polyline3D] = None
+        if "outline" in self._object_df.columns:
+            outline_3d = Polyline3D.from_linestring(self._object_row.outline)
+        else:
+            outline_3d = Polyline3D.from_linestring(geom.LineString(self.shapely_polygon.exterior.coords))
+        return outline_3d
 
     @property
     def trimesh_mesh(self) -> trimesh.Trimesh:
@@ -114,6 +120,11 @@ class GPKGLane(GPKGSurfaceObject, AbstractLane):
         return Polyline3D.from_linestring(geom.LineString(outline_array))
 
     @property
+    def trimesh_mesh(self) -> trimesh.Trimesh:
+        """Inherited, see superclass."""
+        return get_trimesh_from_boundaries(self.left_boundary, self.right_boundary)
+
+    @property
     def lane_group(self) -> GPKGLaneGroup:
         """Inherited, see superclass."""
         lane_group_id = self._object_row.lane_group_id
@@ -164,6 +175,11 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
         """Inherited, see superclass."""
         outline_array = np.vstack((self.left_boundary.array, self.right_boundary.array[::-1]))
         return Polyline3D.from_linestring(geom.LineString(outline_array))
+
+    @property
+    def trimesh_mesh(self) -> trimesh.Trimesh:
+        """Inherited, see superclass."""
+        return get_trimesh_from_boundaries(self.left_boundary, self.right_boundary)
 
     @property
     def lanes(self) -> List[GPKGLane]:

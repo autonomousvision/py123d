@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 import geopandas as gpd
+import shapely
 import shapely.geometry as geom
 
 from asim.common.geometry.base import Point2D
@@ -52,20 +53,23 @@ class GPKGMap(AbstractMap):
 
     def initialize(self) -> None:
         """Inherited, see superclass."""
-
-        available_layers = list(gpd.list_layers(self._file_path).name)
-        for map_layer in list(MapSurfaceType):
-            map_layer_name = map_layer.serialize()
-            if map_layer_name in available_layers:
-                self._gpd_dataframes[map_layer] = gpd.read_file(
-                    self._file_path, layer=map_layer_name, use_arrow=USE_ARROW
-                )
-                load_gdf_with_geometry_columns(
-                    self._gpd_dataframes[map_layer],
-                    geometry_column_names=["baseline_path", "right_boundary", "left_boundary"],
-                )
-            else:
-                warnings.warn(f"GPKGMap: {map_layer_name} not available in {str(self._file_path)}")
+        if len(self._gpd_dataframes) == 0:
+            available_layers = list(gpd.list_layers(self._file_path).name)
+            for map_layer in list(MapSurfaceType):
+                map_layer_name = map_layer.serialize()
+                if map_layer_name in available_layers:
+                    self._gpd_dataframes[map_layer] = gpd.read_file(
+                        self._file_path, layer=map_layer_name, use_arrow=USE_ARROW
+                    )
+                    load_gdf_with_geometry_columns(
+                        self._gpd_dataframes[map_layer],
+                        geometry_column_names=["baseline_path", "right_boundary", "left_boundary", "outline"],
+                    )
+                    # TODO: remove the temporary fix and enforce consistent id types in the GPKG files
+                    if "id" in self._gpd_dataframes[map_layer].columns:
+                        self._gpd_dataframes[map_layer]["id"] = self._gpd_dataframes[map_layer]["id"].astype(str)
+                else:
+                    warnings.warn(f"GPKGMap: {map_layer_name} not available in {str(self._file_path)}")
 
     def _assert_initialize(self) -> None:
         "Checks if `.initialize()` was called, before retrieving data."
@@ -102,37 +106,38 @@ class GPKGMap(AbstractMap):
         self, point_2d: Point2D, radius: float, layers: List[MapSurfaceType]
     ) -> Dict[MapSurfaceType, List[AbstractMapObject]]:
         """Inherited, see superclass."""
-        # TODO: use circle instead of box
         center_point = geom.Point(point_2d.x, point_2d.y)
         patch = center_point.buffer(radius)
-        # TODO: create separate method for arbitrary shapes
+        return self.query(geometry=patch, layers=layers, predicate="intersects")
 
-        # x_min, x_max = point_2d.x - radius, point_2d.x + radius
-        # y_min, y_max = point_2d.y - radius, point_2d.y + radius
-        # patch = geom.box(x_min, y_min, x_max, y_max)
-
+    def query(
+        self,
+        geometry: shapely.Geometry,
+        layers: List[MapSurfaceType],
+        predicate: Optional[str] = None,
+        sort: bool = False,
+        distance: Optional[float] = None,
+    ) -> Dict[MapSurfaceType, List[AbstractMapObject]]:
         supported_layers = self.get_available_map_objects()
         unsupported_layers = [layer for layer in layers if layer not in supported_layers]
-
         assert len(unsupported_layers) == 0, f"Object representation for layer(s): {unsupported_layers} is unavailable"
-
         object_map: Dict[MapSurfaceType, List[AbstractMapObject]] = defaultdict(list)
-
         for layer in layers:
-            object_map[layer] = self._get_proximity_map_object(patch, layer)
-
+            object_map[layer] = self._query_layer(geometry, layer, predicate, sort, distance)
         return object_map
 
-    def _get_proximity_map_object(self, patch: geom.Polygon, layer: MapSurfaceType) -> List[AbstractMapObject]:
-        """
-        Gets nearby lanes within the given patch.
-        :param patch: The area to be checked.
-        :param layer: desired layer to check.
-        :return: A list of map objects.
-        """
-        layer_df = self._gpd_dataframes[layer]
-        map_object_ids = layer_df[layer_df["geometry"].intersects(patch)]["id"]
-
+    def _query_layer(
+        self,
+        geometry: shapely.Geometry,
+        layer: MapSurfaceType,
+        predicate: Optional[str] = None,
+        sort: bool = False,
+        distance: Optional[float] = None,
+    ) -> List[AbstractMapObject]:
+        queried_indices = list(
+            self._gpd_dataframes[layer].sindex.query(geometry, predicate=predicate, sort=sort, distance=distance)
+        )
+        map_object_ids = self._gpd_dataframes[layer].iloc[queried_indices]["id"]
         return [self.get_map_object(map_object_id, layer) for map_object_id in map_object_ids]
 
     def _get_lane(self, id: str) -> Optional[GPKGLane]:
@@ -205,4 +210,6 @@ def get_map_api_from_names(dataset: str, location: str) -> GPKGMap:
     ASIM_MAPS_ROOT = Path(os.environ.get("ASIM_MAPS_ROOT"))
     gpkg_path = ASIM_MAPS_ROOT / f"{dataset}_{location}.gpkg"
     assert gpkg_path.is_file(), f"{dataset}_{location}.gpkg not found in {str(ASIM_MAPS_ROOT)}."
-    return GPKGMap(gpkg_path)
+    map_api = GPKGMap(gpkg_path)
+    map_api.initialize()
+    return map_api

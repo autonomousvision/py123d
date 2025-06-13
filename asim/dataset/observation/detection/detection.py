@@ -93,7 +93,8 @@ class TrafficLightStatus(SerialIntEnum):
     GREEN = 0
     YELLOW = 1
     RED = 2
-    UNKNOWN = 3
+    OFF = 3
+    UNKNOWN = 4
 
 
 @dataclass

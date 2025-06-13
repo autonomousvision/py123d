@@ -29,7 +29,7 @@ class ArrowMultiTableFile:
             raise KeyError(f"Table '{name}' not found")
 
         offset, size = self._tables[name]
-        table_data = self._mmap[offset : offset + size]
+        table_data = memoryview(self._mmap)[offset : offset + size]
         reader = ipc.open_file(pa.py_buffer(table_data))
         return reader.read_all()
 
@@ -39,7 +39,7 @@ class ArrowMultiTableFile:
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
         self.close()
 
     def close(self):

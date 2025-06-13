@@ -14,10 +14,10 @@ class Observation(abc.ABC):
     Abstract observation container.
     """
 
-    @classmethod
-    @abc.abstractmethod
-    def observation_type(cls) -> ObservationType:
-        """
-        Returns detection type of the observation.
-        """
-        raise NotImplementedError
+    # @classmethod
+    # @abc.abstractmethod
+    # def observation_type(cls) -> ObservationType:
+    #     """
+    #     Returns detection type of the observation.
+    #     """
+    #     raise NotImplementedError

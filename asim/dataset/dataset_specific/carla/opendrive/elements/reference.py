@@ -12,7 +12,7 @@ import numpy.typing as npt
 from asim.common.geometry.base import Point3DIndex, StateSE2Index
 from asim.common.geometry.utils import normalize_angle
 from asim.dataset.dataset_specific.carla.opendrive.elements.elevation import ElevationProfile
-from asim.dataset.dataset_specific.carla.opendrive.elements.geometry import Arc, Geometry, Line
+from asim.dataset.dataset_specific.carla.opendrive.elements.geometry import Arc, Geometry, Line, Spiral
 from asim.dataset.dataset_specific.carla.opendrive.elements.lane import LaneOffset
 
 
@@ -36,9 +36,7 @@ class PlanView:
             elif geometry_element.find("arc") is not None:
                 geometry = Arc.parse(geometry_element)
             elif geometry_element.find("spiral") is not None:
-                # geometry = Arc.parse(geometry_element)
-                # TODO
-                continue
+                geometry = Spiral.parse(geometry_element)
             else:
                 geometry_str = ET.tostring(geometry_element, encoding="unicode")
                 raise NotImplementedError(f"Geometry not implemented: {geometry_str}")
@@ -146,6 +144,18 @@ class Border:
             len(self.width_coefficient_offsets) - 1,
         )
 
+    def _get_height_index(self, s: float, is_last_pos: bool) -> float:
+        height_offsets = [elevation.s for elevation in self.elevation_profile.elevations]
+
+        return next(
+            (
+                height_offsets.index(n)
+                for n in height_offsets[::-1]
+                if ((n <= s and (not is_last_pos or s == 0)) or (n < s and is_last_pos))
+            ),
+            len(height_offsets) - 1,
+        )
+
     def interpolate_se2(self, s: float, t: float = 0.0, is_last_pos: bool = False) -> npt.NDArray[np.float64]:
         # Last reference has to be a reference geometry (PlanView)
         # Offset of all inner lanes (Border)
@@ -189,12 +199,9 @@ class Border:
         point_3d[Point3DIndex.Y] = se2[StateSE2Index.Y]
 
         if len(self.elevation_profile.elevations) > 0:
-            elevations = self.elevation_profile.elevations
-            elevation_s_values = [elevation.s for elevation in elevations] + [self.length]
-            elevation_idx = np.argmax(
-                [(elevation_s_values[idx] <= s <= elevation_s_values[idx + 1]) for idx in range(len(elevations))]
-            )
-            elevation = elevations[elevation_idx]
+            height_index = self._get_height_index(s, is_last_pos=is_last_pos)
+            elevation = self.elevation_profile.elevations[height_index]
+
             point_3d[Point3DIndex.Z] = np.polynomial.polynomial.polyval(
                 s - elevation.s, elevation.polynomial_coefficients
             )
