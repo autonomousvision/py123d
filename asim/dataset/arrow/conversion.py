@@ -8,7 +8,7 @@ from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from asim.common.time.time_point import TimePoint
 from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleState, Vector3D
 from asim.dataset.maps.abstract_map import List
-from asim.dataset.observation.detection.detection import (
+from asim.dataset.recording.detection.detection import (
     BoxDetection,
     BoxDetectionSE3,
     BoxDetectionWrapper,
@@ -17,7 +17,7 @@ from asim.dataset.observation.detection.detection import (
     TrafficLightDetectionWrapper,
     TrafficLightStatus,
 )
-from asim.dataset.observation.detection.detection_types import DetectionType
+from asim.dataset.recording.detection.detection_types import DetectionType
 
 
 def get_timepoint_from_arrow_table(arrow_table: pa.Table, index: int) -> TimePoint:

@@ -54,5 +54,5 @@ class Vector3D(Point3D):
         return np.linalg.norm(self.array)
 
     @property
-    def vector_2(self) -> Vector2D:
+    def vector_2d(self) -> Vector2D:
         return Vector2D(self.x, self.y)

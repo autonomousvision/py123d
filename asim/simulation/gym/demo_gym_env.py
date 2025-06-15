@@ -10,8 +10,10 @@ from nuplan.planning.simulation.controller.motion_model.kinematic_bicycle import
 
 from asim.dataset.arrow.conversion import EgoVehicleState
 from asim.dataset.maps.abstract_map import AbstractMap
-from asim.dataset.observation.detection_observation import DetectionObservation
+from asim.dataset.recording.detection_recording import DetectionRecording
 from asim.dataset.scene.abstract_scene import AbstractScene
+from asim.simulation.observation.abstract_observation import AbstractObservation
+from asim.simulation.observation.agents_observation import AgentsObservation
 
 
 class DemoGymEnv:
@@ -27,27 +29,31 @@ class DemoGymEnv:
         self._current_scene: Optional[AbstractScene] = None
         self._current_ego_vehicle_state: Optional[EgoState] = None
 
-    def reset(self) -> Tuple[AbstractMap, EgoState, DetectionObservation]:
+        self._observation: AbstractObservation = AgentsObservation(None)
+        self._observation.initialize()
+
+    def reset(self) -> Tuple[AbstractMap, EgoState, DetectionRecording]:
         """
         Reset the environment to the initial state.
         Returns a tuple containing the map, ego vehicle state, and detection observation.
         """
         self._current_scene = np.random.choice(self._scenes)
-        self._current_scene_index = np.random.randint(0, self._current_scene.get_number_of_iterations() - 200)
+        self._current_scene_index = 0
 
         self._current_ego_vehicle_state = to_nuplan_ego_vehicle_state(
             self._current_scene.get_ego_vehicle_state_at_iteration(self._current_scene_index)
         )
-        detection_observation = DetectionObservation(
-            box_detections=self._current_scene.get_box_detections_at_iteration(self._current_scene_index),
-            traffic_light_detections=self._current_scene.get_traffic_light_detections_at_iteration(
-                self._current_scene_index
-            ),
-        )
+        # detection_observation = DetectionRecording(
+        #     box_detections=self._current_scene.get_box_detections_at_iteration(self._current_scene_index),
+        #     traffic_light_detections=self._current_scene.get_traffic_light_detections_at_iteration(
+        #         self._current_scene_index
+        #     ),
+        # )
+        detection_observation = self._observation.reset(self._current_scene)
 
         return self._current_scene.map_api, self._current_ego_vehicle_state, detection_observation
 
-    def step(self, action: npt.NDArray[np.float64]) -> Tuple[EgoState, DetectionObservation, bool]:
+    def step(self, action: npt.NDArray[np.float64]) -> Tuple[EgoState, DetectionRecording, bool]:
         self._current_scene_index += 1
 
         dynamic_car_state = get_dynamic_car_state(ego_state=self._current_ego_vehicle_state, action=action)
@@ -55,12 +61,7 @@ class DemoGymEnv:
             self._current_ego_vehicle_state, dynamic_car_state, TimePoint(int(0.1 * int(1e6)))
         )
 
-        detection_observation = DetectionObservation(
-            box_detections=self._current_scene.get_box_detections_at_iteration(self._current_scene_index),
-            traffic_light_detections=self._current_scene.get_traffic_light_detections_at_iteration(
-                self._current_scene_index
-            ),
-        )
+        detection_observation = self._observation.step()
         is_done = self._current_scene_index == self._current_scene.get_number_of_iterations() - 1
 
         return self._current_ego_vehicle_state, detection_observation, is_done

@@ -12,8 +12,8 @@ from asim.common.visualization.color.color import (
 )
 from asim.common.visualization.color.config import PlotConfig
 from asim.dataset.maps.map_datatypes import MapSurfaceType
-from asim.dataset.observation.detection.detection import TrafficLightStatus
-from asim.dataset.observation.detection.detection_types import DetectionType
+from asim.dataset.recording.detection.detection import TrafficLightStatus
+from asim.dataset.recording.detection.detection_types import DetectionType
 
 HEADING_MARKER_STYLE: str = "^"  # "^": triangle, "-": line
 

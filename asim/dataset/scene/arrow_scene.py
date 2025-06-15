@@ -15,7 +15,7 @@ from asim.dataset.arrow.helper import open_arrow_arrow_table
 from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.maps.gpkg.gpkg_map import get_map_api_from_names
-from asim.dataset.observation.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from asim.dataset.recording.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from asim.dataset.scene.abstract_scene import AbstractScene, SceneExtractionInfo
 
 
@@ -60,6 +60,7 @@ class ArrowScene(AbstractScene):
 
     @property
     def token(self) -> str:
+        self._lazy_initialize()
         return self._recording_table["token"][self._get_table_index(0)].as_py()
 
     @property

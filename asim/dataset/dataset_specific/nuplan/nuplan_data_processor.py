@@ -24,8 +24,8 @@ from asim.common.geometry.vector import Vector3D, Vector3DIndex
 from asim.common.vehicle_state.ego_vehicle_state import DynamicVehicleState, EgoVehicleState, EgoVehicleStateIndex
 from asim.dataset.dataset_specific.raw_data_processor import RawDataProcessor
 from asim.dataset.logs.log_metadata import LogMetadata
-from asim.dataset.observation.detection.detection import TrafficLightStatus
-from asim.dataset.observation.detection.detection_types import DetectionType
+from asim.dataset.recording.detection.detection import TrafficLightStatus
+from asim.dataset.recording.detection.detection_types import DetectionType
 
 TARGET_DT: Final[float] = 0.1
 NUPLAN_DT: Final[float] = 0.05

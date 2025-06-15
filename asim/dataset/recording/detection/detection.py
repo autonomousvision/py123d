@@ -2,7 +2,7 @@
 
 
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import Iterable, List, Optional, Union
 
 import shapely
 
@@ -11,7 +11,7 @@ from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, Bound
 from asim.common.geometry.vector import Vector2D, Vector3D
 from asim.common.time.time_point import TimePoint
 from asim.common.utils.enums import SerialIntEnum
-from asim.dataset.observation.detection.detection_types import DetectionType
+from asim.dataset.recording.detection.detection_types import DetectionType
 
 # from collections.abc import Iterable, Sequence
 
@@ -83,6 +83,9 @@ class BoxDetectionWrapper:
 
     def __iter__(self):
         return iter(self.box_detections)
+
+    def get_box_detections_by_types(self, detection_types: Iterable[DetectionType]) -> List[BoxDetection]:
+        return [detection for detection in self.box_detections if detection.metadata.detection_type in detection_types]
 
 
 class TrafficLightStatus(SerialIntEnum):

@@ -133,10 +133,10 @@ class Point3D:
     __slots__ = "x", "y", "z"
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64]) -> Point3D:
+    def from_array(cls, array: npt.NDArray[np.float64]) -> "Point3D":
         assert array.ndim == 1
         assert array.shape[0] == len(Point3DIndex)
-        return Point3D(array[Point3DIndex.X], array[Point3DIndex.Y], array[Point3DIndex.Z])
+        return cls(array[Point3DIndex.X], array[Point3DIndex.Y], array[Point3DIndex.Z])
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
