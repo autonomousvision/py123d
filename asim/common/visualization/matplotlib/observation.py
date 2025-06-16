@@ -14,7 +14,6 @@ from asim.common.visualization.color.default import (
     CENTERLINE_CONFIG,
     EGO_VEHICLE_CONFIG,
     MAP_SURFACE_CONFIG,
-    MARK_CONFIG,
     ROUTE_CONFIG,
     TRAFFIC_LIGHT_CONFIG,
 )
@@ -86,10 +85,8 @@ def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionWrapper) 
         # if box_detection.metadata.detection_type == DetectionType.GENERIC_OBJECT:
         #     continue
         plot_config = BOX_DETECTION_CONFIG[box_detection.metadata.detection_type]
-        if box_detection.metadata.track_token == "729":
-            add_bounding_box_to_ax(ax, box_detection.bounding_box, MARK_CONFIG)
-        else:
-            add_bounding_box_to_ax(ax, box_detection.bounding_box, plot_config)
+
+        add_bounding_box_to_ax(ax, box_detection.bounding_box, plot_config)
 
 
 def add_ego_vehicle_to_ax(ax: plt.Axes, ego_vehicle_state: EgoVehicleState) -> None:

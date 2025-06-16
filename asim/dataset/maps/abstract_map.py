@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 
 import shapely
 
@@ -49,12 +49,23 @@ class AbstractMap(abc.ABC):
     @abc.abstractmethod
     def query(
         self,
-        geometry: shapely.Geometry,
+        geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
         layers: List[MapSurfaceType],
         predicate: Optional[str] = None,
         sort: bool = False,
         distance: Optional[float] = None,
-    ) -> Dict[MapSurfaceType, List[AbstractMapObject]]:
+    ) -> Dict[MapSurfaceType, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]]:
+        pass
+
+    @abc.abstractmethod
+    def query_object_ids(
+        self,
+        geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
+        layers: List[MapSurfaceType],
+        predicate: Optional[str] = None,
+        sort: bool = False,
+        distance: Optional[float] = None,
+    ) -> Dict[MapSurfaceType, Union[List[str], Dict[int, List[str]]]]:
         pass
 
 

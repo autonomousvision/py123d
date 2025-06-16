@@ -1,68 +1,61 @@
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
 import shapely.vectorized
-from nuplan.planning.simulation.occupancy_map.abstract_occupancy_map import Geometry
 from shapely.geometry.base import BaseGeometry
 from shapely.strtree import STRtree
 
 
 class OccupancyMap:
-    """Occupancy map class of PDM, based on shapely's str-tree."""
-
     def __init__(
         self,
         geometries: Iterable[BaseGeometry],
-        tokens: List[str],
+        ids: Optional[Iterable[Union[str, int]]] = None,
         node_capacity: int = 10,
     ):
         """
         Constructor of PDMOccupancyMap
-        :param tokens: list of tracked tokens
         :param geometries: list/array of polygons
+        :param ids: optional list of geometry identifiers
         :param node_capacity: max number of child nodes in str-tree, defaults to 10
         """
-        assert len(tokens) == len(
-            geometries
-        ), f"PDMOccupancyMap: Tokens/Geometries ({len(tokens)}/{len(geometries)}) have unequal length!"
+        assert ids is None or len(ids) == len(geometries), "Length of ids must match length of geometries"
+        # assert len(tokens) == len(geometries)
 
-        self._tokens: List[str] = tokens
-        self._token_to_idx: Dict[str, int] = {token: idx for idx, token in enumerate(tokens)}
+        self._ids: List[str] = ids if ids else [idx for idx in range(len(geometries))]
+        self._id_to_idx: Dict[str, int] = {id: idx for idx, id in enumerate(self._ids)}
 
         self._geometries = geometries
         self._node_capacity = node_capacity
         self._str_tree = STRtree(self._geometries, node_capacity)
 
-    def __getitem__(self, token) -> Geometry:
+    def __getitem__(self, id: Union[str, int]) -> BaseGeometry:
         """
         Retrieves geometry of token.
         :param token: geometry identifier
         :return: Geometry of token
         """
-        return self._geometries[self._token_to_idx[token]]
+        return self._geometries[self._id_to_idx[id]]
 
     def __len__(self) -> int:
         """
         Number of geometries in the occupancy map
         :return: int
         """
-        return len(self._tokens)
+        return len(self._ids)
 
     @property
-    def tokens(self) -> List[str]:
+    def ids(self) -> List[Union[str, int]]:
         """
         Getter for track tokens in occupancy map
         :return: list of strings
         """
-        return self._tokens
+        return self._ids
 
     @property
-    def geometries(self) -> List[Geometry]:
-        """
-        Getter for track tokens in occupancy map
-        :return: list of strings
-        """
+    def geometries(self) -> List[BaseGeometry]:
+
         return self._geometries
 
     @property
@@ -71,18 +64,18 @@ class OccupancyMap:
         Getter for track tokens in occupancy map
         :return: dictionary of tokens and indices
         """
-        return self._token_to_idx
+        return self._id_to_idx
 
-    def intersects(self, geometry: Geometry) -> List[str]:
+    def intersects(self, geometry: BaseGeometry) -> List[str]:
         """
         Searches for intersecting geometries in the occupancy map
         :param geometry: geometries to query
         :return: list of tokens for intersecting geometries
         """
         indices = self.query(geometry, predicate="intersects")
-        return [self._tokens[idx] for idx in indices]
+        return [self._ids[idx] for idx in indices]
 
-    def query(self, geometry: Geometry, predicate=None):
+    def query(self, geometry: BaseGeometry, predicate=None):
         """
         Function to directly calls shapely's query function on str-tree
         :param geometry: geometries to query

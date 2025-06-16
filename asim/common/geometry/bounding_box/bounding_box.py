@@ -1,28 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import IntEnum
 from typing import Union
 
 import numpy as np
 import numpy.typing as npt
 import shapely
 
-from asim.common.geometry.base import Point2D, StateSE2, StateSE3
-from asim.common.geometry.tranform_2d import translate_along_yaw
-from asim.common.utils.enums import classproperty
-
-
-class BoundingBoxSE2Index(IntEnum):
-    X = 0
-    Y = 1
-    YAW = 2
-    LENGTH = 3
-    WIDTH = 4
-
-    @classproperty
-    def XY(cls) -> slice:
-        return slice(cls.X, cls.Y + 1)
+from asim.common.geometry.base import StateSE2, StateSE3
+from asim.common.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index, BoundingBoxSE3Index
+from asim.common.geometry.bounding_box.utils import bbse2_array_to_corners_array
 
 
 @dataclass
@@ -34,15 +21,7 @@ class BoundingBoxSE2:
 
     @property
     def shapely_polygon(self) -> shapely.geometry.Polygon:
-
-        return shapely.geometry.Polygon(
-            [
-                translate_along_yaw(self.center, Point2D(self.length / 2.0, self.width / 2.0)).point_2d.array,
-                translate_along_yaw(self.center, Point2D(self.length / 2.0, -self.width / 2.0)).point_2d.array,
-                translate_along_yaw(self.center, Point2D(-self.length / 2.0, -self.width / 2.0)).point_2d.array,
-                translate_along_yaw(self.center, Point2D(-self.length / 2.0, self.width / 2.0)).point_2d.array,
-            ]
-        )
+        return shapely.geometry.Polygon(self.corners_array)
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
@@ -54,29 +33,9 @@ class BoundingBoxSE2:
         array[BoundingBoxSE2Index.WIDTH] = self.width
         return array
 
-
-class BoundingBoxSE3Index(IntEnum):
-    X = 0
-    Y = 1
-    Z = 2
-    ROLL = 3
-    PITCH = 4
-    YAW = 5
-    LENGTH = 6
-    WIDTH = 7
-    HEIGHT = 8
-
-    @classproperty
-    def XYZ(cls) -> slice:
-        return slice(cls.X, cls.Z + 1)
-
-    @classproperty
-    def STATE_SE3(cls) -> slice:
-        return slice(cls.X, cls.YAW + 1)
-
-    @classproperty
-    def ROTATION_XYZ(cls) -> slice:
-        return slice(cls.ROLL, cls.YAW + 1)
+    @property
+    def corners_array(self) -> npt.NDArray[np.float64]:
+        return bbse2_array_to_corners_array(self.array)
 
 
 @dataclass

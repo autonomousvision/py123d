@@ -119,41 +119,106 @@ class HistogramIntersectionMetric:
         }
 
 
-# # Example usage
-# if __name__ == "__main__":
-#     # Generate sample data
-#     np.random.seed(42)
+class BinaryHistogramIntersectionMetric:
+    def __init__(self, weight: float = 1.0):
+        self.weight = weight
+        self.aggregate_objects: bool = False
+        self.independent_timesteps: bool = True
 
-#     # Two normal distributions with different parameters
-#     dist1 = np.random.normal(5, 2, 1000).tolist()
-#     dist2 = np.random.normal(7, 1.5, 1000).tolist()
+    def _create_histogram(self, data: List[int], normalize: bool = True) -> np.ndarray:
+        # Binary histogram: bins are [0, 1]
+        hist = np.zeros(2, dtype=float)
+        data = np.asarray(data)
+        hist[0] = np.sum(data == 0)
+        hist[1] = np.sum(data == 1)
+        if normalize and hist.sum() > 0:
+            hist = hist / hist.sum()
+        return hist
 
-#     # Create metric with specified range and bins
-#     metric = HistogramIntersectionMetric(min_val=0, max_val=12, n_bins=20)
+    def _calculate_intersection(self, dist1: npt.NDArray[np.int_], dist2: npt.NDArray[np.int_]) -> float:
+        hist1 = self._create_histogram(dist1, normalize=True)
+        hist2 = self._create_histogram(dist2, normalize=True)
+        intersection = np.sum(np.minimum(hist1, hist2))
+        return intersection
 
-#     # Calculate intersection
-#     intersection = metric.calculate_intersection(dist1, dist2)
-#     print(f"Histogram Intersection: {intersection:.4f}")
+    def calculate_intersection(
+        self, dist1: npt.NDArray[np.int_], dist2: npt.NDArray[np.int_], log_mask: npt.NDArray[np.bool_]
+    ) -> Dict[str, float]:
+        assert dist1.shape[0] == dist2.shape[0], "Distributions must have the same number of objects"
+        assert dist1.ndim == 2
+        assert dist2.ndim == 2
+        assert log_mask.ndim == 2
 
-#     # Plot histograms
-#     metric.plot_histograms(dist1, dist2, labels=("Normal(5,2)", "Normal(7,1.5)"))
+        intersection = 0.0
 
-#     # Detailed analysis
-#     analysis = metric.detailed_analysis(dist1, dist2)
-#     print(f"KL Divergence (1→2): {analysis['kl_divergence_1_to_2']:.4f}")
-#     print(f"KL Divergence (2→1): {analysis['kl_divergence_2_to_1']:.4f}")
-#     print(f"Bhattacharyya Distance: {analysis['bhattacharyya_distance']:.4f}")
+        if self.independent_timesteps:
+            for obj_dist1, obj_dist2, obj_mask in zip(dist1, dist2, log_mask):
+                intersection += self._calculate_intersection(obj_dist1[obj_mask], obj_dist2[obj_mask])
+            intersection /= dist1.shape[0]
+        else:
+            raise NotImplementedError
 
-#     # Example with more similar distributions
-#     print("\n" + "=" * 50)
-#     print("Example with more similar distributions:")
+        return {"intersection": intersection}
 
-#     dist3 = np.random.normal(6, 1.8, 1000).tolist()
-#     dist4 = np.random.normal(6.5, 1.6, 1000).tolist()
+    def plot_histograms(
+        self,
+        dist1: npt.NDArray[np.int_],
+        dist2: npt.NDArray[np.int_],
+        mask: Optional[npt.NDArray[np.bool_]] = None,
+        labels: Optional[Tuple[str, str]] = None,
+        title: str = "Binary Histogram Comparison",
+    ) -> None:
+        def _apply_mask(data: npt.NDArray[np.int_], mask: Optional[npt.NDArray[np.bool_]]) -> npt.NDArray[np.int_]:
+            flat_data = []
+            for obj_data, obj_mask in zip(data, mask):
+                if mask is not None:
+                    flat_data.extend(obj_data[obj_mask].tolist())
+                else:
+                    flat_data.extend(obj_data.tolist())
+            return np.array(flat_data)
 
-#     intersection2 = metric.calculate_intersection(dist3, dist4)
-#     print(f"Histogram Intersection: {intersection2:.4f}")
+        hist1 = self._create_histogram(_apply_mask(dist1, mask), normalize=True)
+        hist2 = self._create_histogram(_apply_mask(dist2, mask), normalize=True)
 
-#     metric.plot_histograms(
-#         dist3, dist4, labels=("Normal(6,1.8)", "Normal(6.5,1.6)"), title="More Similar Distributions"
-#     )
+        bin_centers = np.array([0, 1])
+        width = 0.4
+
+        plt.figure(figsize=(6, 4))
+
+        if labels is None:
+            labels = ("Distribution 1", "Distribution 2")
+
+        plt.bar(bin_centers - width / 2, hist1, width, alpha=0.5, label=labels[0], color="blue")
+        plt.bar(bin_centers + width / 2, hist2, width, alpha=0.5, label=labels[1], color="red")
+
+        plt.xlabel("Value")
+        plt.ylabel("Probability")
+        plt.title(title)
+        plt.xticks([0, 1])
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.show()
+
+    def detailed_analysis(self, dist1: List[int], dist2: List[int]) -> dict:
+        hist1 = self._create_histogram(dist1, normalize=True)
+        hist2 = self._create_histogram(dist2, normalize=True)
+
+        intersection = np.sum(np.minimum(hist1, hist2))
+
+        # Calculate additional metrics
+        kl_div_1_2 = np.sum(hist1 * np.log((hist1 + 1e-10) / (hist2 + 1e-10)))
+        kl_div_2_1 = np.sum(hist2 * np.log((hist2 + 1e-10) / (hist1 + 1e-10)))
+
+        # Bhattacharyya distance
+        bhattacharyya = -np.log(np.sum(np.sqrt(hist1 * hist2)) + 1e-10)
+        bhattacharyya_coeff = np.sum(np.sqrt(hist1 * hist2))
+        return {
+            "histogram_1": hist1,
+            "histogram_2": hist2,
+            "intersection": intersection,
+            "kl_divergence_1_to_2": kl_div_1_2,
+            "kl_divergence_2_to_1": kl_div_2_1,
+            "bhattacharyya_distance": bhattacharyya,
+            "bhattacharyya_coeff": bhattacharyya_coeff,
+            "bin_edges": np.array([0, 1, 2]),
+        }

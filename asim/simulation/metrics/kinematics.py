@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.signal import savgol_filter
 
-from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2Index
+from asim.common.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index
 
 SECONDS_PER_ITERATION = 0.1
 

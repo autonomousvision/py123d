@@ -1,19 +1,16 @@
-# class
-
-
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Iterable, List, Optional, Union
 
 import shapely
 
 from asim.common.geometry.base import StateSE2, StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
+from asim.common.geometry.occupancy_map import OccupancyMap
 from asim.common.geometry.vector import Vector2D, Vector3D
 from asim.common.time.time_point import TimePoint
 from asim.common.utils.enums import SerialIntEnum
 from asim.dataset.recording.detection.detection_types import DetectionType
-
-# from collections.abc import Iterable, Sequence
 
 
 @dataclass
@@ -74,8 +71,6 @@ BoxDetection = Union[BoxDetectionSE2, BoxDetectionSE3]
 
 @dataclass
 class BoxDetectionWrapper:
-    # TODO:
-    # - Add occupancy map property
 
     box_detections: List[BoxDetection]
 
@@ -99,13 +94,11 @@ class BoxDetectionWrapper:
                 break
         return box_detection
 
-    def get_occupancy_map(self) -> Optional[shapely.geometry.Polygon]:
-        """
-        Returns the occupancy map of the box detections if available.
-        This is a placeholder method and should be implemented based on the actual occupancy map logic.
-        """
-        # Placeholder for occupancy map logic
-        return None
+    @cached_property
+    def occupancy_map(self) -> OccupancyMap:
+        ids = [detection.metadata.track_token for detection in self.box_detections]
+        geometries = [detection.bounding_box.shapely_polygon for detection in self.box_detections]
+        return OccupancyMap(geometries=geometries, ids=ids)
 
 
 class TrafficLightStatus(SerialIntEnum):
