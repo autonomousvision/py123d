@@ -33,6 +33,23 @@ class HistogramIntersectionMetric:
         intersection = np.sum(np.minimum(hist1, hist2))
         return intersection
 
+    def _calculate_bhattacharyya(self, dist1: npt.NDArray[np.int_], dist2: npt.NDArray[np.int_]) -> float:
+        hist1 = self._create_histogram(dist1, normalize=True)
+        hist2 = self._create_histogram(dist2, normalize=True)
+        bhattacharyya_coeff = np.sum(np.sqrt(hist1 * hist2))
+        return bhattacharyya_coeff
+
+    def _calculate_wasserstein(self, dist1: npt.NDArray[np.int_], dist2: npt.NDArray[np.int_]) -> float:
+        hist1 = self._create_histogram(dist1, normalize=True)
+        hist2 = self._create_histogram(dist2, normalize=True)
+        # Calculate the Wasserstein distance (Earth Mover's Distance)
+        # This is a simple implementation using the cumulative distribution function (CDF)
+        cdf1 = np.cumsum(hist1)
+        cdf2 = np.cumsum(hist2)
+        # Calculate the Wasserstein distance
+        wasserstein_distance = np.sum(np.abs(cdf1 - cdf2))
+        return wasserstein_distance
+
     def calculate_intersection(
         self, dist1: npt.NDArray[np.float64], dist2: npt.NDArray[np.float64], log_mask: npt.NDArray[np.bool_]
     ) -> Dict[str, float]:
@@ -42,17 +59,27 @@ class HistogramIntersectionMetric:
         assert log_mask.ndim == 2
 
         intersection = 0.0
+        bhattacharyya = 0.0
+        wasserstein = 0.0
 
         if self.independent_timesteps:
             # (n_objects, n_rollouts * n_steps)
             for obj_dist1, obj_dist2, obj_mask in zip(dist1, dist2, log_mask):
                 intersection += self._calculate_intersection(obj_dist1[obj_mask], obj_dist2[obj_mask])
+                bhattacharyya += self._calculate_bhattacharyya(obj_dist1[obj_mask], obj_dist2[obj_mask])
+                wasserstein += self._calculate_wasserstein(obj_dist1[obj_mask], obj_dist2[obj_mask])
             intersection /= dist1.shape[0]  # Average intersection over all objects
+            bhattacharyya /= dist1.shape[0]  # Average Bhattacharyya coefficient over all objects
+            wasserstein /= dist1.shape[0]  # Average Wasserstein distance over all objects
 
         else:
             raise NotImplementedError
 
-        return intersection
+        return {
+            "intersection": float(intersection),
+            "bhattacharyya": float(bhattacharyya),
+            "wasserstein": float(wasserstein),
+        }
 
     def plot_histograms(
         self,
@@ -141,6 +168,12 @@ class BinaryHistogramIntersectionMetric:
         intersection = np.sum(np.minimum(hist1, hist2))
         return intersection
 
+    def _calculate_bhattacharyya(self, dist1: npt.NDArray[np.int_], dist2: npt.NDArray[np.int_]) -> float:
+        hist1 = self._create_histogram(dist1, normalize=True)
+        hist2 = self._create_histogram(dist2, normalize=True)
+        bhattacharyya_coeff = np.sum(np.sqrt(hist1 * hist2))
+        return bhattacharyya_coeff
+
     def calculate_intersection(
         self, dist1: npt.NDArray[np.int_], dist2: npt.NDArray[np.int_], log_mask: npt.NDArray[np.bool_]
     ) -> Dict[str, float]:
@@ -150,15 +183,18 @@ class BinaryHistogramIntersectionMetric:
         assert log_mask.ndim == 2
 
         intersection = 0.0
+        bhattacharyya = 0.0
 
         if self.independent_timesteps:
             for obj_dist1, obj_dist2, obj_mask in zip(dist1, dist2, log_mask):
                 intersection += self._calculate_intersection(obj_dist1[obj_mask], obj_dist2[obj_mask])
+                bhattacharyya += self._calculate_bhattacharyya(obj_dist1[obj_mask], obj_dist2[obj_mask])
             intersection /= dist1.shape[0]
+            bhattacharyya /= dist1.shape[0]
         else:
             raise NotImplementedError
 
-        return {"intersection": intersection}
+        return {"intersection": intersection, "bhattacharyya": bhattacharyya}
 
     def plot_histograms(
         self,

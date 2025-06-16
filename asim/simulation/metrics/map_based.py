@@ -11,16 +11,11 @@ from asim.dataset.maps.map_datatypes import MapSurfaceType
 def _get_offroad_feature(
     agents_array: npt.NDArray[np.float64], agents_mask: npt.NDArray[np.bool], map_api: AbstractMap
 ) -> npt.NDArray[np.float64]:
-    """
-    Extracts the collision feature from the agent array.
-    :param agent_array: The agent array containing bounding box information.
-    :return: A boolean array indicating collisions.
-    """
-    # assert agents_array.ndim == 3
+
     assert agents_array.shape[-1] == len(BoundingBoxSE2Index)
     n_objects, n_iterations = agents_array.shape[:2]
 
-    onroad_feature = np.zeros((n_objects, n_iterations), dtype=np.bool_)
+    offroad_feature = np.zeros((n_objects, n_iterations), dtype=np.bool_)
 
     agent_shapely_corners = shapely.creation.points(bbse2_array_to_corners_array(agents_array)).flatten()
     corner_indices = np.arange(n_iterations * n_objects * len(Corners2DIndex)).reshape(
@@ -46,6 +41,6 @@ def _get_offroad_feature(
         for iteration in range(n_iterations):
             if agents_mask[object_idx, iteration]:
                 corner_indices_ = set(corner_indices[object_idx, iteration])
-                onroad_feature[object_idx, iteration] = corner_indices_.issubset(set_of_all_corners)
+                offroad_feature[object_idx, iteration] = not corner_indices_.issubset(set_of_all_corners)
 
-    return onroad_feature
+    return offroad_feature
