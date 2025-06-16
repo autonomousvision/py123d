@@ -64,6 +64,10 @@ class BoxDetectionSE3:
     def bounding_box(self) -> BoundingBoxSE3:
         return self.bounding_box_se3
 
+    @property
+    def bounding_box_se2(self) -> BoundingBoxSE3:
+        return self.bounding_box_se3.bounding_box_se2
+
 
 BoxDetection = Union[BoxDetectionSE2, BoxDetectionSE3]
 
@@ -86,6 +90,22 @@ class BoxDetectionWrapper:
 
     def get_box_detections_by_types(self, detection_types: Iterable[DetectionType]) -> List[BoxDetection]:
         return [detection for detection in self.box_detections if detection.metadata.detection_type in detection_types]
+
+    def get_detection_by_track_token(self, track_token: str) -> Optional[BoxDetection]:
+        box_detection: Optional[BoxDetection] = None
+        for detection in self.box_detections:
+            if detection.metadata.track_token == track_token:
+                box_detection = detection
+                break
+        return box_detection
+
+    def get_occupancy_map(self) -> Optional[shapely.geometry.Polygon]:
+        """
+        Returns the occupancy map of the box detections if available.
+        This is a placeholder method and should be implemented based on the actual occupancy map logic.
+        """
+        # Placeholder for occupancy map logic
+        return None
 
 
 class TrafficLightStatus(SerialIntEnum):

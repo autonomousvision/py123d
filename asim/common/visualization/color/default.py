@@ -189,6 +189,18 @@ ROUTE_CONFIG: PlotConfig = PlotConfig(
     zorder=2,
 )
 
+MARK_CONFIG: PlotConfig = PlotConfig(
+    fill_color=TAB_10[6],
+    fill_color_alpha=1.0,
+    line_color=TAB_10[6],
+    line_color_alpha=1.0,
+    line_width=1.0,
+    line_style="-",
+    marker_style=HEADING_MARKER_STYLE,
+    marker_size=1.0,
+    zorder=3,
+)
+
 
 TRAFFIC_LIGHT_CONFIG: Dict[TrafficLightStatus, PlotConfig] = {
     TrafficLightStatus.RED: PlotConfig(

@@ -30,6 +30,7 @@ class DemoGymEnv:
         self._current_ego_vehicle_state: Optional[EgoState] = None
 
         self._observation: AbstractObservation = AgentsObservation(None)
+        # self._observation: AbstractObservation = LogReplayObservation()
         self._observation.initialize()
 
     def reset(self) -> Tuple[AbstractMap, EgoState, DetectionRecording]:
@@ -51,7 +52,7 @@ class DemoGymEnv:
         # )
         detection_observation = self._observation.reset(self._current_scene)
 
-        return self._current_scene.map_api, self._current_ego_vehicle_state, detection_observation
+        return self._current_scene.map_api, self._current_ego_vehicle_state, detection_observation, self._current_scene
 
     def step(self, action: npt.NDArray[np.float64]) -> Tuple[EgoState, DetectionRecording, bool]:
         self._current_scene_index += 1

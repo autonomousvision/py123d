@@ -238,14 +238,14 @@ class TimePoint:
         """
         :return: TimePoint in milliseconds.
         """
-        return self._time_us / 1e3
+        return self.time_us / 1e3
 
     @property
     def time_s(self) -> float:
         """
         :return: TimePoint in seconds.
         """
-        return self._time_us / 1e6
+        return self.time_us / 1e6
 
     def __add__(self, other: object) -> TimePoint:
         """

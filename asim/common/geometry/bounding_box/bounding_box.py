@@ -17,6 +17,8 @@ class BoundingBoxSE2Index(IntEnum):
     X = 0
     Y = 1
     YAW = 2
+    LENGTH = 3
+    WIDTH = 4
 
     @classproperty
     def XY(cls) -> slice:
@@ -41,6 +43,16 @@ class BoundingBoxSE2:
                 translate_along_yaw(self.center, Point2D(-self.length / 2.0, self.width / 2.0)).point_2d.array,
             ]
         )
+
+    @property
+    def array(self) -> npt.NDArray[np.float64]:
+        array = np.zeros(len(BoundingBoxSE2Index), dtype=np.float64)
+        array[BoundingBoxSE2Index.X] = self.center.x
+        array[BoundingBoxSE2Index.Y] = self.center.y
+        array[BoundingBoxSE2Index.YAW] = self.center.yaw
+        array[BoundingBoxSE2Index.LENGTH] = self.length
+        array[BoundingBoxSE2Index.WIDTH] = self.width
+        return array
 
 
 class BoundingBoxSE3Index(IntEnum):

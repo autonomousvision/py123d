@@ -98,7 +98,7 @@ def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) 
             )
         ]
 
-    scene_token_set = set(filter.scene_tokens) if filter.scene_tokens else None
+    scene_token_set = set(filter.scene_tokens) if filter.scene_tokens is not None else None
 
     for idx in range(start_idx, end_idx):
         scene_extraction_info: Optional[SceneExtractionInfo] = None
