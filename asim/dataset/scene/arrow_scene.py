@@ -31,13 +31,6 @@ class ArrowScene(AbstractScene):
         self._map_api: Optional[AbstractMap] = None
 
         self._arrow_log_path = arrow_file_path
-        if scene_extraction_info is None:
-            scene_extraction_info = SceneExtractionInfo(
-                initial_idx=0,
-                duration_s=self._metadata.timestep_seconds * len(self._recording_table),
-                history_s=0.0,
-                iteration_duration_s=self._metadata.timestep_seconds,
-            )
         self._scene_extraction_info: SceneExtractionInfo = scene_extraction_info
 
     def __reduce__(self):
@@ -110,6 +103,13 @@ class ArrowScene(AbstractScene):
             self._map_api.initialize()
         if self._recording_table is None:
             self._recording_table = open_arrow_arrow_table(self._arrow_log_path)
+        if self._scene_extraction_info is None:
+            self._scene_extraction_info = SceneExtractionInfo(
+                initial_idx=0,
+                duration_s=self._metadata.timestep_seconds * len(self._recording_table),
+                history_s=0.0,
+                iteration_duration_s=self._metadata.timestep_seconds,
+            )
 
     def close(self) -> None:
         del self._recording_table

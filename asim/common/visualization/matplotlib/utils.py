@@ -15,6 +15,7 @@ def add_shapely_polygon_to_ax(
     ax: plt.Axes,
     polygon: geom.Polygon,
     plot_config: PlotConfig,
+    disable_smoothing: bool = False,
 ) -> plt.Axes:
     """
     Adds shapely polygon to birds-eye-view visualization
@@ -26,7 +27,7 @@ def add_shapely_polygon_to_ax(
 
     def _add_element_helper(element: geom.Polygon):
         """Helper to add single polygon to ax"""
-        if plot_config.smoothing_radius is not None:
+        if plot_config.smoothing_radius is not None and not disable_smoothing:
             element = element.buffer(-plot_config.smoothing_radius).buffer(plot_config.smoothing_radius)
         exterior_x, exterior_y = element.exterior.xy
         ax.fill(

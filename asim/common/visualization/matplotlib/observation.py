@@ -85,7 +85,6 @@ def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionWrapper) 
         # if box_detection.metadata.detection_type == DetectionType.GENERIC_OBJECT:
         #     continue
         plot_config = BOX_DETECTION_CONFIG[box_detection.metadata.detection_type]
-
         add_bounding_box_to_ax(ax, box_detection.bounding_box, plot_config)
 
 
@@ -138,6 +137,6 @@ def add_bounding_box_to_ax(
             marker_size = min(plot_config.marker_size, min(bounding_box.length, bounding_box.width))
             marker_polygon = get_pose_triangle(marker_size)
             global_marker_polygon = shapely_geometry_local_coords(marker_polygon, bounding_box.center)
-            add_shapely_polygon_to_ax(ax, global_marker_polygon, plot_config)
+            add_shapely_polygon_to_ax(ax, global_marker_polygon, plot_config, disable_smoothing=True)
         else:
             raise ValueError(f"Unknown marker style: {plot_config.marker_style}")

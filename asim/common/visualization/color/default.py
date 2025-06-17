@@ -168,6 +168,7 @@ EGO_VEHICLE_CONFIG: PlotConfig = PlotConfig(
     line_style="-",
     marker_style=HEADING_MARKER_STYLE,
     zorder=4,
+    smoothing_radius=0.7,
 )
 
 CENTERLINE_CONFIG: PlotConfig = PlotConfig(
