@@ -6,18 +6,19 @@ import numpy.typing as npt
 
 
 class HistogramIntersectionMetric:
-    def __init__(self, min_val: float, max_val: float, n_bins: int, weight: float = 1.0):
+    def __init__(self, min_val: float, max_val: float, n_bins: int, name: str, weight: float = 1.0):
         self.min_val = min_val
         self.max_val = max_val
-        self.n_bins = n_bins
-        self.bin_edges = np.linspace(min_val, max_val, n_bins + 1)
-        self.weight = weight
+        self._n_bins = n_bins
+        self._bin_edges = np.linspace(min_val, max_val, n_bins + 1)
+        self._weight = weight
+        self._name = name
 
-        self.aggregate_objects: bool = False
-        self.independent_timesteps: bool = True
+        self._aggregate_objects: bool = False
+        self._independent_timesteps: bool = True
 
-    def _create_histogram(self, data: List[float], normalize: bool = True) -> np.ndarray:
-        hist, _ = np.histogram(data, bins=self.bin_edges)
+    def _create_histogram(self, data: npt.NDArray[np.float64], normalize: bool = True) -> np.ndarray:
+        hist, _ = np.histogram(data, bins=self._bin_edges)
 
         if normalize:
             # Normalize to create probability distribution
@@ -39,17 +40,6 @@ class HistogramIntersectionMetric:
         bhattacharyya_coeff = np.sum(np.sqrt(hist1 * hist2))
         return bhattacharyya_coeff
 
-    def _calculate_wasserstein(self, dist1: npt.NDArray[np.int_], dist2: npt.NDArray[np.int_]) -> float:
-        hist1 = self._create_histogram(dist1, normalize=True)
-        hist2 = self._create_histogram(dist2, normalize=True)
-        # Calculate the Wasserstein distance (Earth Mover's Distance)
-        # This is a simple implementation using the cumulative distribution function (CDF)
-        cdf1 = np.cumsum(hist1)
-        cdf2 = np.cumsum(hist2)
-        # Calculate the Wasserstein distance
-        wasserstein_distance = np.sum(np.abs(cdf1 - cdf2))
-        return wasserstein_distance
-
     def calculate_intersection(
         self, dist1: npt.NDArray[np.float64], dist2: npt.NDArray[np.float64], log_mask: npt.NDArray[np.bool_]
     ) -> Dict[str, float]:
@@ -58,27 +48,31 @@ class HistogramIntersectionMetric:
         assert dist2.ndim == 2
         assert log_mask.ndim == 2
 
+        if len(dist1) == 0:
+            return {
+                f"{self._name}_intersection": 1.0,
+                # f"{self._name}_bhattacharyya": 1.0,
+                f"{self._name}_score": self._weight * 1.0,
+            }
+
         intersection = 0.0
         bhattacharyya = 0.0
-        wasserstein = 0.0
 
-        if self.independent_timesteps:
+        if self._independent_timesteps:
             # (n_objects, n_rollouts * n_steps)
             for obj_dist1, obj_dist2, obj_mask in zip(dist1, dist2, log_mask):
                 intersection += self._calculate_intersection(obj_dist1[obj_mask], obj_dist2[obj_mask])
                 bhattacharyya += self._calculate_bhattacharyya(obj_dist1[obj_mask], obj_dist2[obj_mask])
-                wasserstein += self._calculate_wasserstein(obj_dist1[obj_mask], obj_dist2[obj_mask])
             intersection /= dist1.shape[0]  # Average intersection over all objects
             bhattacharyya /= dist1.shape[0]  # Average Bhattacharyya coefficient over all objects
-            wasserstein /= dist1.shape[0]  # Average Wasserstein distance over all objects
 
         else:
             raise NotImplementedError
 
         return {
-            "intersection": float(intersection),
-            "bhattacharyya": float(bhattacharyya),
-            "wasserstein": float(wasserstein),
+            f"{self._name}_intersection": float(intersection),
+            # f"{self._name}_bhattacharyya": float(bhattacharyya),
+            f"{self._name}_score": self._weight * float(intersection),
         }
 
     def plot_histograms(
@@ -103,8 +97,8 @@ class HistogramIntersectionMetric:
         hist1 = self._create_histogram(_apply_mask(dist1, mask), normalize=True)
         hist2 = self._create_histogram(_apply_mask(dist2, mask), normalize=True)
 
-        bin_centers = (self.bin_edges[:-1] + self.bin_edges[1:]) / 2
-        width = (self.max_val - self.min_val) / self.n_bins
+        bin_centers = (self._bin_edges[:-1] + self._bin_edges[1:]) / 2
+        width = (self.max_val - self.min_val) / self._n_bins
 
         plt.figure(figsize=(10, 6))
 
@@ -121,34 +115,11 @@ class HistogramIntersectionMetric:
         plt.grid(True, alpha=0.3)
         plt.show()
 
-    def detailed_analysis(self, dist1: List[float], dist2: List[float]) -> dict:
-        hist1 = self._create_histogram(dist1, normalize=True)
-        hist2 = self._create_histogram(dist2, normalize=True)
-
-        intersection = self.calculate_intersection(dist1, dist2)
-
-        # Calculate additional metrics
-        kl_div_1_2 = np.sum(hist1 * np.log(hist1 / (hist2 + 1e-10) + 1e-10))
-        kl_div_2_1 = np.sum(hist2 * np.log(hist2 / (hist1 + 1e-10) + 1e-10))
-
-        # Bhattacharyya distance
-        bhattacharyya = -np.log(np.sum(np.sqrt(hist1 * hist2)))
-        bhattacharyya_coeff = np.sum(np.sqrt(hist1 * hist2))
-        return {
-            "histogram_1": hist1,
-            "histogram_2": hist2,
-            "intersection": intersection,
-            "kl_divergence_1_to_2": kl_div_1_2,
-            "kl_divergence_2_to_1": kl_div_2_1,
-            "bhattacharyya_distance": bhattacharyya,
-            "bhattacharyya_coeff": bhattacharyya_coeff,
-            "bin_edges": self.bin_edges,
-        }
-
 
 class BinaryHistogramIntersectionMetric:
-    def __init__(self, weight: float = 1.0):
-        self.weight = weight
+    def __init__(self, name: str, weight: float = 1.0):
+        self._name = name
+        self._weight = weight
         self.aggregate_objects: bool = False
         self.independent_timesteps: bool = True
 
@@ -182,6 +153,13 @@ class BinaryHistogramIntersectionMetric:
         assert dist2.ndim == 2
         assert log_mask.ndim == 2
 
+        if len(dist1) == 0:
+            return {
+                f"{self._name}_intersection": 1.0,
+                # f"{self._name}_bhattacharyya": 1.0,
+                f"{self._name}_score": self._weight * 1.0,
+            }
+
         intersection = 0.0
         bhattacharyya = 0.0
 
@@ -194,7 +172,11 @@ class BinaryHistogramIntersectionMetric:
         else:
             raise NotImplementedError
 
-        return {"intersection": intersection, "bhattacharyya": bhattacharyya}
+        return {
+            f"{self._name}_intersection": float(intersection),
+            # f"{self._name}_bhattacharyya": float(bhattacharyya),
+            f"{self._name}_score": self._weight * float(intersection),
+        }
 
     def plot_histograms(
         self,
@@ -234,27 +216,3 @@ class BinaryHistogramIntersectionMetric:
         plt.legend()
         plt.grid(True, alpha=0.3)
         plt.show()
-
-    def detailed_analysis(self, dist1: List[int], dist2: List[int]) -> dict:
-        hist1 = self._create_histogram(dist1, normalize=True)
-        hist2 = self._create_histogram(dist2, normalize=True)
-
-        intersection = np.sum(np.minimum(hist1, hist2))
-
-        # Calculate additional metrics
-        kl_div_1_2 = np.sum(hist1 * np.log((hist1 + 1e-10) / (hist2 + 1e-10)))
-        kl_div_2_1 = np.sum(hist2 * np.log((hist2 + 1e-10) / (hist1 + 1e-10)))
-
-        # Bhattacharyya distance
-        bhattacharyya = -np.log(np.sum(np.sqrt(hist1 * hist2)) + 1e-10)
-        bhattacharyya_coeff = np.sum(np.sqrt(hist1 * hist2))
-        return {
-            "histogram_1": hist1,
-            "histogram_2": hist2,
-            "intersection": intersection,
-            "kl_divergence_1_to_2": kl_div_1_2,
-            "kl_divergence_2_to_1": kl_div_2_1,
-            "bhattacharyya_distance": bhattacharyya,
-            "bhattacharyya_coeff": bhattacharyya_coeff,
-            "bin_edges": np.array([0, 1, 2]),
-        }

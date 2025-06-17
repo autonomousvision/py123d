@@ -15,6 +15,8 @@ from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.observation.abstract_observation import AbstractObservation
 from asim.simulation.observation.agents_observation import AgentsObservation
 
+# from asim.simulation.observation.log_replay_observation import LogReplayObservation
+
 
 class DemoGymEnv:
     """
@@ -33,14 +35,19 @@ class DemoGymEnv:
         # self._observation: AbstractObservation = LogReplayObservation()
         self._observation.initialize()
 
-    def reset(self) -> Tuple[AbstractMap, EgoState, DetectionRecording]:
+        self._ego_replay: bool = True
+
+    def reset(self, scene: Optional[AbstractScene]) -> Tuple[AbstractMap, EgoState, DetectionRecording]:
         """
         Reset the environment to the initial state.
         Returns a tuple containing the map, ego vehicle state, and detection observation.
         """
-        self._current_scene = np.random.choice(self._scenes)
-        self._current_scene_index = 0
+        if scene is not None:
+            self._current_scene = scene
+        else:
+            self._current_scene = np.random.choice(self._scenes)
 
+        self._current_scene_index = 0
         self._current_ego_vehicle_state = to_nuplan_ego_vehicle_state(
             self._current_scene.get_ego_vehicle_state_at_iteration(self._current_scene_index)
         )
@@ -56,11 +63,14 @@ class DemoGymEnv:
 
     def step(self, action: npt.NDArray[np.float64]) -> Tuple[EgoState, DetectionRecording, bool]:
         self._current_scene_index += 1
-
-        dynamic_car_state = get_dynamic_car_state(ego_state=self._current_ego_vehicle_state, action=action)
-        self._current_ego_vehicle_state = KinematicBicycleModel(get_pacifica_parameters()).propagate_state(
-            self._current_ego_vehicle_state, dynamic_car_state, TimePoint(int(0.1 * int(1e6)))
-        )
+        if self._ego_replay:
+            ego_vehicle_state = self._current_scene.get_ego_vehicle_state_at_iteration(self._current_scene_index)
+            self._current_ego_vehicle_state = to_nuplan_ego_vehicle_state(ego_vehicle_state)
+        else:
+            dynamic_car_state = get_dynamic_car_state(ego_state=self._current_ego_vehicle_state, action=action)
+            self._current_ego_vehicle_state = KinematicBicycleModel(get_pacifica_parameters()).propagate_state(
+                self._current_ego_vehicle_state, dynamic_car_state, TimePoint(int(0.1 * int(1e6)))
+            )
 
         detection_observation = self._observation.step()
         is_done = self._current_scene_index == self._current_scene.get_number_of_iterations() - 1

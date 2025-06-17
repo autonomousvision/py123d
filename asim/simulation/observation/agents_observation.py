@@ -6,7 +6,10 @@ from asim.dataset.recording.detection.detection_types import DetectionType
 from asim.dataset.recording.detection_recording import DetectionRecording
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.agents.abstract_agents import AbstractAgents
-from asim.simulation.agents.constant_velocity_agents import ConstantVelocityAgents
+
+# from asim.simulation.agents.constant_velocity_agents import ConstantVelocityAgents
+# from asim.simulation.agents.path_following import PathFollowingAgents
+from asim.simulation.agents.idm_agents import IDMAgents
 from asim.simulation.observation.abstract_observation import AbstractObservation
 
 
@@ -19,7 +22,8 @@ class AgentsObservation(AbstractObservation):
     def __init__(self, agents: AbstractAgents) -> None:
         super().__init__()
         self._scene: Optional[AbstractScene] = None
-        self._agents: AbstractAgents = ConstantVelocityAgents()
+        # self._agents: AbstractAgents = ConstantVelocityAgents()
+        self._agents: AbstractAgents = IDMAgents()
 
     def initialize(self) -> None:
         pass
@@ -37,6 +41,7 @@ class AgentsObservation(AbstractObservation):
             map_api=self._scene.map_api,
             target_agents=cars,
             non_target_agents=non_cars,
+            scene=self._scene if self._agents.requires_scene else None,
         )
         return DetectionRecording(
             box_detections=BoxDetectionWrapper(cars + non_cars),

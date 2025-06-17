@@ -1,8 +1,9 @@
 from abc import abstractmethod
-from typing import List
+from typing import List, Optional
 
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.recording.detection.detection import BoxDetection
+from asim.dataset.scene.abstract_scene import AbstractScene
 
 
 class AbstractAgents:
@@ -13,7 +14,11 @@ class AbstractAgents:
 
     @abstractmethod
     def reset(
-        self, map_api: AbstractMap, target_agents: List[BoxDetection], non_target_agents: List[BoxDetection]
+        self,
+        map_api: AbstractMap,
+        target_agents: List[BoxDetection],
+        non_target_agents: List[BoxDetection],
+        scene: Optional[AbstractScene] = None,
     ) -> List[BoxDetection]:
         pass
 

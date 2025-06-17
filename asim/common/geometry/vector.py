@@ -29,6 +29,10 @@ class Vector2D(Point2D):
         """Calculate the magnitude of the vector."""
         return np.linalg.norm(self.array)
 
+    @property
+    def vector_2d(self) -> Vector2D:
+        return self
+
 
 class Vector3DIndex(IntEnum):
     X = 0
