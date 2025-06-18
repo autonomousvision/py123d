@@ -75,14 +75,35 @@ class OccupancyMap:
         indices = self.query(geometry, predicate="intersects")
         return [self._ids[idx] for idx in indices]
 
-    def query(self, geometry: BaseGeometry, predicate=None):
+    def query(
+        self,
+        geometry: Union[BaseGeometry, np.ndarray],
+        predicate: Optional[str] = None,
+        distance: Optional[float] = None,
+    ):
         """
         Function to directly calls shapely's query function on str-tree
         :param geometry: geometries to query
         :param predicate: see shapely, defaults to None
         :return: query output
         """
-        return self._str_tree.query(geometry, predicate=predicate)
+        return self._str_tree.query(geometry, predicate=predicate, distance=distance)
+
+    def query_nearest(
+        self,
+        geometry: Union[BaseGeometry, np.ndarray],
+        max_distance: Optional[float] = None,
+        return_distance: bool = False,
+        exclusive: bool = False,
+        all_matches: bool = True,
+    ):
+        return self._str_tree.query_nearest(
+            geometry,
+            max_distance=max_distance,
+            return_distance=return_distance,
+            exclusive=exclusive,
+            all_matches=all_matches,
+        )
 
     def points_in_polygons(self, points: npt.NDArray[np.float64]) -> npt.NDArray[np.bool_]:
         """

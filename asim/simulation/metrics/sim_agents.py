@@ -8,7 +8,7 @@ from asim.dataset.arrow.conversion import BoxDetection, DetectionType
 from asim.dataset.recording.detection.detection import BoxDetectionWrapper
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.metrics.histogram_metric import BinaryHistogramIntersectionMetric, HistogramIntersectionMetric
-from asim.simulation.metrics.interaction_based import _get_collision_feature
+from asim.simulation.metrics.interaction_based import _get_collision_feature, _get_object_distance_feature
 from asim.simulation.metrics.kinematics import (
     _get_linear_acceleration_from_agents_array,
     _get_linear_speed_from_agents_array,
@@ -36,6 +36,9 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
     #         time_s.append(time_delta.time_s + constant)
     #     return time_s
 
+    log_rollouts = [
+        scene.get_box_detections_at_iteration(iteration) for iteration in range(scene.get_number_of_iterations())
+    ]
     initial_agent_tokens = get_agent_tokens(agent_rollouts[0])
     # time_s = _get_time_s_from_scene(scene)
 
@@ -47,7 +50,7 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
     # 1. Kinematics metrics
 
     # 1.1 Speed
-    speed_metric = HistogramIntersectionMetric(min_val=0.0, max_val=25.0, n_bins=10, name="speed", weight=0.125)
+    speed_metric = HistogramIntersectionMetric(min_val=0.0, max_val=25.0, n_bins=10, name="speed", weight=0.1)
     log_speed = _get_linear_speed_from_agents_array(log_agents_array, log_agents_mask)
     agents_speed = _get_linear_speed_from_agents_array(agents_array, log_agents_mask)
     speed_result = speed_metric.calculate_intersection(log_speed, agents_speed, log_agents_mask)
@@ -55,7 +58,7 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
 
     # 1.2 Acceleration
     acceleration_metric = HistogramIntersectionMetric(
-        min_val=-12.0, max_val=12.0, n_bins=11, name="acceleration", weight=0.125
+        min_val=-12.0, max_val=12.0, n_bins=11, name="acceleration", weight=0.1
     )
     log_acceleration = _get_linear_acceleration_from_agents_array(log_agents_array, log_agents_mask)
     agents_acceleration = _get_linear_acceleration_from_agents_array(agents_array, log_agents_mask)
@@ -65,9 +68,7 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
     results.update(acceleration_result)
 
     # 1.3 Yaw rate
-    yaw_rate_metric = HistogramIntersectionMetric(
-        min_val=-0.628, max_val=0.628, n_bins=11, name="yaw_rate", weight=0.125
-    )
+    yaw_rate_metric = HistogramIntersectionMetric(min_val=-0.628, max_val=0.628, n_bins=11, name="yaw_rate", weight=0.1)
     log_yaw_rate = _get_yaw_rate_from_agents_array(log_agents_array, log_agents_mask)
     agents_yaw_rate = _get_yaw_rate_from_agents_array(agents_array, log_agents_mask)
     yaw_rate_result = yaw_rate_metric.calculate_intersection(log_yaw_rate, agents_yaw_rate, log_agents_mask)
@@ -75,7 +76,7 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
 
     # 1.4 Yaw acceleration
     yaw_acceleration_metric = HistogramIntersectionMetric(
-        min_val=-3.14, max_val=3.14, n_bins=11, name="yaw_acceleration", weight=0.125
+        min_val=-3.14, max_val=3.14, n_bins=11, name="yaw_acceleration", weight=0.1
     )
     log_yaw_acceleration = _get_yaw_acceleration_from_agents_array(log_agents_array, log_agents_mask)
     agents_yaw_acceleration = _get_yaw_acceleration_from_agents_array(agents_array, log_agents_mask)
@@ -87,7 +88,7 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
     # 2. Interaction based
     # 2.1 Collision
     collision_metric = BinaryHistogramIntersectionMetric(name="collision", weight=0.25)
-    logs_collision = _get_collision_feature(log_agents_array, agent_rollouts)
+    logs_collision = _get_collision_feature(log_agents_array, log_rollouts)
     agents_collision = _get_collision_feature(agents_array, agent_rollouts)
     collision_results = collision_metric.calculate_intersection(agents_collision, logs_collision, log_agents_mask)
     results.update(collision_results)
@@ -95,6 +96,17 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
 
     # 2.2 TTC
     # TODO: Implement TTC metric
+
+    # 2.3 Object distance
+    object_distance_metric = HistogramIntersectionMetric(
+        min_val=0.0, max_val=40.0, n_bins=10, name="object_distance", weight=0.1
+    )
+    log_object_distance = _get_object_distance_feature(log_agents_array, log_rollouts)
+    agents_object_distance = _get_object_distance_feature(agents_array, agent_rollouts)
+    object_distance_results = object_distance_metric.calculate_intersection(
+        log_object_distance, agents_object_distance, log_agents_mask
+    )
+    results.update(object_distance_results)
 
     # 3. Map based
     # 3.1 Offroad
