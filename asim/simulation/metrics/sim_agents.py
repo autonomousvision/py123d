@@ -15,7 +15,7 @@ from asim.simulation.metrics.kinematics import (
     _get_yaw_acceleration_from_agents_array,
     _get_yaw_rate_from_agents_array,
 )
-from asim.simulation.metrics.map_based import _get_offroad_feature
+from asim.simulation.metrics.map_based import _get_offroad_feature, _get_road_center_distance_feature
 
 
 def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetectionWrapper]) -> Dict[str, float]:
@@ -50,7 +50,7 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
     # 1. Kinematics metrics
 
     # 1.1 Speed
-    speed_metric = HistogramIntersectionMetric(min_val=0.0, max_val=25.0, n_bins=10, name="speed", weight=0.1)
+    speed_metric = HistogramIntersectionMetric(min_val=0.0, max_val=25.0, n_bins=10, name="speed", weight=0.05)
     log_speed = _get_linear_speed_from_agents_array(log_agents_array, log_agents_mask)
     agents_speed = _get_linear_speed_from_agents_array(agents_array, log_agents_mask)
     speed_result = speed_metric.calculate_intersection(log_speed, agents_speed, log_agents_mask)
@@ -68,7 +68,9 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
     results.update(acceleration_result)
 
     # 1.3 Yaw rate
-    yaw_rate_metric = HistogramIntersectionMetric(min_val=-0.628, max_val=0.628, n_bins=11, name="yaw_rate", weight=0.1)
+    yaw_rate_metric = HistogramIntersectionMetric(
+        min_val=-0.628, max_val=0.628, n_bins=11, name="yaw_rate", weight=0.05
+    )
     log_yaw_rate = _get_yaw_rate_from_agents_array(log_agents_array, log_agents_mask)
     agents_yaw_rate = _get_yaw_rate_from_agents_array(agents_array, log_agents_mask)
     yaw_rate_result = yaw_rate_metric.calculate_intersection(log_yaw_rate, agents_yaw_rate, log_agents_mask)
@@ -76,7 +78,7 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
 
     # 1.4 Yaw acceleration
     yaw_acceleration_metric = HistogramIntersectionMetric(
-        min_val=-3.14, max_val=3.14, n_bins=11, name="yaw_acceleration", weight=0.1
+        min_val=-3.14, max_val=3.14, n_bins=11, name="yaw_acceleration", weight=0.05
     )
     log_yaw_acceleration = _get_yaw_acceleration_from_agents_array(log_agents_array, log_agents_mask)
     agents_yaw_acceleration = _get_yaw_acceleration_from_agents_array(agents_array, log_agents_mask)
@@ -99,10 +101,10 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
 
     # 2.3 Object distance
     object_distance_metric = HistogramIntersectionMetric(
-        min_val=0.0, max_val=40.0, n_bins=10, name="object_distance", weight=0.1
+        min_val=0.0, max_val=40.0, n_bins=10, name="object_distance", weight=0.15
     )
-    log_object_distance = _get_object_distance_feature(log_agents_array, log_rollouts)
     agents_object_distance = _get_object_distance_feature(agents_array, agent_rollouts)
+    log_object_distance = _get_object_distance_feature(log_agents_array, log_rollouts)
     object_distance_results = object_distance_metric.calculate_intersection(
         log_object_distance, agents_object_distance, log_agents_mask
     )
@@ -116,8 +118,17 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
     offroad_results = offroad_metric.calculate_intersection(log_offroad, agents_offroad, log_agents_mask)
     results.update(offroad_results)
 
-    # 3.2 road edge distance
-    # TODO: Implement road edge distance
+    # 3.2 lane center distance
+    center_distance_metric = HistogramIntersectionMetric(
+        min_val=0.0, max_val=10.0, n_bins=10, name="center_distance", weight=0.15
+    )
+    log_center_distance = _get_road_center_distance_feature(log_agents_array, log_agents_mask, scene.map_api)
+    agent_center_distance = _get_road_center_distance_feature(agents_array, log_agents_mask, scene.map_api)
+    center_distance_results = center_distance_metric.calculate_intersection(
+        log_center_distance, agent_center_distance, log_agents_mask
+    )
+    results.update(center_distance_results)
+
     results["meta_score"] = sum([score for name, score in results.items() if name.endswith("_score")])
 
     return results

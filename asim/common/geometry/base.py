@@ -15,6 +15,10 @@ class Point2DIndex(IntEnum):
     X = 0
     Y = 1
 
+    @classproperty
+    def XY(cls) -> slice:
+        return slice(cls.X, cls.Y + 1)
+
 
 @dataclass
 class Point2D:

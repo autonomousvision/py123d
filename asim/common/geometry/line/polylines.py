@@ -77,7 +77,7 @@ class PolylineSE2:
 
     @classmethod
     def from_linestring(cls, linestring: geom.LineString) -> PolylineSE2:
-        points_2d = np.array(linestring.coords, dtype=np.float64)
+        points_2d = np.array(linestring.coords, dtype=np.float64)[..., StateSE2Index.XY]
         se2_array = np.zeros((len(points_2d), len(StateSE2Index)), dtype=np.float64)
         se2_array[:, StateSE2Index.XY] = points_2d
         se2_array[:, StateSE2Index.YAW] = get_linestring_yaws(linestring)
@@ -119,7 +119,7 @@ class PolylineSE2:
     ) -> Union[Point2D, npt.NDArray[np.float64]]:
         if isinstance(point, Point2D):
             point_ = geom.Point(point.x, point.y)
-        elif isinstance(point, npt.NDArray) and point.shape[-1] == 2:
+        elif isinstance(point, np.ndarray) and point.shape[-1] == 2:
             point_ = geom_creation.points(point)
         elif isinstance(point, geom.Point):
             point_ = point
@@ -145,6 +145,10 @@ class Polyline3D:
     @property
     def polyline_2d(self) -> Polyline2D:
         return Polyline2D.from_linestring(self.linestring)
+
+    @property
+    def polyline_se2(self) -> PolylineSE2:
+        return PolylineSE2.from_linestring(self.linestring)
 
     @property
     def array(self) -> Polyline2D:

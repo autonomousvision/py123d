@@ -5,7 +5,7 @@ import warnings
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import geopandas as gpd
 import shapely
@@ -144,6 +144,25 @@ class GPKGMap(AbstractMap):
             object_map[layer] = self._query_layer_objects_ids(geometry, layer, predicate, sort, distance)
         return object_map
 
+    def query_nearest(
+        self,
+        geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
+        layers: List[MapSurfaceType],
+        return_all: bool = True,
+        max_distance: Optional[float] = None,
+        return_distance: bool = False,
+        exclusive: bool = False,
+    ) -> Dict[MapSurfaceType, Union[List[str], Dict[int, List[str]], Dict[int, List[Tuple[str, float]]]]]:
+        supported_layers = self.get_available_map_objects()
+        unsupported_layers = [layer for layer in layers if layer not in supported_layers]
+        assert len(unsupported_layers) == 0, f"Object representation for layer(s): {unsupported_layers} is unavailable"
+        object_map: Dict[MapSurfaceType, Union[List[str], Dict[int, List[str]]]] = defaultdict(list)
+        for layer in layers:
+            object_map[layer] = self._query_layer_nearest(
+                geometry, layer, return_all, max_distance, return_distance, exclusive
+            )
+        return object_map
+
     def _query_layer(
         self,
         geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
@@ -182,6 +201,41 @@ class GPKGMap(AbstractMap):
         ids = self._gpd_dataframes[layer]["id"].values  # numpy array for fast access
 
         if queried_indices.ndim == 2:
+            query_dict: Dict[int, List[str]] = defaultdict(list)
+            for geometry_idx, map_object_idx in zip(queried_indices[0], queried_indices[1]):
+                query_dict[int(geometry_idx)].append(ids[map_object_idx])
+            return query_dict
+        else:
+            return list(ids[queried_indices])
+
+    def _query_layer_nearest(
+        self,
+        geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
+        layer: MapSurfaceType,
+        return_all: bool = True,
+        max_distance: Optional[float] = None,
+        return_distance: bool = False,
+        exclusive: bool = False,
+    ) -> Union[List[str], Dict[int, List[str]], Dict[int, List[Tuple[str, float]]]]:
+        # Use numpy for fast indexing and avoid .iloc in a loop
+
+        queried_indices = self._gpd_dataframes[layer].sindex.nearest(
+            geometry,
+            return_all=return_all,
+            max_distance=max_distance,
+            return_distance=return_distance,
+            exclusive=exclusive,
+        )
+        ids = self._gpd_dataframes[layer]["id"].values  # numpy array for fast access
+
+        if return_distance:
+            queried_indices, distances = queried_indices
+            query_dict: Dict[int, List[Tuple[str, float]]] = defaultdict(list)
+            for geometry_idx, map_object_idx, distance in zip(queried_indices[0], queried_indices[1], distances):
+                query_dict[int(geometry_idx)].append((ids[map_object_idx], float(distance)))
+            return query_dict
+
+        elif queried_indices.ndim == 2:
             query_dict: Dict[int, List[str]] = defaultdict(list)
             for geometry_idx, map_object_idx in zip(queried_indices[0], queried_indices[1]):
                 query_dict[int(geometry_idx)].append(ids[map_object_idx])
