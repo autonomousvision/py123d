@@ -1,0 +1,73 @@
+[2025-06-22 20:11:40,938][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:15:40,112][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:17:51,960][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:19:16,048][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:25:37,829][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:27:19,748][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:27:20,017][__main__][INFO] - Instantiating model <asim.training.models.sim_agent.smart.smart.SMART>
+[2025-06-22 20:28:44,235][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:28:44,407][__main__][INFO] - Instantiating model <asim.training.models.sim_agent.smart.smart.SMART>
+[2025-06-22 20:30:05,515][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:30:05,773][__main__][INFO] - Instantiating model <asim.training.models.sim_agent.smart.smart.SMART>
+[2025-06-22 20:31:18,873][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:31:19,046][__main__][INFO] - Instantiating model <asim.training.models.sim_agent.smart.smart.SMART>
+[2025-06-22 20:35:03,504][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:35:03,778][__main__][INFO] - Instantiating model <asim.training.models.sim_agent.smart.smart.SMART>
+[2025-06-22 20:35:40,777][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:35:40,953][__main__][INFO] - Instantiating model <asim.training.models.sim_agent.smart.smart.SMART>
+[2025-06-22 20:35:41,054][__main__][INFO] - Instantiating callbacks...
+[2025-06-22 20:35:41,054][__main__][WARNING] - No callback configs found! Skipping..
+[2025-06-22 20:35:58,620][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:35:58,901][__main__][INFO] - Instantiating model <asim.training.models.sim_agent.smart.smart.SMART>
+[2025-06-22 20:35:59,001][__main__][INFO] - Instantiating callbacks...
+[2025-06-22 20:36:24,379][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:36:24,654][__main__][INFO] - Instantiating model <asim.training.models.sim_agent.smart.smart.SMART>
+[2025-06-22 20:36:24,755][__main__][INFO] - Instantiating callbacks...
+[2025-06-22 20:36:24,756][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2025-06-22 20:37:54,977][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:37:55,236][__main__][INFO] - Instantiating model <asim.training.models.sim_agent.smart.smart.SMART>
+[2025-06-22 20:37:55,333][__main__][INFO] - Instantiating callbacks...
+[2025-06-22 20:37:55,334][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2025-06-22 20:37:55,345][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2025-06-22 20:37:55,346][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2025-06-22 20:41:39,671][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:41:39,934][__main__][INFO] - Instantiating model <asim.training.models.sim_agent.smart.smart.SMART>
+[2025-06-22 20:41:39,981][__main__][INFO] - Instantiating callbacks...
+[2025-06-22 20:41:39,981][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2025-06-22 20:41:39,983][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2025-06-22 20:41:39,984][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2025-06-22 20:42:20,121][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:42:20,296][__main__][INFO] - Instantiating model <asim.training.models.sim_agent.smart.smart.SMART>
+[2025-06-22 20:42:20,341][__main__][INFO] - Instantiating callbacks...
+[2025-06-22 20:42:20,341][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2025-06-22 20:42:20,344][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2025-06-22 20:42:20,344][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2025-06-22 20:43:48,678][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:43:48,848][__main__][INFO] - Instantiating model <asim.training.models.sim_agent.smart.smart.SMART>
+[2025-06-22 20:43:48,891][__main__][INFO] - Instantiating callbacks...
+[2025-06-22 20:43:48,891][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2025-06-22 20:43:48,893][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2025-06-22 20:43:48,894][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2025-06-22 20:43:48,894][__main__][INFO] - Instantiating trainer <lightning.pytorch.trainer.Trainer>
+[2025-06-22 20:44:10,519][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:44:10,693][__main__][INFO] - Instantiating model <asim.training.models.sim_agent.smart.smart.SMART>
+[2025-06-22 20:44:10,738][__main__][INFO] - Instantiating callbacks...
+[2025-06-22 20:44:10,738][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2025-06-22 20:44:10,741][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2025-06-22 20:44:10,741][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2025-06-22 20:44:10,741][__main__][INFO] - Instantiating trainer <lightning.pytorch.trainer.Trainer>
+[2025-06-22 20:44:10,773][__main__][INFO] - Resuming from ckpt: cfg.ckpt_path=None
+[2025-06-22 20:44:10,773][__main__][INFO] - Starting training!
+[2025-06-22 20:44:10,844][asim.training.models.sim_agent.smart.datasets.scalable_dataset][INFO] - Length of /home/daniel/waymo_training_catk/training dataset is 0
+[2025-06-22 20:44:10,844][asim.training.models.sim_agent.smart.datasets.scalable_dataset][INFO] - Length of /home/daniel/waymo_training_catk/validation dataset is 0
+[2025-06-22 20:45:45,411][__main__][INFO] - Instantiating datamodule <asim.training.models.sim_agent.smart.datamodules.scalable_datamodule.MultiDataModule>
+[2025-06-22 20:45:45,581][__main__][INFO] - Instantiating model <asim.training.models.sim_agent.smart.smart.SMART>
+[2025-06-22 20:45:45,625][__main__][INFO] - Instantiating callbacks...
+[2025-06-22 20:45:45,626][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2025-06-22 20:45:45,628][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2025-06-22 20:45:45,628][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2025-06-22 20:45:45,628][__main__][INFO] - Instantiating trainer <lightning.pytorch.trainer.Trainer>
+[2025-06-22 20:45:45,651][__main__][INFO] - Resuming from ckpt: cfg.ckpt_path=None
+[2025-06-22 20:45:45,651][__main__][INFO] - Starting training!
+[2025-06-22 20:45:45,713][asim.training.models.sim_agent.smart.datasets.scalable_dataset][INFO] - Length of /home/daniel/waymo_training_catk/training dataset is 1996
+[2025-06-22 20:45:45,720][asim.training.models.sim_agent.smart.datasets.scalable_dataset][INFO] - Length of /home/daniel/waymo_training_catk/validation dataset is 1996

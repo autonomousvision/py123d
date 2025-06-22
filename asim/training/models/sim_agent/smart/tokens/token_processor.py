@@ -8,11 +8,11 @@ from torch.distributions import Categorical
 from torch_geometric.data import HeteroData
 
 from asim.training.models.sim_agent.smart.smart_config import SMARTRolloutSampling
-from asim.training.models.sim_agent.smart.utils import (
+from asim.training.models.sim_agent.smart.utils.geometry import wrap_angle
+from asim.training.models.sim_agent.smart.utils.rollout import (
     cal_polygon_contour,
     transform_to_global,
     transform_to_local,
-    wrap_angle,
 )
 
 

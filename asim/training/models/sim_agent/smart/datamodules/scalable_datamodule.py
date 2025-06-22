@@ -4,7 +4,7 @@ from lightning import LightningDataModule
 from lightning.pytorch.utilities.types import EVAL_DATALOADERS, TRAIN_DATALOADERS
 from torch_geometric.loader import DataLoader
 
-from asim.training.models.sim_agent.smart.datasets import MultiDataset
+from asim.training.models.sim_agent.smart.datasets.scalable_dataset import MultiDataset
 
 from .target_builder import WaymoTargetBuilderTrain, WaymoTargetBuilderVal
 

@@ -7,9 +7,10 @@ from torch_geometric.data import HeteroData
 from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
-from asim.training.models.sim_agent.smart.datasets import MultiDataset
+from asim.training.models.sim_agent.smart.datasets.scalable_dataset import MultiDataset
 from asim.training.models.sim_agent.smart.tokens.token_processor import TokenProcessor
-from asim.training.models.sim_agent.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
+from asim.training.models.sim_agent.smart.utils.geometry import wrap_angle
+from asim.training.models.sim_agent.smart.utils.rollout import cal_polygon_contour, transform_to_local
 
 
 def Kdisk_cluster(

@@ -5,7 +5,7 @@ import torch.nn as nn
 from torch_geometric.nn.conv import MessagePassing
 from torch_geometric.utils import softmax
 
-from asim.training.models.sim_agent.smart.utils import weight_init
+from asim.training.models.sim_agent.smart.utils.weight_init import weight_init
 
 
 class AttentionLayer(MessagePassing):

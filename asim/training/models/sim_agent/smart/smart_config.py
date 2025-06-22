@@ -17,8 +17,6 @@ class SMARTConfig:
     lr_total_steps: int = 100000
     lr_min_ratio: float = 0.05
 
-    num_historical_steps: int = 10
-
     val_open_loop: bool = True
     val_closed_loop: bool = True
 

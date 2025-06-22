@@ -6,15 +6,13 @@ from torch import Tensor
 from torch_cluster import radius, radius_graph
 from torch_geometric.utils import dense_to_sparse, subgraph
 
-from asim.training.models.sim_agent.smart.layers import AttentionLayer, FourierEmbedding, MLPEmbedding, MLPLayer
+from asim.training.models.sim_agent.smart.layers.attention_layer import AttentionLayer
+from asim.training.models.sim_agent.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
+from asim.training.models.sim_agent.smart.layers.mlp_layer import MLPLayer
 from asim.training.models.sim_agent.smart.smart_config import SMARTConfig, SMARTRolloutSampling
-from asim.training.models.sim_agent.smart.utils import (
-    angle_between_2d_vectors,
-    sample_next_token_traj,
-    transform_to_global,
-    weight_init,
-    wrap_angle,
-)
+from asim.training.models.sim_agent.smart.utils.geometry import angle_between_2d_vectors, wrap_angle
+from asim.training.models.sim_agent.smart.utils.rollout import sample_next_token_traj, transform_to_global
+from asim.training.models.sim_agent.smart.utils.weight_init import weight_init
 
 
 class SMARTDecoder(nn.Module):

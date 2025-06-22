@@ -1,0 +1,27 @@
+_target_: lightning.pytorch.trainer.Trainer
+
+default_root_dir: ${output_dir}
+
+limit_train_batches: 5
+limit_val_batches: 5
+limit_test_batches: 1.0
+
+# max_steps: 25000
+# val_check_interval: 0.5
+
+max_epochs: 32
+
+accelerator: gpu
+devices: -1
+
+precision: 32-true
+check_val_every_n_epoch: 1
+
+# set True to to ensure deterministic results
+# makes training slower but gives more reproducibility than just setting seeds
+deterministic: false
+gradient_clip_val: 0.5
+num_sanity_val_steps: 0
+accumulate_grad_batches: 1
+log_every_n_steps: 1
+strategy: auto

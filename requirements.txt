@@ -9,7 +9,6 @@ control
 Fiona
 geopandas
 guppy3
-hydra-core
 joblib
 matplotlib
 nest_asyncio
@@ -39,6 +38,11 @@ ujson
 notebook
 pre-commit
 cachetools
+
+# hydra
+hydra_colorlog
+hydra-core
+
 
 
 # asim

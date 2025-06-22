@@ -4,7 +4,8 @@ import torch
 from torch import Tensor
 from torch.nn.functional import one_hot
 
-from asim.training.models.sim_agent.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
+from asim.training.models.sim_agent.smart.utils.geometry import wrap_angle
+from asim.training.models.sim_agent.smart.utils.rollout import cal_polygon_contour, transform_to_local
 
 
 @torch.no_grad()
