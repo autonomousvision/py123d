@@ -5,7 +5,7 @@ import torch.nn as nn
 from torch_geometric.nn.conv import MessagePassing
 from torch_geometric.utils import softmax
 
-from asim.training.models.sim_agent.smart.utils.weight_init import weight_init
+from asim.training.models.sim_agent.smart.utils import weight_init
 
 
 class AttentionLayer(MessagePassing):
@@ -97,7 +97,11 @@ class AttentionLayer(MessagePassing):
         return inputs + g * (self.to_s(x_dst) - inputs)
 
     def _attn_block(
-        self, x_src: torch.Tensor, x_dst: torch.Tensor, r: Optional[torch.Tensor], edge_index: torch.Tensor
+        self,
+        x_src: torch.Tensor,
+        x_dst: torch.Tensor,
+        r: Optional[torch.Tensor],
+        edge_index: torch.Tensor,
     ) -> torch.Tensor:
         q = self.to_q(x_dst).view(-1, self.num_heads, self.head_dim)
         k = self.to_k(x_src).view(-1, self.num_heads, self.head_dim)

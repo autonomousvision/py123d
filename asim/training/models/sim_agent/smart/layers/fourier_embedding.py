@@ -4,7 +4,7 @@ from typing import List, Optional
 import torch
 import torch.nn as nn
 
-from asim.training.models.sim_agent.smart.utils.weight_init import weight_init
+from asim.training.models.sim_agent.smart.utils import weight_init
 
 
 class FourierEmbedding(nn.Module):
@@ -33,7 +33,9 @@ class FourierEmbedding(nn.Module):
         self.apply(weight_init)
 
     def forward(
-        self, continuous_inputs: Optional[torch.Tensor] = None, categorical_embs: Optional[List[torch.Tensor]] = None
+        self,
+        continuous_inputs: Optional[torch.Tensor] = None,
+        categorical_embs: Optional[List[torch.Tensor]] = None,
     ) -> torch.Tensor:
         if continuous_inputs is None:
             if categorical_embs is not None:
@@ -70,7 +72,9 @@ class MLPEmbedding(nn.Module):
         self.apply(weight_init)
 
     def forward(
-        self, continuous_inputs: Optional[torch.Tensor] = None, categorical_embs: Optional[List[torch.Tensor]] = None
+        self,
+        continuous_inputs: Optional[torch.Tensor] = None,
+        categorical_embs: Optional[List[torch.Tensor]] = None,
     ) -> torch.Tensor:
         if continuous_inputs is None:
             if categorical_embs is not None:

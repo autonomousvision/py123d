@@ -15,6 +15,6 @@ defaults:
   - _self_
   - datasets:
     - nuplan_mini_dataset
-    - carla_dataset
+    # - carla_dataset
 
 force_feature_computation: True

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from asim.training.models.sim_agent.smart.utils.weight_init import weight_init
+from asim.training.models.sim_agent.smart.utils import weight_init
 
 
 class MLPLayer(nn.Module):

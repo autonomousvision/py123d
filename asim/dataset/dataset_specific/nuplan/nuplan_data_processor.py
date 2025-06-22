@@ -249,6 +249,7 @@ def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
         ]
     )
     recording_table = pa.Table.from_pydict(recording_data, schema=recording_schema)
+    del recording_data
     recording_table = recording_table.sort_by([("timestamp", "ascending")])
     return recording_table
 
