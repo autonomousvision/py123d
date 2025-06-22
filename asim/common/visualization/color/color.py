@@ -25,6 +25,9 @@ class Color:
     def rgba_norm(self) -> Tuple[float, float, float]:
         return tuple([c / 255 for c in self.rgba])
 
+    def __str__(self) -> str:
+        return self.hex
+
 
 BLACK: Color = Color("#000000")
 WHITE: Color = Color("#FFFFFF")

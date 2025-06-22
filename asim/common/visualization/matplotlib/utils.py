@@ -113,3 +113,10 @@ def shapely_geometry_local_coords(
     rotated_geometry = affinity.affine_transform(geometry, [cos, sin, -sin, cos, 0, 0])
     translated_geometry = affinity.affine_transform(rotated_geometry, [1, 0, 0, 1, xoff, yoff])
     return translated_geometry
+
+
+def add_non_repeating_legend_to_ax(ax: plt.Axes) -> plt.Axes:
+    handles, labels = ax.get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    ax.legend(by_label.values(), by_label.keys())
+    return ax
