@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Union
 
 import numpy as np
@@ -19,7 +20,7 @@ class BoundingBoxSE2:
     length: float
     width: float
 
-    @property
+    @cached_property
     def shapely_polygon(self) -> shapely.geometry.Polygon:
         return shapely.geometry.Polygon(self.corners_array)
 

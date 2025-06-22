@@ -40,18 +40,6 @@ def cal_polygon_contour(x, y, theta, width, length):
     return polygon_contour
 
 
-# def joint_scene_from_states(states, object_ids) -> sim_agents_submission_pb2.JointScene:
-#     states = states.numpy()
-#     simulated_trajectories = []
-#     for i_object in range(len(object_ids)):
-#         simulated_trajectories.append(sim_agents_submission_pb2.SimulatedTrajectory(
-#             center_x=states[i_object, :, 0], center_y=states[i_object, :, 1],
-#             center_z=states[i_object, :, 2], heading=states[i_object, :, 3],
-#             object_id=object_ids[i_object].item()
-#         ))
-#     return sim_agents_submission_pb2.JointScene(simulated_trajectories=simulated_trajectories)
-
-
 class SMART(pl.LightningModule):
     def __init__(self, model_config) -> None:
         super(SMART, self).__init__()
@@ -66,14 +54,13 @@ class SMART(pl.LightningModule):
         self.output_dim = model_config.output_dim
         self.output_head = model_config.output_head
         self.num_historical_steps = model_config.num_historical_steps
-        self.num_future_steps = model_config.decoder.num_future_steps
+        self.num_future_steps = model_config.num_future_steps
         self.num_freq_bands = model_config.num_freq_bands
-        self.vis_map = False
         self.noise = True
         module_dir = os.path.dirname(os.path.dirname(__file__))
-        self.map_token_traj_path = os.path.join(module_dir, "tokens/map_traj_token5.pkl")
+        self.map_token_traj_path = os.path.join(module_dir, "smart/tokens/map_traj_token5.pkl")
         self.init_map_token()
-        self.token_path = os.path.join(module_dir, "tokens/cluster_frame_5_2048.pkl")
+        self.token_path = os.path.join(module_dir, "smart/tokens/cluster_frame_5_2048.pkl")
         token_data = self.get_trajectory_token()
         self.encoder = SMARTDecoder(
             dataset=model_config.dataset,
@@ -84,15 +71,15 @@ class SMART(pl.LightningModule):
             num_heads=model_config.num_heads,
             head_dim=model_config.head_dim,
             dropout=model_config.dropout,
-            num_map_layers=model_config.decoder.num_map_layers,
-            num_agent_layers=model_config.decoder.num_agent_layers,
-            pl2pl_radius=model_config.decoder.pl2pl_radius,
-            pl2a_radius=model_config.decoder.pl2a_radius,
-            a2a_radius=model_config.decoder.a2a_radius,
-            time_span=model_config.decoder.time_span,
+            num_map_layers=model_config.decoder_num_map_layers,
+            num_agent_layers=model_config.decoder_num_agent_layers,
+            pl2pl_radius=model_config.decoder_pl2pl_radius,
+            pl2a_radius=model_config.decoder_pl2a_radius,
+            a2a_radius=model_config.decoder_a2a_radius,
+            time_span=model_config.decoder_time_span,
             map_token={"traj_src": self.map_token["traj_src"]},
             token_data=token_data,
-            token_size=model_config.decoder.token_size,
+            token_size=model_config.token_size,
         )
         self.minADE = minADE(max_guesses=1)
         self.minFDE = minFDE(max_guesses=1)
@@ -327,6 +314,7 @@ class SMART(pl.LightningModule):
             center_side = (data["pt_token"]["side"][pt] == 2).sum()
             count_nums.append(torch.Tensor([left_side, right_side, center_side]))
         count_nums = torch.stack(count_nums, dim=0)
+        print(count_nums)
         num_polyline = int(count_nums.max().item())
         traj_mask = torch.zeros((int(len(pl_idx_full.unique())), 3, num_polyline), dtype=bool)
         idx_matrix = torch.arange(traj_mask.size(2)).unsqueeze(0).unsqueeze(0)

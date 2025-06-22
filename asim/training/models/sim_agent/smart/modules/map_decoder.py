@@ -48,7 +48,6 @@ class SMARTMapDecoder(nn.Module):
             raise ValueError("{} is not a valid dimension".format(input_dim))
 
         self.type_pt_emb = nn.Embedding(17, hidden_dim)
-        self.side_pt_emb = nn.Embedding(4, hidden_dim)
         self.polygon_type_emb = nn.Embedding(4, hidden_dim)
         self.light_pl_emb = nn.Embedding(4, hidden_dim)
 
