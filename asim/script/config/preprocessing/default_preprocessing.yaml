@@ -3,27 +3,18 @@ hydra:
     dir: ${output_dir}
   output_subdir: ${output_dir}/code/hydra           # Store hydra's config breakdown here for debugging
   searchpath:                                       # Only <exp_dir> in these paths are discoverable
+    - pkg://asim.script.config
     - pkg://asim.script.config.common
-    - pkg://asim.script.config.lightning_training
+    - pkg://asim.script.config.preprocessing
   job:
     chdir: False
 
 defaults:
   - default_common
   - default_experiment
-  - data: waymo
-  - model: smart_nano_1M
-  - callbacks: default_callbacks
-  - trainer: default_trainer
-  # - default_dataset_paths
+  - default_dataset_paths
   - _self_
-  # - datasets:
-    # - nuplan_mini_dataset
-    # - carla_dataset
 
-# force_feature_computation: True
 
-ckpt_path: null
-action: fit
 paths:
-  cache_root: /home/daniel/nuplan_cache
+  cache_root: /home/daniel/waymo_training_catk

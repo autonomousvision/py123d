@@ -1,0 +1,15 @@
+_target_: asim.dataset.scene.scene_filter.SceneFilter
+_convert_: 'all'
+
+split_types: null
+split_names: null
+log_names: null
+
+
+map_names: null
+scene_tokens: null
+timestamp_threshold_s: null
+ego_displacement_minimum_m: null
+
+duration_s: 9.2
+history_s: 3.0

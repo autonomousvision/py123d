@@ -1,6 +1,22 @@
+import numpy as np
 import torch
 from torch_geometric.data import HeteroData
 from torch_geometric.transforms import BaseTransform
+
+
+def _numpy_dict_to_torch(data: dict) -> dict:
+    """
+    Convert numpy arrays in a dictionary to torch tensors.
+    :param data: Dictionary with numpy arrays.
+    :return: Dictionary with torch tensors.
+    """
+    for key, value in data.items():
+        if isinstance(value, np.ndarray):
+            data[key] = torch.tensor(value)
+            if data[key].dtype == torch.float64:
+                data[key] = data[key].to(torch.float32)
+        elif isinstance(value, dict):
+            _numpy_dict_to_torch(value)
 
 
 class WaymoTargetBuilderTrain(BaseTransform):
@@ -10,6 +26,8 @@ class WaymoTargetBuilderTrain(BaseTransform):
         self.max_num = max_num
 
     def __call__(self, data) -> HeteroData:
+        _numpy_dict_to_torch(data)
+
         pos = data["agent"]["position"]
         av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
         distance = torch.norm(pos - pos[av_index], dim=-1)
@@ -40,4 +58,5 @@ class WaymoTargetBuilderVal(BaseTransform):
         super(WaymoTargetBuilderVal, self).__init__()
 
     def __call__(self, data) -> HeteroData:
+        _numpy_dict_to_torch(data)
         return HeteroData(data)

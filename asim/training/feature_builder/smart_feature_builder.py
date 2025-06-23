@@ -176,7 +176,7 @@ def _build_map_features(scene: AbstractScene, origin: StateSE2) -> Dict[str, np.
     return {
         "map_save": {
             "traj_pos": traj_se2[..., StateSE2Index.XY],
-            "traj_theta": traj_se2[..., StateSE2Index.YAW],
+            "traj_theta": traj_se2[..., 0, StateSE2Index.YAW],
         },
         "pt_token": {
             "type": types,

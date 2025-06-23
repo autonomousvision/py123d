@@ -1,3 +1,4 @@
+import abc
 from functools import partial
 from pathlib import Path
 from typing import Iterator, List, Optional, Set, Union
@@ -12,7 +13,19 @@ from asim.dataset.scene.arrow_scene import ArrowScene, SceneExtractionInfo
 from asim.dataset.scene.scene_filter import SceneFilter
 
 
-class ArrowSceneBuilder:
+class SceneBuilder(abc.ABC):
+    @abc.abstractmethod
+    def get_scenes(self, filter: SceneFilter, worker: WorkerPool) -> Iterator[AbstractScene]:
+        """
+        Returns an iterator over scenes that match the given filter.
+        :param filter: SceneFilter object to filter the scenes.
+        :param worker: WorkerPool to parallelize the scene extraction.
+        :return: Iterator over AbstractScene objects.
+        """
+        raise NotImplementedError
+
+
+class ArrowSceneBuilder(SceneBuilder):
     """
     A class to build a scene from a dataset.
     """
@@ -21,6 +34,7 @@ class ArrowSceneBuilder:
         self._dataset_path = Path(dataset_path)
 
     def get_scenes(self, filter: SceneFilter, worker: WorkerPool) -> Iterator[AbstractScene]:
+        """See superclass."""
 
         split_types = set(filter.split_types) if filter.split_types else {"train", "val", "test"}
         split_names = (

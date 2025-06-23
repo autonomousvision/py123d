@@ -1,6 +1,8 @@
 # Default common configs
 defaults:
   - worker: ray_distributed
+  - scene_filter: all_scenes
+  - scene_builder: default_scene_builder
   - override hydra/hydra_logging: colorlog
   - override hydra/job_logging: colorlog
   - _self_
