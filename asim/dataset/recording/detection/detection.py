@@ -133,3 +133,11 @@ class TrafficLightDetectionWrapper:
 
     def __iter__(self):
         return iter(self.traffic_light_detections)
+
+    def get_detection_by_lane_id(self, lane_id: int) -> Optional[TrafficLightDetection]:
+        traffic_light_detection: Optional[TrafficLightDetection] = None
+        for detection in self.traffic_light_detections:
+            if int(detection.lane_id) == int(lane_id):
+                traffic_light_detection = detection
+                break
+        return traffic_light_detection
