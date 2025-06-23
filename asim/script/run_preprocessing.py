@@ -1,6 +1,8 @@
 import logging
 import pickle
+from functools import partial
 from pathlib import Path
+from typing import List
 
 import hydra
 import lightning as L
@@ -9,6 +11,8 @@ import lightning as L
 # from lightning.pytorch.loggers.wandb import WandbLogger
 from omegaconf import DictConfig
 
+from asim.dataset.dataset_specific.nuplan.nuplan_data_processor import worker_map
+from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.script.builders.scene_builder_builder import build_scene_builder
 from asim.script.builders.scene_filter_builder import build_scene_filter
 from asim.script.run_dataset_caching import build_worker
@@ -51,8 +55,17 @@ def main(cfg: DictConfig) -> None:
     output_path.mkdir(parents=True, exist_ok=True)
 
     feature_builder = SMARTFeatureBuilder()
-    for scene in scenes:
 
+    worker_map(worker, partial(_apply_feature_builder, feature_builder=feature_builder), scenes)
+
+
+def _apply_feature_builder(
+    scenes: List[AbstractScene],
+    feature_builder: SMARTFeatureBuilder,
+):
+
+    output_path = Path("/home/daniel/cache_test")
+    for scene in scenes:
         scene.open()
         feature_dict = feature_builder.build_features(scene=scene)
         output_file = output_path / f"{feature_dict['scenario_id']}.pkl"
