@@ -92,9 +92,9 @@ def get_bounding_box_meshes(scene: AbstractScene, iteration: int, center: Point3
         bbox = translate_bounding_box_se3(bbox, center)
         plot_config = BOX_DETECTION_CONFIG[box_detection.metadata.detection_type]
         trimesh_box = bounding_box_to_trimesh(bbox, plot_config)
-        output[
-            f"{box_detection.metadata.detection_type.serialize()}/{box_detection.metadata.track_token}"
-        ] = trimesh_box
+        output[f"{box_detection.metadata.detection_type.serialize()}/{box_detection.metadata.track_token}"] = (
+            trimesh_box
+        )
 
     ego_bbox = translate_bounding_box_se3(ego_vehicle_state.bounding_box, center)
     trimesh_box = bounding_box_to_trimesh(ego_bbox, EGO_VEHICLE_CONFIG)

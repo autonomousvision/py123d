@@ -121,9 +121,9 @@ class GPKGMap(AbstractMap):
         supported_layers = self.get_available_map_objects()
         unsupported_layers = [layer for layer in layers if layer not in supported_layers]
         assert len(unsupported_layers) == 0, f"Object representation for layer(s): {unsupported_layers} is unavailable"
-        object_map: Dict[
-            MapSurfaceType, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]
-        ] = defaultdict(list)
+        object_map: Dict[MapSurfaceType, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]] = (
+            defaultdict(list)
+        )
         for layer in layers:
             object_map[layer] = self._query_layer(geometry, layer, predicate, sort, distance)
         return object_map
