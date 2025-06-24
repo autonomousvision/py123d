@@ -37,6 +37,10 @@ class AbstractScene(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def get_number_of_history_iterations() -> int:
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def get_timepoint_at_iteration(self, iteration: int) -> TimePoint:
         raise NotImplementedError
 
@@ -73,7 +77,11 @@ class SceneExtractionInfo:
 
     @property
     def number_of_iterations(self) -> int:
-        return int(self.duration_s / self.iteration_duration_s)
+        return round(self.duration_s / self.iteration_duration_s)
+
+    @property
+    def number_of_history_iterations(self) -> int:
+        return round(self.history_s / self.iteration_duration_s)
 
     @property
     def end_idx(self) -> int:

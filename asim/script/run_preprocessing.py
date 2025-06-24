@@ -16,7 +16,7 @@ from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.script.builders.scene_builder_builder import build_scene_builder
 from asim.script.builders.scene_filter_builder import build_scene_filter
 from asim.script.run_dataset_caching import build_worker
-from asim.training.feature_builder.smart_feature_builder import SMARTFeatureBuilder
+from asim.training.feature_builder.smart_feature_builder_ import SMARTFeatureBuilder
 
 # from typing import List
 

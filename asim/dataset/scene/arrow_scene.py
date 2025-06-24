@@ -62,7 +62,9 @@ class ArrowScene(AbstractScene):
 
     def _get_table_index(self, iteration: int) -> int:
         self._lazy_initialize()
-        assert 0 <= iteration < self.get_number_of_iterations(), "Iteration out of bounds"
+        assert (
+            -self.get_number_of_history_iterations() <= iteration < self.get_number_of_iterations()
+        ), "Iteration out of bounds"
         table_index = self._scene_extraction_info.initial_idx + iteration
         return table_index
 
@@ -70,19 +72,20 @@ class ArrowScene(AbstractScene):
         self._lazy_initialize()
         return self._scene_extraction_info.number_of_iterations
 
+    def get_number_of_history_iterations(self) -> int:
+        self._lazy_initialize()
+        return self._scene_extraction_info.number_of_history_iterations
+
     def get_timepoint_at_iteration(self, iteration: int) -> TimePoint:
         self._lazy_initialize()
-        assert 0 <= iteration < self.get_number_of_iterations(), "Iteration out of bounds"
         return get_timepoint_from_arrow_table(self._recording_table, self._get_table_index(iteration))
 
     def get_ego_vehicle_state_at_iteration(self, iteration: int) -> EgoVehicleState:
         self._lazy_initialize()
-        assert 0 <= iteration < self.get_number_of_iterations(), "Iteration out of bounds"
         return get_ego_vehicle_state_from_arrow_table(self._recording_table, self._get_table_index(iteration))
 
     def get_box_detections_at_iteration(self, iteration: int) -> BoxDetectionWrapper:
         self._lazy_initialize()
-        assert 0 <= iteration < self.get_number_of_iterations(), "Iteration out of bounds"
         return get_box_detections_from_arrow_table(self._recording_table, self._get_table_index(iteration))
 
     def get_traffic_light_detections_at_iteration(self, iteration: int) -> TrafficLightDetectionWrapper:

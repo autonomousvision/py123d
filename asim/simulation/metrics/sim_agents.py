@@ -58,7 +58,7 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
 
     # 1.2 Acceleration
     acceleration_metric = HistogramIntersectionMetric(
-        min_val=-12.0, max_val=12.0, n_bins=11, name="acceleration", weight=0.1
+        min_val=-12.0, max_val=12.0, n_bins=11, name="acceleration", weight=0.05
     )
     log_acceleration = _get_linear_acceleration_from_agents_array(log_agents_array, log_agents_mask)
     agents_acceleration = _get_linear_acceleration_from_agents_array(agents_array, log_agents_mask)

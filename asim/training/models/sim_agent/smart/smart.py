@@ -126,6 +126,7 @@ class SMART(LightningModule):
                 target=data["agent"]["position"][:, self.num_historical_steps :, : pred_traj.shape[-1]],
                 target_valid=data["agent"]["valid_mask"][:, self.num_historical_steps :],
             )
+        return pred_traj
 
     def on_validation_epoch_end(self):
         pass
@@ -167,6 +168,7 @@ class SMART(LightningModule):
         pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
         pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
         pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
+        return pred_traj, pred_z, pred_head
 
     def on_test_epoch_end(self):
         pass

@@ -9,7 +9,8 @@ from asim.simulation.agents.abstract_agents import AbstractAgents
 
 # from asim.simulation.agents.constant_velocity_agents import ConstantVelocityAgents
 # from asim.simulation.agents.path_following import PathFollowingAgents
-from asim.simulation.agents.idm_agents import IDMAgents
+# from asim.simulation.agents.idm_agents import IDMAgents
+from asim.simulation.agents.smart_agents import SMARTAgents
 from asim.simulation.observation.abstract_observation import AbstractObservation
 
 
@@ -23,7 +24,8 @@ class AgentsObservation(AbstractObservation):
         super().__init__()
         self._scene: Optional[AbstractScene] = None
         # self._agents: AbstractAgents = ConstantVelocityAgents()
-        self._agents: AbstractAgents = IDMAgents()
+        # self._agents: AbstractAgents = IDMAgents()
+        self._agents: AbstractAgents = SMARTAgents()
 
     def initialize(self) -> None:
         pass
@@ -33,7 +35,7 @@ class AgentsObservation(AbstractObservation):
         self._scene = scene
         self._iteration = 0
 
-        cars, non_cars = _filter_agents_by_type(
+        cars, non_cars, _ = _filter_agents_by_type(
             self._scene.get_box_detections_at_iteration(self._iteration),
             detection_types=[DetectionType.VEHICLE],
         )
@@ -50,7 +52,7 @@ class AgentsObservation(AbstractObservation):
 
     def step(self) -> DetectionRecording:
         self._iteration += 1
-        _, non_cars = _filter_agents_by_type(
+        _, non_cars, _ = _filter_agents_by_type(
             self._scene.get_box_detections_at_iteration(self._iteration),
             detection_types=[DetectionType.VEHICLE],
         )
@@ -63,18 +65,14 @@ class AgentsObservation(AbstractObservation):
 
 def _filter_agents_by_type(
     detections: BoxDetectionWrapper, detection_types: List[DetectionType]
-) -> Tuple[List[BoxDetection], List[BoxDetection]]:
-    """
-    Filter agents by detection type.
-    :param detections: The detection recording to filter.
-    :param detection_type: The detection type to filter by.
-    :return: A new DetectionRecording with only the specified detection type.
-    """
-    in_types, not_in_types = [], []
-    for detection in detections:
+) -> Tuple[List[BoxDetection], List[BoxDetection], List[int]]:
+
+    in_types, not_in_types, in_indices = [], [], []
+    for detection_idx, detection in enumerate(detections):
         if detection.metadata.detection_type in detection_types:
             in_types.append(detection)
+            in_indices.append(detection_idx)
         else:
             not_in_types.append(detection)
 
-    return in_types, not_in_types
+    return in_types, not_in_types, in_indices

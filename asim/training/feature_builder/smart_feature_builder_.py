@@ -1,5 +1,5 @@
 from enum import IntEnum
-from typing import Dict, Final, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -36,9 +36,6 @@ class SMARTMapTokenPlType(IntEnum):
     POLYGON = 2
 
 
-START_ITERATION: Final[int] = 0
-
-
 class SMARTFeatureBuilder:
     def __init__(self):
         pass
@@ -48,7 +45,7 @@ class SMARTFeatureBuilder:
         feature_dict = {"scenario_id": scene.token}
 
         # Optionally, you use a different origin instead
-        origin: StateSE2 = scene.get_ego_vehicle_state_at_iteration(START_ITERATION).bounding_box.center.state_se2
+        origin: StateSE2 = scene.get_ego_vehicle_state_at_iteration(0).bounding_box.center.state_se2
 
         map_features = _build_map_features(scene, origin)
         feature_dict.update(map_features)
@@ -81,7 +78,7 @@ def _build_map_features(scene: AbstractScene, origin: StateSE2) -> Dict[str, np.
     )
 
     # Traffic light data
-    traffic_lights = scene.get_traffic_light_detections_at_iteration(START_ITERATION)
+    traffic_lights = scene.get_traffic_light_detections_at_iteration(0)
 
     traj_se2: List[npt.NDArray[np.float64]] = []
     types: List[int] = []
@@ -191,28 +188,16 @@ def _build_map_features(scene: AbstractScene, origin: StateSE2) -> Dict[str, np.
 
 
 def _build_agent_features(scene: AbstractScene, origin: StateSE2) -> None:
-    iteration_indices = np.arange(
-        -scene.get_number_of_history_iterations(),
-        scene.get_number_of_iterations(),
-    )
-    # print(iteration_indices[scene.get_number_of_history_iterations()])
-    num_steps = len(iteration_indices)
+    num_steps = scene.get_number_of_iterations()
 
     target_types = [DetectionType.VEHICLE, DetectionType.PEDESTRIAN, DetectionType.BICYCLE]
-    box_detections_list = [scene.get_box_detections_at_iteration(iteration) for iteration in iteration_indices]
+    box_detections_list = [scene.get_box_detections_at_iteration(iteration) for iteration in range(num_steps)]
     target_detections: List[List[BoxDetection]] = []
-    target_indices: List[List[int]] = []
     for box_detections in box_detections_list:
         in_types, _, in_indices = _filter_agents_by_type(box_detections, target_types)
         target_detections.append(in_types)
-        target_indices.append(in_indices)
 
-    # initial_agents = [
-    #     detection.metadata.track_token for detection in target_detections[scene.get_number_of_history_iterations()]
-    # ]
-    other_start_iteration = scene.get_number_of_history_iterations()
-    initial_agents = [detection.metadata.track_token for detection in target_detections[other_start_iteration]]
-    initial_indices = target_indices[other_start_iteration]
+    initial_agents = [detection.metadata.track_token for detection in target_detections[0]]
     num_agents = len(initial_agents) + 1  # + 1 for ego vehicle
 
     def detection_type_to_index(detection_type: DetectionType) -> int:
@@ -232,12 +217,12 @@ def _build_agent_features(scene: AbstractScene, origin: StateSE2) -> None:
     extent = np.zeros((num_agents, 3), dtype=np.float32)
 
     for agent_idx, agent_token in enumerate(initial_agents):
-        detection = box_detections_list[other_start_iteration].get_detection_by_track_token(agent_token)
+        detection = box_detections_list[0].get_detection_by_track_token(agent_token)
         assert detection is not None, f"Agent {agent_token} not found in initial detections."
 
         role_idx = 2 if detection.metadata.detection_type == DetectionType.VEHICLE else 1
         role[agent_idx, role_idx] = True
-        id[agent_idx] = initial_indices[agent_idx]
+        id[agent_idx] = agent_idx
         type[agent_idx] = detection_type_to_index(detection.metadata.detection_type)
         extent[agent_idx] = [
             detection.bounding_box.length,
@@ -248,7 +233,7 @@ def _build_agent_features(scene: AbstractScene, origin: StateSE2) -> None:
     # Fill ego vehicle data
     role[-1, 0] = True
     id[-1] = -1  # Use -1 for ego vehicle
-    type[-1] = detection_type_to_index(DetectionType.VEHICLE)
+    type[-1] = DetectionType.VEHICLE
 
     # Fill role, id, type arrays
     valid_mask = np.zeros((num_agents, num_steps), dtype=bool)
@@ -256,31 +241,31 @@ def _build_agent_features(scene: AbstractScene, origin: StateSE2) -> None:
     heading = np.zeros((num_agents, num_steps), dtype=np.float64)
     velocity = np.zeros((num_agents, num_steps, 2), dtype=np.float64)
 
-    for time_idx, iteration in enumerate(iteration_indices):
+    for iteration in range(num_steps):
         for agent_idx, agent_token in enumerate(initial_agents):
-            detection = box_detections_list[time_idx].get_detection_by_track_token(agent_token)
+            detection = box_detections_list[iteration].get_detection_by_track_token(agent_token)
             if detection is None:
                 continue
 
-            valid_mask[agent_idx, time_idx] = True
+            valid_mask[agent_idx, iteration] = True
 
             state_se2 = detection.bounding_box.center.state_se2
             local_se2_array = convert_absolute_to_relative_se2_array(origin, state_se2.array)
-            position[agent_idx, time_idx, :2] = local_se2_array[..., StateSE2Index.XY]
-            # position[agent_idx, time_idx, 2] = ... #  Is this the z dimension?
-            heading[agent_idx, time_idx] = local_se2_array[..., StateSE2Index.YAW]
-            velocity[agent_idx, time_idx, :] = detection.velocity.array[:2]  # already in local of agent
+            position[agent_idx, iteration, :2] = local_se2_array[..., StateSE2Index.XY]
+            # position[agent_idx, iteration, 2] = ... #  Is this the z dimension?
+            heading[agent_idx, iteration] = local_se2_array[..., StateSE2Index.YAW]
+            velocity[agent_idx, iteration, :] = detection.velocity.array[:2]  # already in local of agent
 
         # Fill ego vehicle data
         ego_vehicle_state = scene.get_ego_vehicle_state_at_iteration(iteration)
-        valid_mask[-1, time_idx] = True
+        valid_mask[-1, iteration] = True
         local_se2_array = convert_absolute_to_relative_se2_array(
             origin, ego_vehicle_state.bounding_box.center.state_se2.array
         )
-        position[-1, time_idx, :2] = local_se2_array[..., StateSE2Index.XY]
-        # position[-1, time_idx, 2] = ... #  Is this the z dimension?
-        heading[-1, time_idx] = local_se2_array[..., StateSE2Index.YAW]
-        velocity[-1, time_idx, :] = ego_vehicle_state.dynamic_state.velocity.array[:2]  # already in local of agent
+        position[-1, iteration, :2] = local_se2_array[..., StateSE2Index.XY]
+        # position[-1, iteration, 2] = ... #  Is this the z dimension?
+        heading[-1, iteration] = local_se2_array[..., StateSE2Index.YAW]
+        velocity[-1, iteration, :] = ego_vehicle_state.dynamic_state.velocity.array[:2]  # already in local of agent
 
     return {
         "agent": {

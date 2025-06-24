@@ -74,10 +74,10 @@ class BoxDetectionWrapper:
 
     box_detections: List[BoxDetection]
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> BoxDetection:
         return self.box_detections[index]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.box_detections)
 
     def __iter__(self):
@@ -125,10 +125,10 @@ class TrafficLightDetection:
 class TrafficLightDetectionWrapper:
     traffic_light_detections: List[TrafficLightDetection]
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> TrafficLightDetection:
         return self.traffic_light_detections[index]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.traffic_light_detections)
 
     def __iter__(self):
