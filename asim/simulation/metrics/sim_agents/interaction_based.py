@@ -12,7 +12,7 @@ MAX_OBJECT_DISTANCE: Final[float] = 50.0
 
 def _get_collision_feature(
     agent_array: npt.NDArray[np.float64], box_detections_list: List[BoxDetectionWrapper]
-) -> npt.NDArray[np.float64]:
+) -> npt.NDArray[np.bool]:
     """
     Extracts the collision feature from the agent array.
     :param agent_array: The agent array containing bounding box information.
@@ -36,7 +36,9 @@ def _get_collision_feature(
 
 
 def _get_object_distance_feature(
-    agent_array: npt.NDArray[np.float64], box_detections_list: List[BoxDetectionWrapper]
+    agent_array: npt.NDArray[np.float64],
+    agents_mask: npt.NDArray[np.bool],
+    box_detections_list: List[BoxDetectionWrapper],
 ) -> npt.NDArray[np.float64]:
     """
     Extracts the collision feature from the agent array.
@@ -51,16 +53,22 @@ def _get_object_distance_feature(
 
     agent_polygon_array = bbse2_array_to_polygon_array(agent_array)
     for iteration, box_detections in enumerate(box_detections_list):
-        occupancy_map = box_detections.occupancy_map
-        _, distances = occupancy_map.query_nearest(
-            agent_polygon_array[:, iteration],
-            exclusive=True,
-            return_distance=True,
-            all_matches=False,
-        )
-        if len(distances) == 0:
-            distances = np.full((n_objects,), MAX_OBJECT_DISTANCE, dtype=np.float64)
-        object_distance_feature[:, iteration] = distances
+        if agents_mask[:, iteration].any():
+
+            occupancy_map = box_detections.occupancy_map
+            _, distances = occupancy_map.query_nearest(
+                agent_polygon_array[agents_mask[:, iteration], iteration],
+                exclusive=True,
+                return_distance=True,
+                all_matches=False,
+            )
+            if len(distances) == 0:
+                distances = np.full((n_objects,), MAX_OBJECT_DISTANCE, dtype=np.float64)
+
+            if len(agent_polygon_array[agents_mask[:, iteration]]) == 1:
+                distances = min(distances.min(), MAX_OBJECT_DISTANCE)
+
+            object_distance_feature[agents_mask[:, iteration], iteration] = distances
 
     object_distance_feature = np.clip(object_distance_feature, 0.0, MAX_OBJECT_DISTANCE)
 

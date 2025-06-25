@@ -4,7 +4,7 @@ from torch_geometric.data import HeteroData
 from torch_geometric.transforms import BaseTransform
 
 
-def _numpy_dict_to_torch(data: dict) -> dict:
+def _numpy_dict_to_torch(data: dict, device: torch.device = torch.device("cpu")) -> dict:
     """
     Convert numpy arrays in a dictionary to torch tensors.
     :param data: Dictionary with numpy arrays.
@@ -12,7 +12,7 @@ def _numpy_dict_to_torch(data: dict) -> dict:
     """
     for key, value in data.items():
         if isinstance(value, np.ndarray):
-            data[key] = torch.tensor(value)
+            data[key] = torch.tensor(value, device=device)
             if data[key].dtype == torch.float64:
                 data[key] = data[key].to(torch.float32)
         elif isinstance(value, dict):

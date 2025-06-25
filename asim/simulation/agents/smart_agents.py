@@ -35,7 +35,9 @@ class SMARTAgents(AbstractAgents):
         self._current_iteration: int = 0
         self._map_api: AbstractMap = None
 
-        checkpoint_path = Path("/home/daniel/epoch_027.ckpt")
+        checkpoint_path = Path(
+            "/home/daniel/asim_workspace/exp/smart_mini_run/2025.06.23.20.45.20/checkpoints/epoch_050.ckpt"
+        )
         config = SMARTConfig(
             hidden_dim=64,
             num_freq_bands=64,
@@ -53,8 +55,10 @@ class SMARTAgents(AbstractAgents):
             num_future_steps=80,
         )
 
-        self._smart_model = SMART.load_from_checkpoint(checkpoint_path, config=config, map_location="cpu")
+        self._smart_model = SMART.load_from_checkpoint(checkpoint_path, config=config, map_location="cuda:0")
         self._smart_model.eval()
+
+        self._smart_model.to("cuda:0")
 
         self._initial_box_detections: Optional[BoxDetectionWrapper] = None
         self._agent_indices: List[int] = []
@@ -73,7 +77,7 @@ class SMARTAgents(AbstractAgents):
         feature_builder = SMARTFeatureBuilder()
         features = feature_builder.build_features(scene)
         self._agent_indices = features["agent"]["id"].tolist()
-        _numpy_dict_to_torch(features)
+        _numpy_dict_to_torch(features, device="cpu")
         torch_features = HeteroData(features)
         from torch_geometric.loader import DataLoader
 
@@ -82,14 +86,15 @@ class SMARTAgents(AbstractAgents):
         loader = DataLoader(dataset, batch_size=1, shuffle=False)
         with torch.no_grad():
             for batch in loader:
+                batch.to("cuda:0")
                 pred_traj, pred_z, pred_head = self._smart_model.test_step(batch, 0)
                 break
 
         origin = scene.get_ego_vehicle_state_at_iteration(0).bounding_box.center.state_se2
 
-        self._pred_traj = convert_relative_to_absolute_point_2d_array(origin, pred_traj.numpy())
-        self._pred_z = pred_z.numpy()
-        self._pred_head = normalize_angle(pred_head.numpy() + origin.yaw)
+        self._pred_traj = convert_relative_to_absolute_point_2d_array(origin, pred_traj.cpu().numpy())
+        self._pred_z = pred_z.cpu().numpy()
+        self._pred_head = normalize_angle(pred_head.cpu().numpy() + origin.yaw)
 
         self._initial_box_detections = scene.get_box_detections_at_iteration(0)
 

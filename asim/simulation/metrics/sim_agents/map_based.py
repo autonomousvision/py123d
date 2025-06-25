@@ -17,7 +17,7 @@ MAX_LANE_CENTER_DISTANCE: Final[float] = 10.0
 
 def _get_offroad_feature(
     agents_array: npt.NDArray[np.float64], agents_mask: npt.NDArray[np.bool], map_api: AbstractMap
-) -> npt.NDArray[np.float64]:
+) -> npt.NDArray[np.bool]:
 
     assert agents_array.shape[-1] == len(BoundingBoxSE2Index)
     n_objects, n_iterations = agents_array.shape[:2]

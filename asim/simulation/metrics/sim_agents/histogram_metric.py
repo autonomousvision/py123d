@@ -40,7 +40,7 @@ class HistogramIntersectionMetric:
         bhattacharyya_coeff = np.sum(np.sqrt(hist1 * hist2))
         return bhattacharyya_coeff
 
-    def calculate_intersection(
+    def compute(
         self, dist1: npt.NDArray[np.float64], dist2: npt.NDArray[np.float64], log_mask: npt.NDArray[np.bool_]
     ) -> Dict[str, float]:
         assert dist1.shape[0] == dist2.shape[0], "Distributions must have the same number of objects"
@@ -145,7 +145,7 @@ class BinaryHistogramIntersectionMetric:
         bhattacharyya_coeff = np.sum(np.sqrt(hist1 * hist2))
         return bhattacharyya_coeff
 
-    def calculate_intersection(
+    def compute(
         self, dist1: npt.NDArray[np.int_], dist2: npt.NDArray[np.int_], log_mask: npt.NDArray[np.bool_]
     ) -> Dict[str, float]:
         assert dist1.shape[0] == dist2.shape[0], "Distributions must have the same number of objects"
