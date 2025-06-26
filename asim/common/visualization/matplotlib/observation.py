@@ -6,7 +6,7 @@ import shapely.geometry as geom
 
 from asim.common.geometry.base import Point2D
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
-from asim.common.geometry.tranform_2d import translate_along_yaw
+from asim.common.geometry.transform.tranform_2d import translate_along_yaw
 from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleState
 from asim.common.visualization.color.config import PlotConfig
 from asim.common.visualization.color.default import (
