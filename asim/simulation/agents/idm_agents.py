@@ -9,7 +9,7 @@ from shapely.geometry import CAP_STYLE, Polygon
 from asim.common.geometry.base import Point2D, StateSE2
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2
 from asim.common.geometry.line.polylines import PolylineSE2
-from asim.common.geometry.tranform_2d import translate_along_yaw
+from asim.common.geometry.transform.tranform_2d import translate_along_yaw
 from asim.common.geometry.vector import Vector2D
 from asim.dataset.arrow.conversion import BoxDetectionWrapper
 from asim.dataset.maps.abstract_map import AbstractMap

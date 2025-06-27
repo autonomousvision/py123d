@@ -1,4 +1,5 @@
 import abc
+import random
 from functools import partial
 from pathlib import Path
 from typing import Iterator, List, Optional, Set, Union
@@ -45,6 +46,13 @@ class ArrowSceneBuilder(SceneBuilder):
         if len(log_paths) == 0:
             return []
         scenes = worker_map(worker, partial(_extract_scenes_from_logs, filter=filter), log_paths)
+
+        if filter.shuffle:
+            random.shuffle(scenes)
+
+        if filter.max_num_scenes is not None:
+            scenes = scenes[: filter.max_num_scenes]
+
         return scenes
 
 

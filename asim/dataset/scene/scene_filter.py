@@ -18,3 +18,6 @@ class SceneFilter:
 
     duration_s: Optional[float] = 10.0
     history_s: Optional[float] = 3.0
+
+    max_num_scenes: Optional[int] = None
+    shuffle: bool = False
