@@ -1,19 +1,21 @@
 import logging
-import pickle
-from functools import partial
+import traceback
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 import hydra
 import lightning as L
+import pandas as pd
 from omegaconf import DictConfig
+from tqdm import tqdm
 
 from asim.dataset.dataset_specific.nuplan.nuplan_data_processor import worker_map
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.script.builders.scene_builder_builder import build_scene_builder
 from asim.script.builders.scene_filter_builder import build_scene_filter
 from asim.script.run_dataset_caching import build_worker
-from asim.training.feature_builder.smart_feature_builder_ import SMARTFeatureBuilder
+from asim.simulation.gym.demo_gym_env import DemoGymEnv
+from asim.simulation.metrics.sim_agents.sim_agents import get_sim_agents_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -33,27 +35,48 @@ def main(cfg: DictConfig) -> None:
     scenes = scene_builder.get_scenes(scene_filter, worker=worker)
     logger.info(f"Found {len(scenes)} scenarios.")
 
-    output_path = Path("/home/daniel/cache_test")
-    output_path.mkdir(parents=True, exist_ok=True)
+    results = worker_map(worker, _run_simulation, scenes)
 
-    feature_builder = SMARTFeatureBuilder()
+    df = pd.DataFrame(results)
+    avg_row = df.drop(columns=["token"]).mean(numeric_only=True)
+    avg_row["token"] = "average"
+    df = pd.concat([df, pd.DataFrame([avg_row])], ignore_index=True)
 
-    worker_map(worker, partial(_apply_feature_builder, feature_builder=feature_builder), scenes)
+    output_dir = Path(cfg.output_dir)
+    df.to_csv(output_dir / "sim_agent_results.csv")
 
 
-def _apply_feature_builder(
-    scenes: List[AbstractScene],
-    feature_builder: SMARTFeatureBuilder,
-):
+def _run_simulation(scenes: List[AbstractScene]) -> List[Dict[str, float]]:
 
-    output_path = Path("/home/daniel/cache_test")
-    for scene in scenes:
-        scene.open()
-        feature_dict = feature_builder.build_features(scene=scene)
-        output_file = output_path / f"{feature_dict['scenario_id']}.pkl"
-        with open(output_file, "wb") as f:
-            pickle.dump(feature_dict, f)
+    action = [1.0, 0.1]  # Placeholder action, replace with actual action logic
+    env = DemoGymEnv(scenes)
+
+    results = []
+
+    for scene in tqdm(scenes):
+        try:
+
+            agent_rollouts = []
+
+            map_api, ego_state, detection_observation, current_scene = env.reset(scene)
+            agent_rollouts.append(detection_observation.box_detections)
+
+            result = {}
+            result["token"] = scene.token
+            for i in range(150):
+                ego_state, detection_observation, end = env.step(action)
+                agent_rollouts.append(detection_observation.box_detections)
+                if end:
+                    break
+            result.update(get_sim_agents_metrics(current_scene, agent_rollouts))
+            results.append(result)
+        except Exception:
+            print(current_scene.token)
+            traceback.print_exc()
+            continue
+
         scene.close()
+    return results
 
 
 if __name__ == "__main__":

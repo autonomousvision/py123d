@@ -53,10 +53,11 @@ class SMARTAgents(AbstractAgents):
             num_future_steps=80,
         )
 
-        self._smart_model = SMART.load_from_checkpoint(checkpoint_path, config=config, map_location="cuda:0")
+        self._device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self._smart_model = SMART.load_from_checkpoint(checkpoint_path, config=config, map_location=self._device)
         self._smart_model.eval()
 
-        self._smart_model.to("cuda:0")
+        self._smart_model.to(self._device)
 
         self._initial_box_detections: Optional[BoxDetectionWrapper] = None
         self._agent_indices: List[int] = []
@@ -84,7 +85,7 @@ class SMARTAgents(AbstractAgents):
         loader = DataLoader(dataset, batch_size=1, shuffle=False)
         with torch.no_grad():
             for batch in loader:
-                batch.to("cuda:0")
+                batch.to(self._device)
                 pred_traj, pred_z, pred_head = self._smart_model.test_step(batch, 0)
                 break
 
@@ -134,33 +135,3 @@ class SMARTAgents(AbstractAgents):
 
         self._current_iteration += 1
         return current_target_agents
-
-
-# def _propagate_idm(
-#     agent_velocity: float, lead_velocity: float, agent_lead_distance: float, idm_config: IDMConfig
-# ) -> Tuple[float, float]:
-
-#     # convenience definitions
-#     s_star = (
-#         idm_config.min_gap_to_lead_agent
-#         + agent_velocity * idm_config.headway_time
-#         + (agent_velocity * (agent_velocity - lead_velocity))
-#         / (2 * np.sqrt(idm_config.accel_max * idm_config.decel_max))
-#     )
-#     s_alpha = max(agent_lead_distance, idm_config.min_gap_to_lead_agent)  # clamp to avoid zero division
-
-#     # differential equations
-#     x_dot = agent_velocity
-#     try:
-#         v_agent_dot = idm_config.accel_max * (
-#             1
-#             - (agent_velocity / idm_config.target_velocity) ** idm_config.acceleration_exponent
-#             - (s_star / s_alpha) ** 2
-#         )
-#     except:  # noqa: E722
-#         print("input", agent_velocity, lead_velocity, agent_lead_distance)
-#         print("s_star", s_star)
-#         print("s_alpha", s_alpha)
-#         print("x_dot", x_dot)
-#         v_agent_dot = 0.0
-#     return [x_dot, v_agent_dot]
