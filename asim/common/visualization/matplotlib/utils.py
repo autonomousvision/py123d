@@ -30,6 +30,21 @@ def add_shapely_polygon_to_ax(
         if plot_config.smoothing_radius is not None and not disable_smoothing:
             element = element.buffer(-plot_config.smoothing_radius).buffer(plot_config.smoothing_radius)
         exterior_x, exterior_y = element.exterior.xy
+
+        if plot_config.shadow:
+            shadow_offset = 0.5
+            shadow_x = [x + shadow_offset for x in exterior_x]
+            shadow_y = [y - shadow_offset for y in exterior_y]
+            ax.fill(
+                shadow_x,
+                shadow_y,
+                color="gray",
+                alpha=1.0,
+                edgecolor=None,
+                linewidth=0,
+                zorder=plot_config.zorder,
+            )
+
         ax.fill(
             exterior_x,
             exterior_y,
