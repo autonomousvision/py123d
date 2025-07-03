@@ -12,10 +12,10 @@ import pyarrow.ipc as ipc
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool
 from tqdm import tqdm
 
+from asim.common.datatypes.vehicle_state.ego_vehicle_state import EgoVehicleStateIndex
 from asim.common.geometry.base import Point2D, Point3D
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
 from asim.common.geometry.vector import Vector3DIndex
-from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleStateIndex
 from asim.dataset.dataset_specific.nuplan.nuplan_data_processor import worker_map
 from asim.dataset.dataset_specific.raw_data_processor import RawDataProcessor
 from asim.dataset.logs.log_metadata import LogMetadata

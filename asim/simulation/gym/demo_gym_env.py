@@ -8,9 +8,9 @@ from nuplan.common.actor_state.state_representation import StateSE2, StateVector
 from nuplan.common.geometry.compute import get_pacifica_parameters
 from nuplan.planning.simulation.controller.motion_model.kinematic_bicycle import KinematicBicycleModel
 
+from asim.common.datatypes.recording.detection_recording import DetectionRecording
 from asim.dataset.arrow.conversion import EgoVehicleState
 from asim.dataset.maps.abstract_map import AbstractMap
-from asim.dataset.recording.detection_recording import DetectionRecording
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.observation.abstract_observation import AbstractObservation
 from asim.simulation.observation.agents_observation import AgentsObservation

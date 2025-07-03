@@ -1,8 +1,8 @@
 from abc import abstractmethod
 from typing import List, Optional
 
+from asim.common.datatypes.detection.detection import BoxDetection
 from asim.dataset.maps.abstract_map import AbstractMap
-from asim.dataset.recording.detection.detection import BoxDetection
 from asim.dataset.scene.abstract_scene import AbstractScene
 
 

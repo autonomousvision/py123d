@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from asim.dataset.recording.abstract_recording import Recording
-from asim.dataset.recording.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from asim.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from asim.common.datatypes.recording.abstract_recording import Recording
 
 
 @dataclass

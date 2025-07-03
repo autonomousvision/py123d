@@ -4,11 +4,7 @@
 import numpy as np
 import pyarrow as pa
 
-from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
-from asim.common.time.time_point import TimePoint
-from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleState, Vector3D
-from asim.dataset.maps.abstract_map import List
-from asim.dataset.recording.detection.detection import (
+from asim.common.datatypes.detection.detection import (
     BoxDetection,
     BoxDetectionSE3,
     BoxDetectionWrapper,
@@ -17,7 +13,12 @@ from asim.dataset.recording.detection.detection import (
     TrafficLightDetectionWrapper,
     TrafficLightStatus,
 )
-from asim.dataset.recording.detection.detection_types import DetectionType
+from asim.common.datatypes.detection.detection_types import DetectionType
+from asim.common.datatypes.time.time_point import TimePoint
+from asim.common.datatypes.vehicle_state.ego_vehicle_state import EgoVehicleState
+from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
+from asim.common.geometry.vector import Vector3D
+from asim.dataset.maps.abstract_map import List
 
 
 def get_timepoint_from_arrow_table(arrow_table: pa.Table, index: int) -> TimePoint:

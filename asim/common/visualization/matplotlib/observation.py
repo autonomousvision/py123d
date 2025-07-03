@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import shapely.geometry as geom
 
+from asim.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from asim.common.datatypes.vehicle_state.ego_vehicle_state import EgoVehicleState
 from asim.common.geometry.base import Point2D
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
 from asim.common.geometry.transform.tranform_2d import translate_along_yaw
-from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleState
 from asim.common.visualization.color.config import PlotConfig
 from asim.common.visualization.color.default import (
     BOX_DETECTION_CONFIG,
@@ -26,8 +27,6 @@ from asim.common.visualization.matplotlib.utils import (
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.maps.abstract_map_objects import AbstractLane
 from asim.dataset.maps.map_datatypes import MapSurfaceType
-from asim.dataset.recording.detection.detection import BoxDetectionWrapper
-from asim.dataset.scene.abstract_scene import TrafficLightDetectionWrapper
 
 
 def add_default_map_on_ax(

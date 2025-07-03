@@ -1,5 +1,7 @@
 from typing import Dict
 
+from asim.common.datatypes.detection.detection import TrafficLightStatus
+from asim.common.datatypes.detection.detection_types import DetectionType
 from asim.common.visualization.color.color import (
     BLACK,
     DARKER_GREY,
@@ -12,8 +14,6 @@ from asim.common.visualization.color.color import (
 )
 from asim.common.visualization.color.config import PlotConfig
 from asim.dataset.maps.map_datatypes import MapSurfaceType
-from asim.dataset.recording.detection.detection import TrafficLightStatus
-from asim.dataset.recording.detection.detection_types import DetectionType
 
 HEADING_MARKER_STYLE: str = "^"  # "^": triangle, "-": line
 

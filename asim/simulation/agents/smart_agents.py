@@ -5,13 +5,13 @@ from typing import List, Optional
 import torch
 from torch_geometric.data import HeteroData
 
+from asim.common.datatypes.detection.detection import BoxDetection, BoxDetectionSE2
 from asim.common.geometry.base import StateSE2
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2
 from asim.common.geometry.transform.se2_array import convert_relative_to_absolute_point_2d_array
 from asim.common.geometry.utils import normalize_angle
 from asim.dataset.arrow.conversion import BoxDetectionWrapper, DetectionType
 from asim.dataset.maps.abstract_map import AbstractMap
-from asim.dataset.recording.detection.detection import BoxDetection, BoxDetectionSE2
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.agents.abstract_agents import AbstractAgents
 from asim.training.feature_builder.smart_feature_builder import SMARTFeatureBuilder

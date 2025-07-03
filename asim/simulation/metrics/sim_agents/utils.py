@@ -3,8 +3,8 @@ from typing import List, Tuple
 import numpy as np
 import numpy.typing as npt
 
+from asim.common.datatypes.detection.detection import BoxDetectionWrapper
 from asim.common.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index
-from asim.dataset.recording.detection.detection import BoxDetectionWrapper
 from asim.dataset.scene.abstract_scene import AbstractScene
 
 

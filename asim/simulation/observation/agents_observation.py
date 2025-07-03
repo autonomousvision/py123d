@@ -1,9 +1,9 @@
 from typing import List, Optional, Tuple
 
+from asim.common.datatypes.detection.detection import BoxDetection
+from asim.common.datatypes.detection.detection_types import DetectionType
+from asim.common.datatypes.recording.detection_recording import DetectionRecording
 from asim.dataset.arrow.conversion import BoxDetectionWrapper
-from asim.dataset.recording.detection.detection import BoxDetection
-from asim.dataset.recording.detection.detection_types import DetectionType
-from asim.dataset.recording.detection_recording import DetectionRecording
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.agents.abstract_agents import AbstractAgents
 from asim.simulation.agents.constant_velocity_agents import ConstantVelocityAgents

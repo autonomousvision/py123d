@@ -4,13 +4,13 @@ from typing import Iterable, List, Optional, Union
 
 import shapely
 
+from asim.common.datatypes.detection.detection_types import DetectionType
+from asim.common.datatypes.time.time_point import TimePoint
 from asim.common.geometry.base import StateSE2, StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
 from asim.common.geometry.occupancy_map import OccupancyMap
 from asim.common.geometry.vector import Vector2D, Vector3D
-from asim.common.time.time_point import TimePoint
 from asim.common.utils.enums import SerialIntEnum
-from asim.dataset.recording.detection.detection_types import DetectionType
 
 
 @dataclass

@@ -19,6 +19,8 @@ class DetectionType(SerialIntEnum):
     CZONE_SIGN = 5  # Temporary signs that indicate construction zones.
     GENERIC_OBJECT = 6  # Animals, debris, pushable/pullable objects, permanent poles.
 
+    EGO = 7
+
 
 DYNAMIC_DETECTION_TYPES: Set[DetectionType] = {
     DetectionType.VEHICLE,

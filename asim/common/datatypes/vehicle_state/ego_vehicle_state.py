@@ -7,9 +7,11 @@ from typing import Optional
 import numpy as np
 import numpy.typing as npt
 
+from asim.common.datatypes.detection.detection import BoxDetection, BoxDetectionSE3, DetectionMetadata
+from asim.common.datatypes.detection.detection_types import DetectionType
+from asim.common.datatypes.time.time_point import TimePoint
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from asim.common.geometry.vector import Vector3D
-from asim.common.time.time_point import TimePoint
 from asim.common.utils.enums import classproperty
 
 # TODO: Implement
@@ -70,6 +72,19 @@ class EgoVehicleState:
         dynamic_array = self.dynamic_state.array
 
         return np.concatenate((bb_array, dynamic_array), axis=0)
+
+    @property
+    def box_detection(self) -> BoxDetection:
+        return BoxDetectionSE3(
+            metadata=DetectionMetadata(
+                detection_type=DetectionType.EGO,
+                timepoint=self.timepoint,
+                track_token="ego_vehicle",
+                confidence=1.0,
+            ),
+            bounding_box_se3=self.bounding_box,
+            velocity=self.dynamic_state.velocity,
+        )
 
 
 class DynamicVehicleStateIndex(IntEnum):

@@ -3,8 +3,9 @@ from typing import List, Optional, Union
 
 import pyarrow as pa
 
-from asim.common.time.time_point import TimePoint
-from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleState
+from asim.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from asim.common.datatypes.time.time_point import TimePoint
+from asim.common.datatypes.vehicle_state.ego_vehicle_state import EgoVehicleState
 from asim.dataset.arrow.conversion import (
     get_box_detections_from_arrow_table,
     get_ego_vehicle_state_from_arrow_table,
@@ -15,7 +16,6 @@ from asim.dataset.arrow.helper import open_arrow_arrow_table
 from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.maps.gpkg.gpkg_map import get_map_api_from_names
-from asim.dataset.recording.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from asim.dataset.scene.abstract_scene import AbstractScene, SceneExtractionInfo
 
 

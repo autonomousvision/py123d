@@ -1,7 +1,7 @@
 from abc import abstractmethod
+from typing import Optional
 
-from asim.common.vehicle_state.ego_vehicle_state import Optional
-from asim.dataset.recording.detection_recording import DetectionRecording
+from asim.common.datatypes.recording.detection_recording import DetectionRecording
 from asim.dataset.scene.abstract_scene import AbstractScene
 
 

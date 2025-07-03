@@ -4,10 +4,9 @@ from typing import Dict, List
 import numpy as np
 import numpy.typing as npt
 
+from asim.common.datatypes.detection.detection import BoxDetection, BoxDetectionWrapper, DetectionType
 from asim.common.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index
-from asim.dataset.arrow.conversion import BoxDetection, DetectionType
 from asim.dataset.maps.abstract_map import AbstractMap
-from asim.dataset.recording.detection.detection import BoxDetectionWrapper
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.metrics.sim_agents.histogram_metric import (
     BinaryHistogramIntersectionMetric,
@@ -52,9 +51,14 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
             if box_detection.metadata.detection_type == DetectionType.VEHICLE
         ]
 
-    log_rollouts = [
-        scene.get_box_detections_at_iteration(iteration) for iteration in range(scene.get_number_of_iterations())
-    ]
+    # TODO: Add ego vehicle state to the metrics
+    log_rollouts: List[BoxDetectionWrapper] = []
+
+    for iteration in range(scene.get_number_of_iterations()):
+        background_detections = scene.get_box_detections_at_iteration(iteration).box_detections
+        ego_detection = scene.get_ego_vehicle_state_at_iteration(iteration).box_detection
+        log_rollouts.append(BoxDetectionWrapper(background_detections + [ego_detection]))
+
     initial_agent_tokens = get_agent_tokens(agent_rollouts[0])
     log_agents_array, log_agents_mask = _get_log_agents_array(scene, initial_agent_tokens)
     agents_array, agents_mask = _get_rollout_agents_array(agent_rollouts, initial_agent_tokens)

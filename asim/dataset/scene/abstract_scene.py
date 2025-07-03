@@ -4,11 +4,11 @@ import abc
 from dataclasses import dataclass
 from typing import List
 
-from asim.common.time.time_point import TimePoint
-from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleState
+from asim.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from asim.common.datatypes.time.time_point import TimePoint
+from asim.common.datatypes.vehicle_state.ego_vehicle_state import EgoVehicleState
 from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.maps.abstract_map import AbstractMap
-from asim.dataset.recording.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 
 
 class AbstractScene(abc.ABC):
