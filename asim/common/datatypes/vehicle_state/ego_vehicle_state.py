@@ -52,7 +52,7 @@ class EgoVehicleState:
     center: StateSE3
     dynamic_state: DynamicVehicleState
     vehicle_parameters: VehicleParameters
-    timepoint: Optional[TimePoint] = None
+    timepoint: TimePoint
 
     @classmethod
     def from_array(
@@ -79,6 +79,7 @@ class EgoVehicleState:
 
         return np.concatenate((center_array, dynamic_array), axis=0)
 
+    @property
     def rear_axle(self) -> StateSE3:
         return self.vehicle_parameters.rear_axle_to_center_longitudinal
 
@@ -143,6 +144,11 @@ class DynamicVehicleState:
     velocity: Vector3D
     acceleration: Vector3D
     angular_velocity: Vector3D
+
+    # TODO: add
+    #  - tire_steering_angle
+    #  - tire_steering_rate
+    #  - angular_accel
 
     @classmethod
     def from_array(cls, array: npt.NDArray[np.float64]) -> DynamicVehicleState:

@@ -98,7 +98,7 @@ class NuplanDataProcessor(RawDataProcessor):
                 log_path = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "splits" / "mini"
 
             all_log_files_in_path = [log_file for log_file in log_path.glob("*.db")]
-            all_log_names = set([log_file.stem for log_file in all_log_files_in_path])
+            all_log_names = set([str(log_file.stem) for log_file in all_log_files_in_path])
             split_log_names = set(subsplit_log_names[subsplit])
             log_paths = [log_path / f"{log_name}.db" for log_name in list(all_log_names & split_log_names)]
             log_paths_per_split[split] = log_paths
@@ -129,48 +129,92 @@ class NuplanDataProcessor(RawDataProcessor):
         worker_map(worker, convert_nuplan_log_to_arrow, log_args)
 
 
+# def convert_nuplan_log_to_arrow(args: List[Dict[str, Union[List[str], List[Path]]]]) -> None:
+#     def convert_log_internal(args: List[Dict[str, Union[List[str], List[Path]]]]) -> None:
+#         for log_info in args:
+#             log_path: Path = log_info["log_path"]
+#             output_path: Path = log_info["output_path"]
+#             split: str = log_info["split"]
+
+#             if not log_path.exists():
+#                 raise FileNotFoundError(f"Log path {log_path} does not exist.")
+
+#             log_db = NuPlanDB(NUPLAN_DATA_ROOT, str(log_path), None)
+#             recording_table = _get_recording_table(log_db)
+#             metadata = LogMetadata(
+#                 dataset="nuplan",
+#                 log_name=log_db.log_name,
+#                 location=log_db.log.map_version,
+#                 timestep_seconds=TARGET_DT,
+#                 map_has_z=False,
+#             )
+#             vehicle_parameters = get_nuplan_pacifica_parameters()
+#             recording_table = recording_table.replace_schema_metadata(
+#                 {
+#                     "log_metadata": json.dumps(asdict(metadata)),
+#                     "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
+#                 }
+#             )
+
+#             log_file_path = output_path / split / f"{log_path.stem}.arrow"
+
+#             if not log_file_path.parent.exists():
+#                 log_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+#             with pa.OSFile(str(log_file_path), "wb") as sink:
+#                 with ipc.new_file(sink, recording_table.schema) as writer:
+#                     writer.write_table(recording_table)
+
+#             log_db.detach_tables()
+#             log_db.remove_ref()
+#             del recording_table, log_db
+#             gc.collect()
+#         return []
+
+#     convert_log_internal(args)
+#     gc.collect()
+#     return []
+
+
 def convert_nuplan_log_to_arrow(args: List[Dict[str, Union[List[str], List[Path]]]]) -> None:
-    def convert_log_internal(args: List[Dict[str, Union[List[str], List[Path]]]]) -> None:
-        for log_info in args:
-            log_path: Path = log_info["log_path"]
-            output_path: Path = log_info["output_path"]
-            split: str = log_info["split"]
+    for log_info in args:
+        log_path: Path = log_info["log_path"]
+        output_path: Path = log_info["output_path"]
+        split: str = log_info["split"]
 
-            if not log_path.exists():
-                raise FileNotFoundError(f"Log path {log_path} does not exist.")
+        if not log_path.exists():
+            raise FileNotFoundError(f"Log path {log_path} does not exist.")
 
-            log_db = NuPlanDB(NUPLAN_DATA_ROOT, str(log_path), None)
-            recording_table = _get_recording_table(log_db)
-            metadata = LogMetadata(
-                dataset="nuplan",
-                log_name=log_db.log_name,
-                location=log_db.log.map_version,
-                timestep_seconds=TARGET_DT,
-                map_has_z=False,
-            )
-            vehicle_parameters = get_nuplan_pacifica_parameters()
-            recording_table = recording_table.replace_schema_metadata(
-                {
-                    "log_metadata": json.dumps(asdict(metadata)),
-                    "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
-                }
-            )
+        log_db = NuPlanDB(NUPLAN_DATA_ROOT, str(log_path), None)
+        recording_table = _get_recording_table(log_db)
+        metadata = LogMetadata(
+            dataset="nuplan",
+            log_name=log_db.log_name,
+            location=log_db.log.map_version,
+            timestep_seconds=TARGET_DT,
+            map_has_z=False,
+        )
+        vehicle_parameters = get_nuplan_pacifica_parameters()
+        recording_table = recording_table.replace_schema_metadata(
+            {
+                "log_metadata": json.dumps(asdict(metadata)),
+                "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
+            }
+        )
 
-            log_file_path = output_path / split / f"{log_path.stem}.arrow"
+        log_file_path = output_path / split / f"{log_path.stem}.arrow"
 
-            if not log_file_path.parent.exists():
-                log_file_path.parent.mkdir(parents=True, exist_ok=True)
+        if not log_file_path.parent.exists():
+            log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-            with pa.OSFile(str(log_file_path), "wb") as sink:
-                with ipc.new_file(sink, recording_table.schema) as writer:
-                    writer.write_table(recording_table)
+        with pa.OSFile(str(log_file_path), "wb") as sink:
+            with ipc.new_file(sink, recording_table.schema) as writer:
+                writer.write_table(recording_table)
 
-            del recording_table, log_db
-            gc.collect()
-        return []
-
-    convert_log_internal(args)
-    gc.collect()
+        log_db.detach_tables()
+        log_db.remove_ref()
+        del recording_table, metadata, vehicle_parameters, log_db
+        gc.collect()
     return []
 
 
@@ -334,7 +378,10 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
     )
 
     return EgoVehicleState(
-        center=center, dynamic_state=dynamic_state, vehicle_parameters=vehicle_parameters
+        center=center,
+        dynamic_state=dynamic_state,
+        vehicle_parameters=vehicle_parameters,
+        timepoint=None,
     ).array.tolist()
 
 

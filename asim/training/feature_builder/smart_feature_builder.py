@@ -5,6 +5,8 @@ import numpy as np
 import numpy.typing as npt
 import shapely
 
+from asim.common.datatypes.detection.detection import BoxDetection, BoxDetectionWrapper
+from asim.common.datatypes.detection.detection_types import DetectionType
 from asim.common.geometry.base import StateSE2, StateSE2Index
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2
 from asim.common.geometry.line.polylines import PolylineSE2
@@ -17,8 +19,6 @@ from asim.dataset.maps.abstract_map_objects import (
     AbstractGenericDrivable,
     AbstractLaneGroup,
 )
-from asim.dataset.recording.detection.detection import BoxDetection, BoxDetectionWrapper
-from asim.dataset.recording.detection.detection_types import DetectionType
 from asim.dataset.scene.abstract_scene import AbstractScene
 
 

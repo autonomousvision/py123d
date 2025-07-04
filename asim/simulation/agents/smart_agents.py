@@ -35,9 +35,10 @@ class SMARTAgents(AbstractAgents):
         self._current_iteration: int = 0
         self._map_api: AbstractMap = None
 
-        checkpoint_path = Path(
-            "/home/daniel/asim_workspace/exp/smart_mini_run/2025.06.23.20.45.20/checkpoints/epoch_050.ckpt"
-        )
+        # checkpoint_path = Path(
+        #     "/home/daniel/asim_workspace/exp/smart_mini_run/2025.06.23.20.45.20/checkpoints/epoch_050.ckpt"
+        # )
+        checkpoint_path = Path("/home/daniel/epoch_050.ckpt")
         config = SMARTConfig(
             hidden_dim=64,
             num_freq_bands=64,
