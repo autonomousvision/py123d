@@ -2,8 +2,11 @@ nuplan_mini_dataset:
   _target_: asim.dataset.dataset_specific.nuplan.nuplan_data_processor.NuplanDataProcessor
   _convert_: 'all'
 
+
   splits: ["nuplan_mini_train", "nuplan_mini_val", "nuplan_mini_test"]
   # splits: ["nuplan_mini_val"]
 
   log_path: ${oc.env:NUPLAN_DATA_ROOT}/nuplan-v1.1/splits # NOTE: folder including [mini, trainval, test], sometimes not inside "splits" folder
   output_path: ${asim_data_root}
+
+  force_data_conversion: True

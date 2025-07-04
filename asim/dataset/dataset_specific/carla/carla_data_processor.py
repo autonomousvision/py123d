@@ -9,7 +9,7 @@ from typing import Dict, Final, List, Tuple, Union
 import numpy as np
 import pyarrow as pa
 import pyarrow.ipc as ipc
-from nuplan.planning.utils.multithreading.worker_utils import WorkerPool
+from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 from tqdm import tqdm
 
 from asim.common.datatypes.vehicle_state.ego_vehicle_state import EgoVehicleStateIndex
@@ -19,7 +19,6 @@ from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
 from asim.common.geometry.transform.se3 import translate_se3_along_z
 from asim.common.geometry.vector import Vector3DIndex
 from asim.dataset.arrow.conversion import VehicleParameters
-from asim.dataset.dataset_specific.nuplan.nuplan_data_processor import worker_map
 from asim.dataset.dataset_specific.raw_data_processor import RawDataProcessor
 from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.maps.abstract_map import AbstractMap, MapSurfaceType
@@ -46,7 +45,14 @@ def create_token(input_data: str) -> str:
 
 
 class CarlaDataProcessor(RawDataProcessor):
-    def __init__(self, splits: List[str], log_path: Union[Path, str], output_path: Union[Path, str]) -> None:
+    def __init__(
+        self,
+        splits: List[str],
+        log_path: Union[Path, str],
+        output_path: Union[Path, str],
+        force_data_conversion: bool,
+    ) -> None:
+        super().__init__(force_data_conversion)
         for split in splits:
             assert (
                 split in self.get_available_splits()

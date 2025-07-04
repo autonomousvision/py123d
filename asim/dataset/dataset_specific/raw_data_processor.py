@@ -5,7 +5,9 @@ from nuplan.planning.utils.multithreading.worker_utils import WorkerPool
 
 
 class RawDataProcessor(abc.ABC):
-    pass
+
+    def __init__(self, force_data_conversion: bool) -> None:
+        self.force_data_conversion = force_data_conversion
 
     @abc.abstractmethod
     def get_available_splits(self) -> List[str]:

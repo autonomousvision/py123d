@@ -4,10 +4,9 @@ from functools import partial
 from pathlib import Path
 from typing import Iterator, List, Optional, Set, Union
 
-from nuplan.planning.utils.multithreading.worker_pool import WorkerPool
+from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 
-from asim.dataset.arrow.helper import open_arrow_arrow_table
-from asim.dataset.dataset_specific.nuplan.nuplan_data_processor import worker_map
+from asim.dataset.arrow.helper import open_arrow_table
 from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.dataset.scene.arrow_scene import ArrowScene, SceneExtractionInfo
@@ -97,7 +96,7 @@ def _extract_scenes_from_logs(log_paths: List[Path], filter: SceneFilter) -> Lis
 def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) -> List[SceneExtractionInfo]:
     scene_extraction_infos: List[SceneExtractionInfo] = []
 
-    recording_table = open_arrow_arrow_table(log_path)
+    recording_table = open_arrow_table(log_path)
     log_metadata = LogMetadata.from_arrow_table(recording_table)
 
     # 1. Filter map name

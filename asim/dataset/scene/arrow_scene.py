@@ -14,7 +14,7 @@ from asim.dataset.arrow.conversion import (
     get_timepoint_from_arrow_table,
     get_traffic_light_detections_from_arrow_table,
 )
-from asim.dataset.arrow.helper import open_arrow_arrow_table
+from asim.dataset.arrow.helper import open_arrow_table
 from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.maps.gpkg.gpkg_map import get_map_api_from_names
@@ -25,7 +25,7 @@ def _get_scene_data(arrow_file_path: Union[Path, str]) -> Tuple[LogMetadata, Veh
     """
     Extracts the metadata and vehicle parameters from the arrow file.
     """
-    table = open_arrow_arrow_table(arrow_file_path)
+    table = open_arrow_table(arrow_file_path)
     metadata = LogMetadata(**json.loads(table.schema.metadata[b"log_metadata"].decode()))
     vehicle_parameters = VehicleParameters(**json.loads(table.schema.metadata[b"vehicle_parameters"].decode()))
     del table
@@ -124,7 +124,7 @@ class ArrowScene(AbstractScene):
             self._map_api = get_map_api_from_names(self._metadata.dataset, self._metadata.location)
             self._map_api.initialize()
         if self._recording_table is None:
-            self._recording_table = open_arrow_arrow_table(self._arrow_log_path)
+            self._recording_table = open_arrow_table(self._arrow_log_path)
         if self._scene_extraction_info is None:
             self._scene_extraction_info = SceneExtractionInfo(
                 initial_idx=0,
