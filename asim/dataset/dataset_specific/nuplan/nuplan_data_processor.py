@@ -8,7 +8,8 @@ from typing import Dict, Final, List, Tuple, Union
 import pyarrow as pa
 import pyarrow.ipc as ipc
 import yaml
-from nuplan.common.geometry.compute import get_pacifica_parameters
+
+# from nuplan.common.geometry.compute import get_pacifica_parameters
 from nuplan.database.nuplan_db_orm.lidar_box import LidarBox
 from nuplan.database.nuplan_db_orm.lidar_pc import LidarPc
 from nuplan.database.nuplan_db_orm.nuplandb import NuPlanDB
@@ -23,6 +24,7 @@ from asim.common.datatypes.vehicle_state.ego_vehicle_state import (
     EgoVehicleState,
     EgoVehicleStateIndex,
 )
+from asim.common.datatypes.vehicle_state.vehicle_parameters import get_nuplan_pacifica_parameters
 from asim.common.geometry.base import StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3, BoundingBoxSE3Index
 from asim.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
@@ -146,7 +148,13 @@ def convert_nuplan_log_to_arrow(args: List[Dict[str, Union[List[str], List[Path]
                 timestep_seconds=TARGET_DT,
                 map_has_z=False,
             )
-            recording_table = recording_table.replace_schema_metadata({"log_metadata": json.dumps(asdict(metadata))})
+            vehicle_parameters = get_nuplan_pacifica_parameters()
+            recording_table = recording_table.replace_schema_metadata(
+                {
+                    "log_metadata": json.dumps(asdict(metadata)),
+                    "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
+                }
+            )
 
             log_file_path = output_path / split / f"{log_path.stem}.arrow"
 
@@ -287,7 +295,8 @@ def _extract_detections(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[List
 def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
 
     yaw, pitch, roll = lidar_pc.ego_pose.quaternion.yaw_pitch_roll
-    vehicle_parameters = get_pacifica_parameters()
+    vehicle_parameters = get_nuplan_pacifica_parameters()
+    # vehicle_parameters = get_pacifica_parameters()
     # TODO: Convert rear axle to center
 
     rear_axle_pose = StateSE3(
@@ -302,16 +311,9 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
     center = translate_se3_along_z(
         translate_se3_along_x(
             rear_axle_pose,
-            vehicle_parameters.rear_axle_to_center,
+            vehicle_parameters.rear_axle_to_center_longitudinal,
         ),
-        vehicle_parameters.height / 3,
-    )
-
-    bounding_box = BoundingBoxSE3(
-        center=center,
-        length=vehicle_parameters.length,
-        width=vehicle_parameters.width,
-        height=vehicle_parameters.height,
+        vehicle_parameters.rear_axle_to_center_vertical,
     )
     dynamic_state = DynamicVehicleState(
         velocity=Vector3D(
@@ -331,7 +333,9 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
         ),
     )
 
-    return EgoVehicleState(bounding_box=bounding_box, dynamic_state=dynamic_state).array.tolist()
+    return EgoVehicleState(
+        center=center, dynamic_state=dynamic_state, vehicle_parameters=vehicle_parameters
+    ).array.tolist()
 
 
 def _extract_traffic_lights(log_db: NuPlanDB, lidar_pc_token: str) -> Tuple[List[int], List[int]]:

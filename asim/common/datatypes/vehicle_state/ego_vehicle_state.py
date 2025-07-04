@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
+from functools import cached_property
 from typing import Optional
 
 import numpy as np
@@ -10,7 +11,9 @@ import numpy.typing as npt
 from asim.common.datatypes.detection.detection import BoxDetection, BoxDetectionSE3, DetectionMetadata
 from asim.common.datatypes.detection.detection_types import DetectionType
 from asim.common.datatypes.time.time_point import TimePoint
-from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
+from asim.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
+from asim.common.geometry.base import StateSE3
+from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
 from asim.common.geometry.vector import Vector3D
 from asim.common.utils.enums import classproperty
 
@@ -24,22 +27,19 @@ class EgoVehicleStateIndex(IntEnum):
     ROLL = 3
     PITCH = 4
     YAW = 5
-    LENGTH = 6
-    WIDTH = 7
-    HEIGHT = 8
-    VELOCITY_X = 9
-    VELOCITY_Y = 10
-    VELOCITY_Z = 11
-    ACCELERATION_X = 12
-    ACCELERATION_Y = 13
-    ACCELERATION_Z = 14
-    ANGULAR_VELOCITY_X = 15
-    ANGULAR_VELOCITY_Y = 16
-    ANGULAR_VELOCITY_Z = 17
+    VELOCITY_X = 6
+    VELOCITY_Y = 7
+    VELOCITY_Z = 8
+    ACCELERATION_X = 9
+    ACCELERATION_Y = 10
+    ACCELERATION_Z = 11
+    ANGULAR_VELOCITY_X = 12
+    ANGULAR_VELOCITY_Y = 13
+    ANGULAR_VELOCITY_Z = 14
 
     @classproperty
-    def BOUNDING_BOX_SE3(cls) -> slice:
-        return slice(cls.X, cls.HEIGHT + 1)
+    def SE3(cls) -> slice:
+        return slice(cls.X, cls.YAW + 1)
 
     @classproperty
     def DYNAMIC_VEHICLE_STATE(cls) -> slice:
@@ -49,15 +49,21 @@ class EgoVehicleStateIndex(IntEnum):
 @dataclass
 class EgoVehicleState:
 
-    bounding_box: BoundingBoxSE3
+    center: StateSE3
     dynamic_state: DynamicVehicleState
+    vehicle_parameters: VehicleParameters
     timepoint: Optional[TimePoint] = None
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64], timepoint: Optional[TimePoint] = None) -> DynamicVehicleState:
-        bounding_box = BoundingBoxSE3.from_array(array[EgoVehicleStateIndex.BOUNDING_BOX_SE3])
+    def from_array(
+        cls,
+        array: npt.NDArray[np.float64],
+        vehicle_parameters: VehicleParameters,
+        timepoint: Optional[TimePoint] = None,
+    ) -> DynamicVehicleState:
+        state_se3 = StateSE3.from_array(array[EgoVehicleStateIndex.SE3])
         dynamic_state = DynamicVehicleState.from_array(array[EgoVehicleStateIndex.DYNAMIC_VEHICLE_STATE])
-        return EgoVehicleState(bounding_box, dynamic_state, timepoint)
+        return EgoVehicleState(state_se3, dynamic_state, vehicle_parameters, timepoint)
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
@@ -65,13 +71,33 @@ class EgoVehicleState:
         Convert the EgoVehicleState to an array.
         :return: An array containing the bounding box and dynamic state information.
         """
-        assert isinstance(self.bounding_box, BoundingBoxSE3)
+        assert isinstance(self.center, StateSE3)
         assert isinstance(self.dynamic_state, DynamicVehicleState)
 
-        bb_array = self.bounding_box.array
+        center_array = self.center.array
         dynamic_array = self.dynamic_state.array
 
-        return np.concatenate((bb_array, dynamic_array), axis=0)
+        return np.concatenate((center_array, dynamic_array), axis=0)
+
+    def rear_axle(self) -> StateSE3:
+        return self.vehicle_parameters.rear_axle_to_center_longitudinal
+
+    @cached_property
+    def bounding_box(self) -> BoundingBoxSE3:
+        return BoundingBoxSE3(
+            center=self.center,
+            length=self.vehicle_parameters.length,
+            width=self.vehicle_parameters.width,
+            height=self.vehicle_parameters.height,
+        )
+
+    @property
+    def bounding_box_se3(self) -> BoundingBoxSE3:
+        return self.bounding_box
+
+    @property
+    def bounding_box_se2(self) -> BoundingBoxSE2:
+        return self.bounding_box.bounding_box_se2
 
     @property
     def box_detection(self) -> BoxDetection:

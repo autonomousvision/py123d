@@ -1,11 +1,13 @@
+import json
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import pyarrow as pa
 
 from asim.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from asim.common.datatypes.time.time_point import TimePoint
 from asim.common.datatypes.vehicle_state.ego_vehicle_state import EgoVehicleState
+from asim.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 from asim.dataset.arrow.conversion import (
     get_box_detections_from_arrow_table,
     get_ego_vehicle_state_from_arrow_table,
@@ -19,6 +21,17 @@ from asim.dataset.maps.gpkg.gpkg_map import get_map_api_from_names
 from asim.dataset.scene.abstract_scene import AbstractScene, SceneExtractionInfo
 
 
+def _get_scene_data(arrow_file_path: Union[Path, str]) -> Tuple[LogMetadata, VehicleParameters]:
+    """
+    Extracts the metadata and vehicle parameters from the arrow file.
+    """
+    table = open_arrow_arrow_table(arrow_file_path)
+    metadata = LogMetadata(**json.loads(table.schema.metadata[b"log_metadata"].decode()))
+    vehicle_parameters = VehicleParameters(**json.loads(table.schema.metadata[b"vehicle_parameters"].decode()))
+    del table
+    return metadata, vehicle_parameters
+
+
 class ArrowScene(AbstractScene):
     def __init__(
         self,
@@ -27,7 +40,11 @@ class ArrowScene(AbstractScene):
     ) -> None:
 
         self._recording_table: pa.Table = None
-        self._metadata: LogMetadata = LogMetadata.from_arrow_table(open_arrow_arrow_table(arrow_file_path))
+
+        _metadata, _vehicle_parameters = _get_scene_data(arrow_file_path)
+        self._metadata: LogMetadata = _metadata
+        self._vehicle_parameters: VehicleParameters = _vehicle_parameters
+
         self._map_api: Optional[AbstractMap] = None
 
         self._arrow_log_path = arrow_file_path
@@ -82,7 +99,9 @@ class ArrowScene(AbstractScene):
 
     def get_ego_vehicle_state_at_iteration(self, iteration: int) -> EgoVehicleState:
         self._lazy_initialize()
-        return get_ego_vehicle_state_from_arrow_table(self._recording_table, self._get_table_index(iteration))
+        return get_ego_vehicle_state_from_arrow_table(
+            self._recording_table, self._get_table_index(iteration), self._vehicle_parameters
+        )
 
     def get_box_detections_at_iteration(self, iteration: int) -> BoxDetectionWrapper:
         self._lazy_initialize()

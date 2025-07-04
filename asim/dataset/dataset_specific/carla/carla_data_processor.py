@@ -13,9 +13,12 @@ from nuplan.planning.utils.multithreading.worker_utils import WorkerPool
 from tqdm import tqdm
 
 from asim.common.datatypes.vehicle_state.ego_vehicle_state import EgoVehicleStateIndex
-from asim.common.geometry.base import Point2D, Point3D
+from asim.common.datatypes.vehicle_state.vehicle_parameters import get_carla_lincoln_mkz_2020_parameters
+from asim.common.geometry.base import Point2D, Point3D, StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
+from asim.common.geometry.transform.se3 import translate_se3_along_z
 from asim.common.geometry.vector import Vector3DIndex
+from asim.dataset.arrow.conversion import VehicleParameters
 from asim.dataset.dataset_specific.nuplan.nuplan_data_processor import worker_map
 from asim.dataset.dataset_specific.raw_data_processor import RawDataProcessor
 from asim.dataset.logs.log_metadata import LogMetadata
@@ -96,7 +99,13 @@ def convert_carla_log_to_arrow(args: List[Dict[str, Union[List[str], List[Path]]
 
             recording_table = _get_recording_table(bounding_box_paths, map_api)
             metadata = _get_metadata(map_name, str(log_path.stem))
-            recording_table = recording_table.replace_schema_metadata({"log_metadata": json.dumps(asdict(metadata))})
+            vehicle_parameters = _get_vehicle_parameters(_load_json_gz(bounding_box_paths[0])["vehicle_parameters"])
+            recording_table = recording_table.replace_schema_metadata(
+                {
+                    "log_metadata": json.dumps(asdict(metadata)),
+                    "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
+                }
+            )
             log_file_path = output_path / split / f"{log_path.stem}.arrow"
 
             if not log_file_path.parent.exists():
@@ -124,6 +133,16 @@ def _get_metadata(location: str, log_name: str) -> LogMetadata:
     )
 
 
+def _get_vehicle_parameters(vehicle_parameter_dict: Dict[str, float]) -> VehicleParameters:
+    # NOTE: @DanielDauner extracting the vehicle parameters from CARLA is somewhat tricky.
+    # Need to extract the coordinates (for wheels, wheelbase, etc.) from CARLA which is somewhat noise.
+    # Thus, we hardcode the parameters for the Lincoln MKZ 2020 (default).
+    assert (
+        vehicle_parameter_dict["vehicle_name"] == "vehicle.lincoln.mkz_2020"
+    ), "Currently only supports MKZ 2020 in CARLA."
+    return get_carla_lincoln_mkz_2020_parameters()
+
+
 def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -> pa.Table:
     log_path = bounding_box_paths[0].parent.parent.stem
     tokens: List[str] = [create_token(f"{str(log_path)}_{path.stem}") for path in bounding_box_paths]
@@ -149,11 +168,11 @@ def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -
         route_lane_group_ids = _extract_route_lane_group_ids(data["route"], map_api)
 
         timestamp_log.append(data["timestamp"])
-        detections_state_log.append(data["detections_state"])
+        detections_state_log.append(_extract_detection_states(data["detections_state"]))
         detections_velocity_log.append(data["detections_velocity"])
         detections_token_log.append(data["detections_token"])
         detections_type_log.append(data["detections_types"])
-        ego_states_log.append(data["ego_state"])
+        ego_states_log.append(_extract_ego_vehicle_state(data["ego_state"]))
         traffic_light_ids_log.append(traffic_light_ids)
         traffic_light_types_log.append(traffic_light_types)
         scenario_tags_log.append(data["scenario_tag"])
@@ -192,6 +211,38 @@ def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -
     recording_table = recording_table.sort_by([("timestamp", "ascending")])
 
     return recording_table
+
+
+def _extract_ego_vehicle_state(ego_state_list: List[float]) -> List[float]:
+
+    # NOTE: @DanielDauner This function is a temporary workaround.
+    # CARLAs bounding box location starts at bottom vertically.
+    # Need to translate half the height along the z-axis.
+    ego_state_array = np.array(ego_state_list, dtype=np.float64)
+    vehicle_parameters = get_carla_lincoln_mkz_2020_parameters()
+    center = StateSE3.from_array(ego_state_array[EgoVehicleStateIndex.SE3])
+    center = translate_se3_along_z(center, vehicle_parameters.height / 2)
+    ego_state_array[EgoVehicleStateIndex.SE3] = center.array
+
+    return ego_state_array.tolist()
+
+
+def _extract_detection_states(detection_states: List[List[float]]) -> List[float]:
+
+    # NOTE: @DanielDauner This function is a temporary workaround.
+    # CARLAs bounding box location starts at bottom vertically.
+    # Need to translate half the height along the z-axis.
+
+    detection_state_converted = []
+
+    for detection_state in detection_states:
+        detection_state_array = np.array(detection_state, dtype=np.float64)
+        center = StateSE3.from_array(detection_state_array[BoundingBoxSE3Index.STATE_SE3])
+        center = translate_se3_along_z(center, detection_state_array[BoundingBoxSE3Index.HEIGHT] / 2)
+        detection_state_array[EgoVehicleStateIndex.SE3] = center.array
+        detection_state_converted.append(detection_state_array.tolist())
+
+    return detection_state_converted
 
 
 def _extract_traffic_light_data(

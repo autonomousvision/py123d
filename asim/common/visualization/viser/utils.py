@@ -80,7 +80,9 @@ def translate_bounding_box_se3(bounding_box_se3: BoundingBoxSE3, point_3d: Point
     return bounding_box_se3
 
 
-def get_bounding_box_meshes(scene: AbstractScene, iteration: int, center: Point3D):
+def get_bounding_box_meshes(scene: AbstractScene, iteration: int):
+    initial_ego_vehicle_state = scene.get_ego_vehicle_state_at_iteration(0)
+
     ego_vehicle_state = scene.get_ego_vehicle_state_at_iteration(iteration)
     box_detections = scene.get_box_detections_at_iteration(iteration)
     # traffic_light_detections = scene.get_traffic_light_detections_at_iteration(iteration)
@@ -89,20 +91,22 @@ def get_bounding_box_meshes(scene: AbstractScene, iteration: int, center: Point3
     output = {}
     for box_detection in box_detections:
         bbox: BoundingBoxSE3 = box_detection.bounding_box
-        bbox = translate_bounding_box_se3(bbox, center)
+        bbox = translate_bounding_box_se3(bbox, initial_ego_vehicle_state.center)
         plot_config = BOX_DETECTION_CONFIG[box_detection.metadata.detection_type]
         trimesh_box = bounding_box_to_trimesh(bbox, plot_config)
         output[f"{box_detection.metadata.detection_type.serialize()}/{box_detection.metadata.track_token}"] = (
             trimesh_box
         )
 
-    ego_bbox = translate_bounding_box_se3(ego_vehicle_state.bounding_box, center)
+    ego_bbox = translate_bounding_box_se3(ego_vehicle_state.bounding_box, initial_ego_vehicle_state.center)
     trimesh_box = bounding_box_to_trimesh(ego_bbox, EGO_VEHICLE_CONFIG)
     output["ego"] = trimesh_box
     return output
 
 
-def get_map_meshes(scene: AbstractScene, center: Point3D):
+def get_map_meshes(scene: AbstractScene):
+    initial_ego_vehicle_state = scene.get_ego_vehicle_state_at_iteration(0)
+    center = initial_ego_vehicle_state.center
     map_surface_types = [MapSurfaceType.LANE, MapSurfaceType.WALKWAY, MapSurfaceType.CROSSWALK, MapSurfaceType.CARPARK]
 
     radius = 500
@@ -113,17 +117,18 @@ def get_map_meshes(scene: AbstractScene, center: Point3D):
         surface_meshes = []
         for map_surface in map_objects_dict[map_surface_type]:
             map_surface: AbstractSurfaceMapObject
-            # outline_line = extract_outline_line(map_surface, center, z=0)
             trimesh_mesh = map_surface.trimesh_mesh
             if map_surface_type in [MapSurfaceType.WALKWAY, MapSurfaceType.CROSSWALK]:
                 # trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2 - 0.05).array
-                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z + 1.777 / 2 - 0.05).array
+                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z - 0.05).array
             else:
                 # trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2).array
-                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z + 1.777 / 2).array
+                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z).array
 
             if not scene.log_metadata.map_has_z:
-                trimesh_mesh.vertices += Point3D(x=0, y=0, z=center.z).array
+                trimesh_mesh.vertices += Point3D(
+                    x=0, y=0, z=center.z - initial_ego_vehicle_state.vehicle_parameters.height / 2
+                ).array
 
             trimesh_mesh.visual.face_colors = MAP_SURFACE_CONFIG[map_surface_type].fill_color.rgba
             surface_meshes.append(trimesh_mesh)
