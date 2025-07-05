@@ -113,5 +113,5 @@ scene_tokens:
 timestamp_threshold_s: null
 ego_displacement_minimum_m: null
 
-duration_s: 8.1
+duration_s: 15.1
 history_s: 1.0

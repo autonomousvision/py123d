@@ -1,4 +1,5 @@
 import abc
+import json
 import random
 from functools import partial
 from pathlib import Path
@@ -97,7 +98,7 @@ def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) 
     scene_extraction_infos: List[SceneExtractionInfo] = []
 
     recording_table = open_arrow_table(log_path)
-    log_metadata = LogMetadata.from_arrow_table(recording_table)
+    log_metadata = LogMetadata(**json.loads(recording_table.schema.metadata[b"log_metadata"].decode()))
 
     # 1. Filter map name
     if filter.map_names is not None and log_metadata.map_name not in filter.map_names:

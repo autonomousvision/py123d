@@ -21,6 +21,8 @@ class SMART(LightningModule):
     def __init__(self, model_config: SMARTConfig) -> None:
         super(SMART, self).__init__()
         self.save_hyperparameters()
+
+        self.config = model_config
         self.lr = model_config.lr
         self.lr_warmup_steps = model_config.lr_warmup_steps
         self.lr_total_steps = model_config.lr_total_steps
@@ -157,7 +159,7 @@ class SMART(LightningModule):
     def test_step(self, data, batch_idx):
         tokenized_map, tokenized_agent = self.token_processor(data)
 
-        # ! only closed-loop vlidation
+        # ! only closed-loop validation
         pred_traj, pred_z, pred_head = [], [], []
         for _ in range(self.n_rollout_closed_val):
             pred = self.encoder.inference(tokenized_map, tokenized_agent, self.validation_rollout_sampling)

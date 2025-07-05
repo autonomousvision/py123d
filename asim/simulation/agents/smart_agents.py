@@ -39,6 +39,8 @@ class SMARTAgents(AbstractAgents):
         #     "/home/daniel/asim_workspace/exp/smart_mini_run/2025.06.23.20.45.20/checkpoints/epoch_050.ckpt"
         # )
         checkpoint_path = Path("/home/daniel/epoch_050.ckpt")
+        # checkpoint_path = Path("/home/daniel/epoch_027.ckpt")
+        # checkpoint_path = Path("/home/daniel/epoch_008.ckpt")
         config = SMARTConfig(
             hidden_dim=64,
             num_freq_bands=64,
@@ -53,14 +55,18 @@ class SMARTAgents(AbstractAgents):
             a2a_radius=20,
             time_span=20,
             num_historical_steps=11,
-            num_future_steps=80,
+            num_future_steps=90,
         )
 
         self._device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self._smart_model = SMART.load_from_checkpoint(checkpoint_path, config=config, map_location=self._device)
+        self._smart_model = SMART.load_from_checkpoint(
+            checkpoint_path, config=config, strict=False, map_location=self._device
+        )
         self._smart_model.eval()
-
         self._smart_model.to(self._device)
+
+        self._smart_model.encoder.agent_encoder.num_future_steps = 150
+        self._smart_model.validation_rollout_sampling.num_k = 15
 
         self._initial_box_detections: Optional[BoxDetectionWrapper] = None
         self._agent_indices: List[int] = []

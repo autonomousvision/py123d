@@ -18,8 +18,8 @@ from asim.training.models.sim_agent.smart.utils.weight_init import weight_init
 class SMARTDecoder(nn.Module):
     def __init__(self, model_config: SMARTConfig, n_token_agent: int) -> None:
         super(SMARTDecoder, self).__init__()
-        self.map_encoder = SMARTMapDecoder(model_config)
-        self.agent_encoder = SMARTAgentDecoder(model_config, n_token_agent=n_token_agent)
+        self.map_encoder: SMARTMapDecoder = SMARTMapDecoder(model_config)
+        self.agent_encoder: SMARTAgentDecoder = SMARTAgentDecoder(model_config, n_token_agent=n_token_agent)
 
     def forward(self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor]) -> Dict[str, Tensor]:
         map_feature = self.map_encoder(tokenized_map)

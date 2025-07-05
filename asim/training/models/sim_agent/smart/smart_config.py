@@ -53,7 +53,7 @@ class SMARTConfig:
     a2a_radius: float = 60
     time_span: Optional[int] = 30
     num_historical_steps: int = 11
-    num_future_steps: int = 80
+    num_future_steps: int = 90
 
     # train loss
     use_gt_raw: bool = True
