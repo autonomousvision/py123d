@@ -66,7 +66,7 @@ class SMARTAgents(AbstractAgents):
         self._smart_model.to(self._device)
 
         self._smart_model.encoder.agent_encoder.num_future_steps = 150
-        self._smart_model.validation_rollout_sampling.num_k = 15
+        self._smart_model.validation_rollout_sampling.num_k = 1
 
         self._initial_box_detections: Optional[BoxDetectionWrapper] = None
         self._agent_indices: List[int] = []
