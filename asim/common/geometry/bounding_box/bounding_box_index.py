@@ -25,10 +25,6 @@ class Corners2DIndex(IntEnum):
     BACK_RIGHT = 2
     BACK_LEFT = 3
 
-    @classproperty
-    def XY(cls) -> slice:
-        return slice(cls.X, cls.Y + 1)
-
 
 class BoundingBoxSE3Index(IntEnum):
     X = 0

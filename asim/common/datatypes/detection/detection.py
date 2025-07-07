@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Iterable, List, Optional, Union
+from typing import Iterable
 
 import shapely
 
@@ -19,7 +19,7 @@ class DetectionMetadata:
     detection_type: DetectionType
     timepoint: TimePoint
     track_token: str
-    confidence: Optional[float] = None
+    confidence: float | None = None
 
 
 @dataclass
@@ -27,7 +27,7 @@ class BoxDetectionSE2:
 
     metadata: DetectionMetadata
     bounding_box_se2: BoundingBoxSE2
-    velocity: Optional[Vector2D] = None
+    velocity: Vector2D | None = None
 
     @property
     def shapely_polygon(self) -> shapely.geometry.Polygon:
@@ -47,7 +47,7 @@ class BoxDetectionSE3:
 
     metadata: DetectionMetadata
     bounding_box_se3: BoundingBoxSE3
-    velocity: Optional[Vector3D] = None
+    velocity: Vector3D | None = None
 
     @property
     def shapely_polygon(self) -> shapely.geometry.Polygon:
@@ -62,19 +62,19 @@ class BoxDetectionSE3:
         return self.bounding_box_se3
 
     @property
-    def bounding_box_se2(self) -> BoundingBoxSE3:
+    def bounding_box_se2(self) -> BoundingBoxSE2:
         return self.bounding_box_se3.bounding_box_se2
 
 
-BoxDetection = Union[BoxDetectionSE2, BoxDetectionSE3]
+BoxDetection = BoxDetectionSE2 | BoxDetectionSE3
 
 
 @dataclass
 class BoxDetectionWrapper:
 
-    box_detections: List[BoxDetection]
+    box_detections: list[BoxDetection]
 
-    def __getitem__(self, index) -> BoxDetection:
+    def __getitem__(self, index: int) -> BoxDetection:
         return self.box_detections[index]
 
     def __len__(self) -> int:
@@ -83,11 +83,11 @@ class BoxDetectionWrapper:
     def __iter__(self):
         return iter(self.box_detections)
 
-    def get_box_detections_by_types(self, detection_types: Iterable[DetectionType]) -> List[BoxDetection]:
+    def get_box_detections_by_types(self, detection_types: Iterable[DetectionType]) -> list[BoxDetection]:
         return [detection for detection in self.box_detections if detection.metadata.detection_type in detection_types]
 
-    def get_detection_by_track_token(self, track_token: str) -> Optional[BoxDetection]:
-        box_detection: Optional[BoxDetection] = None
+    def get_detection_by_track_token(self, track_token: str) -> BoxDetection | None:
+        box_detection: BoxDetection | None = None
         for detection in self.box_detections:
             if detection.metadata.track_token == track_token:
                 box_detection = detection
@@ -123,9 +123,9 @@ class TrafficLightDetection:
 
 @dataclass
 class TrafficLightDetectionWrapper:
-    traffic_light_detections: List[TrafficLightDetection]
+    traffic_light_detections: list[TrafficLightDetection]
 
-    def __getitem__(self, index) -> TrafficLightDetection:
+    def __getitem__(self, index: int) -> TrafficLightDetection:
         return self.traffic_light_detections[index]
 
     def __len__(self) -> int:
@@ -134,8 +134,8 @@ class TrafficLightDetectionWrapper:
     def __iter__(self):
         return iter(self.traffic_light_detections)
 
-    def get_detection_by_lane_id(self, lane_id: int) -> Optional[TrafficLightDetection]:
-        traffic_light_detection: Optional[TrafficLightDetection] = None
+    def get_detection_by_lane_id(self, lane_id: int) -> TrafficLightDetection | None:
+        traffic_light_detection: TrafficLightDetection | None = None
         for detection in self.traffic_light_detections:
             if int(detection.lane_id) == int(lane_id):
                 traffic_light_detection = detection

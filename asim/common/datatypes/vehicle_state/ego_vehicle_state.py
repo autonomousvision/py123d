@@ -52,7 +52,7 @@ class EgoVehicleState:
     center: StateSE3
     dynamic_state: DynamicVehicleState
     vehicle_parameters: VehicleParameters
-    timepoint: TimePoint
+    timepoint: Optional[TimePoint] = None
 
     @classmethod
     def from_array(
@@ -60,7 +60,7 @@ class EgoVehicleState:
         array: npt.NDArray[np.float64],
         vehicle_parameters: VehicleParameters,
         timepoint: Optional[TimePoint] = None,
-    ) -> DynamicVehicleState:
+    ) -> EgoVehicleState:
         state_se3 = StateSE3.from_array(array[EgoVehicleStateIndex.SE3])
         dynamic_state = DynamicVehicleState.from_array(array[EgoVehicleStateIndex.DYNAMIC_VEHICLE_STATE])
         return EgoVehicleState(state_se3, dynamic_state, vehicle_parameters, timepoint)
@@ -81,7 +81,7 @@ class EgoVehicleState:
 
     @property
     def rear_axle(self) -> StateSE3:
-        return self.vehicle_parameters.rear_axle_to_center_longitudinal
+        raise NotImplementedError("Not implemented")
 
     @cached_property
     def bounding_box(self) -> BoundingBoxSE3:

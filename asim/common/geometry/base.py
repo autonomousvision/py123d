@@ -209,7 +209,7 @@ class StateSE3:
     __slots__ = "x", "y", "z", "roll", "pitch", "yaw"
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64]) -> Point3D:
+    def from_array(cls, array: npt.NDArray[np.float64]) -> StateSE3:
         assert array.ndim == 1
         assert array.shape[0] == len(StateSE3Index)
         return StateSE3(
@@ -241,5 +241,5 @@ class StateSE3:
         return Point3D(self.x, self.y, self.z)
 
     @property
-    def point_2d(self) -> Point3D:
+    def point_2d(self) -> Point2D:
         return Point2D(self.x, self.y)

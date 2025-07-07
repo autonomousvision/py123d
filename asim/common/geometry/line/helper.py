@@ -1,5 +1,3 @@
-from typing import List
-
 import numpy as np
 import numpy.typing as npt
 from shapely.geometry import LineString
@@ -18,7 +16,7 @@ def get_linestring_yaws(linestring: LineString) -> npt.NDArray[np.float64]:
     return get_points_2d_yaws(coords)
 
 
-def get_points_2d_yaws(points_array: LineString) -> npt.NDArray[np.float64]:
+def get_points_2d_yaws(points_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     assert points_array.ndim == 2
     assert points_array.shape[-1] == len(Point2DIndex)
     vectors = np.diff(points_array, axis=0)
@@ -28,7 +26,7 @@ def get_points_2d_yaws(points_array: LineString) -> npt.NDArray[np.float64]:
     return yaws
 
 
-def get_path_progress(points_array: npt.NDArray[np.float64]) -> List[float]:
+def get_path_progress(points_array: npt.NDArray[np.float64]) -> list[float]:
     if points_array.shape[-1] == len(Point2DIndex):
         x_diff = np.diff(points_array[..., Point2DIndex.X])
         y_diff = np.diff(points_array[..., Point2DIndex.X])

@@ -20,7 +20,8 @@ class AbstractAgents:
         non_target_agents: List[BoxDetection],
         scene: Optional[AbstractScene] = None,
     ) -> List[BoxDetection]:
-        pass
+        raise NotImplementedError
 
-    def step(self, non_target_agents: List[BoxDetection]):
-        pass
+    @abstractmethod
+    def step(self, non_target_agents: List[BoxDetection]) -> List[BoxDetection]:
+        raise NotImplementedError

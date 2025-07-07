@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Set
-
 from asim.common.utils.enums import SerialIntEnum
 
 
@@ -22,13 +20,13 @@ class DetectionType(SerialIntEnum):
     EGO = 7
 
 
-DYNAMIC_DETECTION_TYPES: Set[DetectionType] = {
+DYNAMIC_DETECTION_TYPES: set[DetectionType] = {
     DetectionType.VEHICLE,
     DetectionType.BICYCLE,
     DetectionType.PEDESTRIAN,
 }
 
-STATIC_DETECTION_TYPES: Set[DetectionType] = {
+STATIC_DETECTION_TYPES: set[DetectionType] = {
     DetectionType.TRAFFIC_CONE,
     DetectionType.BARRIER,
     DetectionType.CZONE_SIGN,

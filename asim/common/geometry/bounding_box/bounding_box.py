@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Union
 
 import numpy as np
 import numpy.typing as npt
@@ -83,4 +82,4 @@ class BoundingBoxSE3:
         return self.bounding_box_se2.shapely_polygon
 
 
-BoundingBox = Union[BoundingBoxSE2, BoundingBoxSE3]
+BoundingBox = BoundingBoxSE2 | BoundingBoxSE3

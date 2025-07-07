@@ -50,6 +50,7 @@ class AgentsObservation(AbstractObservation):
         )
 
     def step(self) -> DetectionRecording:
+        assert self._scene is not None, "Scene must be provided for log replay observation."
         self._iteration += 1
         _, non_cars, _ = _filter_agents_by_type(
             self._scene.get_box_detections_at_iteration(self._iteration),

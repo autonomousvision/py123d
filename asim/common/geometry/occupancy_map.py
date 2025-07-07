@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, List, Literal, Optional, Sequence, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -10,8 +10,8 @@ from shapely.strtree import STRtree
 class OccupancyMap:
     def __init__(
         self,
-        geometries: Iterable[BaseGeometry],
-        ids: Optional[Iterable[Union[str, int]]] = None,
+        geometries: Sequence[BaseGeometry],
+        ids: Optional[Union[List[str], List[int]]] = None,
         node_capacity: int = 10,
     ):
         """
@@ -23,8 +23,10 @@ class OccupancyMap:
         assert ids is None or len(ids) == len(geometries), "Length of ids must match length of geometries"
         # assert len(tokens) == len(geometries)
 
-        self._ids: List[str] = ids if ids else [idx for idx in range(len(geometries))]
-        self._id_to_idx: Dict[str, int] = {id: idx for idx, id in enumerate(self._ids)}
+        self._ids: Union[List[str], List[int]] = (
+            ids if ids is not None else [str(idx) for idx in range(len(geometries))]
+        )
+        self._id_to_idx: Dict[Union[str, int], int] = {id: idx for idx, id in enumerate(self._ids)}
 
         self._geometries = geometries
         self._node_capacity = node_capacity
@@ -46,7 +48,7 @@ class OccupancyMap:
         return len(self._ids)
 
     @property
-    def ids(self) -> List[Union[str, int]]:
+    def ids(self) -> Union[List[str], List[int]]:
         """
         Getter for track tokens in occupancy map
         :return: list of strings
@@ -54,19 +56,19 @@ class OccupancyMap:
         return self._ids
 
     @property
-    def geometries(self) -> List[BaseGeometry]:
+    def geometries(self) -> Sequence[BaseGeometry]:
 
         return self._geometries
 
     @property
-    def token_to_idx(self) -> Dict[str, int]:
+    def token_to_idx(self) -> Dict[Union[int, str], int]:
         """
         Getter for track tokens in occupancy map
         :return: dictionary of tokens and indices
         """
         return self._id_to_idx
 
-    def intersects(self, geometry: BaseGeometry) -> List[str]:
+    def intersects(self, geometry: BaseGeometry) -> Union[List[str], List[int]]:
         """
         Searches for intersecting geometries in the occupancy map
         :param geometry: geometries to query
@@ -78,9 +80,11 @@ class OccupancyMap:
     def query(
         self,
         geometry: Union[BaseGeometry, np.ndarray],
-        predicate: Optional[str] = None,
+        predicate: Optional[
+            Literal["intersects", "within", "contains", "overlaps", "crosses", "touches", "covers", "covered_by"]
+        ] = None,
         distance: Optional[float] = None,
-    ):
+    ) -> npt.NDArray[np.int64]:
         """
         Function to directly calls shapely's query function on str-tree
         :param geometry: geometries to query
