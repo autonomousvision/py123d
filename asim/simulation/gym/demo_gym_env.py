@@ -9,7 +9,7 @@ from nuplan.common.geometry.compute import get_pacifica_parameters
 from nuplan.planning.simulation.controller.motion_model.kinematic_bicycle import KinematicBicycleModel
 
 from asim.common.datatypes.recording.detection_recording import DetectionRecording
-from asim.dataset.arrow.conversion import EgoVehicleState
+from asim.dataset.arrow.conversion import EgoStateSE3
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.observation.abstract_observation import AbstractObservation
@@ -78,7 +78,7 @@ class DemoGymEnv:
         return self._current_ego_vehicle_state, detection_observation, is_done
 
 
-def to_nuplan_ego_vehicle_state(ego_vehicle_state: EgoVehicleState) -> EgoState:
+def to_nuplan_ego_vehicle_state(ego_vehicle_state: EgoStateSE3) -> EgoState:
     """
     Convert a custom EgoVehicleState to a NuPlan EgoVehicleState.
     This is a placeholder function and should be implemented based on the actual structure of EgoVehicleState.

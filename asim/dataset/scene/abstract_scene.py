@@ -6,7 +6,7 @@ from typing import List
 
 from asim.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from asim.common.datatypes.time.time_point import TimePoint
-from asim.common.datatypes.vehicle_state.ego_vehicle_state import EgoVehicleState
+from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.maps.abstract_map import AbstractMap
 
@@ -45,7 +45,7 @@ class AbstractScene(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_ego_vehicle_state_at_iteration(self, iteration: int) -> EgoVehicleState:
+    def get_ego_vehicle_state_at_iteration(self, iteration: int) -> EgoStateSE3:
         raise NotImplementedError
 
     @abc.abstractmethod

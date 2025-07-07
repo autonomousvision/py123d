@@ -12,7 +12,7 @@ import pyarrow.ipc as ipc
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 from tqdm import tqdm
 
-from asim.common.datatypes.vehicle_state.ego_vehicle_state import EgoVehicleStateIndex
+from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE3Index
 from asim.common.datatypes.vehicle_state.vehicle_parameters import get_carla_lincoln_mkz_2020_parameters
 from asim.common.geometry.base import Point2D, Point3D, StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
@@ -206,7 +206,7 @@ def _get_recording_table(bounding_box_paths: List[Path], map_api: AbstractMap) -
             ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
             ("detections_token", pa.list_(pa.string())),
             ("detections_type", pa.list_(pa.int16())),
-            ("ego_states", pa.list_(pa.float64(), len(EgoVehicleStateIndex))),
+            ("ego_states", pa.list_(pa.float64(), len(EgoStateSE3Index))),
             ("traffic_light_ids", pa.list_(pa.int64())),
             ("traffic_light_types", pa.list_(pa.int16())),
             ("scenario_tag", pa.list_(pa.string())),
@@ -226,9 +226,9 @@ def _extract_ego_vehicle_state(ego_state_list: List[float]) -> List[float]:
     # Need to translate half the height along the z-axis.
     ego_state_array = np.array(ego_state_list, dtype=np.float64)
     vehicle_parameters = get_carla_lincoln_mkz_2020_parameters()
-    center = StateSE3.from_array(ego_state_array[EgoVehicleStateIndex.SE3])
+    center = StateSE3.from_array(ego_state_array[EgoStateSE3Index.SE3])
     center = translate_se3_along_z(center, vehicle_parameters.height / 2)
-    ego_state_array[EgoVehicleStateIndex.SE3] = center.array
+    ego_state_array[EgoStateSE3Index.SE3] = center.array
 
     return ego_state_array.tolist()
 
@@ -245,7 +245,7 @@ def _extract_detection_states(detection_states: List[List[float]]) -> List[float
         detection_state_array = np.array(detection_state, dtype=np.float64)
         center = StateSE3.from_array(detection_state_array[BoundingBoxSE3Index.STATE_SE3])
         center = translate_se3_along_z(center, detection_state_array[BoundingBoxSE3Index.HEIGHT] / 2)
-        detection_state_array[EgoVehicleStateIndex.SE3] = center.array
+        detection_state_array[EgoStateSE3Index.SE3] = center.array
         detection_state_converted.append(detection_state_array.tolist())
 
     return detection_state_converted

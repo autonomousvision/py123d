@@ -20,7 +20,7 @@ from asim.common.utils.enums import classproperty
 # TODO: Implement
 
 
-class EgoVehicleStateIndex(IntEnum):
+class EgoStateSE3Index(IntEnum):
     X = 0
     Y = 1
     Z = 2
@@ -47,10 +47,10 @@ class EgoVehicleStateIndex(IntEnum):
 
 
 @dataclass
-class EgoVehicleState:
+class EgoStateSE3:
 
     center: StateSE3
-    dynamic_state: DynamicVehicleState
+    dynamic_state: DynamicStateSE3
     vehicle_parameters: VehicleParameters
     timepoint: Optional[TimePoint] = None
 
@@ -60,10 +60,10 @@ class EgoVehicleState:
         array: npt.NDArray[np.float64],
         vehicle_parameters: VehicleParameters,
         timepoint: Optional[TimePoint] = None,
-    ) -> EgoVehicleState:
-        state_se3 = StateSE3.from_array(array[EgoVehicleStateIndex.SE3])
-        dynamic_state = DynamicVehicleState.from_array(array[EgoVehicleStateIndex.DYNAMIC_VEHICLE_STATE])
-        return EgoVehicleState(state_se3, dynamic_state, vehicle_parameters, timepoint)
+    ) -> EgoStateSE3:
+        state_se3 = StateSE3.from_array(array[EgoStateSE3Index.SE3])
+        dynamic_state = DynamicStateSE3.from_array(array[EgoStateSE3Index.DYNAMIC_VEHICLE_STATE])
+        return EgoStateSE3(state_se3, dynamic_state, vehicle_parameters, timepoint)
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
@@ -72,7 +72,7 @@ class EgoVehicleState:
         :return: An array containing the bounding box and dynamic state information.
         """
         assert isinstance(self.center, StateSE3)
-        assert isinstance(self.dynamic_state, DynamicVehicleState)
+        assert isinstance(self.dynamic_state, DynamicStateSE3)
 
         center_array = self.center.array
         dynamic_array = self.dynamic_state.array
@@ -114,7 +114,13 @@ class EgoVehicleState:
         )
 
 
-class DynamicVehicleStateIndex(IntEnum):
+@dataclass
+class EgoStateSE2:
+    # TODO
+    pass
+
+
+class DynamicStateSE3Index(IntEnum):
 
     VELOCITY_X = 0
     VELOCITY_Y = 1
@@ -140,7 +146,7 @@ class DynamicVehicleStateIndex(IntEnum):
 
 
 @dataclass
-class DynamicVehicleState:
+class DynamicStateSE3:
     velocity: Vector3D
     acceleration: Vector3D
     angular_velocity: Vector3D
@@ -151,18 +157,18 @@ class DynamicVehicleState:
     #  - angular_accel
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64]) -> DynamicVehicleState:
+    def from_array(cls, array: npt.NDArray[np.float64]) -> DynamicStateSE3:
         """
         Create a DynamicVehicleState from an array.
         :param array: The array containing the dynamic state information.
         :return: A DynamicVehicleState instance.
         """
         assert array.ndim == 1
-        assert array.shape[0] == len(DynamicVehicleStateIndex)
-        velocity = Vector3D.from_array(array[DynamicVehicleStateIndex.VELOCITY])
-        acceleration = Vector3D.from_array(array[DynamicVehicleStateIndex.ACCELERATION])
-        angular_velocity = Vector3D.from_array(array[DynamicVehicleStateIndex.ANGULAR_VELOCITY])
-        return DynamicVehicleState(velocity, acceleration, angular_velocity)
+        assert array.shape[0] == len(DynamicStateSE3Index)
+        velocity = Vector3D.from_array(array[DynamicStateSE3Index.VELOCITY])
+        acceleration = Vector3D.from_array(array[DynamicStateSE3Index.ACCELERATION])
+        angular_velocity = Vector3D.from_array(array[DynamicStateSE3Index.ANGULAR_VELOCITY])
+        return DynamicStateSE3(velocity, acceleration, angular_velocity)
 
     @property
     def array(self) -> npt.NDArray[np.float64]:

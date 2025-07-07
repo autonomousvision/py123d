@@ -19,10 +19,10 @@ from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker
 import asim.dataset.dataset_specific.nuplan.utils as nuplan_utils
 from asim.common.datatypes.detection.detection import TrafficLightStatus
 from asim.common.datatypes.detection.detection_types import DetectionType
-from asim.common.datatypes.vehicle_state.ego_vehicle_state import (
-    DynamicVehicleState,
-    EgoVehicleState,
-    EgoVehicleStateIndex,
+from asim.common.datatypes.vehicle_state.ego_state import (
+    DynamicStateSE3,
+    EgoStateSE3,
+    EgoStateSE3Index,
 )
 from asim.common.datatypes.vehicle_state.vehicle_parameters import get_nuplan_pacifica_parameters
 from asim.common.geometry.base import StateSE3
@@ -175,7 +175,7 @@ def convert_nuplan_log_to_arrow(
                     ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
                     ("detections_token", pa.list_(pa.string())),
                     ("detections_type", pa.list_(pa.int16())),
-                    ("ego_states", pa.list_(pa.float64(), len(EgoVehicleStateIndex))),
+                    ("ego_states", pa.list_(pa.float64(), len(EgoStateSE3Index))),
                     ("traffic_light_ids", pa.list_(pa.int64())),
                     ("traffic_light_types", pa.list_(pa.int16())),
                     ("scenario_tag", pa.list_(pa.string())),
@@ -301,7 +301,7 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
         ),
         vehicle_parameters.rear_axle_to_center_vertical,
     )
-    dynamic_state = DynamicVehicleState(
+    dynamic_state = DynamicStateSE3(
         velocity=Vector3D(
             x=lidar_pc.ego_pose.vx,
             y=lidar_pc.ego_pose.vy,
@@ -319,7 +319,7 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
         ),
     )
 
-    return EgoVehicleState(
+    return EgoStateSE3(
         center=center,
         dynamic_state=dynamic_state,
         vehicle_parameters=vehicle_parameters,

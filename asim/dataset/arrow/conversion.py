@@ -15,7 +15,7 @@ from asim.common.datatypes.detection.detection import (
 )
 from asim.common.datatypes.detection.detection_types import DetectionType
 from asim.common.datatypes.time.time_point import TimePoint
-from asim.common.datatypes.vehicle_state.ego_vehicle_state import EgoVehicleState
+from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from asim.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from asim.common.geometry.vector import Vector3D
@@ -28,9 +28,9 @@ def get_timepoint_from_arrow_table(arrow_table: pa.Table, index: int) -> TimePoi
 
 def get_ego_vehicle_state_from_arrow_table(
     arrow_table: pa.Table, index: int, vehicle_parameters: VehicleParameters
-) -> EgoVehicleState:
+) -> EgoStateSE3:
     timepoint = get_timepoint_from_arrow_table(arrow_table, index)
-    return EgoVehicleState.from_array(
+    return EgoStateSE3.from_array(
         array=pa.array(arrow_table["ego_states"][index]).to_numpy(),
         vehicle_parameters=vehicle_parameters,
         timepoint=timepoint,

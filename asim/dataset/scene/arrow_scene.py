@@ -6,7 +6,7 @@ import pyarrow as pa
 
 from asim.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from asim.common.datatypes.time.time_point import TimePoint
-from asim.common.datatypes.vehicle_state.ego_vehicle_state import EgoVehicleState
+from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from asim.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 from asim.dataset.arrow.conversion import (
     get_box_detections_from_arrow_table,
@@ -97,7 +97,7 @@ class ArrowScene(AbstractScene):
         self._lazy_initialize()
         return get_timepoint_from_arrow_table(self._recording_table, self._get_table_index(iteration))
 
-    def get_ego_vehicle_state_at_iteration(self, iteration: int) -> EgoVehicleState:
+    def get_ego_vehicle_state_at_iteration(self, iteration: int) -> EgoStateSE3:
         self._lazy_initialize()
         return get_ego_vehicle_state_from_arrow_table(
             self._recording_table, self._get_table_index(iteration), self._vehicle_parameters
