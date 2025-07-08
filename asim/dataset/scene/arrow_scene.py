@@ -20,11 +20,14 @@ from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.maps.gpkg.gpkg_map import get_map_api_from_names
 from asim.dataset.scene.abstract_scene import AbstractScene, SceneExtractionInfo
 
+# TODO: Remove or improve open/close dynamic of Scene object.
+
 
 def _get_scene_data(arrow_file_path: Union[Path, str]) -> Tuple[LogMetadata, VehicleParameters]:
     """
     Extracts the metadata and vehicle parameters from the arrow file.
     """
+    # TODO: consider a better way to read metadata, instead of loading the entire table.
     table = open_arrow_table(arrow_file_path)
     metadata = LogMetadata(**json.loads(table.schema.metadata[b"log_metadata"].decode()))
     vehicle_parameters = VehicleParameters(**json.loads(table.schema.metadata[b"vehicle_parameters"].decode()))

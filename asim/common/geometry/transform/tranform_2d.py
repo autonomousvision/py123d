@@ -3,6 +3,8 @@ import numpy.typing as npt
 
 from asim.common.geometry.base import Point2D, StateSE2
 
+# TODO: Refactor 2D and 3D transform functions in a more consistent and general way.
+
 
 def translate(pose: StateSE2, translation: Point2D) -> StateSE2:
     return StateSE2(pose.x + translation.x, pose.y + translation.y, pose.yaw)

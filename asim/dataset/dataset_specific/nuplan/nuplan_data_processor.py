@@ -236,14 +236,10 @@ def _write_recording_table(log_db: NuPlanDB, recording_schema: pa.schema, log_fi
                 writer.write_batch(batch)
                 del batch, row_data, detections_state, detections_velocity, detections_token, detections_types
 
-    try:
-        if SORT_BY_TIMESTAMP:
-            recording_table = open_arrow_table(log_file_path)
-            recording_table = recording_table.sort_by([("timestamp", "ascending")])
-            write_arrow_table(recording_table, log_file_path)
-            print("successfully sorted recording table by timestamp")
-    except Exception:
-        print("fail", log_file_path)
+    if SORT_BY_TIMESTAMP:
+        recording_table = open_arrow_table(log_file_path)
+        recording_table = recording_table.sort_by([("timestamp", "ascending")])
+        write_arrow_table(recording_table, log_file_path)
 
 
 def _extract_detections(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[List[float]], List[str], List[int]]:
@@ -277,7 +273,6 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
     yaw, pitch, roll = lidar_pc.ego_pose.quaternion.yaw_pitch_roll
     vehicle_parameters = get_nuplan_pacifica_parameters()
     # vehicle_parameters = get_pacifica_parameters()
-    # TODO: Convert rear axle to center
 
     rear_axle_pose = StateSE3(
         x=lidar_pc.ego_pose.x,
@@ -287,7 +282,7 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
         pitch=pitch,
         yaw=yaw,
     )
-    # NOTE: the height to rear axle is not provided in the nuplan dataset.
+    # NOTE: The height to rear axle is not provided the dataset and is merely approximated.
     center = translate_se3_along_z(
         translate_se3_along_x(
             rear_axle_pose,

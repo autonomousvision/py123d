@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
+# TODO: Add more filter options (e.g. scene tags, ego movement, or whatever appropriate)
+
 
 @dataclass
 class SceneFilter:

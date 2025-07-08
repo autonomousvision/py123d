@@ -28,6 +28,10 @@ from asim.dataset.scene.arrow_scene import get_map_api_from_names
 CARLA_DT: Final[float] = 0.1  # [s]
 TRAFFIC_LIGHT_ASSIGNMENT_DISTANCE: Final[float] = 1.0  # [m]
 
+# TODO: Refactor this files and convert coordinate systems more elegantly.
+# NOTE: Currently some coordinate transforms from Unreal to ISO 8855 are done in the data agent of PDM-Lite.
+# Ideally a general function to transform poses and points between coordinate systems would be nice
+
 
 def _load_json_gz(path: Path) -> Dict:
     """Helper function to load a gzipped JSON file."""
@@ -37,6 +41,8 @@ def _load_json_gz(path: Path) -> Dict:
 
 
 def create_token(input_data: str) -> str:
+    # TODO: Refactor this function.
+    # TODO: Add a general function to create tokens from arbitrary data.
     if isinstance(input_data, str):
         input_data = input_data.encode("utf-8")
 

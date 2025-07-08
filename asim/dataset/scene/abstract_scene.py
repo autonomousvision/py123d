@@ -10,6 +10,8 @@ from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.maps.abstract_map import AbstractMap
 
+# TODO: Remove or improve open/close dynamic of Scene object.
+
 
 class AbstractScene(abc.ABC):
     @property
@@ -67,6 +69,7 @@ class AbstractScene(abc.ABC):
         pass
 
 
+# TODO: Move to a more appropriate place.
 @dataclass(frozen=True)
 class SceneExtractionInfo:
 

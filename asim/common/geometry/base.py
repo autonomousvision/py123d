@@ -10,6 +10,8 @@ import shapely.geometry as geom
 
 from asim.common.utils.enums import classproperty
 
+# TODO: Reconsider if 2D/3D or SE2/SE3 structure would be better hierarchical, e.g. inheritance or composition.
+
 
 class Point2DIndex(IntEnum):
     X = 0

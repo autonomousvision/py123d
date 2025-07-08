@@ -17,7 +17,8 @@ from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, Bound
 from asim.common.geometry.vector import Vector3D
 from asim.common.utils.enums import classproperty
 
-# TODO: Implement
+# TODO: Add more vehicle states (e.g. steering angle, tire slip, etc.)
+# TODO: Find an appropriate way to handle SE2 and SE3 states.
 
 
 class EgoStateSE3Index(IntEnum):

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 # TODO: Refactor
+# NOTE: Taken from nuplan and adapted. Generally, these types are handy, when handling time discrete data.
 
 
 class TimeDuration:

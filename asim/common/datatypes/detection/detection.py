@@ -8,7 +8,7 @@ from asim.common.datatypes.detection.detection_types import DetectionType
 from asim.common.datatypes.time.time_point import TimePoint
 from asim.common.geometry.base import StateSE2, StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
-from asim.common.geometry.occupancy_map import OccupancyMap
+from asim.common.geometry.occupancy_map import OccupancyMap2D
 from asim.common.geometry.vector import Vector2D, Vector3D
 from asim.common.utils.enums import SerialIntEnum
 
@@ -95,10 +95,10 @@ class BoxDetectionWrapper:
         return box_detection
 
     @cached_property
-    def occupancy_map(self) -> OccupancyMap:
+    def occupancy_map(self) -> OccupancyMap2D:
         ids = [detection.metadata.track_token for detection in self.box_detections]
         geometries = [detection.bounding_box.shapely_polygon for detection in self.box_detections]
-        return OccupancyMap(geometries=geometries, ids=ids)
+        return OccupancyMap2D(geometries=geometries, ids=ids)
 
 
 class TrafficLightStatus(SerialIntEnum):

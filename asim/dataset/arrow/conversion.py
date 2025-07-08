@@ -1,4 +1,4 @@
-# TODO: rename this file to something more appropriate
+# TODO: rename this file and potentially move somewhere more appropriate.
 
 
 import numpy as np

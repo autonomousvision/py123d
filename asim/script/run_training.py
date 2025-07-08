@@ -4,20 +4,8 @@ from typing import List
 import hydra
 import lightning as L
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
-
-# from lightning.pytorch.loggers import Logger
-# from lightning.pytorch.loggers.wandb import WandbLogger
 from omegaconf import DictConfig
 
-# from src.utils import (
-#     RankedLogger,
-#     instantiate_callbacks,
-#     instantiate_loggers,
-#     log_hyperparameters,
-#     print_config_tree,
-# )
-
-# log = RankedLogger(__name__, rank_zero_only=True)
 logger = logging.getLogger(__name__)
 
 CONFIG_PATH = "config/lightning_training"

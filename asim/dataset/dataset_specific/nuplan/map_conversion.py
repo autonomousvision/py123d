@@ -1,3 +1,5 @@
+# TODO: Refactor this mess.
+
 import os
 import warnings
 from pathlib import Path
@@ -286,10 +288,7 @@ class NuPlanMapConverter:
                 right_boundary_fid = right_lane_row["right_boundary_fid"]
                 right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
 
-                # pass
-
             else:
-                # pass
                 lane_group_row = get_row_with_value(self._gdf["lane_groups_polygons"], "fid", str(lane_group_id))
                 left_boundary_fid = lane_group_row["left_boundary_fid"]
                 left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
@@ -395,10 +394,12 @@ class NuPlanMapConverter:
 
 
 def flip_linestring(linestring: LineString) -> LineString:
+    # TODO: move somewhere more appropriate or implement in Polyline2D, PolylineSE2, etc.
     return LineString(linestring.coords[::-1])
 
 
 def lines_same_direction(centerline: LineString, boundary: LineString) -> bool:
+    # TODO: refactor helper function.
     center_start = np.array(centerline.coords[0])
     center_end = np.array(centerline.coords[-1])
     boundary_start = np.array(boundary.coords[0])
@@ -412,6 +413,7 @@ def lines_same_direction(centerline: LineString, boundary: LineString) -> bool:
 
 
 def align_boundary_direction(centerline: LineString, boundary: LineString) -> LineString:
+    # TODO: refactor helper function.
     if not lines_same_direction(centerline, boundary):
         return flip_linestring(boundary)
     return boundary

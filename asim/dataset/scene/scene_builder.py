@@ -13,6 +13,8 @@ from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.dataset.scene.arrow_scene import ArrowScene, SceneExtractionInfo
 from asim.dataset.scene.scene_filter import SceneFilter
 
+# TODO: Fix lazy abstraction implementation for scene builder.
+
 
 class SceneBuilder(abc.ABC):
     @abc.abstractmethod

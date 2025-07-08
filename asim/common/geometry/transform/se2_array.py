@@ -6,6 +6,8 @@ import numpy.typing as npt
 from asim.common.geometry.base import StateSE2, StateSE2Index
 from asim.common.geometry.line.polylines import normalize_angle
 
+# TODO: Refactor 2D and 3D transform functions in a more consistent and general way.
+
 
 def convert_absolute_to_relative_se2_array(
     origin: Union[StateSE2, npt.NDArray[np.float64]], state_se2_array: npt.NDArray[np.float64]

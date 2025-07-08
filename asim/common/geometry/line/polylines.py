@@ -14,6 +14,9 @@ from asim.common.geometry.constants import DEFAULT_Z
 from asim.common.geometry.line.helper import get_linestring_yaws, get_path_progress
 from asim.common.geometry.utils import normalize_angle
 
+# TODO: Implement PolylineSE3
+# TODO: Benchmark interpolation performance and reconsider reliance on LineString
+
 
 @dataclass
 class Polyline2D:

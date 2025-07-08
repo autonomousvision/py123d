@@ -11,6 +11,8 @@ from asim.common.geometry.base import StateSE2, StateSE3
 from asim.common.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index, BoundingBoxSE3Index
 from asim.common.geometry.bounding_box.utils import bbse2_array_to_corners_array
 
+# TODO: Reconsider naming SE2 and SE3 hierarchies. E.g. would inheritance be a better approach?
+
 
 @dataclass
 class BoundingBoxSE2:

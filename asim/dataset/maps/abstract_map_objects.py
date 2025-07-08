@@ -28,7 +28,6 @@ class AbstractSurfaceMapObject(AbstractMapObject):
     Base interface representation of all map objects.
     """
 
-    # pass
     @property
     @abc.abstractmethod
     def shapely_polygon(self) -> geom.Polygon:

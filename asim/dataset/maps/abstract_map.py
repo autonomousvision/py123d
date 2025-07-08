@@ -10,9 +10,10 @@ from asim.dataset.maps.abstract_map_objects import AbstractMapObject
 from asim.dataset.maps.map_datatypes import MapSurfaceType
 
 # TODO:
-# add docstrings
-# rename methods
-# Combine query and query_object_ids into one method with an additional parameter to specify whether to return objects or IDs
+# - add docstrings
+# - rename methods?
+# - Combine query and query_object_ids into one method with an additional parameter to specify whether to return objects or IDs?
+# - Add stop pads or stop lines.
 
 
 class AbstractMap(abc.ABC):

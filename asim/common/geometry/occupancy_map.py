@@ -6,8 +6,10 @@ import shapely.vectorized
 from shapely.geometry.base import BaseGeometry
 from shapely.strtree import STRtree
 
+# TODO: Figure out if a 3D equivalent is needed.
 
-class OccupancyMap:
+
+class OccupancyMap2D:
     def __init__(
         self,
         geometries: Sequence[BaseGeometry],

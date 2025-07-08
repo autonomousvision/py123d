@@ -11,38 +11,8 @@ from asim.dataset.maps.abstract_map import MapSurfaceType
 from asim.dataset.maps.abstract_map_objects import AbstractSurfaceMapObject
 from asim.dataset.scene.abstract_scene import AbstractScene
 
-# def bounding_box_to_trimesh(bbox: BoundingBoxSE3, plot_config: PlotConfig) -> trimesh.Trimesh:
-
-#     # Create a unit box centered at origin
-#     box_mesh = trimesh.creation.box(extents=[bbox.length, bbox.width, bbox.height])
-
-#     # Create rotation matrix from roll, pitch, yaw (intrinsic rotations)
-#     # Using 'xyz' convention: roll (x), pitch (y), yaw (z)
-#     rotation = Rotation.from_euler("xyz", [bbox.center.roll, bbox.center.pitch, bbox.center.yaw])
-#     rotation_matrix = rotation.as_matrix()
-
-#     # Create 4x4 transformation matrix
-#     transform_matrix = np.eye(4)
-#     transform_matrix[:3, :3] = rotation_matrix
-#     transform_matrix[:3, 3] = [bbox.center.x, bbox.center.y, bbox.center.z]
-
-#     # Apply transformation to the box
-#     box_mesh.apply_transform(transform_matrix)
-
-#     base_color = [r / 255.0 for r in plot_config.fill_color.rgba]
-#     box_mesh.visual.face_colors = plot_config.fill_color.rgba
-
-#     pbr_material = trimesh.visual.material.PBRMaterial(
-#         baseColorFactor=base_color,  # Your desired color (RGBA, 0-1 range)
-#         metallicFactor=1.0,  # 0.0 = non-metallic (more matte)
-#         roughnessFactor=0.9,  # 0.8 = quite rough (less shiny, 0=mirror, 1=completely rough)
-#         emissiveFactor=[0.0, 0.0, 0.0],  # No emission
-#         alphaCutoff=0.75,  # Alpha threshold for transparency
-#         doubleSided=False,  # Single-sided material
-#     )
-#     box_mesh.visual.material = pbr_material
-
-#     return box_mesh
+# TODO: Refactor this file.
+# TODO: Add general utilities for 3D primitives and mesh support.
 
 
 def bounding_box_to_trimesh(bbox: BoundingBoxSE3, plot_config: PlotConfig) -> trimesh.Trimesh:

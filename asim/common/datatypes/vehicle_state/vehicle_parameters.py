@@ -1,5 +1,7 @@
 from asim.common.geometry.base import dataclass
 
+# TODO: Add more vehicle parameters, potentially extend the parameters.
+
 
 @dataclass
 class VehicleParameters:

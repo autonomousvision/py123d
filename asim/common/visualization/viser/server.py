@@ -6,7 +6,8 @@ import viser
 from asim.common.visualization.viser.utils import get_bounding_box_meshes, get_map_meshes
 from asim.dataset.scene.abstract_scene import AbstractScene
 
-# from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
+# TODO: Try to fix performance issues.
+# TODO: Refactor this file.
 
 
 class ViserVisualizationServer:
