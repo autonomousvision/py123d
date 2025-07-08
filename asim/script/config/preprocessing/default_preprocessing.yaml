@@ -16,5 +16,5 @@ defaults:
   - _self_
 
 
-paths:
-  cache_root: /home/daniel/waymo_training_catk
+
+cache_path: ???

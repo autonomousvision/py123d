@@ -11,6 +11,7 @@ map_names: null
 scene_tokens: null
 timestamp_threshold_s: 1.0
 ego_displacement_minimum_m: null
+max_num_scenes: null
 
-duration_s: 9.2
+duration_s: 8.1
 history_s: 1.0

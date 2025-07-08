@@ -33,7 +33,7 @@ def main(cfg: DictConfig) -> None:
     scene_builder = build_scene_builder(cfg.scene_builder)
 
     scenes = scene_builder.get_scenes(scene_filter, worker=worker)
-    logger.info(f"Found {len(scenes)} scenarios.")
+    logger.info(f"Found {len(scenes)} scenes.")
 
     results = worker_map(worker, _run_simulation, scenes)
 

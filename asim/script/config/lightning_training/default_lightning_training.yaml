@@ -12,7 +12,7 @@ defaults:
   - default_common
   - default_experiment
   - data: waymo
-  - model: smart_nano_1M
+  - model: smart_nano_1M_forecasting
   - callbacks: default_callbacks
   - trainer: default_trainer
   # - default_dataset_paths

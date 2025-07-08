@@ -49,29 +49,27 @@ def main(cfg: DictConfig) -> None:
     scene_builder = build_scene_builder(cfg.scene_builder)
 
     scenes = scene_builder.get_scenes(scene_filter, worker=worker)
-    logger.info(f"Found {len(scenes)} scenarios.")
+    logger.info(f"Found {len(scenes)} scenes.")
 
-    output_path = Path("/home/daniel/cache_test")
-    output_path.mkdir(parents=True, exist_ok=True)
+    cache_path = Path(cfg.cache_path)
+    cache_path.mkdir(parents=True, exist_ok=True)
 
     feature_builder = SMARTFeatureBuilder()
 
-    worker_map(worker, partial(_apply_feature_builder, feature_builder=feature_builder), scenes)
+    worker_map(worker, partial(_apply_feature_builder, feature_builder=feature_builder, cache_path=cache_path), scenes)
 
 
-def _apply_feature_builder(
-    scenes: List[AbstractScene],
-    feature_builder: SMARTFeatureBuilder,
-):
+def _apply_feature_builder(scenes: List[AbstractScene], feature_builder: SMARTFeatureBuilder, cache_path: Path):
 
-    output_path = Path("/home/daniel/cache_test")
     for scene in scenes:
         scene.open()
         feature_dict = feature_builder.build_features(scene=scene)
-        output_file = output_path / f"{feature_dict['scenario_id']}.pkl"
+        output_file = cache_path / f"{feature_dict['scenario_id']}.pkl"
         with open(output_file, "wb") as f:
             pickle.dump(feature_dict, f)
         scene.close()
+
+    return []
 
 
 if __name__ == "__main__":
