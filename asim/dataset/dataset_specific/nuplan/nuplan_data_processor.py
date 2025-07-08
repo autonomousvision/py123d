@@ -9,8 +9,6 @@ from typing import Dict, Final, List, Tuple, Union
 import psutil
 import pyarrow as pa
 import yaml
-
-# from nuplan.common.geometry.compute import get_pacifica_parameters
 from nuplan.database.nuplan_db_orm.lidar_box import LidarBox
 from nuplan.database.nuplan_db_orm.lidar_pc import LidarPc
 from nuplan.database.nuplan_db_orm.nuplandb import NuPlanDB
@@ -19,11 +17,7 @@ from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker
 import asim.dataset.dataset_specific.nuplan.utils as nuplan_utils
 from asim.common.datatypes.detection.detection import TrafficLightStatus
 from asim.common.datatypes.detection.detection_types import DetectionType
-from asim.common.datatypes.vehicle_state.ego_state import (
-    DynamicStateSE3,
-    EgoStateSE3,
-    EgoStateSE3Index,
-)
+from asim.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from asim.common.datatypes.vehicle_state.vehicle_parameters import get_nuplan_pacifica_parameters
 from asim.common.geometry.base import StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3, BoundingBoxSE3Index
