@@ -3,8 +3,9 @@ hydra:
     dir: ${output_dir}
   output_subdir: ${output_dir}/code/hydra           # Store hydra's config breakdown here for debugging
   searchpath:                                       # Only <exp_dir> in these paths are discoverable
-    - pkg://asim.script.config.common
     - pkg://asim.script.config
+    - pkg://asim.script.config.common
+
   job:
     chdir: False
 
@@ -15,6 +16,6 @@ defaults:
   - _self_
   - datasets:
     - nuplan_mini_dataset
-    - carla_dataset
+    # - carla_dataset
 
 force_feature_computation: True

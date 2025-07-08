@@ -1,5 +1,9 @@
 import numpy as np
 
+# TODO: move this somewhere else
+# TODO: Maybe rename wrap angle?
+# TODO: Add implementation for torch, jax, or whatever else is needed.
+
 
 def normalize_angle(angle):
     """

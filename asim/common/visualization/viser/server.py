@@ -6,7 +6,8 @@ import viser
 from asim.common.visualization.viser.utils import get_bounding_box_meshes, get_map_meshes
 from asim.dataset.scene.abstract_scene import AbstractScene
 
-# from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
+# TODO: Try to fix performance issues.
+# TODO: Refactor this file.
 
 
 class ViserVisualizationServer:
@@ -21,7 +22,6 @@ class ViserVisualizationServer:
 
     def set_scene(self, scene: AbstractScene) -> None:
         num_frames = scene.get_number_of_iterations()
-        initial_center = scene.get_ego_vehicle_state_at_iteration(0).bounding_box.center
         with self.server.gui.add_folder("Playback"):
 
             gui_timestep = self.server.gui.add_slider(
@@ -71,7 +71,7 @@ class ViserVisualizationServer:
                 # with self.server.atomic():
                 mew_frame_handle = self.server.scene.add_frame(f"/frame{gui_timestep.value}", show_axes=False)
                 meshes = []
-                for name, mesh in get_bounding_box_meshes(scene, gui_timestep.value, initial_center).items():
+                for name, mesh in get_bounding_box_meshes(scene, gui_timestep.value).items():
                     meshes.append(mesh)
                 self.server.scene.add_mesh_trimesh(
                     f"/frame{gui_timestep.value}/detections",
@@ -90,7 +90,7 @@ class ViserVisualizationServer:
             # Load in frames.
             current_frame_handle = self.server.scene.add_frame(f"/frame{gui_timestep.value}", show_axes=False)
             self.server.scene.add_frame("/map", show_axes=False)
-            for name, mesh in get_map_meshes(scene, initial_center).items():
+            for name, mesh in get_map_meshes(scene).items():
                 self.server.scene.add_mesh_trimesh(f"/map/{name}", mesh, visible=True)
 
             # Playback update loop.

@@ -4,11 +4,13 @@ import abc
 from dataclasses import dataclass
 from typing import List
 
-from asim.common.time.time_point import TimePoint
-from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleState
+from asim.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from asim.common.datatypes.time.time_point import TimePoint
+from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.maps.abstract_map import AbstractMap
-from asim.dataset.observation.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+
+# TODO: Remove or improve open/close dynamic of Scene object.
 
 
 class AbstractScene(abc.ABC):
@@ -37,11 +39,15 @@ class AbstractScene(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def get_number_of_history_iterations() -> int:
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def get_timepoint_at_iteration(self, iteration: int) -> TimePoint:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_ego_vehicle_state_at_iteration(self, iteration: int) -> EgoVehicleState:
+    def get_ego_vehicle_state_at_iteration(self, iteration: int) -> EgoStateSE3:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -63,6 +69,7 @@ class AbstractScene(abc.ABC):
         pass
 
 
+# TODO: Move to a more appropriate place.
 @dataclass(frozen=True)
 class SceneExtractionInfo:
 
@@ -73,7 +80,11 @@ class SceneExtractionInfo:
 
     @property
     def number_of_iterations(self) -> int:
-        return int(self.duration_s / self.iteration_duration_s)
+        return round(self.duration_s / self.iteration_duration_s)
+
+    @property
+    def number_of_history_iterations(self) -> int:
+        return round(self.history_s / self.iteration_duration_s)
 
     @property
     def end_idx(self) -> int:

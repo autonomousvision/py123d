@@ -15,6 +15,7 @@ def add_shapely_polygon_to_ax(
     ax: plt.Axes,
     polygon: geom.Polygon,
     plot_config: PlotConfig,
+    disable_smoothing: bool = False,
 ) -> plt.Axes:
     """
     Adds shapely polygon to birds-eye-view visualization
@@ -26,9 +27,24 @@ def add_shapely_polygon_to_ax(
 
     def _add_element_helper(element: geom.Polygon):
         """Helper to add single polygon to ax"""
-        if plot_config.smoothing_radius is not None:
+        if plot_config.smoothing_radius is not None and not disable_smoothing:
             element = element.buffer(-plot_config.smoothing_radius).buffer(plot_config.smoothing_radius)
         exterior_x, exterior_y = element.exterior.xy
+
+        if plot_config.shadow:
+            shadow_offset = 0.5
+            shadow_x = [x + shadow_offset for x in exterior_x]
+            shadow_y = [y - shadow_offset for y in exterior_y]
+            ax.fill(
+                shadow_x,
+                shadow_y,
+                color="gray",
+                alpha=1.0,
+                edgecolor=None,
+                linewidth=0,
+                zorder=plot_config.zorder,
+            )
+
         ax.fill(
             exterior_x,
             exterior_y,
@@ -112,3 +128,10 @@ def shapely_geometry_local_coords(
     rotated_geometry = affinity.affine_transform(geometry, [cos, sin, -sin, cos, 0, 0])
     translated_geometry = affinity.affine_transform(rotated_geometry, [1, 0, 0, 1, xoff, yoff])
     return translated_geometry
+
+
+def add_non_repeating_legend_to_ax(ax: plt.Axes) -> plt.Axes:
+    handles, labels = ax.get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    ax.legend(by_label.values(), by_label.keys())
+    return ax

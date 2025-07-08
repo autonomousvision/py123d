@@ -1,18 +1,34 @@
+import abc
+import json
+import random
 from functools import partial
 from pathlib import Path
 from typing import Iterator, List, Optional, Set, Union
 
-from nuplan.planning.utils.multithreading.worker_pool import WorkerPool
+from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 
-from asim.dataset.arrow.helper import open_arrow_arrow_table
-from asim.dataset.dataset_specific.nuplan.nuplan_data_processor import worker_map
+from asim.dataset.arrow.helper import open_arrow_table
 from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.dataset.scene.arrow_scene import ArrowScene, SceneExtractionInfo
 from asim.dataset.scene.scene_filter import SceneFilter
 
+# TODO: Fix lazy abstraction implementation for scene builder.
 
-class ArrowSceneBuilder:
+
+class SceneBuilder(abc.ABC):
+    @abc.abstractmethod
+    def get_scenes(self, filter: SceneFilter, worker: WorkerPool) -> Iterator[AbstractScene]:
+        """
+        Returns an iterator over scenes that match the given filter.
+        :param filter: SceneFilter object to filter the scenes.
+        :param worker: WorkerPool to parallelize the scene extraction.
+        :return: Iterator over AbstractScene objects.
+        """
+        raise NotImplementedError
+
+
+class ArrowSceneBuilder(SceneBuilder):
     """
     A class to build a scene from a dataset.
     """
@@ -21,6 +37,7 @@ class ArrowSceneBuilder:
         self._dataset_path = Path(dataset_path)
 
     def get_scenes(self, filter: SceneFilter, worker: WorkerPool) -> Iterator[AbstractScene]:
+        """See superclass."""
 
         split_types = set(filter.split_types) if filter.split_types else {"train", "val", "test"}
         split_names = (
@@ -31,6 +48,13 @@ class ArrowSceneBuilder:
         if len(log_paths) == 0:
             return []
         scenes = worker_map(worker, partial(_extract_scenes_from_logs, filter=filter), log_paths)
+
+        if filter.shuffle:
+            random.shuffle(scenes)
+
+        if filter.max_num_scenes is not None:
+            scenes = scenes[: filter.max_num_scenes]
+
         return scenes
 
 
@@ -75,8 +99,8 @@ def _extract_scenes_from_logs(log_paths: List[Path], filter: SceneFilter) -> Lis
 def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) -> List[SceneExtractionInfo]:
     scene_extraction_infos: List[SceneExtractionInfo] = []
 
-    recording_table = open_arrow_arrow_table(log_path)
-    log_metadata = LogMetadata.from_arrow_table(recording_table)
+    recording_table = open_arrow_table(log_path)
+    log_metadata = LogMetadata(**json.loads(recording_table.schema.metadata[b"log_metadata"].decode()))
 
     # 1. Filter map name
     if filter.map_names is not None and log_metadata.map_name not in filter.map_names:
@@ -98,7 +122,7 @@ def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) 
             )
         ]
 
-    scene_token_set = set(filter.scene_tokens) if filter.scene_tokens else None
+    scene_token_set = set(filter.scene_tokens) if filter.scene_tokens is not None else None
 
     for idx in range(start_idx, end_idx):
         scene_extraction_info: Optional[SceneExtractionInfo] = None

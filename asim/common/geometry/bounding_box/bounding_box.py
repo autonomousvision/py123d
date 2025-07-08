@@ -1,26 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import IntEnum
-from typing import Union
+from functools import cached_property
 
 import numpy as np
 import numpy.typing as npt
 import shapely
 
-from asim.common.geometry.base import Point2D, StateSE2, StateSE3
-from asim.common.geometry.tranform_2d import translate_along_yaw
-from asim.common.utils.enums import classproperty
+from asim.common.geometry.base import StateSE2, StateSE3
+from asim.common.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index, BoundingBoxSE3Index
+from asim.common.geometry.bounding_box.utils import bbse2_array_to_corners_array
 
-
-class BoundingBoxSE2Index(IntEnum):
-    X = 0
-    Y = 1
-    YAW = 2
-
-    @classproperty
-    def XY(cls) -> slice:
-        return slice(cls.X, cls.Y + 1)
+# TODO: Reconsider naming SE2 and SE3 hierarchies. E.g. would inheritance be a better approach?
 
 
 @dataclass
@@ -30,41 +21,23 @@ class BoundingBoxSE2:
     length: float
     width: float
 
-    @property
+    @cached_property
     def shapely_polygon(self) -> shapely.geometry.Polygon:
+        return shapely.geometry.Polygon(self.corners_array)
 
-        return shapely.geometry.Polygon(
-            [
-                translate_along_yaw(self.center, Point2D(self.length / 2.0, self.width / 2.0)).point_2d.array,
-                translate_along_yaw(self.center, Point2D(self.length / 2.0, -self.width / 2.0)).point_2d.array,
-                translate_along_yaw(self.center, Point2D(-self.length / 2.0, -self.width / 2.0)).point_2d.array,
-                translate_along_yaw(self.center, Point2D(-self.length / 2.0, self.width / 2.0)).point_2d.array,
-            ]
-        )
+    @property
+    def array(self) -> npt.NDArray[np.float64]:
+        array = np.zeros(len(BoundingBoxSE2Index), dtype=np.float64)
+        array[BoundingBoxSE2Index.X] = self.center.x
+        array[BoundingBoxSE2Index.Y] = self.center.y
+        array[BoundingBoxSE2Index.YAW] = self.center.yaw
+        array[BoundingBoxSE2Index.LENGTH] = self.length
+        array[BoundingBoxSE2Index.WIDTH] = self.width
+        return array
 
-
-class BoundingBoxSE3Index(IntEnum):
-    X = 0
-    Y = 1
-    Z = 2
-    ROLL = 3
-    PITCH = 4
-    YAW = 5
-    LENGTH = 6
-    WIDTH = 7
-    HEIGHT = 8
-
-    @classproperty
-    def XYZ(cls) -> slice:
-        return slice(cls.X, cls.Z + 1)
-
-    @classproperty
-    def STATE_SE3(cls) -> slice:
-        return slice(cls.X, cls.YAW + 1)
-
-    @classproperty
-    def ROTATION_XYZ(cls) -> slice:
-        return slice(cls.ROLL, cls.YAW + 1)
+    @property
+    def corners_array(self) -> npt.NDArray[np.float64]:
+        return bbse2_array_to_corners_array(self.array)
 
 
 @dataclass
@@ -111,4 +84,4 @@ class BoundingBoxSE3:
         return self.bounding_box_se2.shapely_polygon
 
 
-BoundingBox = Union[BoundingBoxSE2, BoundingBoxSE3]
+BoundingBox = BoundingBoxSE2 | BoundingBoxSE3

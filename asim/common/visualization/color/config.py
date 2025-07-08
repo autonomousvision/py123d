@@ -18,3 +18,5 @@ class PlotConfig:
     zorder: int = 0
 
     smoothing_radius: Optional[float] = None
+
+    shadow: bool = False

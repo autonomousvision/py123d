@@ -2,33 +2,36 @@ import gc
 import json
 import os
 from dataclasses import asdict
+from functools import partial
 from pathlib import Path
 from typing import Dict, Final, List, Tuple, Union
 
+import psutil
 import pyarrow as pa
-import pyarrow.ipc as ipc
 import yaml
-from nuplan.common.geometry.compute import get_pacifica_parameters
 from nuplan.database.nuplan_db_orm.lidar_box import LidarBox
 from nuplan.database.nuplan_db_orm.lidar_pc import LidarPc
 from nuplan.database.nuplan_db_orm.nuplandb import NuPlanDB
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
-from tqdm import tqdm
 
 import asim.dataset.dataset_specific.nuplan.utils as nuplan_utils
+from asim.common.datatypes.detection.detection import TrafficLightStatus
+from asim.common.datatypes.detection.detection_types import DetectionType
+from asim.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
+from asim.common.datatypes.vehicle_state.vehicle_parameters import get_nuplan_pacifica_parameters
 from asim.common.geometry.base import StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3, BoundingBoxSE3Index
 from asim.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from asim.common.geometry.transform.se3 import translate_se3_along_x, translate_se3_along_z
 from asim.common.geometry.vector import Vector3D, Vector3DIndex
-from asim.common.vehicle_state.ego_vehicle_state import DynamicVehicleState, EgoVehicleState, EgoVehicleStateIndex
+from asim.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from asim.dataset.dataset_specific.raw_data_processor import RawDataProcessor
 from asim.dataset.logs.log_metadata import LogMetadata
-from asim.dataset.observation.detection.detection import TrafficLightStatus
-from asim.dataset.observation.detection.detection_types import DetectionType
 
 TARGET_DT: Final[float] = 0.1
 NUPLAN_DT: Final[float] = 0.05
+SORT_BY_TIMESTAMP: Final[bool] = True
+
 NUPLAN_FULL_MAP_NAME_DICT: Final[Dict[str, str]] = {
     "boston": "us-ma-boston",
     "singapore": "sg-one-north",
@@ -63,7 +66,14 @@ def create_splits_logs() -> Dict[str, List[str]]:
 
 
 class NuplanDataProcessor(RawDataProcessor):
-    def __init__(self, splits: List[str], log_path: Union[Path, str], output_path: Union[Path, str]) -> None:
+    def __init__(
+        self,
+        splits: List[str],
+        log_path: Union[Path, str],
+        output_path: Union[Path, str],
+        force_data_conversion: bool,
+    ) -> None:
+        super().__init__(force_data_conversion)
         for split in splits:
             assert (
                 split in self.get_available_splits()
@@ -92,7 +102,7 @@ class NuplanDataProcessor(RawDataProcessor):
                 log_path = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "splits" / "mini"
 
             all_log_files_in_path = [log_file for log_file in log_path.glob("*.db")]
-            all_log_names = set([log_file.stem for log_file in all_log_files_in_path])
+            all_log_names = set([str(log_file.stem) for log_file in all_log_files_in_path])
             split_log_names = set(subsplit_log_names[subsplit])
             log_paths = [log_path / f"{log_name}.db" for log_name in list(all_log_names & split_log_names)]
             log_paths_per_split[split] = log_paths
@@ -113,28 +123,59 @@ class NuplanDataProcessor(RawDataProcessor):
         log_args = [
             {
                 "log_path": log_path,
-                "output_path": self._output_path,
                 "split": split,
             }
             for split, log_paths in self._log_paths_per_split.items()
             for log_path in log_paths
         ]
 
-        worker_map(worker, convert_nuplan_log_to_arrow, log_args)
+        worker_map(
+            worker,
+            partial(
+                convert_nuplan_log_to_arrow,
+                output_path=self._output_path,
+                force_data_conversion=self.force_data_conversion,
+            ),
+            log_args,
+        )
 
 
-def convert_nuplan_log_to_arrow(args: List[Dict[str, Union[List[str], List[Path]]]]) -> None:
-    def convert_log_internal(args: List[Dict[str, Union[List[str], List[Path]]]]) -> None:
-        for log_info in args:
-            log_path: Path = log_info["log_path"]
-            output_path: Path = log_info["output_path"]
-            split: str = log_info["split"]
+def convert_nuplan_log_to_arrow(
+    args: List[Dict[str, Union[List[str], List[Path]]]],
+    output_path: Path,
+    force_data_conversion: bool,
+) -> None:
+    process = psutil.Process(os.getpid())
+    for log_info in args:
+        log_path: Path = log_info["log_path"]
+        split: str = log_info["split"]
 
-            if not log_path.exists():
-                raise FileNotFoundError(f"Log path {log_path} does not exist.")
+        if not log_path.exists():
+            raise FileNotFoundError(f"Log path {log_path} does not exist.")
 
-            log_db = NuPlanDB(NUPLAN_DATA_ROOT, str(log_path), None)
-            recording_table = _get_recording_table(log_db)
+        log_db = NuPlanDB(NUPLAN_DATA_ROOT, str(log_path), None)
+        log_file_path = output_path / split / f"{log_path.stem}.arrow"
+
+        if force_data_conversion or not log_file_path.exists():
+            log_file_path.unlink(missing_ok=True)
+            if not log_file_path.parent.exists():
+                log_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            recording_schema = pa.schema(
+                [
+                    ("token", pa.string()),
+                    ("timestamp", pa.int64()),
+                    ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
+                    ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
+                    ("detections_token", pa.list_(pa.string())),
+                    ("detections_type", pa.list_(pa.int16())),
+                    ("ego_states", pa.list_(pa.float64(), len(EgoStateSE3Index))),
+                    ("traffic_light_ids", pa.list_(pa.int64())),
+                    ("traffic_light_types", pa.list_(pa.int16())),
+                    ("scenario_tag", pa.list_(pa.string())),
+                    ("route_lane_group_ids", pa.list_(pa.int64())),
+                ]
+            )
             metadata = LogMetadata(
                 dataset="nuplan",
                 log_name=log_db.log_name,
@@ -142,115 +183,63 @@ def convert_nuplan_log_to_arrow(args: List[Dict[str, Union[List[str], List[Path]
                 timestep_seconds=TARGET_DT,
                 map_has_z=False,
             )
-            recording_table = recording_table.replace_schema_metadata({"log_metadata": json.dumps(asdict(metadata))})
+            vehicle_parameters = get_nuplan_pacifica_parameters()
+            recording_schema = recording_schema.with_metadata(
+                {
+                    "log_metadata": json.dumps(asdict(metadata)),
+                    "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
+                }
+            )
 
-            log_file_path = output_path / split / f"{log_path.stem}.arrow"
+            _write_recording_table(log_db, recording_schema, log_file_path)
 
-            if not log_file_path.parent.exists():
-                log_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-            with pa.OSFile(str(log_file_path), "wb") as sink:
-                with ipc.new_file(sink, recording_table.schema) as writer:
-                    writer.write_table(recording_table)
-
-            del recording_table, log_db
-            gc.collect()
-        return []
-
-    convert_log_internal(args)
-    gc.collect()
+        log_db.detach_tables()
+        log_db.remove_ref()
+        del recording_schema, vehicle_parameters, log_db
+        gc.collect()
+        print(f"{os.getpid()} Memory usage: {process.memory_info().rss / 1024 / 1024:.1f} MB")
     return []
 
 
-def _get_recording_table(log_db: NuPlanDB) -> pa.Table:
+def _write_recording_table(log_db: NuPlanDB, recording_schema: pa.schema, log_file_path: Path) -> None:
 
-    log_db.log.token
-    log_db.log.map_version
-    log_db.log.vehicle_name
+    # with pa.ipc.new_stream(str(log_file_path), recording_schema) as writer:
+    with pa.OSFile(str(log_file_path), "wb") as sink:
+        with pa.ipc.new_file(sink, recording_schema) as writer:
+            step_interval: float = int(TARGET_DT / NUPLAN_DT)
+            for lidar_pc in log_db.lidar_pc[::step_interval]:
+                lidar_pc_token: str = lidar_pc.token
+                detections_state, detections_velocity, detections_token, detections_types = _extract_detections(
+                    lidar_pc
+                )
+                traffic_light_ids, traffic_light_types = _extract_traffic_lights(log_db, lidar_pc_token)
+                route_lane_group_ids = [
+                    int(roadblock_id)
+                    for roadblock_id in str(lidar_pc.scene.roadblock_ids).split(" ")
+                    if len(roadblock_id) > 0
+                ]
 
-    token_log: List[str] = []
-    timestamp_log: List[int] = []
+                row_data = {
+                    "token": [lidar_pc_token],
+                    "timestamp": [lidar_pc.timestamp],
+                    "detections_state": [detections_state],
+                    "detections_velocity": [detections_velocity],
+                    "detections_token": [detections_token],
+                    "detections_type": [detections_types],
+                    "ego_states": [_extract_ego_state(lidar_pc)],
+                    "traffic_light_ids": [traffic_light_ids],
+                    "traffic_light_types": [traffic_light_types],
+                    "scenario_tag": [_extract_scenario_tag(log_db, lidar_pc_token)],
+                    "route_lane_group_ids": [route_lane_group_ids],
+                }
+                batch = pa.record_batch(row_data, schema=recording_schema)
+                writer.write_batch(batch)
+                del batch, row_data, detections_state, detections_velocity, detections_token, detections_types
 
-    detections_state_log: List[List[List[float]]] = []
-    detections_velocity_log: List[List[List[float]]] = []
-    detections_token_log: List[List[str]] = []
-    detections_type_log: List[List[int]] = []
-
-    ego_states_log: List[List[float]] = []
-
-    traffic_light_ids_log: List[List[int]] = []
-    traffic_light_types_log: List[List[int]] = []
-    scenario_tags_log: List[List[str]] = []
-    route_lane_group_ids_log: List[List[int]] = []
-
-    step_interval: float = int(TARGET_DT / NUPLAN_DT)
-    for lidar_pc in tqdm(log_db.lidar_pc[::step_interval], dynamic_ncols=True):
-        lidar_pc_token: str = lidar_pc.token
-
-        # 1. Token + Timestamp (time_us)
-        token_log.append(lidar_pc_token)
-        timestamp_log.append(lidar_pc.timestamp)
-
-        # 2. box detections
-        detections_state, detections_velocity, detections_token, detections_types = _extract_detections(lidar_pc)
-        detections_state_log.append(detections_state)
-        detections_velocity_log.append(detections_velocity)
-        detections_token_log.append(detections_token)
-        detections_type_log.append(detections_types)
-
-        # 3. Ego state
-        ego_states_log.append(_extract_ego_state(lidar_pc))
-
-        # 4. Traffic lights
-        traffic_light_ids, traffic_light_types = _extract_traffic_lights(log_db, lidar_pc_token)
-        traffic_light_ids_log.append(traffic_light_ids)
-        traffic_light_types_log.append(traffic_light_types)
-
-        # 5. Scenario Types
-        scenario_tags_log.append(_extract_scenario_tag(log_db, lidar_pc_token))
-
-        # 6. route lane group ids
-        route_lane_group_ids_log.append(
-            [
-                int(roadblock_id)
-                for roadblock_id in str(lidar_pc.scene.roadblock_ids).split(" ")
-                if len(roadblock_id) > 0
-            ]
-        )
-
-    recording_data = {
-        "token": token_log,
-        "timestamp": timestamp_log,
-        "detections_state": detections_state_log,
-        "detections_velocity": detections_velocity_log,
-        "detections_token": detections_token_log,
-        "detections_type": detections_type_log,
-        "ego_states": ego_states_log,
-        "traffic_light_ids": traffic_light_ids_log,
-        "traffic_light_types": traffic_light_types_log,
-        "scenario_tag": scenario_tags_log,
-        "route_lane_group_ids": route_lane_group_ids_log,
-    }
-
-    # Create a PyArrow Table
-    recording_schema = pa.schema(
-        [
-            ("token", pa.string()),
-            ("timestamp", pa.int64()),
-            ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
-            ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
-            ("detections_token", pa.list_(pa.string())),
-            ("detections_type", pa.list_(pa.int16())),
-            ("ego_states", pa.list_(pa.float64(), len(EgoVehicleStateIndex))),
-            ("traffic_light_ids", pa.list_(pa.int64())),
-            ("traffic_light_types", pa.list_(pa.int16())),
-            ("scenario_tag", pa.list_(pa.string())),
-            ("route_lane_group_ids", pa.list_(pa.int64())),
-        ]
-    )
-    recording_table = pa.Table.from_pydict(recording_data, schema=recording_schema)
-    recording_table = recording_table.sort_by([("timestamp", "ascending")])
-    return recording_table
+    if SORT_BY_TIMESTAMP:
+        recording_table = open_arrow_table(log_file_path)
+        recording_table = recording_table.sort_by([("timestamp", "ascending")])
+        write_arrow_table(recording_table, log_file_path)
 
 
 def _extract_detections(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[List[float]], List[str], List[int]]:
@@ -282,8 +271,8 @@ def _extract_detections(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[List
 def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
 
     yaw, pitch, roll = lidar_pc.ego_pose.quaternion.yaw_pitch_roll
-    vehicle_parameters = get_pacifica_parameters()
-    # TODO: Convert rear axle to center
+    vehicle_parameters = get_nuplan_pacifica_parameters()
+    # vehicle_parameters = get_pacifica_parameters()
 
     rear_axle_pose = StateSE3(
         x=lidar_pc.ego_pose.x,
@@ -293,22 +282,15 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
         pitch=pitch,
         yaw=yaw,
     )
-    # NOTE: the height to rear axle is not provided in the nuplan dataset.
+    # NOTE: The height to rear axle is not provided the dataset and is merely approximated.
     center = translate_se3_along_z(
         translate_se3_along_x(
             rear_axle_pose,
-            vehicle_parameters.rear_axle_to_center,
+            vehicle_parameters.rear_axle_to_center_longitudinal,
         ),
-        vehicle_parameters.height / 3,
+        vehicle_parameters.rear_axle_to_center_vertical,
     )
-
-    bounding_box = BoundingBoxSE3(
-        center=center,
-        length=vehicle_parameters.length,
-        width=vehicle_parameters.width,
-        height=vehicle_parameters.height,
-    )
-    dynamic_state = DynamicVehicleState(
+    dynamic_state = DynamicStateSE3(
         velocity=Vector3D(
             x=lidar_pc.ego_pose.vx,
             y=lidar_pc.ego_pose.vy,
@@ -326,7 +308,12 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
         ),
     )
 
-    return EgoVehicleState(bounding_box=bounding_box, dynamic_state=dynamic_state).array.tolist()
+    return EgoStateSE3(
+        center=center,
+        dynamic_state=dynamic_state,
+        vehicle_parameters=vehicle_parameters,
+        timepoint=None,
+    ).array.tolist()
 
 
 def _extract_traffic_lights(log_db: NuPlanDB, lidar_pc_token: str) -> Tuple[List[int], List[int]]:

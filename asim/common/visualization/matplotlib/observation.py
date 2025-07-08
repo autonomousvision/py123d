@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import shapely.geometry as geom
 
+from asim.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from asim.common.geometry.base import Point2D
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
-from asim.common.geometry.tranform_2d import translate_along_yaw
-from asim.common.vehicle_state.ego_vehicle_state import EgoVehicleState
+from asim.common.geometry.transform.tranform_2d import translate_along_yaw
 from asim.common.visualization.color.config import PlotConfig
 from asim.common.visualization.color.default import (
     BOX_DETECTION_CONFIG,
@@ -26,8 +27,6 @@ from asim.common.visualization.matplotlib.utils import (
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.maps.abstract_map_objects import AbstractLane
 from asim.dataset.maps.map_datatypes import MapSurfaceType
-from asim.dataset.observation.detection.detection import BoxDetectionWrapper
-from asim.dataset.scene.abstract_scene import TrafficLightDetectionWrapper
 
 
 def add_default_map_on_ax(
@@ -54,7 +53,7 @@ def add_default_map_on_ax(
     for layer, map_objects in map_objects_dict.items():
         for map_object in map_objects:
             try:
-                if layer in [MapSurfaceType.LANE_GROUP] and route_lane_group_ids is not None:
+                if layer in [MapSurfaceType.LANE_GROUP]:
                     if route_lane_group_ids is not None and int(map_object.id) in route_lane_group_ids:
                         add_shapely_polygon_to_ax(ax, map_object.shapely_polygon, ROUTE_CONFIG)
                     else:
@@ -88,7 +87,7 @@ def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionWrapper) 
         add_bounding_box_to_ax(ax, box_detection.bounding_box, plot_config)
 
 
-def add_ego_vehicle_to_ax(ax: plt.Axes, ego_vehicle_state: EgoVehicleState) -> None:
+def add_ego_vehicle_to_ax(ax: plt.Axes, ego_vehicle_state: EgoStateSE3) -> None:
     add_bounding_box_to_ax(ax, ego_vehicle_state.bounding_box, EGO_VEHICLE_CONFIG)
 
 
@@ -137,6 +136,6 @@ def add_bounding_box_to_ax(
             marker_size = min(plot_config.marker_size, min(bounding_box.length, bounding_box.width))
             marker_polygon = get_pose_triangle(marker_size)
             global_marker_polygon = shapely_geometry_local_coords(marker_polygon, bounding_box.center)
-            add_shapely_polygon_to_ax(ax, global_marker_polygon, plot_config)
+            add_shapely_polygon_to_ax(ax, global_marker_polygon, plot_config, disable_smoothing=True)
         else:
             raise ValueError(f"Unknown marker style: {plot_config.marker_style}")

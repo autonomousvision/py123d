@@ -54,7 +54,7 @@ def render_scene_animation(
     fps: float = 20.0,
     dpi: int = 300,
     format: str = "mp4",
-    radius: float = 80,
+    radius: float = 100,
 ) -> None:
     assert format in ["mp4", "gif"], "Format must be either 'mp4' or 'gif'."
     output_path = Path(output_path)

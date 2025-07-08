@@ -3,8 +3,9 @@ from __future__ import annotations
 from enum import IntEnum
 
 import numpy as np
+import numpy.typing as npt
 
-from asim.common.geometry.base import Point2D, Point3D
+from asim.common.geometry.base import Point2D, Point3D, Point3DIndex
 
 
 class Vector2DIndex(IntEnum):
@@ -27,7 +28,11 @@ class Vector2D(Point2D):
 
     def magnitude(self) -> float:
         """Calculate the magnitude of the vector."""
-        return np.linalg.norm(self.array)
+        return float(np.linalg.norm(self.array))
+
+    @property
+    def vector_2d(self) -> Vector2D:
+        return self
 
 
 class Vector3DIndex(IntEnum):
@@ -37,6 +42,13 @@ class Vector3DIndex(IntEnum):
 
 
 class Vector3D(Point3D):
+
+    @classmethod
+    def from_array(cls, array: npt.NDArray[np.float64]) -> Vector3D:
+        assert array.ndim == 1
+        assert array.shape[0] == len(Point3DIndex)
+        return cls(array[Point3DIndex.X], array[Point3DIndex.Y], array[Point3DIndex.Z])
+
     def __add__(self, other: Vector3D) -> Vector3D:
         return Vector3D(self.x + other.x, self.y + other.y, self.z + other.z)
 
@@ -51,8 +63,8 @@ class Vector3D(Point3D):
 
     def magnitude(self) -> float:
         """Calculate the magnitude of the vector."""
-        return np.linalg.norm(self.array)
+        return float(np.linalg.norm(self.array))
 
     @property
-    def vector_2(self) -> Vector2D:
+    def vector_2d(self) -> Vector2D:
         return Vector2D(self.x, self.y)

@@ -9,7 +9,6 @@ control
 Fiona
 geopandas
 guppy3
-hydra-core
 joblib
 matplotlib
 nest_asyncio
@@ -40,6 +39,11 @@ notebook
 pre-commit
 cachetools
 
+# hydra
+hydra_colorlog
+hydra-core
+
+
 
 # asim
 lxml
@@ -49,7 +53,7 @@ viser
 # torch & lighting
 torch==2.6.0
 torchvision==0.21.0
-pytorch-lightning==2.5.0
+lightning
 tensorboard
 protobuf==4.25.3
 pre-commit

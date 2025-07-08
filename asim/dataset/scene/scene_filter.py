@@ -1,12 +1,14 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
+# TODO: Add more filter options (e.g. scene tags, ego movement, or whatever appropriate)
+
 
 @dataclass
 class SceneFilter:
 
-    split_types: List[str] = None
-    split_names: List[str] = None
+    split_types: Optional[List[str]] = None
+    split_names: Optional[List[str]] = None
     # scene_tags: List[str] = None
     log_names: Optional[List[str]] = None
 
@@ -18,3 +20,6 @@ class SceneFilter:
 
     duration_s: Optional[float] = 10.0
     history_s: Optional[float] = 3.0
+
+    max_num_scenes: Optional[int] = None
+    shuffle: bool = False

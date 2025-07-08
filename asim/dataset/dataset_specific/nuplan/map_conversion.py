@@ -1,3 +1,5 @@
+# TODO: Refactor this mess.
+
 import os
 import warnings
 from pathlib import Path
@@ -46,6 +48,7 @@ class NuPlanMapConverter:
 
         self._map_path: Path = map_path
         self._gdf: Optional[Dict[str, gpd.GeoDataFrame]] = None
+        self._extract_lane_group_boundaries_from_lanes: bool = False
 
     def convert(self, map_name: str = "us-pa-pittsburgh-hazelwood") -> None:
         assert map_name in MAP_LOCATIONS, f"Map name {map_name} is not supported."
@@ -271,24 +274,40 @@ class NuPlanMapConverter:
             successor_lane_group_ids.append(successor_lane_group_ids_)
 
             # 3. left_boundaries, right_boundaries
-            lane_group_row = get_row_with_value(self._gdf["lane_groups_polygons"], "fid", str(lane_group_id))
-            left_boundary_fid = lane_group_row["left_boundary_fid"]
-            left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
-            left_boundaries.append(left_boundary)
+            if self._extract_lane_group_boundaries_from_lanes:
+                lane_rows = [
+                    get_row_with_value(self._gdf["lanes_polygons"], "fid", str(lane_id)) for lane_id in lane_ids_
+                ]
+                lane_rows = sorted(lane_rows, key=lambda x: int(x["lane_index"]))
+                left_lane_row = lane_rows[0]
+                right_lane_row = lane_rows[-1]
 
-            right_boundary_fid = lane_group_row["right_boundary_fid"]
-            right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
+                left_boundary_fid = left_lane_row["left_boundary_fid"]
+                left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
+
+                right_boundary_fid = right_lane_row["right_boundary_fid"]
+                right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
+
+            else:
+                lane_group_row = get_row_with_value(self._gdf["lane_groups_polygons"], "fid", str(lane_group_id))
+                left_boundary_fid = lane_group_row["left_boundary_fid"]
+                left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
+
+                right_boundary_fid = lane_group_row["right_boundary_fid"]
+                right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
+
+            left_boundaries.append(left_boundary)
             right_boundaries.append(right_boundary)
 
         data = pd.DataFrame(
             {
                 "id": ids,
-                "lane_group_id": lane_ids,
+                "lane_ids": lane_ids,
                 "intersection_id": intersection_ids,
                 "predecessor_lane_group_ids": predecessor_lane_group_ids,
                 "successor_lane_group_ids": successor_lane_group_ids,
                 "left_boundary": left_boundaries,
-                "right_boundary": left_boundaries,
+                "right_boundary": right_boundaries,
             }
         )
         gdf = gpd.GeoDataFrame(data, geometry=geometries)
@@ -330,12 +349,12 @@ class NuPlanMapConverter:
         data = pd.DataFrame(
             {
                 "id": ids,
-                "lane_group_id": lane_ids,
+                "lane_ids": lane_ids,
                 "intersection_id": intersection_ids,
                 "predecessor_lane_group_ids": predecessor_lane_group_ids,
                 "successor_lane_group_ids": successor_lane_group_ids,
                 "left_boundary": left_boundaries,
-                "right_boundary": left_boundaries,
+                "right_boundary": right_boundaries,
             }
         )
         gdf = gpd.GeoDataFrame(data, geometry=geometries)
@@ -375,10 +394,12 @@ class NuPlanMapConverter:
 
 
 def flip_linestring(linestring: LineString) -> LineString:
+    # TODO: move somewhere more appropriate or implement in Polyline2D, PolylineSE2, etc.
     return LineString(linestring.coords[::-1])
 
 
 def lines_same_direction(centerline: LineString, boundary: LineString) -> bool:
+    # TODO: refactor helper function.
     center_start = np.array(centerline.coords[0])
     center_end = np.array(centerline.coords[-1])
     boundary_start = np.array(boundary.coords[0])
@@ -392,6 +413,7 @@ def lines_same_direction(centerline: LineString, boundary: LineString) -> bool:
 
 
 def align_boundary_direction(centerline: LineString, boundary: LineString) -> LineString:
+    # TODO: refactor helper function.
     if not lines_same_direction(centerline, boundary):
         return flip_linestring(boundary)
     return boundary
