@@ -2,7 +2,8 @@ import numpy as np
 import numpy.typing as npt
 import trimesh
 
-from asim.common.geometry.base import Point3D
+from asim.common.datatypes.camera.camera_parameters import get_nuplan_camera_parameters
+from asim.common.geometry.base import Point3D, StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from asim.common.geometry.line.polylines import Polyline3D
 from asim.common.visualization.color.config import PlotConfig
@@ -148,3 +149,67 @@ def _create_lane_mesh_from_boundary_arrays(
     mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
     mesh.visual.face_colors = MAP_SURFACE_CONFIG[MapSurfaceType.LANE].fill_color.rgba
     return mesh
+
+
+# def _get_camera_pose_demo(ego_state: EgoStateSE3, initial_point_3d: Point3D) -> StateSE3:
+
+
+def _get_camera_pose_demo(scene: AbstractScene, iteration: int) -> StateSE3:
+    initial_point_3d = scene.get_ego_vehicle_state_at_iteration(0).center.point_3d
+    rear_axle = scene.get_ego_vehicle_state_at_iteration(iteration).rear_axle
+
+    rear_axle_array = rear_axle.array
+    rear_axle_array[:3] -= initial_point_3d.array
+
+    rear_axle = StateSE3.from_array(rear_axle_array)
+
+    camera_parameters = get_nuplan_camera_parameters()
+
+    # Get camera parameters
+    camera_translation = camera_parameters.translation  # 3x1 vector as array
+    camera_rotation = camera_parameters.rotation  # 3x3 matrix as array
+
+    # Get the rotation matrix of the rear axle pose
+    from asim.common.geometry.transform.se3 import get_rotation_matrix
+
+    rear_axle_rotation = get_rotation_matrix(rear_axle)
+
+    # Apply camera translation in the rear axle's coordinate frame
+    # Transform camera translation from rear axle frame to world frame
+    world_translation = rear_axle_rotation @ camera_translation
+
+    # Apply camera rotation in the rear axle's coordinate frame
+    # Compose rotations: world_rotation = rear_axle_rotation @ camera_rotation
+    world_rotation = rear_axle_rotation @ camera_rotation
+
+    # Extract Euler angles from the composed rotation matrix using scipy
+    # Use 'ZYX' convention to match the rotation matrix composition order
+    from scipy.spatial.transform import Rotation
+
+    r = Rotation.from_matrix(world_rotation)
+    roll, pitch, yaw = r.as_euler("ZYX", degrees=False)
+
+    # Calculate camera position in world coordinates
+    camera_x = rear_axle.x + world_translation[0]
+    camera_y = rear_axle.y + world_translation[1]
+    camera_z = rear_axle.z + world_translation[2]
+
+    return StateSE3(camera_x, camera_y, camera_z, roll, pitch, yaw)
+    # return StateSE3(
+    #     camera_x - initial_point_3d.x,
+    #     camera_y - initial_point_3d.y,
+    #     camera_z - initial_point_3d.z,
+    #     roll,
+    #     pitch,
+    #     yaw,
+    # )
+
+    # return StateSE3(camera_x, camera_y, camera_z, pitch, roll, yaw)
+
+
+def euler_to_quaternion_scipy(roll: float, pitch: float, yaw: float) -> npt.NDArray[np.float64]:
+    from scipy.spatial.transform import Rotation
+
+    r = Rotation.from_euler("xyz", [roll, pitch, yaw], degrees=False)
+    quat = r.as_quat()
+    return quat
