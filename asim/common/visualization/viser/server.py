@@ -1,5 +1,6 @@
 import time
 
+import numpy as np
 import trimesh
 import viser
 
@@ -22,6 +23,8 @@ class ViserVisualizationServer:
 
     def set_scene(self, scene: AbstractScene) -> None:
         num_frames = scene.get_number_of_iterations()
+
+        self.server.gui.configure_theme(control_width="large")
         with self.server.gui.add_folder("Playback"):
 
             gui_timestep = self.server.gui.add_slider(
@@ -64,7 +67,7 @@ class ViserVisualizationServer:
             # Toggle frame visibility when the timestep slider changes.
             @gui_timestep.on_update
             def _(_) -> None:
-                nonlocal current_frame_handle, prev_timestep
+                nonlocal current_frame_handle, current_frame_handle, prev_timestep
                 current_timestep = gui_timestep.value
 
                 start = time.time()
@@ -78,6 +81,7 @@ class ViserVisualizationServer:
                     trimesh.util.concatenate(meshes),
                     visible=True,
                 )
+                gui_image_handle.image = np.array(scene.get_front_cam_demo(gui_timestep.value))
                 prev_timestep = current_timestep
 
                 rendering_time = time.time() - start
@@ -90,6 +94,14 @@ class ViserVisualizationServer:
             # Load in frames.
             current_frame_handle = self.server.scene.add_frame(f"/frame{gui_timestep.value}", show_axes=False)
             self.server.scene.add_frame("/map", show_axes=False)
+
+            with self.server.gui.add_folder("Camera"):
+                gui_image_handle = self.server.gui.add_image(
+                    image=np.array(scene.get_front_cam_demo(gui_timestep.value)),
+                    label="front_cam_demo",
+                    format="jpeg",
+                )
+
             for name, mesh in get_map_meshes(scene).items():
                 self.server.scene.add_mesh_trimesh(f"/map/{name}", mesh, visible=True)
 

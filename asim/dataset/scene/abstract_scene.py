@@ -4,6 +4,8 @@ import abc
 from dataclasses import dataclass
 from typing import List
 
+from PIL import Image
+
 from asim.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from asim.common.datatypes.time.time_point import TimePoint
 from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE3
@@ -60,6 +62,10 @@ class AbstractScene(abc.ABC):
 
     @abc.abstractmethod
     def get_route_lane_group_ids(self, iteration: int) -> List[int]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_front_cam_demo(self, iteration: int) -> Image:
         raise NotImplementedError
 
     def open(self) -> None:

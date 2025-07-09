@@ -1,8 +1,12 @@
+import io
 import json
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 import pyarrow as pa
+
+# TODO: Remove or improve open/close dynamic of Scene object.
+from PIL import Image
 
 from asim.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from asim.common.datatypes.time.time_point import TimePoint
@@ -19,8 +23,6 @@ from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.maps.gpkg.gpkg_map import get_map_api_from_names
 from asim.dataset.scene.abstract_scene import AbstractScene, SceneExtractionInfo
-
-# TODO: Remove or improve open/close dynamic of Scene object.
 
 
 def _get_scene_data(arrow_file_path: Union[Path, str]) -> Tuple[LogMetadata, VehicleParameters]:
@@ -118,6 +120,12 @@ class ArrowScene(AbstractScene):
         self._lazy_initialize()
         table_index = self._get_table_index(iteration)
         return self._recording_table["route_lane_group_ids"][table_index].as_py()
+
+    def get_front_cam_demo(self, iteration: int) -> Image:
+        self._lazy_initialize()
+        table_index = self._get_table_index(iteration)
+        jpg_data = self._recording_table["front_cam_demo"][table_index].as_py()
+        return Image.open(io.BytesIO(jpg_data))
 
     def _lazy_initialize(self) -> None:
         self.open()
