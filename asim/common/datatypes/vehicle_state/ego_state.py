@@ -14,6 +14,7 @@ from asim.common.datatypes.time.time_point import TimePoint
 from asim.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 from asim.common.geometry.base import StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
+from asim.common.geometry.transform.se3 import translate_se3_along_x, translate_se3_along_z
 from asim.common.geometry.vector import Vector3D
 from asim.common.utils.enums import classproperty
 
@@ -82,7 +83,13 @@ class EgoStateSE3:
 
     @property
     def rear_axle(self) -> StateSE3:
-        raise NotImplementedError("Not implemented")
+        return translate_se3_along_z(
+            translate_se3_along_x(
+                self.center,
+                -self.vehicle_parameters.rear_axle_to_center_longitudinal,
+            ),
+            -self.vehicle_parameters.rear_axle_to_center_vertical,
+        )
 
     @cached_property
     def bounding_box(self) -> BoundingBoxSE3:
