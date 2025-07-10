@@ -78,7 +78,12 @@ def get_bounding_box_meshes(scene: AbstractScene, iteration: int):
 def get_map_meshes(scene: AbstractScene):
     initial_ego_vehicle_state = scene.get_ego_vehicle_state_at_iteration(0)
     center = initial_ego_vehicle_state.center
-    map_surface_types = [MapSurfaceType.LANE, MapSurfaceType.WALKWAY, MapSurfaceType.CROSSWALK, MapSurfaceType.CARPARK]
+    map_surface_types = [
+        MapSurfaceType.LANE_GROUP,
+        MapSurfaceType.WALKWAY,
+        MapSurfaceType.CROSSWALK,
+        MapSurfaceType.CARPARK,
+    ]
 
     radius = 500
     map_objects_dict = scene.map_api.get_proximal_map_objects(center.point_2d, radius=radius, layers=map_surface_types)
@@ -151,10 +156,9 @@ def _create_lane_mesh_from_boundary_arrays(
     return mesh
 
 
-# def _get_camera_pose_demo(ego_state: EgoStateSE3, initial_point_3d: Point3D) -> StateSE3:
-
-
 def _get_camera_pose_demo(scene: AbstractScene, iteration: int) -> StateSE3:
+    # NOTE: This function does not work.
+
     initial_point_3d = scene.get_ego_vehicle_state_at_iteration(0).center.point_3d
     rear_axle = scene.get_ego_vehicle_state_at_iteration(iteration).rear_axle
 
@@ -179,7 +183,6 @@ def _get_camera_pose_demo(scene: AbstractScene, iteration: int) -> StateSE3:
     world_translation = rear_axle_rotation @ camera_translation
 
     # Apply camera rotation in the rear axle's coordinate frame
-    # Compose rotations: world_rotation = rear_axle_rotation @ camera_rotation
     world_rotation = rear_axle_rotation @ camera_rotation
 
     # Extract Euler angles from the composed rotation matrix using scipy
@@ -187,7 +190,7 @@ def _get_camera_pose_demo(scene: AbstractScene, iteration: int) -> StateSE3:
     from scipy.spatial.transform import Rotation
 
     r = Rotation.from_matrix(world_rotation)
-    roll, pitch, yaw = r.as_euler("ZYX", degrees=False)
+    roll, pitch, yaw = r.as_euler("XYZ", degrees=False)
 
     # Calculate camera position in world coordinates
     camera_x = rear_axle.x + world_translation[0]
@@ -195,21 +198,23 @@ def _get_camera_pose_demo(scene: AbstractScene, iteration: int) -> StateSE3:
     camera_z = rear_axle.z + world_translation[2]
 
     return StateSE3(camera_x, camera_y, camera_z, roll, pitch, yaw)
-    # return StateSE3(
-    #     camera_x - initial_point_3d.x,
-    #     camera_y - initial_point_3d.y,
-    #     camera_z - initial_point_3d.z,
-    #     roll,
-    #     pitch,
-    #     yaw,
-    # )
 
-    # return StateSE3(camera_x, camera_y, camera_z, pitch, roll, yaw)
+
+def _get_ego_frame_pose(scene: AbstractScene, iteration: int) -> StateSE3:
+
+    initial_point_3d = scene.get_ego_vehicle_state_at_iteration(0).center.point_3d
+    state_se3 = scene.get_ego_vehicle_state_at_iteration(iteration).center
+
+    state_se3.x = state_se3.x - initial_point_3d.x
+    state_se3.y = state_se3.y - initial_point_3d.y
+    state_se3.z = state_se3.z - initial_point_3d.z
+
+    return state_se3
 
 
 def euler_to_quaternion_scipy(roll: float, pitch: float, yaw: float) -> npt.NDArray[np.float64]:
     from scipy.spatial.transform import Rotation
 
     r = Rotation.from_euler("xyz", [roll, pitch, yaw], degrees=False)
-    quat = r.as_quat()
+    quat = r.as_quat(scalar_first=True)
     return quat
