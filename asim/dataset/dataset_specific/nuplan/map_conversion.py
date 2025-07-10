@@ -280,6 +280,13 @@ class NuPlanMapConverter:
             right_boundary_fid = lane_group_row["right_boundary_fid"]
             right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
 
+            repr_baseline_path = get_row_with_value(self._gdf["baseline_paths"], "lane_fid", float(lane_ids_[0]))[
+                "geometry"
+            ]
+
+            left_boundary = align_boundary_direction(repr_baseline_path, left_boundary)
+            right_boundary = align_boundary_direction(repr_baseline_path, right_boundary)
+
             left_boundaries.append(left_boundary)
             right_boundaries.append(right_boundary)
 
@@ -327,6 +334,7 @@ class NuPlanMapConverter:
             left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
             right_boundary_fid = lane_group_connector_row["right_boundary_fid"]
             right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
+
             left_boundaries.append(left_boundary)
             right_boundaries.append(right_boundary)
 
