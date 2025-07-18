@@ -16,7 +16,7 @@ from asim.dataset.scene.abstract_scene import AbstractScene
 
 def _plot_scene_on_ax(ax: plt.Axes, scene: AbstractScene, iteration: int = 0, radius: float = 80) -> plt.Axes:
 
-    ego_vehicle_state = scene.get_ego_vehicle_state_at_iteration(iteration)
+    ego_vehicle_state = scene.get_ego_state_at_iteration(iteration)
     box_detections = scene.get_box_detections_at_iteration(iteration)
     traffic_light_detections = scene.get_traffic_light_detections_at_iteration(iteration)
     route_lane_group_ids = scene.get_route_lane_group_ids(iteration)

@@ -98,7 +98,7 @@ class SMARTAgents(AbstractAgents):
                 pred_traj, pred_z, pred_head = self._smart_model.test_step(batch, 0)
                 break
 
-        origin = scene.get_ego_vehicle_state_at_iteration(0).bounding_box.center.state_se2
+        origin = scene.get_ego_state_at_iteration(0).bounding_box.center.state_se2
 
         self._pred_traj = convert_relative_to_absolute_point_2d_array(origin, pred_traj.cpu().numpy())
         self._pred_z = pred_z.cpu().numpy()

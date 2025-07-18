@@ -56,7 +56,7 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
 
     for iteration in range(scene.get_number_of_iterations()):
         background_detections = scene.get_box_detections_at_iteration(iteration).box_detections
-        ego_detection = scene.get_ego_vehicle_state_at_iteration(iteration).box_detection
+        ego_detection = scene.get_ego_state_at_iteration(iteration).box_detection
         log_rollouts.append(BoxDetectionWrapper(background_detections + [ego_detection]))
 
     initial_agent_tokens = get_agent_tokens(agent_rollouts[0])

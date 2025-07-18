@@ -102,7 +102,7 @@ class ArrowScene(AbstractScene):
         self._lazy_initialize()
         return get_timepoint_from_arrow_table(self._recording_table, self._get_table_index(iteration))
 
-    def get_ego_vehicle_state_at_iteration(self, iteration: int) -> EgoStateSE3:
+    def get_ego_state_at_iteration(self, iteration: int) -> EgoStateSE3:
         self._lazy_initialize()
         return get_ego_vehicle_state_from_arrow_table(
             self._recording_table, self._get_table_index(iteration), self._vehicle_parameters

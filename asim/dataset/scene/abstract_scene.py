@@ -49,7 +49,7 @@ class AbstractScene(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_ego_vehicle_state_at_iteration(self, iteration: int) -> EgoStateSE3:
+    def get_ego_state_at_iteration(self, iteration: int) -> EgoStateSE3:
         raise NotImplementedError
 
     @abc.abstractmethod

@@ -50,7 +50,7 @@ class SMARTFeatureBuilder:
         feature_dict = {"scenario_id": scene.token}
 
         # Optionally, you use a different origin instead
-        origin: StateSE2 = scene.get_ego_vehicle_state_at_iteration(START_ITERATION).bounding_box.center.state_se2
+        origin: StateSE2 = scene.get_ego_state_at_iteration(START_ITERATION).bounding_box.center.state_se2
 
         map_features = _build_map_features(scene, origin)
         feature_dict.update(map_features)
@@ -274,7 +274,7 @@ def _build_agent_features(scene: AbstractScene, origin: StateSE2) -> None:
             velocity[agent_idx, time_idx, :] = detection.velocity.array[:2]  # already in local of agent
 
         # Fill ego vehicle data
-        ego_vehicle_state = scene.get_ego_vehicle_state_at_iteration(iteration)
+        ego_vehicle_state = scene.get_ego_state_at_iteration(iteration)
         valid_mask[-1, time_idx] = True
         local_se2_array = convert_absolute_to_relative_se2_array(
             origin, ego_vehicle_state.bounding_box.center.state_se2.array
@@ -282,7 +282,7 @@ def _build_agent_features(scene: AbstractScene, origin: StateSE2) -> None:
         position[-1, time_idx, :2] = local_se2_array[..., StateSE2Index.XY]
         # position[-1, time_idx, 2] = ... #  Is this the z dimension?
         heading[-1, time_idx] = local_se2_array[..., StateSE2Index.YAW]
-        velocity[-1, time_idx, :] = ego_vehicle_state.dynamic_state.velocity.array[:2]  # already in local of agent
+        velocity[-1, time_idx, :] = ego_vehicle_state.dynamic_state_se3.velocity.array[:2]  # already in local of agent
 
     return {
         "agent": {

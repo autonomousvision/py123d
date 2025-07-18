@@ -8,8 +8,9 @@ from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.agents.abstract_agents import AbstractAgents
 
 # from asim.simulation.agents.path_following import PathFollowingAgents
-# from asim.simulation.agents.idm_agents import IDMAgents
-from asim.simulation.agents.smart_agents import SMARTAgents
+from asim.simulation.agents.idm_agents import IDMAgents
+
+# from asim.simulation.agents.smart_agents import SMARTAgents
 from asim.simulation.observation.abstract_observation import AbstractObservation
 
 
@@ -23,8 +24,8 @@ class AgentsObservation(AbstractObservation):
         super().__init__()
         self._scene: Optional[AbstractScene] = None
         # self._agents: AbstractAgents = ConstantVelocityAgents()
-        # self._agents: AbstractAgents = IDMAgents()
-        self._agents: AbstractAgents = SMARTAgents()
+        self._agents: AbstractAgents = IDMAgents()
+        # self._agents: AbstractAgents = SMARTAgents()
 
     def initialize(self) -> None:
         pass

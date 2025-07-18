@@ -22,11 +22,13 @@ import asim.dataset.dataset_specific.nuplan.utils as nuplan_utils
 from asim.common.datatypes.detection.detection import TrafficLightStatus
 from asim.common.datatypes.detection.detection_types import DetectionType
 from asim.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
-from asim.common.datatypes.vehicle_state.vehicle_parameters import get_nuplan_pacifica_parameters
+from asim.common.datatypes.vehicle_state.vehicle_parameters import (
+    get_nuplan_pacifica_parameters,
+    rear_axle_se3_to_center_se3,
+)
 from asim.common.geometry.base import StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3, BoundingBoxSE3Index
 from asim.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
-from asim.common.geometry.transform.se3 import translate_se3_along_x, translate_se3_along_z
 from asim.common.geometry.vector import Vector3D, Vector3DIndex
 from asim.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from asim.dataset.dataset_specific.raw_data_processor import RawDataProcessor
@@ -303,13 +305,7 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
         yaw=yaw,
     )
     # NOTE: The height to rear axle is not provided the dataset and is merely approximated.
-    center = translate_se3_along_z(
-        translate_se3_along_x(
-            rear_axle_pose,
-            vehicle_parameters.rear_axle_to_center_longitudinal,
-        ),
-        vehicle_parameters.rear_axle_to_center_vertical,
-    )
+    center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
     dynamic_state = DynamicStateSE3(
         velocity=Vector3D(
             x=lidar_pc.ego_pose.vx,
@@ -329,8 +325,8 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
     )
 
     return EgoStateSE3(
-        center=center,
-        dynamic_state=dynamic_state,
+        center_se3=center,
+        dynamic_state_se3=dynamic_state,
         vehicle_parameters=vehicle_parameters,
         timepoint=None,
     ).array.tolist()

@@ -52,9 +52,9 @@ def translate_bounding_box_se3(bounding_box_se3: BoundingBoxSE3, point_3d: Point
 
 
 def get_bounding_box_meshes(scene: AbstractScene, iteration: int):
-    initial_ego_vehicle_state = scene.get_ego_vehicle_state_at_iteration(0)
+    initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
 
-    ego_vehicle_state = scene.get_ego_vehicle_state_at_iteration(iteration)
+    ego_vehicle_state = scene.get_ego_state_at_iteration(iteration)
     box_detections = scene.get_box_detections_at_iteration(iteration)
     # traffic_light_detections = scene.get_traffic_light_detections_at_iteration(iteration)
     # map_api = scene.map_api
@@ -62,22 +62,22 @@ def get_bounding_box_meshes(scene: AbstractScene, iteration: int):
     output = {}
     for box_detection in box_detections:
         bbox: BoundingBoxSE3 = box_detection.bounding_box
-        bbox = translate_bounding_box_se3(bbox, initial_ego_vehicle_state.center)
+        bbox = translate_bounding_box_se3(bbox, initial_ego_vehicle_state.center_se3)
         plot_config = BOX_DETECTION_CONFIG[box_detection.metadata.detection_type]
         trimesh_box = bounding_box_to_trimesh(bbox, plot_config)
         output[f"{box_detection.metadata.detection_type.serialize()}/{box_detection.metadata.track_token}"] = (
             trimesh_box
         )
 
-    ego_bbox = translate_bounding_box_se3(ego_vehicle_state.bounding_box, initial_ego_vehicle_state.center)
+    ego_bbox = translate_bounding_box_se3(ego_vehicle_state.bounding_box, initial_ego_vehicle_state.center_se3)
     trimesh_box = bounding_box_to_trimesh(ego_bbox, EGO_VEHICLE_CONFIG)
     output["ego"] = trimesh_box
     return output
 
 
 def get_map_meshes(scene: AbstractScene):
-    initial_ego_vehicle_state = scene.get_ego_vehicle_state_at_iteration(0)
-    center = initial_ego_vehicle_state.center
+    initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
+    center = initial_ego_vehicle_state.center_se3
     map_surface_types = [
         MapSurfaceType.LANE_GROUP,
         MapSurfaceType.WALKWAY,
@@ -159,8 +159,8 @@ def _create_lane_mesh_from_boundary_arrays(
 def _get_camera_pose_demo(scene: AbstractScene, iteration: int) -> StateSE3:
     # NOTE: This function does not work.
 
-    initial_point_3d = scene.get_ego_vehicle_state_at_iteration(0).center.point_3d
-    rear_axle = scene.get_ego_vehicle_state_at_iteration(iteration).rear_axle
+    initial_point_3d = scene.get_ego_state_at_iteration(0).center_se3.point_3d
+    rear_axle = scene.get_ego_state_at_iteration(iteration).rear_axle_se3
 
     rear_axle_array = rear_axle.array
     rear_axle_array[:3] -= initial_point_3d.array
@@ -202,8 +202,8 @@ def _get_camera_pose_demo(scene: AbstractScene, iteration: int) -> StateSE3:
 
 def _get_ego_frame_pose(scene: AbstractScene, iteration: int) -> StateSE3:
 
-    initial_point_3d = scene.get_ego_vehicle_state_at_iteration(0).center.point_3d
-    state_se3 = scene.get_ego_vehicle_state_at_iteration(iteration).center
+    initial_point_3d = scene.get_ego_state_at_iteration(0).center_se3.point_3d
+    state_se3 = scene.get_ego_state_at_iteration(iteration).center_se3
 
     state_se3.x = state_se3.x - initial_point_3d.x
     state_se3.y = state_se3.y - initial_point_3d.y
