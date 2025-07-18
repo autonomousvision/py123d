@@ -194,7 +194,7 @@ def _write_recording_table(
                     data["traffic_light_states"], data["traffic_light_positions"], map_api
                 )
                 route_lane_group_ids = _extract_route_lane_group_ids(data["route"], map_api) if "route" in data else []
-                front_cam_demo = _extract_front_cam_demo(box_path)
+                front_cam_demo, front_cam_transform = _extract_front_cam_demo(box_path)
 
                 row_data = {
                     "token": [create_token(f"{str(log_path)}_{box_path.stem}")],
@@ -215,7 +215,7 @@ def _write_recording_table(
                     "scenario_tag": [data["scenario_tag"]],
                     "route_lane_group_ids": [route_lane_group_ids],
                     "front_cam_demo": [front_cam_demo],
-                    "front_cam_transform": [None],
+                    "front_cam_transform": [front_cam_transform],
                 }
                 batch = pa.record_batch(row_data, schema=recording_schema)
                 writer.write_batch(batch)
@@ -316,7 +316,7 @@ def _extract_route_lane_group_ids(route: List[List[float]], map_api: AbstractMap
 
 def _extract_front_cam_demo(box_path: Path) -> Tuple[bytes, List[float]]:
 
-    sample_name = box_path.stem
+    sample_name = str(box_path.stem).split(".")[0]
     sensor_root = Path(box_path.parent.parent) / "rgb"
 
     front_cam_demo: bytes = None

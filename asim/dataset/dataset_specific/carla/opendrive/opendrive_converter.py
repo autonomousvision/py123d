@@ -483,8 +483,8 @@ class OpenDriveConverter:
             predecessor_lane_group_ids.append(lane_group_helper.predecessor_lane_group_ids)
             successor_lane_group_ids.append(lane_group_helper.successor_lane_group_ids)
             intersection_ids.append(lane_group_helper.junction_id)
-            left_boundaries.append(shapely.LineString(lane_group_helper.inner_polyline_3d[..., :2]))
-            right_boundaries.append(shapely.LineString(lane_group_helper.outer_polyline_3d[..., :2]))
+            left_boundaries.append(shapely.LineString(lane_group_helper.inner_polyline_3d))
+            right_boundaries.append(shapely.LineString(lane_group_helper.outer_polyline_3d))
             geometries.append(lane_group_helper.shapely_polygon)
 
         data = pd.DataFrame(
