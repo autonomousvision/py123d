@@ -416,7 +416,7 @@ class DefaultRenderer:
             # Roadblock: (1) drivable_area_raster, (2) route_raster
             self._render_polygons(mask, map_cache.origin, [roadblock.polygon], color=MAX_VALUE)
             drivable_area_raster[mask == MAX_VALUE] = MAX_VALUE
-            if roadblock_id in map_cache.route_roadblock_ids:
+            if roadblock_id in map_cache.route_lane_group_ids:
                 route_raster[mask == MAX_VALUE] = MAX_VALUE
             mask.fill(0)
 
@@ -425,7 +425,7 @@ class DefaultRenderer:
             roadblock_connector,
         ) in map_cache.roadblock_connectors.items():
             # RoadblockConnector: (2) route_raster
-            if roadblock_connector_id in map_cache.route_roadblock_ids:
+            if roadblock_connector_id in map_cache.route_lane_group_ids:
                 if self._lane_connector_route:
                     route_polygons.extend(
                         unionize_polygons([lane.polygon for lane in roadblock_connector.interior_edges])

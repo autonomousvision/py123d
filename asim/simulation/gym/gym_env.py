@@ -8,16 +8,9 @@ from asim.common.datatypes.vehicle_state.ego_state import DynamicStateSE2, EgoSt
 from asim.common.geometry.vector import Vector2D
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.scene.abstract_scene import AbstractScene
-from asim.simulation.motion_model.kinematic_bicycle_model import KinematicBicycleModel
+from asim.simulation.controller.motion_model.kinematic_bicycle_model import KinematicBicycleModel
 from asim.simulation.observation.abstract_observation import AbstractObservation
 from asim.simulation.observation.log_replay_observation import LogReplayObservation
-
-# from nuplan.common.actor_state.dynamic_car_state import DynamicCarState
-# from nuplan.common.actor_state.ego_state import EgoState
-# from nuplan.common.actor_state.state_representation import StateSE2, StateVector2D, TimePoint
-# from nuplan.common.geometry.compute import get_pacifica_parameters
-
-# from nuplan.planning.simulation.controller.motion_model.kinematic_bicycle import KinematicBicycleModel
 
 
 class GymEnvironment:

@@ -58,11 +58,11 @@ def extract_to_gym_scenario_data(scenario: AbstractScenario) -> GymScenarioData:
     for past_time_point in scenario.get_past_timestamps(0, time_horizon, num_samples):
         past_time_points.append(past_time_point.time_us)
 
-    # 2.3 route roadblock ids
-    route_roadblock_ids = route_roadblock_correction_v2(
+    # 2.3 route lane group ids
+    route_lane_group_ids = route_roadblock_correction_v2(
         scenario.get_ego_state_at_iteration(0),
         scenario.map_api,
-        scenario.get_route_roadblock_ids(),
+        scenario.get_route_lane_group_ids(),
     )
 
     # 2.4 ego states
@@ -97,7 +97,7 @@ def extract_to_gym_scenario_data(scenario: AbstractScenario) -> GymScenarioData:
         map=map,
         time_points=time_points,
         past_time_points=past_time_points,
-        route_roadblock_ids=route_roadblock_ids,
+        route_lane_group_ids=route_lane_group_ids,
         ego_states=ego_states,
         past_ego_states=past_ego_states,
         tracked_objects=tracked_objects,

@@ -77,11 +77,11 @@ class DefaultObservationBuilder(AbstractObservationBuilder):
 
         # lazy loaded during inference
         # NOTE: route roadblocks of current scenario are stored, as they may require correction during inference
-        self._route_roadblock_ids: Optional[List[str]] = None
+        self._route_lane_group_ids: Optional[List[str]] = None
 
     def reset(self) -> None:
         """Inherited, see superclass."""
-        self._route_roadblock_ids = None
+        self._route_lane_group_ids = None
 
     def get_observation_space(self) -> spaces.Space:
         """Inherited, see superclass."""
@@ -156,11 +156,11 @@ class DefaultObservationBuilder(AbstractObservationBuilder):
                 planner_input,
                 planner_initialization,
                 self._environment_area,
-                route_roadblock_ids=self._route_roadblock_ids,
+                route_lane_group_ids=self._route_lane_group_ids,
                 route_correction=True,
             )
-            if self._route_roadblock_ids is None:
-                self._route_roadblock_ids = map_cache.route_roadblock_ids
+            if self._route_lane_group_ids is None:
+                self._route_lane_group_ids = map_cache.route_lane_group_ids
         elif observation_type == DefaultObservationType.RESET:
             (
                 map_cache,

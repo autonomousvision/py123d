@@ -115,9 +115,9 @@ class GymScenario(AbstractScenario):
         """Inherited, see superclass."""
         return StateSE2(0, 0, 0)
 
-    def get_route_roadblock_ids(self) -> List[str]:
+    def get_route_lane_group_ids(self) -> List[str]:
         """Inherited, see superclass."""
-        return self._data.route_roadblock_ids
+        return self._data.route_lane_group_ids
 
     def get_expert_goal_state(self) -> StateSE2:
         """Inherited, see superclass."""

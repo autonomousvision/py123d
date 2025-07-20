@@ -564,7 +564,7 @@ def _calculate_red_light(
     red_connectors: Dict[str, LaneConnector] = {}
     for connector_id, connector in map_cache.lane_connectors.items():
         if (
-            (connector.get_roadblock_id() in map_cache.route_roadblock_ids)
+            (connector.get_roadblock_id() in map_cache.route_lane_group_ids)
             and (connector_id in map_cache.traffic_lights.keys())
             and (map_cache.traffic_lights[connector_id] == TrafficLightStatusType.RED)
         ):
@@ -681,7 +681,7 @@ def _find_current_and_intersecting_lanes(
         for lane_id in intersecting_lanes_ids:
             lane = lanes_dict[lane_id]
             heading_error = _calculate_heading_error(ego_state.center, lane)
-            if lane.get_roadblock_id() in map_cache.route_roadblock_ids:
+            if lane.get_roadblock_id() in map_cache.route_lane_group_ids:
                 lane_route_errors[lane_id] = heading_error
             lane_errors[lane_id] = heading_error
 

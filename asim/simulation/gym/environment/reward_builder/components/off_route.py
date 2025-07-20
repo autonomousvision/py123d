@@ -27,7 +27,7 @@ def calculate_off_route_v1(simulation_wrapper: SimulationWrapper, map_cache: Map
     expert_ego_state = simulation_wrapper.scenario.get_ego_state_at_iteration(iteration)
 
     route_roadblocks: Dict[str, Polygon] = {}
-    for route_roadblock_id in map_cache.route_roadblock_ids:
+    for route_roadblock_id in map_cache.route_lane_group_ids:
         if route_roadblock_id in map_cache.roadblocks:
             route_roadblocks[route_roadblock_id] = map_cache.roadblocks[route_roadblock_id].polygon
         if route_roadblock_id in map_cache.roadblock_connectors:
@@ -73,7 +73,7 @@ def calculate_off_route_v2(simulation_wrapper: SimulationWrapper, map_cache: Map
     for lane_dict in [map_cache.lanes, map_cache.lane_connectors]:
         lane_dict: Dict[str, LaneGraphEdgeMapObject]
         for lane_id, lane in lane_dict.items():
-            if lane.get_roadblock_id() in map_cache.route_roadblock_ids:
+            if lane.get_roadblock_id() in map_cache.route_lane_group_ids:
                 route_lane_polygons[lane_id] = lane.polygon
 
     route_map = PDMOccupancyMap(list(route_lane_polygons.keys()), list(route_lane_polygons.values()))

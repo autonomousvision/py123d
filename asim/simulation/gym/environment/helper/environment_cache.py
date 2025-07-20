@@ -44,7 +44,7 @@ class MapCache:
         map_api: AbstractMap,
         environment_area: AbstractEnvironmentArea,
         traffic_light_status: List[TrafficLightStatusData],
-        route_roadblock_ids: List[str],
+        route_lane_group_ids: List[str],
         load_crosswalks: bool = False,
         load_stop_lines: bool = False,
         drivable_area_map: Optional[PDMOccupancyMap] = None,
@@ -55,7 +55,7 @@ class MapCache:
         :param map_api: Map interface of nuPlan maps.
         :param environment_area: Area to cache map data for.
         :param traffic_light_status: Current traffic light status data.
-        :param route_roadblock_ids: List of roadblock ids for the ego route.
+        :param route_lane_group_ids: List of lane group ids for the ego route.
         :param load_crosswalks: whether to load crosswalks, defaults to False
         :param load_stop_lines: whether to load stop lines, defaults to False
         :param drivable_area_map: Optional 2D occupancy map of drivable area objects, defaults to None
@@ -67,7 +67,7 @@ class MapCache:
         self.load_crosswalks = load_crosswalks
         self.load_stop_lines = load_stop_lines
 
-        self.route_roadblock_ids = route_roadblock_ids
+        self.route_lane_group_ids = route_lane_group_ids
         self.traffic_lights: Dict[str, TrafficLightStatusType] = {
             str(data.lane_connector_id): data.status for data in traffic_light_status
         }
@@ -231,17 +231,17 @@ def build_environment_caches(
     planner_input: PlannerInput,
     planner_initialization: PlannerInitialization,
     environment_area: AbstractEnvironmentArea,
-    route_roadblock_ids: Optional[List[str]] = None,
+    route_lane_group_ids: Optional[List[str]] = None,
     route_correction: bool = False,
     track_filtering: bool = False,
 ) -> Tuple[MapCache, DetectionCache]:
     """
     Helper function to build the environment caches for the current planner input and initialization.
     :param planner_input: Planner input interface of nuPlan, ego, detection, and traffic light data.
-    :param planner_initialization: Planner initialization interface of nuPlan, map API and route roadblock ids.
+    :param planner_initialization: Planner initialization interface of nuPlan, map API and route lane group ids.
     :param environment_area: Area object used to cache the map and detection data.
-    :param route_roadblock_ids: Optional route roadblock ids, to overwrite the planner initialization, defaults to None
-    :param route_correction: Whether to apply route correction of roadblock ids from planner initialization, defaults to False
+    :param route_lane_group_ids: Optional route lane group ids, to overwrite the planner initialization, defaults to None
+    :param route_correction: Whether to apply route correction of lane group ids from planner initialization, defaults to False
     :param track_filtering: Whether to filter tracks by max counts based on the default configuration, defaults to False
     :return: Tuple of MapCache and DetectionCache objects.
     """
@@ -250,13 +250,13 @@ def build_environment_caches(
     assert isinstance(ego_state, EgoState)
     assert isinstance(detection_tracks, DetectionsTracks)
 
-    if route_roadblock_ids is None:
+    if route_lane_group_ids is None:
         if route_correction:
-            route_roadblock_ids = route_roadblock_correction_v2(
-                ego_state, planner_initialization.map_api, planner_initialization.route_roadblock_ids
+            route_lane_group_ids = route_roadblock_correction_v2(
+                ego_state, planner_initialization.map_api, planner_initialization.route_lane_group_ids
             )
         else:
-            route_roadblock_ids = planner_initialization.route_roadblock_ids
+            route_lane_group_ids = planner_initialization.route_lane_group_ids
 
     if track_filtering:
         tracked_objects = filter_tracked_objects(
@@ -270,7 +270,7 @@ def build_environment_caches(
         map_api=planner_initialization.map_api,
         environment_area=environment_area,
         traffic_light_status=list(planner_input.traffic_light_data),
-        route_roadblock_ids=route_roadblock_ids,
+        route_lane_group_ids=route_lane_group_ids,
     )
     detection_cache = DetectionCache(
         ego_state=ego_state, tracked_objects=tracked_objects, environment_area=environment_area

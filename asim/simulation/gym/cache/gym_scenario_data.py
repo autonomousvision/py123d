@@ -13,7 +13,7 @@ class GymScenarioData:
 
     time_points: List[int]
     past_time_points: List[int]
-    route_roadblock_ids: List[str]
+    route_lane_group_ids: List[str]
 
     ego_states: List[List[float]]
     past_ego_states: List[List[float]]
@@ -40,7 +40,7 @@ class GymScenarioData:
             map=dict["map"],
             time_points=dict["time_points"],
             past_time_points=dict["past_time_points"],
-            route_roadblock_ids=dict["route_roadblock_ids"],
+            route_lane_group_ids=dict["route_lane_group_ids"],
             ego_states=dict["ego_states"],
             past_ego_states=dict["past_ego_states"],
             tracked_objects=[GymTrackedObjects.deserialize(dict_) for dict_ in dict["tracked_objects"]],

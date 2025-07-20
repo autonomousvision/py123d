@@ -3,18 +3,16 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional, Tuple, Type
 
+from asim.dataset.scene.abstract_scene import AbstractScene
+from asim.simulation.callback.abstract_callback import AbstractCallback
+from asim.simulation.callback.multi_callback import MultiCallback
+from asim.simulation.history.simulation_history import Simulation2DHistory, Simulation2DHistorySample
+from asim.simulation.history.simulation_history_buffer import Simulation2DHistoryBuffer
+from asim.simulation.planning.abstract_planner import PlannerInitialization, PlannerInput
+from asim.simulation.planning.planner_output.abstract_planner_output import AbstractPlannerOutput
 from asim.simulation.simulation_2d_setup import Simulation2DSetup
 
-# from nuplan.planning.simulation.callback.abstract_callback import AbstractCallback
-# from nuplan.planning.simulation.callback.multi_callback import MultiCallback
-# from nuplan.planning.simulation.history.simulation_history import SimulationHistory, SimulationHistorySample
-# from nuplan.planning.simulation.history.simulation_history_buffer import SimulationHistoryBuffer
-# from nuplan.planning.simulation.planner.abstract_planner import PlannerInitialization, PlannerInput
-# from nuplan.planning.simulation.simulation_setup import SimulationSetup
-# from nuplan.planning.simulation.trajectory.abstract_trajectory import AbstractTrajectory
 logger = logging.getLogger(__name__)
-
-# flake8: noqa # TODO: remove this once the code is fixed
 
 
 class Simulation2D:
@@ -32,15 +30,15 @@ class Simulation2D:
         self._time_controller = simulation_2d_setup.time_controller
         self._ego_controller = simulation_2d_setup.ego_controller
         self._observations = simulation_2d_setup.observations
-        self._scenario = simulation_2d_setup.scene
+        self._scene = simulation_2d_setup.scene
         self._callback = MultiCallback([]) if callback is None else callback
 
         # History where the steps of a simulation are stored
-        self._history = SimulationHistory(self._scenario.map_api, self._scenario.get_mission_goal())
+        self._history = Simulation2DHistory(self._scene.map_api)
 
         # The + 1 here is to account for duration. For example, 20 steps at 0.1s starting at 0s will have a duration
         # of 1.9s. At 21 steps the duration will achieve the target 2s duration.
-        self._history_buffer: Optional[SimulationHistoryBuffer] = None
+        self._history_buffer: Optional[Simulation2DHistoryBuffer] = None
 
         # Flag that keeps track whether simulation is still running
         self._is_simulation_running = True
@@ -83,9 +81,9 @@ class Simulation2D:
         """
         self.reset()
 
-        # Initialize history from scenario
-        self._history_buffer = SimulationHistoryBuffer.initialize_from_scenario(
-            self._history_buffer_size, self._scenario, self._observations.observation_type()
+        # Initialize history from scene
+        self._history_buffer = Simulation2DHistoryBuffer.initialize_from_scene(
+            self._history_buffer_size, self._scene, self._observations.observation_type()
         )
 
         # Initialize observations
@@ -96,9 +94,8 @@ class Simulation2D:
 
         # Return the planner initialization structure for this simulation
         return PlannerInitialization(
-            route_roadblock_ids=self._scenario.get_route_roadblock_ids(),
-            mission_goal=self._scenario.get_mission_goal(),
-            map_api=self._scenario.map_api,
+            route_lane_group_ids=self._scene.get_route_lane_group_ids(0),
+            map_api=self._scene.map_api,
         )
 
     def get_planner_input(self) -> PlannerInput:
@@ -116,11 +113,11 @@ class Simulation2D:
         iteration = self._time_controller.get_iteration()
 
         # Extract traffic light status data
-        traffic_light_data = list(self._scenario.get_traffic_light_status_at_iteration(iteration.index))
+        traffic_light_data = list(self._scene.get_traffic_light_status_at_iteration(iteration.index))
         logger.debug(f"Executing {iteration.index}!")
         return PlannerInput(iteration=iteration, history=self._history_buffer, traffic_light_data=traffic_light_data)
 
-    def propagate(self, trajectory: AbstractTrajectory) -> None:
+    def propagate(self, planner_output: AbstractPlannerOutput) -> None:
         """
         Propagate the simulation based on planner's trajectory and the inputs to the planner
         This function also decides whether simulation should still continue. This flag can be queried through
@@ -136,20 +133,17 @@ class Simulation2D:
         # Measurements
         iteration = self._time_controller.get_iteration()
         ego_state, observation = self._history_buffer.current_state
-        traffic_light_status = list(self._scenario.get_traffic_light_status_at_iteration(iteration.index))
 
         # Add new sample to history
         logger.debug(f"Adding to history: {iteration.index}")
-        self._history.add_sample(
-            SimulationHistorySample(iteration, ego_state, trajectory, observation, traffic_light_status)
-        )
+        self._history.add_sample(Simulation2DHistorySample(iteration, ego_state, planner_output, observation))
 
         # Propagate state to next iteration
         next_iteration = self._time_controller.next_iteration()
 
         # Propagate state
         if next_iteration:
-            self._ego_controller.update_state(iteration, next_iteration, ego_state, trajectory)
+            self._ego_controller.update_state(iteration, next_iteration, ego_state, planner_output)
             self._observations.update_observation(iteration, next_iteration, self._history_buffer)
         else:
             self._is_simulation_running = False
@@ -158,14 +152,14 @@ class Simulation2D:
         self._history_buffer.append(self._ego_controller.get_state(), self._observations.get_observation())
 
     @property
-    def scenario(self) -> AbstractScenario:
+    def scene(self) -> AbstractScene:
         """
-        :return: used scenario in this simulation.
+        :return: used scene in this simulation.
         """
-        return self._scenario
+        return self._scene
 
     @property
-    def setup(self) -> SimulationSetup:
+    def setup(self) -> Simulation2DSetup:
         """
         :return: Setup for this simulation.
         """
@@ -179,14 +173,14 @@ class Simulation2D:
         return self._callback
 
     @property
-    def history(self) -> SimulationHistory:
+    def history(self) -> Simulation2DHistory:
         """
         :return History from the simulation.
         """
         return self._history
 
     @property
-    def history_buffer(self) -> SimulationHistoryBuffer:
+    def history_buffer(self) -> Simulation2DHistoryBuffer:
         """
         :return SimulationHistoryBuffer from the simulation.
         """
