@@ -1,6 +1,6 @@
-from abc import abstractmethod
-from typing import Optional
+from typing import Optional, Type
 
+from asim.common.datatypes.recording.abstract_recording import Recording
 from asim.common.datatypes.recording.detection_recording import DetectionRecording
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.observation.abstract_observation import AbstractObservation
@@ -24,7 +24,9 @@ class LogReplayObservation(AbstractObservation):
         Initialize observation if needed.
         """
 
-    @abstractmethod
+    def recording_type(self) -> Type[Recording]:
+        return DetectionRecording
+
     def reset(self, scene: Optional[AbstractScene]) -> DetectionRecording:
         assert scene is not None, "Scene must be provided for log replay observation."
         self._scene = scene
@@ -35,7 +37,6 @@ class LogReplayObservation(AbstractObservation):
             traffic_light_detections=self._scene.get_traffic_light_detections_at_iteration(self._iteration),
         )
 
-    @abstractmethod
     def step(self) -> DetectionRecording:
         self._iteration += 1
         return DetectionRecording(

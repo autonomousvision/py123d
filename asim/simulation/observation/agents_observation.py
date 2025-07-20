@@ -1,7 +1,8 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Type
 
 from asim.common.datatypes.detection.detection import BoxDetection
 from asim.common.datatypes.detection.detection_types import DetectionType
+from asim.common.datatypes.recording.abstract_recording import Recording
 from asim.common.datatypes.recording.detection_recording import DetectionRecording
 from asim.dataset.arrow.conversion import BoxDetectionWrapper
 from asim.dataset.scene.abstract_scene import AbstractScene
@@ -29,6 +30,9 @@ class AgentsObservation(AbstractObservation):
 
     def initialize(self) -> None:
         pass
+
+    def recording_type(self) -> Type[Recording]:
+        return DetectionRecording
 
     def reset(self, scene: Optional[AbstractScene]) -> DetectionRecording:
         assert scene is not None, "Scene must be provided for log replay observation."

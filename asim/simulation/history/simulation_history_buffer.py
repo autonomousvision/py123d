@@ -156,7 +156,9 @@ class Simulation2DHistoryBuffer:
         recording_buffer: Deque[Recording] = deque(recordings[-buffer_size:], maxlen=buffer_size)
 
         return cls(
-            ego_state_buffer=ego_state_buffer, recording_buffer=recording_buffer, sample_interval=sample_interval
+            ego_state_buffer=ego_state_buffer,
+            recording_buffer=recording_buffer,
+            sample_interval=sample_interval,
         )
 
     @staticmethod
@@ -169,19 +171,19 @@ class Simulation2DHistoryBuffer:
         :param scene: Simulation scene
         :param recording_type: Recording type used for the simulation
         """
-        buffer_duration = buffer_size * scene.database_interval
 
         if recording_type == DetectionRecording:
-            observation_getter = scene.get_past_tracked_objects
-        # elif recording_type == Sensors:
+            observation_getter = scene.get_detection_recording_at_iteration
+        # elif recording_type == SensorRecording:
         #     observation_getter = scenario.get_past_sensors
         else:
             raise ValueError(f"No matching recording type for {recording_type} for history!")
 
-        past_observation = list(observation_getter(iteration=0, time_horizon=buffer_duration, num_samples=buffer_size))
+        history_iterations = [-iteration for iteration in range(0, scene.get_number_of_history_iterations() + 1)]
 
+        past_observation = list(observation_getter(iteration) for iteration in history_iterations)
         past_ego_states = list(
-            scene.get_ego_past_trajectory(iteration=0, time_horizon=buffer_duration, num_samples=buffer_size)
+            scene.get_ego_state_at_iteration(iteration).ego_state_se2 for iteration in history_iterations
         )
 
         return Simulation2DHistoryBuffer.initialize_from_list(

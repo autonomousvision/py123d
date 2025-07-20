@@ -9,6 +9,7 @@ import pyarrow as pa
 from PIL import Image
 
 from asim.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from asim.common.datatypes.recording.detection_recording import DetectionRecording
 from asim.common.datatypes.time.time_point import TimePoint
 from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from asim.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
@@ -115,6 +116,12 @@ class ArrowScene(AbstractScene):
     def get_traffic_light_detections_at_iteration(self, iteration: int) -> TrafficLightDetectionWrapper:
         self._lazy_initialize()
         return get_traffic_light_detections_from_arrow_table(self._recording_table, self._get_table_index(iteration))
+
+    def get_detection_recording_at_iteration(self, iteration: int) -> DetectionRecording:
+        return DetectionRecording(
+            box_detections=self.get_box_detections_at_iteration(iteration),
+            traffic_light_detections=self.get_traffic_light_detections_at_iteration(iteration),
+        )
 
     def get_route_lane_group_ids(self, iteration: int) -> List[int]:
         self._lazy_initialize()

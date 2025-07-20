@@ -1,16 +1,11 @@
 import numpy as np
-
-# from nuplan.common.actor_state.dynamic_car_state import DynamicCarState
-# from nuplan.common.actor_state.ego_state import EgoState, EgoStateDot
-# from nuplan.common.actor_state.state_representation import StateSE2, StateVector2D, TimePoint
-# from nuplan.common.actor_state.vehicle_parameters import VehicleParameters
 from nuplan.common.geometry.compute import principal_value
 
 from asim.common.datatypes.time.time_point import TimeDuration, TimePoint
 from asim.common.datatypes.vehicle_state.ego_state import DynamicStateSE2, EgoStateSE2
 from asim.common.geometry.base import StateSE2
 from asim.common.geometry.vector import Vector2D
-from asim.simulation.motion_model.abstract_motion_model import AbstractMotionModel
+from asim.simulation.controller.motion_model.abstract_motion_model import AbstractMotionModel
 
 
 def forward_integrate(init: float, delta: float, sampling_duration: TimeDuration) -> float:
