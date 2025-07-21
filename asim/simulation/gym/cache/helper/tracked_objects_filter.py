@@ -2,14 +2,13 @@ from dataclasses import dataclass
 from typing import List
 
 import numpy as np
+from carl_nuplan.planning.simulation.planner.pdm_planner.observation.pdm_observation_utils import (
+    get_drivable_area_map,
+)
 from nuplan.common.actor_state.ego_state import EgoState
 from nuplan.common.actor_state.tracked_objects import Agent, StaticObject, TrackedObject, TrackedObjects
 from nuplan.common.actor_state.tracked_objects_types import TrackedObjectType
 from nuplan.common.maps.abstract_map import AbstractMap
-
-from asim.simulation.simulation.planner.pdm_planner.observation.pdm_observation_utils import (
-    get_drivable_area_map,
-)
 
 
 @dataclass
