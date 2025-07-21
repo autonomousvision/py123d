@@ -28,9 +28,6 @@ class AgentsObservation(AbstractObservation):
         self._agents: AbstractAgents = IDMAgents()
         # self._agents: AbstractAgents = SMARTAgents()
 
-    def initialize(self) -> None:
-        pass
-
     def recording_type(self) -> Type[Recording]:
         return DetectionRecording
 

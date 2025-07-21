@@ -1,8 +1,9 @@
 import abc
 
 from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE2
+from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.planning.planner_output.abstract_planner_output import AbstractPlannerOutput
-from asim.simulation.simulation_time_controller.simulation_iteration import SimulationIteration
+from asim.simulation.time_controller.simulation_iteration import SimulationIteration
 
 
 class AbstractEgoController(abc.ABC):
@@ -18,7 +19,7 @@ class AbstractEgoController(abc.ABC):
         """
 
     @abc.abstractmethod
-    def reset(self) -> None:
+    def reset(self, scene: AbstractScene) -> EgoStateSE2:
         """
         Reset the observation (all internal states should be reseted, if any).
         """

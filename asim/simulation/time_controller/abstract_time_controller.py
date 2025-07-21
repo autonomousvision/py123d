@@ -3,10 +3,11 @@ from __future__ import annotations
 import abc
 from typing import Optional
 
-from asim.simulation.simulation_time_controller.simulation_iteration import SimulationIteration
+from asim.dataset.scene.abstract_scene import AbstractScene
+from asim.simulation.time_controller.simulation_iteration import SimulationIteration
 
 
-class AbstractSimulationTimeController(abc.ABC):
+class AbstractTimeController(abc.ABC):
     """
     Generic simulation time manager.
     """
@@ -19,7 +20,7 @@ class AbstractSimulationTimeController(abc.ABC):
         """
 
     @abc.abstractmethod
-    def reset(self) -> None:
+    def reset(self, scene: AbstractScene) -> SimulationIteration:
         """
         Reset the observation (all internal states should be reseted, if any).
         """

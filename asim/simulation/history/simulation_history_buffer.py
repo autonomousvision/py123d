@@ -179,7 +179,7 @@ class Simulation2DHistoryBuffer:
         else:
             raise ValueError(f"No matching recording type for {recording_type} for history!")
 
-        history_iterations = [-iteration for iteration in range(0, scene.get_number_of_history_iterations() + 1)]
+        history_iterations = [-iteration for iteration in range(1, scene.get_number_of_history_iterations() + 1)]
 
         past_observation = list(observation_getter(iteration) for iteration in history_iterations)
         past_ego_states = list(
@@ -189,6 +189,6 @@ class Simulation2DHistoryBuffer:
         return Simulation2DHistoryBuffer.initialize_from_list(
             buffer_size=buffer_size,
             ego_states=past_ego_states,
-            observations=past_observation,
-            sample_interval=scene.database_interval,
+            recordings=past_observation,
+            sample_interval=scene.log_metadata.timestep_seconds,
         )

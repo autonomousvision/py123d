@@ -14,12 +14,6 @@ class AbstractObservation(abc.ABC):
     requires_scene: bool = True
 
     @abstractmethod
-    def initialize(self) -> None:
-        """
-        Initialize observation if needed.
-        """
-
-    @abstractmethod
     def recording_type(self) -> Type[Recording]:
         pass
 

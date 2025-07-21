@@ -6,7 +6,7 @@ from asim.simulation.controller.abstract_controller import AbstractEgoController
 from asim.simulation.controller.motion_model.abstract_motion_model import AbstractMotionModel
 from asim.simulation.planning.planner_output.abstract_planner_output import AbstractPlannerOutput
 from asim.simulation.planning.planner_output.action_planner_output import ActionPlannerOutput
-from asim.simulation.simulation_time_controller.simulation_iteration import SimulationIteration
+from asim.simulation.time_controller.simulation_iteration import SimulationIteration
 
 
 class ActionController(AbstractEgoController):
@@ -25,9 +25,10 @@ class ActionController(AbstractEgoController):
             self._current_state = self._scene.get_ego_state_at_iteration(0).ego_state_se2
         return self._current_state
 
-    def reset(self) -> None:
+    def reset(self, scene: AbstractScene) -> EgoStateSE2:
         """Inherited, see superclass."""
         self._current_state = None
+        return self.get_state()
 
     def update_state(
         self,

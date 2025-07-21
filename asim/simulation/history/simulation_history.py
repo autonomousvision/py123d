@@ -5,9 +5,8 @@ from typing import List, Optional
 
 from asim.common.datatypes.recording.detection_recording import DetectionRecording
 from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE2
-from asim.dataset.maps.abstract_map import AbstractMap
 from asim.simulation.planning.planner_output.abstract_planner_output import AbstractPlannerOutput
-from asim.simulation.simulation_time_controller.simulation_iteration import SimulationIteration
+from asim.simulation.time_controller.simulation_iteration import SimulationIteration
 
 # from nuplan.common.actor_state.ego_state import EgoState
 # from nuplan.common.actor_state.state_representation import StateSE2
@@ -35,13 +34,12 @@ class Simulation2DHistory:
     Simulation history including a sequence of simulation states.
     """
 
-    def __init__(self, map_api: AbstractMap, data: Optional[List[Simulation2DHistorySample]] = None) -> None:
+    def __init__(self, data: Optional[List[Simulation2DHistorySample]] = None) -> None:
         """
         Construct the history
         :param map_api: abstract map api for accessing the maps
         :param data: A list of simulation data.
         """
-        self.map_api: AbstractMap = map_api
 
         self.data: List[Simulation2DHistorySample] = data if data is not None else list()
 

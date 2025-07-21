@@ -1,31 +1,33 @@
-from typing import Optional, cast
+from typing import Optional
 
 from asim.dataset.scene.abstract_scene import AbstractScene
-from asim.simulation.simulation_time_controller.abstract_simulation_time_controller import (
-    AbstractSimulationTimeController,
+from asim.simulation.time_controller.abstract_time_controller import (
+    AbstractTimeController,
 )
-from asim.simulation.simulation_time_controller.simulation_iteration import SimulationIteration
+from asim.simulation.time_controller.simulation_iteration import SimulationIteration
 
 
-class StepSimulationTimeController(AbstractSimulationTimeController):
+class LogTimeController(AbstractTimeController):
     """
     Class handling simulation time and completion.
     """
 
-    def __init__(self, scene: AbstractScene):
+    def __init__(self):
         """
         Initialize simulation control.
         """
-        self.current_iteration_index = 0
-        self.scene = scene
+        self.current_iteration_index: int = 0
+        self._scene: Optional[AbstractScene] = None
 
-    def reset(self) -> None:
+    def reset(self, scene: AbstractScene) -> SimulationIteration:
         """Inherited, see superclass."""
         self.current_iteration_index = 0
+        self._scene = scene
+        return self.get_iteration()
 
     def get_iteration(self) -> SimulationIteration:
         """Inherited, see superclass."""
-        scene_time = self.scene.get_time_point(self.current_iteration_index)
+        scene_time = self._scene.get_timepoint_at_iteration(self.current_iteration_index)
         return SimulationIteration(time_point=scene_time, index=self.current_iteration_index)
 
     def next_iteration(self) -> Optional[SimulationIteration]:
@@ -39,4 +41,4 @@ class StepSimulationTimeController(AbstractSimulationTimeController):
 
     def number_of_iterations(self) -> int:
         """Inherited, see superclass."""
-        return cast(int, self.scene.get_number_of_iterations())
+        return self._scene.get_number_of_iterations()

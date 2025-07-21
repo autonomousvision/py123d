@@ -19,11 +19,6 @@ class LogReplayObservation(AbstractObservation):
         super().__init__()
         self._scene: Optional[AbstractScene] = None
 
-    def initialize(self) -> None:
-        """
-        Initialize observation if needed.
-        """
-
     def recording_type(self) -> Type[Recording]:
         return DetectionRecording
 

@@ -6,7 +6,7 @@ from typing import List
 
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.simulation.history.simulation_history_buffer import Simulation2DHistoryBuffer
-from asim.simulation.simulation_time_controller.simulation_iteration import SimulationIteration
+from asim.simulation.time_controller.simulation_iteration import SimulationIteration
 
 
 @dataclass(frozen=True)
