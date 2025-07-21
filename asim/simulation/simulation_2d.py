@@ -111,7 +111,7 @@ class Simulation2D:
         self._history.add_sample(Simulation2DHistorySample(iteration, ego_state, planner_output, observation))
 
         # Propagate state to next iteration
-        next_iteration = self._time_controller.next_iteration()
+        next_iteration = self._time_controller.step()
 
         # Propagate state
         if next_iteration:

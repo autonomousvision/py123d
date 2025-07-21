@@ -26,7 +26,7 @@ class AbstractTimeController(abc.ABC):
         """
 
     @abc.abstractmethod
-    def next_iteration(self) -> Optional[SimulationIteration]:
+    def step(self) -> Optional[SimulationIteration]:
         """
         Move to the next iteration and return its simulation iteration.
         Returns None if we have reached the end of the simulation.
