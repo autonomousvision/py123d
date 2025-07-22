@@ -4,6 +4,7 @@ from asim.common.datatypes.detection.detection import BoxDetection
 from asim.common.datatypes.detection.detection_types import DetectionType
 from asim.common.datatypes.recording.abstract_recording import Recording
 from asim.common.datatypes.recording.detection_recording import DetectionRecording
+from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE2
 from asim.dataset.arrow.conversion import BoxDetectionWrapper
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.agents.abstract_agents import AbstractAgents
@@ -13,6 +14,7 @@ from asim.simulation.agents.idm_agents import IDMAgents
 
 # from asim.simulation.agents.smart_agents import SMARTAgents
 from asim.simulation.observation.abstract_observation import AbstractObservation
+from asim.simulation.time_controller.simulation_iteration import SimulationIteration
 
 
 class AgentsObservation(AbstractObservation):
@@ -51,7 +53,12 @@ class AgentsObservation(AbstractObservation):
             traffic_light_detections=self._scene.get_traffic_light_detections_at_iteration(self._iteration),
         )
 
-    def step(self) -> DetectionRecording:
+    def step(
+        self,
+        current_iteration: SimulationIteration,
+        next_iteration: SimulationIteration,
+        current_ego_state: EgoStateSE2,
+    ) -> DetectionRecording:
         assert self._scene is not None, "Scene must be provided for log replay observation."
         self._iteration += 1
         _, non_cars, _ = _filter_agents_by_type(

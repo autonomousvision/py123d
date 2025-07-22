@@ -25,18 +25,18 @@ class AbstractEgoController(abc.ABC):
         """
 
     @abc.abstractmethod
-    def update_state(
+    def step(
         self,
         current_iteration: SimulationIteration,
         next_iteration: SimulationIteration,
         ego_state: EgoStateSE2,
         planner_output: AbstractPlannerOutput,
-    ) -> None:
+    ) -> EgoStateSE2:
         """
-        Update ego's state from current iteration to next iteration.
-
+        Update the ego state based on the planner output and the current state.
         :param current_iteration: The current simulation iteration.
-        :param next_iteration: The desired next simulation iteration.
+        :param next_iteration: The next simulation iteration after propagation.
         :param ego_state: The current ego state.
         :param planner_output: The output of a planner, e.g. action or trajectory.
+        :return: The updated ego state.
         """

@@ -75,7 +75,7 @@ def render_scene_animation(
         pbar.update(1)
 
     frames = list(range(start_idx, end_idx, step))
-    pbar = tqdm(total=len(frames), desc=f"Rendering {scene.log_name} as MP4")
+    pbar = tqdm(total=len(frames), desc=f"Rendering {scene.log_name} as {format}")
     ani = animation.FuncAnimation(fig, update, frames=frames, repeat=False)
 
     ani.save(output_path / f"{scene.log_name}_{scene.token}.{format}", writer="ffmpeg", fps=fps, dpi=dpi)

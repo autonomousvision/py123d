@@ -6,13 +6,11 @@ from typing import Any, Optional, Tuple, Type
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.callback.abstract_callback import AbstractCallback
 from asim.simulation.callback.multi_callback import MultiCallback
-from asim.simulation.controller.abstract_controller import AbstractEgoController
 from asim.simulation.history.simulation_history import Simulation2DHistory, Simulation2DHistorySample
 from asim.simulation.history.simulation_history_buffer import Simulation2DHistoryBuffer
-from asim.simulation.observation.abstract_observation import AbstractObservation
 from asim.simulation.planning.abstract_planner import PlannerInitialization, PlannerInput
 from asim.simulation.planning.planner_output.abstract_planner_output import AbstractPlannerOutput
-from asim.simulation.time_controller.abstract_time_controller import AbstractTimeController
+from asim.simulation.simulation_2d_setup import Simulation2DSetup
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +19,11 @@ class Simulation2D:
 
     def __init__(
         self,
-        time_controller: AbstractTimeController,
-        observations: AbstractObservation,
-        ego_controller: AbstractEgoController,
+        setup: Simulation2DSetup,
         callback: Optional[AbstractCallback] = None,
     ):
 
-        self._time_controller = time_controller
-        self._observations = observations
-        self._ego_controller = ego_controller
+        self._setup: Simulation2DSetup = setup
         self._callback = MultiCallback([]) if callback is None else callback
 
         # History where the steps of a simulation are stored
@@ -50,19 +44,14 @@ class Simulation2D:
         Hints on how to reconstruct the object when pickling.
         :return: Object type and constructor arguments to be used.
         """
-        return self.__class__, (
-            self._time_controller,
-            self._observations,
-            self._ego_controller,
-            self._callback,
-        )
+        return self.__class__, (self._setup, self._callback)
 
     def is_simulation_running(self) -> bool:
         """
         Check whether a simulation reached the end
         :return True if simulation hasn't reached the end, otherwise false.
         """
-        return not self._time_controller.reached_end() and self._is_simulation_running
+        return not self._setup.time_controller.reached_end() and self._is_simulation_running
 
     def reset(self, scene: AbstractScene) -> Tuple[PlannerInitialization, PlannerInput]:
         """
@@ -73,24 +62,32 @@ class Simulation2D:
         self._scene = scene
 
         # 2. Reset history and setup
-        self._history.reset()
-        simulation_iteration = self._time_controller.reset(self._scene)
-        observation = self._observations.reset(self._scene)
-        ego_state = self._ego_controller.reset(self._scene)
+        self._history = Simulation2DHistory()  # TODO: refactor
+        self._history.reset(scene)
+        simulation_iteration = self._setup.time_controller.reset(self._scene)
+        observation = self._setup.observations.reset(self._scene)
+        ego_state = self._setup.ego_controller.reset(self._scene)
 
         # 3. Reinitialize history buffer
         self._history_buffer = Simulation2DHistoryBuffer.initialize_from_scene(
-            self._scene.get_number_of_history_iterations(), self._scene, self._observations.recording_type()
+            self._scene.get_number_of_history_iterations(),
+            self._scene,
+            self._setup.observations.recording_type(),
         )
         self._history_buffer.append(ego_state, observation)
 
-        # Restart simulation
+        # 4. Restart simulation
         self._is_simulation_running = True
+
+        # 5. Fill planner input and initialization
         planner_initialization = PlannerInitialization(
-            route_lane_group_ids=self._scene.get_route_lane_group_ids(0),
+            route_lane_group_ids=self._scene.get_route_lane_group_ids(simulation_iteration.index),
             map_api=self._scene.map_api,
         )
-        planner_input = PlannerInput(iteration=simulation_iteration, history=self._history_buffer)
+        planner_input = PlannerInput(
+            iteration=simulation_iteration,
+            history=self._history_buffer,
+        )
 
         return planner_initialization, planner_input
 
@@ -103,25 +100,43 @@ class Simulation2D:
             raise RuntimeError("Simulation is not running, simulation can not be propagated!")
 
         # Measurements
-        iteration = self._time_controller.get_iteration()
-        ego_state, observation = self._history_buffer.current_state
+        current_iteration = self._setup.time_controller.get_iteration()
+        current_ego_state, current_observation = self._history_buffer.current_state
 
         # Add new sample to history
-        logger.debug(f"Adding to history: {iteration.index}")
-        self._history.add_sample(Simulation2DHistorySample(iteration, ego_state, planner_output, observation))
+        logger.debug(f"Adding to history: {current_iteration.index}")
+        self._history.add_sample(
+            Simulation2DHistorySample(
+                current_iteration,
+                current_ego_state,
+                planner_output,
+                current_observation,
+            )
+        )
 
         # Propagate state to next iteration
-        next_iteration = self._time_controller.step()
+        next_iteration, reached_end = self._setup.time_controller.step()
 
         # Propagate state
-        if next_iteration:
-            self._ego_controller.update_state(iteration, next_iteration, ego_state, planner_output)
-            self._observations.update_observation(iteration, next_iteration, self._history_buffer)
-        else:
+        next_ego_state = self._setup.ego_controller.step(
+            current_iteration,
+            next_iteration,
+            current_ego_state,
+            planner_output,
+        )
+        next_observation = self._setup.observations.step(
+            current_iteration,
+            next_iteration,
+            current_ego_state,
+        )
+
+        if reached_end:
             self._is_simulation_running = False
 
         # Append new state into history buffer
-        self._history_buffer.append(self._ego_controller.get_state(), self._observations.get_observation())
+        self._history_buffer.append(next_ego_state, next_observation)
+        planner_input = PlannerInput(iteration=next_iteration, history=self._history_buffer)
+        return planner_input
 
     @property
     def scene(self) -> Optional[AbstractScene]:

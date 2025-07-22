@@ -2,8 +2,10 @@ from typing import Optional, Type
 
 from asim.common.datatypes.recording.abstract_recording import Recording
 from asim.common.datatypes.recording.detection_recording import DetectionRecording
+from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE2
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.observation.abstract_observation import AbstractObservation
+from asim.simulation.time_controller.simulation_iteration import SimulationIteration
 
 
 class LogReplayObservation(AbstractObservation):
@@ -32,7 +34,12 @@ class LogReplayObservation(AbstractObservation):
             traffic_light_detections=self._scene.get_traffic_light_detections_at_iteration(self._iteration),
         )
 
-    def step(self) -> DetectionRecording:
+    def step(
+        self,
+        current_iteration: SimulationIteration,
+        next_iteration: SimulationIteration,
+        current_ego_state: EgoStateSE2,
+    ) -> DetectionRecording:
         self._iteration += 1
         return DetectionRecording(
             box_detections=self._scene.get_box_detections_at_iteration(self._iteration),

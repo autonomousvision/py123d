@@ -104,13 +104,13 @@ class KinematicBicycleModel(AbstractMotionModel):
         self,
         ego_state: EgoStateSE2,
         ideal_dynamic_state: DynamicStateSE2,
-        sampling_time: TimePoint,
+        next_timepoint: TimePoint,
     ) -> EgoStateSE2:
 
         vehicle_parameters = ego_state.vehicle_parameters
 
         # step_duration = ego_state.timepoint.diff(sampling_time)
-        step_duration = sampling_time.diff(ego_state.timepoint)
+        step_duration = next_timepoint.diff(ego_state.timepoint)
         propagating_state = self._update_commands(ego_state, ideal_dynamic_state, step_duration)
 
         # Compute state derivatives
@@ -161,6 +161,6 @@ class KinematicBicycleModel(AbstractMotionModel):
                 angular_acceleration=angular_accel,
             ),
             vehicle_parameters=vehicle_parameters,
-            time_point=sampling_time,
+            time_point=next_timepoint,
             tire_steering_angle=float(next_point_tire_steering_angle),
         )

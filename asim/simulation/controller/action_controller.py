@@ -11,12 +11,12 @@ from asim.simulation.time_controller.simulation_iteration import SimulationItera
 
 class ActionController(AbstractEgoController):
 
-    def __init__(self, scene: AbstractScene, motion_model: AbstractMotionModel):
+    def __init__(self, motion_model: AbstractMotionModel):
 
-        self._scene = scene
         self._motion_model = motion_model
 
         #  lazy loaded
+        self._scene: Optional[AbstractScene] = None
         self._current_state: Optional[EgoStateSE2] = None
 
     def get_state(self) -> EgoStateSE2:
@@ -28,28 +28,28 @@ class ActionController(AbstractEgoController):
     def reset(self, scene: AbstractScene) -> EgoStateSE2:
         """Inherited, see superclass."""
         self._current_state = None
+        self._scene = scene
         return self.get_state()
 
-    def update_state(
+    def step(
         self,
         current_iteration: SimulationIteration,
         next_iteration: SimulationIteration,
         ego_state: EgoStateSE2,
         planner_output: AbstractPlannerOutput,
-    ) -> None:
+    ) -> EgoStateSE2:
         """Inherited, see superclass."""
 
         assert isinstance(planner_output, ActionPlannerOutput)
         action: ActionPlannerOutput = planner_output
 
-        sampling_time = next_iteration.time_point - current_iteration.time_point
-
         # Compute the dynamic state to propagate the model
-        dynamic_state = action.dynamic_car_state
+        dynamic_state = action.dynamic_state_se2
 
         # Propagate ego state using the motion model
-        self._current_state = self._motion_model.propagate_state(
-            state=ego_state,
+        self._current_state = self._motion_model.step(
+            ego_state=ego_state,
             ideal_dynamic_state=dynamic_state,
-            sampling_time=sampling_time,
+            next_timepoint=next_iteration.time_point,
         )
+        return self._current_state

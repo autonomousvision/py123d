@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.controller.abstract_controller import AbstractEgoController
 from asim.simulation.observation.abstract_observation import AbstractObservation
 from asim.simulation.time_controller.abstract_time_controller import (
@@ -35,11 +34,3 @@ class Simulation2DSetup:
         assert isinstance(
             self.ego_controller, AbstractEgoController
         ), "Error: ego_controller must inherit from AbstractEgoController!"
-
-    def reset(self, scene: AbstractScene) -> None:
-        """
-        Reset all simulation controllers
-        """
-        self.observations.reset(scene)
-        self.ego_controller.reset(scene)
-        self.time_controller.reset(scene)

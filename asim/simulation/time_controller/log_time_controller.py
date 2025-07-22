@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.time_controller.abstract_time_controller import (
@@ -30,10 +30,10 @@ class LogTimeController(AbstractTimeController):
         scene_time = self._scene.get_timepoint_at_iteration(self._current_iteration_index)
         return SimulationIteration(time_point=scene_time, index=self._current_iteration_index)
 
-    def step(self) -> Optional[SimulationIteration]:
+    def step(self) -> Tuple[SimulationIteration, bool]:
         """Inherited, see superclass."""
         self._current_iteration_index += 1
-        return None if self.reached_end() else self.get_iteration()
+        return self.get_iteration(), self.reached_end()
 
     def reached_end(self) -> bool:
         """Inherited, see superclass."""

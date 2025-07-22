@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Optional
+from typing import Tuple
 
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.time_controller.simulation_iteration import SimulationIteration
@@ -26,10 +26,10 @@ class AbstractTimeController(abc.ABC):
         """
 
     @abc.abstractmethod
-    def step(self) -> Optional[SimulationIteration]:
+    def step(self) -> Tuple[SimulationIteration, bool]:
         """
-        Move to the next iteration and return its simulation iteration.
-        Returns None if we have reached the end of the simulation.
+        Advance to the next simulation iteration.
+        :return: A tuple containing the next SimulationIteration and a boolean indicating if the simulation has reached its end.
         """
 
     @abc.abstractmethod

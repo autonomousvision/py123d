@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from asim.common.datatypes.recording.detection_recording import DetectionRecording
 from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE2
+from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.planning.planner_output.abstract_planner_output import AbstractPlannerOutput
 from asim.simulation.time_controller.simulation_iteration import SimulationIteration
 
@@ -42,6 +43,7 @@ class Simulation2DHistory:
         """
 
         self.data: List[Simulation2DHistorySample] = data if data is not None else list()
+        self.scene: Optional[AbstractScene] = None
 
     def add_sample(self, sample: Simulation2DHistorySample) -> None:
         """
@@ -58,11 +60,12 @@ class Simulation2DHistory:
             raise RuntimeError("Data is empty!")
         return self.data[-1]
 
-    def reset(self) -> None:
+    def reset(self, scene: AbstractScene) -> None:
         """
         Clear the stored data
         """
         self.data.clear()
+        self.scene = scene
 
     def __len__(self) -> int:
         """
