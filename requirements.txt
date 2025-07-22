@@ -49,6 +49,8 @@ hydra-core
 lxml
 trimesh
 viser
+gym==0.17.2
+gymnasium==0.26.3
 
 # torch & lighting
 torch==2.6.0

@@ -1,15 +1,15 @@
 import logging
 import sys
 import traceback
+from threading import Timer
 from typing import Any, Dict, Optional
 
 import gymnasium as gym
 import numpy as np
 import numpy.typing as npt
-from carl_nuplan.common.timer import Timer
 
-from asim.simulation.gym.environment.observation_builder.abstract_observation_builder import (
-    AbstractObservationBuilder,
+from asim.simulation.gym.environment.gym_observation.abstract_gym_observation import (
+    AbstractGymObservation,
 )
 from asim.simulation.gym.environment.reward_builder.abstract_reward_builder import AbstractRewardBuilder
 from asim.simulation.gym.environment.scenario_sampler.abstract_scenario_sampler import AbstractScenarioSampler
@@ -36,7 +36,7 @@ class EnvironmentWrapper(gym.Env):
         scenario_sampler: AbstractScenarioSampler,
         simulation_builder: AbstractSimulationBuilder,
         trajectory_builder: AbstractTrajectoryBuilder,
-        observation_builder: AbstractObservationBuilder,
+        observation_builder: AbstractGymObservation,
         reward_builder: AbstractRewardBuilder,
         terminate_on_failure: bool = False,
     ):
@@ -98,7 +98,7 @@ class EnvironmentWrapper(gym.Env):
             ) = self._simulation_wrapper.initialize()
             self._reset_timer.log("reset_4_init_wrapper")
 
-            observation = self._observation_builder.build_observation(planner_input, planner_initialization, info)
+            observation = self._observation_builder.get_gym_observation(planner_input, planner_initialization, info)
             self._reset_timer.log("reset_5_build_observation")
             self._reset_timer.end()
 
@@ -137,7 +137,7 @@ class EnvironmentWrapper(gym.Env):
             termination = termination or not is_simulation_running
             self._step_timer.log("step_3_build_reward")
 
-            observation = self._observation_builder.build_observation(
+            observation = self._observation_builder.get_gym_observation(
                 planner_input, self._simulation_wrapper.planner_initialization, info
             )
 

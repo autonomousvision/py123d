@@ -3,12 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import IntEnum
 from functools import cached_property
-from typing import Optional
+from typing import Final, Optional
 
 import numpy as np
 import numpy.typing as npt
 
-from asim.common.datatypes.detection.detection import BoxDetection, BoxDetectionSE3, DetectionMetadata
+from asim.common.datatypes.detection.detection import (
+    BoxDetectionMetadata,
+    BoxDetectionSE2,
+    BoxDetectionSE3,
+)
 from asim.common.datatypes.detection.detection_types import DetectionType
 from asim.common.datatypes.time.time_point import TimePoint
 from asim.common.datatypes.vehicle_state.vehicle_parameters import (
@@ -24,6 +28,8 @@ from asim.common.geometry.vector import Vector2D, Vector3D
 from asim.common.utils.enums import classproperty
 
 # TODO: Find an appropriate way to handle SE2 and SE3 states.
+
+EGO_TRACK_TOKEN: Final[str] = "ego_vehicle"
 
 
 class EgoStateSE3Index(IntEnum):
@@ -138,17 +144,25 @@ class EgoStateSE3:
         return self.bounding_box.bounding_box_se2
 
     @property
-    def box_detection(self) -> BoxDetection:
+    def box_detection(self) -> BoxDetectionSE3:
         return BoxDetectionSE3(
-            metadata=DetectionMetadata(
+            metadata=BoxDetectionMetadata(
                 detection_type=DetectionType.EGO,
                 timepoint=self.timepoint,
-                track_token="ego_vehicle",
+                track_token=EGO_TRACK_TOKEN,
                 confidence=1.0,
             ),
             bounding_box_se3=self.bounding_box,
             velocity=self.dynamic_state_se3.velocity,
         )
+
+    @property
+    def box_detection_se3(self) -> BoxDetectionSE3:
+        return self.box_detection
+
+    @property
+    def box_detection_se2(self) -> BoxDetectionSE2:
+        return self.box_detection.box_detection_se2
 
     @property
     def ego_state_se2(self) -> EgoStateSE2:
@@ -211,6 +225,23 @@ class EgoStateSE2:
     @property
     def bounding_box_se2(self) -> BoundingBoxSE2:
         return self.bounding_box
+
+    @property
+    def box_detection(self) -> BoxDetectionSE2:
+        return BoxDetectionSE2(
+            metadata=BoxDetectionMetadata(
+                detection_type=DetectionType.EGO,
+                timepoint=self.timepoint,
+                track_token=EGO_TRACK_TOKEN,
+                confidence=1.0,
+            ),
+            bounding_box_se2=self.bounding_box_se2,
+            velocity=self.dynamic_state_se2.velocity,
+        )
+
+    @property
+    def box_detection_se2(self) -> BoxDetectionSE2:
+        return self.box_detection
 
 
 class DynamicStateSE3Index(IntEnum):

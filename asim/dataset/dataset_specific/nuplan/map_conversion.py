@@ -159,7 +159,7 @@ class NuPlanMapConverter:
             {
                 "id": ids,
                 "lane_group_id": lane_group_ids,
-                "speed_limits_mps": speed_limits_mps,
+                "speed_limit_mps": speed_limits_mps,
                 "predecessor_ids": predecessor_ids,
                 "successor_ids": successor_ids,
                 "left_boundary": left_boundaries,
@@ -220,7 +220,7 @@ class NuPlanMapConverter:
             {
                 "id": ids,
                 "lane_group_id": lane_group_ids,
-                "speed_limits_mps": speed_limits_mps,
+                "speed_limit_mps": speed_limits_mps,
                 "predecessor_ids": predecessor_ids,
                 "successor_ids": successor_ids,
                 "left_boundary": left_boundaries,

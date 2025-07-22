@@ -21,7 +21,7 @@ from shapely import Point, Polygon
 
 from asim.simulation.gym.environment.helper.environment_area import AbstractEnvironmentArea
 from asim.simulation.gym.environment.helper.environment_cache import (
-    DetectionCache,
+    BoxDetectionCache,
     MapCache,
     environment_cache_manager,
 )
@@ -362,7 +362,7 @@ class DefaultRewardBuilder(AbstractRewardBuilder):
         info["ttc_score"] = ttc_score
 
     def _calculate_reward_components(
-        self, simulation_wrapper: SimulationWrapper, map_cache: MapCache, detection_cache: DetectionCache
+        self, simulation_wrapper: SimulationWrapper, map_cache: MapCache, detection_cache: BoxDetectionCache
     ) -> DefaultRewardComponents:
         """
         Internal method to calculate the reward components based on the current simulation state.

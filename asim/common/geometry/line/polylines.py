@@ -25,7 +25,11 @@ class Polyline2D:
 
     @classmethod
     def from_linestring(cls, linestring: geom.LineString) -> Polyline2D:
-        return Polyline2D(linestring)
+        if linestring.has_z:
+            linestring_ = geom_creation.linestrings(*linestring.xy)
+        else:
+            linestring_ = linestring
+        return Polyline2D(linestring_)
 
     @classmethod
     def from_array(cls, polyline_array: npt.NDArray[np.float32]) -> Polyline2D:
@@ -147,6 +151,7 @@ class Polyline3D:
 
     @property
     def polyline_2d(self) -> Polyline2D:
+        Polyline2D(geom_creation.linestrings(*self.linestring.xy))
         return Polyline2D.from_linestring(self.linestring)
 
     @property

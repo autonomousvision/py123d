@@ -3,33 +3,31 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Dict, List, Optional, Tuple
 
-import pandas as pd
-from carl_nuplan.planning.simulation.planner.pdm_planner.observation.pdm_observation_utils import (
-    get_proximal_map_objects,
-)
-from carl_nuplan.planning.simulation.planner.pdm_planner.observation.pdm_occupancy_map import PDMOccupancyMap
-from carl_nuplan.planning.simulation.planner.pdm_planner.utils.route_utils import route_roadblock_correction_v2
-from nuplan.common.actor_state.ego_state import EgoState
-from nuplan.common.actor_state.state_representation import StateSE2
-from nuplan.common.actor_state.tracked_objects import TrackedObject, TrackedObjects
-from nuplan.common.actor_state.tracked_objects_types import TrackedObjectType
-from nuplan.common.maps.abstract_map import AbstractMap, SemanticMapLayer
-from nuplan.common.maps.abstract_map_objects import (
-    Intersection,
-    Lane,
-    LaneConnector,
-    PolygonMapObject,
-    RoadBlockGraphEdgeMapObject,
-    StopLine,
-)
-from nuplan.common.maps.maps_datatypes import TrafficLightStatusData, TrafficLightStatusType
-from nuplan.database.maps_db.map_api import NuPlanMap
-from nuplan.planning.simulation.observation.observation_type import DetectionsTracks
-from nuplan.planning.simulation.planner.abstract_planner import PlannerInitialization, PlannerInput
-from shapely import Point, Polygon
+from shapely import Polygon
 
-from asim.simulation.gym.cache.helper.tracked_objects_filter import filter_tracked_objects
+from asim.common.datatypes.detection.detection import (
+    BoxDetectionSE2,
+    BoxDetectionWrapper,
+    TrafficLightDetectionWrapper,
+    TrafficLightStatus,
+)
+from asim.common.datatypes.detection.detection_types import DetectionType
+from asim.common.datatypes.recording.detection_recording import DetectionRecording
+from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE2
+from asim.common.geometry.base import StateSE2
+from asim.common.geometry.occupancy_map import OccupancyMap2D
+from asim.dataset.maps.abstract_map import AbstractMap
+from asim.dataset.maps.abstract_map_objects import (
+    AbstractCarpark,
+    AbstractCrosswalk,
+    AbstractIntersection,
+    AbstractLane,
+    AbstractLaneGroup,
+    AbstractStopLine,
+)
+from asim.dataset.maps.map_datatypes import MapSurfaceType
 from asim.simulation.gym.environment.helper.environment_area import AbstractEnvironmentArea
+from asim.simulation.planning.abstract_planner import PlannerInitialization, PlannerInput
 
 
 class MapCache:
@@ -40,14 +38,13 @@ class MapCache:
 
     def __init__(
         self,
-        ego_state: EgoState,
+        ego_state: EgoStateSE2,
         map_api: AbstractMap,
         environment_area: AbstractEnvironmentArea,
-        traffic_light_status: List[TrafficLightStatusData],
+        traffic_lights: TrafficLightDetectionWrapper,
         route_lane_group_ids: List[str],
         load_crosswalks: bool = False,
         load_stop_lines: bool = False,
-        drivable_area_map: Optional[PDMOccupancyMap] = None,
     ) -> None:
         """
         Initializes the MapCache object.
@@ -58,7 +55,6 @@ class MapCache:
         :param route_lane_group_ids: List of lane group ids for the ego route.
         :param load_crosswalks: whether to load crosswalks, defaults to False
         :param load_stop_lines: whether to load stop lines, defaults to False
-        :param drivable_area_map: Optional 2D occupancy map of drivable area objects, defaults to None
         """
 
         self.ego_state = ego_state
@@ -68,105 +64,70 @@ class MapCache:
         self.load_stop_lines = load_stop_lines
 
         self.route_lane_group_ids = route_lane_group_ids
-        self.traffic_lights: Dict[str, TrafficLightStatusType] = {
-            str(data.lane_connector_id): data.status for data in traffic_light_status
-        }
+        self.traffic_lights: Dict[str, TrafficLightStatus] = {str(data.lane_id): data.status for data in traffic_lights}
 
-        self.roadblocks: Dict[str, RoadBlockGraphEdgeMapObject] = {}
-        self.lanes: Dict[str, Lane] = {}
+        self.lane_groups: Dict[str, AbstractLaneGroup] = {}
+        self.lanes: Dict[str, AbstractLane] = {}
 
-        self.roadblock_connectors: Dict[str, RoadBlockGraphEdgeMapObject] = {}
-        self.lane_connectors: Dict[str, LaneConnector] = {}
+        self.intersections: Dict[str, AbstractIntersection] = {}
+        self.stop_lines: Dict[str, AbstractStopLine] = {}
+        self.car_parks: Dict[str, AbstractCarpark] = {}
+        self.crosswalks: Dict[str, AbstractCrosswalk] = {}
+        self._load_cache()
 
-        self.intersections: Dict[str, Intersection] = {}
-        self.stop_lines: Dict[str, StopLine] = {}
-        self.car_parks: Dict[str, PolygonMapObject] = {}
-        self.crosswalks: Dict[str, PolygonMapObject] = {}
-        self._load_cache(drivable_area_map)
+    def _load_cache(self) -> None:
 
-    def _load_cache(self, drivable_area_map: Optional[PDMOccupancyMap]) -> None:
-        """
-        Helper function to load the map cache during initialization.
-        :param drivable_area_map: Optional 2D occupancy map of drivable area objects
-        """
+        query_map_layers = [MapSurfaceType.LANE_GROUP, MapSurfaceType.CARPARK]
+        # FIXME: Add stop lines and crosswalks to the map layers if needed
+        # if self.load_crosswalks:
+        #     query_map_layers.append(MapSurfaceType.CROSSWALK)
+        # if self.load_stop_lines:
+        #     query_map_layers.append(MapSurfaceType.STOP_LINE)
 
-        if drivable_area_map is None:
-            MAP_LAYERS = [
-                SemanticMapLayer.ROADBLOCK,
-                SemanticMapLayer.ROADBLOCK_CONNECTOR,
-                SemanticMapLayer.CARPARK_AREA,
-            ]
-            if self.load_stop_lines:
-                MAP_LAYERS.append(SemanticMapLayer.STOP_LINE)
-            if self.load_crosswalks:
-                MAP_LAYERS.append(SemanticMapLayer.CROSSWALK)
+        map_object_dict = self.map_api.query(
+            geometry=self.environment_area.get_global_polygon(self.ego_state.center),
+            layers=query_map_layers,
+            predicate="intersects",
+        )
 
-            map_object_dict = get_proximal_map_objects(
-                self.environment_area.get_global_polygon(self.ego_state.center),
-                self.map_api,
-                MAP_LAYERS,
-            )
-        else:
-            patch = self.environment_area.get_global_polygon(self.ego_state.center)
-            map_object_ids = drivable_area_map.intersects(patch)
-
-            target_layers = [
-                SemanticMapLayer.ROADBLOCK,
-                SemanticMapLayer.ROADBLOCK_CONNECTOR,
-                SemanticMapLayer.CARPARK_AREA,
-            ]
-            map_object_dict = {layer: [] for layer in target_layers}
-            for map_object_id in map_object_ids:
-                for layer in target_layers:
-                    map_object = self.map_api.get_map_object(map_object_id, layer=layer)
-                    if map_object is not None:
-                        map_object_dict[layer].append(map_object)
-                        break
-
-        for roadblock in map_object_dict[SemanticMapLayer.ROADBLOCK]:
-            roadblock: RoadBlockGraphEdgeMapObject
-            self.roadblocks[roadblock.id] = roadblock
-            for lane in roadblock.interior_edges:
+        # 1. load (1.1) lane groups, (1.2) lanes, (1.3) intersections
+        for lane_group in map_object_dict[MapSurfaceType.LANE_GROUP]:
+            lane_group: AbstractLaneGroup
+            self.lane_groups[lane_group.id] = lane_group
+            for lane in lane_group.lanes:
                 self.lanes[lane.id] = lane
-
-        for roadblock_connector in map_object_dict[SemanticMapLayer.ROADBLOCK_CONNECTOR]:
-            roadblock_connector: RoadBlockGraphEdgeMapObject
-            self.roadblock_connectors[roadblock_connector.id] = roadblock_connector
-
-            optional_intersection: Intersection = roadblock_connector.intersection
+            optional_intersection = lane_group.intersection
             if optional_intersection is not None:
                 self.intersections[optional_intersection.id] = optional_intersection
 
-            for lane_connector in roadblock_connector.interior_edges:
-                self.lane_connectors[lane_connector.id] = lane_connector
-
-        for car_park in map_object_dict[SemanticMapLayer.CARPARK_AREA]:
-            car_park: PolygonMapObject
+        # 2. load car parks
+        for car_park in map_object_dict[MapSurfaceType.CARPARK]:
+            car_park: AbstractCarpark
             self.car_parks[car_park.id] = car_park
 
-        if self.load_crosswalks:
-            for crosswalk in map_object_dict[SemanticMapLayer.CROSSWALK]:
-                crosswalk: PolygonMapObject
-                self.crosswalks[crosswalk.id] = crosswalk
+        # FIXME: Add stop lines and crosswalks to the map layers if needed
+        # if self.load_crosswalks:
+        #     for crosswalk in map_object_dict[MapSurfaceType.CROSSWALK]:
+        #         crosswalk: AbstractCarpark
+        #         self.crosswalks[crosswalk.id] = crosswalk
 
-        if self.load_stop_lines:
-            for stop_line in map_object_dict[SemanticMapLayer.STOP_LINE]:
-                stop_line: StopLine
-                self.stop_lines[stop_line.id] = stop_line
+        # if self.load_stop_lines:
+        #     for stop_line in map_object_dict[MapSurfaceType.STOP_LINE]:
+        #         stop_line: AbstractStopLine
+        #         self.stop_lines[stop_line.id] = stop_line
 
     @property
-    def drivable_area_map(self) -> PDMOccupancyMap:
-        """
-        Returns a PDMOccupancyMap of the drivable area in the environment.
-        :return: PDMOccupancyMap containing the drivable area layers (intersections, roadblocks, car parks).
-        """
+    def drivable_area_map(self) -> OccupancyMap2D:
+
         tokens: List[str] = []
         polygons: List[Polygon] = []
-        for element_dict in [self.intersections, self.roadblocks, self.car_parks]:
+
+        # FIXME: Remove lane groups on intersections
+        for element_dict in [self.intersections, self.lane_groups, self.car_parks]:
             for token, element in element_dict.items():
                 tokens.append(token)
                 polygons.append(element.polygon)
-        return PDMOccupancyMap(tokens, polygons)
+        return OccupancyMap2D(polygons, tokens)
 
     @cached_property
     def origin(self) -> StateSE2:
@@ -177,14 +138,17 @@ class MapCache:
         return self.environment_area.get_global_origin(self.ego_state.center)
 
 
-class DetectionCache:
+class BoxDetectionCache:
     """Helper class to save and load detection-related data for the current environment area."""
 
     def __init__(
-        self, ego_state: EgoState, tracked_objects: TrackedObjects, environment_area: AbstractEnvironmentArea
+        self,
+        ego_state: EgoStateSE2,
+        box_detections: BoxDetectionWrapper,
+        environment_area: AbstractEnvironmentArea,
     ) -> None:
         """
-        Initializes the DetectionCache object.
+        Initializes the BoxDetectionCache object.
         :param ego_state: Ego vehicle state in the environment.
         :param tracked_objects: Tracked objects wrapper of nuPlan.
         :param environment_area: Area to cache detection data for.
@@ -192,31 +156,29 @@ class DetectionCache:
 
         self.ego_state = ego_state
         self.environment_area = environment_area
-        self.tracked_objects = tracked_objects
+        self.tracked_objects = box_detections
 
-        self.vehicles: List[TrackedObject] = []
-        self.pedestrians: List[TrackedObject] = []
-        self.static_objects: List[TrackedObject] = []
-        self._load_cache(tracked_objects)
+        self.vehicles: List[BoxDetectionSE2] = []
+        self.pedestrians: List[BoxDetectionSE2] = []
+        self.static_objects: List[BoxDetectionSE2] = []
+        self._load_cache(box_detections)
 
-    def _load_cache(self, tracked_objects: TrackedObjects):
+    def _load_cache(self, box_detections: BoxDetectionWrapper) -> None:
         global_area_polygon = self.environment_area.get_global_polygon(self.ego_state.center)
-        for tracked_object in tracked_objects.tracked_objects:
-            if global_area_polygon.contains(Point(*tracked_object.center.array)):
-                if tracked_object.tracked_object_type in [
-                    TrackedObjectType.VEHICLE,
-                    TrackedObjectType.BICYCLE,
+
+        for box_detection in box_detections:
+            if global_area_polygon.contains(box_detection.center.shapely_point):
+                if box_detection.metadata.detection_type in [DetectionType.VEHICLE, DetectionType.BICYCLE]:
+                    self.vehicles.append(box_detection)
+                elif box_detection.metadata.detection_type in [DetectionType.PEDESTRIAN]:
+                    self.pedestrians.append(box_detection)
+                elif box_detection.metadata.detection_type in [
+                    DetectionType.CZONE_SIGN,
+                    DetectionType.BARRIER,
+                    DetectionType.TRAFFIC_CONE,
+                    DetectionType.GENERIC_OBJECT,
                 ]:
-                    self.vehicles.append(tracked_object)
-                elif tracked_object.tracked_object_type in [TrackedObjectType.PEDESTRIAN]:
-                    self.pedestrians.append(tracked_object)
-                elif tracked_object.tracked_object_type in [
-                    TrackedObjectType.CZONE_SIGN,
-                    TrackedObjectType.BARRIER,
-                    TrackedObjectType.TRAFFIC_CONE,
-                    TrackedObjectType.GENERIC_OBJECT,
-                ]:
-                    self.static_objects.append(tracked_object)
+                    self.static_objects.append(box_detection)
 
     @cached_property
     def origin(self) -> StateSE2:
@@ -232,143 +194,36 @@ def build_environment_caches(
     planner_initialization: PlannerInitialization,
     environment_area: AbstractEnvironmentArea,
     route_lane_group_ids: Optional[List[str]] = None,
-    route_correction: bool = False,
-    track_filtering: bool = False,
-) -> Tuple[MapCache, DetectionCache]:
+) -> Tuple[MapCache, BoxDetectionCache]:
     """
     Helper function to build the environment caches for the current planner input and initialization.
     :param planner_input: Planner input interface of nuPlan, ego, detection, and traffic light data.
     :param planner_initialization: Planner initialization interface of nuPlan, map API and route lane group ids.
     :param environment_area: Area object used to cache the map and detection data.
     :param route_lane_group_ids: Optional route lane group ids, to overwrite the planner initialization, defaults to None
-    :param route_correction: Whether to apply route correction of lane group ids from planner initialization, defaults to False
-    :param track_filtering: Whether to filter tracks by max counts based on the default configuration, defaults to False
     :return: Tuple of MapCache and DetectionCache objects.
     """
 
-    ego_state, detection_tracks = planner_input.history.current_state
-    assert isinstance(ego_state, EgoState)
-    assert isinstance(detection_tracks, DetectionsTracks)
+    ego_state, detection_recording = planner_input.history.current_state
+    assert isinstance(detection_recording, DetectionRecording), "Recording must be of type DetectionRecording"
 
-    if route_lane_group_ids is None:
-        if route_correction:
-            route_lane_group_ids = route_roadblock_correction_v2(
-                ego_state, planner_initialization.map_api, planner_initialization.route_lane_group_ids
-            )
-        else:
-            route_lane_group_ids = planner_initialization.route_lane_group_ids
+    # TODO: Add route correction?
+    route_lane_group_ids = planner_initialization.route_lane_group_ids
 
-    if track_filtering:
-        tracked_objects = filter_tracked_objects(
-            detection_tracks.tracked_objects, ego_state, planner_initialization.map_api
-        )
-    else:
-        tracked_objects = detection_tracks.tracked_objects
+    # TODO: Add box detection filtering?
+    box_detections = detection_recording.box_detections
 
     map_cache = MapCache(
         ego_state=ego_state,
         map_api=planner_initialization.map_api,
         environment_area=environment_area,
-        traffic_light_status=list(planner_input.traffic_light_data),
+        traffic_lights=detection_recording.traffic_light_detections,
         route_lane_group_ids=route_lane_group_ids,
     )
-    detection_cache = DetectionCache(
-        ego_state=ego_state, tracked_objects=tracked_objects, environment_area=environment_area
+    detection_cache = BoxDetectionCache(
+        ego_state=ego_state,
+        box_detections=box_detections,
+        environment_area=environment_area,
     )
 
     return map_cache, detection_cache
-
-
-class EnvironmentCacheManager:
-    """
-    Helper function to improve performance of map api calls in the Gym environment.
-    This class is not strictly necessary, but can have some performance benefits.
-    NOTE: Class caches drivable areas of the four nuPlan maps as faster shapely STRtree.
-    NOTE: Geopandas has own implantation of STRtree, but not provided in nuPlan interface.
-    """
-
-    def __init__(self) -> None:
-        """
-        Initializes the EnvironmentCacheManager object.
-        """
-        self._drivable_area_dfs: Dict[str, PDMOccupancyMap] = {}
-
-    def _get_drivable_area_map(self, map_api: NuPlanMap) -> PDMOccupancyMap:
-        """
-        Helper to load the drivable area map for a given map API.
-        :param map_api: Abstract map interface of nuPlan.
-        :return: PDMOccupancyMap containing the drivable area layers (intersections, roadblocks, car parks).
-        """
-        if map_api.map_name not in self._drivable_area_dfs.keys():
-            roadblocks = map_api._load_vector_map_layer("lane_groups_polygons")
-            roadblock_connectors = map_api._load_vector_map_layer("lane_group_connectors")
-            car_parks = map_api._load_vector_map_layer("carpark_areas")
-            drivable_area_df = pd.concat([roadblocks, roadblock_connectors, car_parks]).dropna(axis=1, how="any")
-            tokens = list(drivable_area_df["fid"])
-            polygons = list(drivable_area_df["geometry"])
-            self._drivable_area_dfs[map_api.map_name] = PDMOccupancyMap(tokens, polygons)
-
-        return self._drivable_area_dfs[map_api.map_name]
-
-    def build_environment_caches(
-        self,
-        planner_input: PlannerInput,
-        planner_initialization: PlannerInitialization,
-        environment_area: AbstractEnvironmentArea,
-        route_roadblock_ids: Optional[List[str]] = None,
-        route_correction: bool = False,
-        track_filtering: bool = False,
-    ) -> Tuple[MapCache, DetectionCache]:
-        """
-        Builds the environment caches for the current planner input and initialization.
-        :param planner_input: Planner input interface of nuPlan, ego, detection, and traffic light data.
-        :param planner_initialization: Planner initialization interface of nuPlan, map API and route roadblock ids.
-        :param environment_area: Area object used to cache the map and detection data.
-        :param route_roadblock_ids: Optional route roadblock ids, to overwrite the planner initialization, defaults to None
-        :param route_correction: Whether to apply route correction of roadblock ids from planner initialization, defaults to False
-        :param track_filtering: Whether to filter tracks by max counts based on the default configuration, defaults to False
-        :return: Tuple of MapCache and DetectionCache objects.
-        """
-
-        ego_state, detection_tracks = planner_input.history.current_state
-        assert isinstance(ego_state, EgoState)
-        assert isinstance(detection_tracks, DetectionsTracks)
-        drivable_area_map = self._get_drivable_area_map(planner_initialization.map_api)
-
-        if route_roadblock_ids is None:
-            if route_correction:
-                route_roadblock_ids = route_roadblock_correction_v2(
-                    ego_state,
-                    planner_initialization.map_api,
-                    planner_initialization.route_roadblock_ids,
-                )
-            else:
-                route_roadblock_ids = planner_initialization.route_roadblock_ids
-
-        if track_filtering:
-            tracked_objects = filter_tracked_objects(
-                detection_tracks.tracked_objects,
-                ego_state,
-                planner_initialization.map_api,
-            )
-        else:
-            tracked_objects = detection_tracks.tracked_objects
-
-        map_cache = MapCache(
-            ego_state=ego_state,
-            map_api=planner_initialization.map_api,
-            environment_area=environment_area,
-            traffic_light_status=list(planner_input.traffic_light_data),
-            route_roadblock_ids=route_roadblock_ids,
-            drivable_area_map=drivable_area_map,
-        )
-        detection_cache = DetectionCache(
-            ego_state=ego_state,
-            tracked_objects=tracked_objects,
-            environment_area=environment_area,
-        )
-
-        return map_cache, detection_cache
-
-
-environment_cache_manager = EnvironmentCacheManager()

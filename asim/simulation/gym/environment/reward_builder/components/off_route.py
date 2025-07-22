@@ -28,8 +28,8 @@ def calculate_off_route_v1(simulation_wrapper: SimulationWrapper, map_cache: Map
 
     route_roadblocks: Dict[str, Polygon] = {}
     for route_roadblock_id in map_cache.route_lane_group_ids:
-        if route_roadblock_id in map_cache.roadblocks:
-            route_roadblocks[route_roadblock_id] = map_cache.roadblocks[route_roadblock_id].polygon
+        if route_roadblock_id in map_cache.lane_groups:
+            route_roadblocks[route_roadblock_id] = map_cache.lane_groups[route_roadblock_id].polygon
         if route_roadblock_id in map_cache.roadblock_connectors:
             route_roadblocks[route_roadblock_id] = map_cache.roadblock_connectors[route_roadblock_id].polygon
 

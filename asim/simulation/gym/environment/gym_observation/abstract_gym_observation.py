@@ -2,10 +2,11 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict
 
 from gymnasium import spaces
-from nuplan.planning.simulation.planner.abstract_planner import PlannerInitialization, PlannerInput
+
+from asim.simulation.planning.abstract_planner import PlannerInitialization, PlannerInput
 
 
-class AbstractObservationBuilder(ABC):
+class AbstractGymObservation(ABC):
     """Abstract class for building observations in a gym environment."""
 
     @abstractmethod
@@ -20,7 +21,7 @@ class AbstractObservationBuilder(ABC):
         """
 
     @abstractmethod
-    def build_observation(
+    def get_gym_observation(
         self,
         planner_input: PlannerInput,
         planner_initialization: PlannerInitialization,
@@ -28,8 +29,8 @@ class AbstractObservationBuilder(ABC):
     ) -> Dict[str, Any]:
         """
         Build an observation from the planner input and initialization.
-        :param planner_input: Planner input as defined in the nuPlan interface.
-        :param planner_initialization: Planner initialization as defined in the nuPlan interface.
+        :param planner_input: Planner input as defined in the asim interface.
+        :param planner_initialization: Planner initialization as defined in the asim interface.
         :param info: Arbitrary information dictionary, for passing information between modules.
         :return: Observation as a named dictionary.
         """

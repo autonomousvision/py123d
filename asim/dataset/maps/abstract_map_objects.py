@@ -6,7 +6,7 @@ from typing import List, Optional
 import shapely.geometry as geom
 import trimesh
 
-from asim.common.geometry.line.polylines import Polyline3D
+from asim.common.geometry.line.polylines import Polyline2D, Polyline3D
 from asim.dataset.maps.map_datatypes import MapSurfaceType
 
 
@@ -60,10 +60,8 @@ class AbstractSurfaceMapObject(AbstractMapObject):
         :return: Trimesh
         """
 
-    # @property
-    # @abc.abstractmethod
-    # def outline_2d(self) -> Polyline2D:
-    #     pass
+    def outline_2d(self) -> Polyline2D:
+        return self.outline_3d.polyline_2d
 
 
 class AbstractLane(AbstractSurfaceMapObject):
@@ -232,3 +230,12 @@ class AbstractGenericDrivable(AbstractSurfaceMapObject):
     @property
     def surface_type(self) -> MapSurfaceType:
         return MapSurfaceType.GENERIC_DRIVABLE
+
+
+class AbstractStopLine(AbstractSurfaceMapObject):
+    """Abstract interface for stop line objects."""
+
+    @property
+    def surface_type(self) -> MapSurfaceType:
+        # return MapSurfaceType.STOP_LINE
+        raise NotImplementedError

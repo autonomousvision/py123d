@@ -107,6 +107,10 @@ class StateSE2:
         """
         return Point2D(self.x, self.y)
 
+    @property
+    def shapely_point(self) -> geom.Point:
+        return geom.Point(self.x, self.y)
+
     def __iter__(self) -> Iterable[float]:
         """
         :return: iterator of tuples (x, y)
@@ -245,3 +249,7 @@ class StateSE3:
     @property
     def point_2d(self) -> Point2D:
         return Point2D(self.x, self.y)
+
+    @property
+    def shapely_point(self) -> geom.Point:
+        return geom.Point(self.x, self.y, self.z)

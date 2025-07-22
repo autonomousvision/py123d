@@ -6,23 +6,17 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 import numpy.typing as npt
-from carl_nuplan.planning.simulation.planner.pdm_planner.utils.pdm_array_representation import (
-    ego_state_to_center_state_array,
-)
-from carl_nuplan.planning.simulation.planner.pdm_planner.utils.pdm_enums import StateIndex
 from gymnasium import spaces
-from nuplan.planning.simulation.planner.abstract_planner import PlannerInitialization, PlannerInput
 
+from asim.simulation.gym.environment.gym_observation.abstract_gym_observation import AbstractGymObservation
+from asim.simulation.gym.environment.gym_observation.raster.raster_renderer import RasterRenderer
 from asim.simulation.gym.environment.helper.environment_area import AbstractEnvironmentArea
 from asim.simulation.gym.environment.helper.environment_cache import (
-    DetectionCache,
+    BoxDetectionCache,
     MapCache,
-    environment_cache_manager,
+    build_environment_caches,
 )
-from asim.simulation.gym.environment.observation_builder.abstract_observation_builder import (
-    AbstractObservationBuilder,
-)
-from asim.simulation.gym.environment.observation_builder.default.default_renderer import DefaultRenderer
+from asim.simulation.planning.abstract_planner import PlannerInitialization, PlannerInput
 
 
 def del_keys_in_dict(info: Dict[str, Any], keys: List[str]) -> None:
@@ -36,28 +30,28 @@ def del_keys_in_dict(info: Dict[str, Any], keys: List[str]) -> None:
             del info[key]
 
 
-class DefaultObservationType(IntEnum):
-    """Enum to represent behavior at different stages in the DefaultObservationBuilder."""
+class RasterObservationType(IntEnum):
+    """Enum to represent behavior at different stages in the RasterGymObservation."""
 
     INFERENCE = 0
     RESET = 1
     STEP = 2
 
 
-class DefaultObservationBuilder(AbstractObservationBuilder):
+class RasterGymObservation(AbstractGymObservation):
     """Default raster observation builder for the CaRL model."""
 
     def __init__(
         self,
         environment_area: AbstractEnvironmentArea,
-        renderer: DefaultRenderer,
+        renderer: RasterRenderer,
         obs_num_measurements: int = 10,
         num_value_measurements: int = 4,
         action_space_dim: int = 2,
         inference: bool = False,
     ) -> None:
         """
-        Initializes the DefaultObservationBuilder.
+        Initializes the RasterGymObservation.
         :param environment_area: Environment area to be used for rendering.
         :param renderer: Renderer class, see implementation of DefaultRenderer.
         :param obs_num_measurements: number of observation measurements passed to the policy, defaults to 10
@@ -108,7 +102,7 @@ class DefaultObservationBuilder(AbstractObservationBuilder):
             }
         )
 
-    def build_observation(
+    def get_gym_observation(
         self,
         planner_input: PlannerInput,
         planner_initialization: PlannerInitialization,
@@ -117,78 +111,68 @@ class DefaultObservationBuilder(AbstractObservationBuilder):
         """Inherited, see superclass."""
 
         if self._inference:
-            observation_type = DefaultObservationType.INFERENCE
+            observation_type = RasterObservationType.INFERENCE
         elif planner_input.iteration.index == 0:
-            observation_type = DefaultObservationType.RESET
+            observation_type = RasterObservationType.RESET
         else:
-            observation_type = DefaultObservationType.STEP
+            observation_type = RasterObservationType.STEP
 
         observation = {}
-        observation["bev_semantics"] = self._build_bev_semantics(
-            planner_input, planner_initialization, observation_type, info
+        observation["bev_semantics"] = self._get_bev_semantics(
+            planner_input,
+            planner_initialization,
+            observation_type,
+            info,
         )
-        observation["measurements"] = self._build_measurements(planner_input, observation_type, info)
-        observation["value_measurements"] = self._build_value_measurements(observation_type, info)
+        observation["measurements"] = self._get_build_measurements(planner_input, observation_type, info)
+        observation["value_measurements"] = self._get_value_measurements(observation_type, info)
 
         return observation
 
-    def _build_bev_semantics(
+    def _get_bev_semantics(
         self,
         planner_input: PlannerInput,
         planner_initialization: PlannerInitialization,
-        observation_type: DefaultObservationType,
+        observation_type: RasterObservationType,
         info: Dict[str, Any],
     ) -> npt.NDArray[np.uint8]:
         """
         Helper function to build BEV raster of the current environment step.
-        :param planner_input: Planner input interface of nuPlan.
-        :param planner_initialization: Planner initialization interface of nuPlan.
+        :param planner_input: Planner input interface of asim.
+        :param planner_initialization: Planner initialization interface of asim.
         :param observation_type: Enum whether to render for inference, reset or step.
         :param info: Arbitrary information dictionary, for passing information between modules.
         :raises ValueError: If the DefaultObservationType is invalid.
         :return: BEV raster as a numpy array.
         """
-        if observation_type == DefaultObservationType.INFERENCE:
-            (
-                map_cache,
-                detection_cache,
-            ) = environment_cache_manager.build_environment_caches(
-                planner_input,
-                planner_initialization,
-                self._environment_area,
-                route_lane_group_ids=self._route_lane_group_ids,
-                route_correction=True,
-            )
-            if self._route_lane_group_ids is None:
-                self._route_lane_group_ids = map_cache.route_lane_group_ids
-        elif observation_type == DefaultObservationType.RESET:
-            (
-                map_cache,
-                detection_cache,
-            ) = environment_cache_manager.build_environment_caches(
+        # FIXME:
+        # if observation_type == RasterObservationType.INFERENCE:
+
+        if observation_type in [RasterObservationType.INFERENCE, RasterObservationType.RESET]:
+            map_cache, detection_cache = build_environment_caches(
                 planner_input, planner_initialization, self._environment_area
             )
-        elif observation_type == DefaultObservationType.STEP:
+        elif observation_type == RasterObservationType.STEP:
             assert "map_cache" in info.keys()
             assert "detection_cache" in info.keys()
             assert isinstance(info["map_cache"], MapCache)
-            assert isinstance(info["detection_cache"], DetectionCache)
+            assert isinstance(info["detection_cache"], BoxDetectionCache)
             map_cache, detection_cache = info["map_cache"], info["detection_cache"]
         else:
-            raise ValueError("DefaultObservationType is invalid")
+            raise ValueError("RasterObservationType is invalid")
 
         del_keys_in_dict(info, ["map_cache", "detection_cache"])
         return self._renderer.render(map_cache, detection_cache)
 
-    def _build_measurements(
+    def _get_build_measurements(
         self,
         planner_input: PlannerInput,
-        observation_type: DefaultObservationType,
+        observation_type: RasterObservationType,
         info: Dict[str, Any],
     ) -> npt.NDArray[np.float32]:
         """
         Helper function to build measurements of the current environment step.
-        :param planner_input: Planner input interface of nuPlan.
+        :param planner_input: Planner input interface of asim.
         :param observation_type: Enum whether to render for inference, reset or step.
         :param info: Arbitrary information dictionary, for passing information between modules.
         :return: Ego measurements as a numpy array.
@@ -196,43 +180,59 @@ class DefaultObservationBuilder(AbstractObservationBuilder):
 
         if "last_action" in info.keys():
             assert observation_type in [
-                DefaultObservationType.INFERENCE,
-                DefaultObservationType.STEP,
+                RasterObservationType.INFERENCE,
+                RasterObservationType.STEP,
             ]
             assert len(info["last_action"]) == self._action_space_dim
             last_action = info["last_action"]
         else:
             assert observation_type in [
-                DefaultObservationType.INFERENCE,
-                DefaultObservationType.RESET,
+                RasterObservationType.INFERENCE,
+                RasterObservationType.RESET,
             ]
             last_action = np.zeros(self._action_space_dim, dtype=np.float32)
 
         ego_state = planner_input.history.current_state[0]
         last_acceleration, last_steering_rate = last_action[0], last_action[1]
 
-        state_array = ego_state_to_center_state_array(ego_state)
+        # FIXME: rear axle to center conversion of kinematic states
+        # state_array = ego_state_to_center_state_array(ego_state)
+        # observation_measurements = np.array(
+        #     [
+        #         last_acceleration,
+        #         last_steering_rate,
+        #         state_array[StateIndex.VELOCITY_X],
+        #         state_array[StateIndex.VELOCITY_Y],
+        #         state_array[StateIndex.ACCELERATION_X],
+        #         state_array[StateIndex.ACCELERATION_Y],
+        #         state_array[StateIndex.STEERING_ANGLE],
+        #         state_array[StateIndex.STEERING_RATE],
+        #         state_array[StateIndex.ANGULAR_VELOCITY],
+        #         state_array[StateIndex.ANGULAR_ACCELERATION],
+        #     ],
+        #     dtype=np.float32,
+        # )
         observation_measurements = np.array(
             [
                 last_acceleration,
                 last_steering_rate,
-                state_array[StateIndex.VELOCITY_X],
-                state_array[StateIndex.VELOCITY_Y],
-                state_array[StateIndex.ACCELERATION_X],
-                state_array[StateIndex.ACCELERATION_Y],
-                state_array[StateIndex.STEERING_ANGLE],
-                state_array[StateIndex.STEERING_RATE],
-                state_array[StateIndex.ANGULAR_VELOCITY],
-                state_array[StateIndex.ANGULAR_ACCELERATION],
+                ego_state.dynamic_state_se2.velocity.x,
+                ego_state.dynamic_state_se2.velocity.y,
+                ego_state.dynamic_state_se2.acceleration.x,
+                ego_state.dynamic_state_se2.acceleration.y,
+                ego_state.tire_steering_angle,
+                ego_state.dynamic_state_se2.tire_steering_rate,
+                ego_state.dynamic_state_se2.angular_velocity,
+                ego_state.dynamic_state_se2.angular_acceleration,
             ],
             dtype=np.float32,
         )
         del_keys_in_dict(info, ["last_action"])
         return observation_measurements
 
-    def _build_value_measurements(
+    def _get_value_measurements(
         self,
-        observation_type: DefaultObservationType,
+        observation_type: RasterObservationType,
         info: Dict[str, Any],
     ) -> npt.NDArray[np.float32]:
         """
@@ -244,14 +244,14 @@ class DefaultObservationBuilder(AbstractObservationBuilder):
         """
 
         if observation_type in [
-            DefaultObservationType.INFERENCE,
-            DefaultObservationType.RESET,
+            RasterObservationType.INFERENCE,
+            RasterObservationType.RESET,
         ]:
             remaining_time = 1.0
             remaining_progress = 1.0
             comfort_score = 1.0
             ttc_score = 1.0
-        elif observation_type == DefaultObservationType.STEP:
+        elif observation_type == RasterObservationType.STEP:
             assert "remaining_time" in info.keys()
             assert "remaining_progress" in info.keys()
             assert "comfort_score" in info.keys()

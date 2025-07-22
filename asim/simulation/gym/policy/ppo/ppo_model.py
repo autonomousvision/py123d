@@ -8,7 +8,8 @@ from typing import Dict, Optional
 import cv2
 import gym
 import numpy as np
-import timm
+
+# import timm
 import torch
 from torch import nn
 
@@ -19,38 +20,37 @@ from asim.simulation.gym.policy.ppo.ppo_distributions import (
     DiagGaussianDistribution,
 )
 
+# class CustomCnn(nn.Module):
+#     """
+#     A custom CNN with timm backbone extractors.
+#     """
 
-class CustomCnn(nn.Module):
-    """
-    A custom CNN with timm backbone extractors.
-    """
+#     def __init__(self, config, n_input_channels):
+#         super().__init__()
+#         self.config = config
+#         self.image_encoder = timm.create_model(
+#             config.image_encoder,
+#             in_chans=n_input_channels,
+#             pretrained=False,
+#             features_only=True,
+#         )
+#         final_width = int(self.config.bev_semantics_width / self.image_encoder.feature_info.info[-1]["reduction"])
+#         final_height = int(self.config.bev_semantics_height / self.image_encoder.feature_info.info[-1]["reduction"])
+#         final_total_pxiels = final_height * final_width
+#         # We want to output roughly the same amount of features as the roach encoder.
+#         self.out_channels = int(1024 / final_total_pxiels)
+#         self.change_channel = nn.Conv2d(
+#             self.image_encoder.feature_info.info[-1]["num_chs"],
+#             self.out_channels,
+#             kernel_size=1,
+#         )
 
-    def __init__(self, config, n_input_channels):
-        super().__init__()
-        self.config = config
-        self.image_encoder = timm.create_model(
-            config.image_encoder,
-            in_chans=n_input_channels,
-            pretrained=False,
-            features_only=True,
-        )
-        final_width = int(self.config.bev_semantics_width / self.image_encoder.feature_info.info[-1]["reduction"])
-        final_height = int(self.config.bev_semantics_height / self.image_encoder.feature_info.info[-1]["reduction"])
-        final_total_pxiels = final_height * final_width
-        # We want to output roughly the same amount of features as the roach encoder.
-        self.out_channels = int(1024 / final_total_pxiels)
-        self.change_channel = nn.Conv2d(
-            self.image_encoder.feature_info.info[-1]["num_chs"],
-            self.out_channels,
-            kernel_size=1,
-        )
-
-    def forward(self, x):
-        x = self.image_encoder(x)
-        x = x[-1]
-        x = self.change_channel(x)
-        x = torch.flatten(x, start_dim=1)
-        return x
+#     def forward(self, x):
+#         x = self.image_encoder(x)
+#         x = x[-1]
+#         x = self.change_channel(x)
+#         x = torch.flatten(x, start_dim=1)
+#         return x
 
 
 # Input image feature extractor class
@@ -126,8 +126,8 @@ class XtMaCNN(nn.Module):
                 nn.LayerNorm((256, 2, 2)),
                 nn.ReLU(),
             )
-        else:
-            self.cnn = CustomCnn(config, n_input_channels)
+        # else:
+        #     self.cnn = CustomCnn(config, n_input_channels)
 
         # Compute shape by doing one forward pass
         with torch.no_grad():
