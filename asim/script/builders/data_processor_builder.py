@@ -11,11 +11,6 @@ logger = logging.getLogger(__name__)
 
 
 def build_data_processor(cfg: DictConfig) -> List[RawDataProcessor]:
-    """
-    Builds the worker.
-    :param cfg: DictConfig. Configuration that is used to run the experiment.
-    :return: Instance of WorkerPool.
-    """
     logger.info("Building RawDataProcessor...")
     instantiated_datasets: List[RawDataProcessor] = []
     for dataset_type in cfg.values():

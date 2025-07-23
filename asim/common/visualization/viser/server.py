@@ -1,9 +1,13 @@
 import time
 
+import numpy as np
 import trimesh
 import viser
 
-from asim.common.visualization.viser.utils import get_bounding_box_meshes, get_map_meshes
+from asim.common.visualization.viser.utils import (
+    get_bounding_box_meshes,
+    get_map_meshes,
+)
 from asim.dataset.scene.abstract_scene import AbstractScene
 
 # TODO: Try to fix performance issues.
@@ -22,6 +26,8 @@ class ViserVisualizationServer:
 
     def set_scene(self, scene: AbstractScene) -> None:
         num_frames = scene.get_number_of_iterations()
+
+        self.server.gui.configure_theme(control_width="large")
         with self.server.gui.add_folder("Playback"):
 
             gui_timestep = self.server.gui.add_slider(
@@ -64,7 +70,7 @@ class ViserVisualizationServer:
             # Toggle frame visibility when the timestep slider changes.
             @gui_timestep.on_update
             def _(_) -> None:
-                nonlocal current_frame_handle, prev_timestep
+                nonlocal current_frame_handle, current_frame_handle, prev_timestep
                 current_timestep = gui_timestep.value
 
                 start = time.time()
@@ -78,6 +84,17 @@ class ViserVisualizationServer:
                     trimesh.util.concatenate(meshes),
                     visible=True,
                 )
+                gui_image_handle.image = np.array(scene.get_front_cam_demo(gui_timestep.value))
+
+                # camera_pose = _get_camera_pose_demo(scene, gui_timestep.value)
+                # frustum_handle.position = camera_pose.point_3d.array
+                # frustum_handle.wxyz = euler_to_quaternion_scipy(camera_pose.roll, camera_pose.pitch, camera_pose.yaw)
+                # frustum_handle.image = np.array(scene.get_front_cam_demo(gui_timestep.value))
+
+                # ego_frame_pose = _get_ego_frame_pose(scene, gui_timestep.value)
+                # ego_frame_handle.position = ego_frame_pose.point_3d.array
+                # ego_frame_handle.wxyz = euler_to_quaternion_scipy(ego_frame_pose.roll, ego_frame_pose.pitch, ego_frame_pose.yaw)
+
                 prev_timestep = current_timestep
 
                 rendering_time = time.time() - start
@@ -90,8 +107,34 @@ class ViserVisualizationServer:
             # Load in frames.
             current_frame_handle = self.server.scene.add_frame(f"/frame{gui_timestep.value}", show_axes=False)
             self.server.scene.add_frame("/map", show_axes=False)
+
+            with self.server.gui.add_folder("Camera"):
+                gui_image_handle = self.server.gui.add_image(
+                    image=np.array(scene.get_front_cam_demo(gui_timestep.value)),
+                    label="front_cam_demo",
+                    format="jpeg",
+                )
+
             for name, mesh in get_map_meshes(scene).items():
                 self.server.scene.add_mesh_trimesh(f"/map/{name}", mesh, visible=True)
+
+            # camera_pose = _get_camera_pose_demo(scene, gui_timestep.value)
+            # frustum_handle = self.server.scene.add_camera_frustum(
+            #     "camera_frustum",
+            #     fov=0.6724845869242845,
+            #     aspect=16 / 9,
+            #     scale=0.30,
+            #     image=np.array(scene.get_front_cam_demo(gui_timestep.value)),
+            #     position=camera_pose.point_3d.array,
+            #     wxyz=euler_to_quaternion_scipy(camera_pose.roll, camera_pose.pitch, camera_pose.yaw),
+            # )
+
+            # ego_frame_pose = _get_ego_frame_pose(scene, gui_timestep.value)
+            # ego_frame_handle = self.server.scene.add_frame(
+            #     "ego_frame_handle",
+            #     position=ego_frame_pose.point_3d.array,
+            #     wxyz=euler_to_quaternion_scipy(ego_frame_pose.roll, ego_frame_pose.pitch, ego_frame_pose.yaw)
+            # )
 
             # Playback update loop.
             prev_timestep = gui_timestep.value

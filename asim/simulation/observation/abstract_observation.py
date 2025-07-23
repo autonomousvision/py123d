@@ -1,26 +1,33 @@
+import abc
 from abc import abstractmethod
-from typing import Optional
+from typing import Optional, Type
 
+from asim.common.datatypes.recording.abstract_recording import Recording
 from asim.common.datatypes.recording.detection_recording import DetectionRecording
+from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE2
 from asim.dataset.scene.abstract_scene import AbstractScene
+from asim.simulation.time_controller.simulation_iteration import SimulationIteration
 
 
-class AbstractObservation:
+class AbstractObservation(abc.ABC):
 
     # Whether the agent class requires the scenario object to be passed at construction time.
     # This can be set to true only for oracle planners and cannot be used for submissions.
     requires_scene: bool = True
 
     @abstractmethod
-    def initialize(self) -> None:
-        """
-        Initialize observation if needed.
-        """
+    def recording_type(self) -> Type[Recording]:
+        pass
 
     @abstractmethod
     def reset(self, scene: Optional[AbstractScene]) -> DetectionRecording:
         pass
 
     @abstractmethod
-    def step(self) -> DetectionRecording:
+    def step(
+        self,
+        current_iteration: SimulationIteration,
+        next_iteration: SimulationIteration,
+        current_ego_state: EgoStateSE2,
+    ) -> DetectionRecording:
         pass

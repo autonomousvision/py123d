@@ -5,7 +5,7 @@ import numpy as np
 import shapely.geometry as geom
 
 from asim.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
-from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE3
+from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE2, EgoStateSE3
 from asim.common.geometry.base import Point2D
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
 from asim.common.geometry.transform.tranform_2d import translate_along_yaw
@@ -87,7 +87,7 @@ def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionWrapper) 
         add_bounding_box_to_ax(ax, box_detection.bounding_box, plot_config)
 
 
-def add_ego_vehicle_to_ax(ax: plt.Axes, ego_vehicle_state: EgoStateSE3) -> None:
+def add_ego_vehicle_to_ax(ax: plt.Axes, ego_vehicle_state: Union[EgoStateSE3, EgoStateSE2]) -> None:
     add_bounding_box_to_ax(ax, ego_vehicle_state.bounding_box, EGO_VEHICLE_CONFIG)
 
 

@@ -4,7 +4,10 @@ import abc
 from dataclasses import dataclass
 from typing import List
 
+from PIL import Image
+
 from asim.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from asim.common.datatypes.recording.detection_recording import DetectionRecording
 from asim.common.datatypes.time.time_point import TimePoint
 from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from asim.dataset.logs.log_metadata import LogMetadata
@@ -47,7 +50,7 @@ class AbstractScene(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_ego_vehicle_state_at_iteration(self, iteration: int) -> EgoStateSE3:
+    def get_ego_state_at_iteration(self, iteration: int) -> EgoStateSE3:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -59,7 +62,15 @@ class AbstractScene(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def get_detection_recording_at_iteration(self, iteration: int) -> DetectionRecording:
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def get_route_lane_group_ids(self, iteration: int) -> List[int]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_front_cam_demo(self, iteration: int) -> Image:
         raise NotImplementedError
 
     def open(self) -> None:

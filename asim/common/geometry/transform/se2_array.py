@@ -37,6 +37,33 @@ def convert_absolute_to_relative_se2_array(
     return state_se2_rel
 
 
+def convert_absolute_to_relative_point_2d_array(
+    origin: Union[StateSE2, npt.NDArray[np.float64]], point_2d_array: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
+    """
+    Converts an absolute 2D point array from global to relative coordinates.
+    :param origin: origin pose of relative coords system
+    :param point_2d_array: array of 2D points with (x,y) in last dim
+    :return: 2D points array in relative coordinates
+    """
+    if isinstance(origin, StateSE2):
+        origin_array = origin.array
+    elif isinstance(origin, np.ndarray):
+        assert origin.ndim == 1 and origin.shape[-1] == len(StateSE2Index)
+        origin_array = origin
+    else:
+        raise TypeError(f"Expected StateSE2 or np.ndarray, got {type(origin)}")
+
+    rotate_rad = -origin_array[StateSE2Index.YAW]
+    cos, sin = np.cos(rotate_rad), np.sin(rotate_rad)
+    R = np.array([[cos, -sin], [sin, cos]])
+
+    point_2d_rel = point_2d_array - origin_array[..., StateSE2Index.XY]
+    point_2d_rel = point_2d_rel @ R.T
+
+    return point_2d_rel
+
+
 def convert_relative_to_absolute_se2_array(
     origin: Union[StateSE2, npt.NDArray[np.float64]], state_se2_array: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:

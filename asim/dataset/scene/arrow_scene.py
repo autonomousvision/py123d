@@ -1,10 +1,15 @@
+import io
 import json
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 import pyarrow as pa
 
+# TODO: Remove or improve open/close dynamic of Scene object.
+from PIL import Image
+
 from asim.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from asim.common.datatypes.recording.detection_recording import DetectionRecording
 from asim.common.datatypes.time.time_point import TimePoint
 from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from asim.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
@@ -19,8 +24,6 @@ from asim.dataset.logs.log_metadata import LogMetadata
 from asim.dataset.maps.abstract_map import AbstractMap
 from asim.dataset.maps.gpkg.gpkg_map import get_map_api_from_names
 from asim.dataset.scene.abstract_scene import AbstractScene, SceneExtractionInfo
-
-# TODO: Remove or improve open/close dynamic of Scene object.
 
 
 def _get_scene_data(arrow_file_path: Union[Path, str]) -> Tuple[LogMetadata, VehicleParameters]:
@@ -100,7 +103,7 @@ class ArrowScene(AbstractScene):
         self._lazy_initialize()
         return get_timepoint_from_arrow_table(self._recording_table, self._get_table_index(iteration))
 
-    def get_ego_vehicle_state_at_iteration(self, iteration: int) -> EgoStateSE3:
+    def get_ego_state_at_iteration(self, iteration: int) -> EgoStateSE3:
         self._lazy_initialize()
         return get_ego_vehicle_state_from_arrow_table(
             self._recording_table, self._get_table_index(iteration), self._vehicle_parameters
@@ -114,10 +117,22 @@ class ArrowScene(AbstractScene):
         self._lazy_initialize()
         return get_traffic_light_detections_from_arrow_table(self._recording_table, self._get_table_index(iteration))
 
+    def get_detection_recording_at_iteration(self, iteration: int) -> DetectionRecording:
+        return DetectionRecording(
+            box_detections=self.get_box_detections_at_iteration(iteration),
+            traffic_light_detections=self.get_traffic_light_detections_at_iteration(iteration),
+        )
+
     def get_route_lane_group_ids(self, iteration: int) -> List[int]:
         self._lazy_initialize()
         table_index = self._get_table_index(iteration)
         return self._recording_table["route_lane_group_ids"][table_index].as_py()
+
+    def get_front_cam_demo(self, iteration: int) -> Image:
+        self._lazy_initialize()
+        table_index = self._get_table_index(iteration)
+        jpg_data = self._recording_table["front_cam_demo"][table_index].as_py()
+        return Image.open(io.BytesIO(jpg_data))
 
     def _lazy_initialize(self) -> None:
         self.open()

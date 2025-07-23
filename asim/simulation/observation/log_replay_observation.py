@@ -1,9 +1,11 @@
-from abc import abstractmethod
-from typing import Optional
+from typing import Optional, Type
 
+from asim.common.datatypes.recording.abstract_recording import Recording
 from asim.common.datatypes.recording.detection_recording import DetectionRecording
+from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE2
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.observation.abstract_observation import AbstractObservation
+from asim.simulation.time_controller.simulation_iteration import SimulationIteration
 
 
 class LogReplayObservation(AbstractObservation):
@@ -19,12 +21,9 @@ class LogReplayObservation(AbstractObservation):
         super().__init__()
         self._scene: Optional[AbstractScene] = None
 
-    def initialize(self) -> None:
-        """
-        Initialize observation if needed.
-        """
+    def recording_type(self) -> Type[Recording]:
+        return DetectionRecording
 
-    @abstractmethod
     def reset(self, scene: Optional[AbstractScene]) -> DetectionRecording:
         assert scene is not None, "Scene must be provided for log replay observation."
         self._scene = scene
@@ -35,8 +34,12 @@ class LogReplayObservation(AbstractObservation):
             traffic_light_detections=self._scene.get_traffic_light_detections_at_iteration(self._iteration),
         )
 
-    @abstractmethod
-    def step(self) -> DetectionRecording:
+    def step(
+        self,
+        current_iteration: SimulationIteration,
+        next_iteration: SimulationIteration,
+        current_ego_state: EgoStateSE2,
+    ) -> DetectionRecording:
         self._iteration += 1
         return DetectionRecording(
             box_detections=self._scene.get_box_detections_at_iteration(self._iteration),

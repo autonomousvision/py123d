@@ -6,9 +6,9 @@ import pyarrow as pa
 
 from asim.common.datatypes.detection.detection import (
     BoxDetection,
+    BoxDetectionMetadata,
     BoxDetectionSE3,
     BoxDetectionWrapper,
-    DetectionMetadata,
     TrafficLightDetection,
     TrafficLightDetectionWrapper,
     TrafficLightStatus,
@@ -48,7 +48,7 @@ def get_box_detections_from_arrow_table(arrow_table: pa.Table, index: int) -> Bo
         arrow_table["detections_type"][index].as_py(),
     ):
         box_detection = BoxDetectionSE3(
-            metadata=DetectionMetadata(
+            metadata=BoxDetectionMetadata(
                 detection_type=DetectionType(detection_type),
                 timepoint=timepoint,
                 track_token=detection_token,

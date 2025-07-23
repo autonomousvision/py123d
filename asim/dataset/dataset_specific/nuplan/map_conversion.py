@@ -48,7 +48,6 @@ class NuPlanMapConverter:
 
         self._map_path: Path = map_path
         self._gdf: Optional[Dict[str, gpd.GeoDataFrame]] = None
-        self._extract_lane_group_boundaries_from_lanes: bool = False
 
     def convert(self, map_name: str = "us-pa-pittsburgh-hazelwood") -> None:
         assert map_name in MAP_LOCATIONS, f"Map name {map_name} is not supported."
@@ -160,7 +159,7 @@ class NuPlanMapConverter:
             {
                 "id": ids,
                 "lane_group_id": lane_group_ids,
-                "speed_limits_mps": speed_limits_mps,
+                "speed_limit_mps": speed_limits_mps,
                 "predecessor_ids": predecessor_ids,
                 "successor_ids": successor_ids,
                 "left_boundary": left_boundaries,
@@ -221,7 +220,7 @@ class NuPlanMapConverter:
             {
                 "id": ids,
                 "lane_group_id": lane_group_ids,
-                "speed_limits_mps": speed_limits_mps,
+                "speed_limit_mps": speed_limits_mps,
                 "predecessor_ids": predecessor_ids,
                 "successor_ids": successor_ids,
                 "left_boundary": left_boundaries,
@@ -274,27 +273,19 @@ class NuPlanMapConverter:
             successor_lane_group_ids.append(successor_lane_group_ids_)
 
             # 3. left_boundaries, right_boundaries
-            if self._extract_lane_group_boundaries_from_lanes:
-                lane_rows = [
-                    get_row_with_value(self._gdf["lanes_polygons"], "fid", str(lane_id)) for lane_id in lane_ids_
-                ]
-                lane_rows = sorted(lane_rows, key=lambda x: int(x["lane_index"]))
-                left_lane_row = lane_rows[0]
-                right_lane_row = lane_rows[-1]
+            lane_group_row = get_row_with_value(self._gdf["lane_groups_polygons"], "fid", str(lane_group_id))
+            left_boundary_fid = lane_group_row["left_boundary_fid"]
+            left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
 
-                left_boundary_fid = left_lane_row["left_boundary_fid"]
-                left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
+            right_boundary_fid = lane_group_row["right_boundary_fid"]
+            right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
 
-                right_boundary_fid = right_lane_row["right_boundary_fid"]
-                right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
+            repr_baseline_path = get_row_with_value(self._gdf["baseline_paths"], "lane_fid", float(lane_ids_[0]))[
+                "geometry"
+            ]
 
-            else:
-                lane_group_row = get_row_with_value(self._gdf["lane_groups_polygons"], "fid", str(lane_group_id))
-                left_boundary_fid = lane_group_row["left_boundary_fid"]
-                left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
-
-                right_boundary_fid = lane_group_row["right_boundary_fid"]
-                right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
+            left_boundary = align_boundary_direction(repr_baseline_path, left_boundary)
+            right_boundary = align_boundary_direction(repr_baseline_path, right_boundary)
 
             left_boundaries.append(left_boundary)
             right_boundaries.append(right_boundary)
@@ -343,6 +334,7 @@ class NuPlanMapConverter:
             left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
             right_boundary_fid = lane_group_connector_row["right_boundary_fid"]
             right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
+
             left_boundaries.append(left_boundary)
             right_boundaries.append(right_boundary)
 

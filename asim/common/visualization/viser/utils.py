@@ -2,7 +2,8 @@ import numpy as np
 import numpy.typing as npt
 import trimesh
 
-from asim.common.geometry.base import Point3D
+from asim.common.datatypes.camera.camera_parameters import get_nuplan_camera_parameters
+from asim.common.geometry.base import Point3D, StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from asim.common.geometry.line.polylines import Polyline3D
 from asim.common.visualization.color.config import PlotConfig
@@ -51,9 +52,9 @@ def translate_bounding_box_se3(bounding_box_se3: BoundingBoxSE3, point_3d: Point
 
 
 def get_bounding_box_meshes(scene: AbstractScene, iteration: int):
-    initial_ego_vehicle_state = scene.get_ego_vehicle_state_at_iteration(0)
+    initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
 
-    ego_vehicle_state = scene.get_ego_vehicle_state_at_iteration(iteration)
+    ego_vehicle_state = scene.get_ego_state_at_iteration(iteration)
     box_detections = scene.get_box_detections_at_iteration(iteration)
     # traffic_light_detections = scene.get_traffic_light_detections_at_iteration(iteration)
     # map_api = scene.map_api
@@ -61,23 +62,28 @@ def get_bounding_box_meshes(scene: AbstractScene, iteration: int):
     output = {}
     for box_detection in box_detections:
         bbox: BoundingBoxSE3 = box_detection.bounding_box
-        bbox = translate_bounding_box_se3(bbox, initial_ego_vehicle_state.center)
+        bbox = translate_bounding_box_se3(bbox, initial_ego_vehicle_state.center_se3)
         plot_config = BOX_DETECTION_CONFIG[box_detection.metadata.detection_type]
         trimesh_box = bounding_box_to_trimesh(bbox, plot_config)
         output[f"{box_detection.metadata.detection_type.serialize()}/{box_detection.metadata.track_token}"] = (
             trimesh_box
         )
 
-    ego_bbox = translate_bounding_box_se3(ego_vehicle_state.bounding_box, initial_ego_vehicle_state.center)
+    ego_bbox = translate_bounding_box_se3(ego_vehicle_state.bounding_box, initial_ego_vehicle_state.center_se3)
     trimesh_box = bounding_box_to_trimesh(ego_bbox, EGO_VEHICLE_CONFIG)
     output["ego"] = trimesh_box
     return output
 
 
 def get_map_meshes(scene: AbstractScene):
-    initial_ego_vehicle_state = scene.get_ego_vehicle_state_at_iteration(0)
-    center = initial_ego_vehicle_state.center
-    map_surface_types = [MapSurfaceType.LANE, MapSurfaceType.WALKWAY, MapSurfaceType.CROSSWALK, MapSurfaceType.CARPARK]
+    initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
+    center = initial_ego_vehicle_state.center_se3
+    map_surface_types = [
+        MapSurfaceType.LANE_GROUP,
+        MapSurfaceType.WALKWAY,
+        MapSurfaceType.CROSSWALK,
+        MapSurfaceType.CARPARK,
+    ]
 
     radius = 500
     map_objects_dict = scene.map_api.get_proximal_map_objects(center.point_2d, radius=radius, layers=map_surface_types)
@@ -148,3 +154,67 @@ def _create_lane_mesh_from_boundary_arrays(
     mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
     mesh.visual.face_colors = MAP_SURFACE_CONFIG[MapSurfaceType.LANE].fill_color.rgba
     return mesh
+
+
+def _get_camera_pose_demo(scene: AbstractScene, iteration: int) -> StateSE3:
+    # NOTE: This function does not work.
+
+    initial_point_3d = scene.get_ego_state_at_iteration(0).center_se3.point_3d
+    rear_axle = scene.get_ego_state_at_iteration(iteration).rear_axle_se3
+
+    rear_axle_array = rear_axle.array
+    rear_axle_array[:3] -= initial_point_3d.array
+
+    rear_axle = StateSE3.from_array(rear_axle_array)
+
+    camera_parameters = get_nuplan_camera_parameters()
+
+    # Get camera parameters
+    camera_translation = camera_parameters.translation  # 3x1 vector as array
+    camera_rotation = camera_parameters.rotation  # 3x3 matrix as array
+
+    # Get the rotation matrix of the rear axle pose
+    from asim.common.geometry.transform.se3 import get_rotation_matrix
+
+    rear_axle_rotation = get_rotation_matrix(rear_axle)
+
+    # Apply camera translation in the rear axle's coordinate frame
+    # Transform camera translation from rear axle frame to world frame
+    world_translation = rear_axle_rotation @ camera_translation
+
+    # Apply camera rotation in the rear axle's coordinate frame
+    world_rotation = rear_axle_rotation @ camera_rotation
+
+    # Extract Euler angles from the composed rotation matrix using scipy
+    # Use 'ZYX' convention to match the rotation matrix composition order
+    from scipy.spatial.transform import Rotation
+
+    r = Rotation.from_matrix(world_rotation)
+    roll, pitch, yaw = r.as_euler("XYZ", degrees=False)
+
+    # Calculate camera position in world coordinates
+    camera_x = rear_axle.x + world_translation[0]
+    camera_y = rear_axle.y + world_translation[1]
+    camera_z = rear_axle.z + world_translation[2]
+
+    return StateSE3(camera_x, camera_y, camera_z, roll, pitch, yaw)
+
+
+def _get_ego_frame_pose(scene: AbstractScene, iteration: int) -> StateSE3:
+
+    initial_point_3d = scene.get_ego_state_at_iteration(0).center_se3.point_3d
+    state_se3 = scene.get_ego_state_at_iteration(iteration).center_se3
+
+    state_se3.x = state_se3.x - initial_point_3d.x
+    state_se3.y = state_se3.y - initial_point_3d.y
+    state_se3.z = state_se3.z - initial_point_3d.z
+
+    return state_se3
+
+
+def euler_to_quaternion_scipy(roll: float, pitch: float, yaw: float) -> npt.NDArray[np.float64]:
+    from scipy.spatial.transform import Rotation
+
+    r = Rotation.from_euler("xyz", [roll, pitch, yaw], degrees=False)
+    quat = r.as_quat(scalar_first=True)
+    return quat

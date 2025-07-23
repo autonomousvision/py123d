@@ -14,7 +14,7 @@ from asim.common.utils.enums import SerialIntEnum
 
 
 @dataclass
-class DetectionMetadata:
+class BoxDetectionMetadata:
 
     detection_type: DetectionType
     timepoint: TimePoint
@@ -25,7 +25,7 @@ class DetectionMetadata:
 @dataclass
 class BoxDetectionSE2:
 
-    metadata: DetectionMetadata
+    metadata: BoxDetectionMetadata
     bounding_box_se2: BoundingBoxSE2
     velocity: Vector2D | None = None
 
@@ -45,7 +45,7 @@ class BoxDetectionSE2:
 @dataclass
 class BoxDetectionSE3:
 
-    metadata: DetectionMetadata
+    metadata: BoxDetectionMetadata
     bounding_box_se3: BoundingBoxSE3
     velocity: Vector3D | None = None
 
@@ -64,6 +64,14 @@ class BoxDetectionSE3:
     @property
     def bounding_box_se2(self) -> BoundingBoxSE2:
         return self.bounding_box_se3.bounding_box_se2
+
+    @property
+    def box_detection_se2(self) -> BoxDetectionSE2:
+        return BoxDetectionSE2(
+            metadata=self.metadata,
+            bounding_box_se2=self.bounding_box_se2,
+            velocity=Vector2D(self.velocity.x, self.velocity.y) if self.velocity else None,
+        )
 
 
 BoxDetection = BoxDetectionSE2 | BoxDetectionSE3

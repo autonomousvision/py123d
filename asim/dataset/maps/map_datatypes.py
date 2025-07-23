@@ -17,3 +17,4 @@ class MapSurfaceType(SerialIntEnum):
     WALKWAY = 4
     CARPARK = 5
     GENERIC_DRIVABLE = 6
+    STOP_LINE = 7

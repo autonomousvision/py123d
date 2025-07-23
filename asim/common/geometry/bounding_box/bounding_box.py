@@ -36,6 +36,10 @@ class BoundingBoxSE2:
         return array
 
     @property
+    def bounding_box_se2(self) -> BoundingBoxSE2:
+        return self
+
+    @property
     def corners_array(self) -> npt.NDArray[np.float64]:
         return bbse2_array_to_corners_array(self.array)
 

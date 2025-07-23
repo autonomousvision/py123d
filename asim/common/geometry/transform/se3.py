@@ -47,7 +47,7 @@ def translate_se3_along_z(state_se3: StateSE3, distance: float) -> StateSE3:
 
 def translate_se3_along_y(state_se3: StateSE3, distance: float) -> StateSE3:
 
-    R = get_rotation_matrix()
+    R = get_rotation_matrix(state_se3)
     y_axis = R[:, 1]
 
     new_x = state_se3.x + distance * y_axis[0]

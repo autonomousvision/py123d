@@ -1,16 +1,20 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Type
 
 from asim.common.datatypes.detection.detection import BoxDetection
 from asim.common.datatypes.detection.detection_types import DetectionType
+from asim.common.datatypes.recording.abstract_recording import Recording
 from asim.common.datatypes.recording.detection_recording import DetectionRecording
+from asim.common.datatypes.vehicle_state.ego_state import EgoStateSE2
 from asim.dataset.arrow.conversion import BoxDetectionWrapper
 from asim.dataset.scene.abstract_scene import AbstractScene
 from asim.simulation.agents.abstract_agents import AbstractAgents
 
 # from asim.simulation.agents.path_following import PathFollowingAgents
-# from asim.simulation.agents.idm_agents import IDMAgents
-from asim.simulation.agents.smart_agents import SMARTAgents
+from asim.simulation.agents.idm_agents import IDMAgents
+
+# from asim.simulation.agents.smart_agents import SMARTAgents
 from asim.simulation.observation.abstract_observation import AbstractObservation
+from asim.simulation.time_controller.simulation_iteration import SimulationIteration
 
 
 class AgentsObservation(AbstractObservation):
@@ -23,11 +27,11 @@ class AgentsObservation(AbstractObservation):
         super().__init__()
         self._scene: Optional[AbstractScene] = None
         # self._agents: AbstractAgents = ConstantVelocityAgents()
-        # self._agents: AbstractAgents = IDMAgents()
-        self._agents: AbstractAgents = SMARTAgents()
+        self._agents: AbstractAgents = IDMAgents()
+        # self._agents: AbstractAgents = SMARTAgents()
 
-    def initialize(self) -> None:
-        pass
+    def recording_type(self) -> Type[Recording]:
+        return DetectionRecording
 
     def reset(self, scene: Optional[AbstractScene]) -> DetectionRecording:
         assert scene is not None, "Scene must be provided for log replay observation."
@@ -49,7 +53,12 @@ class AgentsObservation(AbstractObservation):
             traffic_light_detections=self._scene.get_traffic_light_detections_at_iteration(self._iteration),
         )
 
-    def step(self) -> DetectionRecording:
+    def step(
+        self,
+        current_iteration: SimulationIteration,
+        next_iteration: SimulationIteration,
+        current_ego_state: EgoStateSE2,
+    ) -> DetectionRecording:
         assert self._scene is not None, "Scene must be provided for log replay observation."
         self._iteration += 1
         _, non_cars, _ = _filter_agents_by_type(

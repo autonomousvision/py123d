@@ -9,20 +9,26 @@ from typing import Dict, Final, List, Tuple, Union
 import psutil
 import pyarrow as pa
 import yaml
+from nuplan.database.nuplan_db.nuplan_scenario_queries import get_images_from_lidar_tokens
 from nuplan.database.nuplan_db_orm.lidar_box import LidarBox
 from nuplan.database.nuplan_db_orm.lidar_pc import LidarPc
 from nuplan.database.nuplan_db_orm.nuplandb import NuPlanDB
+from nuplan.planning.simulation.observation.observation_type import (
+    CameraChannel,
+)
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 
 import asim.dataset.dataset_specific.nuplan.utils as nuplan_utils
 from asim.common.datatypes.detection.detection import TrafficLightStatus
 from asim.common.datatypes.detection.detection_types import DetectionType
 from asim.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
-from asim.common.datatypes.vehicle_state.vehicle_parameters import get_nuplan_pacifica_parameters
+from asim.common.datatypes.vehicle_state.vehicle_parameters import (
+    get_nuplan_pacifica_parameters,
+    rear_axle_se3_to_center_se3,
+)
 from asim.common.geometry.base import StateSE3
 from asim.common.geometry.bounding_box.bounding_box import BoundingBoxSE3, BoundingBoxSE3Index
 from asim.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
-from asim.common.geometry.transform.se3 import translate_se3_along_x, translate_se3_along_z
 from asim.common.geometry.vector import Vector3D, Vector3DIndex
 from asim.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from asim.dataset.dataset_specific.raw_data_processor import RawDataProcessor
@@ -71,6 +77,7 @@ class NuplanDataProcessor(RawDataProcessor):
         splits: List[str],
         log_path: Union[Path, str],
         output_path: Union[Path, str],
+        sensor_path: Union[Path, str],
         force_data_conversion: bool,
     ) -> None:
         super().__init__(force_data_conversion)
@@ -82,6 +89,7 @@ class NuplanDataProcessor(RawDataProcessor):
         self._splits: List[str] = splits
         self._log_path: Path = Path(log_path)
         self._output_path: Path = Path(output_path)
+        self._sensor_path: Path = Path(sensor_path)
         self._log_paths_per_split: Dict[str, List[Path]] = self._collect_log_paths()
         self._target_dt: float = 0.1
 
@@ -100,11 +108,14 @@ class NuplanDataProcessor(RawDataProcessor):
                 log_path = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "splits" / "test"
             elif split in ["nuplan_mini_train", "nuplan_mini_val", "nuplan_mini_test"]:
                 log_path = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "splits" / "mini"
+            elif split == "nuplan_private_test":
+                log_path = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "splits" / "private_test"
 
             all_log_files_in_path = [log_file for log_file in log_path.glob("*.db")]
             all_log_names = set([str(log_file.stem) for log_file in all_log_files_in_path])
-            split_log_names = set(subsplit_log_names[subsplit])
-            log_paths = [log_path / f"{log_name}.db" for log_name in list(all_log_names & split_log_names)]
+            set(subsplit_log_names[subsplit])
+            # log_paths = [log_path / f"{log_name}.db" for log_name in list(all_log_names & split_log_names)]
+            log_paths = [log_path / f"{log_name}.db" for log_name in list(all_log_names)]
             log_paths_per_split[split] = log_paths
 
         return log_paths_per_split
@@ -117,6 +128,7 @@ class NuplanDataProcessor(RawDataProcessor):
             "nuplan_mini_train",
             "nuplan_mini_val",
             "nuplan_mini_test",
+            "nuplan_private_test",
         ]
 
     def convert(self, worker: WorkerPool) -> None:
@@ -174,6 +186,8 @@ def convert_nuplan_log_to_arrow(
                     ("traffic_light_types", pa.list_(pa.int16())),
                     ("scenario_tag", pa.list_(pa.string())),
                     ("route_lane_group_ids", pa.list_(pa.int64())),
+                    ("front_cam_demo", pa.binary()),
+                    ("front_cam_transform", pa.list_(pa.float64())),
                 ]
             )
             metadata = LogMetadata(
@@ -191,7 +205,7 @@ def convert_nuplan_log_to_arrow(
                 }
             )
 
-            _write_recording_table(log_db, recording_schema, log_file_path)
+            _write_recording_table(log_db, recording_schema, log_file_path, log_path)
 
         log_db.detach_tables()
         log_db.remove_ref()
@@ -201,7 +215,12 @@ def convert_nuplan_log_to_arrow(
     return []
 
 
-def _write_recording_table(log_db: NuPlanDB, recording_schema: pa.schema, log_file_path: Path) -> None:
+def _write_recording_table(
+    log_db: NuPlanDB,
+    recording_schema: pa.schema,
+    log_file_path: Path,
+    source_log_path: Path,
+) -> None:
 
     # with pa.ipc.new_stream(str(log_file_path), recording_schema) as writer:
     with pa.OSFile(str(log_file_path), "wb") as sink:
@@ -218,6 +237,7 @@ def _write_recording_table(log_db: NuPlanDB, recording_schema: pa.schema, log_fi
                     for roadblock_id in str(lidar_pc.scene.roadblock_ids).split(" ")
                     if len(roadblock_id) > 0
                 ]
+                front_cam_demo, front_cam_transform = _extract_front_cam_demo(lidar_pc, source_log_path)
 
                 row_data = {
                     "token": [lidar_pc_token],
@@ -231,6 +251,8 @@ def _write_recording_table(log_db: NuPlanDB, recording_schema: pa.schema, log_fi
                     "traffic_light_types": [traffic_light_types],
                     "scenario_tag": [_extract_scenario_tag(log_db, lidar_pc_token)],
                     "route_lane_group_ids": [route_lane_group_ids],
+                    "front_cam_demo": [front_cam_demo],
+                    "front_cam_transform": [front_cam_transform],
                 }
                 batch = pa.record_batch(row_data, schema=recording_schema)
                 writer.write_batch(batch)
@@ -283,13 +305,7 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
         yaw=yaw,
     )
     # NOTE: The height to rear axle is not provided the dataset and is merely approximated.
-    center = translate_se3_along_z(
-        translate_se3_along_x(
-            rear_axle_pose,
-            vehicle_parameters.rear_axle_to_center_longitudinal,
-        ),
-        vehicle_parameters.rear_axle_to_center_vertical,
-    )
+    center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
     dynamic_state = DynamicStateSE3(
         velocity=Vector3D(
             x=lidar_pc.ego_pose.vx,
@@ -309,8 +325,8 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
     )
 
     return EgoStateSE3(
-        center=center,
-        dynamic_state=dynamic_state,
+        center_se3=center,
+        dynamic_state_se3=dynamic_state,
         vehicle_parameters=vehicle_parameters,
         timepoint=None,
     ).array.tolist()
@@ -334,3 +350,24 @@ def _extract_scenario_tag(log_db: NuPlanDB, lidar_pc_token: str) -> List[str]:
     if len(scenario_tags) == 0:
         scenario_tags = ["unknown"]
     return scenario_tags
+
+
+def _extract_front_cam_demo(lidar_pc: LidarPc, source_log_path: Path) -> Tuple[bytes, List[float]]:
+
+    sensor_root = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "sensor"
+    front_image_class = list(
+        get_images_from_lidar_tokens(source_log_path, [lidar_pc.token], [str(CameraChannel.CAM_F0.value)])
+    )
+
+    front_cam_demo: bytes = None
+    front_cam_transform: List[float] = []
+
+    if len(front_image_class) != 0:
+
+        filename_jpg = sensor_root / front_image_class[0].filename_jpg
+
+        if filename_jpg.exists():
+            with open(filename_jpg, "rb") as f:
+                front_cam_demo = f.read()
+
+    return front_cam_demo, front_cam_transform
