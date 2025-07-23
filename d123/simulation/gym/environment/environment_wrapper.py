@@ -17,8 +17,8 @@ from d123.simulation.gym.environment.simulation_builder.abstract_simulation_buil
     AbstractSimulationBuilder,
 )
 from d123.simulation.gym.environment.simulation_wrapper import SimulationWrapper
-from d123.simulation.gym.environment.trajectory_builder.abstract_trajectory_builder import (
-    AbstractTrajectoryBuilder,
+from d123.simulation.gym.environment.output_converter.abstract_output_converter import (
+    AbstractOutputConverter,
 )
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class EnvironmentWrapper(gym.Env):
         self,
         scenario_sampler: AbstractScenarioSampler,
         simulation_builder: AbstractSimulationBuilder,
-        trajectory_builder: AbstractTrajectoryBuilder,
+        output_converter: AbstractOutputConverter,
         observation_builder: AbstractGymObservation,
         reward_builder: AbstractRewardBuilder,
         terminate_on_failure: bool = False,
@@ -52,7 +52,7 @@ class EnvironmentWrapper(gym.Env):
 
         self._scenario_sampler = scenario_sampler
         self._simulation_builder = simulation_builder
-        self._trajectory_builder = trajectory_builder
+        self._trajectory_builder = output_converter
         self._observation_builder = observation_builder
         self._reward_builder = reward_builder
 
@@ -68,7 +68,7 @@ class EnvironmentWrapper(gym.Env):
 
         # Set for super class
         self.observation_space = observation_builder.get_observation_space()
-        self.action_space = trajectory_builder.get_action_space()
+        self.action_space = output_converter.get_action_space()
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         """Inherited, see superclass."""

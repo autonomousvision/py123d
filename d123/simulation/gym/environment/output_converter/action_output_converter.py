@@ -2,17 +2,15 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 import numpy.typing as npt
-from carl_nuplan.planning.simulation.trajectory.action_trajectory import ActionTrajectory
 from gymnasium import spaces
-from nuplan.common.actor_state.ego_state import EgoState
 
-from d123.simulation.gym.environment.trajectory_builder.abstract_trajectory_builder import (
-    AbstractTrajectoryBuilder,
-)
+from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE2
+from d123.simulation.gym.environment.output_converter.abstract_output_converter import AbstractOutputConverter
 from d123.simulation.gym.policy.ppo.ppo_config import GlobalConfig
+from d123.simulation.planning.planner_output.action_planner_output import ActionPlannerOutput
 
 
-class ActionTrajectoryBuilder(AbstractTrajectoryBuilder):
+class ActionOutputConverter(AbstractOutputConverter):
     """
     Default action trajectory builder for training CaRL.
     TODO: Refactor this class
@@ -75,36 +73,22 @@ class ActionTrajectoryBuilder(AbstractTrajectoryBuilder):
             dtype=np.float32,
         )
 
-    def build_trajectory(
-        self, action: npt.NDArray[np.float32], ego_state: EgoState, info: Dict[str, Any]
-    ) -> ActionTrajectory:
+    def get_planner_output(
+        self, action: npt.NDArray[np.float32], ego_state: EgoStateSE2, info: Dict[str, Any]
+    ) -> ActionPlannerOutput:
         """Inherited, see superclass."""
         assert len(action) == self._config.action_space_dim
         info["last_action"] = action
 
         action_acceleration_normed, action_steering_angle_normed = action
 
-        target_steering_rate = self._scale_steering(
-            action_steering_angle_normed,
-            ego_state.tire_steering_angle,
-        )
+        target_steering_rate = self._scale_steering(action_steering_angle_normed, ego_state.tire_steering_angle)
         target_acceleration = self._scale_acceleration(
-            action_acceleration_normed,
-            ego_state.dynamic_car_state.rear_axle_acceleration_2d.x,
+            action_acceleration_normed, ego_state.dynamic_state_se2.acceleration.x
         )
-        clipped_steering_rate = self._clip_steering(
-            target_acceleration,
-            target_steering_rate,
-            ego_state,
-        )
-        clipped_acceleration = self._clip_acceleration(
-            target_acceleration,
-            clipped_steering_rate,
-            ego_state,
-        )
-
-        store = info["store"] if "store" in info.keys() else None
-        return ActionTrajectory(clipped_acceleration, clipped_steering_rate, ego_state, list(action), store)
+        clipped_steering_rate = self._clip_steering(target_acceleration, target_steering_rate, ego_state)
+        clipped_acceleration = self._clip_acceleration(target_acceleration, clipped_steering_rate, ego_state)
+        return ActionPlannerOutput(clipped_acceleration, clipped_steering_rate, ego_state)
 
     def _scale_steering(self, action_steering_angle_normed: float, current_steering_angle: float) -> float:
         """
@@ -137,7 +121,9 @@ class ActionTrajectoryBuilder(AbstractTrajectoryBuilder):
             target_acceleration = (target_acceleration - current_acceleration) / factor + current_acceleration
         return target_acceleration
 
-    def _clip_acceleration(self, target_acceleration: float, target_steering_rate: float, ego_state: EgoState) -> float:
+    def _clip_acceleration(
+        self, target_acceleration: float, target_steering_rate: float, ego_state: EgoStateSE2
+    ) -> float:
         """
         Clips the acceleration based on the target acceleration, steering rate, and current ego state.
         :param target_acceleration: Acceleration as targeted by the agent.
@@ -146,10 +132,10 @@ class ActionTrajectoryBuilder(AbstractTrajectoryBuilder):
         :return: Clipped acceleration based on the target acceleration and steering rate.
         """
 
-        current_acceleration = ego_state.dynamic_car_state.rear_axle_acceleration_2d.x
+        current_acceleration = ego_state.dynamic_state_se2.acceleration.x
 
         if self._disable_reverse_driving:
-            speed = ego_state.dynamic_car_state.rear_axle_velocity_2d.x
+            speed = ego_state.dynamic_state_se2.velocity.x
             updated_speed = speed + target_acceleration * self._dt_control
             # * self._dt_control
             if updated_speed < 0:
@@ -168,19 +154,15 @@ class ActionTrajectoryBuilder(AbstractTrajectoryBuilder):
 
         _max_acceleration = self._scale_max_acceleration
         if self._clip_angular_adjustment:
-            rear_axle_to_center_dist = ego_state.car_footprint.rear_axle_to_center_dist
+            rear_axle_to_center_dist = ego_state.vehicle_parameters.rear_axle_to_center_longitudinal
 
-            next_point_velocity_x = (
-                ego_state.dynamic_car_state.rear_axle_velocity_2d.x + target_acceleration * self._dt_control
-            )
+            next_point_velocity_x = ego_state.dynamic_state_se2.velocity.x + target_acceleration * self._dt_control
             next_point_tire_steering_angle = ego_state.tire_steering_angle + target_steering_rate * self._dt_control
             next_point_angular_velocity = (
-                next_point_velocity_x
-                * np.tan(next_point_tire_steering_angle)
-                / ego_state.car_footprint.vehicle_parameters.wheel_base
+                next_point_velocity_x * np.tan(next_point_tire_steering_angle) / ego_state.vehicle_parameters.wheel_base
             )
             next_point_angular_acceleration = (
-                next_point_angular_velocity - ego_state.dynamic_car_state.angular_velocity
+                next_point_angular_velocity - ego_state.dynamic_state_se2.angular_velocity
             ) / self._dt_control
 
             centripetal_acceleration_term = rear_axle_to_center_dist * (next_point_angular_velocity) ** 2
@@ -190,7 +172,7 @@ class ActionTrajectoryBuilder(AbstractTrajectoryBuilder):
         target_acceleration = np.clip(target_acceleration, -self._scale_max_deceleration, _max_acceleration)
         return target_acceleration
 
-    def _clip_steering(self, target_acceleration: float, target_steering_rate: float, ego_state: EgoState) -> float:
+    def _clip_steering(self, target_acceleration: float, target_steering_rate: float, ego_state: EgoStateSE2) -> float:
         """
         Clips the steering rate based on the target acceleration and current ego state.
         :param target_acceleration: Acceleration as targeted by the agent.
@@ -203,12 +185,10 @@ class ActionTrajectoryBuilder(AbstractTrajectoryBuilder):
         target_steering_angle = current_steering_angle + target_steering_rate * self._dt_control
 
         if self._clip_max_abs_yaw_accel is not None:
-            wheel_base = ego_state.car_footprint.vehicle_parameters.wheel_base
-            target_velocity = (
-                ego_state.dynamic_car_state.rear_axle_velocity_2d.x + target_acceleration * self._dt_control
-            )
+            wheel_base = ego_state.vehicle_parameters.wheel_base
+            target_velocity = ego_state.dynamic_state_se2.acceleration.x + target_acceleration * self._dt_control
 
-            current_angular_velocity = ego_state.dynamic_car_state.angular_velocity
+            current_angular_velocity = ego_state.dynamic_state_se2.angular_velocity
             max_abs_yaw_velocity = self._clip_max_abs_yaw_accel * self._dt_control
 
             min_angular_velocity = current_angular_velocity - max_abs_yaw_velocity
