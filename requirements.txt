@@ -43,9 +43,7 @@ cachetools
 hydra_colorlog
 hydra-core
 
-
-
-# asim
+# d123
 lxml
 trimesh
 viser

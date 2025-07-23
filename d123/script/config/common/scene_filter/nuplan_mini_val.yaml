@@ -1,0 +1,17 @@
+_target_: d123.dataset.scene.scene_filter.SceneFilter
+_convert_: 'all'
+
+split_types: null
+split_names:
+  - "nuplan_mini_val"
+log_names: null
+
+
+map_names: null
+scene_tokens: null
+timestamp_threshold_s: 1.0
+ego_displacement_minimum_m: null
+max_num_scenes: null
+
+duration_s: 8.1
+history_s: 1.0

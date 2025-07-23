@@ -1,0 +1,11 @@
+
+# D123
+d123_devkit_root: ${oc.env:D123_DEVKIT_ROOT}
+d123_maps_root: ${oc.env:D123_MAPS_ROOT}
+d123_data_root: ${oc.env:D123_DATA_ROOT}
+
+
+# nuplan
+nuplan_devkit_root: ${oc.env:NUPLAN_DEVKIT_ROOT}
+nuplan_maps_root: ${oc.env:NUPLAN_MAPS_ROOT}
+nuplan_data_root: ${oc.env:NUPLAN_DATA_ROOT}

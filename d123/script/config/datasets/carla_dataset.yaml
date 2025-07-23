@@ -1,0 +1,9 @@
+carla_dataset:
+  _target_: d123.dataset.dataset_specific.carla.carla_data_processor.CarlaDataProcessor
+  _convert_: 'all'
+
+  force_data_conversion: True
+
+  splits: ["carla"]
+  log_path: "${oc.env:HOME}/carla_workspace/data"
+  output_path: ${d123_data_root}

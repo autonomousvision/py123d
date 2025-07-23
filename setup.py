@@ -11,14 +11,14 @@ with open("requirements.txt") as f:
 
 # Installs
 setuptools.setup(
-    name="asim",
-    version="0.0.3",
+    name="d123",
+    version="0.0.5",
     author="Daniel Dauner",
     author_email="daniel.dauner@gmail.com",
     description="TODO",
-    url="https://github.com/autonomousvision/asim",
+    url="https://github.com/autonomousvision/d123",
     python_requires=">=3.9",
-    packages=["asim"],
+    packages=["d123"],
     package_dir={"": "."},
     classifiers=[
         "Programming Language :: Python :: 3.9",

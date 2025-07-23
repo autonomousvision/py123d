@@ -1,0 +1,9 @@
+nuplan_dataset:
+  _target_: d123.dataset.dataset_specific.nuplan.nuplan_data_processor.NuplanDataProcessor
+  _convert_: 'all'
+
+  force_data_conversion: True
+
+  splits: ["nuplan_train", "nuplan_val", "nuplan_test"]
+  log_path: ${oc.env:NUPLAN_DATA_ROOT}/nuplan-v1.1/splits # NOTE: folder including [mini, trainval, test], sometimes not inside "splits" folder
+  output_path: ${d123_data_root}

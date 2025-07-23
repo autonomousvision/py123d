@@ -1,4 +1,0 @@
-_target_: asim.dataset.scene.scene_builder.ArrowSceneBuilder
-_convert_: 'all'
-
-dataset_path: ${asim_data_root}
