@@ -12,7 +12,7 @@ from omegaconf import DictConfig
 from d123.dataset.scene.abstract_scene import AbstractScene
 from d123.script.builders.scene_builder_builder import build_scene_builder
 from d123.script.builders.scene_filter_builder import build_scene_filter
-from d123.script.run_dataset_caching import build_worker
+from d123.script.run_dataset_conversion import build_worker
 from d123.training.feature_builder.smart_feature_builder import SMARTFeatureBuilder
 
 logger = logging.getLogger(__name__)

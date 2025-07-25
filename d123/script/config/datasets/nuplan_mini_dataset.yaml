@@ -1,5 +1,5 @@
 nuplan_mini_dataset:
-  _target_: d123.dataset.dataset_specific.nuplan.nuplan_data_processor.NuplanDataProcessor
+  _target_: d123.dataset.dataset_specific.nuplan.nuplan_data_converter.NuplanDataConverter
   _convert_: 'all'
 
 
@@ -9,4 +9,5 @@ nuplan_mini_dataset:
   log_path: ${oc.env:NUPLAN_DATA_ROOT}/nuplan-v1.1/splits # NOTE: folder including [mini, trainval, test], sometimes not inside "splits" folder
   output_path: ${d123_data_root}
 
-  force_data_conversion: True
+  force_log_conversion: True
+  force_map_conversion: True

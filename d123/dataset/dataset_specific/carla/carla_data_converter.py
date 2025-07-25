@@ -2,6 +2,7 @@ import gc
 import gzip
 import hashlib
 import json
+import os
 from dataclasses import asdict
 from functools import partial
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import Dict, Final, List, Tuple, Union
 import numpy as np
 import pyarrow as pa
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
+from traitlets import Any
 
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3Index
 from d123.common.datatypes.vehicle_state.vehicle_parameters import get_carla_lincoln_mkz_2020_parameters
@@ -19,11 +21,28 @@ from d123.common.geometry.transform.se3 import translate_se3_along_z
 from d123.common.geometry.vector import Vector3DIndex
 from d123.dataset.arrow.conversion import VehicleParameters
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
-from d123.dataset.dataset_specific.raw_data_processor import RawDataProcessor
+from d123.dataset.dataset_specific.carla.opendrive.elements.opendrive import OpenDrive
+from d123.dataset.dataset_specific.carla.opendrive.opendrive_converter import OpenDriveConverter
+from d123.dataset.dataset_specific.raw_data_converter import RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
 from d123.dataset.maps.abstract_map import AbstractMap, MapSurfaceType
 from d123.dataset.maps.abstract_map_objects import AbstractLane
 from d123.dataset.scene.arrow_scene import get_map_api_from_names
+
+AVAILABLE_CARLA_MAP_LOCATIONS: Final[List[str]] = [
+    "Town01",  # A small, simple town with a river and several bridges.
+    "Town02",  # A small simple town with a mixture of residential and commercial buildings.
+    "Town03",  # A larger, urban map with a roundabout and large junctions.
+    "Town04",  # A small town embedded in the mountains with a special "figure of 8" infinite highway.
+    "Town05",  # Squared-grid town with cross junctions and a bridge. It has multiple lanes per direction. Useful to perform lane changes.
+    "Town06",  # Long many lane highways with many highway entrances and exits. It also has a Michigan left.
+    "Town07",  # A rural environment with narrow roads, corn, barns and hardly any traffic lights.
+    "Town10HD",  # A downtown urban environment with skyscrapers, residential buildings and an ocean promenade.
+    "Town11",  # A Large Map that is undecorated. Serves as a proof of concept for the Large Maps feature.
+    "Town12",  # A Large Map with numerous different regions, including high-rise, residential and rural environments.
+    "Town13",  # ???
+    "Town15",  # ???
+]
 
 CARLA_DT: Final[float] = 0.1  # [s]
 TRAFFIC_LIGHT_ASSIGNMENT_DISTANCE: Final[float] = 1.0  # [m]
@@ -52,15 +71,17 @@ def create_token(input_data: str) -> str:
     return hash_obj.hexdigest()[:16]
 
 
-class CarlaDataProcessor(RawDataProcessor):
+class CarlaDataConverter(RawDataConverter):
+
     def __init__(
         self,
         splits: List[str],
         log_path: Union[Path, str],
         output_path: Union[Path, str],
-        force_data_conversion: bool,
+        force_log_conversion: bool,
+        force_map_conversion: bool,
     ) -> None:
-        super().__init__(force_data_conversion)
+        super().__init__(force_log_conversion, force_map_conversion)
         for split in splits:
             assert (
                 split in self.get_available_splits()
@@ -82,7 +103,18 @@ class CarlaDataProcessor(RawDataProcessor):
         """Returns a list of available raw data types."""
         return ["carla"]  # TODO: fix the placeholder
 
-    def convert(self, worker: WorkerPool) -> None:
+    def convert_maps(self, worker: WorkerPool) -> None:
+        worker_map(
+            worker,
+            partial(
+                convert_carla_map_to_gpkg,
+                output_path=self._output_path,
+                force_map_conversion=self.force_map_conversion,
+            ),
+            list(AVAILABLE_CARLA_MAP_LOCATIONS),
+        )
+
+    def convert_logs(self, worker: WorkerPool) -> None:
 
         log_args = [
             {
@@ -95,13 +127,35 @@ class CarlaDataProcessor(RawDataProcessor):
         ]
 
         worker_map(
-            worker, partial(convert_carla_log_to_arrow, force_data_conversion=self.force_data_conversion), log_args
+            worker, partial(convert_carla_log_to_arrow, force_log_conversion=self.force_log_conversion), log_args
         )
 
 
+def convert_carla_map_to_gpkg(map_names: List[str], output_path: Path, force_map_conversion: bool) -> List[Any]:
+    for map_name in map_names:
+        map_path = output_path / "maps" / f"carla_{map_name}.gpkg"
+        if force_map_conversion or not map_path.exists():
+            map_path.unlink(missing_ok=True)
+            assert os.environ["CARLA_ROOT"] is not None
+            CARLA_ROOT = Path(os.environ["CARLA_ROOT"])
+
+            if map_name not in ["Town11", "Town12", "Town13", "Town15"]:
+                carla_maps_root = CARLA_ROOT / "CarlaUE4" / "Content" / "Carla" / "Maps" / "OpenDrive"
+                carla_map_path = carla_maps_root / f"{map_name}.xodr"
+            else:
+                carla_map_path = (
+                    CARLA_ROOT / "CarlaUE4" / "Content" / "Carla" / "Maps" / map_name / "OpenDrive" / f"{map_name}.xodr"
+                )
+
+            OpenDriveConverter(OpenDrive.parse_from_file(carla_map_path)).run(f"carla_{map_name.lower()}")
+
+    return []
+
+
 def convert_carla_log_to_arrow(
-    args: List[Dict[str, Union[List[str], List[Path]]]], force_data_conversion: bool
-) -> None:
+    args: List[Dict[str, Union[List[str], List[Path]]]],
+    force_log_conversion: bool,
+) -> List[Any]:
     def convert_log_internal(args: List[Dict[str, Union[List[str], List[Path]]]]) -> None:
         for log_info in args:
             log_path: Path = log_info["log_path"]
@@ -110,7 +164,7 @@ def convert_carla_log_to_arrow(
 
             log_file_path = output_path / split / f"{log_path.stem}.arrow"
 
-            if force_data_conversion or not log_file_path.exists():
+            if force_log_conversion or not log_file_path.exists():
                 log_file_path.unlink(missing_ok=True)
                 if not log_file_path.parent.exists():
                     log_file_path.parent.mkdir(parents=True, exist_ok=True)

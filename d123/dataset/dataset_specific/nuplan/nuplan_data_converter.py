@@ -4,18 +4,15 @@ import os
 from dataclasses import asdict
 from functools import partial
 from pathlib import Path
-from typing import Dict, Final, List, Tuple, Union
+from typing import Any, Dict, Final, List, Tuple, Union
 
-import psutil
 import pyarrow as pa
 import yaml
 from nuplan.database.nuplan_db.nuplan_scenario_queries import get_images_from_lidar_tokens
 from nuplan.database.nuplan_db_orm.lidar_box import LidarBox
 from nuplan.database.nuplan_db_orm.lidar_pc import LidarPc
 from nuplan.database.nuplan_db_orm.nuplandb import NuPlanDB
-from nuplan.planning.simulation.observation.observation_type import (
-    CameraChannel,
-)
+from nuplan.planning.simulation.observation.observation_type import CameraChannel
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 
 import d123.dataset.dataset_specific.nuplan.utils as nuplan_utils
@@ -31,19 +28,13 @@ from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3, Bound
 from d123.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from d123.common.geometry.vector import Vector3D, Vector3DIndex
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
-from d123.dataset.dataset_specific.raw_data_processor import RawDataProcessor
+from d123.dataset.dataset_specific.nuplan.nuplan_map_conversion import MAP_LOCATIONS, NuPlanMapConverter
+from d123.dataset.dataset_specific.raw_data_converter import RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
 
 TARGET_DT: Final[float] = 0.1
 NUPLAN_DT: Final[float] = 0.05
 SORT_BY_TIMESTAMP: Final[bool] = True
-
-NUPLAN_FULL_MAP_NAME_DICT: Final[Dict[str, str]] = {
-    "boston": "us-ma-boston",
-    "singapore": "sg-one-north",
-    "las_vegas": "us-nv-las-vegas-strip",
-    "pittsburgh": "us-pa-pittsburgh-hazelwood",
-}
 
 NUPLAN_TRAFFIC_STATUS_DICT: Final[Dict[str, TrafficLightStatus]] = {
     "green": TrafficLightStatus.GREEN,
@@ -71,16 +62,17 @@ def create_splits_logs() -> Dict[str, List[str]]:
     return splits["log_splits"]
 
 
-class NuplanDataProcessor(RawDataProcessor):
+class NuplanDataConverter(RawDataConverter):
     def __init__(
         self,
         splits: List[str],
         log_path: Union[Path, str],
         output_path: Union[Path, str],
         sensor_path: Union[Path, str],
-        force_data_conversion: bool,
+        force_log_conversion: bool,
+        force_map_conversion: bool,
     ) -> None:
-        super().__init__(force_data_conversion)
+        super().__init__(force_log_conversion, force_map_conversion)
         for split in splits:
             assert (
                 split in self.get_available_splits()
@@ -131,7 +123,18 @@ class NuplanDataProcessor(RawDataProcessor):
             "nuplan_private_test",
         ]
 
-    def convert(self, worker: WorkerPool) -> None:
+    def convert_maps(self, worker: WorkerPool) -> None:
+        worker_map(
+            worker,
+            partial(
+                convert_nuplan_map_to_gpkg,
+                output_path=self._output_path,
+                force_map_conversion=self.force_map_conversion,
+            ),
+            list(MAP_LOCATIONS),
+        )
+
+    def convert_logs(self, worker: WorkerPool) -> None:
         log_args = [
             {
                 "log_path": log_path,
@@ -146,18 +149,26 @@ class NuplanDataProcessor(RawDataProcessor):
             partial(
                 convert_nuplan_log_to_arrow,
                 output_path=self._output_path,
-                force_data_conversion=self.force_data_conversion,
+                force_log_conversion=self.force_log_conversion,
             ),
             log_args,
         )
 
 
+def convert_nuplan_map_to_gpkg(map_names: List[str], output_path: Path, force_map_conversion: bool) -> List[Any]:
+    for map_name in map_names:
+        map_path = output_path / "maps" / f"nuplan_{map_name}.gpkg"
+        if force_map_conversion or not map_path.exists():
+            map_path.unlink(missing_ok=True)
+            NuPlanMapConverter(output_path / "maps").convert(map_name=map_name)
+    return []
+
+
 def convert_nuplan_log_to_arrow(
     args: List[Dict[str, Union[List[str], List[Path]]]],
     output_path: Path,
-    force_data_conversion: bool,
-) -> None:
-    process = psutil.Process(os.getpid())
+    force_log_conversion: bool,
+) -> List[Any]:
     for log_info in args:
         log_path: Path = log_info["log_path"]
         split: str = log_info["split"]
@@ -168,7 +179,7 @@ def convert_nuplan_log_to_arrow(
         log_db = NuPlanDB(NUPLAN_DATA_ROOT, str(log_path), None)
         log_file_path = output_path / split / f"{log_path.stem}.arrow"
 
-        if force_data_conversion or not log_file_path.exists():
+        if force_log_conversion or not log_file_path.exists():
             log_file_path.unlink(missing_ok=True)
             if not log_file_path.parent.exists():
                 log_file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -186,8 +197,8 @@ def convert_nuplan_log_to_arrow(
                     ("traffic_light_types", pa.list_(pa.int16())),
                     ("scenario_tag", pa.list_(pa.string())),
                     ("route_lane_group_ids", pa.list_(pa.int64())),
-                    ("front_cam_demo", pa.binary()),
-                    ("front_cam_transform", pa.list_(pa.float64())),
+                    # ("front_cam_demo", pa.binary()),
+                    # ("front_cam_transform", pa.list_(pa.float64())),
                 ]
             )
             metadata = LogMetadata(
@@ -211,7 +222,6 @@ def convert_nuplan_log_to_arrow(
         log_db.remove_ref()
         del recording_schema, vehicle_parameters, log_db
         gc.collect()
-        print(f"{os.getpid()} Memory usage: {process.memory_info().rss / 1024 / 1024:.1f} MB")
     return []
 
 
@@ -237,7 +247,7 @@ def _write_recording_table(
                     for roadblock_id in str(lidar_pc.scene.roadblock_ids).split(" ")
                     if len(roadblock_id) > 0
                 ]
-                front_cam_demo, front_cam_transform = _extract_front_cam_demo(lidar_pc, source_log_path)
+                # front_cam_demo, front_cam_transform = _extract_front_cam_demo(lidar_pc, source_log_path)
 
                 row_data = {
                     "token": [lidar_pc_token],
@@ -251,8 +261,8 @@ def _write_recording_table(
                     "traffic_light_types": [traffic_light_types],
                     "scenario_tag": [_extract_scenario_tag(log_db, lidar_pc_token)],
                     "route_lane_group_ids": [route_lane_group_ids],
-                    "front_cam_demo": [front_cam_demo],
-                    "front_cam_transform": [front_cam_transform],
+                    # "front_cam_demo": [front_cam_demo],
+                    # "front_cam_transform": [front_cam_transform],
                 }
                 batch = pa.record_batch(row_data, schema=recording_schema)
                 writer.write_batch(batch)
