@@ -1,23 +1,27 @@
 import gc
 import json
 import os
+import pickle
 from dataclasses import asdict
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
+import numpy as np
 import pyarrow as pa
 import yaml
-from nuplan.database.nuplan_db.nuplan_scenario_queries import get_images_from_lidar_tokens
+from nuplan.database.nuplan_db.nuplan_scenario_queries import get_cameras, get_images_from_lidar_tokens
 from nuplan.database.nuplan_db_orm.lidar_box import LidarBox
 from nuplan.database.nuplan_db_orm.lidar_pc import LidarPc
 from nuplan.database.nuplan_db_orm.nuplandb import NuPlanDB
 from nuplan.planning.simulation.observation.observation_type import CameraChannel
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
+from pyquaternion import Quaternion
 
 import d123.dataset.dataset_specific.nuplan.utils as nuplan_utils
 from d123.common.datatypes.detection.detection import TrafficLightStatus
 from d123.common.datatypes.detection.detection_types import DetectionType
+from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.common.datatypes.vehicle_state.vehicle_parameters import (
     get_nuplan_pacifica_parameters,
@@ -29,7 +33,7 @@ from d123.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from d123.common.geometry.vector import Vector3D, Vector3DIndex
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.nuplan.nuplan_map_conversion import MAP_LOCATIONS, NuPlanMapConverter
-from d123.dataset.dataset_specific.raw_data_converter import RawDataConverter
+from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
 
 TARGET_DT: Final[float] = 0.1
@@ -51,6 +55,17 @@ NUPLAN_DETECTION_NAME_DICT = {
     "generic_object": DetectionType.GENERIC_OBJECT,
 }
 
+NUPLAN_CAMERA_TYPES = {
+    CameraType.CAM_F0: CameraChannel.CAM_F0,
+    CameraType.CAM_B0: CameraChannel.CAM_B0,
+    CameraType.CAM_L0: CameraChannel.CAM_L0,
+    CameraType.CAM_L1: CameraChannel.CAM_L1,
+    CameraType.CAM_L2: CameraChannel.CAM_L2,
+    CameraType.CAM_R0: CameraChannel.CAM_R0,
+    CameraType.CAM_R1: CameraChannel.CAM_R1,
+    CameraType.CAM_R2: CameraChannel.CAM_R2,
+}
+
 NUPLAN_DATA_ROOT = Path(os.environ["NUPLAN_DATA_ROOT"])
 
 
@@ -67,12 +82,9 @@ class NuplanDataConverter(RawDataConverter):
         self,
         splits: List[str],
         log_path: Union[Path, str],
-        output_path: Union[Path, str],
-        sensor_path: Union[Path, str],
-        force_log_conversion: bool,
-        force_map_conversion: bool,
+        data_converter_config: DataConverterConfig,
     ) -> None:
-        super().__init__(force_log_conversion, force_map_conversion)
+        super().__init__(data_converter_config)
         for split in splits:
             assert (
                 split in self.get_available_splits()
@@ -80,8 +92,6 @@ class NuplanDataConverter(RawDataConverter):
 
         self._splits: List[str] = splits
         self._log_path: Path = Path(log_path)
-        self._output_path: Path = Path(output_path)
-        self._sensor_path: Path = Path(sensor_path)
         self._log_paths_per_split: Dict[str, List[Path]] = self._collect_log_paths()
         self._target_dt: float = 0.1
 
@@ -126,11 +136,7 @@ class NuplanDataConverter(RawDataConverter):
     def convert_maps(self, worker: WorkerPool) -> None:
         worker_map(
             worker,
-            partial(
-                convert_nuplan_map_to_gpkg,
-                output_path=self._output_path,
-                force_map_conversion=self.force_map_conversion,
-            ),
+            partial(convert_nuplan_map_to_gpkg, data_converter_config=self.data_converter_config),
             list(MAP_LOCATIONS),
         )
 
@@ -148,26 +154,23 @@ class NuplanDataConverter(RawDataConverter):
             worker,
             partial(
                 convert_nuplan_log_to_arrow,
-                output_path=self._output_path,
-                force_log_conversion=self.force_log_conversion,
+                data_converter_config=self.data_converter_config,
             ),
             log_args,
         )
 
 
-def convert_nuplan_map_to_gpkg(map_names: List[str], output_path: Path, force_map_conversion: bool) -> List[Any]:
+def convert_nuplan_map_to_gpkg(map_names: List[str], data_converter_config: DataConverterConfig) -> List[Any]:
     for map_name in map_names:
-        map_path = output_path / "maps" / f"nuplan_{map_name}.gpkg"
-        if force_map_conversion or not map_path.exists():
+        map_path = data_converter_config.output_path / "maps" / f"nuplan_{map_name}.gpkg"
+        if data_converter_config.force_map_conversion or not map_path.exists():
             map_path.unlink(missing_ok=True)
-            NuPlanMapConverter(output_path / "maps").convert(map_name=map_name)
+            NuPlanMapConverter(data_converter_config.output_path / "maps").convert(map_name=map_name)
     return []
 
 
 def convert_nuplan_log_to_arrow(
-    args: List[Dict[str, Union[List[str], List[Path]]]],
-    output_path: Path,
-    force_log_conversion: bool,
+    args: List[Dict[str, Union[List[str], List[Path]]]], data_converter_config: DataConverterConfig
 ) -> List[Any]:
     for log_info in args:
         log_path: Path = log_info["log_path"]
@@ -177,31 +180,41 @@ def convert_nuplan_log_to_arrow(
             raise FileNotFoundError(f"Log path {log_path} does not exist.")
 
         log_db = NuPlanDB(NUPLAN_DATA_ROOT, str(log_path), None)
-        log_file_path = output_path / split / f"{log_path.stem}.arrow"
+        log_file_path = data_converter_config.output_path / split / f"{log_path.stem}.arrow"
 
-        if force_log_conversion or not log_file_path.exists():
+        if data_converter_config.force_log_conversion or not log_file_path.exists():
             log_file_path.unlink(missing_ok=True)
             if not log_file_path.parent.exists():
                 log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-            recording_schema = pa.schema(
-                [
-                    ("token", pa.string()),
-                    ("timestamp", pa.int64()),
-                    ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
-                    ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
-                    ("detections_token", pa.list_(pa.string())),
-                    ("detections_type", pa.list_(pa.int16())),
-                    ("ego_states", pa.list_(pa.float64(), len(EgoStateSE3Index))),
-                    ("traffic_light_ids", pa.list_(pa.int64())),
-                    ("traffic_light_types", pa.list_(pa.int16())),
-                    ("scenario_tag", pa.list_(pa.string())),
-                    ("route_lane_group_ids", pa.list_(pa.int64())),
-                    ("lidar", pa.string()),
-                    # ("front_cam_demo", pa.binary()),
-                    # ("front_cam_transform", pa.list_(pa.float64())),
-                ]
-            )
+            schema_column_list = [
+                ("token", pa.string()),
+                ("timestamp", pa.int64()),
+                ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
+                ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
+                ("detections_token", pa.list_(pa.string())),
+                ("detections_type", pa.list_(pa.int16())),
+                ("ego_states", pa.list_(pa.float64(), len(EgoStateSE3Index))),
+                ("traffic_light_ids", pa.list_(pa.int64())),
+                ("traffic_light_types", pa.list_(pa.int16())),
+                ("scenario_tag", pa.list_(pa.string())),
+                ("route_lane_group_ids", pa.list_(pa.int64())),
+            ]
+            if data_converter_config.lidar_store_option is not None:
+                if data_converter_config.lidar_store_option == "path":
+                    schema_column_list.append(("lidar", pa.string()))
+                elif data_converter_config.lidar_store_option == "binary":
+                    raise NotImplementedError("Binary lidar storage is not implemented.")
+
+            # TODO: Adjust how cameras are added
+            if data_converter_config.camera_store_option is not None:
+                for camera_type in NUPLAN_CAMERA_TYPES.keys():
+                    if data_converter_config.camera_store_option == "path":
+                        schema_column_list.append((camera_type.serialize(), pa.string()))
+                    elif data_converter_config.camera_store_option == "binary":
+                        raise NotImplementedError("Binary camera storage is not implemented.")
+
+            recording_schema = pa.schema(schema_column_list)
             metadata = LogMetadata(
                 dataset="nuplan",
                 log_name=log_db.log_name,
@@ -210,14 +223,16 @@ def convert_nuplan_log_to_arrow(
                 map_has_z=False,
             )
             vehicle_parameters = get_nuplan_pacifica_parameters()
+            camera_metadata = get_nuplan_camera_metadata(log_path)
             recording_schema = recording_schema.with_metadata(
                 {
                     "log_metadata": json.dumps(asdict(metadata)),
                     "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
+                    "camera_metadata": camera_metadata_dict_to_json(camera_metadata),
                 }
             )
 
-            _write_recording_table(log_db, recording_schema, log_file_path, log_path)
+            _write_recording_table(log_db, recording_schema, log_file_path, log_path, data_converter_config)
 
         log_db.detach_tables()
         log_db.remove_ref()
@@ -226,11 +241,38 @@ def convert_nuplan_log_to_arrow(
     return []
 
 
+def get_nuplan_camera_metadata(log_path: Path) -> Dict[str, CameraMetadata]:
+
+    def _get_camera_metadata(camera_type: CameraType) -> CameraMetadata:
+        cam = list(get_cameras(log_path, [str(NUPLAN_CAMERA_TYPES[camera_type].value)]))[0]
+        intrinsic = np.array(pickle.loads(cam.intrinsic))
+        translation = np.array(pickle.loads(cam.translation))
+        rotation = np.array(pickle.loads(cam.rotation))
+        rotation = Quaternion(rotation).rotation_matrix
+        distortion = np.array(pickle.loads(cam.distortion))
+        return CameraMetadata(
+            camera_type=camera_type,
+            width=cam.width,
+            height=cam.height,
+            intrinsic=intrinsic,
+            distortion=distortion,
+            translation=translation,
+            rotation=rotation,
+        )
+
+    log_cam_infos: Dict[str, CameraMetadata] = {}
+    for camera_type in NUPLAN_CAMERA_TYPES.keys():
+        log_cam_infos[camera_type.serialize()] = _get_camera_metadata(camera_type)
+
+    return log_cam_infos
+
+
 def _write_recording_table(
     log_db: NuPlanDB,
     recording_schema: pa.schema,
     log_file_path: Path,
     source_log_path: Path,
+    data_converter_config: DataConverterConfig,
 ) -> None:
 
     # with pa.ipc.new_stream(str(log_file_path), recording_schema) as writer:
@@ -239,16 +281,19 @@ def _write_recording_table(
             step_interval: float = int(TARGET_DT / NUPLAN_DT)
             for lidar_pc in log_db.lidar_pc[::step_interval]:
                 lidar_pc_token: str = lidar_pc.token
-                detections_state, detections_velocity, detections_token, detections_types = _extract_detections(
-                    lidar_pc
-                )
+                (
+                    detections_state,
+                    detections_velocity,
+                    detections_token,
+                    detections_types,
+                ) = _extract_detections(lidar_pc)
                 traffic_light_ids, traffic_light_types = _extract_traffic_lights(log_db, lidar_pc_token)
                 route_lane_group_ids = [
                     int(roadblock_id)
                     for roadblock_id in str(lidar_pc.scene.roadblock_ids).split(" ")
                     if len(roadblock_id) > 0
                 ]
-                # front_cam_demo, front_cam_transform = _extract_front_cam_demo(lidar_pc, source_log_path)
+
                 row_data = {
                     "token": [lidar_pc_token],
                     "timestamp": [lidar_pc.timestamp],
@@ -261,10 +306,19 @@ def _write_recording_table(
                     "traffic_light_types": [traffic_light_types],
                     "scenario_tag": [_extract_scenario_tag(log_db, lidar_pc_token)],
                     "route_lane_group_ids": [route_lane_group_ids],
-                    "lidar": [_extract_lidar(lidar_pc)],
-                    # "front_cam_demo": [front_cam_demo],
-                    # "front_cam_transform": [front_cam_transform],
                 }
+
+                if data_converter_config.lidar_store_option is not None:
+                    row_data["lidar"] = [_extract_lidar(lidar_pc, data_converter_config)]
+
+                if data_converter_config.camera_store_option is not None:
+                    camera_data_dict = _extract_camera(lidar_pc, source_log_path, data_converter_config)
+                    for camera_type, camera_data in camera_data_dict.items():
+                        if camera_data is not None:
+                            row_data[camera_type.serialize()] = [camera_data]
+                        else:
+                            row_data[camera_type.serialize()] = [None]
+
                 batch = pa.record_batch(row_data, schema=recording_schema)
                 writer.write_batch(batch)
                 del batch, row_data, detections_state, detections_velocity, detections_token, detections_types
@@ -363,28 +417,33 @@ def _extract_scenario_tag(log_db: NuPlanDB, lidar_pc_token: str) -> List[str]:
     return scenario_tags
 
 
-def _extract_front_cam_demo(lidar_pc: LidarPc, source_log_path: Path) -> Tuple[bytes, List[float]]:
+def _extract_camera(
+    lidar_pc: LidarPc,
+    source_log_path: Path,
+    data_converter_config: DataConverterConfig,
+) -> Dict[CameraType, Union[str, bytes]]:
 
-    sensor_root = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "sensor"
-    front_image_class = list(
-        get_images_from_lidar_tokens(source_log_path, [lidar_pc.token], [str(CameraChannel.CAM_F0.value)])
-    )
+    camera_dict: Dict[str, Union[str, bytes]] = {}
+    sensor_root = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "sensor_blobs"
 
-    front_cam_demo: bytes = None
-    front_cam_transform: List[float] = []
+    for camera_type, camera_channel in NUPLAN_CAMERA_TYPES.items():
+        camera_data: Optional[Union[str, bytes]] = None
+        image_class = list(get_images_from_lidar_tokens(source_log_path, [lidar_pc.token], [str(camera_channel.value)]))
+        if len(image_class) != 0:
+            filename_jpg = sensor_root / image_class[0].filename_jpg
+            if filename_jpg.exists():
+                if data_converter_config.camera_store_option == "path":
+                    camera_data = str(filename_jpg)
+                elif data_converter_config.camera_store_option == "binary":
+                    with open(filename_jpg, "rb") as f:
+                        camera_data = f.read()
 
-    if len(front_image_class) != 0:
+        camera_dict[camera_type] = camera_data
 
-        filename_jpg = sensor_root / front_image_class[0].filename_jpg
-
-        if filename_jpg.exists():
-            with open(filename_jpg, "rb") as f:
-                front_cam_demo = f.read()
-
-    return front_cam_demo, front_cam_transform
+    return camera_dict
 
 
-def _extract_lidar(lidar_pc: LidarPc) -> Optional[str]:
+def _extract_lidar(lidar_pc: LidarPc, data_converter_config: DataConverterConfig) -> Optional[str]:
 
     lidar: Optional[str] = None
     lidar_full_path = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "sensor_blobs" / lidar_pc.filename

@@ -4,9 +4,14 @@ nuplan_mini_dataset:
 
 
   splits: ["nuplan_mini_train", "nuplan_mini_val", "nuplan_mini_test"]
-  # splits: ["nuplan_mini_val"]
   log_path: ${oc.env:NUPLAN_DATA_ROOT}/nuplan-v1.1/splits # NOTE: folder including [mini, trainval, test], sometimes not inside "splits" folder
-  output_path: ${d123_data_root}
 
-  force_log_conversion: ${force_log_conversion}
-  force_map_conversion: ${force_map_conversion}
+  data_converter_config:
+    _target_: d123.dataset.dataset_specific.raw_data_converter.DataConverterConfig
+    _convert_: 'all'
+
+    output_path: ${d123_data_root}
+    force_log_conversion: ${force_log_conversion}
+    force_map_conversion: ${force_map_conversion}
+    camera_store_option: "path"
+    lidar_store_option: "path"

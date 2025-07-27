@@ -1,21 +1,19 @@
-import io
 import json
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import pyarrow as pa
 
-# TODO: Remove or improve open/close dynamic of Scene object.
-from PIL import Image
-
 from d123.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from d123.common.datatypes.recording.detection_recording import DetectionRecording
+from d123.common.datatypes.sensor.camera import Camera, CameraMetadata, CameraType, camera_metadata_dict_from_json
 from d123.common.datatypes.sensor.lidar import LiDAR
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 from d123.dataset.arrow.conversion import (
     get_box_detections_from_arrow_table,
+    get_camera_from_arrow_table,
     get_ego_vehicle_state_from_arrow_table,
     get_lidar_from_arrow_table,
     get_timepoint_from_arrow_table,
@@ -27,8 +25,12 @@ from d123.dataset.maps.abstract_map import AbstractMap
 from d123.dataset.maps.gpkg.gpkg_map import get_map_api_from_names
 from d123.dataset.scene.abstract_scene import AbstractScene, SceneExtractionInfo
 
+# TODO: Remove or improve open/close dynamic of Scene object.
 
-def _get_scene_data(arrow_file_path: Union[Path, str]) -> Tuple[LogMetadata, VehicleParameters]:
+
+def _get_scene_data(
+    arrow_file_path: Union[Path, str],
+) -> Tuple[LogMetadata, VehicleParameters, Dict[CameraType, CameraMetadata]]:
     """
     Extracts the metadata and vehicle parameters from the arrow file.
     """
@@ -36,8 +38,14 @@ def _get_scene_data(arrow_file_path: Union[Path, str]) -> Tuple[LogMetadata, Veh
     table = open_arrow_table(arrow_file_path)
     metadata = LogMetadata(**json.loads(table.schema.metadata[b"log_metadata"].decode()))
     vehicle_parameters = VehicleParameters(**json.loads(table.schema.metadata[b"vehicle_parameters"].decode()))
+
+    if b"camera_metadata" in table.schema.metadata:
+        camera_metadata = camera_metadata_dict_from_json(table.schema.metadata[b"camera_metadata"].decode())
+    else:
+        camera_metadata = {}
+
     del table
-    return metadata, vehicle_parameters
+    return metadata, vehicle_parameters, camera_metadata
 
 
 class ArrowScene(AbstractScene):
@@ -49,9 +57,10 @@ class ArrowScene(AbstractScene):
 
         self._recording_table: pa.Table = None
 
-        _metadata, _vehicle_parameters = _get_scene_data(arrow_file_path)
+        _metadata, _vehicle_parameters, _camera_metadata = _get_scene_data(arrow_file_path)
         self._metadata: LogMetadata = _metadata
         self._vehicle_parameters: VehicleParameters = _vehicle_parameters
+        self._camera_metadata: Dict[CameraType, CameraMetadata] = _camera_metadata
 
         self._map_api: Optional[AbstractMap] = None
 
@@ -130,15 +139,20 @@ class ArrowScene(AbstractScene):
         table_index = self._get_table_index(iteration)
         return self._recording_table["route_lane_group_ids"][table_index].as_py()
 
-    def get_front_cam_demo(self, iteration: int) -> Image:
+    def get_camera_at_iteration(self, iteration: int, camera_type: CameraType) -> Camera:
         self._lazy_initialize()
+        assert camera_type in self._camera_metadata, f"Camera type {camera_type} not found in metadata."
         table_index = self._get_table_index(iteration)
-        jpg_data = self._recording_table["front_cam_demo"][table_index].as_py()
-        return Image.open(io.BytesIO(jpg_data))
+        return get_camera_from_arrow_table(
+            self._recording_table,
+            table_index,
+            self._camera_metadata[camera_type],
+            self.log_metadata,
+        )
 
     def get_lidar_at_iteration(self, iteration: int) -> LiDAR:
         self._lazy_initialize()
-        return get_lidar_from_arrow_table(self._recording_table, self._get_table_index(iteration))
+        return get_lidar_from_arrow_table(self._recording_table, self._get_table_index(iteration), self.log_metadata)
 
     def _lazy_initialize(self) -> None:
         self.open()

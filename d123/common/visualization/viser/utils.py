@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 import trimesh
 
-from d123.common.datatypes.sensor.camera_parameters import get_nuplan_camera_parameters
+# from d123.common.datatypes.sensor.camera_parameters import get_nuplan_camera_parameters
 from d123.common.geometry.base import Point3D, StateSE3
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from d123.common.geometry.line.polylines import Polyline3D
@@ -167,7 +167,7 @@ def _get_camera_pose_demo(scene: AbstractScene, iteration: int) -> StateSE3:
 
     rear_axle = StateSE3.from_array(rear_axle_array)
 
-    camera_parameters = get_nuplan_camera_parameters()
+    camera_parameters = None
 
     # Get camera parameters
     camera_translation = camera_parameters.translation  # 3x1 vector as array

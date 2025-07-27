@@ -1,8 +1,14 @@
 # TODO: rename this file and potentially move somewhere more appropriate.
 
 
+import os
+from pathlib import Path
+from typing import Dict, Optional
+
 import numpy as np
+import numpy.typing as npt
 import pyarrow as pa
+from PIL import Image
 
 from d123.common.datatypes.detection.detection import (
     BoxDetection,
@@ -14,14 +20,21 @@ from d123.common.datatypes.detection.detection import (
     TrafficLightStatus,
 )
 from d123.common.datatypes.detection.detection_types import DetectionType
+from d123.common.datatypes.sensor.camera import Camera, CameraMetadata
 from d123.common.datatypes.sensor.lidar import LiDAR
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from d123.common.geometry.vector import Vector3D
-from d123.dataset.dataset_specific.nuplan.load_sensor import load_lidar_from_path
+from d123.dataset.dataset_specific.nuplan.load_sensor import load_nuplan_lidar_from_path
+from d123.dataset.logs.log_metadata import LogMetadata
 from d123.dataset.maps.abstract_map import List
+
+DATASET_SENSOR_ROOT: Dict[str, Path] = {
+    "nuplan": Path(os.environ["NUPLAN_DATA_ROOT"]) / "nuplan-v1.1" / "sensor_blobs",
+    # "carla": Path(os.environ["CARLA_DATA_ROOT"]) / "sensor_blobs",
+}
 
 
 def get_timepoint_from_arrow_table(arrow_table: pa.Table, index: int) -> TimePoint:
@@ -80,12 +93,44 @@ def get_traffic_light_detections_from_arrow_table(arrow_table: pa.Table, index: 
     return TrafficLightDetectionWrapper(traffic_light_detections=traffic_light_detections)
 
 
-def get_lidar_from_arrow_table(arrow_table: pa.Table, index: int) -> LiDAR:
+def get_camera_from_arrow_table(
+    arrow_table: pa.Table,
+    index: int,
+    camera_metadata: CameraMetadata,
+    log_metadata: LogMetadata,
+) -> Camera:
+
+    table_data = arrow_table[camera_metadata.camera_type.serialize()][index].as_py()
+    image: Optional[npt.NDArray[np.uint8]] = None
+
+    if isinstance(table_data, str):
+        sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
+        full_image_path = sensor_root / table_data
+        assert full_image_path.exists(), f"Camera file not found: {full_image_path}"
+        img = Image.open(full_image_path)
+        img.load()
+        image = np.asarray(img, dtype=np.uint8)
+    else:
+        raise NotImplementedError("Only string file paths for camera data are supported.")
+
+    return Camera(
+        metadata=camera_metadata,
+        image=image,
+    )
+
+
+def get_lidar_from_arrow_table(arrow_table: pa.Table, index: int, log_metadata: LogMetadata) -> LiDAR:
     assert "lidar" in arrow_table.schema.names, '"lidar" field not found in Arrow table schema.'
-    lidar_data = arrow_table["lidar"][index]
-    if isinstance(lidar_data.as_py(), str):
-        # TODO: Handle other formats and datasets
-        lidar = load_lidar_from_path(lidar_data.as_py())
+    lidar_data = arrow_table["lidar"][index].as_py()
+    if isinstance(lidar_data, str):
+        sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
+        full_lidar_path = sensor_root / lidar_data
+        assert full_lidar_path.exists(), f"LiDAR file not found: {full_lidar_path}"
+        if log_metadata.dataset == "nuplan":
+            lidar = load_nuplan_lidar_from_path(full_lidar_path)
+        else:
+            raise NotImplementedError(f"Loading LiDAR data for dataset {log_metadata.dataset} is not implemented.")
+
     else:
         raise NotImplementedError("Only string file paths for lidar data are supported.")
 

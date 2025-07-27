@@ -4,10 +4,9 @@ import abc
 from dataclasses import dataclass
 from typing import List
 
-from PIL import Image
-
 from d123.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from d123.common.datatypes.recording.detection_recording import DetectionRecording
+from d123.common.datatypes.sensor.camera import Camera, CameraType
 from d123.common.datatypes.sensor.lidar import LiDAR
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
@@ -71,7 +70,7 @@ class AbstractScene(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_front_cam_demo(self, iteration: int) -> Image:
+    def get_camera_at_iteration(self, iteration: int, camera_type: CameraType) -> Camera:
         raise NotImplementedError
 
     @abc.abstractmethod

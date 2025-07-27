@@ -23,7 +23,7 @@ from d123.dataset.arrow.conversion import VehicleParameters
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.carla.opendrive.elements.opendrive import OpenDrive
 from d123.dataset.dataset_specific.carla.opendrive.opendrive_converter import OpenDriveConverter
-from d123.dataset.dataset_specific.raw_data_converter import RawDataConverter
+from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
 from d123.dataset.maps.abstract_map import AbstractMap, MapSurfaceType
 from d123.dataset.maps.abstract_map_objects import AbstractLane
@@ -77,11 +77,9 @@ class CarlaDataConverter(RawDataConverter):
         self,
         splits: List[str],
         log_path: Union[Path, str],
-        output_path: Union[Path, str],
-        force_log_conversion: bool,
-        force_map_conversion: bool,
+        data_converter_config: DataConverterConfig,
     ) -> None:
-        super().__init__(force_log_conversion, force_map_conversion)
+        super().__init__(data_converter_config)
         for split in splits:
             assert (
                 split in self.get_available_splits()
@@ -89,7 +87,6 @@ class CarlaDataConverter(RawDataConverter):
 
         self._splits: str = splits
         self._log_path: Path = Path(log_path)
-        self._output_path: Path = Path(output_path)
         self._log_paths_per_split: Dict[str, List[Path]] = self._collect_log_paths()
 
     def _collect_log_paths(self) -> Dict[str, List[Path]]:

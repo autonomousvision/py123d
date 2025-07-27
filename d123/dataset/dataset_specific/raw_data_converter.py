@@ -1,14 +1,29 @@
 import abc
-from typing import List
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Literal, Optional, Union
 
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool
 
 
+@dataclass
+class DataConverterConfig:
+
+    output_path: Union[str, Path]
+    force_log_conversion: bool = False
+    force_map_conversion: bool = False
+    camera_store_option: Optional[Literal["path", "binary"]] = None
+    lidar_store_option: Optional[Literal["path", "binary"]] = None
+
+    def __post_init__(self):
+        if isinstance(self.output_path, str):
+            self.output_path = Path(self.output_path)
+
+
 class RawDataConverter(abc.ABC):
 
-    def __init__(self, force_log_conversion: bool, force_map_conversion: bool) -> None:
-        self.force_log_conversion = force_log_conversion
-        self.force_map_conversion = force_map_conversion
+    def __init__(self, data_converter_config: DataConverterConfig) -> None:
+        self.data_converter_config = data_converter_config
 
     @abc.abstractmethod
     def get_available_splits(self) -> List[str]:
