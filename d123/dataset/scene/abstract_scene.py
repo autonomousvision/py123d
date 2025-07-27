@@ -8,6 +8,7 @@ from PIL import Image
 
 from d123.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from d123.common.datatypes.recording.detection_recording import DetectionRecording
+from d123.common.datatypes.sensor.lidar import LiDAR
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.dataset.logs.log_metadata import LogMetadata
@@ -71,6 +72,10 @@ class AbstractScene(abc.ABC):
 
     @abc.abstractmethod
     def get_front_cam_demo(self, iteration: int) -> Image:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_lidar_at_iteration(self, iteration: int) -> LiDAR:
         raise NotImplementedError
 
     def open(self) -> None:

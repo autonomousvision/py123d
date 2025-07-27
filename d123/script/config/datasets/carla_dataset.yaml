@@ -6,5 +6,5 @@ carla_dataset:
   log_path: "${oc.env:HOME}/carla_workspace/data"
   output_path: ${d123_data_root}
 
-  force_log_conversion: True
-  force_map_conversion: True
+  force_log_conversion: ${force_log_conversion}
+  force_map_conversion: ${force_map_conversion}

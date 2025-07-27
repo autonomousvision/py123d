@@ -10,12 +10,14 @@ from PIL import Image
 
 from d123.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from d123.common.datatypes.recording.detection_recording import DetectionRecording
+from d123.common.datatypes.sensor.lidar import LiDAR
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 from d123.dataset.arrow.conversion import (
     get_box_detections_from_arrow_table,
     get_ego_vehicle_state_from_arrow_table,
+    get_lidar_from_arrow_table,
     get_timepoint_from_arrow_table,
     get_traffic_light_detections_from_arrow_table,
 )
@@ -133,6 +135,10 @@ class ArrowScene(AbstractScene):
         table_index = self._get_table_index(iteration)
         jpg_data = self._recording_table["front_cam_demo"][table_index].as_py()
         return Image.open(io.BytesIO(jpg_data))
+
+    def get_lidar_at_iteration(self, iteration: int) -> LiDAR:
+        self._lazy_initialize()
+        return get_lidar_from_arrow_table(self._recording_table, self._get_table_index(iteration))
 
     def _lazy_initialize(self) -> None:
         self.open()

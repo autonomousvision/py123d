@@ -5,9 +5,8 @@ nuplan_mini_dataset:
 
   splits: ["nuplan_mini_train", "nuplan_mini_val", "nuplan_mini_test"]
   # splits: ["nuplan_mini_val"]
-
   log_path: ${oc.env:NUPLAN_DATA_ROOT}/nuplan-v1.1/splits # NOTE: folder including [mini, trainval, test], sometimes not inside "splits" folder
   output_path: ${d123_data_root}
 
-  force_log_conversion: True
-  force_map_conversion: True
+  force_log_conversion: ${force_log_conversion}
+  force_map_conversion: ${force_map_conversion}

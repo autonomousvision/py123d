@@ -14,11 +14,13 @@ from d123.common.datatypes.detection.detection import (
     TrafficLightStatus,
 )
 from d123.common.datatypes.detection.detection_types import DetectionType
+from d123.common.datatypes.sensor.lidar import LiDAR
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from d123.common.geometry.vector import Vector3D
+from d123.dataset.dataset_specific.nuplan.load_sensor import load_lidar_from_path
 from d123.dataset.maps.abstract_map import List
 
 
@@ -76,3 +78,15 @@ def get_traffic_light_detections_from_arrow_table(arrow_table: pa.Table, index: 
         traffic_light_detections.append(traffic_light_detection)
 
     return TrafficLightDetectionWrapper(traffic_light_detections=traffic_light_detections)
+
+
+def get_lidar_from_arrow_table(arrow_table: pa.Table, index: int) -> LiDAR:
+    assert "lidar" in arrow_table.schema.names, '"lidar" field not found in Arrow table schema.'
+    lidar_data = arrow_table["lidar"][index]
+    if isinstance(lidar_data.as_py(), str):
+        # TODO: Handle other formats and datasets
+        lidar = load_lidar_from_path(lidar_data.as_py())
+    else:
+        raise NotImplementedError("Only string file paths for lidar data are supported.")
+
+    return lidar

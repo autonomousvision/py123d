@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 import trimesh
 
-from d123.common.datatypes.camera.camera_parameters import get_nuplan_camera_parameters
+from d123.common.datatypes.sensor.camera_parameters import get_nuplan_camera_parameters
 from d123.common.geometry.base import Point3D, StateSE3
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from d123.common.geometry.line.polylines import Polyline3D

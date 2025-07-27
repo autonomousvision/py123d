@@ -4,7 +4,7 @@ import os
 from dataclasses import asdict
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Final, List, Tuple, Union
+from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
 import pyarrow as pa
 import yaml
@@ -197,6 +197,7 @@ def convert_nuplan_log_to_arrow(
                     ("traffic_light_types", pa.list_(pa.int16())),
                     ("scenario_tag", pa.list_(pa.string())),
                     ("route_lane_group_ids", pa.list_(pa.int64())),
+                    ("lidar", pa.string()),
                     # ("front_cam_demo", pa.binary()),
                     # ("front_cam_transform", pa.list_(pa.float64())),
                 ]
@@ -248,7 +249,6 @@ def _write_recording_table(
                     if len(roadblock_id) > 0
                 ]
                 # front_cam_demo, front_cam_transform = _extract_front_cam_demo(lidar_pc, source_log_path)
-
                 row_data = {
                     "token": [lidar_pc_token],
                     "timestamp": [lidar_pc.timestamp],
@@ -261,6 +261,7 @@ def _write_recording_table(
                     "traffic_light_types": [traffic_light_types],
                     "scenario_tag": [_extract_scenario_tag(log_db, lidar_pc_token)],
                     "route_lane_group_ids": [route_lane_group_ids],
+                    "lidar": [_extract_lidar(lidar_pc)],
                     # "front_cam_demo": [front_cam_demo],
                     # "front_cam_transform": [front_cam_transform],
                 }
@@ -381,3 +382,13 @@ def _extract_front_cam_demo(lidar_pc: LidarPc, source_log_path: Path) -> Tuple[b
                 front_cam_demo = f.read()
 
     return front_cam_demo, front_cam_transform
+
+
+def _extract_lidar(lidar_pc: LidarPc) -> Optional[str]:
+
+    lidar: Optional[str] = None
+    lidar_full_path = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "sensor_blobs" / lidar_pc.filename
+    if lidar_full_path.exists():
+        lidar = lidar_pc.filename
+
+    return lidar
