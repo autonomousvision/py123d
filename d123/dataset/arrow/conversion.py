@@ -27,13 +27,14 @@ from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from d123.common.geometry.vector import Vector3D
+from d123.dataset.dataset_specific.carla.load_sensor import load_carla_lidar_from_path
 from d123.dataset.dataset_specific.nuplan.load_sensor import load_nuplan_lidar_from_path
 from d123.dataset.logs.log_metadata import LogMetadata
 from d123.dataset.maps.abstract_map import List
 
 DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "nuplan": Path(os.environ["NUPLAN_DATA_ROOT"]) / "nuplan-v1.1" / "sensor_blobs",
-    # "carla": Path(os.environ["CARLA_DATA_ROOT"]) / "sensor_blobs",
+    "carla": Path(os.environ["CARLA_DATA_ROOT"]) / "sensor_blobs",
 }
 
 
@@ -128,6 +129,8 @@ def get_lidar_from_arrow_table(arrow_table: pa.Table, index: int, log_metadata: 
         assert full_lidar_path.exists(), f"LiDAR file not found: {full_lidar_path}"
         if log_metadata.dataset == "nuplan":
             lidar = load_nuplan_lidar_from_path(full_lidar_path)
+        elif log_metadata.dataset == "carla":
+            lidar = load_carla_lidar_from_path(full_lidar_path)
         else:
             raise NotImplementedError(f"Loading LiDAR data for dataset {log_metadata.dataset} is not implemented.")
 

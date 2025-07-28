@@ -37,26 +37,28 @@ class CameraMetadata:
     rotation: npt.NDArray[np.float64]  # 3x3 matrix
 
     def to_dict(self) -> Dict[str, Any]:
+        # TODO: remove None types. Only a placeholder for now.
         return {
             "camera_type": int(self.camera_type),
             "width": self.width,
             "height": self.height,
-            "intrinsic": self.intrinsic.tolist(),
-            "distortion": self.distortion.tolist(),
-            "translation": self.translation.tolist(),
-            "rotation": self.rotation.tolist(),
+            "intrinsic": self.intrinsic.tolist() if self.intrinsic is not None else None,
+            "distortion": self.distortion.tolist() if self.distortion is not None else None,
+            "translation": self.translation.tolist() if self.translation is not None else None,
+            "rotation": self.rotation.tolist() if self.rotation is not None else None,
         }
 
     @classmethod
     def from_dict(cls, json_dict: Dict[str, Any]) -> CameraMetadata:
+        # TODO: remove None types. Only a placeholder for now.
         return cls(
             camera_type=CameraType(json_dict["camera_type"]),
             width=json_dict["width"],
             height=json_dict["height"],
-            intrinsic=np.array(json_dict["intrinsic"]),
-            distortion=np.array(json_dict["distortion"]),
-            translation=np.array(json_dict["translation"]),
-            rotation=np.array(json_dict["rotation"]),
+            intrinsic=np.array(json_dict["intrinsic"]) if json_dict["intrinsic"] is not None else None,
+            distortion=np.array(json_dict["distortion"]) if json_dict["distortion"] is not None else None,
+            translation=np.array(json_dict["translation"]) if json_dict["translation"] is not None else None,
+            rotation=np.array(json_dict["rotation"]) if json_dict["rotation"] is not None else None,
         )
 
 

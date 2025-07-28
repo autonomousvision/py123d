@@ -6,20 +6,19 @@ import os
 from dataclasses import asdict
 from functools import partial
 from pathlib import Path
-from typing import Dict, Final, List, Tuple, Union
+from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
 import numpy as np
 import pyarrow as pa
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
-from traitlets import Any
 
+from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3Index
 from d123.common.datatypes.vehicle_state.vehicle_parameters import get_carla_lincoln_mkz_2020_parameters
 from d123.common.geometry.base import Point2D, Point3D, StateSE3
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
 from d123.common.geometry.transform.se3 import translate_se3_along_z
 from d123.common.geometry.vector import Vector3DIndex
-from d123.dataset.arrow.conversion import VehicleParameters
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.carla.opendrive.elements.opendrive import OpenDrive
 from d123.dataset.dataset_specific.carla.opendrive.opendrive_converter import OpenDriveConverter
@@ -47,6 +46,10 @@ AVAILABLE_CARLA_MAP_LOCATIONS: Final[List[str]] = [
 CARLA_DT: Final[float] = 0.1  # [s]
 TRAFFIC_LIGHT_ASSIGNMENT_DISTANCE: Final[float] = 1.0  # [m]
 SORT_BY_TIMESTAMP: Final[bool] = True
+
+CARLA_CAMERA_TYPES = {CameraType.CAM_F0}
+
+CARLA_DATA_ROOT: Final[Path] = Path(os.environ["CARLA_DATA_ROOT"])
 
 
 # TODO: Refactor this files and convert coordinate systems more elegantly.
@@ -92,7 +95,9 @@ class CarlaDataConverter(RawDataConverter):
     def _collect_log_paths(self) -> Dict[str, List[Path]]:
         # TODO: fix "carla" split placeholder and add support for other splits
         log_paths_per_split: Dict[str, List[Path]] = {}
-        log_paths = list(self._log_path.iterdir())
+        log_paths = [
+            log_path for log_path in self._log_path.iterdir() if log_path.is_dir() and log_path.stem != "sensor_blobs"
+        ]
         log_paths_per_split["carla"] = log_paths
         return log_paths_per_split
 
@@ -105,8 +110,7 @@ class CarlaDataConverter(RawDataConverter):
             worker,
             partial(
                 convert_carla_map_to_gpkg,
-                output_path=self._output_path,
-                force_map_conversion=self.force_map_conversion,
+                data_converter_config=self.data_converter_config,
             ),
             list(AVAILABLE_CARLA_MAP_LOCATIONS),
         )
@@ -114,24 +118,20 @@ class CarlaDataConverter(RawDataConverter):
     def convert_logs(self, worker: WorkerPool) -> None:
 
         log_args = [
-            {
-                "log_path": log_path,
-                "output_path": self._output_path,
-                "split": split,
-            }
+            {"log_path": log_path, "split": split}
             for split, log_paths in self._log_paths_per_split.items()
             for log_path in log_paths
         ]
 
         worker_map(
-            worker, partial(convert_carla_log_to_arrow, force_log_conversion=self.force_log_conversion), log_args
+            worker, partial(convert_carla_log_to_arrow, data_converter_config=self.data_converter_config), log_args
         )
 
 
-def convert_carla_map_to_gpkg(map_names: List[str], output_path: Path, force_map_conversion: bool) -> List[Any]:
+def convert_carla_map_to_gpkg(map_names: List[str], data_converter_config: DataConverterConfig) -> List[Any]:
     for map_name in map_names:
-        map_path = output_path / "maps" / f"carla_{map_name}.gpkg"
-        if force_map_conversion or not map_path.exists():
+        map_path = data_converter_config.output_path / "maps" / f"carla_{map_name.lower()}.gpkg"
+        if data_converter_config.force_map_conversion or not map_path.exists():
             map_path.unlink(missing_ok=True)
             assert os.environ["CARLA_ROOT"] is not None
             CARLA_ROOT = Path(os.environ["CARLA_ROOT"])
@@ -150,18 +150,17 @@ def convert_carla_map_to_gpkg(map_names: List[str], output_path: Path, force_map
 
 
 def convert_carla_log_to_arrow(
-    args: List[Dict[str, Union[List[str], List[Path]]]],
-    force_log_conversion: bool,
+    args: List[Dict[str, Union[List[str], List[Path]]]], data_converter_config: DataConverterConfig
 ) -> List[Any]:
     def convert_log_internal(args: List[Dict[str, Union[List[str], List[Path]]]]) -> None:
         for log_info in args:
             log_path: Path = log_info["log_path"]
-            output_path: Path = log_info["output_path"]
             split: str = log_info["split"]
+            output_path: Path = data_converter_config.output_path
 
             log_file_path = output_path / split / f"{log_path.stem}.arrow"
 
-            if force_log_conversion or not log_file_path.exists():
+            if data_converter_config.force_log_conversion or not log_file_path.exists():
                 log_file_path.unlink(missing_ok=True)
                 if not log_file_path.parent.exists():
                     log_file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -170,33 +169,52 @@ def convert_carla_log_to_arrow(
                 map_name = _load_json_gz(bounding_box_paths[0])["location"]
                 map_api = get_map_api_from_names("carla", map_name)
 
-                recording_schema = pa.schema(
-                    [
-                        ("token", pa.string()),
-                        ("timestamp", pa.int64()),
-                        ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
-                        ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
-                        ("detections_token", pa.list_(pa.string())),
-                        ("detections_type", pa.list_(pa.int16())),
-                        ("ego_states", pa.list_(pa.float64(), len(EgoStateSE3Index))),
-                        ("traffic_light_ids", pa.list_(pa.int64())),
-                        ("traffic_light_types", pa.list_(pa.int16())),
-                        ("scenario_tag", pa.list_(pa.string())),
-                        ("route_lane_group_ids", pa.list_(pa.int64())),
-                        ("front_cam_demo", pa.binary()),
-                        ("front_cam_transform", pa.list_(pa.float64())),
-                    ]
-                )
+                schema_column_list = [
+                    ("token", pa.string()),
+                    ("timestamp", pa.int64()),
+                    ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
+                    ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
+                    ("detections_token", pa.list_(pa.string())),
+                    ("detections_type", pa.list_(pa.int16())),
+                    ("ego_states", pa.list_(pa.float64(), len(EgoStateSE3Index))),
+                    ("traffic_light_ids", pa.list_(pa.int64())),
+                    ("traffic_light_types", pa.list_(pa.int16())),
+                    ("scenario_tag", pa.list_(pa.string())),
+                    ("route_lane_group_ids", pa.list_(pa.int64())),
+                ]
+                if data_converter_config.lidar_store_option is not None:
+                    if data_converter_config.lidar_store_option == "path":
+                        schema_column_list.append(("lidar", pa.string()))
+                    elif data_converter_config.lidar_store_option == "binary":
+                        raise NotImplementedError("Binary lidar storage is not implemented.")
+
+                # TODO: Adjust how cameras are added
+                if data_converter_config.camera_store_option is not None:
+                    for camera_type in CARLA_CAMERA_TYPES:
+                        if data_converter_config.camera_store_option == "path":
+                            schema_column_list.append((camera_type.serialize(), pa.string()))
+                        elif data_converter_config.camera_store_option == "binary":
+                            raise NotImplementedError("Binary camera storage is not implemented.")
+
+                recording_schema = pa.schema(schema_column_list)
                 metadata = _get_metadata(map_name, str(log_path.stem))
-                vehicle_parameters = _get_vehicle_parameters_()
+                vehicle_parameters = get_carla_lincoln_mkz_2020_parameters()
+                camera_metadata = get_carla_camera_metadata()
                 recording_schema = recording_schema.with_metadata(
                     {
                         "log_metadata": json.dumps(asdict(metadata)),
                         "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
+                        "camera_metadata": camera_metadata_dict_to_json(camera_metadata),
                     }
                 )
 
-                _write_recording_table(bounding_box_paths, map_api, recording_schema, log_file_path)
+                _write_recording_table(
+                    bounding_box_paths,
+                    map_api,
+                    recording_schema,
+                    log_file_path,
+                    data_converter_config,
+                )
 
             gc.collect()
 
@@ -215,18 +233,21 @@ def _get_metadata(location: str, log_name: str) -> LogMetadata:
     )
 
 
-def _get_vehicle_parameters(vehicle_parameter_dict: Dict[str, float]) -> VehicleParameters:
-    # NOTE: @DanielDauner extracting the vehicle parameters from CARLA is somewhat tricky.
-    # Need to extract the coordinates (for wheels, wheelbase, etc.) from CARLA which is somewhat noise.
-    # Thus, we hardcode the parameters for the Lincoln MKZ 2020 (default).
-    assert (
-        vehicle_parameter_dict["vehicle_name"] == "vehicle.lincoln.mkz_2020"
-    ), "Currently only supports MKZ 2020 in CARLA."
-    return get_carla_lincoln_mkz_2020_parameters()
+def get_carla_camera_metadata() -> Dict[str, CameraMetadata]:
 
-
-def _get_vehicle_parameters_() -> VehicleParameters:
-    return get_carla_lincoln_mkz_2020_parameters()
+    # FIXME: This is a placeholder function to return camera metadata.
+    camera_metadata = {
+        CameraType.CAM_F0.serialize(): CameraMetadata(
+            camera_type=CameraType.CAM_F0,
+            width=1024,
+            height=512,
+            intrinsic=None,
+            distortion=None,
+            translation=None,
+            rotation=None,
+        )
+    }
+    return camera_metadata
 
 
 def _write_recording_table(
@@ -234,21 +255,24 @@ def _write_recording_table(
     map_api: AbstractMap,
     recording_schema: pa.Schema,
     log_file_path: Path,
+    data_converter_config: DataConverterConfig,
 ) -> pa.Table:
-    log_path = bounding_box_paths[0].parent.parent.stem
+    # TODO: Refactor this function to be more readable
+    log_name = str(bounding_box_paths[0].parent.parent.stem)
 
     with pa.OSFile(str(log_file_path), "wb") as sink:
         with pa.ipc.new_file(sink, recording_schema) as writer:
             for box_path in bounding_box_paths:
+                sample_name = box_path.stem.split(".")[0]
+
                 data = _load_json_gz(box_path)
                 traffic_light_ids, traffic_light_types = _extract_traffic_light_data(
                     data["traffic_light_states"], data["traffic_light_positions"], map_api
                 )
                 route_lane_group_ids = _extract_route_lane_group_ids(data["route"], map_api) if "route" in data else []
-                front_cam_demo, front_cam_transform = _extract_front_cam_demo(box_path)
 
                 row_data = {
-                    "token": [create_token(f"{str(log_path)}_{box_path.stem}")],
+                    "token": [create_token(f"{log_name}_{box_path.stem}")],
                     "timestamp": [data["timestamp"]],
                     "detections_state": [_extract_detection_states(data["detections_state"])],
                     "detections_velocity": [
@@ -265,9 +289,18 @@ def _write_recording_table(
                     "traffic_light_types": [traffic_light_types],
                     "scenario_tag": [data["scenario_tag"]],
                     "route_lane_group_ids": [route_lane_group_ids],
-                    "front_cam_demo": [front_cam_demo],
-                    "front_cam_transform": [front_cam_transform],
                 }
+                if data_converter_config.lidar_store_option is not None:
+                    row_data["lidar"] = [_extract_lidar(log_name, sample_name, data_converter_config)]
+
+                if data_converter_config.camera_store_option is not None:
+                    camera_data_dict = _extract_cameras(log_name, sample_name, data_converter_config)
+                    for camera_type, camera_data in camera_data_dict.items():
+                        if camera_data is not None:
+                            row_data[camera_type.serialize()] = [camera_data]
+                        else:
+                            row_data[camera_type.serialize()] = [None]
+
                 batch = pa.record_batch(row_data, schema=recording_schema)
                 writer.write_batch(batch)
                 del batch, row_data
@@ -334,6 +367,7 @@ def _extract_traffic_light_data(
 
 def _extract_route_lane_group_ids(route: List[List[float]], map_api: AbstractMap) -> List[int]:
 
+    # FIXME: Carla route is very buggy. No check if lanes are connected.
     route = np.array(route, dtype=np.float64)
     route[..., 1] = -route[..., 1]  # Unreal coordinate system to ISO 8855
     route = route[::2]
@@ -365,18 +399,33 @@ def _extract_route_lane_group_ids(route: List[List[float]], map_api: AbstractMap
     return list(dict.fromkeys(route_lane_group_ids))  # Remove duplicates while preserving order
 
 
-def _extract_front_cam_demo(box_path: Path) -> Tuple[bytes, List[float]]:
+def _extract_cameras(
+    log_name: str, sample_name: str, data_converter_config: DataConverterConfig
+) -> Dict[CameraType, Optional[str]]:
+    camera_dict: Dict[str, Union[str, bytes]] = {}
+    for camera_type in CARLA_CAMERA_TYPES:
+        camera_full_path = CARLA_DATA_ROOT / "sensor_blobs" / log_name / camera_type.name / f"{sample_name}.jpg"
+        if camera_full_path.exists():
+            if data_converter_config.camera_store_option == "path":
+                camera_dict[camera_type] = f"{log_name}/{camera_type.name}/{sample_name}.jpg"
+            elif data_converter_config.camera_store_option == "binary":
+                raise NotImplementedError("Binary camera storage is not implemented.")
+        else:
+            camera_dict[camera_type] = None
+    print("camera_dict", camera_dict)
+    return camera_dict
 
-    sample_name = str(box_path.stem).split(".")[0]
-    sensor_root = Path(box_path.parent.parent) / "rgb"
 
-    front_cam_demo: bytes = None
-    front_cam_transform: List[float] = []
+def _extract_lidar(log_name: str, sample_name: str, data_converter_config: DataConverterConfig) -> Optional[str]:
 
-    jpg_path = sensor_root / f"{sample_name}.jpg"
-
-    if jpg_path.exists():
-        with open(jpg_path, "rb") as f:
-            front_cam_demo = f.read()
-
-    return front_cam_demo, front_cam_transform
+    lidar: Optional[str] = None
+    lidar_full_path = CARLA_DATA_ROOT / "sensor_blobs" / log_name / "lidar" / f"{sample_name}.npy"
+    if lidar_full_path.exists():
+        if data_converter_config.lidar_store_option == "path":
+            lidar = f"{log_name}/lidar/{sample_name}.npy"
+        elif data_converter_config.lidar_store_option == "binary":
+            raise NotImplementedError("Binary lidar storage is not implemented.")
+    else:
+        raise FileNotFoundError(f"LiDAR file not found: {lidar_full_path}")
+    print("lidar", lidar)
+    return lidar
