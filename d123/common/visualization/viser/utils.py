@@ -223,11 +223,27 @@ def euler_to_quaternion_scipy(roll: float, pitch: float, yaw: float) -> npt.NDAr
 
 def get_lidar_points(scene: AbstractScene, iteration: int) -> npt.NDArray[np.float32]:
 
+    from d123.common.geometry.transform.se3 import translate_points_3d_along_z
+
     initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
     current_ego_vehicle_state = scene.get_ego_state_at_iteration(iteration)
 
     lidar = scene.get_lidar_at_iteration(iteration)
-    points = convert_relative_to_absolute_points_3d_array(current_ego_vehicle_state.rear_axle_se3, lidar.xyz)
-    points = points - initial_ego_vehicle_state.center_se3.point_3d.array
+    if scene.log_metadata.dataset == "nuplan":
+        # NOTE: nuPlan uses the rear axle as origin.
+        origin = current_ego_vehicle_state.rear_axle_se3
+        points = lidar.xyz
+        points = convert_relative_to_absolute_points_3d_array(origin, points)
+        points = points - initial_ego_vehicle_state.center_se3.point_3d.array
+    elif scene.log_metadata.dataset == "carla":
+        # NOTE: CARLA uses the center of the vehicle as origin.
+        origin = current_ego_vehicle_state.center_se3
+        points = translate_points_3d_along_z(
+            origin, lidar.xyz, -current_ego_vehicle_state.vehicle_parameters.height / 2
+        )
+        points = convert_relative_to_absolute_points_3d_array(origin, points)
+        points = points - initial_ego_vehicle_state.center_se3.point_3d.array
+    else:
+        raise ValueError(f"Unsupported dataset: {scene.log_metadata.dataset}")
 
     return points

@@ -180,7 +180,6 @@ class Point3D:
 
 
 class StateSE3Index(IntEnum):
-    # TODO: implement
 
     X = 0
     Y = 1

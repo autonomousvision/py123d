@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.typing as npt
 
-from d123.common.geometry.base import StateSE3
+from d123.common.geometry.base import Point3DIndex, StateSE3
 from d123.common.geometry.vector import Vector3D
 
 
@@ -96,3 +96,22 @@ def convert_relative_to_absolute_points_3d_array(
     R = get_rotation_matrix(origin)
     absolute_points = points_3d_array @ R.T + origin.point_3d.array
     return absolute_points
+
+
+def translate_points_3d_along_z(
+    state_se3: StateSE3,
+    points_3d: npt.NDArray[np.float64],
+    distance: float,
+) -> npt.NDArray[np.float64]:
+    assert points_3d.shape[-1] == len(Point3DIndex)
+
+    R = get_rotation_matrix(state_se3)
+    z_axis = R[:, 2]
+
+    translated_points = np.zeros_like(points_3d)
+
+    translated_points[..., Point3DIndex.X] = points_3d[..., Point3DIndex.X] + distance * z_axis[0]
+    translated_points[..., Point3DIndex.Y] = points_3d[..., Point3DIndex.Y] + distance * z_axis[1]
+    translated_points[..., Point3DIndex.Z] = points_3d[..., Point3DIndex.Z] + distance * z_axis[2]
+
+    return translated_points

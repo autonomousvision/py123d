@@ -15,9 +15,8 @@ from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker
 from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3Index
 from d123.common.datatypes.vehicle_state.vehicle_parameters import get_carla_lincoln_mkz_2020_parameters
-from d123.common.geometry.base import Point2D, Point3D, StateSE3
+from d123.common.geometry.base import Point2D, Point3D
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
-from d123.common.geometry.transform.se3 import translate_se3_along_z
 from d123.common.geometry.vector import Vector3DIndex
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.carla.opendrive.elements.opendrive import OpenDrive
@@ -312,34 +311,17 @@ def _write_recording_table(
 
 
 def _extract_ego_vehicle_state(ego_state_list: List[float]) -> List[float]:
-
-    # NOTE: @DanielDauner This function is a temporary workaround.
-    # CARLAs bounding box location starts at bottom vertically.
-    # Need to translate half the height along the z-axis.
-    ego_state_array = np.array(ego_state_list, dtype=np.float64)
-    vehicle_parameters = get_carla_lincoln_mkz_2020_parameters()
-    center = StateSE3.from_array(ego_state_array[EgoStateSE3Index.SE3])
-    center = translate_se3_along_z(center, vehicle_parameters.height / 2)
-    ego_state_array[EgoStateSE3Index.SE3] = center.array
-
-    return ego_state_array.tolist()
+    # NOTE: This function used to convert coordinate systems, but it is not needed anymore.
+    assert len(ego_state_list) == len(EgoStateSE3Index), "Ego state list has incorrect length."
+    return ego_state_list
 
 
-def _extract_detection_states(detection_states: List[List[float]]) -> List[float]:
-
-    # NOTE: @DanielDauner This function is a temporary workaround.
-    # CARLAs bounding box location starts at bottom vertically.
-    # Need to translate half the height along the z-axis.
-
+def _extract_detection_states(detection_states: List[List[float]]) -> List[List[float]]:
+    # NOTE: This function used to convert coordinate systems, but it is not needed anymore.
     detection_state_converted = []
-
     for detection_state in detection_states:
-        detection_state_array = np.array(detection_state, dtype=np.float64)
-        center = StateSE3.from_array(detection_state_array[BoundingBoxSE3Index.STATE_SE3])
-        center = translate_se3_along_z(center, detection_state_array[BoundingBoxSE3Index.HEIGHT] / 2)
-        detection_state_array[EgoStateSE3Index.SE3] = center.array
-        detection_state_converted.append(detection_state_array.tolist())
-
+        assert len(detection_state) == len(BoundingBoxSE3Index), "Detection state has incorrect length."
+        detection_state_converted.append(detection_state)
     return detection_state_converted
 
 
@@ -412,7 +394,6 @@ def _extract_cameras(
                 raise NotImplementedError("Binary camera storage is not implemented.")
         else:
             camera_dict[camera_type] = None
-    print("camera_dict", camera_dict)
     return camera_dict
 
 
@@ -427,5 +408,4 @@ def _extract_lidar(log_name: str, sample_name: str, data_converter_config: DataC
             raise NotImplementedError("Binary lidar storage is not implemented.")
     else:
         raise FileNotFoundError(f"LiDAR file not found: {lidar_full_path}")
-    print("lidar", lidar)
     return lidar

@@ -1,4 +1,5 @@
 import time
+from typing import List
 
 import trimesh
 import viser
@@ -18,24 +19,42 @@ FRONT_CAMERA_TYPE: CameraType = CameraType.CAM_F0
 BACK_CAMERA_TYPE: CameraType = CameraType.CAM_B0
 LIDAR_AVAILABLE: bool = True
 LIDAR_POINT_SIZE: float = 0.05
-MAP_AVAILABLE: bool = False
+MAP_AVAILABLE: bool = True
 
 
 class ViserVisualizationServer:
     def __init__(
         self,
+        scenes: List[AbstractScene],
+        scene_index: int = 0,
         host: str = "localhost",
         port: int = 8080,
         label: str = "D123 Viser Server",
     ):
+        self.scenes = scenes
+        self.scene_index = scene_index
 
-        self.server = viser.ViserServer(host=host, port=port, label=label)
+        self.host = host
+        self.port = port
+        self.label = label
+
+        self.server = viser.ViserServer(host=self.host, port=self.port, label=self.label)
+        self.set_scene(self.scenes[self.scene_index % len(self.scenes)])
+
+    def next(self) -> None:
+        self.server.flush()
+        self.server.gui.reset()
+        self.server.scene.reset()
+        self.scene_index = (self.scene_index + 1) % len(self.scenes)
+        print(f"Viser server started at {self.host}:{self.port}")
+        self.set_scene(self.scenes[self.scene_index])
 
     def set_scene(self, scene: AbstractScene) -> None:
         num_frames = scene.get_number_of_iterations()
 
         self.server.gui.configure_theme(control_width="large")
         with self.server.gui.add_folder("Playback"):
+            server_playing = True
 
             gui_timestep = self.server.gui.add_slider(
                 "Timestep",
@@ -47,6 +66,7 @@ class ViserVisualizationServer:
             )
             gui_next_frame = self.server.gui.add_button("Next Frame", disabled=True)
             gui_prev_frame = self.server.gui.add_button("Prev Frame", disabled=True)
+            gui_next_scene = self.server.gui.add_button("Next Scene", disabled=False)
             gui_playing = self.server.gui.add_checkbox("Playing", True)
             gui_framerate = self.server.gui.add_slider("FPS", min=1, max=60, step=0.1, initial_value=10)
             gui_framerate_options = self.server.gui.add_button_group("FPS options", ("10", "20", "30", "60"))
@@ -59,6 +79,11 @@ class ViserVisualizationServer:
             @gui_prev_frame.on_click
             def _(_) -> None:
                 gui_timestep.value = (gui_timestep.value - 1) % num_frames
+
+            @gui_next_scene.on_click
+            def _(_) -> None:
+                nonlocal server_playing
+                server_playing = False
 
             # Disable frame controls when we're playing.
             @gui_playing.on_update
@@ -170,15 +195,10 @@ class ViserVisualizationServer:
 
             # Playback update loop.
             prev_timestep = gui_timestep.value
-            while True:
+            while server_playing:
                 # Update the timestep if we're playing.
                 if gui_playing.value:
                     gui_timestep.value = (gui_timestep.value + 1) % num_frames
 
-                # Update point size of both this timestep and the next one! There's
-                # redundancy here, but this will be optimized out internally by viser.
-                #
-                # We update the point size for the next timestep so that it will be
-                # immediately available when we toggle the visibility.
-                # dynamic_meshes[gui_timestep.value].point_size = gui_point_size.value
-                # dynamic_meshes[(gui_timestep.value + 1) % num_frames].point_size = gui_point_size.value
+        self.server.flush()
+        self.next()
