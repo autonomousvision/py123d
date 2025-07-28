@@ -85,3 +85,14 @@ def translate_body_frame(state_se3: StateSE3, vector_3d: Vector3D) -> StateSE3:
         state_se3.pitch,
         state_se3.yaw,
     )
+
+
+def convert_relative_to_absolute_points_3d_array(
+    origin: StateSE3, points_3d_array: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
+
+    # TODO: implement function for origin as np.ndarray
+
+    R = get_rotation_matrix(origin)
+    absolute_points = points_3d_array @ R.T + origin.point_3d.array
+    return absolute_points

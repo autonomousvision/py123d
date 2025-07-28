@@ -37,6 +37,11 @@ class AbstractScene(abc.ABC):
     def log_metadata(self) -> LogMetadata:
         raise NotImplementedError
 
+    @property
+    @abc.abstractmethod
+    def available_camera_types(self) -> List[CameraType]:
+        raise NotImplementedError
+
     @abc.abstractmethod
     def get_number_of_iterations(self) -> int:
         raise NotImplementedError

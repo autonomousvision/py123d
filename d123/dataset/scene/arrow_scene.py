@@ -94,6 +94,10 @@ class ArrowScene(AbstractScene):
     def log_metadata(self) -> LogMetadata:
         return self._metadata
 
+    @property
+    def available_camera_types(self) -> List[CameraType]:
+        return list(self._camera_metadata.keys())
+
     def _get_table_index(self, iteration: int) -> int:
         self._lazy_initialize()
         assert (

@@ -1,17 +1,24 @@
 import time
 
-import numpy as np
 import trimesh
 import viser
 
+from d123.common.datatypes.sensor.camera import CameraType
 from d123.common.visualization.viser.utils import (
     get_bounding_box_meshes,
+    get_lidar_points,
     get_map_meshes,
 )
 from d123.dataset.scene.abstract_scene import AbstractScene
 
 # TODO: Try to fix performance issues.
 # TODO: Refactor this file.
+
+FRONT_CAMERA_TYPE: CameraType = CameraType.CAM_F0
+BACK_CAMERA_TYPE: CameraType = CameraType.CAM_B0
+LIDAR_AVAILABLE: bool = True
+LIDAR_POINT_SIZE: float = 0.05
+MAP_AVAILABLE: bool = False
 
 
 class ViserVisualizationServer:
@@ -84,8 +91,14 @@ class ViserVisualizationServer:
                     trimesh.util.concatenate(meshes),
                     visible=True,
                 )
-                gui_image_handle.image = np.array(scene.get_front_cam_demo(gui_timestep.value))
+                if FRONT_CAMERA_TYPE in scene.available_camera_types:
+                    gui_front_cam.image = scene.get_camera_at_iteration(gui_timestep.value, FRONT_CAMERA_TYPE).image
 
+                if BACK_CAMERA_TYPE in scene.available_camera_types:
+                    gui_back_cam.image = scene.get_camera_at_iteration(gui_timestep.value, BACK_CAMERA_TYPE).image
+
+                if LIDAR_AVAILABLE:
+                    gui_lidar.points = get_lidar_points(scene, gui_timestep.value)
                 # camera_pose = _get_camera_pose_demo(scene, gui_timestep.value)
                 # frustum_handle.position = camera_pose.point_3d.array
                 # frustum_handle.wxyz = euler_to_quaternion_scipy(camera_pose.roll, camera_pose.pitch, camera_pose.yaw)
@@ -108,15 +121,34 @@ class ViserVisualizationServer:
             current_frame_handle = self.server.scene.add_frame(f"/frame{gui_timestep.value}", show_axes=False)
             self.server.scene.add_frame("/map", show_axes=False)
 
-            with self.server.gui.add_folder("Camera"):
-                gui_image_handle = self.server.gui.add_image(
-                    image=np.array(scene.get_front_cam_demo(gui_timestep.value)),
-                    label="front_cam_demo",
-                    format="jpeg",
+            if FRONT_CAMERA_TYPE in scene.available_camera_types:
+                with self.server.gui.add_folder("Camera"):
+                    gui_front_cam = self.server.gui.add_image(
+                        image=scene.get_camera_at_iteration(gui_timestep.value, FRONT_CAMERA_TYPE).image,
+                        label=FRONT_CAMERA_TYPE.serialize(),
+                        format="jpeg",
+                    )
+
+            if BACK_CAMERA_TYPE in scene.available_camera_types:
+                with self.server.gui.add_folder("Camera"):
+                    gui_back_cam = self.server.gui.add_image(
+                        image=scene.get_camera_at_iteration(gui_timestep.value, BACK_CAMERA_TYPE).image,
+                        label=BACK_CAMERA_TYPE.serialize(),
+                        format="jpeg",
+                    )
+
+            if LIDAR_AVAILABLE:
+                gui_lidar = self.server.scene.add_point_cloud(
+                    name="LiDAR",
+                    points=get_lidar_points(scene, gui_timestep.value),
+                    colors=(0.0, 0.0, 0.0),
+                    point_size=LIDAR_POINT_SIZE,
+                    point_shape="circle",
                 )
 
-            for name, mesh in get_map_meshes(scene).items():
-                self.server.scene.add_mesh_trimesh(f"/map/{name}", mesh, visible=True)
+            if MAP_AVAILABLE:
+                for name, mesh in get_map_meshes(scene).items():
+                    self.server.scene.add_mesh_trimesh(f"/map/{name}", mesh, visible=True)
 
             # camera_pose = _get_camera_pose_demo(scene, gui_timestep.value)
             # frustum_handle = self.server.scene.add_camera_frustum(

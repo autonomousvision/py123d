@@ -6,6 +6,7 @@ import trimesh
 from d123.common.geometry.base import Point3D, StateSE3
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from d123.common.geometry.line.polylines import Polyline3D
+from d123.common.geometry.transform.se3 import convert_relative_to_absolute_points_3d_array
 from d123.common.visualization.color.config import PlotConfig
 from d123.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VEHICLE_CONFIG, MAP_SURFACE_CONFIG
 from d123.dataset.maps.abstract_map import MapSurfaceType
@@ -218,3 +219,15 @@ def euler_to_quaternion_scipy(roll: float, pitch: float, yaw: float) -> npt.NDAr
     r = Rotation.from_euler("xyz", [roll, pitch, yaw], degrees=False)
     quat = r.as_quat(scalar_first=True)
     return quat
+
+
+def get_lidar_points(scene: AbstractScene, iteration: int) -> npt.NDArray[np.float32]:
+
+    initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
+    current_ego_vehicle_state = scene.get_ego_state_at_iteration(iteration)
+
+    lidar = scene.get_lidar_at_iteration(iteration)
+    points = convert_relative_to_absolute_points_3d_array(current_ego_vehicle_state.rear_axle_se3, lidar.xyz)
+    points = points - initial_ego_vehicle_state.center_se3.point_3d.array
+
+    return points
