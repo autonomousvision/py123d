@@ -1,5 +1,5 @@
 import time
-from typing import List
+from typing import List, Literal
 
 import trimesh
 import viser
@@ -10,6 +10,7 @@ from d123.common.visualization.viser.utils import (
     get_lidar_points,
     get_map_meshes,
 )
+from d123.common.visualization.viser.utils_v2 import get_bounding_box_outlines
 from d123.dataset.scene.abstract_scene import AbstractScene
 
 # TODO: Try to fix performance issues.
@@ -20,6 +21,8 @@ BACK_CAMERA_TYPE: CameraType = CameraType.CAM_B0
 LIDAR_AVAILABLE: bool = True
 LIDAR_POINT_SIZE: float = 0.05
 MAP_AVAILABLE: bool = True
+BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "lines"
+LINE_WIDTH: float = 4.0
 
 
 class ViserVisualizationServer:
@@ -108,14 +111,26 @@ class ViserVisualizationServer:
                 start = time.time()
                 # with self.server.atomic():
                 mew_frame_handle = self.server.scene.add_frame(f"/frame{gui_timestep.value}", show_axes=False)
-                meshes = []
-                for name, mesh in get_bounding_box_meshes(scene, gui_timestep.value).items():
-                    meshes.append(mesh)
-                self.server.scene.add_mesh_trimesh(
-                    f"/frame{gui_timestep.value}/detections",
-                    trimesh.util.concatenate(meshes),
-                    visible=True,
-                )
+                if BOUNDING_BOX_TYPE == "mesh":
+                    meshes = []
+                    for _, mesh in get_bounding_box_meshes(scene, gui_timestep.value).items():
+                        meshes.append(mesh)
+                    self.server.scene.add_mesh_trimesh(
+                        f"/frame{gui_timestep.value}/detections",
+                        trimesh.util.concatenate(meshes),
+                        visible=True,
+                    )
+                elif BOUNDING_BOX_TYPE == "lines":
+                    lines, colors = get_bounding_box_outlines(scene, gui_timestep.value)
+                    self.server.scene.add_line_segments(
+                        f"/frame{gui_timestep.value}/detections",
+                        points=lines,
+                        colors=colors,
+                        line_width=LINE_WIDTH,
+                    )
+                else:
+                    raise ValueError(f"Unknown bounding box type: {BOUNDING_BOX_TYPE}")
+
                 if FRONT_CAMERA_TYPE in scene.available_camera_types:
                     gui_front_cam.image = scene.get_camera_at_iteration(gui_timestep.value, FRONT_CAMERA_TYPE).image
 
