@@ -58,6 +58,10 @@ class BoxDetectionSE3:
         return self.bounding_box_se3.center
 
     @property
+    def center_se3(self) -> StateSE3:
+        return self.bounding_box_se3.center_se3
+
+    @property
     def bounding_box(self) -> BoundingBoxSE3:
         return self.bounding_box_se3
 

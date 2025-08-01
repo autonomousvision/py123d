@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.typing as npt
 
-from d123.common.geometry.base import Point3DIndex, StateSE3
+from d123.common.geometry.base import Point3DIndex, StateSE3, StateSE3Index
 from d123.common.geometry.vector import Vector3D
 
 
@@ -96,6 +96,36 @@ def convert_relative_to_absolute_points_3d_array(
     R = get_rotation_matrix(origin)
     absolute_points = points_3d_array @ R.T + origin.point_3d.array
     return absolute_points
+
+
+def convert_absolute_to_relative_se3_array(
+    origin: StateSE3, se3_array: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
+    assert se3_array.shape[-1] == len(StateSE3Index)
+
+    # Extract rotation and translation of origin
+    R_origin = get_rotation_matrix(origin)
+    t_origin = origin.point_3d.array
+
+    # Prepare output array
+    rel_se3_array = np.empty_like(se3_array)
+
+    # For each SE3 in the array
+    for i in range(se3_array.shape[0]):
+        abs_se3 = se3_array[i]
+        abs_pos = abs_se3[StateSE3Index.XYZ]
+        abs_rpy = abs_se3[StateSE3Index.ROLL : StateSE3Index.YAW + 1]
+
+        # Relative position: rotate and translate
+        rel_pos = R_origin.T @ (abs_pos - t_origin)
+
+        # Relative orientation: subtract origin's rpy
+        rel_rpy = abs_rpy - np.array([origin.roll, origin.pitch, origin.yaw], dtype=np.float64)
+
+        rel_se3_array[i, StateSE3Index.X : StateSE3Index.Z + 1] = rel_pos
+        rel_se3_array[i, StateSE3Index.ROLL : StateSE3Index.YAW + 1] = rel_rpy
+
+    return rel_se3_array
 
 
 def translate_points_3d_along_z(

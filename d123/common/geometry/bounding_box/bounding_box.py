@@ -70,6 +70,10 @@ class BoundingBoxSE3:
         )
 
     @property
+    def center_se3(self) -> StateSE3:
+        return self.center
+
+    @property
     def array(self) -> npt.NDArray[np.float64]:
         array = np.zeros(len(BoundingBoxSE3Index), dtype=np.float64)
         array[BoundingBoxSE3Index.X] = self.center.x
