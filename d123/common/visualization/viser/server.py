@@ -1,5 +1,5 @@
 import time
-from typing import List, Literal
+from typing import Dict, List, Literal
 
 import trimesh
 import viser
@@ -7,6 +7,7 @@ import viser
 from d123.common.datatypes.sensor.camera import CameraType
 from d123.common.visualization.viser.utils import (
     get_bounding_box_meshes,
+    get_camera_values,
     get_lidar_points,
     get_map_meshes,
 )
@@ -16,13 +17,26 @@ from d123.dataset.scene.abstract_scene import AbstractScene
 # TODO: Try to fix performance issues.
 # TODO: Refactor this file.
 
-FRONT_CAMERA_TYPE: CameraType = CameraType.CAM_F0
-BACK_CAMERA_TYPE: CameraType = CameraType.CAM_B0
-LIDAR_AVAILABLE: bool = True
+# all_camera_types: List[CameraType] = [
+#     CameraType.CAM_F0,
+#     CameraType.CAM_B0,
+#     CameraType.CAM_L0,
+#     CameraType.CAM_L1,
+#     CameraType.CAM_L2,
+#     CameraType.CAM_R0,
+#     CameraType.CAM_R1,
+#     CameraType.CAM_R2,
+# ]
+
 LIDAR_POINT_SIZE: float = 0.05
 MAP_AVAILABLE: bool = True
 BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "lines"
 LINE_WIDTH: float = 4.0
+
+CAMERA_SCALE: float = 1.0
+VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_F0, CameraType.CAM_L0, CameraType.CAM_R0]
+VISUALIZE_CAMERA_GUI: List[CameraType] = [CameraType.CAM_F0]
+LIDAR_AVAILABLE: bool = True
 
 
 class ViserVisualizationServer:
@@ -54,6 +68,7 @@ class ViserVisualizationServer:
 
     def set_scene(self, scene: AbstractScene) -> None:
         num_frames = scene.get_number_of_iterations()
+        print(scene.available_camera_types)
 
         self.server.gui.configure_theme(control_width="large")
         with self.server.gui.add_folder("Playback"):
@@ -131,22 +146,27 @@ class ViserVisualizationServer:
                 else:
                     raise ValueError(f"Unknown bounding box type: {BOUNDING_BOX_TYPE}")
 
-                if FRONT_CAMERA_TYPE in scene.available_camera_types:
-                    gui_front_cam.image = scene.get_camera_at_iteration(gui_timestep.value, FRONT_CAMERA_TYPE).image
+                for camera_type in VISUALIZE_CAMERA_GUI:
+                    if camera_type in scene.available_camera_types:
+                        camera_gui_handles[camera_type].image = scene.get_camera_at_iteration(
+                            gui_timestep.value, camera_type
+                        ).image
 
-                if BACK_CAMERA_TYPE in scene.available_camera_types:
-                    gui_back_cam.image = scene.get_camera_at_iteration(gui_timestep.value, BACK_CAMERA_TYPE).image
+                for camera_type in VISUALIZE_CAMERA_FRUSTUM:
+                    if camera_type in scene.available_camera_types:
+                        camera_position, camera_quaternion, camera = get_camera_values(
+                            scene, camera_type, gui_timestep.value
+                        )
+
+                        camera_frustum_handles[camera_type].position = camera_position.array
+                        camera_frustum_handles[camera_type].wxyz = camera_quaternion.q
+                        camera_frustum_handles[camera_type].image = camera.image
+
+                # if BACK_CAMERA_TYPE in scene.available_camera_types:
+                #     gui_back_cam.image = scene.get_camera_at_iteration(gui_timestep.value, BACK_CAMERA_TYPE).image
 
                 if LIDAR_AVAILABLE:
                     gui_lidar.points = get_lidar_points(scene, gui_timestep.value)
-                # camera_pose = _get_camera_pose_demo(scene, gui_timestep.value)
-                # frustum_handle.position = camera_pose.point_3d.array
-                # frustum_handle.wxyz = euler_to_quaternion_scipy(camera_pose.roll, camera_pose.pitch, camera_pose.yaw)
-                # frustum_handle.image = np.array(scene.get_front_cam_demo(gui_timestep.value))
-
-                # ego_frame_pose = _get_ego_frame_pose(scene, gui_timestep.value)
-                # ego_frame_handle.position = ego_frame_pose.point_3d.array
-                # ego_frame_handle.wxyz = euler_to_quaternion_scipy(ego_frame_pose.roll, ego_frame_pose.pitch, ego_frame_pose.yaw)
 
                 prev_timestep = current_timestep
 
@@ -161,20 +181,31 @@ class ViserVisualizationServer:
             current_frame_handle = self.server.scene.add_frame(f"/frame{gui_timestep.value}", show_axes=False)
             self.server.scene.add_frame("/map", show_axes=False)
 
-            if FRONT_CAMERA_TYPE in scene.available_camera_types:
-                with self.server.gui.add_folder("Camera"):
-                    gui_front_cam = self.server.gui.add_image(
-                        image=scene.get_camera_at_iteration(gui_timestep.value, FRONT_CAMERA_TYPE).image,
-                        label=FRONT_CAMERA_TYPE.serialize(),
-                        format="jpeg",
-                    )
+            camera_gui_handles: Dict[CameraType, viser.GuiImageHandle] = {}
+            camera_frustum_handles: Dict[CameraType, viser.CameraFrustumHandle] = {}
 
-            if BACK_CAMERA_TYPE in scene.available_camera_types:
-                with self.server.gui.add_folder("Camera"):
-                    gui_back_cam = self.server.gui.add_image(
-                        image=scene.get_camera_at_iteration(gui_timestep.value, BACK_CAMERA_TYPE).image,
-                        label=BACK_CAMERA_TYPE.serialize(),
-                        format="jpeg",
+            for camera_type in VISUALIZE_CAMERA_GUI:
+                if camera_type in scene.available_camera_types:
+                    with self.server.gui.add_folder(f"Camera {camera_type.serialize()}"):
+                        camera_gui_handles[camera_type] = self.server.gui.add_image(
+                            image=scene.get_camera_at_iteration(gui_timestep.value, camera_type).image,
+                            label=camera_type.serialize(),
+                            format="jpeg",
+                        )
+
+            for camera_type in VISUALIZE_CAMERA_FRUSTUM:
+                if camera_type in scene.available_camera_types:
+                    camera_position, camera_quaternion, camera = get_camera_values(
+                        scene, camera_type, gui_timestep.value
+                    )
+                    camera_frustum_handles[camera_type] = self.server.scene.add_camera_frustum(
+                        f"camera_frustum_{camera_type.serialize()}",
+                        fov=camera.metadata.fov_y,
+                        aspect=camera.metadata.aspect_ratio,
+                        scale=CAMERA_SCALE,
+                        image=camera.image,
+                        position=camera_position.array,
+                        wxyz=camera_quaternion.q,
                     )
 
             if LIDAR_AVAILABLE:
@@ -189,24 +220,6 @@ class ViserVisualizationServer:
             if MAP_AVAILABLE:
                 for name, mesh in get_map_meshes(scene).items():
                     self.server.scene.add_mesh_trimesh(f"/map/{name}", mesh, visible=True)
-
-            # camera_pose = _get_camera_pose_demo(scene, gui_timestep.value)
-            # frustum_handle = self.server.scene.add_camera_frustum(
-            #     "camera_frustum",
-            #     fov=0.6724845869242845,
-            #     aspect=16 / 9,
-            #     scale=0.30,
-            #     image=np.array(scene.get_front_cam_demo(gui_timestep.value)),
-            #     position=camera_pose.point_3d.array,
-            #     wxyz=euler_to_quaternion_scipy(camera_pose.roll, camera_pose.pitch, camera_pose.yaw),
-            # )
-
-            # ego_frame_pose = _get_ego_frame_pose(scene, gui_timestep.value)
-            # ego_frame_handle = self.server.scene.add_frame(
-            #     "ego_frame_handle",
-            #     position=ego_frame_pose.point_3d.array,
-            #     wxyz=euler_to_quaternion_scipy(ego_frame_pose.roll, ego_frame_pose.pitch, ego_frame_pose.yaw)
-            # )
 
             # Playback update loop.
             prev_timestep = gui_timestep.value

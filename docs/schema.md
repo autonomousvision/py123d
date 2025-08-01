@@ -1,0 +1,14 @@
+
+
+
+token
+timestamp
+detections_state
+detections_velocity
+detections_token
+detections_type
+ego_states
+traffic_light_ids
+traffic_light_types
+scenario_tag
+route_lane_group_ids

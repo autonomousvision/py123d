@@ -102,6 +102,12 @@ def get_camera_from_arrow_table(
 ) -> Camera:
 
     table_data = arrow_table[camera_metadata.camera_type.serialize()][index].as_py()
+    extrinsic = arrow_table[f"{camera_metadata.camera_type.serialize()}_extrinsic"][index].as_py()
+    extrinsic = np.array(extrinsic).reshape((4, 4)) if extrinsic else np.eye(4)
+
+    if table_data is None:
+        return None
+
     image: Optional[npt.NDArray[np.uint8]] = None
 
     if isinstance(table_data, str):
@@ -117,6 +123,7 @@ def get_camera_from_arrow_table(
     return Camera(
         metadata=camera_metadata,
         image=image,
+        extrinsic=extrinsic,
     )
 
 

@@ -1,8 +1,12 @@
+from typing import Tuple
+
 import numpy as np
 import numpy.typing as npt
 import trimesh
+from pyquaternion import Quaternion
 
 # from d123.common.datatypes.sensor.camera_parameters import get_nuplan_camera_parameters
+from d123.common.datatypes.sensor.camera import Camera, CameraType
 from d123.common.geometry.base import Point3D, StateSE3
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from d123.common.geometry.line.polylines import Polyline3D
@@ -157,48 +161,35 @@ def _create_lane_mesh_from_boundary_arrays(
     return mesh
 
 
-def _get_camera_pose_demo(scene: AbstractScene, iteration: int) -> StateSE3:
-    # NOTE: This function does not work.
-
+def get_camera_values(
+    scene: AbstractScene, camera_type: CameraType, iteration: int
+) -> Tuple[Point3D, Quaternion, Camera]:
     initial_point_3d = scene.get_ego_state_at_iteration(0).center_se3.point_3d
     rear_axle = scene.get_ego_state_at_iteration(iteration).rear_axle_se3
 
+    camera = scene.get_camera_at_iteration(iteration, camera_type)
+
     rear_axle_array = rear_axle.array
     rear_axle_array[:3] -= initial_point_3d.array
-
     rear_axle = StateSE3.from_array(rear_axle_array)
 
-    camera_parameters = None
-
-    # Get camera parameters
-    camera_translation = camera_parameters.translation  # 3x1 vector as array
-    camera_rotation = camera_parameters.rotation  # 3x3 matrix as array
+    camera_to_ego = camera.extrinsic  # 4x4 transformation from camera to ego frame
+    camera.image
 
     # Get the rotation matrix of the rear axle pose
     from d123.common.geometry.transform.se3 import get_rotation_matrix
 
-    rear_axle_rotation = get_rotation_matrix(rear_axle)
+    ego_transform = np.eye(4, dtype=np.float64)
+    ego_transform[:3, :3] = get_rotation_matrix(rear_axle)
+    ego_transform[:3, 3] = rear_axle.point_3d.array
 
-    # Apply camera translation in the rear axle's coordinate frame
-    # Transform camera translation from rear axle frame to world frame
-    world_translation = rear_axle_rotation @ camera_translation
+    # Camera transformation in ego frame
+    camera_transform = ego_transform @ camera_to_ego
 
-    # Apply camera rotation in the rear axle's coordinate frame
-    world_rotation = rear_axle_rotation @ camera_rotation
+    camera_position = Point3D(*camera_transform[:3, 3])
+    camera_rotation = Quaternion(matrix=camera_transform[:3, :3])
 
-    # Extract Euler angles from the composed rotation matrix using scipy
-    # Use 'ZYX' convention to match the rotation matrix composition order
-    from scipy.spatial.transform import Rotation
-
-    r = Rotation.from_matrix(world_rotation)
-    roll, pitch, yaw = r.as_euler("XYZ", degrees=False)
-
-    # Calculate camera position in world coordinates
-    camera_x = rear_axle.x + world_translation[0]
-    camera_y = rear_axle.y + world_translation[1]
-    camera_z = rear_axle.z + world_translation[2]
-
-    return StateSE3(camera_x, camera_y, camera_z, roll, pitch, yaw)
+    return camera_position, camera_rotation, camera
 
 
 def _get_ego_frame_pose(scene: AbstractScene, iteration: int) -> StateSE3:

@@ -11,17 +11,20 @@ import numpy as np
 import pyarrow as pa
 import yaml
 from nuplan.database.nuplan_db.nuplan_scenario_queries import get_cameras, get_images_from_lidar_tokens
+from nuplan.database.nuplan_db_orm.ego_pose import EgoPose
 from nuplan.database.nuplan_db_orm.lidar_box import LidarBox
 from nuplan.database.nuplan_db_orm.lidar_pc import LidarPc
 from nuplan.database.nuplan_db_orm.nuplandb import NuPlanDB
 from nuplan.planning.simulation.observation.observation_type import CameraChannel
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 from pyquaternion import Quaternion
+from sqlalchemy import func
 
 import d123.dataset.dataset_specific.nuplan.utils as nuplan_utils
 from d123.common.datatypes.detection.detection import TrafficLightStatus
 from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
+from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.common.datatypes.vehicle_state.vehicle_parameters import (
     get_nuplan_pacifica_parameters,
@@ -67,6 +70,7 @@ NUPLAN_CAMERA_TYPES = {
 }
 
 NUPLAN_DATA_ROOT = Path(os.environ["NUPLAN_DATA_ROOT"])
+NUPLAN_ROLLING_SHUTTER_S: Final[TimePoint] = TimePoint.from_s(1 / 60)
 
 
 def create_splits_logs() -> Dict[str, List[str]]:
@@ -211,6 +215,10 @@ def convert_nuplan_log_to_arrow(
                 for camera_type in NUPLAN_CAMERA_TYPES.keys():
                     if data_converter_config.camera_store_option == "path":
                         schema_column_list.append((camera_type.serialize(), pa.string()))
+                        schema_column_list.append(
+                            (f"{camera_type.serialize()}_extrinsic", pa.list_(pa.float64(), 4 * 4))
+                        )
+
                     elif data_converter_config.camera_store_option == "binary":
                         raise NotImplementedError("Binary camera storage is not implemented.")
 
@@ -246,7 +254,6 @@ def get_nuplan_camera_metadata(log_path: Path) -> Dict[str, CameraMetadata]:
     def _get_camera_metadata(camera_type: CameraType) -> CameraMetadata:
         cam = list(get_cameras(log_path, [str(NUPLAN_CAMERA_TYPES[camera_type].value)]))[0]
         intrinsic = np.array(pickle.loads(cam.intrinsic))
-        translation = np.array(pickle.loads(cam.translation))
         rotation = np.array(pickle.loads(cam.rotation))
         rotation = Quaternion(rotation).rotation_matrix
         distortion = np.array(pickle.loads(cam.distortion))
@@ -256,8 +263,6 @@ def get_nuplan_camera_metadata(log_path: Path) -> Dict[str, CameraMetadata]:
             height=cam.height,
             intrinsic=intrinsic,
             distortion=distortion,
-            translation=translation,
-            rotation=rotation,
         )
 
     log_cam_infos: Dict[str, CameraMetadata] = {}
@@ -312,12 +317,14 @@ def _write_recording_table(
                     row_data["lidar"] = [_extract_lidar(lidar_pc, data_converter_config)]
 
                 if data_converter_config.camera_store_option is not None:
-                    camera_data_dict = _extract_camera(lidar_pc, source_log_path, data_converter_config)
+                    camera_data_dict = _extract_camera(log_db, lidar_pc, source_log_path, data_converter_config)
                     for camera_type, camera_data in camera_data_dict.items():
                         if camera_data is not None:
-                            row_data[camera_type.serialize()] = [camera_data]
+                            row_data[camera_type.serialize()] = [camera_data[0]]
+                            row_data[f"{camera_type.serialize()}_extrinsic"] = [camera_data[1]]
                         else:
                             row_data[camera_type.serialize()] = [None]
+                            row_data[f"{camera_type.serialize()}_extrinsic"] = [None]
 
                 batch = pa.record_batch(row_data, schema=recording_schema)
                 writer.write_batch(batch)
@@ -418,6 +425,7 @@ def _extract_scenario_tag(log_db: NuPlanDB, lidar_pc_token: str) -> List[str]:
 
 
 def _extract_camera(
+    log_db: NuPlanDB,
     lidar_pc: LidarPc,
     source_log_path: Path,
     data_converter_config: DataConverterConfig,
@@ -426,17 +434,36 @@ def _extract_camera(
     camera_dict: Dict[str, Union[str, bytes]] = {}
     sensor_root = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "sensor_blobs"
 
+    log_cam_infos = {camera.token: camera for camera in log_db.log.cameras}
+
     for camera_type, camera_channel in NUPLAN_CAMERA_TYPES.items():
         camera_data: Optional[Union[str, bytes]] = None
+        c2e: Optional[List[float]] = None
         image_class = list(get_images_from_lidar_tokens(source_log_path, [lidar_pc.token], [str(camera_channel.value)]))
         if len(image_class) != 0:
-            filename_jpg = sensor_root / image_class[0].filename_jpg
+            image = image_class[0]
+            filename_jpg = sensor_root / image.filename_jpg
             if filename_jpg.exists():
+
+                # Code taken from MTGS
+                # https://github.com/OpenDriveLab/MTGS/blob/main/nuplan_scripts/utils/nuplan_utils_custom.py#L117
+
+                timestamp = image.timestamp + NUPLAN_ROLLING_SHUTTER_S.time_us
+                img_ego_pose: EgoPose = (
+                    log_db.log._session.query(EgoPose).order_by(func.abs(EgoPose.timestamp - timestamp)).first()
+                )
+                img_e2g = img_ego_pose.trans_matrix
+                g2e = lidar_pc.ego_pose.trans_matrix_inv
+                img_e2e = g2e @ img_e2g
+                cam_info = log_cam_infos[image.camera_token]
+                c2img_e = cam_info.trans_matrix
+                c2e = img_e2e @ c2img_e
+
                 if data_converter_config.camera_store_option == "path":
-                    camera_data = str(filename_jpg)
+                    camera_data = str(filename_jpg), c2e.flatten().tolist()
                 elif data_converter_config.camera_store_option == "binary":
                     with open(filename_jpg, "rb") as f:
-                        camera_data = f.read()
+                        camera_data = f.read(), c2e
 
         camera_dict[camera_type] = camera_data
 

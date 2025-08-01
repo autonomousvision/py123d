@@ -33,8 +33,6 @@ class CameraMetadata:
     height: int
     intrinsic: npt.NDArray[np.float64]  # 3x3 matrix
     distortion: npt.NDArray[np.float64]  # 5x1 vector
-    translation: npt.NDArray[np.float64]  # 3x1 vector
-    rotation: npt.NDArray[np.float64]  # 3x3 matrix
 
     def to_dict(self) -> Dict[str, Any]:
         # TODO: remove None types. Only a placeholder for now.
@@ -44,8 +42,6 @@ class CameraMetadata:
             "height": self.height,
             "intrinsic": self.intrinsic.tolist() if self.intrinsic is not None else None,
             "distortion": self.distortion.tolist() if self.distortion is not None else None,
-            "translation": self.translation.tolist() if self.translation is not None else None,
-            "rotation": self.rotation.tolist() if self.rotation is not None else None,
         }
 
     @classmethod
@@ -57,9 +53,29 @@ class CameraMetadata:
             height=json_dict["height"],
             intrinsic=np.array(json_dict["intrinsic"]) if json_dict["intrinsic"] is not None else None,
             distortion=np.array(json_dict["distortion"]) if json_dict["distortion"] is not None else None,
-            translation=np.array(json_dict["translation"]) if json_dict["translation"] is not None else None,
-            rotation=np.array(json_dict["rotation"]) if json_dict["rotation"] is not None else None,
         )
+
+    @property
+    def aspect_ratio(self) -> float:
+        return self.width / self.height
+
+    @property
+    def fov_x(self) -> float:
+        """
+        Calculates the horizontal field of view (FOV) in radian.
+        """
+        fx = self.intrinsic[0, 0]
+        fov_x_rad = 2 * np.arctan(self.width / (2 * fx))
+        return fov_x_rad
+
+    @property
+    def fov_y(self) -> float:
+        """
+        Calculates the vertical field of view (FOV) in radian.
+        """
+        fy = self.intrinsic[1, 1]
+        fov_y_rad = 2 * np.arctan(self.height / (2 * fy))
+        return fov_y_rad
 
 
 def camera_metadata_dict_to_json(camera_metadata: Dict[CameraType, CameraMetadata]) -> Dict[str, Dict[str, Any]]:
@@ -90,6 +106,7 @@ class Camera:
 
     metadata: CameraMetadata
     image: npt.NDArray[np.uint8]
+    extrinsic: npt.NDArray[np.float64]  # 4x4 matrix
 
     def get_view_matrix(self) -> np.ndarray:
         # Compute the view matrix based on the camera's position and orientation
