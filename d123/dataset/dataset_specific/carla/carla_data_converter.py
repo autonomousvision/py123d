@@ -165,7 +165,8 @@ def convert_carla_log_to_arrow(
                     log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
                 bounding_box_paths = sorted([bb_path for bb_path in (log_path / "boxes").iterdir()])
-                map_name = _load_json_gz(bounding_box_paths[0])["location"]
+                first_log_dict = _load_json_gz(bounding_box_paths[0])
+                map_name = first_log_dict["location"]
                 map_api = get_map_api_from_names("carla", map_name)
 
                 schema_column_list = [
@@ -192,13 +193,16 @@ def convert_carla_log_to_arrow(
                     for camera_type in CARLA_CAMERA_TYPES:
                         if data_converter_config.camera_store_option == "path":
                             schema_column_list.append((camera_type.serialize(), pa.string()))
+                            schema_column_list.append(
+                                (f"{camera_type.serialize()}_extrinsic", pa.list_(pa.float64(), 16))
+                            )
                         elif data_converter_config.camera_store_option == "binary":
                             raise NotImplementedError("Binary camera storage is not implemented.")
 
                 recording_schema = pa.schema(schema_column_list)
                 metadata = _get_metadata(map_name, str(log_path.stem))
                 vehicle_parameters = get_carla_lincoln_mkz_2020_parameters()
-                camera_metadata = get_carla_camera_metadata()
+                camera_metadata = get_carla_camera_metadata(first_log_dict)
                 recording_schema = recording_schema.with_metadata(
                     {
                         "log_metadata": json.dumps(asdict(metadata)),
@@ -232,18 +236,21 @@ def _get_metadata(location: str, log_name: str) -> LogMetadata:
     )
 
 
-def get_carla_camera_metadata() -> Dict[str, CameraMetadata]:
+def get_carla_camera_metadata(first_log_dict: Dict[str, Any]) -> Dict[str, CameraMetadata]:
 
     # FIXME: This is a placeholder function to return camera metadata.
+
+    intrinsic = np.array(
+        first_log_dict[f"{CameraType.CAM_F0.serialize()}_intrinsics"],
+        dtype=np.float64,
+    )
     camera_metadata = {
         CameraType.CAM_F0.serialize(): CameraMetadata(
             camera_type=CameraType.CAM_F0,
             width=1024,
             height=512,
-            intrinsic=None,
-            distortion=None,
-            translation=None,
-            rotation=None,
+            intrinsic=intrinsic,
+            distortion=np.zeros((5,), dtype=np.float64),
         )
     }
     return camera_metadata
@@ -293,10 +300,11 @@ def _write_recording_table(
                     row_data["lidar"] = [_extract_lidar(log_name, sample_name, data_converter_config)]
 
                 if data_converter_config.camera_store_option is not None:
-                    camera_data_dict = _extract_cameras(log_name, sample_name, data_converter_config)
+                    camera_data_dict = _extract_cameras(data, log_name, sample_name, data_converter_config)
                     for camera_type, camera_data in camera_data_dict.items():
                         if camera_data is not None:
-                            row_data[camera_type.serialize()] = [camera_data]
+                            row_data[camera_type.serialize()] = [camera_data[0]]
+                            row_data[f"{camera_type.serialize()}_extrinsic"] = [camera_data[1]]
                         else:
                             row_data[camera_type.serialize()] = [None]
 
@@ -382,14 +390,19 @@ def _extract_route_lane_group_ids(route: List[List[float]], map_api: AbstractMap
 
 
 def _extract_cameras(
-    log_name: str, sample_name: str, data_converter_config: DataConverterConfig
+    data: Dict[str, Any], log_name: str, sample_name: str, data_converter_config: DataConverterConfig
 ) -> Dict[CameraType, Optional[str]]:
     camera_dict: Dict[str, Union[str, bytes]] = {}
     for camera_type in CARLA_CAMERA_TYPES:
         camera_full_path = CARLA_DATA_ROOT / "sensor_blobs" / log_name / camera_type.name / f"{sample_name}.jpg"
         if camera_full_path.exists():
             if data_converter_config.camera_store_option == "path":
-                camera_dict[camera_type] = f"{log_name}/{camera_type.name}/{sample_name}.jpg"
+                path = f"{log_name}/{camera_type.name}/{sample_name}.jpg"
+                extrinsics = data.get(f"{camera_type.serialize()}_transform", None)
+                camera_dict[camera_type] = path, (
+                    np.array(extrinsics, dtype=np.float64).flatten() if extrinsics is not None else None
+                )
+
             elif data_converter_config.camera_store_option == "binary":
                 raise NotImplementedError("Binary camera storage is not implemented.")
         else:

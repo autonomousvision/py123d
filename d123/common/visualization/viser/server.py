@@ -162,9 +162,6 @@ class ViserVisualizationServer:
                         camera_frustum_handles[camera_type].wxyz = camera_quaternion.q
                         camera_frustum_handles[camera_type].image = camera.image
 
-                # if BACK_CAMERA_TYPE in scene.available_camera_types:
-                #     gui_back_cam.image = scene.get_camera_at_iteration(gui_timestep.value, BACK_CAMERA_TYPE).image
-
                 if LIDAR_AVAILABLE:
                     gui_lidar.points = get_lidar_points(scene, gui_timestep.value)
 

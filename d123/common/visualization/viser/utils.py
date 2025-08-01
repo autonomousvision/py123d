@@ -131,6 +131,8 @@ def get_trimesh_from_boundaries(
 
 
 def _interpolate_polyline(polyline_3d: Polyline3D, num_samples: int = 20) -> npt.NDArray[np.float64]:
+    if num_samples < 2:
+        num_samples = 2
     distances = np.linspace(0, polyline_3d.length, num=num_samples, endpoint=True, dtype=np.float64)
     return polyline_3d.interpolate(distances)
 
@@ -183,8 +185,22 @@ def get_camera_values(
     ego_transform[:3, :3] = get_rotation_matrix(rear_axle)
     ego_transform[:3, 3] = rear_axle.point_3d.array
 
+    CARLA_DEBUG = True
+    if CARLA_DEBUG:
+        rotation = StateSE3(
+            0.0,
+            0.0,
+            0.0,
+            -np.deg2rad(90.0),
+            np.deg2rad(0.0),
+            -np.deg2rad(90.0),
+        )
+        camera_to_ego[:3, :3] = get_rotation_matrix(rotation)
+        camera_transform = ego_transform @ camera_to_ego
+    else:
+        camera_transform = ego_transform @ camera_to_ego
+
     # Camera transformation in ego frame
-    camera_transform = ego_transform @ camera_to_ego
 
     camera_position = Point3D(*camera_transform[:3, 3])
     camera_rotation = Quaternion(matrix=camera_transform[:3, :3])
@@ -214,27 +230,17 @@ def euler_to_quaternion_scipy(roll: float, pitch: float, yaw: float) -> npt.NDAr
 
 def get_lidar_points(scene: AbstractScene, iteration: int) -> npt.NDArray[np.float32]:
 
-    from d123.common.geometry.transform.se3 import translate_points_3d_along_z
+    pass
 
     initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
     current_ego_vehicle_state = scene.get_ego_state_at_iteration(iteration)
 
     lidar = scene.get_lidar_at_iteration(iteration)
-    if scene.log_metadata.dataset == "nuplan":
-        # NOTE: nuPlan uses the rear axle as origin.
-        origin = current_ego_vehicle_state.rear_axle_se3
-        points = lidar.xyz
-        points = convert_relative_to_absolute_points_3d_array(origin, points)
-        points = points - initial_ego_vehicle_state.center_se3.point_3d.array
-    elif scene.log_metadata.dataset == "carla":
-        # NOTE: CARLA uses the center of the vehicle as origin.
-        origin = current_ego_vehicle_state.center_se3
-        points = translate_points_3d_along_z(
-            origin, lidar.xyz, -current_ego_vehicle_state.vehicle_parameters.height / 2
-        )
-        points = convert_relative_to_absolute_points_3d_array(origin, points)
-        points = points - initial_ego_vehicle_state.center_se3.point_3d.array
-    else:
-        raise ValueError(f"Unsupported dataset: {scene.log_metadata.dataset}")
+    # if scene.log_metadata.dataset == "nuplan":
+    # NOTE: nuPlan uses the rear axle as origin.
+    origin = current_ego_vehicle_state.rear_axle_se3
+    points = lidar.xyz
+    points = convert_relative_to_absolute_points_3d_array(origin, points)
+    points = points - initial_ego_vehicle_state.center_se3.point_3d.array
 
     return points
