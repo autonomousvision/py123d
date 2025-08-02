@@ -106,11 +106,6 @@ def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) 
     if filter.map_names is not None and log_metadata.map_name not in filter.map_names:
         return scene_extraction_infos
 
-    # 2. Filter by camera type if specified in filter
-    if filter.camera_types is not None:
-        if not all(camera_type.serialize() in recording_table.column_names for camera_type in filter.camera_types):
-            return scene_extraction_infos
-
     start_idx = int(filter.history_s / log_metadata.timestep_seconds)  # if filter.history_s is not None else 0
     end_idx = (
         len(recording_table) - int(filter.duration_s / log_metadata.timestep_seconds)
@@ -148,10 +143,20 @@ def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) 
             )
 
         if scene_extraction_info is not None:
-            # TODO: add more options
+            # Check of timestamp threshold exceeded between previous scene, if specified in filter
             if filter.timestamp_threshold_s is not None and len(scene_extraction_infos) > 0:
                 iteration_delta = idx - scene_extraction_infos[-1].initial_idx
                 if (iteration_delta * log_metadata.timestep_seconds) < filter.timestamp_threshold_s:
+                    continue
+
+            # Check if camera data is available for the scene, if specified in filter
+            # NOTE: We only check camera availability at the initial index of the scene.
+            if filter.camera_types is not None:
+                cameras_available = [
+                    recording_table[camera_type.serialize()][start_idx].as_py() is not None
+                    for camera_type in filter.camera_types
+                ]
+                if not all(cameras_available):
                     continue
 
             scene_extraction_infos.append(scene_extraction_info)

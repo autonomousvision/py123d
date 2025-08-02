@@ -185,20 +185,7 @@ def get_camera_values(
     ego_transform[:3, :3] = get_rotation_matrix(rear_axle)
     ego_transform[:3, 3] = rear_axle.point_3d.array
 
-    CARLA_DEBUG = True
-    if CARLA_DEBUG:
-        rotation = StateSE3(
-            0.0,
-            0.0,
-            0.0,
-            -np.deg2rad(90.0),
-            np.deg2rad(0.0),
-            -np.deg2rad(90.0),
-        )
-        camera_to_ego[:3, :3] = get_rotation_matrix(rotation)
-        camera_transform = ego_transform @ camera_to_ego
-    else:
-        camera_transform = ego_transform @ camera_to_ego
+    camera_transform = ego_transform @ camera_to_ego
 
     # Camera transformation in ego frame
 
