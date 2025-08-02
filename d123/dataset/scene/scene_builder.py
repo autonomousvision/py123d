@@ -106,6 +106,11 @@ def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) 
     if filter.map_names is not None and log_metadata.map_name not in filter.map_names:
         return scene_extraction_infos
 
+    # 2. Filter by camera type if specified in filter
+    if filter.camera_types is not None:
+        if not all(camera_type.serialize() in recording_table.column_names for camera_type in filter.camera_types):
+            return scene_extraction_infos
+
     start_idx = int(filter.history_s / log_metadata.timestep_seconds)  # if filter.history_s is not None else 0
     end_idx = (
         len(recording_table) - int(filter.duration_s / log_metadata.timestep_seconds)
