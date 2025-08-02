@@ -5,6 +5,11 @@ import numpy.typing as npt
 
 
 @dataclass
+class LiDARMetadata:
+    pass
+
+
+@dataclass
 class LiDAR:
 
     point_cloud: npt.NDArray[np.float32]
