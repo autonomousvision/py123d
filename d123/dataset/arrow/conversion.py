@@ -1,6 +1,6 @@
 # TODO: rename this file and potentially move somewhere more appropriate.
 
-
+import io
 import os
 from pathlib import Path
 from typing import Dict, Optional
@@ -115,6 +115,8 @@ def get_camera_from_arrow_table(
         img = Image.open(full_image_path)
         img.load()
         image = np.asarray(img, dtype=np.uint8)
+    elif isinstance(table_data, bytes):
+        image = np.array(Image.open(io.BytesIO(table_data)))
     else:
         raise NotImplementedError("Only string file paths for camera data are supported.")
 

@@ -29,14 +29,23 @@ from d123.dataset.scene.abstract_scene import AbstractScene
 # ]
 
 LIDAR_POINT_SIZE: float = 0.05
-MAP_AVAILABLE: bool = True
+MAP_AVAILABLE: bool = False
 BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "lines"
 LINE_WIDTH: float = 4.0
 
 CAMERA_SCALE: float = 1.0
-VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_F0, CameraType.CAM_L0, CameraType.CAM_R0]
+
+VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [
+    CameraType.CAM_F0,
+    CameraType.CAM_L0,
+    CameraType.CAM_R0,
+    CameraType.CAM_L1,
+    CameraType.CAM_R1,
+]
+# VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_F0, CameraType.CAM_L0, CameraType.CAM_R0]
+# VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_F0]
 VISUALIZE_CAMERA_GUI: List[CameraType] = [CameraType.CAM_F0]
-LIDAR_AVAILABLE: bool = True
+LIDAR_AVAILABLE: bool = False
 
 
 class ViserVisualizationServer:

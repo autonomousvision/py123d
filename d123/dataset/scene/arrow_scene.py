@@ -163,8 +163,11 @@ class ArrowScene(AbstractScene):
 
     def open(self) -> None:
         if self._map_api is None:
-            self._map_api = get_map_api_from_names(self._metadata.dataset, self._metadata.location)
-            self._map_api.initialize()
+            try:
+                self._map_api = get_map_api_from_names(self._metadata.dataset, self._metadata.location)
+                self._map_api.initialize()
+            except Exception as e:
+                print(f"Error initializing map API: {e}")
         if self._recording_table is None:
             self._recording_table = open_arrow_table(self._arrow_log_path)
         if self._scene_extraction_info is None:

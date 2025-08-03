@@ -144,8 +144,10 @@ class Point3D:
 
     @classmethod
     def from_array(cls, array: npt.NDArray[np.float64]) -> "Point3D":
-        assert array.ndim == 1
-        assert array.shape[0] == len(Point3DIndex)
+        assert array.ndim == 1, f"Array must be 1-dimensional, got shape {array.shape}"
+        assert array.shape[0] == len(
+            Point3DIndex
+        ), f"Array must have the same length as Point3DIndex, got shape {array.shape}"
         return cls(array[Point3DIndex.X], array[Point3DIndex.Y], array[Point3DIndex.Z])
 
     @property

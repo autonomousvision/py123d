@@ -185,12 +185,39 @@ def get_camera_values(
     ego_transform[:3, :3] = get_rotation_matrix(rear_axle)
     ego_transform[:3, 3] = rear_axle.point_3d.array
 
-    camera_transform = ego_transform @ camera_to_ego
+    DEBUG = False
+    if DEBUG:
+        print("DEBUG")
 
-    # Camera transformation in ego frame
+        camera_to_ego = camera.extrinsic
+        rotation = camera_to_ego[:3, :3]
 
-    camera_position = Point3D(*camera_transform[:3, 3])
-    camera_rotation = Quaternion(matrix=camera_transform[:3, :3])
+        flip_camera = get_rotation_matrix(
+            StateSE3(
+                x=0.0,
+                y=0.0,
+                z=0.0,
+                roll=np.deg2rad(-90.0),
+                pitch=np.deg2rad(0.0),
+                yaw=np.deg2rad(-90.0),
+            )
+        )
+
+        corrected_rotation = camera_to_ego[:3, :3] @ flip_camera
+
+        camera_to_ego[:3, :3] = corrected_rotation
+        camera_transform = ego_transform @ camera_to_ego
+
+        # Camera transformation in ego frame
+        camera_position = Point3D(*camera_transform[:3, 3])
+        camera_rotation = Quaternion(matrix=camera_transform[:3, :3])
+
+    else:
+        camera_transform = ego_transform @ camera_to_ego
+
+        # Camera transformation in ego frame
+        camera_position = Point3D(*camera_transform[:3, 3])
+        camera_rotation = Quaternion(matrix=camera_transform[:3, :3])
 
     return camera_position, camera_rotation, camera
 
