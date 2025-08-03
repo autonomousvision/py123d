@@ -21,7 +21,8 @@ from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoSt
 from d123.common.datatypes.vehicle_state.vehicle_parameters import get_wopd_pacifica_parameters
 from d123.common.geometry.base import Point3D, StateSE3
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
-from d123.common.geometry.transform.se3 import get_rotation_matrix
+from d123.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
+from d123.common.geometry.transform.se3 import convert_relative_to_absolute_se3_array, get_rotation_matrix
 from d123.common.geometry.vector import Vector3D, Vector3DIndex
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
@@ -36,22 +37,23 @@ NUPLAN_TRAFFIC_STATUS_DICT: Final[Dict[str, TrafficLightStatus]] = {
     "red": TrafficLightStatus.RED,
     "unknown": TrafficLightStatus.UNKNOWN,
 }
-NUPLAN_DETECTION_NAME_DICT = {
-    "vehicle": DetectionType.VEHICLE,
-    "bicycle": DetectionType.BICYCLE,
-    "pedestrian": DetectionType.PEDESTRIAN,
-    "traffic_cone": DetectionType.TRAFFIC_CONE,
-    "barrier": DetectionType.BARRIER,
-    "czone_sign": DetectionType.CZONE_SIGN,
-    "generic_object": DetectionType.GENERIC_OBJECT,
+
+# https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/label.proto#L63
+WOPD_DETECTION_NAME_DICT = {
+    0: DetectionType.GENERIC_OBJECT,  # TYPE_UNKNOWN
+    1: DetectionType.VEHICLE,  # TYPE_VEHICLE
+    2: DetectionType.PEDESTRIAN,  # TYPE_PEDESTRIAN
+    3: DetectionType.SIGN,  # TYPE_SIGN
+    4: DetectionType.BICYCLE,  # TYPE_CYCLIST
 }
 
+# https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L50
 WOPD_CAMERA_TYPES = {
-    CameraType.CAM_F0: 1,  # front_camera
-    CameraType.CAM_L0: 2,  # front_left_camera
-    CameraType.CAM_R0: 3,  # front_right_camera
-    CameraType.CAM_L1: 4,  # left_camera
-    CameraType.CAM_R1: 5,  # right_camera
+    1: CameraType.CAM_F0,  # front_camera
+    2: CameraType.CAM_L0,  # front_left_camera
+    3: CameraType.CAM_R0,  # front_right_camera
+    4: CameraType.CAM_L1,  # left_camera
+    5: CameraType.CAM_R1,  # right_camera
 }
 
 WOPD_DATA_ROOT = Path("/media/nvme1/waymo_perception")  # TODO: set as environment variable
@@ -120,10 +122,7 @@ class WOPDDataConverter(RawDataConverter):
 
         worker_map(
             worker,
-            partial(
-                convert_wopd_tfrecord_log_to_arrow,
-                data_converter_config=self.data_converter_config,
-            ),
+            partial(convert_wopd_tfrecord_log_to_arrow, data_converter_config=self.data_converter_config),
             log_args,
         )
 
@@ -178,7 +177,7 @@ def convert_wopd_tfrecord_log_to_arrow(
 
             # TODO: Adjust how cameras are added
             if data_converter_config.camera_store_option is not None:
-                for camera_type in WOPD_CAMERA_TYPES.keys():
+                for camera_type in WOPD_CAMERA_TYPES.values():
                     if data_converter_config.camera_store_option == "path":
                         raise NotImplementedError("Path camera storage is not implemented.")
                     elif data_converter_config.camera_store_option == "binary":
@@ -220,10 +219,9 @@ def convert_wopd_tfrecord_log_to_arrow(
 
 def get_wopd_camera_metadata(initial_frame: dataset_pb2.Frame) -> Dict[str, CameraMetadata]:
 
-    name_to_camera_type = {v: k for k, v in WOPD_CAMERA_TYPES.items()}
     cam_metadatas: Dict[str, CameraMetadata] = {}
     for calibration in initial_frame.context.camera_calibrations:
-        camera_type = name_to_camera_type[calibration.name]
+        camera_type = WOPD_CAMERA_TYPES[calibration.name]
 
         # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L96
         # https://github.com/waymo-research/waymo-open-dataset/issues/834#issuecomment-2134995440
@@ -231,7 +229,7 @@ def get_wopd_camera_metadata(initial_frame: dataset_pb2.Frame) -> Dict[str, Came
         _intrinsics = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
         _distortions = np.array([k1, k2, p1, p2, k3])
 
-        if camera_type in WOPD_CAMERA_TYPES:
+        if camera_type in WOPD_CAMERA_TYPES.values():
             cam_metadatas[camera_type.serialize()] = CameraMetadata(
                 camera_type=camera_type,
                 width=calibration.width,
@@ -259,12 +257,7 @@ def _write_recording_table(
                 frame = dataset_pb2.Frame()
                 frame.ParseFromString(data.numpy())
 
-                (
-                    detections_state,
-                    detections_velocity,
-                    detections_token,
-                    detections_types,
-                ) = _extract_detections(frame)
+                (detections_state, detections_velocity, detections_token, detections_types) = _extract_detections(frame)
                 # traffic_light_ids, traffic_light_types = _extract_traffic_lights(log_db, lidar_pc_token)
                 # route_lane_group_ids = [
                 #     int(roadblock_id)
@@ -277,11 +270,6 @@ def _write_recording_table(
                 traffic_light_types = []
 
                 # TODO: Implement detections
-                detections_state = []
-                detections_velocity = []
-                detections_token = []
-                detections_types = []
-
                 row_data = {
                     "token": [create_token(f"{frame.context.name}_{int(frame.timestamp_micros)}")],
                     "timestamp": [int(frame.timestamp_micros)],
@@ -321,13 +309,47 @@ def _write_recording_table(
 
 
 def _extract_detections(frame: dataset_pb2.Frame) -> Tuple[List[List[float]], List[List[float]], List[str], List[int]]:
-    detections_state: List[List[float]] = []
-    detections_velocity: List[List[float]] = []
-    detections_token: List[str] = []
-    detections_types: List[int] = []
     # TODO: implement
 
-    return detections_state, detections_velocity, detections_token, detections_types
+    ego_rear_axle = StateSE3.from_matrix(np.array(frame.pose.transform).reshape(4, 4))
+
+    num_detections = len(frame.laser_labels)
+    detections_state = np.zeros((num_detections, len(BoundingBoxSE3Index)), dtype=np.float64)
+    detections_velocity = np.zeros((num_detections, len(Vector3DIndex)), dtype=np.float64)
+    detections_token: List[str] = []
+    detections_types: List[int] = []
+
+    for detection_idx, detection in enumerate(frame.laser_labels):
+        if detection.type not in WOPD_DETECTION_NAME_DICT:
+            continue
+
+        # 1. SS3 Bounding Box
+        detections_state[detection_idx, BoundingBoxSE3Index.X] = detection.box.center_x
+        detections_state[detection_idx, BoundingBoxSE3Index.Y] = detection.box.center_y
+        detections_state[detection_idx, BoundingBoxSE3Index.Z] = detection.box.center_z
+        detections_state[detection_idx, BoundingBoxSE3Index.ROLL] = DEFAULT_ROLL  # not provided in WOPD
+        detections_state[detection_idx, BoundingBoxSE3Index.PITCH] = DEFAULT_PITCH  # not provided in WOPD
+        detections_state[detection_idx, BoundingBoxSE3Index.YAW] = detection.box.heading
+        detections_state[detection_idx, BoundingBoxSE3Index.LENGTH] = detection.box.length
+        detections_state[detection_idx, BoundingBoxSE3Index.WIDTH] = detection.box.width
+        detections_state[detection_idx, BoundingBoxSE3Index.HEIGHT] = detection.box.height
+
+        # 2. Velocity TODO: check if velocity needs to be rotated
+        detections_velocity[detection_idx] = Vector3D(
+            x=detection.metadata.speed_x,
+            y=detection.metadata.speed_y,
+            z=detection.metadata.speed_z,
+        ).array
+
+        # 3. Type and track token
+        detections_token.append(str(detection.id))
+        detections_types.append(int(WOPD_DETECTION_NAME_DICT[detection.type]))
+
+    detections_state[:, BoundingBoxSE3Index.STATE_SE3] = convert_relative_to_absolute_se3_array(
+        origin=ego_rear_axle, se3_array=detections_state[:, BoundingBoxSE3Index.STATE_SE3]
+    )
+
+    return detections_state.tolist(), detections_velocity.tolist(), detections_token, detections_types
 
 
 def _extract_ego_state(frame: dataset_pb2.Frame) -> List[float]:
@@ -372,9 +394,8 @@ def _extract_camera(
     data_converter_config: DataConverterConfig,
 ) -> Dict[CameraType, Union[str, bytes]]:
 
-    name_to_camera_type = {v: k for k, v in WOPD_CAMERA_TYPES.items()}
     camera_dict: Dict[str, Union[str, bytes]] = {}  # TODO: Fix wrong type hint
-    ego_global_transform = np.array(frame.pose.transform).reshape(4, 4)
+    np.array(frame.pose.transform).reshape(4, 4)
 
     # NOTE: The extrinsic matrix in frame.context.camera_calibration is fixed to model the ego to camera transformation.
     # The poses in frame.images[idx] are the motion compensated ego poses when the camera triggers.
@@ -382,7 +403,7 @@ def _extract_camera(
 
     context_extrinsic: Dict[str, npt.NDArray] = {}
     for calibration in frame.context.camera_calibrations:
-        camera_type = name_to_camera_type[calibration.name]
+        camera_type = WOPD_CAMERA_TYPES[calibration.name]
 
         transform = np.array(calibration.extrinsic.transform).reshape(4, 4)
 
@@ -395,14 +416,14 @@ def _extract_camera(
         context_extrinsic[camera_type] = transform
 
     for image_proto in frame.images:
-        camera_type = name_to_camera_type[image_proto.name]
+        camera_type = WOPD_CAMERA_TYPES[image_proto.name]
 
-        ego_at_trigger_transform = np.array(image_proto.pose.transform).reshape(4, 4)
+        np.array(image_proto.pose.transform).reshape(4, 4)
         camera_bytes = image_proto.image
 
-        # Compute the transform from ego_global_transform to ego_at_camera_transform
-        # ego_global_transform * T = ego_at_camera_transform  =>  T = ego_global_transform^-1 * ego_at_camera_transform
-        np.linalg.inv(ego_global_transform) @ ego_at_trigger_transform
+        # # Compute the transform from ego_global_transform to ego_at_camera_transform
+        # # ego_global_transform * T = ego_at_camera_transform  =>  T = ego_global_transform^-1 * ego_at_camera_transform
+        # np.linalg.inv(ego_global_transform) @ ego_at_trigger_transform
 
         # TODO: figure out the correct transform
         camera_dict[camera_type] = camera_bytes, context_extrinsic[camera_type].flatten().tolist()

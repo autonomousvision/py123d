@@ -57,6 +57,7 @@ class ViserVisualizationServer:
         port: int = 8080,
         label: str = "D123 Viser Server",
     ):
+        assert len(scenes) > 0, "At least one scene must be provided."
         self.scenes = scenes
         self.scene_index = scene_index
 

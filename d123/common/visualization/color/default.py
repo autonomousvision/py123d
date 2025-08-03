@@ -157,6 +157,16 @@ BOX_DETECTION_CONFIG: Dict[DetectionType, PlotConfig] = {
         marker_style=None,
         zorder=2,
     ),
+    DetectionType.SIGN: PlotConfig(
+        fill_color=NEW_TAB_10[8],
+        fill_color_alpha=1.0,
+        line_color=BLACK,
+        line_color_alpha=1.0,
+        line_width=1.0,
+        line_style="-",
+        marker_style=None,
+        zorder=2,
+    ),
 }
 
 EGO_VEHICLE_CONFIG: PlotConfig = PlotConfig(

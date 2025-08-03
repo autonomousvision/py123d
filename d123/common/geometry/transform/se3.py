@@ -102,6 +102,7 @@ def convert_absolute_to_relative_se3_array(
     origin: StateSE3, se3_array: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:
     assert se3_array.shape[-1] == len(StateSE3Index)
+    # TODO: remove transform for-loop, use vectorized operations
 
     # Extract rotation and translation of origin
     R_origin = get_rotation_matrix(origin)
@@ -126,6 +127,37 @@ def convert_absolute_to_relative_se3_array(
         rel_se3_array[i, StateSE3Index.ROLL : StateSE3Index.YAW + 1] = rel_rpy
 
     return rel_se3_array
+
+
+def convert_relative_to_absolute_se3_array(
+    origin: StateSE3, se3_array: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
+    assert se3_array.shape[-1] == len(StateSE3Index)
+    # TODO: remove transform for-loop, use vectorized operations
+
+    # Extract rotation and translation of origin
+    R_origin = get_rotation_matrix(origin)
+    t_origin = origin.point_3d.array
+
+    # Prepare output array
+    abs_se3_array = np.empty_like(se3_array)
+
+    # For each SE3 in the array
+    for i in range(se3_array.shape[0]):
+        rel_se3 = se3_array[i]
+        rel_pos = rel_se3[StateSE3Index.XYZ]
+        rel_rpy = rel_se3[StateSE3Index.ROLL : StateSE3Index.YAW + 1]
+
+        # Absolute position: rotate and translate
+        abs_pos = R_origin @ rel_pos + t_origin
+
+        # Absolute orientation: add origin's rpy
+        abs_rpy = rel_rpy + np.array([origin.roll, origin.pitch, origin.yaw], dtype=np.float64)
+
+        abs_se3_array[i, StateSE3Index.X : StateSE3Index.Z + 1] = abs_pos
+        abs_se3_array[i, StateSE3Index.ROLL : StateSE3Index.YAW + 1] = abs_rpy
+
+    return abs_se3_array
 
 
 def translate_points_3d_along_z(
