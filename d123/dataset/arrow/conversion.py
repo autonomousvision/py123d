@@ -148,6 +148,10 @@ def get_lidar_from_arrow_table(arrow_table: pa.Table, index: int, log_metadata: 
             raise NotImplementedError(f"Loading LiDAR data for dataset {log_metadata.dataset} is not implemented.")
 
     else:
-        raise NotImplementedError("Only string file paths for lidar data are supported.")
+        if log_metadata.dataset == "wopd":
+            lidar_data = np.array(lidar_data, dtype=np.float64)
+            lidar = LiDAR(point_cloud=lidar_data[:, 3:].T)
+        else:
+            raise NotImplementedError("Only string file paths for lidar data are supported.")
 
     return lidar

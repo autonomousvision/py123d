@@ -1,10 +1,11 @@
 import gc
 import hashlib
 import json
+import os
 from dataclasses import asdict
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Final, List, Optional, Tuple, Union
+from typing import Any, Dict, Final, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -26,7 +27,10 @@ from d123.common.geometry.transform.se3 import convert_relative_to_absolute_se3_
 from d123.common.geometry.vector import Vector3D, Vector3DIndex
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
+from d123.dataset.dataset_specific.wopd.wopd_utils import parse_range_image_and_camera_projection
 from d123.dataset.logs.log_metadata import LogMetadata
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 TARGET_DT: Final[float] = 0.1
 NUPLAN_DT: Final[float] = 0.05
@@ -57,6 +61,9 @@ WOPD_CAMERA_TYPES = {
 }
 
 WOPD_DATA_ROOT = Path("/media/nvme1/waymo_perception")  # TODO: set as environment variable
+
+# Whether to use ego or zero roll and pitch values for bounding box detections (after global conversion)
+DETECTION_ROLL_PITCH: Final[Literal["ego", "zero"]] = "zero"
 
 
 def create_token(input_data: str) -> str:
@@ -171,9 +178,9 @@ def convert_wopd_tfrecord_log_to_arrow(
             ]
             if data_converter_config.lidar_store_option is not None:
                 if data_converter_config.lidar_store_option == "path":
-                    schema_column_list.append(("lidar", pa.string()))
+                    raise NotImplementedError("Filepath lidar storage is not implemented.")
                 elif data_converter_config.lidar_store_option == "binary":
-                    raise NotImplementedError("Binary lidar storage is not implemented.")
+                    schema_column_list.append(("lidar", pa.list_(pa.list_(pa.float32(), 6))))
 
             # TODO: Adjust how cameras are added
             if data_converter_config.camera_store_option is not None:
@@ -286,7 +293,7 @@ def _write_recording_table(
 
                 # TODO: Implement lidar extraction
                 if data_converter_config.lidar_store_option is not None:
-                    row_data["lidar"] = [None]
+                    row_data["lidar"] = [_extract_lidar(frame, data_converter_config).tolist()]
 
                 if data_converter_config.camera_store_option is not None:
                     camera_data_dict = _extract_camera(frame, data_converter_config)
@@ -308,10 +315,30 @@ def _write_recording_table(
         write_arrow_table(recording_table, log_file_path)
 
 
+# def _get_ego_pose_se3(frame: dataset_pb2.Frame) -> StateSE3:
+#     ego_pose_matrix = np.array(frame.pose.transform).reshape(4, 4)
+#     yaw, pitch, roll = Quaternion(matrix=ego_pose_matrix[:3, :3]).yaw_pitch_roll
+#     ego_point_3d = Point3D.from_array(ego_pose_matrix[:3, 3])
+
+#     # TODO: figure out if ego frame is given in rear axle or center frame
+#     return StateSE3(x=ego_point_3d.x, y=ego_point_3d.y, z=ego_point_3d.z, roll=pitch, pitch=-roll, yaw=yaw)
+
+
+def _get_ego_pose_se3(frame: dataset_pb2.Frame) -> StateSE3:
+    ego_pose_matrix = np.array(frame.pose.transform).reshape(4, 4)
+    yaw, pitch, roll = Quaternion(matrix=ego_pose_matrix[:3, :3]).yaw_pitch_roll
+    ego_point_3d = Point3D.from_array(ego_pose_matrix[:3, 3])
+
+    return StateSE3(x=ego_point_3d.x, y=ego_point_3d.y, z=ego_point_3d.z, roll=roll, pitch=pitch, yaw=yaw)
+
+    # TODO: figure out if ego frame is given in rear axle or center frame
+    # return StateSE3(x=ego_point_3d.x, y=ego_point_3d.y, z=ego_point_3d.z, roll=pitch, pitch=-roll, yaw=yaw)
+
+
 def _extract_detections(frame: dataset_pb2.Frame) -> Tuple[List[List[float]], List[List[float]], List[str], List[int]]:
     # TODO: implement
 
-    ego_rear_axle = StateSE3.from_matrix(np.array(frame.pose.transform).reshape(4, 4))
+    ego_rear_axle = _get_ego_pose_se3(frame)
 
     num_detections = len(frame.laser_labels)
     detections_state = np.zeros((num_detections, len(BoundingBoxSE3Index)), dtype=np.float64)
@@ -348,27 +375,21 @@ def _extract_detections(frame: dataset_pb2.Frame) -> Tuple[List[List[float]], Li
     detections_state[:, BoundingBoxSE3Index.STATE_SE3] = convert_relative_to_absolute_se3_array(
         origin=ego_rear_axle, se3_array=detections_state[:, BoundingBoxSE3Index.STATE_SE3]
     )
+    if DETECTION_ROLL_PITCH == "ego":
+        pass
+    if DETECTION_ROLL_PITCH == "zero":
+        detections_state[:, BoundingBoxSE3Index.ROLL] = DEFAULT_ROLL
+        detections_state[:, BoundingBoxSE3Index.PITCH] = DEFAULT_PITCH
+    else:
+        raise ValueError(f"Invalid DETECTION_ROLL_PITCH value: {DETECTION_ROLL_PITCH}. Must be 'ego' or 'zero'.")
 
     return detections_state.tolist(), detections_velocity.tolist(), detections_token, detections_types
 
 
 def _extract_ego_state(frame: dataset_pb2.Frame) -> List[float]:
-
-    ego_pose_matrix = np.array(frame.pose.transform).reshape(4, 4)
-    yaw, pitch, roll = Quaternion(matrix=ego_pose_matrix[:3, :3]).yaw_pitch_roll
-    ego_point_3d = Point3D.from_array(ego_pose_matrix[:3, 3])
+    rear_axle_pose = _get_ego_pose_se3(frame)
 
     vehicle_parameters = get_wopd_pacifica_parameters()
-
-    # TODO: figure out if ego frame is given in rear axle or center frame
-    rear_axle_pose = StateSE3(
-        x=ego_point_3d.x,
-        y=ego_point_3d.y,
-        z=ego_point_3d.z,
-        roll=roll,
-        pitch=pitch,
-        yaw=yaw,
-    )
     # FIXME: Find dynamic state in waymo open perception dataset
     # https://github.com/waymo-research/waymo-open-dataset/issues/55#issuecomment-546152290
     dynamic_state = DynamicStateSE3(
@@ -390,8 +411,7 @@ def _extract_traffic_lights() -> Tuple[List[int], List[int]]:
 
 
 def _extract_camera(
-    frame: dataset_pb2.Frame,
-    data_converter_config: DataConverterConfig,
+    frame: dataset_pb2.Frame, data_converter_config: DataConverterConfig
 ) -> Dict[CameraType, Union[str, bytes]]:
 
     camera_dict: Dict[str, Union[str, bytes]] = {}  # TODO: Fix wrong type hint
@@ -409,7 +429,14 @@ def _extract_camera(
 
         # FIXME: This is an ugly hack to convert to uniform camera convention.
         flip_camera = get_rotation_matrix(
-            StateSE3(x=0.0, y=0.0, z=0.0, roll=np.deg2rad(-90.0), pitch=np.deg2rad(0.0), yaw=np.deg2rad(-90.0))
+            StateSE3(
+                x=0.0,
+                y=0.0,
+                z=0.0,
+                roll=0.0,
+                pitch=0.0,
+                yaw=np.deg2rad(0.0),
+            )
         )
 
         transform[:3, :3] = transform[:3, :3] @ flip_camera
@@ -431,6 +458,20 @@ def _extract_camera(
     return camera_dict
 
 
-def _extract_lidar() -> Optional[str]:
-    lidar: Optional[str] = None
-    return lidar
+def _extract_lidar(
+    frame: dataset_pb2.Frame, data_converter_config: DataConverterConfig
+) -> Optional[npt.NDArray[np.float32]]:
+    from waymo_open_dataset.utils import frame_utils
+
+    assert data_converter_config.lidar_store_option == "binary", "Lidar store option must be 'binary' for WOPD."
+    (range_images, camera_projections, _, range_image_top_pose) = parse_range_image_and_camera_projection(frame)
+
+    points, cp_points = frame_utils.convert_range_image_to_point_cloud(
+        frame=frame,
+        range_images=range_images,
+        camera_projections=camera_projections,
+        range_image_top_pose=range_image_top_pose,
+        keep_polar_features=True,
+    )
+    points = np.array(points[0], dtype=np.float32)
+    return points

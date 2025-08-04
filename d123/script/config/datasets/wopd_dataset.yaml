@@ -13,4 +13,4 @@ wopd_dataset:
     force_log_conversion: ${force_log_conversion}
     force_map_conversion: ${force_map_conversion}
     camera_store_option: "binary"
-    lidar_store_option: null
+    lidar_store_option: "binary"

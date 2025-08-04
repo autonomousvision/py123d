@@ -45,7 +45,7 @@ VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_F0, CameraType.CAM_L0, CameraType.CAM_R0]
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_F0]
 VISUALIZE_CAMERA_GUI: List[CameraType] = [CameraType.CAM_F0]
-LIDAR_AVAILABLE: bool = False
+LIDAR_AVAILABLE: bool = True
 
 
 class ViserVisualizationServer:
