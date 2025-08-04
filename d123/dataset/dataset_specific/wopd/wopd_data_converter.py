@@ -433,12 +433,11 @@ def _extract_camera(
                 x=0.0,
                 y=0.0,
                 z=0.0,
-                roll=0.0,
-                pitch=0.0,
-                yaw=np.deg2rad(0.0),
+                roll=np.deg2rad(0.0),
+                pitch=np.deg2rad(90.0),
+                yaw=np.deg2rad(-90.0),
             )
         )
-
         transform[:3, :3] = transform[:3, :3] @ flip_camera
         context_extrinsic[camera_type] = transform
 

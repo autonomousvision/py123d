@@ -185,7 +185,7 @@ def get_camera_values(
     ego_transform[:3, :3] = get_rotation_matrix(rear_axle)
     ego_transform[:3, 3] = rear_axle.point_3d.array
 
-    DEBUG = True
+    DEBUG = False
     if DEBUG:
         print("DEBUG")
 
