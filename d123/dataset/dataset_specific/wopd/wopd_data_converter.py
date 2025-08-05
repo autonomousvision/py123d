@@ -27,10 +27,12 @@ from d123.common.geometry.transform.se3 import convert_relative_to_absolute_se3_
 from d123.common.geometry.vector import Vector3D, Vector3DIndex
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
+from d123.dataset.dataset_specific.wopd.wopd_map_utils import convert_wopd_map
 from d123.dataset.dataset_specific.wopd.wopd_utils import parse_range_image_and_camera_projection
 from d123.dataset.logs.log_metadata import LogMetadata
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+D123_MAPS_ROOT = Path(os.environ.get("D123_MAPS_ROOT"))
 
 TARGET_DT: Final[float] = 0.1
 NUPLAN_DT: Final[float] = 0.05
@@ -114,8 +116,20 @@ class WOPDDataConverter(RawDataConverter):
         ]
 
     def convert_maps(self, worker: WorkerPool) -> None:
-        # TODO: Implement map conversion
-        pass
+        log_args = [
+            {
+                "tf_record": tf_record,
+                "split": split,
+            }
+            for split, tf_record_paths in self._tf_records_per_split.items()
+            for tf_record in tf_record_paths
+        ]
+
+        worker_map(
+            worker,
+            partial(convert_wopd_tfrecord_map_to_gpkg, data_converter_config=self.data_converter_config),
+            log_args,
+        )
 
     def convert_logs(self, worker: WorkerPool) -> None:
         log_args = [
@@ -134,8 +148,27 @@ class WOPDDataConverter(RawDataConverter):
         )
 
 
-def convert_wopd_tfrecord_map_to_gpkg(map_names: List[str], data_converter_config: DataConverterConfig) -> List[Any]:
-    # TODO: Implement map conversion
+def convert_wopd_tfrecord_map_to_gpkg(
+    args: List[Dict[str, Union[List[str], List[Path]]]], data_converter_config: DataConverterConfig
+) -> List[Any]:
+
+    for log_info in args:
+        tf_record_path: Path = log_info["tf_record"]
+        split: str = log_info["split"]
+
+        if not tf_record_path.exists():
+            raise FileNotFoundError(f"TFRecord path {tf_record_path} does not exist.")
+
+        dataset = tf.data.TFRecordDataset(tf_record_path, compression_type="")
+        for data in dataset:
+            initial_frame = dataset_pb2.Frame()
+            initial_frame.ParseFromString(data.numpy())
+            break
+        log_name = str(initial_frame.context.name)
+        map_file_path = D123_MAPS_ROOT / split / f"{log_name}.gpkg"
+
+        if data_converter_config.force_map_conversion or not map_file_path.exists():
+            convert_wopd_map(initial_frame, map_file_path)
     return []
 
 
@@ -151,11 +184,11 @@ def convert_wopd_tfrecord_log_to_arrow(
 
         dataset = tf.data.TFRecordDataset(tf_record_path, compression_type="")
         for data in dataset:
-            frame = dataset_pb2.Frame()
-            frame.ParseFromString(data.numpy())
+            initial_frame = dataset_pb2.Frame()
+            initial_frame.ParseFromString(data.numpy())
             break
 
-        log_name = str(frame.context.name)
+        log_name = str(initial_frame.context.name)
         log_file_path = data_converter_config.output_path / split / f"{log_name}.arrow"
 
         if data_converter_config.force_log_conversion or not log_file_path.exists():
@@ -193,12 +226,6 @@ def convert_wopd_tfrecord_log_to_arrow(
                             (f"{camera_type.serialize()}_extrinsic", pa.list_(pa.float64(), 4 * 4))
                         )
 
-            initial_frame = next(
-                (dataset_pb2.Frame().FromString(data.numpy()) or dataset_pb2.Frame() for data in dataset), None
-            )
-            if initial_frame is None:
-                raise ValueError(f"No frames found in TFRecord {tf_record_path}")
-
             recording_schema = pa.schema(schema_column_list)
             metadata = LogMetadata(
                 dataset="wopd",
@@ -219,8 +246,8 @@ def convert_wopd_tfrecord_log_to_arrow(
 
             _write_recording_table(dataset, recording_schema, log_file_path, tf_record_path, data_converter_config)
 
-        del recording_schema, vehicle_parameters, dataset
-        gc.collect()
+            del recording_schema, vehicle_parameters, dataset
+            gc.collect()
     return []
 
 

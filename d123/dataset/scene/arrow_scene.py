@@ -22,7 +22,7 @@ from d123.dataset.arrow.conversion import (
 from d123.dataset.arrow.helper import open_arrow_table
 from d123.dataset.logs.log_metadata import LogMetadata
 from d123.dataset.maps.abstract_map import AbstractMap
-from d123.dataset.maps.gpkg.gpkg_map import get_map_api_from_names
+from d123.dataset.maps.gpkg.gpkg_map import get_local_map_api, get_map_api_from_names
 from d123.dataset.scene.abstract_scene import AbstractScene, SceneExtractionInfo
 
 # TODO: Remove or improve open/close dynamic of Scene object.
@@ -164,7 +164,12 @@ class ArrowScene(AbstractScene):
     def open(self) -> None:
         if self._map_api is None:
             try:
-                self._map_api = get_map_api_from_names(self._metadata.dataset, self._metadata.location)
+                if self._metadata.dataset == "wopd":
+                    # FIXME:
+                    split = str(self._arrow_log_path.parent.name)
+                    self._map_api = get_local_map_api(split, self._metadata.log_name)
+                else:
+                    self._map_api = get_map_api_from_names(self._metadata.dataset, self._metadata.location)
                 self._map_api.initialize()
             except Exception as e:
                 print(f"Error initializing map API: {e}")

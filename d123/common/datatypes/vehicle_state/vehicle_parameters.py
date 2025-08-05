@@ -55,7 +55,8 @@ def get_wopd_pacifica_parameters() -> VehicleParameters:
         length=5.176,
         height=1.777,
         wheel_base=3.089,
-        rear_axle_to_center_vertical=0.45,
+        # rear_axle_to_center_vertical=0.45,
+        rear_axle_to_center_vertical=0.60,
         rear_axle_to_center_longitudinal=1.461,
     )
 

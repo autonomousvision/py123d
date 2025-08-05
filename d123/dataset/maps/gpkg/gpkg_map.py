@@ -359,3 +359,13 @@ def get_map_api_from_names(dataset: str, location: str) -> GPKGMap:
     map_api = GPKGMap(gpkg_path)
     map_api.initialize()
     return map_api
+
+
+def get_local_map_api(split_name: str, log_name: str) -> GPKGMap:
+    print(split_name, log_name)
+    D123_MAPS_ROOT = Path(os.environ.get("D123_MAPS_ROOT"))
+    gpkg_path = D123_MAPS_ROOT / split_name / f"{log_name}.gpkg"
+    assert gpkg_path.is_file(), f"{log_name}.gpkg not found in {str(D123_MAPS_ROOT)}."
+    map_api = GPKGMap(gpkg_path)
+    map_api.initialize()
+    return map_api

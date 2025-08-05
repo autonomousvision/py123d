@@ -149,10 +149,15 @@ class Polyline3D:
             else Polyline3D(geom_creation.linestrings(*linestring.xy, z=DEFAULT_Z))
         )
 
+    @classmethod
+    def from_array(cls, array: npt.NDArray[np.float64]) -> Polyline3D:
+        assert array.ndim == 2 and array.shape[1] == 3, "Array must be 2D with shape (N, 3)"
+        linestring = geom_creation.linestrings(*array.T)
+        return Polyline3D(linestring)
+
     @property
     def polyline_2d(self) -> Polyline2D:
-        Polyline2D(geom_creation.linestrings(*self.linestring.xy))
-        return Polyline2D.from_linestring(self.linestring)
+        return Polyline2D(geom_creation.linestrings(*self.linestring.xy))
 
     @property
     def polyline_se2(self) -> PolylineSE2:

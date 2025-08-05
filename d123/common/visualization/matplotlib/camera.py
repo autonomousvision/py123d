@@ -219,7 +219,7 @@ def _plot_rect_3d_on_img(
     image: npt.NDArray[np.float32],
     box_corners: npt.NDArray[np.float32],
     detection_types: List[DetectionType],
-    thickness: int = 1,
+    thickness: int = 3,
 ) -> npt.NDArray[np.uint8]:
     """
     Plot the boundary lines of 3D rectangular on 2D images.
