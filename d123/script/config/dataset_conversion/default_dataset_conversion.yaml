@@ -19,5 +19,5 @@ defaults:
     # - carla_dataset
     - wopd_dataset
 
-force_log_conversion: True
+force_log_conversion: False
 force_map_conversion: True

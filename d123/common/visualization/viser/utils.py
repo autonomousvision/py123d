@@ -84,7 +84,8 @@ def get_map_meshes(scene: AbstractScene):
     initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
     center = initial_ego_vehicle_state.center_se3
     map_surface_types = [
-        MapSurfaceType.LANE_GROUP,
+        # MapSurfaceType.LANE_GROUP,
+        MapSurfaceType.LANE,
         MapSurfaceType.WALKWAY,
         MapSurfaceType.CROSSWALK,
         MapSurfaceType.CARPARK,

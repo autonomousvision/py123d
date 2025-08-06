@@ -79,6 +79,7 @@ class PolylineSE2:
         if self.linestring is None:
             self.linestring = geom_creation.linestrings(self.se2_array[..., StateSE2Index.XY])
 
+        self.se2_array[:, StateSE2Index.YAW] = np.unwrap(self.se2_array[:, StateSE2Index.YAW], axis=0)
         self._progress = get_path_progress(self.se2_array)
         self._interpolator = interp1d(self._progress, self.se2_array, axis=0, bounds_error=False, fill_value=0.0)
 

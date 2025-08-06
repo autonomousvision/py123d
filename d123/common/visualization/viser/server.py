@@ -43,9 +43,10 @@ CAMERA_SCALE: float = 1.0
 #     CameraType.CAM_R1,
 # ]
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_F0, CameraType.CAM_L0, CameraType.CAM_R0]
-VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = all_camera_types
+# VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = all_camera_types
+VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = []
 VISUALIZE_CAMERA_GUI: List[CameraType] = [CameraType.CAM_F0]
-LIDAR_AVAILABLE: bool = True
+LIDAR_AVAILABLE: bool = False
 
 
 class ViserVisualizationServer:
