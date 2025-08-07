@@ -27,7 +27,7 @@ from d123.common.geometry.transform.se3 import convert_relative_to_absolute_se3_
 from d123.common.geometry.vector import Vector3D, Vector3DIndex
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
-from d123.dataset.dataset_specific.wopd.wopd_map_utils import convert_wopd_map
+from d123.dataset.dataset_specific.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
 from d123.dataset.dataset_specific.wopd.wopd_utils import parse_range_image_and_camera_projection
 from d123.dataset.logs.log_metadata import LogMetadata
 
@@ -35,7 +35,6 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 D123_MAPS_ROOT = Path(os.environ.get("D123_MAPS_ROOT"))
 
 TARGET_DT: Final[float] = 0.1
-NUPLAN_DT: Final[float] = 0.05
 SORT_BY_TIMESTAMP: Final[bool] = True
 
 NUPLAN_TRAFFIC_STATUS_DICT: Final[Dict[str, TrafficLightStatus]] = {
