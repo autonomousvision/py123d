@@ -8,6 +8,7 @@ from d123.common.geometry.bounding_box.bounding_box_index import Corners3DIndex
 from d123.common.geometry.transform.se3 import translate_body_frame
 from d123.common.geometry.vector import Vector3D
 from d123.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VEHICLE_CONFIG
+from d123.common.visualization.viser.utils import BRIGHTNESS_FACTOR
 from d123.dataset.scene.abstract_scene import AbstractScene
 
 # TODO: Refactor this file.
@@ -98,7 +99,11 @@ def get_bounding_box_outlines(scene: AbstractScene, iteration: int):
         bbox_lines = _get_bounding_box_lines(bbox)
         bbox_lines = translate_points_3d(bbox_lines, initial_ego_vehicle_state.center_se3.point_3d)
         bbox_color = np.zeros(bbox_lines.shape, dtype=np.float32)
-        bbox_color[..., :] = BOX_DETECTION_CONFIG[box_detection.metadata.detection_type].fill_color.rgb_norm
+        bbox_color[..., :] = (
+            BOX_DETECTION_CONFIG[box_detection.metadata.detection_type]
+            .fill_color.set_brightness(BRIGHTNESS_FACTOR)
+            .rgb_norm
+        )
 
         lines.append(bbox_lines)
         colors.append(bbox_color)
@@ -106,7 +111,7 @@ def get_bounding_box_outlines(scene: AbstractScene, iteration: int):
     ego_bbox_lines = _get_bounding_box_lines(ego_vehicle_state.bounding_box_se3)
     ego_bbox_lines = translate_points_3d(ego_bbox_lines, initial_ego_vehicle_state.center_se3.point_3d)
     ego_bbox_color = np.zeros(ego_bbox_lines.shape, dtype=np.float32)
-    ego_bbox_color[..., :] = EGO_VEHICLE_CONFIG.fill_color.rgb_norm
+    ego_bbox_color[..., :] = EGO_VEHICLE_CONFIG.fill_color.set_brightness(BRIGHTNESS_FACTOR).rgb_norm
 
     lines.append(ego_bbox_lines)
     colors.append(ego_bbox_color)

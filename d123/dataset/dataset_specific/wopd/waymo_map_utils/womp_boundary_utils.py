@@ -22,7 +22,7 @@ PERP_START_OFFSET = 0.1  # meters
 
 MIN_HIT_DISTANCE = 0.1  # meters
 MIN_AVERAGE_DISTANCE = 1.5
-MAX_AVERAGE_DISTANCE = 6.0
+MAX_AVERAGE_DISTANCE = 7.0
 
 
 def get_type_and_id_from_token(token: str) -> Tuple[str, int]:

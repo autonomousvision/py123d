@@ -41,6 +41,8 @@ class GPKGMap(AbstractMap):
             MapSurfaceType.WALKWAY: self._get_walkway,
             MapSurfaceType.CARPARK: self._get_carpark,
             MapSurfaceType.GENERIC_DRIVABLE: self._get_generic_drivable,
+            # MapSurfaceType.ROAD_EDGE: self._get_road_edge,
+            # MapSurfaceType.ROAD_LINE: self._get_road_line,
         }
 
         # loaded during `.initialize()`

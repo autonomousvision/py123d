@@ -175,78 +175,85 @@ def convert_wopd_tfrecord_log_to_arrow(
     args: List[Dict[str, Union[List[str], List[Path]]]], data_converter_config: DataConverterConfig
 ) -> List[Any]:
     for log_info in args:
-        tf_record_path: Path = log_info["tf_record"]
-        split: str = log_info["split"]
+        try:
 
-        if not tf_record_path.exists():
-            raise FileNotFoundError(f"TFRecord path {tf_record_path} does not exist.")
+            tf_record_path: Path = log_info["tf_record"]
+            split: str = log_info["split"]
 
-        dataset = tf.data.TFRecordDataset(tf_record_path, compression_type="")
-        for data in dataset:
-            initial_frame = dataset_pb2.Frame()
-            initial_frame.ParseFromString(data.numpy())
-            break
+            if not tf_record_path.exists():
+                raise FileNotFoundError(f"TFRecord path {tf_record_path} does not exist.")
 
-        log_name = str(initial_frame.context.name)
-        log_file_path = data_converter_config.output_path / split / f"{log_name}.arrow"
+            dataset = tf.data.TFRecordDataset(tf_record_path, compression_type="")
+            for data in dataset:
+                initial_frame = dataset_pb2.Frame()
+                initial_frame.ParseFromString(data.numpy())
+                break
 
-        if data_converter_config.force_log_conversion or not log_file_path.exists():
-            log_file_path.unlink(missing_ok=True)
-            if not log_file_path.parent.exists():
-                log_file_path.parent.mkdir(parents=True, exist_ok=True)
+            log_name = str(initial_frame.context.name)
+            log_file_path = data_converter_config.output_path / split / f"{log_name}.arrow"
 
-            schema_column_list = [
-                ("token", pa.string()),
-                ("timestamp", pa.int64()),
-                ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
-                ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
-                ("detections_token", pa.list_(pa.string())),
-                ("detections_type", pa.list_(pa.int16())),
-                ("ego_states", pa.list_(pa.float64(), len(EgoStateSE3Index))),
-                ("traffic_light_ids", pa.list_(pa.int64())),
-                ("traffic_light_types", pa.list_(pa.int16())),
-                ("scenario_tag", pa.list_(pa.string())),
-                ("route_lane_group_ids", pa.list_(pa.int64())),
-            ]
-            if data_converter_config.lidar_store_option is not None:
-                if data_converter_config.lidar_store_option == "path":
-                    raise NotImplementedError("Filepath lidar storage is not implemented.")
-                elif data_converter_config.lidar_store_option == "binary":
-                    schema_column_list.append(("lidar", pa.list_(pa.list_(pa.float32(), 6))))
+            if data_converter_config.force_log_conversion or not log_file_path.exists():
+                log_file_path.unlink(missing_ok=True)
+                if not log_file_path.parent.exists():
+                    log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # TODO: Adjust how cameras are added
-            if data_converter_config.camera_store_option is not None:
-                for camera_type in WOPD_CAMERA_TYPES.values():
-                    if data_converter_config.camera_store_option == "path":
-                        raise NotImplementedError("Path camera storage is not implemented.")
-                    elif data_converter_config.camera_store_option == "binary":
-                        schema_column_list.append((camera_type.serialize(), pa.binary()))
-                        schema_column_list.append(
-                            (f"{camera_type.serialize()}_extrinsic", pa.list_(pa.float64(), 4 * 4))
-                        )
+                schema_column_list = [
+                    ("token", pa.string()),
+                    ("timestamp", pa.int64()),
+                    ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
+                    ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
+                    ("detections_token", pa.list_(pa.string())),
+                    ("detections_type", pa.list_(pa.int16())),
+                    ("ego_states", pa.list_(pa.float64(), len(EgoStateSE3Index))),
+                    ("traffic_light_ids", pa.list_(pa.int64())),
+                    ("traffic_light_types", pa.list_(pa.int16())),
+                    ("scenario_tag", pa.list_(pa.string())),
+                    ("route_lane_group_ids", pa.list_(pa.int64())),
+                ]
+                if data_converter_config.lidar_store_option is not None:
+                    if data_converter_config.lidar_store_option == "path":
+                        raise NotImplementedError("Filepath lidar storage is not implemented.")
+                    elif data_converter_config.lidar_store_option == "binary":
+                        schema_column_list.append(("lidar", pa.list_(pa.list_(pa.float32(), 6))))
 
-            recording_schema = pa.schema(schema_column_list)
-            metadata = LogMetadata(
-                dataset="wopd",
-                log_name=log_name,
-                location=None,  # TODO: implement map name
-                timestep_seconds=0.1,  # TODO: Check if correct. Maybe not hardcode
-                map_has_z=True,
-            )
-            vehicle_parameters = get_wopd_pacifica_parameters()
-            camera_metadata = get_wopd_camera_metadata(initial_frame)
-            recording_schema = recording_schema.with_metadata(
-                {
-                    "log_metadata": json.dumps(asdict(metadata)),
-                    "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
-                    "camera_metadata": camera_metadata_dict_to_json(camera_metadata),
-                }
-            )
+                # TODO: Adjust how cameras are added
+                if data_converter_config.camera_store_option is not None:
+                    for camera_type in WOPD_CAMERA_TYPES.values():
+                        if data_converter_config.camera_store_option == "path":
+                            raise NotImplementedError("Path camera storage is not implemented.")
+                        elif data_converter_config.camera_store_option == "binary":
+                            schema_column_list.append((camera_type.serialize(), pa.binary()))
+                            schema_column_list.append(
+                                (f"{camera_type.serialize()}_extrinsic", pa.list_(pa.float64(), 4 * 4))
+                            )
 
-            _write_recording_table(dataset, recording_schema, log_file_path, tf_record_path, data_converter_config)
+                recording_schema = pa.schema(schema_column_list)
+                metadata = LogMetadata(
+                    dataset="wopd",
+                    log_name=log_name,
+                    location=None,  # TODO: implement map name
+                    timestep_seconds=TARGET_DT,  # TODO: Check if correct. Maybe not hardcode
+                    map_has_z=True,
+                )
+                vehicle_parameters = get_wopd_pacifica_parameters()
+                camera_metadata = get_wopd_camera_metadata(initial_frame)
+                recording_schema = recording_schema.with_metadata(
+                    {
+                        "log_metadata": json.dumps(asdict(metadata)),
+                        "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
+                        "camera_metadata": camera_metadata_dict_to_json(camera_metadata),
+                    }
+                )
 
-            del recording_schema, vehicle_parameters, dataset
-            gc.collect()
+                _write_recording_table(dataset, recording_schema, log_file_path, tf_record_path, data_converter_config)
+
+                del recording_schema, vehicle_parameters, dataset
+        except Exception as e:
+            import traceback
+
+            print(f"Error processing log {str(tf_record_path)}: {e}")
+            traceback.print_exc()
+        gc.collect()
     return []
 
 
@@ -286,6 +293,7 @@ def _write_recording_table(
     with pa.OSFile(str(log_file_path), "wb") as sink:
         with pa.ipc.new_file(sink, recording_schema) as writer:
 
+            dataset = tf.data.TFRecordDataset(tf_record_path, compression_type="")
             for frame_idx, data in enumerate(dataset):
                 frame = dataset_pb2.Frame()
                 frame.ParseFromString(data.numpy())

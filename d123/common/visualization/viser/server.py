@@ -30,7 +30,7 @@ all_camera_types: List[CameraType] = [
 
 LIDAR_POINT_SIZE: float = 0.05
 MAP_AVAILABLE: bool = True
-BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "lines"
+BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "mesh"
 LINE_WIDTH: float = 4.0
 
 CAMERA_SCALE: float = 1.0
@@ -228,6 +228,27 @@ class ViserVisualizationServer:
             if MAP_AVAILABLE:
                 for name, mesh in get_map_meshes(scene).items():
                     self.server.scene.add_mesh_trimesh(f"/map/{name}", mesh, visible=True)
+
+                # centerlines, __, __ = get_map_lines(scene)
+                # for i, centerline in enumerate(centerlines):
+                # self.server.scene.add_line_segments(
+                #     "/map/centerlines",
+                #     centerlines,
+                #     colors=[[BLACK.rgb]],
+                #     line_width=LINE_WIDTH,
+                # )
+                # self.server.scene.add_line_segments(
+                #     "/map/left_boundary",
+                #     left_boundaries,
+                #     colors=[[TAB_10[2].rgb]],
+                #     line_width=LINE_WIDTH,
+                # )
+                # self.server.scene.add_line_segments(
+                #     "/map/right_boundary",
+                #     right_boundaries,
+                #     colors=[[TAB_10[3].rgb]],
+                #     line_width=LINE_WIDTH,
+                # )
 
             # Playback update loop.
             prev_timestep = gui_timestep.value
