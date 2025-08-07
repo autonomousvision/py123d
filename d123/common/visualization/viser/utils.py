@@ -4,6 +4,7 @@ import numpy as np
 import numpy.typing as npt
 import trimesh
 from pyquaternion import Quaternion
+from typing_extensions import Final
 
 # from d123.common.datatypes.sensor.camera_parameters import get_nuplan_camera_parameters
 from d123.common.datatypes.sensor.camera import Camera, CameraType
@@ -14,11 +15,13 @@ from d123.common.geometry.transform.se3 import convert_relative_to_absolute_poin
 from d123.common.visualization.color.config import PlotConfig
 from d123.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VEHICLE_CONFIG, MAP_SURFACE_CONFIG
 from d123.dataset.maps.abstract_map import MapSurfaceType
-from d123.dataset.maps.abstract_map_objects import AbstractSurfaceMapObject
+from d123.dataset.maps.abstract_map_objects import AbstractLane, AbstractSurfaceMapObject
 from d123.dataset.scene.abstract_scene import AbstractScene
 
 # TODO: Refactor this file.
 # TODO: Add general utilities for 3D primitives and mesh support.
+
+MAP_RADIUS: Final[float] = 500
 
 
 def bounding_box_to_trimesh(bbox: BoundingBoxSE3, plot_config: PlotConfig) -> trimesh.Trimesh:
@@ -84,15 +87,16 @@ def get_map_meshes(scene: AbstractScene):
     initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
     center = initial_ego_vehicle_state.center_se3
     map_surface_types = [
-        # MapSurfaceType.LANE_GROUP,
-        MapSurfaceType.LANE,
+        MapSurfaceType.LANE_GROUP,
+        # MapSurfaceType.LANE,
         MapSurfaceType.WALKWAY,
         MapSurfaceType.CROSSWALK,
         MapSurfaceType.CARPARK,
     ]
 
-    radius = 500
-    map_objects_dict = scene.map_api.get_proximal_map_objects(center.point_2d, radius=radius, layers=map_surface_types)
+    map_objects_dict = scene.map_api.get_proximal_map_objects(
+        center.point_2d, radius=MAP_RADIUS, layers=map_surface_types
+    )
     output = {}
 
     for map_surface_type in map_objects_dict.keys():
@@ -101,10 +105,8 @@ def get_map_meshes(scene: AbstractScene):
             map_surface: AbstractSurfaceMapObject
             trimesh_mesh = map_surface.trimesh_mesh
             if map_surface_type in [MapSurfaceType.WALKWAY, MapSurfaceType.CROSSWALK]:
-                # trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2 - 0.05).array
                 trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z - 0.05).array
             else:
-                # trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=1.777 / 2).array
                 trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z).array
 
             if not scene.log_metadata.map_has_z:
@@ -117,6 +119,36 @@ def get_map_meshes(scene: AbstractScene):
         output[f"{map_surface_type.serialize()}"] = trimesh.util.concatenate(surface_meshes)
 
     return output
+
+
+def get_map_lines(scene: AbstractScene):
+    map_surface_types = [MapSurfaceType.LANE]
+    initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
+    center = initial_ego_vehicle_state.center_se3
+    map_objects_dict = scene.map_api.get_proximal_map_objects(
+        center.point_2d, radius=MAP_RADIUS, layers=map_surface_types
+    )
+
+    def polyline_to_segments(polyline: Polyline3D) -> npt.NDArray[np.float64]:
+        polyline_array = polyline.array - center.point_3d.array
+        polyline_array = polyline_array.reshape(-1, 1, 3)
+        polyline_array = np.concatenate([polyline_array[:-1], polyline_array[1:]], axis=1)
+        return polyline_array
+
+    lanes = map_objects_dict[MapSurfaceType.LANE]
+    centerlines, right_boundaries, left_boundaries = [], [], []
+    for lane in lanes:
+        lane: AbstractLane
+
+        centerlines.append(polyline_to_segments(lane.centerline))
+        right_boundaries.append(polyline_to_segments(lane.right_boundary))
+        left_boundaries.append(polyline_to_segments(lane.left_boundary))
+
+    centerlines = np.concatenate(centerlines, axis=0)
+    left_boundaries = np.concatenate(left_boundaries, axis=0)
+    right_boundaries = np.concatenate(right_boundaries, axis=0)
+
+    return centerlines, left_boundaries, right_boundaries
 
 
 def get_trimesh_from_boundaries(
