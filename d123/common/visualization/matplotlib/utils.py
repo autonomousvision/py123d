@@ -1,13 +1,14 @@
 from functools import lru_cache
 from typing import Union
 
+import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import shapely.affinity as affinity
 import shapely.geometry as geom
+from matplotlib.path import Path
 
 from d123.common.geometry.base import StateSE2, StateSE3
-from d123.common.visualization.color.color import WHITE
 from d123.common.visualization.color.config import PlotConfig
 
 
@@ -18,54 +19,48 @@ def add_shapely_polygon_to_ax(
     disable_smoothing: bool = False,
 ) -> plt.Axes:
     """
-    Adds shapely polygon to birds-eye-view visualization
+    Adds shapely polygon to birds-eye-view visualization with proper hole handling
     :param ax: matplotlib ax object
     :param polygon: shapely Polygon
-    :param config: dictionary containing plot parameters
+    :param plot_config: dictionary containing plot parameters
+    :param disable_smoothing: whether to overwrite smoothing of the polygon
     :return: ax with plot
     """
 
     def _add_element_helper(element: geom.Polygon):
-        """Helper to add single polygon to ax"""
+        """Helper to add single polygon to ax with proper holes"""
         if plot_config.smoothing_radius is not None and not disable_smoothing:
             element = element.buffer(-plot_config.smoothing_radius).buffer(plot_config.smoothing_radius)
-        exterior_x, exterior_y = element.exterior.xy
 
-        if plot_config.shadow:
-            shadow_offset = 0.5
-            shadow_x = [x + shadow_offset for x in exterior_x]
-            shadow_y = [y - shadow_offset for y in exterior_y]
-            ax.fill(
-                shadow_x,
-                shadow_y,
-                color="gray",
-                alpha=1.0,
-                edgecolor=None,
-                linewidth=0,
-                zorder=plot_config.zorder,
-            )
+        # Create path with exterior and interior rings
+        def create_polygon_path(polygon):
+            # Get exterior coordinates
+            exterior_coords = list(polygon.exterior.coords)
 
-        ax.fill(
-            exterior_x,
-            exterior_y,
-            color=plot_config.fill_color.hex,
+            # Start with exterior ring
+            vertices = exterior_coords
+            codes = [Path.MOVETO] + [Path.LINETO] * (len(exterior_coords) - 2) + [Path.CLOSEPOLY]
+
+            # Add interior rings (holes)
+            for interior in polygon.interiors:
+                interior_coords = list(interior.coords)
+                vertices.extend(interior_coords)
+                codes.extend([Path.MOVETO] + [Path.LINETO] * (len(interior_coords) - 2) + [Path.CLOSEPOLY])
+
+            return Path(vertices, codes)
+
+        path = create_polygon_path(element)
+
+        # Add main polygon with holes
+        patch = patches.PathPatch(
+            path,
+            facecolor=plot_config.fill_color.hex,
             alpha=plot_config.fill_color_alpha,
             edgecolor=plot_config.line_color.hex,
             linewidth=plot_config.line_width,
             zorder=plot_config.zorder,
         )
-
-        for interior in element.interiors:
-            x_interior, y_interior = interior.xy
-            ax.fill(
-                x_interior,
-                y_interior,
-                color=WHITE.hex,
-                alpha=plot_config.fill_color_alpha,
-                edgecolor=plot_config.line_color.hex,
-                linewidth=plot_config.line_width,
-                zorder=plot_config.zorder,
-            )
+        ax.add_patch(patch)
 
     if isinstance(polygon, geom.Polygon):
         _add_element_helper(polygon)
