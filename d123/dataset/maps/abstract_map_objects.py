@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import shapely.geometry as geom
 import trimesh
@@ -127,6 +127,14 @@ class AbstractLane(AbstractSurfaceMapObject):
         :return: returns lane group
         """
 
+    @property
+    def boundaries(self) -> Tuple[Polyline3D, Polyline3D]:
+        """
+        Property of left and right boundary.
+        :return: returns tuple of left and right boundary polylines
+        """
+        return self.left_boundary, self.right_boundary
+
 
 class AbstractLaneGroup(AbstractSurfaceMapObject):
     """Abstract interface lane groups (nearby lanes going in the same direction)."""
@@ -239,3 +247,53 @@ class AbstractStopLine(AbstractSurfaceMapObject):
     def surface_type(self) -> MapSurfaceType:
         # return MapSurfaceType.STOP_LINE
         raise NotImplementedError
+
+
+class AbstractRoadEdge(AbstractMapObject):
+    """Abstract interface for road edge objects."""
+
+    @property
+    def surface_type(self) -> MapSurfaceType:
+        return MapSurfaceType.ROAD_EDGE
+
+    @property
+    @abc.abstractmethod
+    def polyline_3d(self) -> Polyline3D:
+        """
+        Returns the 3D polyline of the road edge.
+        :return: 3D polyline
+        """
+        raise NotImplementedError
+
+
+class AbstractRoadLine(AbstractMapObject):
+    """Abstract interface for road line objects."""
+
+    @property
+    def surface_type(self) -> MapSurfaceType:
+        return MapSurfaceType.ROAD_LINE
+
+    @property
+    @abc.abstractmethod
+    def polyline_3d(self) -> Polyline3D:
+        """
+        Returns the 3D polyline of the road edge.
+        :return: 3D polyline
+        """
+        raise NotImplementedError
+
+    @property
+    def polyline_2d(self) -> Polyline2D:
+        """
+        Returns the 2D polyline of the road line.
+        :return: 2D polyline
+        """
+        return self.polyline_3d.polyline_2d
+
+    @property
+    def polyline_se2(self) -> Polyline2D:
+        """
+        Returns the 2D polyline of the road line in SE(2) coordinates.
+        :return: 2D polyline in SE(2)
+        """
+        return self.polyline_3d.polyline_se2

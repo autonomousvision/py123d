@@ -93,6 +93,7 @@ def get_map_meshes(scene: AbstractScene):
         MapSurfaceType.WALKWAY,
         MapSurfaceType.CROSSWALK,
         MapSurfaceType.CARPARK,
+        MapSurfaceType.GENERIC_DRIVABLE,
     ]
 
     map_objects_dict = scene.map_api.get_proximal_map_objects(
@@ -126,7 +127,7 @@ def get_map_meshes(scene: AbstractScene):
 
 
 def get_map_lines(scene: AbstractScene):
-    map_surface_types = [MapSurfaceType.LANE]
+    map_surface_types = [MapSurfaceType.LANE, MapSurfaceType.ROAD_EDGE]
     initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
     center = initial_ego_vehicle_state.center_se3
     map_objects_dict = scene.map_api.get_proximal_map_objects(
@@ -139,20 +140,30 @@ def get_map_lines(scene: AbstractScene):
         polyline_array = np.concatenate([polyline_array[:-1], polyline_array[1:]], axis=1)
         return polyline_array
 
-    lanes = map_objects_dict[MapSurfaceType.LANE]
-    centerlines, right_boundaries, left_boundaries = [], [], []
-    for lane in lanes:
+    centerlines, right_boundaries, left_boundaries, road_edges = [], [], [], []
+    for lane in map_objects_dict[MapSurfaceType.LANE]:
         lane: AbstractLane
 
         centerlines.append(polyline_to_segments(lane.centerline))
         right_boundaries.append(polyline_to_segments(lane.right_boundary))
         left_boundaries.append(polyline_to_segments(lane.left_boundary))
 
+    for road_edge in map_objects_dict[MapSurfaceType.ROAD_EDGE]:
+        road_edges.append(polyline_to_segments(road_edge.polyline_3d))
+
     centerlines = np.concatenate(centerlines, axis=0)
     left_boundaries = np.concatenate(left_boundaries, axis=0)
     right_boundaries = np.concatenate(right_boundaries, axis=0)
+    road_edges = np.concatenate(road_edges, axis=0)
 
-    return centerlines, left_boundaries, right_boundaries
+    if not scene.log_metadata.map_has_z:
+        # If the map does not have a z-coordinate, we set it to the height of the ego vehicle.
+        centerlines[:, :, 2] += center.z - initial_ego_vehicle_state.vehicle_parameters.height / 2
+        left_boundaries[:, :, 2] += center.z - initial_ego_vehicle_state.vehicle_parameters.height / 2
+        right_boundaries[:, :, 2] += center.z - initial_ego_vehicle_state.vehicle_parameters.height / 2
+        road_edges[:, :, 2] += center.z - initial_ego_vehicle_state.vehicle_parameters.height / 2
+
+    return centerlines, left_boundaries, right_boundaries, road_edges
 
 
 def get_trimesh_from_boundaries(

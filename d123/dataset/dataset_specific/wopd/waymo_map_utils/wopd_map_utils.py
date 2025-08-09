@@ -105,6 +105,8 @@ def convert_wopd_map(frame: dataset_pb2.Frame, map_file_path: Path) -> None:
     walkway_df = get_walkway_df()
     carpark_df = get_carpark_df(carparks)
     generic_drivable_df = get_generic_drivable_df()
+    road_edge_df = get_road_edge_df(road_edges)
+    road_line_df = get_road_line_df(road_lines)
 
     map_file_path.unlink(missing_ok=True)
     if not map_file_path.parent.exists():
@@ -119,6 +121,8 @@ def convert_wopd_map(frame: dataset_pb2.Frame, map_file_path: Path) -> None:
     generic_drivable_df.to_file(
         map_file_path, layer=MapSurfaceType.GENERIC_DRIVABLE.serialize(), driver="GPKG", mode="a"
     )
+    road_edge_df.to_file(map_file_path, layer=MapSurfaceType.ROAD_EDGE.serialize(), driver="GPKG", mode="a")
+    road_line_df.to_file(map_file_path, layer=MapSurfaceType.ROAD_LINE.serialize(), driver="GPKG", mode="a")
 
 
 def get_lane_df(
@@ -281,6 +285,24 @@ def get_generic_drivable_df() -> gpd.GeoDataFrame:
     geometries = []
 
     # NOTE: WOPD does not provide generic drivable areas, so we create an empty DataFrame.
+    data = pd.DataFrame({"id": ids})
+    gdf = gpd.GeoDataFrame(data, geometry=geometries)
+    return gdf
+
+
+def get_road_edge_df(road_edges: Dict[int, npt.NDArray[np.float64]]) -> gpd.GeoDataFrame:
+    ids = list(road_edges.keys())
+    geometries = [Polyline3D.from_array(road_edge).linestring for road_edge in road_edges.values()]
+
+    data = pd.DataFrame({"id": ids})
+    gdf = gpd.GeoDataFrame(data, geometry=geometries)
+    return gdf
+
+
+def get_road_line_df(road_lines: Dict[int, npt.NDArray[np.float64]]) -> gpd.GeoDataFrame:
+    ids = list(road_lines.keys())
+    geometries = [Polyline3D.from_array(road_edge).linestring for road_edge in road_lines.values()]
+
     data = pd.DataFrame({"id": ids})
     gdf = gpd.GeoDataFrame(data, geometry=geometries)
     return gdf

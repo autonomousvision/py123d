@@ -126,7 +126,7 @@ class OpenDriveLaneHelper:
     def outline_polyline_3d(self) -> npt.NDArray[np.float64]:
         inner_polyline = self.inner_polyline_3d[::-1]
         outer_polyline = self.outer_polyline_3d
-        return np.concatenate([inner_polyline, outer_polyline], axis=0, dtype=np.float64)
+        return np.concatenate([inner_polyline, outer_polyline, inner_polyline[None, 0]], axis=0, dtype=np.float64)
 
     @property
     def shapely_polygon(self) -> shapely.Polygon:

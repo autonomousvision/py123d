@@ -18,5 +18,5 @@ class MapSurfaceType(SerialIntEnum):
     CARPARK = 5
     GENERIC_DRIVABLE = 6
     STOP_LINE = 7
-    # ROAD_EDGE = 8
-    # ROAD_LINE = 9
+    ROAD_EDGE = 8
+    ROAD_LINE = 9

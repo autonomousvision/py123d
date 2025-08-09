@@ -1,14 +1,19 @@
 import os
 import warnings
+from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 import geopandas as gpd
+import networkx as nx
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import shapely
 from shapely.ops import polygonize, unary_union
 
+from d123.common.geometry.base import Point3DIndex
+from d123.common.geometry.occupancy_map import OccupancyMap2D
 from d123.dataset.dataset_specific.carla.opendrive.conversion.group_collections import (
     OpenDriveLaneGroupHelper,
     OpenDriveLaneHelper,
@@ -27,6 +32,7 @@ from d123.dataset.dataset_specific.carla.opendrive.conversion.objects_collection
 from d123.dataset.dataset_specific.carla.opendrive.elements.opendrive import Junction, OpenDrive, Road
 from d123.dataset.dataset_specific.carla.opendrive.elements.reference import Border
 from d123.dataset.dataset_specific.carla.opendrive.id_mapping import IntIDMapping
+from d123.dataset.dataset_specific.nuplan.nuplan_map_conversion import get_road_edge_linestrings
 from d123.dataset.maps.map_datatypes import MapSurfaceType
 
 ENABLE_WARNING: bool = False
@@ -77,6 +83,8 @@ class OpenDriveConverter:
             crosswalk_df,
         )
 
+        road_edge_df = self._extract_road_edge_df(lane_df, carpark_df, generic_drivable_area_df, lane_group_df)
+
         # Store dataframes
         map_file_name = D123_MAPS_ROOT / f"{map_name}.gpkg"
         lane_df.to_file(map_file_name, layer=MapSurfaceType.LANE.serialize(), driver="GPKG")
@@ -91,6 +99,7 @@ class OpenDriveConverter:
         intersections_df.to_file(map_file_name, layer=MapSurfaceType.INTERSECTION.serialize(), driver="GPKG", mode="a")
         lane_group_df.to_file(map_file_name, layer=MapSurfaceType.LANE_GROUP.serialize(), driver="GPKG", mode="a")
         crosswalk_df.to_file(map_file_name, layer=MapSurfaceType.CROSSWALK.serialize(), driver="GPKG", mode="a")
+        road_edge_df.to_file(map_file_name, layer=MapSurfaceType.ROAD_EDGE.serialize(), driver="GPKG", mode="a")
 
     def _collect_lane_helpers(self) -> None:
         for road in self.opendrive.roads:
@@ -364,16 +373,16 @@ class OpenDriveConverter:
     def _extract_walkways_dataframe(self) -> gpd.GeoDataFrame:
 
         ids = []
-        # left_boundaries = []
-        # right_boundaries = []
+        left_boundaries = []
+        right_boundaries = []
         outlines = []
         geometries = []
 
         for lane_helper in self.lane_helper_dict.values():
             if lane_helper.type == "sidewalk":
                 ids.append(lane_helper.lane_id)
-                # left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
-                # right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
+                left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
+                right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
                 outlines.append(shapely.LineString(lane_helper.outline_polyline_3d))
                 geometries.append(lane_helper.shapely_polygon)
 
@@ -390,24 +399,24 @@ class OpenDriveConverter:
     def _extract_carpark_dataframe(self) -> gpd.GeoDataFrame:
 
         ids = []
-        # left_boundaries = []
-        # right_boundaries = []
+        left_boundaries = []
+        right_boundaries = []
         outlines = []
         geometries = []
 
         for lane_helper in self.lane_helper_dict.values():
             if lane_helper.type == "parking":
                 ids.append(lane_helper.lane_id)
-                # left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
-                # right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
+                left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
+                right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
                 outlines.append(shapely.LineString(lane_helper.outline_polyline_3d))
                 geometries.append(lane_helper.shapely_polygon)
 
         data = pd.DataFrame(
             {
                 "id": ids,
-                # "left_boundary": left_boundaries,
-                # "right_boundary": right_boundaries,
+                "left_boundary": left_boundaries,
+                "right_boundary": right_boundaries,
                 "outline": outlines,
             }
         )
@@ -416,24 +425,24 @@ class OpenDriveConverter:
     def _extract_generic_drivable_dataframe(self) -> gpd.GeoDataFrame:
 
         ids = []
-        # left_boundaries = []
-        # right_boundaries = []
+        left_boundaries = []
+        right_boundaries = []
         outlines = []
         geometries = []
 
         for lane_helper in self.lane_helper_dict.values():
             if lane_helper.type in ["none", "border", "bidirectional"]:
                 ids.append(lane_helper.lane_id)
-                # left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
-                # right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
+                left_boundaries.append(shapely.LineString(lane_helper.inner_polyline_3d))
+                right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
                 outlines.append(shapely.LineString(lane_helper.outline_polyline_3d))
                 geometries.append(lane_helper.shapely_polygon)
 
         data = pd.DataFrame(
             {
                 "id": ids,
-                # "left_boundary": left_boundaries,
-                # "right_boundary": left_boundaries,
+                "left_boundary": left_boundaries,
+                "right_boundary": left_boundaries,
                 "outline": outlines,
             }
         )
@@ -554,6 +563,19 @@ class OpenDriveConverter:
             lambda x: lane_group_id_mapping.map_list(x)
         )
 
+    def _extract_road_edge_df(
+        self,
+        lane_df: gpd.GeoDataFrame,
+        carpark_df: gpd.GeoDataFrame,
+        generic_drivable_area_df: gpd.GeoDataFrame,
+        lane_group_df: gpd.GeoDataFrame,
+    ) -> None:
+        road_edges = _get_road_edges_from_gdf(lane_df, carpark_df, generic_drivable_area_df, lane_group_df)
+
+        ids = np.arange(len(road_edges), dtype=np.int64).tolist()
+        geometries = road_edges
+        return gpd.GeoDataFrame(pd.DataFrame({"id": ids}), geometry=geometries)
+
 
 # TODO: move this somewhere else and improve
 def extract_exteriors_polygon(lane_group_helpers: List[OpenDriveLaneGroupHelper]) -> shapely.Polygon:
@@ -581,3 +603,194 @@ def extract_exteriors_polygon(lane_group_helpers: List[OpenDriveLaneGroupHelper]
     else:
         # Take the largest polygon if there are multiple
         return max(polygons, key=lambda p: p.area)
+
+
+def _get_road_edges_from_gdf(
+    lane_df: gpd.GeoDataFrame,
+    carpark_df: gpd.GeoDataFrame,
+    generic_drivable_area_df: gpd.GeoDataFrame,
+    lane_group_df: gpd.GeoDataFrame,
+) -> List[shapely.LineString]:
+
+    # 1. Find conflicting lane groups, e.g. groups of lanes that overlap in 2D but have different Z-values (bridges)
+    conflicting_lane_groups = _get_conflicting_lane_groups(lane_group_df, lane_df)
+
+    # 2. Extract road edges in 2D (including conflicting lane groups)
+    drivable_polygons = (
+        lane_group_df.geometry.tolist() + carpark_df.geometry.tolist() + generic_drivable_area_df.geometry.tolist()
+    )
+    road_edges_2d = get_road_edge_linestrings(drivable_polygons, max_road_edge_length=None)
+
+    # 3. Collect 3D boundaries of non-conflicting lane groups and other drivable areas
+    non_conflicting_boundaries: List[shapely.LineString] = []
+    for lane_group_id, lane_group_helper in lane_group_df.iterrows():
+        if lane_group_id not in conflicting_lane_groups.keys():
+            non_conflicting_boundaries.append(lane_group_helper["left_boundary"])
+            non_conflicting_boundaries.append(lane_group_helper["right_boundary"])
+    for outline in carpark_df.outline.tolist() + generic_drivable_area_df.outline.tolist():
+        non_conflicting_boundaries.append(outline)
+
+    # 4. Lift road edges to 3D using the boundaries of non-conflicting elements
+    non_conflicting_road_edges = lift_road_edges_to_3d(road_edges_2d, non_conflicting_boundaries)
+
+    # 5. Add road edges from conflicting lane groups
+    resolved_road_edges = _resolve_conflicting_lane_groups(conflicting_lane_groups, lane_group_df)
+
+    all_road_edges = non_conflicting_road_edges + resolved_road_edges
+
+    return all_road_edges
+
+
+def _get_nearest_z_from_points_3d(points_3d: npt.NDArray[np.float64], query_point: npt.NDArray[np.float64]) -> float:
+    assert points_3d.ndim == 2 and points_3d.shape[1] == len(
+        Point3DIndex
+    ), "points_3d must be a 2D array with shape (N, 3)"
+    distances = np.linalg.norm(points_3d[..., Point3DIndex.XY] - query_point[..., Point3DIndex.XY], axis=1)
+    closest_point = points_3d[np.argmin(distances)]
+    return closest_point[2]
+
+
+def _get_conflicting_lane_groups(lane_group_df: gpd.GeoDataFrame, lane_df: gpd.GeoDataFrame) -> Dict[int, List[int]]:
+    Z_THRESHOLD = 5.0  # [m] Z-value threshold for conflict detection
+
+    ids = lane_group_df.id.tolist()
+    polygons = lane_group_df.geometry.tolist()
+
+    def _get_centerline_points_3d(lane_group_id: int) -> npt.NDArray[np.float64]:
+        """Helper function to get the centerline points in 3D."""
+        lane_ids = lane_group_df[lane_group_df.id == lane_group_id].lane_ids.values[0]
+        centerlines: List[npt.NDArray[np.float64]] = []
+        for lane_id in lane_ids:
+            centerline = lane_df[lane_df.id == lane_id].baseline_path.values[0]
+            assert isinstance(centerline, shapely.LineString)
+            centerlines.append(np.array(centerline.coords, dtype=np.float64))
+        return np.concatenate(centerlines, axis=0)
+
+    occupancy_map = OccupancyMap2D(polygons, ids)
+    conflicting_lane_groups: Dict[int, List[int]] = defaultdict(list)
+
+    for lane_group_id, lane_group_polygon in zip(ids, polygons):
+
+        # Extract internal centerline points for Z-value check
+        lane_group_centerlines = _get_centerline_points_3d(lane_group_id)
+
+        # Query lane groups that overlap in 2D
+        intersecting_lane_group_ids = occupancy_map.intersects(lane_group_polygon)
+        intersecting_lane_group_ids.remove(lane_group_id)  # Remove self from the list
+        for intersecting_id in intersecting_lane_group_ids:
+            intersecting_geometry = occupancy_map[intersecting_id]
+
+            # ignore non-polygon geometries
+            if intersecting_geometry.geom_type != "Polygon":
+                continue
+
+            # Check if Z-values deviate at intersection centroid
+            intersection_centroid = np.array(intersecting_geometry.centroid.coords[0], dtype=np.float64)
+            intersecting_centerlines = _get_centerline_points_3d(intersecting_id)
+            z_at_intersecting = _get_nearest_z_from_points_3d(intersecting_centerlines, intersection_centroid)
+            z_at_lane_group = _get_nearest_z_from_points_3d(lane_group_centerlines, intersection_centroid)
+            if np.abs(z_at_lane_group - z_at_intersecting) < Z_THRESHOLD:
+                continue
+            conflicting_lane_groups[lane_group_id].append(intersecting_id)
+    return conflicting_lane_groups
+
+
+def _resolve_conflicting_lane_groups(
+    conflicting_lane_groups: Dict[int, List[int]], lane_group_df: gpd.GeoDataFrame
+) -> List[shapely.LineString]:
+
+    # Split conflicting lane groups into non-conflicting sets for further merging
+    non_conflicting_sets = create_non_conflicting_sets(conflicting_lane_groups)
+
+    road_edges_3d: List[shapely.LineString] = []
+    for non_conflicting_set in non_conflicting_sets:
+
+        # Collect 2D polygons of non-conflicting lane group set
+        set_polygons = [
+            lane_group_df[lane_group_df.id == lane_group_id].geometry.values[0] for lane_group_id in non_conflicting_set
+        ]
+        # Get 2D road edge linestrings for the non-conflicting set
+        set_road_edges_2d = get_road_edge_linestrings(set_polygons, max_road_edge_length=None)
+
+        #  Collect 3D boundaries of non-conflicting lane groups
+        set_boundaries_3d: List[shapely.LineString] = []
+        for lane_group_id in non_conflicting_set:
+            lane_group_helper = lane_group_df[lane_group_df.id == lane_group_id]
+            set_boundaries_3d.append(lane_group_helper.left_boundary.values[0])
+            set_boundaries_3d.append(lane_group_helper.right_boundary.values[0])
+
+        # Lift road edges to 3D using the boundaries of non-conflicting lane groups
+        lifted_road_edges_3d = lift_road_edges_to_3d(set_road_edges_2d, set_boundaries_3d)
+        road_edges_3d.extend(lifted_road_edges_3d)
+
+    return road_edges_3d
+
+
+def lift_road_edges_to_3d(
+    road_edges_2d: List[shapely.LineString], boundaries: List[shapely.LineString]
+) -> List[shapely.LineString]:
+
+    QUERY_MAX_DISTANCE = 0.01  # [m] Maximum distance for nearest neighbor query
+
+    def _find_continuous_sublists(integers: List[int]) -> List[List[int]]:
+        """Find continuous sublists in a list of integers."""
+        arr = np.array(integers, dtype=np.int64)
+        breaks = np.where(np.diff(arr) != 1)[0] + 1
+        splits = np.split(arr, breaks)
+        return [sublist.tolist() for sublist in splits]
+
+    occupancy_map = OccupancyMap2D(boundaries)
+
+    road_edges_3d: List[shapely.LineString] = []
+    for idx, linestring in enumerate(road_edges_2d):
+        # print(list(linestring.coords))
+        points_3d = np.array(list(linestring.coords), dtype=np.float64)
+
+        results = occupancy_map.query_nearest(
+            shapely.points(points_3d[..., :2]), max_distance=QUERY_MAX_DISTANCE, exclusive=True
+        )
+        for query_idx, geometry_idx in zip(*results):
+            intersecting_boundary: shapely.LineString = occupancy_map[occupancy_map.ids[geometry_idx]]
+            points_3d[query_idx, 2] = _get_nearest_z_from_points_3d(
+                np.array(list(intersecting_boundary.coords), dtype=np.float64), points_3d[query_idx]
+            )
+
+        for continuous_slice in _find_continuous_sublists(results[0]):
+            if len(continuous_slice) < 2:
+                continue
+            lifted_linestring = shapely.LineString(points_3d[continuous_slice])
+            road_edges_3d.append(lifted_linestring)
+    return road_edges_3d
+
+
+def create_non_conflicting_sets(conflicts: Dict[int, List[int]]) -> List[Set[int]]:
+    """
+    Creates sets of non-conflicting indices using NetworkX.
+    """
+    # Create graph from conflicts
+    G = nx.Graph()
+    for idx, conflict_list in conflicts.items():
+        for conflict_idx in conflict_list:
+            G.add_edge(idx, conflict_idx)
+
+    result = []
+
+    # Process each connected component
+    for component in nx.connected_components(G):
+        subgraph = G.subgraph(component)
+
+        # Try bipartite coloring first (most common case)
+        if nx.is_bipartite(subgraph):
+            sets = nx.bipartite.sets(subgraph)
+            result.extend([set(s) for s in sets])
+        else:
+            # Fall back to greedy coloring for non-bipartite graphs
+            coloring = nx.greedy_color(subgraph, strategy="largest_first")
+            color_groups = {}
+            for node, color in coloring.items():
+                if color not in color_groups:
+                    color_groups[color] = set()
+                color_groups[color].add(node)
+            result.extend(color_groups.values())
+
+    return result

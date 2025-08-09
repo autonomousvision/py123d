@@ -242,9 +242,9 @@ def convert_nuplan_log_to_arrow(
 
             _write_recording_table(log_db, recording_schema, log_file_path, log_path, data_converter_config)
 
-        log_db.detach_tables()
-        log_db.remove_ref()
-        del recording_schema, vehicle_parameters, log_db
+            log_db.detach_tables()
+            log_db.remove_ref()
+            del recording_schema, vehicle_parameters, log_db
         gc.collect()
     return []
 

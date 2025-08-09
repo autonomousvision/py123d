@@ -5,10 +5,12 @@ import trimesh
 import viser
 
 from d123.common.datatypes.sensor.camera import CameraType
+from d123.common.visualization.color.color import BLACK
 from d123.common.visualization.viser.utils import (
     get_bounding_box_meshes,
     get_camera_values,
     get_lidar_points,
+    get_map_lines,
     get_map_meshes,
 )
 from d123.common.visualization.viser.utils_v2 import get_bounding_box_outlines
@@ -28,13 +30,17 @@ all_camera_types: List[CameraType] = [
     CameraType.CAM_R2,
 ]
 
-LIDAR_POINT_SIZE: float = 0.05
-MAP_AVAILABLE: bool = True
-BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "mesh"
+# MISC config:
 LINE_WIDTH: float = 4.0
 
-CAMERA_SCALE: float = 1.0
+# Bounding box config:
+BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "mesh"
 
+# Map config:
+MAP_AVAILABLE: bool = True
+
+
+# Cameras config:
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [
 #     CameraType.CAM_F0,
 #     CameraType.CAM_L0,
@@ -46,7 +52,11 @@ CAMERA_SCALE: float = 1.0
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = all_camera_types
 VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = []
 VISUALIZE_CAMERA_GUI: List[CameraType] = [CameraType.CAM_F0]
+CAMERA_SCALE: float = 1.0
+
+# Lidar config:
 LIDAR_AVAILABLE: bool = False
+LIDAR_POINT_SIZE: float = 0.05
 
 
 class ViserVisualizationServer:
@@ -229,7 +239,7 @@ class ViserVisualizationServer:
                 for name, mesh in get_map_meshes(scene).items():
                     self.server.scene.add_mesh_trimesh(f"/map/{name}", mesh, visible=True)
 
-                # centerlines, __, __ = get_map_lines(scene)
+                centerlines, __, __, road_edges = get_map_lines(scene)
                 # for i, centerline in enumerate(centerlines):
                 # self.server.scene.add_line_segments(
                 #     "/map/centerlines",
@@ -249,6 +259,13 @@ class ViserVisualizationServer:
                 #     colors=[[TAB_10[3].rgb]],
                 #     line_width=LINE_WIDTH,
                 # )
+                print(centerlines.shape, road_edges.shape)
+                self.server.scene.add_line_segments(
+                    "/map/road_edges",
+                    road_edges,
+                    colors=[[BLACK.rgb]],
+                    line_width=LINE_WIDTH,
+                )
 
             # Playback update loop.
             prev_timestep = gui_timestep.value

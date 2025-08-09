@@ -6,6 +6,7 @@ from typing import List, Optional
 
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 import shapely.geometry as geom
 import trimesh
 
@@ -19,6 +20,8 @@ from d123.dataset.maps.abstract_map_objects import (
     AbstractIntersection,
     AbstractLane,
     AbstractLaneGroup,
+    AbstractRoadEdge,
+    AbstractRoadLine,
     AbstractSurfaceMapObject,
     AbstractWalkway,
 )
@@ -206,7 +209,7 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
                 self._lane_df,
                 self._object_df,
             )
-            if intersection_id is not None
+            if intersection_id is not None and not pd.isna(intersection_id)
             else None
         )
 
@@ -256,3 +259,33 @@ class GPKGWalkway(GPKGSurfaceObject, AbstractWalkway):
 class GPKGGenericDrivable(GPKGSurfaceObject, AbstractGenericDrivable):
     def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)
+
+
+class GPKGRoadEdge(AbstractRoadEdge):
+    def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
+        super().__init__(object_id)
+        self._object_df = object_df
+
+    @cached_property
+    def _object_row(self) -> gpd.GeoSeries:
+        return get_row_with_value(self._object_df, "id", self.id)
+
+    @property
+    def polyline_3d(self) -> Polyline3D:
+        """Inherited, see superclass."""
+        return Polyline3D.from_linestring(self._object_row.geometry)
+
+
+class GPKGRoadLine(AbstractRoadLine):
+    def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
+        super().__init__(object_id)
+        self._object_df = object_df
+
+    @cached_property
+    def _object_row(self) -> gpd.GeoSeries:
+        return get_row_with_value(self._object_df, "id", self.id)
+
+    @property
+    def polyline_3d(self) -> Polyline3D:
+        """Inherited, see superclass."""
+        return Polyline3D.from_linestring(self._object_row.geometry)

@@ -21,6 +21,8 @@ from d123.dataset.maps.gpkg.gpkg_map_objects import (
     GPKGIntersection,
     GPKGLane,
     GPKGLaneGroup,
+    GPKGRoadEdge,
+    GPKGRoadLine,
     GPKGWalkway,
 )
 from d123.dataset.maps.gpkg.utils import load_gdf_with_geometry_columns
@@ -41,8 +43,8 @@ class GPKGMap(AbstractMap):
             MapSurfaceType.WALKWAY: self._get_walkway,
             MapSurfaceType.CARPARK: self._get_carpark,
             MapSurfaceType.GENERIC_DRIVABLE: self._get_generic_drivable,
-            # MapSurfaceType.ROAD_EDGE: self._get_road_edge,
-            # MapSurfaceType.ROAD_LINE: self._get_road_line,
+            MapSurfaceType.ROAD_EDGE: self._get_road_edge,
+            MapSurfaceType.ROAD_LINE: self._get_road_line,
         }
 
         # loaded during `.initialize()`
@@ -306,6 +308,20 @@ class GPKGMap(AbstractMap):
         return (
             GPKGGenericDrivable(id, self._gpd_dataframes[MapSurfaceType.GENERIC_DRIVABLE])
             if id in self._gpd_dataframes[MapSurfaceType.GENERIC_DRIVABLE]["id"].tolist()
+            else None
+        )
+
+    def _get_road_edge(self, id: str) -> Optional[GPKGRoadEdge]:
+        return (
+            GPKGRoadEdge(id, self._gpd_dataframes[MapSurfaceType.ROAD_EDGE])
+            if id in self._gpd_dataframes[MapSurfaceType.ROAD_EDGE]["id"].tolist()
+            else None
+        )
+
+    def _get_road_line(self, id: str) -> Optional[GPKGRoadLine]:
+        return (
+            GPKGRoadLine(id, self._gpd_dataframes[MapSurfaceType.ROAD_LINE])
+            if id in self._gpd_dataframes[MapSurfaceType.ROAD_LINE]["id"].tolist()
             else None
         )
 
