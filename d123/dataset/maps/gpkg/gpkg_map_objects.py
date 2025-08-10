@@ -65,10 +65,18 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
     @property
     def trimesh_mesh(self) -> trimesh.Trimesh:
         """Inherited, see superclass."""
-        outline_3d_array = self.outline_3d.array
-        _, faces = trimesh.creation.triangulate_polygon(geom.Polygon(outline_3d_array[:, Point3DIndex.XY]))
-        # NOTE: Optional add color information to the mesh
-        return trimesh.Trimesh(vertices=outline_3d_array, faces=faces)
+
+        trimesh_mesh: Optional[trimesh.Trimesh] = None
+        if "right_boundary" in self._object_df.columns and "left_boundary" in self._object_df.columns:
+            left_boundary = Polyline3D.from_linestring(self._object_row.left_boundary)
+            right_boundary = Polyline3D.from_linestring(self._object_row.right_boundary)
+            trimesh_mesh = get_trimesh_from_boundaries(left_boundary, right_boundary)
+        elif "geometry" in self._object_df.columns:
+            # Fallback to geometry if no boundaries are available
+            outline_3d_array = self.outline_3d.array
+            _, faces = trimesh.creation.triangulate_polygon(geom.Polygon(outline_3d_array[:, Point3DIndex.XY]))
+            trimesh_mesh = trimesh.Trimesh(vertices=outline_3d_array, faces=faces)
+        return trimesh_mesh
 
 
 class GPKGLane(GPKGSurfaceObject, AbstractLane):
@@ -123,11 +131,6 @@ class GPKGLane(GPKGSurfaceObject, AbstractLane):
         return Polyline3D.from_linestring(geom.LineString(outline_array))
 
     @property
-    def trimesh_mesh(self) -> trimesh.Trimesh:
-        """Inherited, see superclass."""
-        return get_trimesh_from_boundaries(self.left_boundary, self.right_boundary)
-
-    @property
     def lane_group(self) -> GPKGLaneGroup:
         """Inherited, see superclass."""
         lane_group_id = self._object_row.lane_group_id
@@ -178,11 +181,6 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
         """Inherited, see superclass."""
         outline_array = np.vstack((self.left_boundary.array, self.right_boundary.array[::-1]))
         return Polyline3D.from_linestring(geom.LineString(outline_array))
-
-    @property
-    def trimesh_mesh(self) -> trimesh.Trimesh:
-        """Inherited, see superclass."""
-        return get_trimesh_from_boundaries(self.left_boundary, self.right_boundary)
 
     @property
     def lanes(self) -> List[GPKGLane]:
@@ -259,6 +257,16 @@ class GPKGWalkway(GPKGSurfaceObject, AbstractWalkway):
 class GPKGGenericDrivable(GPKGSurfaceObject, AbstractGenericDrivable):
     def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)
+
+    @property
+    def trimesh_mesh(self) -> trimesh.Trimesh:
+        """Inherited, see superclass."""
+
+        # Fallback to geometry if no boundaries are available
+        outline_3d_array = self.outline_3d.array
+        _, faces = trimesh.creation.triangulate_polygon(geom.Polygon(outline_3d_array[:, Point3DIndex.XY]))
+        trimesh_mesh = trimesh.Trimesh(vertices=outline_3d_array, faces=faces)
+        return trimesh_mesh
 
 
 class GPKGRoadEdge(AbstractRoadEdge):

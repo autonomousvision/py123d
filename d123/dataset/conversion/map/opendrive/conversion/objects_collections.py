@@ -8,8 +8,8 @@ import shapely
 from d123.common.geometry.base import Point2D, Point3D, Point3DIndex, StateSE2
 from d123.common.geometry.transform.tranform_2d import translate_along_yaw
 from d123.common.geometry.utils import normalize_angle
-from d123.dataset.dataset_specific.carla.opendrive.elements.objects import Object
-from d123.dataset.dataset_specific.carla.opendrive.elements.reference import Border
+from d123.dataset.conversion.map.opendrive.elements.objects import Object
+from d123.dataset.conversion.map.opendrive.elements.reference import Border
 
 # TODO: make naming consistent with group_collections.py
 

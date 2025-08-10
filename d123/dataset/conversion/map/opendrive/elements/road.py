@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from typing import List, Optional
 from xml.etree.ElementTree import Element
 
-from d123.dataset.dataset_specific.carla.opendrive.elements.elevation import ElevationProfile, LateralProfile
-from d123.dataset.dataset_specific.carla.opendrive.elements.lane import Lanes
-from d123.dataset.dataset_specific.carla.opendrive.elements.objects import Object
-from d123.dataset.dataset_specific.carla.opendrive.elements.reference import PlanView
+from d123.dataset.conversion.map.opendrive.elements.elevation import ElevationProfile, LateralProfile
+from d123.dataset.conversion.map.opendrive.elements.lane import Lanes
+from d123.dataset.conversion.map.opendrive.elements.objects import Object
+from d123.dataset.conversion.map.opendrive.elements.reference import PlanView
 
 
 @dataclass

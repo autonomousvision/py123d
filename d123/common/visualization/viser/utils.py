@@ -21,7 +21,7 @@ from d123.dataset.scene.abstract_scene import AbstractScene
 # TODO: Refactor this file.
 # TODO: Add general utilities for 3D primitives and mesh support.
 
-MAP_RADIUS: Final[float] = 500
+MAP_RADIUS: Final[float] = 80
 BRIGHTNESS_FACTOR: Final[float] = 0.8
 
 
@@ -106,7 +106,16 @@ def get_map_meshes(scene: AbstractScene):
         for map_surface in map_objects_dict[map_surface_type]:
             map_surface: AbstractSurfaceMapObject
             trimesh_mesh = map_surface.trimesh_mesh
-            if map_surface_type in [MapSurfaceType.WALKWAY, MapSurfaceType.CROSSWALK]:
+            if map_surface_type == MapSurfaceType.GENERIC_DRIVABLE:
+                print("Generic Drivable Surface Mesh:")
+                print(trimesh_mesh)
+                output[f"{map_surface_type.serialize()}_{map_surface.id}"] = trimesh_mesh
+            if map_surface_type in [
+                MapSurfaceType.WALKWAY,
+                MapSurfaceType.CROSSWALK,
+                # MapSurfaceType.GENERIC_DRIVABLE,
+                # MapSurfaceType.CARPARK,
+            ]:
                 # Push meshes up by a few centimeters to avoid overlap with the ground in the visualization.
                 trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z - 0.05).array
             else:
@@ -117,9 +126,7 @@ def get_map_meshes(scene: AbstractScene):
                     x=0, y=0, z=center.z - initial_ego_vehicle_state.vehicle_parameters.height / 2
                 ).array
 
-            trimesh_mesh.visual.face_colors = (
-                MAP_SURFACE_CONFIG[map_surface_type].fill_color.set_brightness(BRIGHTNESS_FACTOR).rgba
-            )
+            trimesh_mesh.visual.face_colors = MAP_SURFACE_CONFIG[map_surface_type].fill_color.rgba
             surface_meshes.append(trimesh_mesh)
         output[f"{map_surface_type.serialize()}"] = trimesh.util.concatenate(surface_meshes)
 

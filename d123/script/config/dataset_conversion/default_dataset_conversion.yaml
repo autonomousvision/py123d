@@ -15,8 +15,8 @@ defaults:
   - default_dataset_paths
   - _self_
   - datasets:
-    # - nuplan_private_dataset
-    - carla_dataset
+    - nuplan_private_dataset
+    # - carla_dataset
     # - wopd_dataset
 
 force_log_conversion: False

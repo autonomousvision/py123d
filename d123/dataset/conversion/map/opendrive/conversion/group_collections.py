@@ -8,14 +8,14 @@ import shapely
 
 from d123.common.geometry.base import StateSE2Index
 from d123.common.geometry.units import kmph_to_mps, mph_to_mps
-from d123.dataset.dataset_specific.carla.opendrive.conversion.id_system import (
+from d123.dataset.conversion.map.opendrive.conversion.id_system import (
     derive_lane_group_id,
     derive_lane_id,
     lane_group_id_from_lane_id,
 )
-from d123.dataset.dataset_specific.carla.opendrive.elements.lane import Lane, LaneSection
-from d123.dataset.dataset_specific.carla.opendrive.elements.reference import Border
-from d123.dataset.dataset_specific.carla.opendrive.elements.road import RoadType
+from d123.dataset.conversion.map.opendrive.elements.lane import Lane, LaneSection
+from d123.dataset.conversion.map.opendrive.elements.reference import Border
+from d123.dataset.conversion.map.opendrive.elements.road import RoadType
 
 # TODO: Add to config
 STEP_SIZE = 1.0

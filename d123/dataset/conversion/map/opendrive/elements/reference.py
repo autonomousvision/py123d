@@ -11,9 +11,9 @@ import numpy.typing as npt
 
 from d123.common.geometry.base import Point3DIndex, StateSE2Index
 from d123.common.geometry.utils import normalize_angle
-from d123.dataset.dataset_specific.carla.opendrive.elements.elevation import ElevationProfile
-from d123.dataset.dataset_specific.carla.opendrive.elements.geometry import Arc, Geometry, Line, Spiral
-from d123.dataset.dataset_specific.carla.opendrive.elements.lane import LaneOffset
+from d123.dataset.conversion.map.opendrive.elements.elevation import ElevationProfile
+from d123.dataset.conversion.map.opendrive.elements.geometry import Arc, Geometry, Line, Spiral
+from d123.dataset.conversion.map.opendrive.elements.lane import LaneOffset
 
 
 @dataclass

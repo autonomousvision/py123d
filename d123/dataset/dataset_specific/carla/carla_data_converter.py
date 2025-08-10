@@ -19,8 +19,8 @@ from d123.common.geometry.base import Point2D, Point3D
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
 from d123.common.geometry.vector import Vector3DIndex
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
-from d123.dataset.dataset_specific.carla.opendrive.elements.opendrive import OpenDrive
-from d123.dataset.dataset_specific.carla.opendrive.opendrive_converter import OpenDriveConverter
+from d123.dataset.conversion.map.opendrive.elements.opendrive import OpenDrive
+from d123.dataset.conversion.map.opendrive.opendrive_converter import OpenDriveConverter
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
 from d123.dataset.maps.abstract_map import AbstractMap, MapSurfaceType

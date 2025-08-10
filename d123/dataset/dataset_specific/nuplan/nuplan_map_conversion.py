@@ -2,20 +2,19 @@
 
 import os
 import warnings
-from ast import Tuple
 from pathlib import Path
-from typing import Dict, Final, List, Optional
+from typing import Dict, List, Optional
 
 import geopandas as gpd
 import numpy as np
-import numpy.typing as npt
 import pandas as pd
 import pyogrio
-from shapely import union_all
 from shapely.geometry import LineString
-from sympy import Polygon
 
-from d123.common.geometry.constants import DEFAULT_Z
+from d123.dataset.conversion.map.road_edge.road_edge_2d_utils import (
+    get_road_edge_linear_rings,
+    split_line_geometry_by_max_length,
+)
 from d123.dataset.maps.gpkg.utils import get_all_rows_with_value, get_row_with_value
 from d123.dataset.maps.map_datatypes import MapSurfaceType
 
@@ -47,9 +46,7 @@ GPKG_LAYERS: List[str] = [
     "gen_lane_connectors_scaled_width_polygons",
 ]
 
-ROAD_EDGE_STEP_SIZE = 0.25  # meters
 MAX_ROAD_EDGE_LENGTH = 100.0  # meters, used to filter out very long road edges
-ROAD_EDGE_BUFFER: Final[float] = 0.05
 
 
 class NuPlanMapConverter:
@@ -64,29 +61,24 @@ class NuPlanMapConverter:
         map_file_path = Path(NUPLAN_MAPS_ROOT) / MAP_FILES[map_name]
         self._load_dataframes(map_file_path)
 
-        lane_df = self._extract_lane_dataframe()
-        lane_group_df = self._extract_lane_group_dataframe()
-        intersection_df = self._extract_intersection_dataframe()
-        crosswalk_df = self._extract_crosswalk_dataframe()
-        walkway_df = self._extract_walkway_dataframe()
-        carpark_df = self._extract_carpark_dataframe()
-        generic_drivable_df = self._extract_generic_drivable_dataframe()
-        road_edge_df = self._extract_road_edge_dataframe()
+        dataframes: Dict[MapSurfaceType, gpd.GeoDataFrame] = {}
+        dataframes[MapSurfaceType.LANE] = self._extract_lane_dataframe()
+        dataframes[MapSurfaceType.LANE_GROUP] = self._extract_lane_group_dataframe()
+        dataframes[MapSurfaceType.INTERSECTION] = self._extract_intersection_dataframe()
+        dataframes[MapSurfaceType.CROSSWALK] = self._extract_crosswalk_dataframe()
+        dataframes[MapSurfaceType.WALKWAY] = self._extract_walkway_dataframe()
+        dataframes[MapSurfaceType.CARPARK] = self._extract_carpark_dataframe()
+        dataframes[MapSurfaceType.GENERIC_DRIVABLE] = self._extract_generic_drivable_dataframe()
+        dataframes[MapSurfaceType.ROAD_EDGE] = self._extract_road_edge_dataframe()
 
         if not self._map_path.exists():
             self._map_path.mkdir(parents=True, exist_ok=True)
 
         map_file_name = self._map_path / f"nuplan_{map_name}.gpkg"
-        lane_df.to_file(map_file_name, layer=MapSurfaceType.LANE.serialize(), driver="GPKG")
-        lane_group_df.to_file(map_file_name, layer=MapSurfaceType.LANE_GROUP.serialize(), driver="GPKG", mode="a")
-        intersection_df.to_file(map_file_name, layer=MapSurfaceType.INTERSECTION.serialize(), driver="GPKG", mode="a")
-        crosswalk_df.to_file(map_file_name, layer=MapSurfaceType.CROSSWALK.serialize(), driver="GPKG", mode="a")
-        walkway_df.to_file(map_file_name, layer=MapSurfaceType.WALKWAY.serialize(), driver="GPKG", mode="a")
-        carpark_df.to_file(map_file_name, layer=MapSurfaceType.CARPARK.serialize(), driver="GPKG", mode="a")
-        generic_drivable_df.to_file(
-            map_file_name, layer=MapSurfaceType.GENERIC_DRIVABLE.serialize(), driver="GPKG", mode="a"
-        )
-        road_edge_df.to_file(map_file_name, layer=MapSurfaceType.ROAD_EDGE.serialize(), driver="GPKG", mode="a")
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="'crs' was not provided")
+            for layer, gdf in dataframes.items():
+                gdf.to_file(map_file_name, layer=layer.serialize(), driver="GPKG", mode="a")
 
     def _load_dataframes(self, map_file_path: Path) -> None:
 
@@ -402,10 +394,11 @@ class NuPlanMapConverter:
             + self._gdf["carpark_areas"].geometry.to_list()
             + self._gdf["generic_drivable_areas"].geometry.to_list()
         )
-        road_edge_linestrings = get_road_edge_linestrings(drivable_polygons)
+        road_edge_linear_rings = get_road_edge_linear_rings(drivable_polygons)
+        road_edges = split_line_geometry_by_max_length(road_edge_linear_rings, MAX_ROAD_EDGE_LENGTH)
 
-        data = pd.DataFrame({"id": [idx for idx in range(len(road_edge_linestrings))]})
-        return gpd.GeoDataFrame(data, geometry=road_edge_linestrings)
+        data = pd.DataFrame({"id": [idx for idx in range(len(road_edges))]})
+        return gpd.GeoDataFrame(data, geometry=road_edges)
 
 
 def flip_linestring(linestring: LineString) -> LineString:
@@ -432,58 +425,3 @@ def align_boundary_direction(centerline: LineString, boundary: LineString) -> Li
     if not lines_same_direction(centerline, boundary):
         return flip_linestring(boundary)
     return boundary
-
-
-def get_road_edge_linestrings(
-    drivable_polygons: List[Polygon],
-    step_size: float = ROAD_EDGE_STEP_SIZE,
-    max_road_edge_length: Optional[float] = MAX_ROAD_EDGE_LENGTH,
-) -> List[LineString]:
-    # TODO: move this function for general usage.
-
-    def _coords_to_points(coords: npt.NDArray[np.float64]) -> List[npt.NDArray[np.float64]]:
-        coords = np.array(coords).reshape((-1, 2))
-        linestring = LineString(coords)
-
-        points_list: List[npt.NDArray[np.float64]] = []
-
-        segments: List[Tuple[float, float]] = []  # Start and end points of segments
-        if max_road_edge_length is not None:
-            num_segments = int(linestring.length / max_road_edge_length)
-            for i in range(num_segments + 1):
-                start = np.clip(float(i) * max_road_edge_length, 0, linestring.length)
-                end = np.clip((float(i) + 1) * max_road_edge_length, 0, linestring.length)
-                segments.append((start, end))
-        else:
-            segments = [(0.0, linestring.length)]
-
-        for segment in segments:
-            start, end = segment
-            distances = np.arange(start, end + step_size, step_size)
-            points = [linestring.interpolate(distance, normalized=False) for distance in distances]
-            points_list.append(np.array([[p.x, p.y, DEFAULT_Z] for p in points]))
-
-        return points_list
-
-    def _polygon_to_coords(polygon: Polygon) -> List[npt.NDArray[np.float64]]:
-        assert polygon.geom_type == "Polygon"
-        points_list = []
-        points_list.extend(_coords_to_points(polygon.exterior.coords))
-        for interior in polygon.interiors:
-            points_list.extend(_coords_to_points(interior.coords))
-        return points_list
-
-    union_polygon = union_all([polygon.buffer(ROAD_EDGE_BUFFER, join_style=2) for polygon in drivable_polygons]).buffer(
-        -ROAD_EDGE_BUFFER, join_style=2
-    )
-
-    linestring_list = []
-    if union_polygon.geom_type == "Polygon":
-        for polyline in _polygon_to_coords(union_polygon):
-            linestring_list.append(LineString(polyline))
-    elif union_polygon.geom_type == "MultiPolygon":
-        for polygon in union_polygon.geoms:
-            for polyline in _polygon_to_coords(polygon):
-                linestring_list.append(LineString(polyline))
-
-    return linestring_list

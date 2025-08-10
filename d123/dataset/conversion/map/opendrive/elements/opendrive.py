@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Optional
 from xml.etree.ElementTree import Element, parse
 
-from d123.dataset.dataset_specific.carla.opendrive.elements.road import Road
+from d123.dataset.conversion.map.opendrive.elements.road import Road
 
 
 @dataclass
