@@ -26,7 +26,7 @@ from d123.dataset.maps.gpkg.gpkg_map_objects import (
     GPKGWalkway,
 )
 from d123.dataset.maps.gpkg.utils import load_gdf_with_geometry_columns
-from d123.dataset.maps.map_datatypes import MapSurfaceType
+from d123.dataset.maps.map_datatypes import MapLayer
 
 USE_ARROW: bool = True
 
@@ -35,20 +35,20 @@ class GPKGMap(AbstractMap):
     def __init__(self, file_path: Path) -> None:
 
         self._file_path = file_path
-        self._map_object_getter: Dict[MapSurfaceType, Callable[[str], Optional[AbstractMapObject]]] = {
-            MapSurfaceType.LANE: self._get_lane,
-            MapSurfaceType.LANE_GROUP: self._get_lane_group,
-            MapSurfaceType.INTERSECTION: self._get_intersection,
-            MapSurfaceType.CROSSWALK: self._get_crosswalk,
-            MapSurfaceType.WALKWAY: self._get_walkway,
-            MapSurfaceType.CARPARK: self._get_carpark,
-            MapSurfaceType.GENERIC_DRIVABLE: self._get_generic_drivable,
-            MapSurfaceType.ROAD_EDGE: self._get_road_edge,
-            MapSurfaceType.ROAD_LINE: self._get_road_line,
+        self._map_object_getter: Dict[MapLayer, Callable[[str], Optional[AbstractMapObject]]] = {
+            MapLayer.LANE: self._get_lane,
+            MapLayer.LANE_GROUP: self._get_lane_group,
+            MapLayer.INTERSECTION: self._get_intersection,
+            MapLayer.CROSSWALK: self._get_crosswalk,
+            MapLayer.WALKWAY: self._get_walkway,
+            MapLayer.CARPARK: self._get_carpark,
+            MapLayer.GENERIC_DRIVABLE: self._get_generic_drivable,
+            MapLayer.ROAD_EDGE: self._get_road_edge,
+            MapLayer.ROAD_LINE: self._get_road_line,
         }
 
         # loaded during `.initialize()`
-        self._gpd_dataframes: Dict[MapSurfaceType, gpd.GeoDataFrame] = {}
+        self._gpd_dataframes: Dict[MapLayer, gpd.GeoDataFrame] = {}
 
     @property
     def map_name(self) -> str:
@@ -59,7 +59,7 @@ class GPKGMap(AbstractMap):
         """Inherited, see superclass."""
         if len(self._gpd_dataframes) == 0:
             available_layers = list(gpd.list_layers(self._file_path).name)
-            for map_layer in list(MapSurfaceType):
+            for map_layer in list(MapLayer):
                 map_layer_name = map_layer.serialize()
                 if map_layer_name in available_layers:
                     self._gpd_dataframes[map_layer] = gpd.read_file(
@@ -79,16 +79,16 @@ class GPKGMap(AbstractMap):
         "Checks if `.initialize()` was called, before retrieving data."
         assert len(self._gpd_dataframes) > 0, "GPKGMap: Call `.initialize()` before retrieving data!"
 
-    def _assert_layer_available(self, layer: MapSurfaceType) -> None:
+    def _assert_layer_available(self, layer: MapLayer) -> None:
         "Checks if layer is available."
-        assert layer in self.get_available_map_objects(), f"GPKGMap: MapSurfaceType {layer.name} is unavailable."
+        assert layer in self.get_available_map_objects(), f"GPKGMap: MapLayer {layer.name} is unavailable."
 
-    def get_available_map_objects(self) -> List[MapSurfaceType]:
+    def get_available_map_objects(self) -> List[MapLayer]:
         """Inherited, see superclass."""
         self._assert_initialize()
         return list(self._gpd_dataframes.keys())
 
-    def get_map_object(self, object_id: str, layer: MapSurfaceType) -> Optional[AbstractMapObject]:
+    def get_map_object(self, object_id: str, layer: MapLayer) -> Optional[AbstractMapObject]:
         """Inherited, see superclass."""
 
         self._assert_initialize()
@@ -98,17 +98,17 @@ class GPKGMap(AbstractMap):
         except KeyError:
             raise ValueError(f"Object representation for layer: {layer.name} object: {object_id} is unavailable")
 
-    def get_all_map_objects(self, point_2d: Point2D, layer: MapSurfaceType) -> List[AbstractMapObject]:
+    def get_all_map_objects(self, point_2d: Point2D, layer: MapLayer) -> List[AbstractMapObject]:
         """Inherited, see superclass."""
         raise NotImplementedError
 
-    def is_in_layer(self, point: Point2D, layer: MapSurfaceType) -> bool:
+    def is_in_layer(self, point: Point2D, layer: MapLayer) -> bool:
         """Inherited, see superclass."""
         raise NotImplementedError
 
     def get_proximal_map_objects(
-        self, point_2d: Point2D, radius: float, layers: List[MapSurfaceType]
-    ) -> Dict[MapSurfaceType, List[AbstractMapObject]]:
+        self, point_2d: Point2D, radius: float, layers: List[MapLayer]
+    ) -> Dict[MapLayer, List[AbstractMapObject]]:
         """Inherited, see superclass."""
         center_point = geom.Point(point_2d.x, point_2d.y)
         patch = center_point.buffer(radius)
@@ -117,16 +117,16 @@ class GPKGMap(AbstractMap):
     def query(
         self,
         geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
-        layers: List[MapSurfaceType],
+        layers: List[MapLayer],
         predicate: Optional[str] = None,
         sort: bool = False,
         distance: Optional[float] = None,
-    ) -> Dict[MapSurfaceType, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]]:
+    ) -> Dict[MapLayer, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]]:
         supported_layers = self.get_available_map_objects()
         unsupported_layers = [layer for layer in layers if layer not in supported_layers]
         assert len(unsupported_layers) == 0, f"Object representation for layer(s): {unsupported_layers} is unavailable"
-        object_map: Dict[MapSurfaceType, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]] = (
-            defaultdict(list)
+        object_map: Dict[MapLayer, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]] = defaultdict(
+            list
         )
         for layer in layers:
             object_map[layer] = self._query_layer(geometry, layer, predicate, sort, distance)
@@ -135,15 +135,15 @@ class GPKGMap(AbstractMap):
     def query_object_ids(
         self,
         geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
-        layers: List[MapSurfaceType],
+        layers: List[MapLayer],
         predicate: Optional[str] = None,
         sort: bool = False,
         distance: Optional[float] = None,
-    ) -> Dict[MapSurfaceType, Union[List[str], Dict[int, List[str]]]]:
+    ) -> Dict[MapLayer, Union[List[str], Dict[int, List[str]]]]:
         supported_layers = self.get_available_map_objects()
         unsupported_layers = [layer for layer in layers if layer not in supported_layers]
         assert len(unsupported_layers) == 0, f"Object representation for layer(s): {unsupported_layers} is unavailable"
-        object_map: Dict[MapSurfaceType, Union[List[str], Dict[int, List[str]]]] = defaultdict(list)
+        object_map: Dict[MapLayer, Union[List[str], Dict[int, List[str]]]] = defaultdict(list)
         for layer in layers:
             object_map[layer] = self._query_layer_objects_ids(geometry, layer, predicate, sort, distance)
         return object_map
@@ -151,16 +151,16 @@ class GPKGMap(AbstractMap):
     def query_nearest(
         self,
         geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
-        layers: List[MapSurfaceType],
+        layers: List[MapLayer],
         return_all: bool = True,
         max_distance: Optional[float] = None,
         return_distance: bool = False,
         exclusive: bool = False,
-    ) -> Dict[MapSurfaceType, Union[List[str], Dict[int, List[str]], Dict[int, List[Tuple[str, float]]]]]:
+    ) -> Dict[MapLayer, Union[List[str], Dict[int, List[str]], Dict[int, List[Tuple[str, float]]]]]:
         supported_layers = self.get_available_map_objects()
         unsupported_layers = [layer for layer in layers if layer not in supported_layers]
         assert len(unsupported_layers) == 0, f"Object representation for layer(s): {unsupported_layers} is unavailable"
-        object_map: Dict[MapSurfaceType, Union[List[str], Dict[int, List[str]]]] = defaultdict(list)
+        object_map: Dict[MapLayer, Union[List[str], Dict[int, List[str]]]] = defaultdict(list)
         for layer in layers:
             object_map[layer] = self._query_layer_nearest(
                 geometry, layer, return_all, max_distance, return_distance, exclusive
@@ -170,7 +170,7 @@ class GPKGMap(AbstractMap):
     def _query_layer(
         self,
         geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
-        layer: MapSurfaceType,
+        layer: MapLayer,
         predicate: Optional[str] = None,
         sort: bool = False,
         distance: Optional[float] = None,
@@ -192,7 +192,7 @@ class GPKGMap(AbstractMap):
     def _query_layer_objects_ids(
         self,
         geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
-        layer: MapSurfaceType,
+        layer: MapLayer,
         predicate: Optional[str] = None,
         sort: bool = False,
         distance: Optional[float] = None,
@@ -215,7 +215,7 @@ class GPKGMap(AbstractMap):
     def _query_layer_nearest(
         self,
         geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
-        layer: MapSurfaceType,
+        layer: MapLayer,
         return_all: bool = True,
         max_distance: Optional[float] = None,
         return_distance: bool = False,
@@ -251,11 +251,11 @@ class GPKGMap(AbstractMap):
         return (
             GPKGLane(
                 id,
-                self._gpd_dataframes[MapSurfaceType.LANE],
-                self._gpd_dataframes[MapSurfaceType.LANE_GROUP],
-                self._gpd_dataframes[MapSurfaceType.INTERSECTION],
+                self._gpd_dataframes[MapLayer.LANE],
+                self._gpd_dataframes[MapLayer.LANE_GROUP],
+                self._gpd_dataframes[MapLayer.INTERSECTION],
             )
-            if id in self._gpd_dataframes[MapSurfaceType.LANE]["id"].tolist()
+            if id in self._gpd_dataframes[MapLayer.LANE]["id"].tolist()
             else None
         )
 
@@ -263,11 +263,11 @@ class GPKGMap(AbstractMap):
         return (
             GPKGLaneGroup(
                 id,
-                self._gpd_dataframes[MapSurfaceType.LANE_GROUP],
-                self._gpd_dataframes[MapSurfaceType.LANE],
-                self._gpd_dataframes[MapSurfaceType.INTERSECTION],
+                self._gpd_dataframes[MapLayer.LANE_GROUP],
+                self._gpd_dataframes[MapLayer.LANE],
+                self._gpd_dataframes[MapLayer.INTERSECTION],
             )
-            if id in self._gpd_dataframes[MapSurfaceType.LANE_GROUP]["id"].tolist()
+            if id in self._gpd_dataframes[MapLayer.LANE_GROUP]["id"].tolist()
             else None
         )
 
@@ -275,60 +275,60 @@ class GPKGMap(AbstractMap):
         return (
             GPKGIntersection(
                 id,
-                self._gpd_dataframes[MapSurfaceType.INTERSECTION],
-                self._gpd_dataframes[MapSurfaceType.LANE],
-                self._gpd_dataframes[MapSurfaceType.LANE_GROUP],
+                self._gpd_dataframes[MapLayer.INTERSECTION],
+                self._gpd_dataframes[MapLayer.LANE],
+                self._gpd_dataframes[MapLayer.LANE_GROUP],
             )
-            if id in self._gpd_dataframes[MapSurfaceType.INTERSECTION]["id"].tolist()
+            if id in self._gpd_dataframes[MapLayer.INTERSECTION]["id"].tolist()
             else None
         )
 
     def _get_crosswalk(self, id: str) -> Optional[GPKGCrosswalk]:
         return (
-            GPKGCrosswalk(id, self._gpd_dataframes[MapSurfaceType.CROSSWALK])
-            if id in self._gpd_dataframes[MapSurfaceType.CROSSWALK]["id"].tolist()
+            GPKGCrosswalk(id, self._gpd_dataframes[MapLayer.CROSSWALK])
+            if id in self._gpd_dataframes[MapLayer.CROSSWALK]["id"].tolist()
             else None
         )
 
     def _get_walkway(self, id: str) -> Optional[GPKGWalkway]:
         return (
-            GPKGWalkway(id, self._gpd_dataframes[MapSurfaceType.WALKWAY])
-            if id in self._gpd_dataframes[MapSurfaceType.WALKWAY]["id"].tolist()
+            GPKGWalkway(id, self._gpd_dataframes[MapLayer.WALKWAY])
+            if id in self._gpd_dataframes[MapLayer.WALKWAY]["id"].tolist()
             else None
         )
 
     def _get_carpark(self, id: str) -> Optional[GPKGCarpark]:
         return (
-            GPKGCarpark(id, self._gpd_dataframes[MapSurfaceType.CARPARK])
-            if id in self._gpd_dataframes[MapSurfaceType.CARPARK]["id"].tolist()
+            GPKGCarpark(id, self._gpd_dataframes[MapLayer.CARPARK])
+            if id in self._gpd_dataframes[MapLayer.CARPARK]["id"].tolist()
             else None
         )
 
     def _get_generic_drivable(self, id: str) -> Optional[GPKGGenericDrivable]:
         return (
-            GPKGGenericDrivable(id, self._gpd_dataframes[MapSurfaceType.GENERIC_DRIVABLE])
-            if id in self._gpd_dataframes[MapSurfaceType.GENERIC_DRIVABLE]["id"].tolist()
+            GPKGGenericDrivable(id, self._gpd_dataframes[MapLayer.GENERIC_DRIVABLE])
+            if id in self._gpd_dataframes[MapLayer.GENERIC_DRIVABLE]["id"].tolist()
             else None
         )
 
     def _get_road_edge(self, id: str) -> Optional[GPKGRoadEdge]:
         return (
-            GPKGRoadEdge(id, self._gpd_dataframes[MapSurfaceType.ROAD_EDGE])
-            if id in self._gpd_dataframes[MapSurfaceType.ROAD_EDGE]["id"].tolist()
+            GPKGRoadEdge(id, self._gpd_dataframes[MapLayer.ROAD_EDGE])
+            if id in self._gpd_dataframes[MapLayer.ROAD_EDGE]["id"].tolist()
             else None
         )
 
     def _get_road_line(self, id: str) -> Optional[GPKGRoadLine]:
         return (
-            GPKGRoadLine(id, self._gpd_dataframes[MapSurfaceType.ROAD_LINE])
-            if id in self._gpd_dataframes[MapSurfaceType.ROAD_LINE]["id"].tolist()
+            GPKGRoadLine(id, self._gpd_dataframes[MapLayer.ROAD_LINE])
+            if id in self._gpd_dataframes[MapLayer.ROAD_LINE]["id"].tolist()
             else None
         )
 
     # def _query_layer(
     #     self,
     #     geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
-    #     layer: MapSurfaceType,
+    #     layer: MapLayer,
     #     predicate: Optional[str] = None,
     #     sort: bool = False,
     #     distance: Optional[float] = None,
@@ -350,7 +350,7 @@ class GPKGMap(AbstractMap):
     # def _query_layer_objects_ids(
     #     self,
     #     geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
-    #     layer: MapSurfaceType,
+    #     layer: MapLayer,
     #     predicate: Optional[str] = None,
     #     sort: bool = False,
     #     distance: Optional[float] = None,

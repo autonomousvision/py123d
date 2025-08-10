@@ -29,7 +29,7 @@ from d123.dataset.conversion.map.opendrive.elements.reference import Border
 from d123.dataset.conversion.map.opendrive.id_mapping import IntIDMapping
 from d123.dataset.conversion.map.road_edge.road_edge_2d_utils import split_line_geometry_by_max_length
 from d123.dataset.conversion.map.road_edge.road_edge_3d_utils import get_road_edges_3d_from_gdf
-from d123.dataset.maps.map_datatypes import MapSurfaceType
+from d123.dataset.maps.map_datatypes import MapLayer
 
 ENABLE_WARNING: bool = False
 CONNECTION_DISTANCE_THRESHOLD: float = 0.1  # [m]
@@ -63,29 +63,29 @@ class OpenDriveConverter:
         self._collect_crosswalks()
 
         # Collect data frames and store
-        dataframes: Dict[MapSurfaceType, gpd.GeoDataFrame] = {}
-        dataframes[MapSurfaceType.LANE] = self._extract_lane_dataframe()
-        dataframes[MapSurfaceType.WALKWAY] = self._extract_walkways_dataframe()
-        dataframes[MapSurfaceType.CARPARK] = self._extract_carpark_dataframe()
-        dataframes[MapSurfaceType.GENERIC_DRIVABLE] = self._extract_generic_drivable_dataframe()
-        dataframes[MapSurfaceType.INTERSECTION] = self._extract_intersections_dataframe()
-        dataframes[MapSurfaceType.LANE_GROUP] = self._extract_lane_group_dataframe()
-        dataframes[MapSurfaceType.CROSSWALK] = self._extract_crosswalk_dataframe()
+        dataframes: Dict[MapLayer, gpd.GeoDataFrame] = {}
+        dataframes[MapLayer.LANE] = self._extract_lane_dataframe()
+        dataframes[MapLayer.WALKWAY] = self._extract_walkways_dataframe()
+        dataframes[MapLayer.CARPARK] = self._extract_carpark_dataframe()
+        dataframes[MapLayer.GENERIC_DRIVABLE] = self._extract_generic_drivable_dataframe()
+        dataframes[MapLayer.INTERSECTION] = self._extract_intersections_dataframe()
+        dataframes[MapLayer.LANE_GROUP] = self._extract_lane_group_dataframe()
+        dataframes[MapLayer.CROSSWALK] = self._extract_crosswalk_dataframe()
 
         self._convert_ids_to_int(
-            dataframes[MapSurfaceType.LANE],
-            dataframes[MapSurfaceType.WALKWAY],
-            dataframes[MapSurfaceType.CARPARK],
-            dataframes[MapSurfaceType.GENERIC_DRIVABLE],
-            dataframes[MapSurfaceType.LANE_GROUP],
-            dataframes[MapSurfaceType.INTERSECTION],
-            dataframes[MapSurfaceType.CROSSWALK],
+            dataframes[MapLayer.LANE],
+            dataframes[MapLayer.WALKWAY],
+            dataframes[MapLayer.CARPARK],
+            dataframes[MapLayer.GENERIC_DRIVABLE],
+            dataframes[MapLayer.LANE_GROUP],
+            dataframes[MapLayer.INTERSECTION],
+            dataframes[MapLayer.CROSSWALK],
         )
-        dataframes[MapSurfaceType.ROAD_EDGE] = self._extract_road_edge_df(
-            dataframes[MapSurfaceType.LANE],
-            dataframes[MapSurfaceType.CARPARK],
-            dataframes[MapSurfaceType.GENERIC_DRIVABLE],
-            dataframes[MapSurfaceType.LANE_GROUP],
+        dataframes[MapLayer.ROAD_EDGE] = self._extract_road_edge_df(
+            dataframes[MapLayer.LANE],
+            dataframes[MapLayer.CARPARK],
+            dataframes[MapLayer.GENERIC_DRIVABLE],
+            dataframes[MapLayer.LANE_GROUP],
         )
 
         # Store dataframes

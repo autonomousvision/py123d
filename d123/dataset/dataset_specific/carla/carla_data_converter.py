@@ -23,7 +23,7 @@ from d123.dataset.conversion.map.opendrive.elements.opendrive import OpenDrive
 from d123.dataset.conversion.map.opendrive.opendrive_converter import OpenDriveConverter
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
-from d123.dataset.maps.abstract_map import AbstractMap, MapSurfaceType
+from d123.dataset.maps.abstract_map import AbstractMap, MapLayer
 from d123.dataset.maps.abstract_map_objects import AbstractLane
 from d123.dataset.scene.arrow_scene import get_map_api_from_names
 
@@ -342,8 +342,8 @@ def _extract_traffic_light_data(
         for traffic_light_waypoint in traffic_light_waypoints:
             point_3d = Point3D(*traffic_light_waypoint)
             nearby_lanes = map_api.get_proximal_map_objects(
-                point_3d, TRAFFIC_LIGHT_ASSIGNMENT_DISTANCE, [MapSurfaceType.LANE]
-            )[MapSurfaceType.LANE]
+                point_3d, TRAFFIC_LIGHT_ASSIGNMENT_DISTANCE, [MapLayer.LANE]
+            )[MapLayer.LANE]
 
             for lane in nearby_lanes:
                 lane: AbstractLane
@@ -366,8 +366,8 @@ def _extract_route_lane_group_ids(route: List[List[float]], map_api: AbstractMap
 
     for point in route[:200]:
         point_2d = Point2D(point[0], point[1])
-        nearby_lane_groups = map_api.query(point_2d.shapely_point, [MapSurfaceType.LANE_GROUP], predicate="intersects")[
-            MapSurfaceType.LANE_GROUP
+        nearby_lane_groups = map_api.query(point_2d.shapely_point, [MapLayer.LANE_GROUP], predicate="intersects")[
+            MapLayer.LANE_GROUP
         ]
         if len(nearby_lane_groups) == 0:
             continue

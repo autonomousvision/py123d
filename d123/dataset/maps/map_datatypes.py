@@ -5,7 +5,7 @@ from d123.common.utils.enums import SerialIntEnum
 # TODO: Add stop pads or stop lines.
 
 
-class MapSurfaceType(SerialIntEnum):
+class MapLayer(SerialIntEnum):
     """
     Enum for AbstractMapSurface.
     """

@@ -14,14 +14,14 @@ from d123.common.geometry.line.polylines import Polyline3D
 from d123.common.geometry.transform.se3 import convert_relative_to_absolute_points_3d_array
 from d123.common.visualization.color.config import PlotConfig
 from d123.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VEHICLE_CONFIG, MAP_SURFACE_CONFIG
-from d123.dataset.maps.abstract_map import MapSurfaceType
+from d123.dataset.maps.abstract_map import MapLayer
 from d123.dataset.maps.abstract_map_objects import AbstractLane, AbstractSurfaceMapObject
 from d123.dataset.scene.abstract_scene import AbstractScene
 
 # TODO: Refactor this file.
 # TODO: Add general utilities for 3D primitives and mesh support.
 
-MAP_RADIUS: Final[float] = 80
+MAP_RADIUS: Final[float] = 500
 BRIGHTNESS_FACTOR: Final[float] = 0.8
 
 
@@ -87,34 +87,28 @@ def get_bounding_box_meshes(scene: AbstractScene, iteration: int):
 def get_map_meshes(scene: AbstractScene):
     initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
     center = initial_ego_vehicle_state.center_se3
-    map_surface_types = [
-        MapSurfaceType.LANE_GROUP,
-        # MapSurfaceType.LANE,
-        MapSurfaceType.WALKWAY,
-        MapSurfaceType.CROSSWALK,
-        MapSurfaceType.CARPARK,
-        MapSurfaceType.GENERIC_DRIVABLE,
+    map_layers = [
+        MapLayer.LANE_GROUP,
+        # MapLayer.LANE,
+        MapLayer.WALKWAY,
+        MapLayer.CROSSWALK,
+        MapLayer.CARPARK,
+        MapLayer.GENERIC_DRIVABLE,
     ]
 
-    map_objects_dict = scene.map_api.get_proximal_map_objects(
-        center.point_2d, radius=MAP_RADIUS, layers=map_surface_types
-    )
+    map_objects_dict = scene.map_api.get_proximal_map_objects(center.point_2d, radius=MAP_RADIUS, layers=map_layers)
     output = {}
 
-    for map_surface_type in map_objects_dict.keys():
+    for map_layer in map_objects_dict.keys():
         surface_meshes = []
-        for map_surface in map_objects_dict[map_surface_type]:
+        for map_surface in map_objects_dict[map_layer]:
             map_surface: AbstractSurfaceMapObject
             trimesh_mesh = map_surface.trimesh_mesh
-            if map_surface_type == MapSurfaceType.GENERIC_DRIVABLE:
-                print("Generic Drivable Surface Mesh:")
-                print(trimesh_mesh)
-                output[f"{map_surface_type.serialize()}_{map_surface.id}"] = trimesh_mesh
-            if map_surface_type in [
-                MapSurfaceType.WALKWAY,
-                MapSurfaceType.CROSSWALK,
-                # MapSurfaceType.GENERIC_DRIVABLE,
-                # MapSurfaceType.CARPARK,
+            if map_layer in [
+                MapLayer.WALKWAY,
+                MapLayer.CROSSWALK,
+                MapLayer.GENERIC_DRIVABLE,
+                # MapLayer.CARPARK,
             ]:
                 # Push meshes up by a few centimeters to avoid overlap with the ground in the visualization.
                 trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z - 0.05).array
@@ -126,20 +120,18 @@ def get_map_meshes(scene: AbstractScene):
                     x=0, y=0, z=center.z - initial_ego_vehicle_state.vehicle_parameters.height / 2
                 ).array
 
-            trimesh_mesh.visual.face_colors = MAP_SURFACE_CONFIG[map_surface_type].fill_color.rgba
+            trimesh_mesh.visual.face_colors = MAP_SURFACE_CONFIG[map_layer].fill_color.set_brightness(0.8).rgba
             surface_meshes.append(trimesh_mesh)
-        output[f"{map_surface_type.serialize()}"] = trimesh.util.concatenate(surface_meshes)
+        output[f"{map_layer.serialize()}"] = trimesh.util.concatenate(surface_meshes)
 
     return output
 
 
 def get_map_lines(scene: AbstractScene):
-    map_surface_types = [MapSurfaceType.LANE, MapSurfaceType.ROAD_EDGE]
+    map_layers = [MapLayer.LANE, MapLayer.ROAD_EDGE]
     initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
     center = initial_ego_vehicle_state.center_se3
-    map_objects_dict = scene.map_api.get_proximal_map_objects(
-        center.point_2d, radius=MAP_RADIUS, layers=map_surface_types
-    )
+    map_objects_dict = scene.map_api.get_proximal_map_objects(center.point_2d, radius=MAP_RADIUS, layers=map_layers)
 
     def polyline_to_segments(polyline: Polyline3D) -> npt.NDArray[np.float64]:
         polyline_array = polyline.array - center.point_3d.array
@@ -148,14 +140,14 @@ def get_map_lines(scene: AbstractScene):
         return polyline_array
 
     centerlines, right_boundaries, left_boundaries, road_edges = [], [], [], []
-    for lane in map_objects_dict[MapSurfaceType.LANE]:
+    for lane in map_objects_dict[MapLayer.LANE]:
         lane: AbstractLane
 
         centerlines.append(polyline_to_segments(lane.centerline))
         right_boundaries.append(polyline_to_segments(lane.right_boundary))
         left_boundaries.append(polyline_to_segments(lane.left_boundary))
 
-    for road_edge in map_objects_dict[MapSurfaceType.ROAD_EDGE]:
+    for road_edge in map_objects_dict[MapLayer.ROAD_EDGE]:
         road_edges.append(polyline_to_segments(road_edge.polyline_3d))
 
     centerlines = np.concatenate(centerlines, axis=0)
@@ -214,7 +206,7 @@ def _create_lane_mesh_from_boundary_arrays(
 
     faces = np.array(faces)
     mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
-    mesh.visual.face_colors = MAP_SURFACE_CONFIG[MapSurfaceType.LANE].fill_color.set_brightness(BRIGHTNESS_FACTOR).rgba
+    mesh.visual.face_colors = MAP_SURFACE_CONFIG[MapLayer.LANE].fill_color.set_brightness(BRIGHTNESS_FACTOR).rgba
     return mesh
 
 

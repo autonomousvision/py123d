@@ -25,7 +25,7 @@ from d123.dataset.maps.abstract_map_objects import (
     AbstractLaneGroup,
     AbstractStopLine,
 )
-from d123.dataset.maps.map_datatypes import MapSurfaceType
+from d123.dataset.maps.map_datatypes import MapLayer
 from d123.simulation.gym.environment.helper.environment_area import AbstractEnvironmentArea
 from d123.simulation.planning.abstract_planner import PlannerInitialization, PlannerInput
 
@@ -77,12 +77,12 @@ class MapCache:
 
     def _load_cache(self) -> None:
 
-        query_map_layers = [MapSurfaceType.LANE_GROUP, MapSurfaceType.CARPARK]
+        query_map_layers = [MapLayer.LANE_GROUP, MapLayer.CARPARK]
         # FIXME: Add stop lines and crosswalks to the map layers if needed
         # if self.load_crosswalks:
-        #     query_map_layers.append(MapSurfaceType.CROSSWALK)
+        #     query_map_layers.append(MapLayer.CROSSWALK)
         # if self.load_stop_lines:
-        #     query_map_layers.append(MapSurfaceType.STOP_LINE)
+        #     query_map_layers.append(MapLayer.STOP_LINE)
 
         map_object_dict = self.map_api.query(
             geometry=self.environment_area.get_global_polygon(self.ego_state.center),
@@ -91,7 +91,7 @@ class MapCache:
         )
 
         # 1. load (1.1) lane groups, (1.2) lanes, (1.3) intersections
-        for lane_group in map_object_dict[MapSurfaceType.LANE_GROUP]:
+        for lane_group in map_object_dict[MapLayer.LANE_GROUP]:
             lane_group: AbstractLaneGroup
             self.lane_groups[lane_group.id] = lane_group
             for lane in lane_group.lanes:
@@ -101,18 +101,18 @@ class MapCache:
                 self.intersections[optional_intersection.id] = optional_intersection
 
         # 2. load car parks
-        for car_park in map_object_dict[MapSurfaceType.CARPARK]:
+        for car_park in map_object_dict[MapLayer.CARPARK]:
             car_park: AbstractCarpark
             self.car_parks[car_park.id] = car_park
 
         # FIXME: Add stop lines and crosswalks to the map layers if needed
         # if self.load_crosswalks:
-        #     for crosswalk in map_object_dict[MapSurfaceType.CROSSWALK]:
+        #     for crosswalk in map_object_dict[MapLayer.CROSSWALK]:
         #         crosswalk: AbstractCarpark
         #         self.crosswalks[crosswalk.id] = crosswalk
 
         # if self.load_stop_lines:
-        #     for stop_line in map_object_dict[MapSurfaceType.STOP_LINE]:
+        #     for stop_line in map_object_dict[MapLayer.STOP_LINE]:
         #         stop_line: AbstractStopLine
         #         self.stop_lines[stop_line.id] = stop_line
 

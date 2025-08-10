@@ -10,7 +10,7 @@ from d123.common.geometry.bounding_box.utils import Corners2DIndex, bbse2_array_
 from d123.common.geometry.utils import normalize_angle
 from d123.dataset.maps.abstract_map import AbstractMap
 from d123.dataset.maps.abstract_map_objects import AbstractLane
-from d123.dataset.maps.map_datatypes import MapSurfaceType
+from d123.dataset.maps.map_datatypes import MapLayer
 
 MAX_LANE_CENTER_DISTANCE: Final[float] = 10.0
 
@@ -32,10 +32,10 @@ def _get_offroad_feature(
     output = map_api.query_object_ids(
         agent_shapely_corners,
         layers=[
-            MapSurfaceType.INTERSECTION,
-            MapSurfaceType.LANE_GROUP,
-            MapSurfaceType.CARPARK,
-            MapSurfaceType.GENERIC_DRIVABLE,
+            MapLayer.INTERSECTION,
+            MapLayer.LANE_GROUP,
+            MapLayer.CARPARK,
+            MapLayer.GENERIC_DRIVABLE,
         ],
         predicate="within",
     )
@@ -61,7 +61,7 @@ def _get_road_center_distance_feature(
 
     def get_lane_by_id(lane_id: str, lane_dict: Dict[str, AbstractLane]) -> AbstractLane:
         if lane_id not in lane_dict.keys():
-            lane_dict[lane_id] = map_api.get_map_object(lane_id, MapSurfaceType.LANE)
+            lane_dict[lane_id] = map_api.get_map_object(lane_id, MapLayer.LANE)
         return lane_dict[lane_id]
 
     assert agents_array.shape[-1] == len(BoundingBoxSE2Index)
@@ -74,12 +74,12 @@ def _get_road_center_distance_feature(
 
     nearest_query_output = map_api.query_nearest(
         agent_shapely_centers,
-        layers=[MapSurfaceType.LANE],
+        layers=[MapLayer.LANE],
         max_distance=MAX_LANE_CENTER_DISTANCE,
         return_all=True,
         return_distance=False,
         exclusive=False,
-    )[MapSurfaceType.LANE]
+    )[MapLayer.LANE]
 
     for object_idx in range(n_objects):
         for iteration in range(n_iterations):

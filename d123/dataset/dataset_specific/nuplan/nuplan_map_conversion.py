@@ -16,7 +16,7 @@ from d123.dataset.conversion.map.road_edge.road_edge_2d_utils import (
     split_line_geometry_by_max_length,
 )
 from d123.dataset.maps.gpkg.utils import get_all_rows_with_value, get_row_with_value
-from d123.dataset.maps.map_datatypes import MapSurfaceType
+from d123.dataset.maps.map_datatypes import MapLayer
 
 MAP_FILES = {
     "sg-one-north": "sg-one-north/9.17.1964/map.gpkg",
@@ -61,15 +61,15 @@ class NuPlanMapConverter:
         map_file_path = Path(NUPLAN_MAPS_ROOT) / MAP_FILES[map_name]
         self._load_dataframes(map_file_path)
 
-        dataframes: Dict[MapSurfaceType, gpd.GeoDataFrame] = {}
-        dataframes[MapSurfaceType.LANE] = self._extract_lane_dataframe()
-        dataframes[MapSurfaceType.LANE_GROUP] = self._extract_lane_group_dataframe()
-        dataframes[MapSurfaceType.INTERSECTION] = self._extract_intersection_dataframe()
-        dataframes[MapSurfaceType.CROSSWALK] = self._extract_crosswalk_dataframe()
-        dataframes[MapSurfaceType.WALKWAY] = self._extract_walkway_dataframe()
-        dataframes[MapSurfaceType.CARPARK] = self._extract_carpark_dataframe()
-        dataframes[MapSurfaceType.GENERIC_DRIVABLE] = self._extract_generic_drivable_dataframe()
-        dataframes[MapSurfaceType.ROAD_EDGE] = self._extract_road_edge_dataframe()
+        dataframes: Dict[MapLayer, gpd.GeoDataFrame] = {}
+        dataframes[MapLayer.LANE] = self._extract_lane_dataframe()
+        dataframes[MapLayer.LANE_GROUP] = self._extract_lane_group_dataframe()
+        dataframes[MapLayer.INTERSECTION] = self._extract_intersection_dataframe()
+        dataframes[MapLayer.CROSSWALK] = self._extract_crosswalk_dataframe()
+        dataframes[MapLayer.WALKWAY] = self._extract_walkway_dataframe()
+        dataframes[MapLayer.CARPARK] = self._extract_carpark_dataframe()
+        dataframes[MapLayer.GENERIC_DRIVABLE] = self._extract_generic_drivable_dataframe()
+        dataframes[MapLayer.ROAD_EDGE] = self._extract_road_edge_dataframe()
 
         if not self._map_path.exists():
             self._map_path.mkdir(parents=True, exist_ok=True)

@@ -20,6 +20,7 @@ from d123.dataset.maps.abstract_map_objects import (
     AbstractIntersection,
     AbstractLane,
     AbstractLaneGroup,
+    AbstractLineMapObject,
     AbstractRoadEdge,
     AbstractRoadLine,
     AbstractSurfaceMapObject,
@@ -33,7 +34,6 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
     Base interface representation of all map objects.
     """
 
-    # TODO: Extend for 3D outline
     def __init__(self, object_id: str, surface_df: gpd.GeoDataFrame) -> None:
         """
         Constructor of the base surface map object type.
@@ -77,6 +77,22 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
             _, faces = trimesh.creation.triangulate_polygon(geom.Polygon(outline_3d_array[:, Point3DIndex.XY]))
             trimesh_mesh = trimesh.Trimesh(vertices=outline_3d_array, faces=faces)
         return trimesh_mesh
+
+
+class GPKGLineObject(AbstractLineMapObject):
+
+    def __init__(self, object_id: str, line_df: gpd.GeoDataFrame) -> None:
+        """
+        Constructor of the base line map object type.
+        :param object_id: unique identifier of a line map object.
+        """
+        super().__init__(object_id)
+        # TODO: add assertion if columns are available
+        self._object_df = line_df
+
+    @cached_property
+    def _object_row(self) -> gpd.GeoSeries:
+        return get_row_with_value(self._object_df, "id", self.id)
 
 
 class GPKGLane(GPKGSurfaceObject, AbstractLane):
@@ -269,10 +285,9 @@ class GPKGGenericDrivable(GPKGSurfaceObject, AbstractGenericDrivable):
         return trimesh_mesh
 
 
-class GPKGRoadEdge(AbstractRoadEdge):
+class GPKGRoadEdge(GPKGLineObject, AbstractRoadEdge):
     def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
-        super().__init__(object_id)
-        self._object_df = object_df
+        super().__init__(object_id, object_df)
 
     @cached_property
     def _object_row(self) -> gpd.GeoSeries:
@@ -284,10 +299,9 @@ class GPKGRoadEdge(AbstractRoadEdge):
         return Polyline3D.from_linestring(self._object_row.geometry)
 
 
-class GPKGRoadLine(AbstractRoadLine):
+class GPKGRoadLine(GPKGLineObject, AbstractRoadLine):
     def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
-        super().__init__(object_id)
-        self._object_df = object_df
+        super().__init__(object_id, object_df)
 
     @cached_property
     def _object_row(self) -> gpd.GeoSeries:

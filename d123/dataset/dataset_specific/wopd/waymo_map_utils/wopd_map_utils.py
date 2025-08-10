@@ -13,7 +13,7 @@ from d123.common.geometry.base import Point3DIndex
 from d123.common.geometry.line.polylines import Polyline3D
 from d123.common.geometry.units import mph_to_mps
 from d123.dataset.dataset_specific.wopd.waymo_map_utils.womp_boundary_utils import extract_lane_boundaries
-from d123.dataset.maps.map_datatypes import MapSurfaceType
+from d123.dataset.maps.map_datatypes import MapLayer
 
 # TODO:
 # - Implement stop signs
@@ -112,17 +112,15 @@ def convert_wopd_map(frame: dataset_pb2.Frame, map_file_path: Path) -> None:
     if not map_file_path.parent.exists():
         map_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    lane_df.to_file(map_file_path, layer=MapSurfaceType.LANE.serialize(), driver="GPKG")
-    lane_group_df.to_file(map_file_path, layer=MapSurfaceType.LANE_GROUP.serialize(), driver="GPKG", mode="a")
-    intersection_df.to_file(map_file_path, layer=MapSurfaceType.INTERSECTION.serialize(), driver="GPKG", mode="a")
-    crosswalk_df.to_file(map_file_path, layer=MapSurfaceType.CROSSWALK.serialize(), driver="GPKG", mode="a")
-    walkway_df.to_file(map_file_path, layer=MapSurfaceType.WALKWAY.serialize(), driver="GPKG", mode="a")
-    carpark_df.to_file(map_file_path, layer=MapSurfaceType.CARPARK.serialize(), driver="GPKG", mode="a")
-    generic_drivable_df.to_file(
-        map_file_path, layer=MapSurfaceType.GENERIC_DRIVABLE.serialize(), driver="GPKG", mode="a"
-    )
-    road_edge_df.to_file(map_file_path, layer=MapSurfaceType.ROAD_EDGE.serialize(), driver="GPKG", mode="a")
-    road_line_df.to_file(map_file_path, layer=MapSurfaceType.ROAD_LINE.serialize(), driver="GPKG", mode="a")
+    lane_df.to_file(map_file_path, layer=MapLayer.LANE.serialize(), driver="GPKG")
+    lane_group_df.to_file(map_file_path, layer=MapLayer.LANE_GROUP.serialize(), driver="GPKG", mode="a")
+    intersection_df.to_file(map_file_path, layer=MapLayer.INTERSECTION.serialize(), driver="GPKG", mode="a")
+    crosswalk_df.to_file(map_file_path, layer=MapLayer.CROSSWALK.serialize(), driver="GPKG", mode="a")
+    walkway_df.to_file(map_file_path, layer=MapLayer.WALKWAY.serialize(), driver="GPKG", mode="a")
+    carpark_df.to_file(map_file_path, layer=MapLayer.CARPARK.serialize(), driver="GPKG", mode="a")
+    generic_drivable_df.to_file(map_file_path, layer=MapLayer.GENERIC_DRIVABLE.serialize(), driver="GPKG", mode="a")
+    road_edge_df.to_file(map_file_path, layer=MapLayer.ROAD_EDGE.serialize(), driver="GPKG", mode="a")
+    road_line_df.to_file(map_file_path, layer=MapLayer.ROAD_LINE.serialize(), driver="GPKG", mode="a")
 
 
 def get_lane_df(

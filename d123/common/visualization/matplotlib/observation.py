@@ -26,7 +26,7 @@ from d123.common.visualization.matplotlib.utils import (
 )
 from d123.dataset.maps.abstract_map import AbstractMap
 from d123.dataset.maps.abstract_map_objects import AbstractLane
-from d123.dataset.maps.map_datatypes import MapSurfaceType
+from d123.dataset.maps.map_datatypes import MapLayer
 
 
 def add_default_map_on_ax(
@@ -36,14 +36,14 @@ def add_default_map_on_ax(
     radius: float,
     route_lane_group_ids: Optional[List[int]] = None,
 ) -> None:
-    layers: List[MapSurfaceType] = [
-        MapSurfaceType.LANE,
-        MapSurfaceType.LANE_GROUP,
-        MapSurfaceType.GENERIC_DRIVABLE,
-        MapSurfaceType.CARPARK,
-        MapSurfaceType.CROSSWALK,
-        MapSurfaceType.INTERSECTION,
-        MapSurfaceType.WALKWAY,
+    layers: List[MapLayer] = [
+        MapLayer.LANE,
+        MapLayer.LANE_GROUP,
+        MapLayer.GENERIC_DRIVABLE,
+        MapLayer.CARPARK,
+        MapLayer.CROSSWALK,
+        MapLayer.INTERSECTION,
+        MapLayer.WALKWAY,
     ]
     x_min, x_max = point_2d.x - radius, point_2d.x + radius
     y_min, y_max = point_2d.y - radius, point_2d.y + radius
@@ -53,20 +53,20 @@ def add_default_map_on_ax(
     for layer, map_objects in map_objects_dict.items():
         for map_object in map_objects:
             try:
-                if layer in [MapSurfaceType.LANE_GROUP]:
+                if layer in [MapLayer.LANE_GROUP]:
                     if route_lane_group_ids is not None and int(map_object.id) in route_lane_group_ids:
                         add_shapely_polygon_to_ax(ax, map_object.shapely_polygon, ROUTE_CONFIG)
                     else:
                         add_shapely_polygon_to_ax(ax, map_object.shapely_polygon, MAP_SURFACE_CONFIG[layer])
                 if layer in [
-                    MapSurfaceType.GENERIC_DRIVABLE,
-                    MapSurfaceType.CARPARK,
-                    MapSurfaceType.CROSSWALK,
-                    MapSurfaceType.INTERSECTION,
-                    MapSurfaceType.WALKWAY,
+                    MapLayer.GENERIC_DRIVABLE,
+                    MapLayer.CARPARK,
+                    MapLayer.CROSSWALK,
+                    MapLayer.INTERSECTION,
+                    MapLayer.WALKWAY,
                 ]:
                     add_shapely_polygon_to_ax(ax, map_object.shapely_polygon, MAP_SURFACE_CONFIG[layer])
-                if layer in [MapSurfaceType.LANE]:
+                if layer in [MapLayer.LANE]:
                     map_object: AbstractLane
                     add_shapely_linestring_to_ax(ax, map_object.centerline.linestring, CENTERLINE_CONFIG)
             except Exception:
@@ -95,7 +95,7 @@ def add_traffic_lights_to_ax(
     ax: plt.Axes, traffic_light_detections: TrafficLightDetectionWrapper, map_api: AbstractMap
 ) -> None:
     for traffic_light_detection in traffic_light_detections:
-        lane: AbstractLane = map_api.get_map_object(str(traffic_light_detection.lane_id), MapSurfaceType.LANE)
+        lane: AbstractLane = map_api.get_map_object(str(traffic_light_detection.lane_id), MapLayer.LANE)
         if lane is not None:
             add_shapely_linestring_to_ax(
                 ax,

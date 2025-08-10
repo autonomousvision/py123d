@@ -7,7 +7,7 @@ import shapely
 
 from d123.common.geometry.base import Point2D
 from d123.dataset.maps.abstract_map_objects import AbstractMapObject
-from d123.dataset.maps.map_datatypes import MapSurfaceType
+from d123.dataset.maps.map_datatypes import MapLayer
 
 # TODO:
 # - add docstrings
@@ -27,57 +27,57 @@ class AbstractMap(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_available_map_objects(self) -> List[MapSurfaceType]:
+    def get_available_map_objects(self) -> List[MapLayer]:
         pass
 
     @abc.abstractmethod
-    def get_map_object(self, object_id: str, layer: MapSurfaceType) -> Optional[AbstractMapObject]:
+    def get_map_object(self, object_id: str, layer: MapLayer) -> Optional[AbstractMapObject]:
         pass
 
     @abc.abstractmethod
-    def get_all_map_objects(self, point_2d: Point2D, layer: MapSurfaceType) -> List[AbstractMapObject]:
+    def get_all_map_objects(self, point_2d: Point2D, layer: MapLayer) -> List[AbstractMapObject]:
         pass
 
     @abc.abstractmethod
-    def is_in_layer(self, point: Point2D, layer: MapSurfaceType) -> bool:
+    def is_in_layer(self, point: Point2D, layer: MapLayer) -> bool:
         pass
 
     @abc.abstractmethod
     def get_proximal_map_objects(
-        self, point: Point2D, radius: float, layers: List[MapSurfaceType]
-    ) -> Dict[MapSurfaceType, List[AbstractMapObject]]:
+        self, point: Point2D, radius: float, layers: List[MapLayer]
+    ) -> Dict[MapLayer, List[AbstractMapObject]]:
         pass
 
     @abc.abstractmethod
     def query(
         self,
         geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
-        layers: List[MapSurfaceType],
+        layers: List[MapLayer],
         predicate: Optional[str] = None,
         sort: bool = False,
         distance: Optional[float] = None,
-    ) -> Dict[MapSurfaceType, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]]:
+    ) -> Dict[MapLayer, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]]:
         pass
 
     @abc.abstractmethod
     def query_object_ids(
         self,
         geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
-        layers: List[MapSurfaceType],
+        layers: List[MapLayer],
         predicate: Optional[str] = None,
         sort: bool = False,
         distance: Optional[float] = None,
-    ) -> Dict[MapSurfaceType, Union[List[str], Dict[int, List[str]]]]:
+    ) -> Dict[MapLayer, Union[List[str], Dict[int, List[str]]]]:
         pass
 
     @abc.abstractmethod
     def query_nearest(
         self,
         geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
-        layers: List[MapSurfaceType],
+        layers: List[MapLayer],
         return_all: bool = True,
         max_distance: Optional[float] = None,
         return_distance: bool = False,
         exclusive: bool = False,
-    ) -> Dict[MapSurfaceType, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]]:
+    ) -> Dict[MapLayer, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]]:
         pass
