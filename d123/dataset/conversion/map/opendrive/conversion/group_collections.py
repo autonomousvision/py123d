@@ -33,7 +33,6 @@ class OpenDriveLaneHelper:
     inner_border: Border
     outer_border: Border
     speed_limit_mps: Optional[float]
-    reverse: bool = False
 
     # lazy loaded
     predecessor_lane_ids: Optional[List[str]] = None
@@ -213,7 +212,6 @@ def lane_section_to_lane_helpers(
         coeff_factor = -1.0 if side == "right" else 1.0
 
         lane_borders = [reference_border]
-
         for lane in lanes:
             lane_id = derive_lane_id(lane_group_id, lane.id)
             s_inner_offset = lane_section.s if len(lane_borders) == 1 else 0.0

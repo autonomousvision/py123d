@@ -7,7 +7,7 @@ import shapely.geometry as geom
 import trimesh
 
 from d123.common.geometry.line.polylines import Polyline2D, Polyline3D, PolylineSE2
-from d123.dataset.maps.map_datatypes import MapLayer
+from d123.dataset.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
 
 
 class AbstractMapObject(abc.ABC):
@@ -136,6 +136,22 @@ class AbstractLane(AbstractSurfaceMapObject):
         """
         Property of right boundary of lane.
         :return: returns 3D polyline
+        """
+
+    @property
+    @abc.abstractmethod
+    def left_lane(self) -> Optional[AbstractLane]:
+        """
+        Property of left lane of lane.
+        :return: returns left lane or none, if no left lane
+        """
+
+    @property
+    @abc.abstractmethod
+    def right_lane(self) -> Optional[AbstractLane]:
+        """
+        Property of right lane of lane.
+        :return: returns right lane or none, if no right lane
         """
 
     @property
@@ -284,12 +300,11 @@ class AbstractRoadEdge(AbstractLineMapObject):
 
     @property
     @abc.abstractmethod
-    def polyline_3d(self) -> Polyline3D:
+    def road_edge_type(self) -> RoadEdgeType:
         """
-        Returns the 3D polyline of the road edge.
-        :return: 3D polyline
+        Returns the road edge type.
+        :return: RoadEdgeType
         """
-        raise NotImplementedError
 
 
 class AbstractRoadLine(AbstractLineMapObject):
@@ -298,3 +313,11 @@ class AbstractRoadLine(AbstractLineMapObject):
     @property
     def layer(self) -> MapLayer:
         return MapLayer.ROAD_LINE
+
+    @property
+    @abc.abstractmethod
+    def road_line_type(self) -> RoadLineType:
+        """
+        Returns the road line type.
+        :return: RoadLineType
+        """

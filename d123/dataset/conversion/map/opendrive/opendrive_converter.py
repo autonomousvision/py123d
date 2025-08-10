@@ -29,7 +29,7 @@ from d123.dataset.conversion.map.opendrive.elements.reference import Border
 from d123.dataset.conversion.map.opendrive.id_mapping import IntIDMapping
 from d123.dataset.conversion.map.road_edge.road_edge_2d_utils import split_line_geometry_by_max_length
 from d123.dataset.conversion.map.road_edge.road_edge_3d_utils import get_road_edges_3d_from_gdf
-from d123.dataset.maps.map_datatypes import MapLayer
+from d123.dataset.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
 
 ENABLE_WARNING: bool = False
 CONNECTION_DISTANCE_THRESHOLD: float = 0.1  # [m]
@@ -85,6 +85,10 @@ class OpenDriveConverter:
             dataframes[MapLayer.LANE],
             dataframes[MapLayer.CARPARK],
             dataframes[MapLayer.GENERIC_DRIVABLE],
+            dataframes[MapLayer.LANE_GROUP],
+        )
+        dataframes[MapLayer.ROAD_LINE] = self._extract_road_line_df(
+            dataframes[MapLayer.LANE],
             dataframes[MapLayer.LANE_GROUP],
         )
 
@@ -334,14 +338,19 @@ class OpenDriveConverter:
         successor_ids = []
         left_boundaries = []
         right_boundaries = []
+        left_lane_ids = []
+        right_lane_ids = []
         baseline_paths = []
         geometries = []
 
-        # TODO: Extract speed limit and convert to mps
-        for lane_helper in self.lane_helper_dict.values():
-            if lane_helper.type == "driving":
+        for lane_group_helper in self.lane_group_helper_dict.values():
+            lane_group_id = lane_group_helper.lane_group_id
+            lane_helpers = lane_group_helper.lane_helpers
+            num_lanes = len(lane_helpers)
+            # NOTE: Lanes are going left to right
+            for lane_idx, lane_helper in enumerate(lane_helpers):
                 ids.append(lane_helper.lane_id)
-                lane_group_ids.append(lane_group_id_from_lane_id(lane_helper.lane_id))
+                lane_group_ids.append(lane_group_id)
                 speed_limits_mps.append(lane_helper.speed_limit_mps)
                 predecessor_ids.append(lane_helper.predecessor_lane_ids)
                 successor_ids.append(lane_helper.successor_lane_ids)
@@ -349,6 +358,10 @@ class OpenDriveConverter:
                 right_boundaries.append(shapely.LineString(lane_helper.outer_polyline_3d))
                 baseline_paths.append(shapely.LineString(lane_helper.center_polyline_3d))
                 geometries.append(lane_helper.shapely_polygon)
+                left_lane_id = lane_helpers[lane_idx - 1].lane_id if lane_idx > 0 else None
+                right_lane_id = lane_helpers[lane_idx + 1].lane_id if lane_idx < num_lanes - 1 else None
+                left_lane_ids.append(left_lane_id)
+                right_lane_ids.append(right_lane_id)
 
         data = pd.DataFrame(
             {
@@ -359,6 +372,8 @@ class OpenDriveConverter:
                 "successor_ids": successor_ids,
                 "left_boundary": left_boundaries,
                 "right_boundary": right_boundaries,
+                "left_lane_id": left_lane_ids,
+                "right_lane_id": right_lane_ids,
                 "baseline_path": baseline_paths,
             }
         )
@@ -547,6 +562,11 @@ class OpenDriveConverter:
             lane_df[column] = lane_df[column].apply(lambda x: lane_id_mapping.map_list(x))
             lane_group_df[column] = lane_group_df[column].apply(lambda x: lane_group_id_mapping.map_list(x))
 
+        for column in ["left_lane_id", "right_lane_id"]:
+            lane_df[column] = lane_df[column].apply(
+                lambda x: str(lane_id_mapping.str_to_int[x]) if pd.notna(x) and x is not None else x
+            )
+
         lane_df["id"] = lane_df["id"].map(lane_id_mapping.str_to_int)
         walkways_df["id"] = walkways_df["id"].map(walkway_id_mapping.str_to_int)
         carpark_df["id"] = carpark_df["id"].map(carpark_id_mapping.str_to_int)
@@ -568,8 +588,52 @@ class OpenDriveConverter:
         road_edges = split_line_geometry_by_max_length(road_edges, MAX_ROAD_EDGE_LENGTH)
 
         ids = np.arange(len(road_edges), dtype=np.int64).tolist()
+        # TODO @DanielDauner: Figure out if other types should/could be assigned here.
+        road_edge_types = [int(RoadEdgeType.ROAD_EDGE_BOUNDARY)] * len(road_edges)
         geometries = road_edges
-        return gpd.GeoDataFrame(pd.DataFrame({"id": ids}), geometry=geometries)
+        return gpd.GeoDataFrame(pd.DataFrame({"id": ids, "road_edge_type": road_edge_types}), geometry=geometries)
+
+    def _extract_road_line_df(
+        self,
+        lane_df: gpd.GeoDataFrame,
+        lane_group_df: gpd.GeoDataFrame,
+    ) -> None:
+
+        lane_group_on_intersection = {
+            lane_group_id: str(intersection_id) != "nan"
+            for lane_group_id, intersection_id in zip(lane_group_df.id.tolist(), lane_group_df.intersection_id.tolist())
+        }
+        ids = []
+        road_line_types = []
+        geometries = []
+
+        running_id = 0
+        for lane_row in lane_df.itertuples():
+            on_intersection = lane_group_on_intersection.get(lane_row.lane_group_id, False)
+            if on_intersection:
+                # Skip road lines on intersections
+                continue
+            if str(lane_row.right_lane_id) == "nan":
+                # This is a boundary lane, e.g. a border or sidewalk
+                ids.append(running_id)
+                road_line_types.append(int(RoadLineType.SOLID_SINGLE_WHITE))
+                geometries.append(lane_row.right_boundary)
+                running_id += 1
+            else:
+                # This is a regular lane
+                ids.append(running_id)
+                road_line_types.append(int(RoadLineType.BROKEN_SINGLE_WHITE))
+                geometries.append(lane_row.right_boundary)
+                running_id += 1
+            if str(lane_row.left_lane_id) == "nan":
+                # This is a boundary lane, e.g. a border or sidewalk
+                ids.append(running_id)
+                road_line_types.append(int(RoadLineType.SOLID_SINGLE_WHITE))
+                geometries.append(lane_row.left_boundary)
+                running_id += 1
+
+        data = pd.DataFrame({"id": ids, "road_line_type": road_line_types})
+        return gpd.GeoDataFrame(data, geometry=geometries)
 
 
 # TODO: move this somewhere else and improve

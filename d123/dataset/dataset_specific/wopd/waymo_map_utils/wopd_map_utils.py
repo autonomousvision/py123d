@@ -1,6 +1,6 @@
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import geopandas as gpd
 import numpy as np
@@ -13,7 +13,7 @@ from d123.common.geometry.base import Point3DIndex
 from d123.common.geometry.line.polylines import Polyline3D
 from d123.common.geometry.units import mph_to_mps
 from d123.dataset.dataset_specific.wopd.waymo_map_utils.womp_boundary_utils import extract_lane_boundaries
-from d123.dataset.maps.map_datatypes import MapLayer
+from d123.dataset.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
 
 # TODO:
 # - Implement stop signs
@@ -21,6 +21,24 @@ from d123.dataset.maps.map_datatypes import MapLayer
 # - Implement driveways with a different semantic type if needed
 # - Implement intersections and lane group logic
 # - Handle lane type, e.g. TYPE_UNDEFINED = 0; TYPE_FREEWAY = 1; TYPE_SURFACE_STREET = 2; TYPE_BIKE_LANE = 3;
+
+WAYMO_ROAD_LINE_CONVERSION = {
+    0: RoadLineType.UNKNOWN,
+    1: RoadLineType.BROKEN_SINGLE_WHITE,
+    2: RoadLineType.SOLID_SINGLE_WHITE,
+    3: RoadLineType.SOLID_DOUBLE_WHITE,
+    4: RoadLineType.BROKEN_SINGLE_YELLOW,
+    5: RoadLineType.BROKEN_DOUBLE_YELLOW,
+    6: RoadLineType.SOLID_SINGLE_YELLOW,
+    7: RoadLineType.SOLID_DOUBLE_YELLOW,
+    8: RoadLineType.PASSING_DOUBLE_YELLOW,
+}
+
+WAYMO_ROAD_EDGE_CONVERSION = {
+    0: RoadEdgeType.UNKNOWN,
+    1: RoadEdgeType.ROAD_EDGE_BOUNDARY,
+    2: RoadEdgeType.ROAD_EDGE_MEDIAN,
+}
 
 
 def convert_wopd_map(frame: dataset_pb2.Frame, map_file_path: Path) -> None:
@@ -35,14 +53,34 @@ def convert_wopd_map(frame: dataset_pb2.Frame, map_file_path: Path) -> None:
         assert polygon.shape[1] == 3, "Polygon must have 3 coordinates (x, y, z)"
         return polygon
 
+    def _extract_neighbors(data) -> List[Dict[str, int]]:
+        neighbors = []
+        for neighbor in data:
+            neighbors.append(
+                {
+                    "lane_id": neighbor.feature_id,
+                    "self_start_index": neighbor.self_start_index,
+                    "self_end_index": neighbor.self_end_index,
+                    "neighbor_start_index": neighbor.neighbor_start_index,
+                    "neighbor_end_index": neighbor.neighbor_end_index,
+                }
+            )
+        return neighbors
+
     lanes: Dict[int, npt.NDArray[np.float64]] = {}
     lanes_successors = defaultdict(list)
     lanes_predecessors = defaultdict(list)
     lanes_speed_limit_mps: Dict[int, float] = {}
     lanes_type: Dict[int, int] = {}
+    lanes_left_neighbors: Dict[int, List[Dict[str, int]]] = {}
+    lanes_right_neighbors: Dict[int, List[Dict[str, int]]] = {}
 
     road_lines: Dict[int, npt.NDArray[np.float64]] = {}
+    road_lines_type: Dict[int, RoadLineType] = {}
+
     road_edges: Dict[int, npt.NDArray[np.float64]] = {}
+    road_edges_type: Dict[int, int] = {}
+
     crosswalks: Dict[int, npt.NDArray[np.float64]] = {}
     carparks: Dict[int, npt.NDArray[np.float64]] = {}
 
@@ -59,16 +97,24 @@ def convert_wopd_map(frame: dataset_pb2.Frame, map_file_path: Path) -> None:
                 lanes_predecessors[map_feature.id].append(lane_id_)
             lanes_speed_limit_mps[map_feature.id] = mph_to_mps(map_feature.lane.speed_limit_mph)
             lanes_type[map_feature.id] = map_feature.lane.type
+            lanes_left_neighbors[map_feature.id] = _extract_neighbors(map_feature.lane.left_neighbors)
+            lanes_right_neighbors[map_feature.id] = _extract_neighbors(map_feature.lane.right_neighbors)
         elif map_feature.HasField("road_line"):
             polyline = _extract_polyline(map_feature.road_line)
             if polyline.ndim != 2 or polyline.shape[0] < 2:
                 continue
             road_lines[map_feature.id] = polyline
+            road_lines_type[map_feature.id] = WAYMO_ROAD_LINE_CONVERSION.get(
+                map_feature.road_line.type, RoadLineType.UNKNOWN
+            )
         elif map_feature.HasField("road_edge"):
             polyline = _extract_polyline(map_feature.road_edge)
             if polyline.ndim != 2 or polyline.shape[0] < 2:
                 continue
             road_edges[map_feature.id] = polyline
+            road_edges_type[map_feature.id] = WAYMO_ROAD_EDGE_CONVERSION.get(
+                map_feature.road_edge.type, RoadEdgeType.UNKNOWN
+            )
         elif map_feature.HasField("stop_sign"):
             # TODO: implement stop signs
             pass
@@ -92,6 +138,9 @@ def convert_wopd_map(frame: dataset_pb2.Frame, map_file_path: Path) -> None:
         lanes_speed_limit_mps,
         lane_left_boundaries_3d,
         lane_right_boundaries_3d,
+        lanes_type,
+        lanes_left_neighbors,
+        lanes_right_neighbors,
     )
     lane_group_df = get_lane_group_df(
         lanes,
@@ -105,8 +154,8 @@ def convert_wopd_map(frame: dataset_pb2.Frame, map_file_path: Path) -> None:
     walkway_df = get_walkway_df()
     carpark_df = get_carpark_df(carparks)
     generic_drivable_df = get_generic_drivable_df()
-    road_edge_df = get_road_edge_df(road_edges)
-    road_line_df = get_road_line_df(road_lines)
+    road_edge_df = get_road_edge_df(road_edges, road_edges_type)
+    road_line_df = get_road_line_df(road_lines, road_lines_type)
 
     map_file_path.unlink(missing_ok=True)
     if not map_file_path.parent.exists():
@@ -130,17 +179,31 @@ def get_lane_df(
     lanes_speed_limit_mps: Dict[int, float],
     lanes_left_boundaries_3d: Dict[int, Polyline3D],
     lanes_right_boundaries_3d: Dict[int, Polyline3D],
+    lanes_type: Dict[int, int],
+    lanes_left_neighbors: Dict[int, List[Dict[str, int]]],
+    lanes_right_neighbors: Dict[int, List[Dict[str, int]]],
 ) -> gpd.GeoDataFrame:
 
     ids = []
+    lane_types = []
     lane_group_ids = []
     speed_limits_mps = []
     predecessor_ids = []
     successor_ids = []
     left_boundaries = []
     right_boundaries = []
+    left_lane_ids = []
+    right_lane_ids = []
     baseline_paths = []
     geometries = []
+
+    def _get_majority_neighbor(neighbors: List[Dict[str, int]]) -> Optional[int]:
+        if len(neighbors) == 0:
+            return None
+        length = {
+            neighbor["lane_id"]: neighbor["self_end_index"] - neighbor["self_start_index"] for neighbor in neighbors
+        }
+        return str(max(length, key=length.get))
 
     for lane_id, lane_centerline_array in lanes.items():
         if lane_id not in lanes_left_boundaries_3d or lane_id not in lanes_right_boundaries_3d:
@@ -149,12 +212,15 @@ def get_lane_df(
         lane_speed_limit_mps = lanes_speed_limit_mps[lane_id] if lanes_speed_limit_mps[lane_id] > 0.0 else None
 
         ids.append(lane_id)
+        lane_types.append(lanes_type[lane_id])
         lane_group_ids.append([lane_id])
         speed_limits_mps.append(lane_speed_limit_mps)
         predecessor_ids.append(lanes_predecessors[lane_id])
         successor_ids.append(lanes_successors[lane_id])
         left_boundaries.append(lanes_left_boundaries_3d[lane_id].linestring)
         right_boundaries.append(lanes_right_boundaries_3d[lane_id].linestring)
+        left_lane_ids.append(_get_majority_neighbor(lanes_left_neighbors[lane_id]))
+        right_lane_ids.append(_get_majority_neighbor(lanes_right_neighbors[lane_id]))
         baseline_paths.append(lane_centerline.linestring)
 
         geometry = geom.Polygon(
@@ -170,12 +236,15 @@ def get_lane_df(
     data = pd.DataFrame(
         {
             "id": ids,
+            "lane_type": lane_types,
             "lane_group_id": lane_group_ids,
             "speed_limit_mps": speed_limits_mps,
             "predecessor_ids": predecessor_ids,
             "successor_ids": successor_ids,
             "left_boundary": left_boundaries,
             "right_boundary": right_boundaries,
+            "left_lane_id": left_lane_ids,
+            "right_lane_id": right_lane_ids,
             "baseline_path": baseline_paths,
         }
     )
@@ -288,19 +357,33 @@ def get_generic_drivable_df() -> gpd.GeoDataFrame:
     return gdf
 
 
-def get_road_edge_df(road_edges: Dict[int, npt.NDArray[np.float64]]) -> gpd.GeoDataFrame:
+def get_road_edge_df(
+    road_edges: Dict[int, npt.NDArray[np.float64]], road_edges_type: Dict[int, RoadEdgeType]
+) -> gpd.GeoDataFrame:
     ids = list(road_edges.keys())
     geometries = [Polyline3D.from_array(road_edge).linestring for road_edge in road_edges.values()]
 
-    data = pd.DataFrame({"id": ids})
+    data = pd.DataFrame(
+        {
+            "id": ids,
+            "road_edge_type": [int(road_edge_type) for road_edge_type in road_edges_type.values()],
+        }
+    )
     gdf = gpd.GeoDataFrame(data, geometry=geometries)
     return gdf
 
 
-def get_road_line_df(road_lines: Dict[int, npt.NDArray[np.float64]]) -> gpd.GeoDataFrame:
+def get_road_line_df(
+    road_lines: Dict[int, npt.NDArray[np.float64]], road_lines_type: Dict[int, RoadLineType]
+) -> gpd.GeoDataFrame:
     ids = list(road_lines.keys())
     geometries = [Polyline3D.from_array(road_edge).linestring for road_edge in road_lines.values()]
 
-    data = pd.DataFrame({"id": ids})
+    data = pd.DataFrame(
+        {
+            "id": ids,
+            "road_line_type": [int(road_line_type) for road_line_type in road_lines_type.values()],
+        }
+    )
     gdf = gpd.GeoDataFrame(data, geometry=geometries)
     return gdf

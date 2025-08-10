@@ -167,6 +167,7 @@ def convert_wopd_tfrecord_map_to_gpkg(
         map_file_path = D123_MAPS_ROOT / split / f"{log_name}.gpkg"
 
         if data_converter_config.force_map_conversion or not map_file_path.exists():
+            map_file_path.unlink(missing_ok=True)
             convert_wopd_map(initial_frame, map_file_path)
     return []
 

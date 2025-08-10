@@ -16,7 +16,7 @@ from d123.dataset.conversion.map.road_edge.road_edge_2d_utils import (
     split_line_geometry_by_max_length,
 )
 from d123.dataset.maps.gpkg.utils import get_all_rows_with_value, get_row_with_value
-from d123.dataset.maps.map_datatypes import MapLayer
+from d123.dataset.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
 
 MAP_FILES = {
     "sg-one-north": "sg-one-north/9.17.1964/map.gpkg",
@@ -46,7 +46,16 @@ GPKG_LAYERS: List[str] = [
     "gen_lane_connectors_scaled_width_polygons",
 ]
 
+# 0: generic lane I guess.
+# 1: ending?
+# 3: bike lanes.
+
 MAX_ROAD_EDGE_LENGTH = 100.0  # meters, used to filter out very long road edges
+
+NUPLAN_ROAD_LINE_CONVERSION = {
+    0: RoadLineType.BROKEN_SINGLE_WHITE,
+    2: RoadLineType.SOLID_SINGLE_WHITE,
+}
 
 
 class NuPlanMapConverter:
@@ -70,6 +79,7 @@ class NuPlanMapConverter:
         dataframes[MapLayer.CARPARK] = self._extract_carpark_dataframe()
         dataframes[MapLayer.GENERIC_DRIVABLE] = self._extract_generic_drivable_dataframe()
         dataframes[MapLayer.ROAD_EDGE] = self._extract_road_edge_dataframe()
+        dataframes[MapLayer.ROAD_LINE] = self._extract_road_line_dataframe()
 
         if not self._map_path.exists():
             self._map_path.mkdir(parents=True, exist_ok=True)
@@ -121,6 +131,8 @@ class NuPlanMapConverter:
         successor_ids = []
         left_boundaries = []
         right_boundaries = []
+        left_lane_ids = []
+        right_lane_ids = []
         baseline_paths = []
         geometries = self._gdf["lanes_polygons"].geometry.to_list()
 
@@ -148,6 +160,16 @@ class NuPlanMapConverter:
             right_boundary_fid = lane_series["right_boundary_fid"]
             right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
 
+            # 3. left_lane_ids, right_lane_ids
+            lane_index = lane_series["lane_index"]
+            all_group_lanes = get_all_rows_with_value(
+                self._gdf["lanes_polygons"], "lane_group_fid", lane_series["lane_group_fid"]
+            )
+            left_lane_id = all_group_lanes[all_group_lanes["lane_index"] == int(lane_index) - 1]["fid"]
+            right_lane_id = all_group_lanes[all_group_lanes["lane_index"] == int(lane_index) + 1]["fid"]
+            left_lane_ids.append(left_lane_id.item() if not left_lane_id.empty else None)
+            right_lane_ids.append(right_lane_id.item() if not right_lane_id.empty else None)
+
             # 3. baseline_paths
             baseline_path = get_row_with_value(self._gdf["baseline_paths"], "lane_fid", float(lane_id))["geometry"]
 
@@ -167,6 +189,8 @@ class NuPlanMapConverter:
                 "successor_ids": successor_ids,
                 "left_boundary": left_boundaries,
                 "right_boundary": right_boundaries,
+                "left_lane_id": left_lane_ids,
+                "right_lane_id": right_lane_ids,
                 "baseline_path": baseline_paths,
             }
         )
@@ -228,6 +252,8 @@ class NuPlanMapConverter:
                 "successor_ids": successor_ids,
                 "left_boundary": left_boundaries,
                 "right_boundary": right_boundaries,
+                "left_lane_id": [None] * len(ids),
+                "right_lane_id": [None] * len(ids),
                 "baseline_path": baseline_paths,
             }
         )
@@ -397,8 +423,40 @@ class NuPlanMapConverter:
         road_edge_linear_rings = get_road_edge_linear_rings(drivable_polygons)
         road_edges = split_line_geometry_by_max_length(road_edge_linear_rings, MAX_ROAD_EDGE_LENGTH)
 
-        data = pd.DataFrame({"id": [idx for idx in range(len(road_edges))]})
+        ids = []
+        road_edge_types = []
+        for idx in range(len(road_edges)):
+            ids.append(idx)
+            # TODO @DanielDauner: Figure out if other types should/could be assigned here.
+            road_edge_types.append(int(RoadEdgeType.ROAD_EDGE_BOUNDARY))
+
+        data = pd.DataFrame({"id": ids, "road_edge_type": road_edge_types})
         return gpd.GeoDataFrame(data, geometry=road_edges)
+
+    def _extract_road_line_dataframe(self) -> gpd.GeoDataFrame:
+        boundaries = self._gdf["boundaries"].geometry.to_list()
+        fids = self._gdf["boundaries"].fid.to_list()
+        boundary_types = self._gdf["boundaries"].boundary_type_fid.to_list()
+
+        ids = []
+        road_line_types = []
+        geometries = []
+
+        for idx in range(len(boundary_types)):
+            # NOTE @DanielDauner: We ignore boundaries of nuPlan-type, which are on intersections.
+            if boundary_types[idx] not in NUPLAN_ROAD_LINE_CONVERSION.keys():
+                continue
+            ids.append(fids[idx])
+            road_line_types.append(int(NUPLAN_ROAD_LINE_CONVERSION[boundary_types[idx]]))
+            geometries.append(boundaries[idx])
+
+        data = pd.DataFrame(
+            {
+                "id": ids,
+                "road_line_type": road_line_types,
+            }
+        )
+        return gpd.GeoDataFrame(data, geometry=geometries)
 
 
 def flip_linestring(linestring: LineString) -> LineString:

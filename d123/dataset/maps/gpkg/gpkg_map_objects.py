@@ -27,6 +27,7 @@ from d123.dataset.maps.abstract_map_objects import (
     AbstractWalkway,
 )
 from d123.dataset.maps.gpkg.utils import get_row_with_value
+from d123.dataset.maps.map_datatypes import RoadEdgeType, RoadLineType
 
 
 class GPKGSurfaceObject(AbstractSurfaceMapObject):
@@ -94,6 +95,11 @@ class GPKGLineObject(AbstractLineMapObject):
     def _object_row(self) -> gpd.GeoSeries:
         return get_row_with_value(self._object_df, "id", self.id)
 
+    @property
+    def polyline_3d(self) -> Polyline3D:
+        """Inherited, see superclass."""
+        return Polyline3D.from_linestring(self._object_row.geometry)
+
 
 class GPKGLane(GPKGSurfaceObject, AbstractLane):
     def __init__(
@@ -133,6 +139,26 @@ class GPKGLane(GPKGSurfaceObject, AbstractLane):
     def right_boundary(self) -> Polyline3D:
         """Inherited, see superclass."""
         return Polyline3D.from_linestring(self._object_row.right_boundary)
+
+    @property
+    def left_lane(self) -> Optional[GPKGLane]:
+        """Inherited, see superclass."""
+        left_lane_id = self._object_row.left_lane_id
+        return (
+            GPKGLane(left_lane_id, self._object_df, self._lane_group_df, self._intersection_df)
+            if left_lane_id is not None and not pd.isna(left_lane_id)
+            else None
+        )
+
+    @property
+    def right_lane(self) -> Optional[GPKGLane]:
+        """Inherited, see superclass."""
+        right_lane_id = self._object_row.right_lane_id
+        return (
+            GPKGLane(right_lane_id, self._object_df, self._lane_group_df, self._intersection_df)
+            if right_lane_id is not None and not pd.isna(right_lane_id)
+            else None
+        )
 
     @property
     def centerline(self) -> Polyline3D:
@@ -294,9 +320,9 @@ class GPKGRoadEdge(GPKGLineObject, AbstractRoadEdge):
         return get_row_with_value(self._object_df, "id", self.id)
 
     @property
-    def polyline_3d(self) -> Polyline3D:
+    def road_edge_type(self) -> RoadEdgeType:
         """Inherited, see superclass."""
-        return Polyline3D.from_linestring(self._object_row.geometry)
+        return RoadEdgeType(int(self._object_row.road_edge_type))
 
 
 class GPKGRoadLine(GPKGLineObject, AbstractRoadLine):
@@ -308,6 +334,6 @@ class GPKGRoadLine(GPKGLineObject, AbstractRoadLine):
         return get_row_with_value(self._object_df, "id", self.id)
 
     @property
-    def polyline_3d(self) -> Polyline3D:
+    def road_line_type(self) -> RoadLineType:
         """Inherited, see superclass."""
-        return Polyline3D.from_linestring(self._object_row.geometry)
+        return RoadLineType(int(self._object_row.road_line_type))
