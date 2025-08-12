@@ -84,7 +84,9 @@ def camera_metadata_dict_to_json(camera_metadata: Dict[CameraType, CameraMetadat
     :param camera_metadata: Dictionary of CameraMetadata.
     :return: JSON-serializable dictionary.
     """
-    camera_metadata_dict = {str(camera_type): metadata.to_dict() for camera_type, metadata in camera_metadata.items()}
+    camera_metadata_dict = {
+        camera_type.serialize(): metadata.to_dict() for camera_type, metadata in camera_metadata.items()
+    }
     return json.dumps(camera_metadata_dict)
 
 

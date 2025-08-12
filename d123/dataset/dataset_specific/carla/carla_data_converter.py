@@ -13,6 +13,8 @@ import pyarrow as pa
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 
 from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
+from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
+from d123.common.datatypes.sensor.lidar_index import CarlaLidarIndex
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3Index
 from d123.common.datatypes.vehicle_state.vehicle_parameters import get_carla_lincoln_mkz_2020_parameters
 from d123.common.geometry.base import Point2D, Point3D
@@ -169,6 +171,11 @@ def convert_carla_log_to_arrow(
                 map_name = first_log_dict["location"]
                 map_api = get_map_api_from_names("carla", map_name)
 
+                metadata = _get_metadata(map_name, str(log_path.stem))
+                vehicle_parameters = get_carla_lincoln_mkz_2020_parameters()
+                camera_metadata = get_carla_camera_metadata(first_log_dict)
+                lidar_metadata = get_carla_lidar_metadata(first_log_dict)
+
                 schema_column_list = [
                     ("token", pa.string()),
                     ("timestamp", pa.int64()),
@@ -183,14 +190,15 @@ def convert_carla_log_to_arrow(
                     ("route_lane_group_ids", pa.list_(pa.int64())),
                 ]
                 if data_converter_config.lidar_store_option is not None:
-                    if data_converter_config.lidar_store_option == "path":
-                        schema_column_list.append(("lidar", pa.string()))
-                    elif data_converter_config.lidar_store_option == "binary":
-                        raise NotImplementedError("Binary lidar storage is not implemented.")
+                    for lidar_type in lidar_metadata.keys():
+                        if data_converter_config.lidar_store_option == "path":
+                            schema_column_list.append((lidar_type.serialize(), pa.string()))
+                        elif data_converter_config.lidar_store_option == "binary":
+                            raise NotImplementedError("Binary lidar storage is not implemented.")
 
                 # TODO: Adjust how cameras are added
                 if data_converter_config.camera_store_option is not None:
-                    for camera_type in CARLA_CAMERA_TYPES:
+                    for camera_type in camera_metadata.keys():
                         if data_converter_config.camera_store_option == "path":
                             schema_column_list.append((camera_type.serialize(), pa.string()))
                             schema_column_list.append(
@@ -200,14 +208,12 @@ def convert_carla_log_to_arrow(
                             raise NotImplementedError("Binary camera storage is not implemented.")
 
                 recording_schema = pa.schema(schema_column_list)
-                metadata = _get_metadata(map_name, str(log_path.stem))
-                vehicle_parameters = get_carla_lincoln_mkz_2020_parameters()
-                camera_metadata = get_carla_camera_metadata(first_log_dict)
                 recording_schema = recording_schema.with_metadata(
                     {
                         "log_metadata": json.dumps(asdict(metadata)),
                         "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
                         "camera_metadata": camera_metadata_dict_to_json(camera_metadata),
+                        "lidar_metadata": lidar_metadata_dict_to_json(lidar_metadata),
                     }
                 )
 
@@ -236,7 +242,7 @@ def _get_metadata(location: str, log_name: str) -> LogMetadata:
     )
 
 
-def get_carla_camera_metadata(first_log_dict: Dict[str, Any]) -> Dict[str, CameraMetadata]:
+def get_carla_camera_metadata(first_log_dict: Dict[str, Any]) -> Dict[CameraType, CameraMetadata]:
 
     # FIXME: This is a placeholder function to return camera metadata.
 
@@ -245,7 +251,7 @@ def get_carla_camera_metadata(first_log_dict: Dict[str, Any]) -> Dict[str, Camer
         dtype=np.float64,
     )
     camera_metadata = {
-        CameraType.CAM_F0.serialize(): CameraMetadata(
+        CameraType.CAM_F0: CameraMetadata(
             camera_type=CameraType.CAM_F0,
             width=1024,
             height=512,
@@ -254,6 +260,19 @@ def get_carla_camera_metadata(first_log_dict: Dict[str, Any]) -> Dict[str, Camer
         )
     }
     return camera_metadata
+
+
+def get_carla_lidar_metadata(first_log_dict: Dict[str, Any]) -> Dict[LiDARType, LiDARMetadata]:
+
+    # TODO: add lidar extrinsic
+    lidar_metadata = {
+        LiDARType.LIDAR_TOP: LiDARMetadata(
+            lidar_type=LiDARType.LIDAR_TOP,
+            lidar_index=CarlaLidarIndex,
+            extrinsic=None,
+        )
+    }
+    return lidar_metadata
 
 
 def _write_recording_table(
@@ -297,7 +316,9 @@ def _write_recording_table(
                     "route_lane_group_ids": [route_lane_group_ids],
                 }
                 if data_converter_config.lidar_store_option is not None:
-                    row_data["lidar"] = [_extract_lidar(log_name, sample_name, data_converter_config)]
+                    lidar_data_dict = _extract_lidar(log_name, sample_name, data_converter_config)
+                    for lidar_type, lidar_data in lidar_data_dict.items():
+                        row_data[lidar_type.serialize()] = [lidar_data]
 
                 if data_converter_config.camera_store_option is not None:
                     camera_data_dict = _extract_cameras(data, log_name, sample_name, data_converter_config)
@@ -410,7 +431,9 @@ def _extract_cameras(
     return camera_dict
 
 
-def _extract_lidar(log_name: str, sample_name: str, data_converter_config: DataConverterConfig) -> Optional[str]:
+def _extract_lidar(
+    log_name: str, sample_name: str, data_converter_config: DataConverterConfig
+) -> Dict[LiDARType, Optional[str]]:
 
     lidar: Optional[str] = None
     lidar_full_path = CARLA_DATA_ROOT / "sensor_blobs" / log_name / "lidar" / f"{sample_name}.npy"
@@ -421,4 +444,5 @@ def _extract_lidar(log_name: str, sample_name: str, data_converter_config: DataC
             raise NotImplementedError("Binary lidar storage is not implemented.")
     else:
         raise FileNotFoundError(f"LiDAR file not found: {lidar_full_path}")
-    return lidar
+
+    return {LiDARType.LIDAR_TOP: lidar} if lidar else None

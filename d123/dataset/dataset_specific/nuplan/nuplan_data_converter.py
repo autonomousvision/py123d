@@ -24,6 +24,8 @@ import d123.dataset.dataset_specific.nuplan.utils as nuplan_utils
 from d123.common.datatypes.detection.detection import TrafficLightStatus
 from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
+from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
+from d123.common.datatypes.sensor.lidar_index import NuplanLidarIndex
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.common.datatypes.vehicle_state.vehicle_parameters import (
@@ -191,6 +193,17 @@ def convert_nuplan_log_to_arrow(
             if not log_file_path.parent.exists():
                 log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
+            metadata = LogMetadata(
+                dataset="nuplan",
+                log_name=log_db.log_name,
+                location=log_db.log.map_version,
+                timestep_seconds=TARGET_DT,
+                map_has_z=False,
+            )
+            vehicle_parameters = get_nuplan_pacifica_parameters()
+            camera_metadata = get_nuplan_camera_metadata(log_path)
+            lidar_metadata = get_nuplan_lidar_metadata(log_db)
+
             schema_column_list = [
                 ("token", pa.string()),
                 ("timestamp", pa.int64()),
@@ -205,14 +218,14 @@ def convert_nuplan_log_to_arrow(
                 ("route_lane_group_ids", pa.list_(pa.int64())),
             ]
             if data_converter_config.lidar_store_option is not None:
-                if data_converter_config.lidar_store_option == "path":
-                    schema_column_list.append(("lidar", pa.string()))
-                elif data_converter_config.lidar_store_option == "binary":
-                    raise NotImplementedError("Binary lidar storage is not implemented.")
+                for lidar_type in lidar_metadata.keys():
+                    if data_converter_config.lidar_store_option == "path":
+                        schema_column_list.append((lidar_type.serialize(), pa.string()))
+                    elif data_converter_config.lidar_store_option == "binary":
+                        raise NotImplementedError("Binary lidar storage is not implemented.")
 
-            # TODO: Adjust how cameras are added
             if data_converter_config.camera_store_option is not None:
-                for camera_type in NUPLAN_CAMERA_TYPES.keys():
+                for camera_type in camera_metadata.keys():
                     if data_converter_config.camera_store_option == "path":
                         schema_column_list.append((camera_type.serialize(), pa.string()))
                         schema_column_list.append(
@@ -223,20 +236,12 @@ def convert_nuplan_log_to_arrow(
                         raise NotImplementedError("Binary camera storage is not implemented.")
 
             recording_schema = pa.schema(schema_column_list)
-            metadata = LogMetadata(
-                dataset="nuplan",
-                log_name=log_db.log_name,
-                location=log_db.log.map_version,
-                timestep_seconds=TARGET_DT,
-                map_has_z=False,
-            )
-            vehicle_parameters = get_nuplan_pacifica_parameters()
-            camera_metadata = get_nuplan_camera_metadata(log_path)
             recording_schema = recording_schema.with_metadata(
                 {
                     "log_metadata": json.dumps(asdict(metadata)),
                     "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
                     "camera_metadata": camera_metadata_dict_to_json(camera_metadata),
+                    "lidar_metadata": lidar_metadata_dict_to_json(lidar_metadata),
                 }
             )
 
@@ -249,7 +254,7 @@ def convert_nuplan_log_to_arrow(
     return []
 
 
-def get_nuplan_camera_metadata(log_path: Path) -> Dict[str, CameraMetadata]:
+def get_nuplan_camera_metadata(log_path: Path) -> Dict[CameraType, CameraMetadata]:
 
     def _get_camera_metadata(camera_type: CameraType) -> CameraMetadata:
         cam = list(get_cameras(log_path, [str(NUPLAN_CAMERA_TYPES[camera_type].value)]))[0]
@@ -267,9 +272,19 @@ def get_nuplan_camera_metadata(log_path: Path) -> Dict[str, CameraMetadata]:
 
     log_cam_infos: Dict[str, CameraMetadata] = {}
     for camera_type in NUPLAN_CAMERA_TYPES.keys():
-        log_cam_infos[camera_type.serialize()] = _get_camera_metadata(camera_type)
+        log_cam_infos[camera_type] = _get_camera_metadata(camera_type)
 
     return log_cam_infos
+
+
+def get_nuplan_lidar_metadata(log_db: NuPlanDB) -> Dict[LiDARType, LiDARMetadata]:
+    metadata: Dict[LiDARType, LiDARMetadata] = {}
+    metadata[LiDARType.LIDAR_MERGED] = LiDARMetadata(
+        lidar_type=LiDARType.LIDAR_MERGED,
+        lidar_index=NuplanLidarIndex,
+        extrinsic=None,  # NOTE: LiDAR extrinsic are unknown
+    )
+    return metadata
 
 
 def _write_recording_table(
@@ -314,7 +329,12 @@ def _write_recording_table(
                 }
 
                 if data_converter_config.lidar_store_option is not None:
-                    row_data["lidar"] = [_extract_lidar(lidar_pc, data_converter_config)]
+                    lidar_data_dict = _extract_lidar(lidar_pc, data_converter_config)
+                    for lidar_type, lidar_data in lidar_data_dict.items():
+                        if lidar_data is not None:
+                            row_data[lidar_type.serialize()] = [lidar_data]
+                        else:
+                            row_data[lidar_type.serialize()] = [None]
 
                 if data_converter_config.camera_store_option is not None:
                     camera_data_dict = _extract_camera(log_db, lidar_pc, source_log_path, data_converter_config)
@@ -470,11 +490,11 @@ def _extract_camera(
     return camera_dict
 
 
-def _extract_lidar(lidar_pc: LidarPc, data_converter_config: DataConverterConfig) -> Optional[str]:
+def _extract_lidar(lidar_pc: LidarPc, data_converter_config: DataConverterConfig) -> Dict[LiDARType, Optional[str]]:
 
     lidar: Optional[str] = None
     lidar_full_path = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "sensor_blobs" / lidar_pc.filename
     if lidar_full_path.exists():
         lidar = lidar_pc.filename
 
-    return lidar
+    return {LiDARType.LIDAR_MERGED: lidar}

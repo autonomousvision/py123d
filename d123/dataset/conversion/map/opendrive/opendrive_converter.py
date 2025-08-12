@@ -613,7 +613,7 @@ class OpenDriveConverter:
             if on_intersection:
                 # Skip road lines on intersections
                 continue
-            if str(lane_row.right_lane_id) == "nan":
+            if str(lane_row.right_lane_id) in ["nan", "None"]:
                 # This is a boundary lane, e.g. a border or sidewalk
                 ids.append(running_id)
                 road_line_types.append(int(RoadLineType.SOLID_SINGLE_WHITE))
@@ -625,7 +625,7 @@ class OpenDriveConverter:
                 road_line_types.append(int(RoadLineType.BROKEN_SINGLE_WHITE))
                 geometries.append(lane_row.right_boundary)
                 running_id += 1
-            if str(lane_row.left_lane_id) == "nan":
+            if str(lane_row.left_lane_id) in ["nan", "None"]:
                 # This is a boundary lane, e.g. a border or sidewalk
                 ids.append(running_id)
                 road_line_types.append(int(RoadLineType.SOLID_SINGLE_WHITE))

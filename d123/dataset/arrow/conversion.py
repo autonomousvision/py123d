@@ -21,7 +21,7 @@ from d123.common.datatypes.detection.detection import (
 )
 from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.common.datatypes.sensor.camera import Camera, CameraMetadata
-from d123.common.datatypes.sensor.lidar import LiDAR
+from d123.common.datatypes.sensor.lidar import LiDAR, LiDARMetadata
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
@@ -127,9 +127,16 @@ def get_camera_from_arrow_table(
     )
 
 
-def get_lidar_from_arrow_table(arrow_table: pa.Table, index: int, log_metadata: LogMetadata) -> LiDAR:
-    assert "lidar" in arrow_table.schema.names, '"lidar" field not found in Arrow table schema.'
-    lidar_data = arrow_table["lidar"][index].as_py()
+def get_lidar_from_arrow_table(
+    arrow_table: pa.Table,
+    index: int,
+    lidar_metadata: LiDARMetadata,
+    log_metadata: LogMetadata,
+) -> LiDAR:
+    assert (
+        lidar_metadata.lidar_type.serialize() in arrow_table.schema.names
+    ), f'"{lidar_metadata.lidar_type.serialize()}" field not found in Arrow table schema.'
+    lidar_data = arrow_table[lidar_metadata.lidar_type.serialize()][index].as_py()
     if isinstance(lidar_data, str):
         sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
         full_lidar_path = sensor_root / lidar_data
@@ -139,18 +146,20 @@ def get_lidar_from_arrow_table(arrow_table: pa.Table, index: int, log_metadata: 
         if log_metadata.dataset == "nuplan":
             from d123.dataset.dataset_specific.nuplan.load_sensor import load_nuplan_lidar_from_path
 
-            lidar = load_nuplan_lidar_from_path(full_lidar_path)
+            lidar = load_nuplan_lidar_from_path(full_lidar_path, lidar_metadata)
         elif log_metadata.dataset == "carla":
             from d123.dataset.dataset_specific.carla.load_sensor import load_carla_lidar_from_path
 
-            lidar = load_carla_lidar_from_path(full_lidar_path)
+            lidar = load_carla_lidar_from_path(full_lidar_path, lidar_metadata)
+        elif log_metadata.dataset == "wopd":
+            raise NotImplementedError
         else:
             raise NotImplementedError(f"Loading LiDAR data for dataset {log_metadata.dataset} is not implemented.")
 
     else:
         if log_metadata.dataset == "wopd":
             lidar_data = np.array(lidar_data, dtype=np.float64)
-            lidar = LiDAR(point_cloud=lidar_data[:, 3:].T)
+            lidar = LiDAR(metadata=lidar_metadata, point_cloud=lidar_data.T)
         else:
             raise NotImplementedError("Only string file paths for lidar data are supported.")
 

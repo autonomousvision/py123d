@@ -16,8 +16,8 @@ defaults:
   - _self_
   - datasets:
     # - nuplan_private_dataset
-    # - carla_dataset
-    - wopd_dataset
+    - carla_dataset
+    # - wopd_dataset
 
-force_log_conversion: False
-force_map_conversion: True
+force_log_conversion: True
+force_map_conversion: False

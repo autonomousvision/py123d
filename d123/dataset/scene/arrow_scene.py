@@ -7,7 +7,7 @@ import pyarrow as pa
 from d123.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from d123.common.datatypes.recording.detection_recording import DetectionRecording
 from d123.common.datatypes.sensor.camera import Camera, CameraMetadata, CameraType, camera_metadata_dict_from_json
-from d123.common.datatypes.sensor.lidar import LiDAR
+from d123.common.datatypes.sensor.lidar import LiDAR, LiDARMetadata, LiDARType, lidar_metadata_dict_from_json
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
@@ -44,8 +44,13 @@ def _get_scene_data(
     else:
         camera_metadata = {}
 
+    if b"lidar_metadata" in table.schema.metadata:
+        lidar_metadata = lidar_metadata_dict_from_json(table.schema.metadata[b"lidar_metadata"].decode())
+    else:
+        lidar_metadata = {}
+
     del table
-    return metadata, vehicle_parameters, camera_metadata
+    return metadata, vehicle_parameters, camera_metadata, lidar_metadata
 
 
 class ArrowScene(AbstractScene):
@@ -57,10 +62,16 @@ class ArrowScene(AbstractScene):
 
         self._recording_table: pa.Table = None
 
-        _metadata, _vehicle_parameters, _camera_metadata = _get_scene_data(arrow_file_path)
+        (
+            _metadata,
+            _vehicle_parameters,
+            _camera_metadata,
+            _lidar_metadata,
+        ) = _get_scene_data(arrow_file_path)
         self._metadata: LogMetadata = _metadata
         self._vehicle_parameters: VehicleParameters = _vehicle_parameters
         self._camera_metadata: Dict[CameraType, CameraMetadata] = _camera_metadata
+        self._lidar_metadata: Dict[LiDARType, LiDARMetadata] = _lidar_metadata
 
         self._map_api: Optional[AbstractMap] = None
 
@@ -97,6 +108,10 @@ class ArrowScene(AbstractScene):
     @property
     def available_camera_types(self) -> List[CameraType]:
         return list(self._camera_metadata.keys())
+
+    @property
+    def available_lidar_types(self) -> List[LiDARType]:
+        return list(self._lidar_metadata.keys())
 
     def _get_table_index(self, iteration: int) -> int:
         self._lazy_initialize()
@@ -154,9 +169,16 @@ class ArrowScene(AbstractScene):
             self.log_metadata,
         )
 
-    def get_lidar_at_iteration(self, iteration: int) -> LiDAR:
+    def get_lidar_at_iteration(self, iteration: int, lidar_type: LiDARType) -> LiDAR:
         self._lazy_initialize()
-        return get_lidar_from_arrow_table(self._recording_table, self._get_table_index(iteration), self.log_metadata)
+        assert lidar_type in self._lidar_metadata, f"LiDAR type {lidar_type} not found in metadata."
+        table_index = self._get_table_index(iteration)
+        return get_lidar_from_arrow_table(
+            self._recording_table,
+            table_index,
+            self._lidar_metadata[lidar_type],
+            self.log_metadata,
+        )
 
     def _lazy_initialize(self) -> None:
         self.open()

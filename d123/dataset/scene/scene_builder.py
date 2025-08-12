@@ -85,7 +85,11 @@ def _discover_log_paths(dataset_path: Path, split_names: Set[str], log_names: Op
 def _extract_scenes_from_logs(log_paths: List[Path], filter: SceneFilter) -> List[AbstractScene]:
     scenes: List[AbstractScene] = []
     for log_path in log_paths:
-        scene_extraction_infos = _get_scene_extraction_info(log_path, filter)
+        try:
+            scene_extraction_infos = _get_scene_extraction_info(log_path, filter)
+        except Exception as e:
+            print(f"Error extracting scenes from {log_path}: {e}")
+            continue
         for scene_extraction_info in scene_extraction_infos:
             scenes.append(
                 ArrowScene(

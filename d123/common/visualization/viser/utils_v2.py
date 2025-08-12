@@ -19,40 +19,21 @@ def _get_bounding_box_corners(bounding_box: BoundingBoxSE3) -> npt.NDArray[np.fl
     """
     Get the vertices of a bounding box in 3D space.
     """
-    # TODO: apply transform over array batch instead
+    corner_extent_factors = {
+        Corners3DIndex.FRONT_LEFT_BOTTOM: Vector3D(+0.5, -0.5, -0.5),
+        Corners3DIndex.FRONT_RIGHT_BOTTOM: Vector3D(+0.5, +0.5, -0.5),
+        Corners3DIndex.BACK_RIGHT_BOTTOM: Vector3D(-0.5, +0.5, -0.5),
+        Corners3DIndex.BACK_LEFT_BOTTOM: Vector3D(-0.5, -0.5, -0.5),
+        Corners3DIndex.FRONT_LEFT_TOP: Vector3D(+0.5, -0.5, +0.5),
+        Corners3DIndex.FRONT_RIGHT_TOP: Vector3D(+0.5, +0.5, +0.5),
+        Corners3DIndex.BACK_RIGHT_TOP: Vector3D(-0.5, +0.5, +0.5),
+        Corners3DIndex.BACK_LEFT_TOP: Vector3D(-0.5, -0.5, +0.5),
+    }
     corners = np.zeros((len(Corners3DIndex), len(Point3DIndex)), dtype=np.float64)
-    corners[Corners3DIndex.FRONT_LEFT_BOTTOM] = translate_body_frame(
-        bounding_box.center,
-        Vector3D(bounding_box.length / 2, -bounding_box.width / 2, -bounding_box.height / 2),
-    ).point_3d.array
-    corners[Corners3DIndex.FRONT_RIGHT_BOTTOM] = translate_body_frame(
-        bounding_box.center,
-        Vector3D(bounding_box.length / 2, bounding_box.width / 2, -bounding_box.height / 2),
-    ).point_3d.array
-    corners[Corners3DIndex.BACK_RIGHT_BOTTOM] = translate_body_frame(
-        bounding_box.center,
-        Vector3D(-bounding_box.length / 2, bounding_box.width / 2, -bounding_box.height / 2),
-    ).point_3d.array
-    corners[Corners3DIndex.BACK_LEFT_BOTTOM] = translate_body_frame(
-        bounding_box.center,
-        Vector3D(-bounding_box.length / 2, -bounding_box.width / 2, -bounding_box.height / 2),
-    ).point_3d.array
-    corners[Corners3DIndex.FRONT_LEFT_TOP] = translate_body_frame(
-        bounding_box.center,
-        Vector3D(bounding_box.length / 2, -bounding_box.width / 2, bounding_box.height / 2),
-    ).point_3d.array
-    corners[Corners3DIndex.FRONT_RIGHT_TOP] = translate_body_frame(
-        bounding_box.center,
-        Vector3D(bounding_box.length / 2, bounding_box.width / 2, bounding_box.height / 2),
-    ).point_3d.array
-    corners[Corners3DIndex.BACK_RIGHT_TOP] = translate_body_frame(
-        bounding_box.center,
-        Vector3D(-bounding_box.length / 2, bounding_box.width / 2, bounding_box.height / 2),
-    ).point_3d.array
-    corners[Corners3DIndex.BACK_LEFT_TOP] = translate_body_frame(
-        bounding_box.center,
-        Vector3D(-bounding_box.length / 2, -bounding_box.width / 2, bounding_box.height / 2),
-    ).point_3d.array
+    bounding_box_extent = np.array([bounding_box.length, bounding_box.width, bounding_box.height], dtype=np.float64)
+    for idx, vec in corner_extent_factors.items():
+        vector_3d = Vector3D.from_array(bounding_box_extent * vec.array)
+        corners[idx] = translate_body_frame(bounding_box.center, vector_3d).point_3d.array
     return corners
 
 
