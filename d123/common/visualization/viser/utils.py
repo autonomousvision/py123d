@@ -13,6 +13,7 @@ from d123.common.geometry.base import Point3D, StateSE3
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from d123.common.geometry.line.polylines import Polyline3D
 from d123.common.geometry.transform.se3 import convert_relative_to_absolute_points_3d_array
+from d123.common.visualization.color.color import TAB_10, Color
 from d123.common.visualization.color.config import PlotConfig
 from d123.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VEHICLE_CONFIG, MAP_SURFACE_CONFIG
 from d123.dataset.maps.abstract_map import MapLayer
@@ -23,7 +24,25 @@ from d123.dataset.scene.abstract_scene import AbstractScene
 # TODO: Add general utilities for 3D primitives and mesh support.
 
 MAP_RADIUS: Final[float] = 500
-BRIGHTNESS_FACTOR: Final[float] = 0.8
+BRIGHTNESS_FACTOR: Final[float] = 1.0
+
+
+def configure_trimesh(mesh: trimesh.Trimesh, color: Color):
+    # base_color = [r / 255.0 for r in color.rgba]
+    mesh.visual.face_colors = color.rgba
+
+    # pbr_material = trimesh.visual.material.PBRMaterial(
+    #     baseColorFactor=base_color,  # Your desired color (RGBA, 0-1 range)
+    #     metallicFactor=0.0,  # 0.0 = non-metallic (more matte)
+    #     roughnessFactor=1.0,  # 0.8 = quite rough (less shiny, 0=mirror, 1=completely rough)
+    #     emissiveFactor=[0.0, 0.0, 0.0],  # No emission
+    #     alphaCutoff=0.9,  # Alpha threshold for transparency
+    #     doubleSided=True,  # Single-sided material
+    # )
+    # mesh.visual.material = pbr_material
+    # mesh.visual = mesh.visual.to_texture()
+
+    return mesh
 
 
 def bounding_box_to_trimesh(bbox: BoundingBoxSE3, plot_config: PlotConfig) -> trimesh.Trimesh:
@@ -38,20 +57,8 @@ def bounding_box_to_trimesh(bbox: BoundingBoxSE3, plot_config: PlotConfig) -> tr
 
     # Apply translation
     box_mesh = box_mesh.apply_translation([bbox.center.x, bbox.center.y, bbox.center.z])
-    base_color = [r / 255.0 for r in plot_config.fill_color.set_brightness(BRIGHTNESS_FACTOR).rgba]
-    box_mesh.visual.face_colors = plot_config.fill_color.set_brightness(BRIGHTNESS_FACTOR).rgba
 
-    pbr_material = trimesh.visual.material.PBRMaterial(
-        baseColorFactor=base_color,  # Your desired color (RGBA, 0-1 range)
-        metallicFactor=1.0,  # 0.0 = non-metallic (more matte)
-        roughnessFactor=0.9,  # 0.8 = quite rough (less shiny, 0=mirror, 1=completely rough)
-        emissiveFactor=[0.0, 0.0, 0.0],  # No emission
-        alphaCutoff=0.75,  # Alpha threshold for transparency
-        doubleSided=False,  # Single-sided material
-    )
-    box_mesh.visual.material = pbr_material
-
-    return box_mesh
+    return configure_trimesh(box_mesh, plot_config.fill_color)
 
 
 def translate_bounding_box_se3(bounding_box_se3: BoundingBoxSE3, point_3d: Point3D) -> BoundingBoxSE3:
@@ -109,10 +116,10 @@ def get_map_meshes(scene: AbstractScene):
                 MapLayer.WALKWAY,
                 MapLayer.CROSSWALK,
                 MapLayer.GENERIC_DRIVABLE,
-                # MapLayer.CARPARK,
+                MapLayer.CARPARK,
             ]:
                 # Push meshes up by a few centimeters to avoid overlap with the ground in the visualization.
-                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z - 0.05).array
+                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z - 0.1).array
             else:
                 trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z).array
 
@@ -121,7 +128,7 @@ def get_map_meshes(scene: AbstractScene):
                     x=0, y=0, z=center.z - initial_ego_vehicle_state.vehicle_parameters.height / 2
                 ).array
 
-            trimesh_mesh.visual.face_colors = MAP_SURFACE_CONFIG[map_layer].fill_color.set_brightness(0.8).rgba
+            trimesh_mesh = configure_trimesh(trimesh_mesh, MAP_SURFACE_CONFIG[map_layer].fill_color)
             surface_meshes.append(trimesh_mesh)
         output[f"{map_layer.serialize()}"] = trimesh.util.concatenate(surface_meshes)
 
@@ -207,7 +214,7 @@ def _create_lane_mesh_from_boundary_arrays(
 
     faces = np.array(faces)
     mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
-    mesh.visual.face_colors = MAP_SURFACE_CONFIG[MapLayer.LANE].fill_color.set_brightness(BRIGHTNESS_FACTOR).rgba
+    mesh.visual.face_colors = MAP_SURFACE_CONFIG[MapLayer.LANE].fill_color.rgba
     return mesh
 
 
@@ -302,8 +309,8 @@ def get_lidar_points(
         points = convert_relative_to_absolute_points_3d_array(origin, points)
         points = points - initial_ego_vehicle_state.center_se3.point_3d.array
         points_.append(points)
-        # colors_.append([TAB_10[lidar_idx % len(TAB_10)].rgb] * points.shape[0])
-        colors_.append(float_to_rgb(lidar.intensity, cmap_name="viridis"))
+        colors_.append([TAB_10[lidar_idx % len(TAB_10)].rgb] * points.shape[0])
+        # colors_.append(float_to_rgb(lidar.intensity, cmap_name="viridis"))
 
     points_ = np.concatenate(points_, axis=0) if points_ else np.empty((0, 3), dtype=np.float32)
     colors_ = np.concatenate(colors_, axis=0) if colors_ else np.empty((0, 3), dtype=np.float32)
