@@ -60,6 +60,17 @@ def get_wopd_pacifica_parameters() -> VehicleParameters:
         rear_axle_to_center_longitudinal=1.461,
     )
 
+def get_kitti360_station_wagon_parameters() -> VehicleParameters:
+    #TODO  except wheel_base, all need to be checked
+    return VehicleParameters(
+        vehicle_name="kitti360_station_wagon",
+        width=2.297,
+        length=5.176,
+        height=1.400,
+        wheel_base=2.710,
+        rear_axle_to_center_vertical=0.45,
+        rear_axle_to_center_longitudinal=1.461,
+    )
 
 def center_se3_to_rear_axle_se3(center_se3: StateSE3, vehicle_parameters: VehicleParameters) -> StateSE3:
     """

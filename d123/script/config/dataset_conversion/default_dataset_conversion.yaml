@@ -15,9 +15,10 @@ defaults:
   - default_dataset_paths
   - _self_
   - datasets:
+    - kitti360_dataset
     # - nuplan_private_dataset
     # - carla_dataset
-    - wopd_dataset
+    # - wopd_dataset
 
 force_log_conversion: False
 force_map_conversion: True
