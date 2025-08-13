@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import List, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -8,6 +8,7 @@ from typing_extensions import Final
 
 # from d123.common.datatypes.sensor.camera_parameters import get_nuplan_camera_parameters
 from d123.common.datatypes.sensor.camera import Camera, CameraType
+from d123.common.datatypes.sensor.lidar import LiDARType
 from d123.common.geometry.base import Point3D, StateSE3
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from d123.common.geometry.line.polylines import Polyline3D
@@ -232,36 +233,11 @@ def get_camera_values(
     ego_transform[:3, :3] = get_rotation_matrix(rear_axle)
     ego_transform[:3, 3] = rear_axle.point_3d.array
 
-    DEBUG = False
-    if DEBUG:
-        print("DEBUG")
+    camera_transform = ego_transform @ camera_to_ego
 
-        camera_to_ego = camera.extrinsic
-
-        flip_camera = get_rotation_matrix(
-            StateSE3(
-                x=0.0,
-                y=0.0,
-                z=0.0,
-                roll=np.deg2rad(0.0),
-                pitch=np.deg2rad(90.0),
-                yaw=np.deg2rad(-90.0),
-            )
-        )
-        camera_to_ego[:3, :3] = camera_to_ego[:3, :3] @ flip_camera
-
-        camera_transform = ego_transform @ camera_to_ego
-
-        # Camera transformation in ego frame
-        camera_position = Point3D(*camera_transform[:3, 3])
-        camera_rotation = Quaternion(matrix=camera_transform[:3, :3])
-
-    else:
-        camera_transform = ego_transform @ camera_to_ego
-
-        # Camera transformation in ego frame
-        camera_position = Point3D(*camera_transform[:3, 3])
-        camera_rotation = Quaternion(matrix=camera_transform[:3, :3])
+    # Camera transformation in ego frame
+    camera_position = Point3D(*camera_transform[:3, 3])
+    camera_rotation = Quaternion(matrix=camera_transform[:3, :3])
 
     return camera_position, camera_rotation, camera
 
@@ -286,19 +262,50 @@ def euler_to_quaternion_scipy(roll: float, pitch: float, yaw: float) -> npt.NDAr
     return quat
 
 
-def get_lidar_points(scene: AbstractScene, iteration: int) -> npt.NDArray[np.float32]:
-
-    pass
+def get_lidar_points(
+    scene: AbstractScene, iteration: int, lidar_types: List[LiDARType]
+) -> Tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]:
 
     initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
     current_ego_vehicle_state = scene.get_ego_state_at_iteration(iteration)
 
-    lidar = scene.get_lidar_at_iteration(iteration)
-    # if scene.log_metadata.dataset == "nuplan":
-    # NOTE: nuPlan uses the rear axle as origin.
-    origin = current_ego_vehicle_state.rear_axle_se3
-    points = lidar.xyz
-    points = convert_relative_to_absolute_points_3d_array(origin, points)
-    points = points - initial_ego_vehicle_state.center_se3.point_3d.array
+    def float_to_rgb(values: npt.NDArray[np.float32], cmap_name: str = "viridis") -> npt.NDArray[np.float32]:
+        """
+        Converts an array of float values to RGB colors using a matplotlib colormap.
+        Normalizes values to [0, 1] using min-max scaling.
+        Returns an array of shape (N, 3) with RGB values in [0, 1].
+        """
+        import matplotlib.pyplot as plt
 
-    return points
+        vmin = np.min(values)
+        vmax = np.max(values)
+        if vmax > vmin:
+            normed = (values - vmin) / (vmax - vmin)
+        else:
+            normed = np.zeros_like(values)
+        cmap = plt.get_cmap(cmap_name)
+        rgb = cmap(normed)[:, :3]  # Ignore alpha channel
+        return rgb.astype(np.float32)
+
+    points_ = []
+    colors_ = []
+    for lidar_idx, lidar_type in enumerate(lidar_types):
+        if lidar_type not in scene.available_lidar_types:
+            continue
+        lidar = scene.get_lidar_at_iteration(iteration, lidar_type)
+
+        # 1. convert points to ego frame
+        points = lidar.xyz
+
+        # 2. convert points to world frame
+        origin = current_ego_vehicle_state.rear_axle_se3
+        points = convert_relative_to_absolute_points_3d_array(origin, points)
+        points = points - initial_ego_vehicle_state.center_se3.point_3d.array
+        points_.append(points)
+        # colors_.append([TAB_10[lidar_idx % len(TAB_10)].rgb] * points.shape[0])
+        colors_.append(float_to_rgb(lidar.intensity, cmap_name="viridis"))
+
+    points_ = np.concatenate(points_, axis=0) if points_ else np.empty((0, 3), dtype=np.float32)
+    colors_ = np.concatenate(colors_, axis=0) if colors_ else np.empty((0, 3), dtype=np.float32)
+
+    return points_, colors_

@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 from d123.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from d123.common.datatypes.recording.detection_recording import DetectionRecording
 from d123.common.datatypes.sensor.camera import Camera, CameraType
-from d123.common.datatypes.sensor.lidar import LiDAR
+from d123.common.datatypes.sensor.lidar import LiDAR, LiDARType
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.dataset.logs.log_metadata import LogMetadata
@@ -17,10 +17,6 @@ from d123.dataset.maps.abstract_map import AbstractMap
 
 
 class AbstractScene(abc.ABC):
-    @property
-    @abc.abstractmethod
-    def map_api(self) -> AbstractMap:
-        raise NotImplementedError
 
     @property
     @abc.abstractmethod
@@ -40,6 +36,16 @@ class AbstractScene(abc.ABC):
     @property
     @abc.abstractmethod
     def available_camera_types(self) -> List[CameraType]:
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def available_lidar_types(self) -> List[LiDARType]:
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def map_api(self) -> Optional[AbstractMap]:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -79,7 +85,7 @@ class AbstractScene(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_lidar_at_iteration(self, iteration: int) -> LiDAR:
+    def get_lidar_at_iteration(self, iteration: int, lidar_type: LiDARType) -> LiDAR:
         raise NotImplementedError
 
     def open(self) -> None:
