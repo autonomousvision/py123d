@@ -23,3 +23,10 @@
 *.csv
 *.log
 *.mp4
+
+
+# Sphinx documentation
+docs/_build/
+docs/build/
+_build/
+.doctrees/

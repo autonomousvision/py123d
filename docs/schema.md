@@ -1,7 +1,8 @@
 
+# Schema
 
-
-token
+TODO
+<!-- token
 timestamp
 detections_state
 detections_velocity
@@ -11,4 +12,4 @@ ego_states
 traffic_light_ids
 traffic_light_types
 scenario_tag
-route_lane_group_ids
+route_lane_group_ids -->
