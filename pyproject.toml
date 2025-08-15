@@ -1,0 +1,91 @@
+[tool.isort]
+profile = "black"
+
+[build-system]
+requires = ["setuptools>=58", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.9",
+    "License :: OSI Approved :: Apache Software License",
+]
+name = "d123"
+version = "v0.0.6"
+authors = [{ name = "Daniel Dauner", email = "daniel.dauner@gmail.com" }]
+description = "TODO"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+dependencies = [
+    "nuplan-devkit @ git+https://github.com/motional/nuplan-devkit/@nuplan-devkit-v1.2",
+    "aioboto3",
+    "aiofiles",
+    "bokeh",
+    "casadi",
+    "control",
+    "Fiona",
+    "geopandas",
+    "guppy3",
+    "joblib",
+    "matplotlib",
+    "nest_asyncio",
+    "numpy",
+    "opencv-python",
+    "pandas",
+    "Pillow",
+    "psutil",
+    "pyarrow",
+    "pyinstrument",
+    "pyogrio",
+    "pyquaternion",
+    "pytest",
+    "rasterio",
+    "ray",
+    "retry",
+    "rtree",
+    "scipy",
+    "selenium",
+    "setuptools",
+    "shapely>=2.0.0",
+    "SQLAlchemy==1.4.27",
+    "sympy",
+    "tornado",
+    "tqdm",
+    "ujson",
+    "notebook",
+    "pre-commit",
+    "cachetools",
+    "hydra_colorlog",
+    "hydra-core",
+    "lxml",
+    "trimesh",
+    "viser",
+]
+
+[project.optional-dependencies]
+dev = ["black", "isort", "pre-commit"]
+docs = [
+    "Sphinx",
+    "sphinx-rtd-theme",
+    "myst-parser",
+]
+waymo = [
+    "tensorflow==2.11.0",
+    "waymo-open-dataset-tf-2-11-0",
+    "intervaltree",
+]
+av2 = [
+    "av2==0.2.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["d123*"]  # Only include d123 package
+exclude = ["notebooks*", "tests*", "docs*"]  # Explicitly exclude notebooks
+
+[project.urls]
+"Homepage" = "https://github.com/DanielDauner/d123"
+"Bug Tracker" = "https://github.com/DanielDauner/d123/issues"

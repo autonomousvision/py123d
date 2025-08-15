@@ -5,8 +5,7 @@ from functools import partial
 from pathlib import Path
 from typing import Iterator, List, Optional, Set, Union
 
-from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
-
+from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.dataset.arrow.helper import open_arrow_table
 from d123.dataset.logs.log_metadata import LogMetadata
 from d123.dataset.scene.abstract_scene import AbstractScene

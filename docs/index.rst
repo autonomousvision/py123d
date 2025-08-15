@@ -12,7 +12,7 @@ documentation for details.
 
 
 .. toctree::
-   :hidden:
+   :maxdepth: 2
    :caption: Contents:
 
    installation

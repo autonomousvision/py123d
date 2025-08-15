@@ -17,6 +17,7 @@ from d123.dataset.maps.map_datatypes import MapLayer
 
 
 class AbstractMap(abc.ABC):
+
     @property
     @abc.abstractmethod
     def map_name(self) -> str:

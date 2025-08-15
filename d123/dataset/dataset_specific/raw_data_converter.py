@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Literal, Optional, Union
 
-from nuplan.planning.utils.multithreading.worker_utils import WorkerPool
+from d123.common.multithreading.worker_utils import WorkerPool
 
 
 @dataclass
