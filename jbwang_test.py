@@ -65,4 +65,21 @@ candidates = sorted(p for p in PATH_2D_RAW_ROOT.iterdir() if p.is_dir() and p.na
 # log_name = "1230_asd_"
 # for i in range(20):
 #     a = create_token(f"{log_name}_{i}")
-#     print(a)
+#     print(a)ee
+
+
+import numpy as np
+from pathlib import Path
+a =  np.loadtxt("/data/jbwang/d123/data_poses/2013_05_28_drive_0000_sync/oxts/data/0000000000.txt")
+b = np.loadtxt("/nas/datasets/KITTI-360/data_poses/2013_05_28_drive_0018_sync/poses.txt")
+data = b
+ts = data[:, 0].astype(np.int32)
+poses = np.reshape(data[:, 1:], (-1, 3, 4))
+poses = np.concatenate((poses, np.tile(np.array([0, 0, 0, 1]).reshape(1,1,4),(poses.shape[0],1,1))), 1)
+print(a)    
+print(b.shape)
+print(ts.shape)
+print(poses.shape)
+
+ccc = Path("/data/jbwang/d123/data_poses/2013_05_28_drive_0000_sync/oxts/data/")
+print(len(list(ccc.glob("*.txt"))))

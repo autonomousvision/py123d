@@ -1,4 +1,4 @@
-nuplan_dataset:
+kitti360_dataset:
   _target_: d123.dataset.dataset_specific.kitti_360.kitti_360_data_converter.Kitti360DataConverter
   _convert_: 'all'
 

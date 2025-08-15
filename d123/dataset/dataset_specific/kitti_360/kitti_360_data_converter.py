@@ -9,19 +9,27 @@ from typing import Any, Dict, Final, List, Optional, Tuple, Union
 import numpy as np
 import datetime
 import hashlib
+import xml.etree.ElementTree as ET
 import pyarrow as pa
 from PIL import Image
+
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 
+from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
+from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
+from d123.common.datatypes.sensor.lidar_index import Kitti360LidarIndex
 from d123.common.datatypes.time.time_point import TimePoint
-from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3Index
-from d123.common.datatypes.vehicle_state.vehicle_parameters import get_kitti360_station_wagon_parameters
+from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
+from d123.common.datatypes.vehicle_state.vehicle_parameters import get_kitti360_station_wagon_parameters,rear_axle_se3_to_center_se3
+from d123.common.geometry.base import StateSE3
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
-from d123.common.geometry.vector import Vector3DIndex
+from d123.common.geometry.vector import Vector3D, Vector3DIndex
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
+
+from kitti_360_helper import KITTI360Bbox3D
 
 KITTI360_DT: Final[float] = 0.1
 SORT_BY_TIMESTAMP: Final[bool] = True
@@ -29,7 +37,7 @@ SORT_BY_TIMESTAMP: Final[bool] = True
 KITTI360_DATA_ROOT = Path(os.environ["KITTI360_DATA_ROOT"])
 
 #TODO  carera mismatch
-KITTI360_CAMERA_TYPES: Final[Dict[CameraType, str]] = {
+KITTI360_CAMERA_TYPES = {
     CameraType.CAM_L0: "image_00",  
     CameraType.CAM_R0: "image_01",   
     # TODO fisheye camera
@@ -63,6 +71,16 @@ KITTI360_REQUIRED_MODALITY_ROOTS: Dict[str, Path] = {
     # DIR_POSES: PATH_POSES_ROOT,
 }
 
+#TODO 
+KIITI360_DETECTION_NAME_DICT = {
+    "truck": DetectionType.VEHICLE,
+    "bus": DetectionType.VEHICLE,
+    "car": DetectionType.VEHICLE,
+    "motorcycle": DetectionType.BICYCLE,
+    "bicycle": DetectionType.BICYCLE,
+    "pedestrian": DetectionType.PEDESTRIAN,
+}
+
 
 def create_token(input_data: str) -> str:
     # TODO: Refactor this function.
@@ -73,43 +91,6 @@ def create_token(input_data: str) -> str:
     hash_obj = hashlib.sha256(input_data)
     return hash_obj.hexdigest()[:16]
 
-def _load_calibration() -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
-    """
-    读取 KITTI-360 全局标定文件，返回:
-    - intrinsics[image_02] = 3x3
-    - c2e[image_02] = 4x4（camera->ego/body），这里将 cam_to_pose 视为 camera->vehicle（简化）
-    """
-    calib_dir = KITTI360_DATA_ROOT / DIR_CALIB
-    intrinsics: Dict[str, np.ndarray] = {}
-    c2e: Dict[str, np.ndarray] = {}
-
-    # 内参：perspective.txt 中的 P_rect_0{0..3}
-    persp = calib_dir / "perspective.txt"
-    if persp.exists():
-        with open(persp, "r") as f:
-            lines = [ln.strip() for ln in f if ln.strip()]
-        for ln in lines:
-            if ln.startswith("P_rect_02"):
-                intrinsics["image_02"] = _read_projection_matrix(ln)
-            elif ln.startswith("P_rect_03"):
-                intrinsics["image_03"] = _read_projection_matrix(ln)
-
-    # 外参：cam_to_pose.txt 中 Tr_cam02（相机到车体/pose）
-    c2p = calib_dir / "cam_to_pose.txt"
-    if c2p.exists():
-        with open(c2p, "r") as f:
-            lines = [ln.strip() for ln in f if ln.strip()]
-        for ln in lines:
-            if ln.startswith("Tr_cam02"):
-                vals = [float(x) for x in ln.split(":")[1].strip().split()]
-                T = np.array(vals, dtype=np.float64).reshape(4, 4)
-                c2e["image_02"] = T
-            elif ln.startswith("Tr_cam03"):
-                vals = [float(x) for x in ln.split(":")[1].strip().split()]
-                T = np.array(vals, dtype=np.float64).reshape(4, 4)
-                c2e["image_03"] = T
-
-    return intrinsics, c2e
 
 class Kitti360DataConverter(RawDataConverter):
     def __init__(
@@ -204,6 +185,19 @@ def convert_kitti360_log_to_arrow(
             if not log_file_path.parent.exists():
                 log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
+            metadata = LogMetadata(
+                dataset="kitti360",
+                log_name=log_name,
+                location="None",
+                timestep_seconds=KITTI360_DT,
+                map_has_z=False,
+            )
+
+            vehicle_parameters = get_kitti360_station_wagon_parameters()
+            camera_metadata = get_kitti360_camera_metadata()
+            #TODO  now only velodyne lidar
+            lidar_metadata = get_kitti360_lidar_metadata()
+
             schema_column_list = [
                 ("token", pa.string()),
                 ("timestamp", pa.int64()),
@@ -218,38 +212,29 @@ def convert_kitti360_log_to_arrow(
                 ("route_lane_group_ids", pa.list_(pa.int64())),
             ]
             if data_converter_config.lidar_store_option is not None:
-                if data_converter_config.lidar_store_option == "path":
-                    schema_column_list.append(("lidar", pa.string()))
-                elif data_converter_config.lidar_store_option == "binary":
-                    raise NotImplementedError("Binary lidar storage is not implemented.")
+                for lidar_type in lidar_metadata.keys():
+                    if data_converter_config.lidar_store_option == "path":
+                        schema_column_list.append((lidar_type.serialize(), pa.string()))
+                    elif data_converter_config.lidar_store_option == "binary":
+                        raise NotImplementedError("Binary lidar storage is not implemented.")
 
-            # TODO: Adjust how cameras are added
             if data_converter_config.camera_store_option is not None:
-                for cam_type in KITTI360_CAMERA_TYPES.keys():
+                for camera_type in camera_metadata.keys():
                     if data_converter_config.camera_store_option == "path":
-                        schema_column_list.append((cam_type.serialize(), pa.string()))
-                        schema_column_list.append((f"{cam_type.serialize()}_extrinsic", pa.list_(pa.float64(), 16)))
+                        schema_column_list.append((camera_type.serialize(), pa.string()))
+                        schema_column_list.append(
+                            (f"{camera_type.serialize()}_extrinsic", pa.list_(pa.float64(), 4 * 4))
+                        )
                     elif data_converter_config.camera_store_option == "binary":
                         raise NotImplementedError("Binary camera storage is not implemented.")
 
             recording_schema = pa.schema(schema_column_list)
-            #TODO location
-            metadata = LogMetadata(
-                dataset="kitti360",
-                log_name=log_name,
-                location="None",
-                timestep_seconds=KITTI360_DT,
-                map_has_z=False,
-            )
-
-            #TODO vehicle parameters
-            vehicle_parameters = get_kitti360_station_wagon_parameters()
-            camera_metadata = get_kitti360_camera_metadata()
             recording_schema = recording_schema.with_metadata(
                 {
                     "log_metadata": json.dumps(asdict(metadata)),
                     "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
                     "camera_metadata": camera_metadata_dict_to_json(camera_metadata),
+                    "lidar_metadata": lidar_metadata_dict_to_json(lidar_metadata),
                 }
             )
 
@@ -298,6 +283,35 @@ def _read_projection_matrix(p_line: str) -> np.ndarray:
     K = P[:, :3]
     return K
 
+def get_kitti360_lidar_metadata(log_name: str) -> Dict[LiDARType, LiDARMetadata]:
+    metadata: Dict[LiDARType, LiDARMetadata] = {}
+
+    cam2pose_txt = PATH_CALIB_ROOT / "calib_cam_to_pose.txt"
+    if not cam2pose_txt.exists():
+        raise FileNotFoundError(f"calib_cam_to_pose.txt file not found: {cam2pose_txt}")
+    
+    cam2velo_txt = PATH_CALIB_ROOT / "calib_cam_to_velo.txt"
+    if not cam2velo_txt.exists():
+        raise FileNotFoundError(f"calib_cam_to_velo.txt file not found: {cam2velo_txt}")
+    
+    lastrow = np.array([0,0,0,1]).reshape(1,4)
+
+    with open(cam2pose_txt, 'r') as f:
+        image_00 = next(f)
+        values = list(map(float, image_00.strip().split()[1:]))
+        matrix = np.array(values).reshape(3, 4)
+        cam2pose = np.concatenate((matrix, lastrow))
+    
+    cam2velo = np.concatenate((np.loadtxt(cam2velo_txt).reshape(3,4), lastrow))
+    extrinsic =  cam2velo @ np.linalg.inv(cam2pose)
+
+    metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
+        lidar_type=LiDARType.LIDAR_TOP,
+        lidar_index=Kitti360LidarIndex,
+        extrinsic=extrinsic, 
+    )
+    return metadata
+
 def _write_recording_table(
     log_name: str,
     recording_schema: pa.Schema,
@@ -306,31 +320,33 @@ def _write_recording_table(
 ) -> None:
     
     ts_list = _read_timestamps(log_name)
+    ego_state_all = _extract_ego_state_all(log_name)
+    detections_states,detections_velocity,detections_tokens,detections_types = _extract_detections(log_name,len(ts_list))
 
     with pa.OSFile(str(log_file_path), "wb") as sink:
         with pa.ipc.new_file(sink, recording_schema) as writer:
-            for i, tp in enumerate(ts_list):
+            for idx, tp in enumerate(ts_list):
+
                 row_data = {
-                    "token": [create_token(f"{log_name}_{i}")],
+                    "token": [create_token(f"{log_name}_{idx}")],
                     "timestamp": [tp.time_us],
-                    "detections_state": [],
-                    "detections_velocity": [],
-                    "detections_token": [],
-                    "detections_type": [],
-                    "ego_states": [],
-                    "traffic_light_ids": [],
-                    "traffic_light_types": [],
-                    "scenario_tag": [],
-                    "route_lane_group_ids": [],
+                    "detections_state": [detections_states[idx]],
+                    "detections_velocity": [detections_velocity[idx]],
+                    "detections_token": [detections_tokens[idx]],
+                    "detections_type": [detections_types[idx]],
+                    "ego_states": [ego_state_all[idx]],
+                    "traffic_light_ids": [[]],
+                    #may TODO traffic light types
+                    "traffic_light_types": [[]],
+                    "scenario_tag": [['unknown']],
+                    "route_lane_group_ids": [[]],
                 }
 
                 if data_converter_config.lidar_store_option is not None:
-                    row_data["lidar"] = []
-                    # row_data["lidar"] = [_extract_lidar(log_name, data_converter_config)]
+                    row_data["lidar"] = [_extract_lidar(log_name, idx, data_converter_config)]
 
                 if data_converter_config.camera_store_option is not None:
-                    # camera_data_dict = _extract_camera(log_db, lidar_pc, source_log_path, data_converter_config)
-                    camera_data_dict = {}
+                    camera_data_dict = _extract_cameras(log_name, idx, data_converter_config)
                     for camera_type, camera_data in camera_data_dict.items():
                         if camera_data is not None:
                             row_data[camera_type.serialize()] = [camera_data[0]]
@@ -348,9 +364,8 @@ def _write_recording_table(
         write_arrow_table(recording_table, log_file_path)
 
 #TODO default timestamps
-# If timestamps are not provided, we can generate them based on the KITTI-360 DT
 def _read_timestamps(log_name: str) -> Optional[List[TimePoint]]:
-    
+    # unix
     ts_file = PATH_2D_RAW_ROOT / log_name / "image_01" / "timestamps.txt"
     if ts_file.exists():
         tps: List[TimePoint] = []
@@ -375,82 +390,160 @@ def _read_timestamps(log_name: str) -> Optional[List[TimePoint]]:
         return tps
     return None
 
+def _extract_ego_state_all(log_name: str) -> List[List[float]]:
+
+    ego_state_all: List[List[float]] = []
+
+    pose_file = PATH_POSES_ROOT / log_name / "poses.txt"
+    if not pose_file.exists():
+        raise FileNotFoundError(f"Pose file not found: {pose_file}")
+    poses = np.loadtxt(pose_file)
+    poses_time = poses[:, 0] - 1  # Adjusting time to start from 0
+    
+    #TODO 
+    oxts_path = Path("/data/jbwang/d123/data_poses/") / log_name / "oxts" / "data" 
+    
+    for idx in range(len(list(oxts_path.glob("*.txt")))):
+        oxts_path_file = oxts_path / f"{int(idx):010d}.txt"
+        oxts_data = np.loadtxt(oxts_path_file)
+
+        roll, pitch, yaw = oxts_data[3:6]
+        vehicle_parameters = get_kitti360_station_wagon_parameters()
+
+        pos = np.searchsorted(poses_time, idx, side='right') - 1
+        
+        rear_axle_pose = StateSE3(
+            x=poses[pos, 4],
+            y=poses[pos, 8],
+            z=poses[pos, 12],
+            roll=roll,
+            pitch=pitch,
+            yaw=yaw,
+        )
+        # NOTE: The height to rear axle is not provided the dataset and is merely approximated.
+        center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
+        dynamic_state = DynamicStateSE3(
+            velocity=Vector3D(
+                x=oxts_data[8],
+                y=oxts_data[9],
+                z=oxts_data[10],
+            ),
+            acceleration=Vector3D(
+                x=oxts_data[14],
+                y=oxts_data[15],
+                z=oxts_data[16],
+            ),
+            angular_velocity=Vector3D( 
+                x=oxts_data[20],
+                y=oxts_data[21],
+                z=oxts_data[22],
+            ),
+        )
+        ego_state_all.append(
+                EgoStateSE3(
+                center_se3=center,
+                dynamic_state_se3=dynamic_state,
+                vehicle_parameters=vehicle_parameters,
+                timepoint=None,
+            ).array.tolist()
+        )
+    return ego_state_all
+
+#TODO now only divided by data_3d_semantics
+# We may distinguish between image and lidar detections
+# besides, now it is based only on start and end frame 
+def _extract_detections(
+    log_name: str,
+    ts_len: int
+) -> Tuple[List[List[float]], List[List[float]], List[str], List[int]]:
+   
+    detections_states: List[List[List[float]]] = [[] for _ in range(ts_len)]
+    detections_velocity: List[List[List[float]]] = [[] for _ in range(ts_len)]
+    detections_tokens: List[List[str]] = [[] for _ in range(ts_len)]
+    detections_types: List[List[int]] = [[] for _ in range(ts_len)]
+
+    bbox_3d_path = PATH_3D_BBOX_ROOT / "train" / f"{log_name}.xml"
+    if not bbox_3d_path.exists():
+        raise FileNotFoundError(f"BBox 3D file not found: {bbox_3d_path}")
+    
+    tree = ET.parse(bbox_3d_path)
+    root = tree.getroot()
+
+    for child in root:
+        label = child.find('label').text
+        if child.find('transform') is None or label not in KIITI360_DETECTION_NAME_DICT.keys():
+            continue
+        obj = KITTI360Bbox3D()
+        obj.parseBbox(child)
+        
+        # static
+        if obj.timestamp == -1:
+            start_frame = obj.start_frame
+            end_frame = obj.end_frame
+            for frame in range(start_frame, end_frame + 1):
+                #TODO check if valid in each frame
+                if frame < 0 or frame >= ts_len:
+                    continue
+                #TODO  check yaw
+                detections_states[frame].append(obj.get_state_array())
+                detections_velocity[frame].append([0.0, 0.0, 0.0])
+                detections_tokens[frame].append(str(obj.globalID))
+                detections_types[frame].append(int(KIITI360_DETECTION_NAME_DICT[label]))
+        # dynamic
+        else:
+            frame = obj.timestamp
+            detections_states[frame].append(obj.get_state_array())
+            #TODO velocity not provided
+            detections_velocity[frame].append([0.0, 0.0, 0.0])
+            detections_tokens[frame].append(str(obj.globalID))
+            detections_types[frame].append(int(KIITI360_DETECTION_NAME_DICT[label]))
+
+    return detections_states, detections_velocity, detections_tokens, detections_types
+
 #TODO lidar extraction
-def _extract_lidar(log_name: str, data_converter_config: DataConverterConfig) -> Optional[str]:
+def _extract_lidar(log_name: str, idx: int, data_converter_config: DataConverterConfig) -> Optional[str]:
     lidar: Optional[str] = None
-    lidar_full_path = DIR_3D_SMT / "train" / log_name / "0000000002_0000000385.ply"
+    lidar_full_path = DIR_3D_RAW / log_name / "velodyne_points" / "data" / f"{idx:010d}.bin"
     if lidar_full_path.exists():
         if data_converter_config.lidar_store_option == "path":
-            lidar = f"{log_name}/lidar/{sample_name}.npy"
+            lidar = f"/data_3d_raw/{log_name}/velodyne_points/data/{idx:010d}.bin"
         elif data_converter_config.lidar_store_option == "binary":
             raise NotImplementedError("Binary lidar storage is not implemented.")
     else:
         raise FileNotFoundError(f"LiDAR file not found: {lidar_full_path}")
-    return lidar
+    return {LiDARType.LIDAR_TOP: lidar} if lidar else None
 
-def _extract_camera():
-    pass
+#TODO check camera extrinsic now is from camera to pose
+def _extract_cameras(
+    log_name: str, idx: int, data_converter_config: DataConverterConfig
+) -> Dict[CameraType, Optional[str]]:
+    
+    camera_dict: Dict[str, Union[str, bytes]] = {}
+    for camera_type, cam_dir_name in KITTI360_CAMERA_TYPES.items():
+        img_path_png = PATH_2D_RAW_ROOT / log_name / cam_dir_name / "data_rect" / f"{idx:010d}.png"
+        if img_path_png.exists():
+            
+            cam2pose_txt = PATH_CALIB_ROOT / "calib_cam_to_pose.txt"
+            if not cam2pose_txt.exists():
+                raise FileNotFoundError(f"calib_cam_to_pose.txt file not found: {cam2pose_txt}")
+        
+            lastrow = np.array([0,0,0,1]).reshape(1,4)
 
+            with open(cam2pose_txt, 'r') as f:
+                for line in f:
+                    parts = line.strip().split()
+                    key = parts[0][:-1]
+                    if key == cam_dir_name:
+                        values = list(map(float, parts[1:]))
+                        matrix = np.array(values).reshape(3, 4)
+                        cam2pose = np.concatenate((matrix, lastrow))
 
-
-#                     for idx in range(n_frames):
-#                         token = f"{seq_name}_{idx:06d}"
-#                         t_us = ts_list[idx].time_us
-
-#                         row = {
-#                             "token": [token],
-#                             "timestamp": [t_us],
-#                             # 以下先填空/占位，方便后续替换为真实标注
-#                             "detections_state": [[]],
-#                             "detections_velocity": [[]],
-#                             "detections_token": [[]],
-#                             "detections_type": [[]],
-#                             "ego_states": [([0.0] * len(EgoStateSE3Index))],  # 占位
-#                             "traffic_light_ids": [[]],
-#                             "traffic_light_types": [[]],
-#                             "scenario_tag": [["unknown"]],
-#                             "route_lane_group_ids": [[]],
-#                         }
-
-#                         # lidar 路径（若存在）
-#                         if data_converter_config.lidar_store_option is not None:
-#                             # velodyne bin：KITTI-360/data_3d_raw/<seq>/velodyne_points/data/0000000000.bin
-#                             velodyne_dir = (
-#                                 KITTI360_DATA_ROOT / DIR_3D / seq_name / "velodyne_points" / "data"
-#                             )
-#                             # 文件名位数可能为 10 位，这里做两种尝试
-#                             bin_path = None
-#                             for fmt in [f"{idx:010d}.bin", f"{idx:06d}.bin", f"{idx:08d}.bin"]:
-#                                 cand = velodyne_dir / fmt
-#                                 if cand.exists():
-#                                     bin_path = cand
-#                                     break
-#                             row["lidar"] = [str(bin_path.relative_to(KITTI360_DATA_ROOT)) if bin_path else None]
-
-#                         # 相机路径与外参
-#                         if data_converter_config.camera_store_option is not None:
-#                             for cam_type, cam_dir_name in KITTI360_CAMERA_TYPES.items():
-#                                 img_dir = seq_dir_2d / cam_dir_name / "data"
-#                                 # 文件名位数尝试
-#                                 img_path = None
-#                                 for ext in (".png", ".jpg", ".jpeg"):
-#                                     for fmt in [f"{idx:010d}{ext}", f"{idx:06d}{ext}", f"{idx:08d}{ext}"]:
-#                                         cand = img_dir / fmt
-#                                         if cand.exists():
-#                                             img_path = cand
-#                                             break
-#                                     if img_path:
-#                                         break
-#                                 if img_path is not None:
-#                                     rel = str(img_path.relative_to(KITTI360_DATA_ROOT))
-#                                     row[cam_type.serialize()] = [rel]
-#                                     # 外参：固定 cam->ego（全局标定），逐帧不变（如需 rolling/姿态，可在此替换）
-#                                     T = c2e.get(KITTI360_CAMERA_TYPES[cam_type], np.eye(4, dtype=np.float64))
-#                                     row[f"{cam_type.serialize()}_extrinsic"] = [T.astype(np.float64).reshape(-1).tolist()]
-#                                 else:
-#                                     row[cam_type.serialize()] = [None]
-#                                     row[f"{cam_type.serialize()}_extrinsic"] = [None]
-
-#                         batch = pa.record_batch(row, schema=recording_schema)
-#                         writer.write_batch(batch)
-#                         del batch, row
+            if data_converter_config.camera_store_option == "path":
+                camera_data = str(img_path_png), cam2pose.flatten().tolist()
+            elif data_converter_config.camera_store_option == "binary":
+                with open(img_path_png, "rb") as f:
+                    camera_data = f.read(), cam2pose
+        else:
+            raise FileNotFoundError(f"Camera image not found: {img_path_png}")
+        camera_dict[camera_type] = camera_data
+    return camera_dict

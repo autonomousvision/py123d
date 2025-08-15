@@ -17,11 +17,7 @@ defaults:
   - datasets:
     - kitti360_dataset
     # - nuplan_private_dataset
-<<<<<<< HEAD
     # - carla_dataset
-=======
-    - carla_dataset
->>>>>>> dev_v0.0.6
     # - wopd_dataset
 
 force_log_conversion: True
