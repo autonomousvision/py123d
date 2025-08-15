@@ -1,13 +1,13 @@
 import numpy as np
 
 from collections import defaultdict
-from labels import kittiId2label
 
 from scipy.linalg import polar
 from scipy.spatial.transform import Rotation as R
 
 from d123.common.geometry.base import StateSE3
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
+from d123.dataset.dataset_specific.kitti_360.labels import kittiId2label
 
 DEFAULT_ROLL = 0.0
 DEFAULT_PITCH = 0.0
@@ -93,8 +93,8 @@ class KITTI360Bbox3D():
             x=self.T[0],
             y=self.T[1],
             z=self.T[2],
-            roll=DEFAULT_ROLL,
-            pitch=DEFAULT_PITCH,
+            roll=roll,
+            pitch=pitch,
             yaw=yaw,
         )
         bounding_box_se3 = BoundingBoxSE3(center, scale[0], scale[1], scale[2])

@@ -28,8 +28,7 @@ from d123.common.geometry.vector import Vector3D, Vector3DIndex
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
-
-from kitti_360_helper import KITTI360Bbox3D
+from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360Bbox3D
 
 KITTI360_DT: Final[float] = 0.1
 SORT_BY_TIMESTAMP: Final[bool] = True
@@ -62,11 +61,10 @@ PATH_3D_BBOX_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_BBOX
 PATH_POSES_ROOT: Path = KITTI360_DATA_ROOT / DIR_POSES
 PATH_CALIB_ROOT: Path = KITTI360_DATA_ROOT / DIR_CALIB
 
+#TODO check all paths
 KITTI360_REQUIRED_MODALITY_ROOTS: Dict[str, Path] = {
     DIR_2D_RAW: PATH_2D_RAW_ROOT,
-    # DIR_2D_SMT: PATH_2D_SMT_ROOT,
-    # DIR_3D_RAW: PATH_3D_RAW_ROOT,
-    # DIR_3D_SMT: PATH_3D_SMT_ROOT,
+    DIR_3D_RAW: PATH_3D_RAW_ROOT,
     # DIR_3D_BBOX: PATH_3D_BBOX_ROOT,
     # DIR_POSES: PATH_POSES_ROOT,
 }
@@ -138,6 +136,7 @@ class Kitti360DataConverter(RawDataConverter):
             #         f"Sequence '{seq_name}' skipped: missing modalities {missing_modalities}. "
             #         f"Root: {KITTI360_DATA_ROOT}"
             #     )
+        print("valid",valid_seqs)
         return {"kitti360": valid_seqs}
     
     def get_available_splits(self) -> List[str]:
@@ -244,7 +243,7 @@ def convert_kitti360_log_to_arrow(
     return []
 
 
-def get_kitti360_camera_metadata() -> Dict[str, CameraMetadata]:
+def get_kitti360_camera_metadata() -> Dict[CameraType, CameraMetadata]:
     
     persp = PATH_CALIB_ROOT / "perspective.txt"
 
@@ -265,7 +264,7 @@ def get_kitti360_camera_metadata() -> Dict[str, CameraMetadata]:
     
     log_cam_infos: Dict[str, CameraMetadata] = {}
     for cam_type, cam_name in KITTI360_CAMERA_TYPES.items():
-        log_cam_infos[cam_type.serialize()] = CameraMetadata(
+        log_cam_infos[cam_type] = CameraMetadata(
             camera_type=cam_type,
             width=result[cam_name]["wh"][0],
             height=result[cam_name]["wh"][1],
@@ -283,7 +282,7 @@ def _read_projection_matrix(p_line: str) -> np.ndarray:
     K = P[:, :3]
     return K
 
-def get_kitti360_lidar_metadata(log_name: str) -> Dict[LiDARType, LiDARMetadata]:
+def get_kitti360_lidar_metadata() -> Dict[LiDARType, LiDARMetadata]:
     metadata: Dict[LiDARType, LiDARMetadata] = {}
 
     cam2pose_txt = PATH_CALIB_ROOT / "calib_cam_to_pose.txt"
@@ -343,7 +342,12 @@ def _write_recording_table(
                 }
 
                 if data_converter_config.lidar_store_option is not None:
-                    row_data["lidar"] = [_extract_lidar(log_name, idx, data_converter_config)]
+                    lidar_data_dict = _extract_lidar(log_name, idx, data_converter_config)
+                    for lidar_type, lidar_data in lidar_data_dict.items():
+                        if lidar_data is not None:
+                            row_data[lidar_type.serialize()] = [lidar_data]
+                        else:
+                            row_data[lidar_type.serialize()] = [None]
 
                 if data_converter_config.camera_store_option is not None:
                     camera_data_dict = _extract_cameras(log_name, idx, data_converter_config)
@@ -363,7 +367,7 @@ def _write_recording_table(
         recording_table = recording_table.sort_by([("timestamp", "ascending")])
         write_arrow_table(recording_table, log_file_path)
 
-#TODO default timestamps
+#TODO default timestamps  and Synchronization all other parts
 def _read_timestamps(log_name: str) -> Optional[List[TimePoint]]:
     # unix
     ts_file = PATH_2D_RAW_ROOT / log_name / "image_01" / "timestamps.txt"
@@ -501,9 +505,9 @@ def _extract_detections(
     return detections_states, detections_velocity, detections_tokens, detections_types
 
 #TODO lidar extraction
-def _extract_lidar(log_name: str, idx: int, data_converter_config: DataConverterConfig) -> Optional[str]:
+def _extract_lidar(log_name: str, idx: int, data_converter_config: DataConverterConfig) -> Dict[LiDARType, Optional[str]]:
     lidar: Optional[str] = None
-    lidar_full_path = DIR_3D_RAW / log_name / "velodyne_points" / "data" / f"{idx:010d}.bin"
+    lidar_full_path = PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "data" / f"{idx:010d}.bin"
     if lidar_full_path.exists():
         if data_converter_config.lidar_store_option == "path":
             lidar = f"/data_3d_raw/{log_name}/velodyne_points/data/{idx:010d}.bin"
@@ -511,7 +515,7 @@ def _extract_lidar(log_name: str, idx: int, data_converter_config: DataConverter
             raise NotImplementedError("Binary lidar storage is not implemented.")
     else:
         raise FileNotFoundError(f"LiDAR file not found: {lidar_full_path}")
-    return {LiDARType.LIDAR_TOP: lidar} if lidar else None
+    return {LiDARType.LIDAR_TOP: lidar}
 
 #TODO check camera extrinsic now is from camera to pose
 def _extract_cameras(
