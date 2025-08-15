@@ -33,7 +33,7 @@ all_camera_types: List[CameraType] = [
 LINE_WIDTH: float = 4.0
 
 # Bounding box config:
-BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "lines"
+BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "mesh"
 
 # Map config:
 MAP_AVAILABLE: bool = True
@@ -44,11 +44,11 @@ MAP_AVAILABLE: bool = True
 VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_F0, CameraType.CAM_L0, CameraType.CAM_R0]
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = all_camera_types
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = []
-VISUALIZE_CAMERA_GUI: List[CameraType] = [CameraType.CAM_F0]
-CAMERA_SCALE: float = 1.0
+VISUALIZE_CAMERA_GUI: List[CameraType] = []
+CAMERA_SCALE: float = 2.0
 
 # Lidar config:
-LIDAR_AVAILABLE: bool = True
+LIDAR_AVAILABLE: bool = False
 
 LIDAR_TYPES: List[LiDARType] = [
     LiDARType.LIDAR_MERGED,
@@ -94,9 +94,18 @@ class ViserVisualizationServer:
 
     def set_scene(self, scene: AbstractScene) -> None:
         num_frames = scene.get_number_of_iterations()
-        print(scene.available_camera_types)
+        # print(scene.available_camera_types)
 
         self.server.gui.configure_theme(dark_mode=False, control_width="large")
+
+        # TODO: Fix lighting. Environment map can help, but cannot be freely configured.
+        # self.server.scene.configure_environment_map(
+        #     hdri="warehouse",
+        #     background=False,
+        #     background_intensity=0.25,
+        #     environment_intensity=0.5,
+        # )
+
         with self.server.gui.add_folder("Playback"):
             server_playing = True
 
@@ -262,7 +271,7 @@ class ViserVisualizationServer:
                 #     line_width=LINE_WIDTH,
                 # )
                 # self.server.scene.add_line_segments(
-                #     "/map/right_boundary",
+                #     "/map/right_boundary",clear
                 #     right_boundaries,
                 #     colors=[[TAB_10[3].rgb]],
                 #     line_width=LINE_WIDTH,
