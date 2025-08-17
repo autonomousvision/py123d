@@ -15,8 +15,12 @@ defaults:
   - default_dataset_paths
   - _self_
   - datasets:
+<<<<<<< HEAD
     - kitti360_dataset
     # - nuplan_private_dataset
+=======
+    - nuplan_private_dataset
+>>>>>>> dev_v0.0.6
     # - carla_dataset
     # - wopd_dataset
 

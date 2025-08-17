@@ -11,15 +11,15 @@ import numpy.typing as npt
 from d123.simulation.gym.environment.gym_observation.abstract_gym_observation import (
     AbstractGymObservation,
 )
+from d123.simulation.gym.environment.output_converter.abstract_output_converter import (
+    AbstractOutputConverter,
+)
 from d123.simulation.gym.environment.reward_builder.abstract_reward_builder import AbstractRewardBuilder
 from d123.simulation.gym.environment.scenario_sampler.abstract_scenario_sampler import AbstractScenarioSampler
 from d123.simulation.gym.environment.simulation_builder.abstract_simulation_builder import (
     AbstractSimulationBuilder,
 )
 from d123.simulation.gym.environment.simulation_wrapper import SimulationWrapper
-from d123.simulation.gym.environment.output_converter.abstract_output_converter import (
-    AbstractOutputConverter,
-)
 
 logger = logging.getLogger(__name__)
 

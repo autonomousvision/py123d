@@ -5,7 +5,6 @@ import numpy as np
 import numpy.typing as npt
 from gymnasium import spaces
 
-
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE2
 from d123.simulation.planning.planner_output.abstract_planner_output import AbstractPlannerOutput
 

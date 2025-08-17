@@ -11,7 +11,6 @@ import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
 import tensorflow as tf
-from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 from pyquaternion import Quaternion
 from waymo_open_dataset import dataset_pb2
 
@@ -27,6 +26,7 @@ from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
 from d123.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from d123.common.geometry.transform.se3 import convert_relative_to_absolute_se3_array, get_rotation_matrix
 from d123.common.geometry.vector import Vector3D, Vector3DIndex
+from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.dataset_specific.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map

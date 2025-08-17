@@ -10,7 +10,6 @@ from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
 import numpy as np
 import pyarrow as pa
-from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 
 from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
@@ -20,6 +19,7 @@ from d123.common.datatypes.vehicle_state.vehicle_parameters import get_carla_lin
 from d123.common.geometry.base import Point2D, Point3D
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
 from d123.common.geometry.vector import Vector3DIndex
+from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.conversion.map.opendrive.elements.opendrive import OpenDrive
 from d123.dataset.conversion.map.opendrive.opendrive_converter import OpenDriveConverter

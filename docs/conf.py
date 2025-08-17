@@ -7,8 +7,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "d123"
-copyright = "2025, DanielDauner"
-author = "DanielDauner"
+copyright = "2025, 123D Contributors"
+author = "123D Contributors"
 release = "v0.0.6"
 
 # -- General configuration ---------------------------------------------------
@@ -59,7 +59,6 @@ html_theme_options = {
     "prev_next_buttons_location": "bottom",
     "style_external_links": False,
     "vcs_pageview_mode": "",
-    "style_nav_header_background": "#FFE100",
     # Toc options
     "collapse_navigation": True,
     "sticky_navigation": True,

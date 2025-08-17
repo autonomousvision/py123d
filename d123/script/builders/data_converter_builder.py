@@ -2,10 +2,10 @@ import logging
 from typing import List
 
 from hydra.utils import instantiate
-from nuplan.planning.script.builders.utils.utils_type import validate_type
 from omegaconf import DictConfig
 
 from d123.dataset.dataset_specific.raw_data_converter import RawDataConverter
+from d123.script.builders.utils.utils_type import validate_type
 
 logger = logging.getLogger(__name__)
 

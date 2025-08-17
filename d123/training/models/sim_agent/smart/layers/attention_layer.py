@@ -17,7 +17,7 @@ class AttentionLayer(MessagePassing):
         dropout: float,
         bipartite: bool,
         has_pos_emb: bool,
-        **kwargs
+        **kwargs,
     ) -> None:
         super(AttentionLayer, self).__init__(aggr="add", node_dim=0, **kwargs)
         self.num_heads = num_heads

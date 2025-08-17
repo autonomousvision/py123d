@@ -1,11 +1,10 @@
 import logging
 
 from hydra.utils import instantiate
-from nuplan.planning.script.builders.utils.utils_type import is_target_type, validate_type
-from nuplan.planning.utils.multithreading.worker_parallel import SingleMachineParallelExecutor
-from nuplan.planning.utils.multithreading.worker_pool import WorkerPool
-from nuplan.planning.utils.multithreading.worker_sequential import Sequential
 from omegaconf import DictConfig
+
+from d123.common.multithreading.worker_pool import WorkerPool
+from d123.script.builders.utils.utils_type import validate_type
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +16,7 @@ def build_worker(cfg: DictConfig) -> WorkerPool:
     :return: Instance of WorkerPool.
     """
     logger.info("Building WorkerPool...")
-    worker: WorkerPool = (
-        instantiate(cfg.worker)
-        if (is_target_type(cfg.worker, SingleMachineParallelExecutor) or is_target_type(cfg.worker, Sequential))
-        else instantiate(cfg.worker, output_dir=cfg.output_dir)
-    )
+    worker: WorkerPool = instantiate(cfg.worker)
     validate_type(worker, WorkerPool)
-
     logger.info("Building WorkerPool...DONE!")
     return worker

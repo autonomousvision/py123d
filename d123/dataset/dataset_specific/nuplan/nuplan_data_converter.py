@@ -16,7 +16,6 @@ from nuplan.database.nuplan_db_orm.lidar_box import LidarBox
 from nuplan.database.nuplan_db_orm.lidar_pc import LidarPc
 from nuplan.database.nuplan_db_orm.nuplandb import NuPlanDB
 from nuplan.planning.simulation.observation.observation_type import CameraChannel
-from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 from pyquaternion import Quaternion
 from sqlalchemy import func
 
@@ -36,6 +35,7 @@ from d123.common.geometry.base import StateSE3
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3, BoundingBoxSE3Index
 from d123.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from d123.common.geometry.vector import Vector3D, Vector3DIndex
+from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.nuplan.nuplan_map_conversion import MAP_LOCATIONS, NuPlanMapConverter
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
