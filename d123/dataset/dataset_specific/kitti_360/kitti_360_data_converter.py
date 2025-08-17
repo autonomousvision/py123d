@@ -12,6 +12,7 @@ import hashlib
 import xml.etree.ElementTree as ET
 import pyarrow as pa
 from PIL import Image
+import logging
 
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 
@@ -61,12 +62,11 @@ PATH_3D_BBOX_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_BBOX
 PATH_POSES_ROOT: Path = KITTI360_DATA_ROOT / DIR_POSES
 PATH_CALIB_ROOT: Path = KITTI360_DATA_ROOT / DIR_CALIB
 
-#TODO check all paths
 KITTI360_REQUIRED_MODALITY_ROOTS: Dict[str, Path] = {
     DIR_2D_RAW: PATH_2D_RAW_ROOT,
     DIR_3D_RAW: PATH_3D_RAW_ROOT,
-    # DIR_3D_BBOX: PATH_3D_BBOX_ROOT,
-    # DIR_POSES: PATH_POSES_ROOT,
+    DIR_POSES: PATH_POSES_ROOT,
+    DIR_3D_BBOX: PATH_3D_BBOX_ROOT / "train",
 }
 
 #TODO 
@@ -78,6 +78,20 @@ KIITI360_DETECTION_NAME_DICT = {
     "bicycle": DetectionType.BICYCLE,
     "pedestrian": DetectionType.PEDESTRIAN,
 }
+
+KITTI3602NUPLAN_IMU_CALIBRATION = np.array([
+        [1, 0, 0, 0],
+        [0, -1, 0, 0],
+        [0, 0, -1, 0],
+        [0, 0, 0, 1],
+    ], dtype=np.float64)
+
+KITTI3602NUPLAN_LIDAR_CALIBRATION = np.array([
+        [0, -1, 0, 0],
+        [1, 0, 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1],
+    ], dtype=np.float64)
 
 
 def create_token(input_data: str) -> str:
@@ -120,23 +134,30 @@ class Kitti360DataConverter(RawDataConverter):
         # Enumerate candidate sequences from data_2d_raw
         candidates = sorted(p for p in PATH_2D_RAW_ROOT.iterdir() if p.is_dir() and p.name.endswith("_sync"))
 
+        def _has_modality(seq_name: str, modality_name: str, root: Path) -> bool:
+            if modality_name == DIR_3D_BBOX:
+                # expected: data_3d_bboxes/train/<seq_name>.xml
+                xml_path = root / f"{seq_name}.xml"
+                return xml_path.exists()
+            else:
+                return (root / seq_name).exists()
+
         valid_seqs: List[Path] = []
         for seq_dir in candidates:
             seq_name = seq_dir.name
             missing_modalities = [
                 modality_name
                 for modality_name, root in KITTI360_REQUIRED_MODALITY_ROOTS.items()
-                if not (root / seq_name).exists()
+                if not _has_modality(seq_name, modality_name, root)
             ]
             if not missing_modalities:
                 valid_seqs.append(seq_dir) #KITTI360_DATA_ROOT / DIR_2D_RAW /seq_name
-            #TODO warnings
-            # else:
-            #     warnings.warn(
-            #         f"Sequence '{seq_name}' skipped: missing modalities {missing_modalities}. "
-            #         f"Root: {KITTI360_DATA_ROOT}"
-            #     )
-        print("valid",valid_seqs)
+            else:
+                logging.info(
+                    f"Sequence '{seq_name}' skipped: missing modalities {missing_modalities}. "
+                    f"Root: {KITTI360_DATA_ROOT}"
+                )
+        logging.info(f"vadid sequences found: {valid_seqs}")
         return {"kitti360": valid_seqs}
     
     def get_available_splits(self) -> List[str]:
@@ -144,7 +165,7 @@ class Kitti360DataConverter(RawDataConverter):
         return ["kitti360"]
 
     def convert_maps(self, worker: WorkerPool) -> None:
-        print("KITTI-360 does not provide standard maps. Skipping map conversion.")
+        logging.info("KITTI-360 does not provide standard maps. Skipping map conversion.")
         return None
 
     def convert_logs(self, worker: WorkerPool) -> None:
@@ -184,6 +205,7 @@ def convert_kitti360_log_to_arrow(
             if not log_file_path.parent.exists():
                 log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
+            #TODO location
             metadata = LogMetadata(
                 dataset="kitti360",
                 log_name=log_name,
@@ -300,13 +322,17 @@ def get_kitti360_lidar_metadata() -> Dict[LiDARType, LiDARMetadata]:
         values = list(map(float, image_00.strip().split()[1:]))
         matrix = np.array(values).reshape(3, 4)
         cam2pose = np.concatenate((matrix, lastrow))
+        cam2pose = KITTI3602NUPLAN_IMU_CALIBRATION @ cam2pose
     
     cam2velo = np.concatenate((np.loadtxt(cam2velo_txt).reshape(3,4), lastrow))
+    cam2velo = KITTI3602NUPLAN_LIDAR_CALIBRATION @ cam2velo
+
     extrinsic =  cam2velo @ np.linalg.inv(cam2pose)
 
     metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
         lidar_type=LiDARType.LIDAR_TOP,
         lidar_index=Kitti360LidarIndex,
+        #TODO extrinsic needed to be same with nuplan
         extrinsic=extrinsic, 
     )
     return metadata
@@ -367,7 +393,7 @@ def _write_recording_table(
         recording_table = recording_table.sort_by([("timestamp", "ascending")])
         write_arrow_table(recording_table, log_file_path)
 
-#TODO default timestamps  and Synchronization all other parts
+#TODO default timestamps  and Synchronization all other sequences 
 def _read_timestamps(log_name: str) -> Optional[List[TimePoint]]:
     # unix
     ts_file = PATH_2D_RAW_ROOT / log_name / "image_01" / "timestamps.txt"
@@ -504,7 +530,7 @@ def _extract_detections(
 
     return detections_states, detections_velocity, detections_tokens, detections_types
 
-#TODO lidar extraction
+#TODO lidar extraction now only velo
 def _extract_lidar(log_name: str, idx: int, data_converter_config: DataConverterConfig) -> Dict[LiDARType, Optional[str]]:
     lidar: Optional[str] = None
     lidar_full_path = PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "data" / f"{idx:010d}.bin"
@@ -541,6 +567,7 @@ def _extract_cameras(
                         values = list(map(float, parts[1:]))
                         matrix = np.array(values).reshape(3, 4)
                         cam2pose = np.concatenate((matrix, lastrow))
+                        cam2pose = KITTI3602NUPLAN_IMU_CALIBRATION @ cam2pose
 
             if data_converter_config.camera_store_option == "path":
                 camera_data = str(img_path_png), cam2pose.flatten().tolist()

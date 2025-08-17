@@ -33,6 +33,7 @@ from d123.dataset.maps.abstract_map import List
 DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "nuplan": Path(os.environ["NUPLAN_DATA_ROOT"]) / "nuplan-v1.1" / "sensor_blobs",
     "carla": Path(os.environ["CARLA_DATA_ROOT"]) / "sensor_blobs",
+    "kitti360": Path(os.environ["KITTI360_DATA_ROOT"]),
 }
 
 
