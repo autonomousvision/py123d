@@ -33,10 +33,10 @@ all_camera_types: List[CameraType] = [
 LINE_WIDTH: float = 4.0
 
 # Bounding box config:
-BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "mesh"
+BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "lines"
 
 # Map config:
-MAP_AVAILABLE: bool = True
+MAP_AVAILABLE: bool = False
 
 
 # Cameras config:
