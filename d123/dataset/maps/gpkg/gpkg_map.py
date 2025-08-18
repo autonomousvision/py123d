@@ -74,6 +74,7 @@ class GPKGMap(AbstractMap):
                         self._gpd_dataframes[map_layer]["id"] = self._gpd_dataframes[map_layer]["id"].astype(str)
                 else:
                     warnings.warn(f"GPKGMap: {map_layer_name} not available in {str(self._file_path)}")
+                    self._gpd_dataframes[map_layer] = None
 
     def _assert_initialize(self) -> None:
         "Checks if `.initialize()` was called, before retrieving data."

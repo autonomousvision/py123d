@@ -186,7 +186,7 @@ class ArrowScene(AbstractScene):
     def open(self) -> None:
         if self._map_api is None:
             try:
-                if self._metadata.dataset == "wopd":
+                if self._metadata.dataset in ["wopd", "av2-sensor"]:
                     # FIXME:
                     split = str(self._arrow_log_path.parent.name)
                     self._map_api = get_local_map_api(split, self._metadata.log_name)

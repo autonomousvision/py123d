@@ -96,12 +96,12 @@ def get_map_meshes(scene: AbstractScene):
     initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
     center = initial_ego_vehicle_state.center_se3
     map_layers = [
-        MapLayer.LANE_GROUP,
-        # MapLayer.LANE,
-        MapLayer.WALKWAY,
-        MapLayer.CROSSWALK,
-        MapLayer.CARPARK,
-        MapLayer.GENERIC_DRIVABLE,
+        # MapLayer.LANE_GROUP,
+        MapLayer.LANE,
+        # MapLayer.WALKWAY,
+        # MapLayer.CROSSWALK,
+        # MapLayer.CARPARK,
+        # MapLayer.GENERIC_DRIVABLE,
     ]
 
     map_objects_dict = scene.map_api.get_proximal_map_objects(center.point_2d, radius=MAP_RADIUS, layers=map_layers)
@@ -231,7 +231,6 @@ def get_camera_values(
     rear_axle = StateSE3.from_array(rear_axle_array)
 
     camera_to_ego = camera.extrinsic  # 4x4 transformation from camera to ego frame
-    camera.image
 
     # Get the rotation matrix of the rear axle pose
     from d123.common.geometry.transform.se3 import get_rotation_matrix
