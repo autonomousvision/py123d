@@ -69,36 +69,53 @@
 # out = polar_decompose_rotation_scale(M)
 # print(out)
 
+# import numpy as np
+# path = "/nas/datasets/KITTI-360/data_3d_raw/2013_05_28_drive_0000_sync/velodyne_points/data/0000000000.bin"
+# a = np.fromfile(path, dtype=np.float32)
+# a = a.reshape((-1,4))
+# print(a[10000:10010,:3]) 
 
-import glob
+
+import gc
+import json
 import os
-import cv2
+from dataclasses import asdict
+from functools import partial
+from pathlib import Path
+from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
-def to_video(folder_path, fps=15, downsample=2):
-    imgs_path = glob.glob(os.path.join(folder_path, '*png*'))
-    # imgs_path = sorted(imgs_path)[:19]
-    imgs_path = sorted(imgs_path)[:700:1]
-    img_array = []
-    for img_path in imgs_path:
-        img = cv2.imread(img_path)
-        height, width, channel = img.shape
-        img = cv2.resize(img, (width // downsample, height //
-                               downsample), interpolation=cv2.INTER_AREA)
-        height, width, channel = img.shape
-        size = (width, height)
-        img_array.append(img)
+import numpy as np
+from collections import defaultdict
+import datetime
+import hashlib
+import xml.etree.ElementTree as ET
+import pyarrow as pa
+from PIL import Image
+import logging
 
-    # media.write_video(os.path.join(folder_path, 'video.mp4'), img_array, fps=10)
-    mp4_path = os.path.join("/data/jbwang/d123/video/", 'video_one_episode.mp4')
-    if os.path.exists(mp4_path):
-        os.remove(mp4_path)
-    out = cv2.VideoWriter(
-        mp4_path,
-        cv2.VideoWriter_fourcc(*'DIVX'), fps, size
-    )
-    for i in range(len(img_array)):
-        out.write(img_array[i])
-    out.release()
+from d123.common.datatypes.detection.detection_types import DetectionType
+from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360Bbox3D
 
-to_video("/nas/datasets/KITTI-360/2013_05_28_drive_0000_sync/image_00/data_rect/")
 
+bbox_3d_path = Path("/nas/datasets/KITTI-360/data_3d_bboxes/train/2013_05_28_drive_0000_sync.xml")
+
+tree = ET.parse(bbox_3d_path)
+root = tree.getroot()
+
+KIITI360_DETECTION_NAME_DICT = {
+    "truck": DetectionType.VEHICLE,
+    "bus": DetectionType.VEHICLE,
+    "car": DetectionType.VEHICLE,
+    "motorcycle": DetectionType.BICYCLE,
+    "bicycle": DetectionType.BICYCLE,
+    "pedestrian": DetectionType.PEDESTRIAN,
+}
+
+for child in root:
+    label = child.find('label').text
+    if child.find('transform') is None or label not in KIITI360_DETECTION_NAME_DICT.keys():
+        continue
+    obj = KITTI360Bbox3D()
+    obj.parseBbox(child)
+    # print(obj.Rm)
+    # print(Sigma)

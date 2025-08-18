@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
 import numpy as np
+from collections import defaultdict
 import datetime
 import hashlib
 import xml.etree.ElementTree as ET
@@ -69,7 +70,7 @@ KITTI360_REQUIRED_MODALITY_ROOTS: Dict[str, Path] = {
     DIR_3D_BBOX: PATH_3D_BBOX_ROOT / "train",
 }
 
-#TODO 
+#TODO  now only parts of labels are used
 KIITI360_DETECTION_NAME_DICT = {
     "truck": DetectionType.VEHICLE,
     "bus": DetectionType.VEHICLE,
@@ -332,7 +333,6 @@ def get_kitti360_lidar_metadata() -> Dict[LiDARType, LiDARMetadata]:
     metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
         lidar_type=LiDARType.LIDAR_TOP,
         lidar_index=Kitti360LidarIndex,
-        #TODO extrinsic needed to be same with nuplan
         extrinsic=extrinsic, 
     )
     return metadata
@@ -345,8 +345,11 @@ def _write_recording_table(
 ) -> None:
     
     ts_list = _read_timestamps(log_name)
-    ego_state_all = _extract_ego_state_all(log_name)
+    #TODO
+    print("extracting detections...")
     detections_states,detections_velocity,detections_tokens,detections_types = _extract_detections(log_name,len(ts_list))
+    print("extracting states...")
+    ego_state_all = _extract_ego_state_all(log_name)
 
     with pa.OSFile(str(log_file_path), "wb") as sink:
         with pa.ipc.new_file(sink, recording_schema) as writer:
@@ -437,6 +440,7 @@ def _extract_ego_state_all(log_name: str) -> List[List[float]]:
         oxts_path_file = oxts_path / f"{int(idx):010d}.txt"
         oxts_data = np.loadtxt(oxts_path_file)
 
+        #TODO check roll, pitch, yaw
         roll, pitch, yaw = oxts_data[3:6]
         vehicle_parameters = get_kitti360_station_wagon_parameters()
 
@@ -479,7 +483,7 @@ def _extract_ego_state_all(log_name: str) -> List[List[float]]:
         )
     return ego_state_all
 
-#TODO now only divided by data_3d_semantics
+#TODO
 # We may distinguish between image and lidar detections
 # besides, now it is based only on start and end frame 
 def _extract_detections(
@@ -499,6 +503,18 @@ def _extract_detections(
     tree = ET.parse(bbox_3d_path)
     root = tree.getroot()
 
+    dynamic_groups: Dict[int, List[KITTI360Bbox3D]] = defaultdict(list)
+
+    lidra_data_all = []
+    for index in range(ts_len):
+        lidar_full_path = PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "data" / f"{index:010d}.bin"
+        if not lidar_full_path.exists():
+            logging.warning(f"LiDAR file not found for frame {index}: {lidar_full_path}")
+            continue
+        lidar_data = np.fromfile(lidar_full_path, dtype=np.float32)
+        lidar_data = lidar_data.reshape(-1, 4)[:, :3]  # Keep only x, y, z coordinates
+        lidra_data_all.append(lidar_data)
+
     for child in root:
         label = child.find('label').text
         if child.find('transform') is None or label not in KIITI360_DETECTION_NAME_DICT.keys():
@@ -506,27 +522,57 @@ def _extract_detections(
         obj = KITTI360Bbox3D()
         obj.parseBbox(child)
         
-        # static
+        #static object
         if obj.timestamp == -1:
             start_frame = obj.start_frame
             end_frame = obj.end_frame
             for frame in range(start_frame, end_frame + 1):
-                #TODO check if valid in each frame
-                if frame < 0 or frame >= ts_len:
-                    continue
-                #TODO  check yaw
+                lidar_data = lidra_data_all[frame]
+                #TODO  check yaw and box visible
+                # if obj.box_visible_in_point_cloud(lidar_data):
                 detections_states[frame].append(obj.get_state_array())
                 detections_velocity[frame].append([0.0, 0.0, 0.0])
                 detections_tokens[frame].append(str(obj.globalID))
-                detections_types[frame].append(int(KIITI360_DETECTION_NAME_DICT[label]))
-        # dynamic
+                detections_types[frame].append(int(KIITI360_DETECTION_NAME_DICT[obj.label]))
         else:
+            ann_id = obj.annotationId
+            dynamic_groups[ann_id].append(obj)
+
+    # dynamic object
+    for ann_id, obj_list in dynamic_groups.items():
+        obj_list.sort(key=lambda obj: obj.timestamp)
+        num_frames = len(obj_list)
+        
+        positions = [obj.get_state_array()[:3] for obj in obj_list]
+        timestamps = [int(obj.timestamp) for obj in obj_list]
+
+        velocities = []
+
+        for i in range(1, num_frames - 1):
+            dt_frames = timestamps[i+1] - timestamps[i-1]
+            if dt_frames > 0:
+                dt = dt_frames * KITTI360_DT
+                vel = (positions[i+1] - positions[i-1]) / dt
+                # Transform velocity to the ego frame
+                vel = obj_list[i].Rm.T @ vel
+            else:
+                vel = np.zeros(3)
+            velocities.append(vel)
+        
+        if num_frames > 1:
+            # first and last frame
+            velocities.insert(0, velocities[0])
+            velocities.append(velocities[-1])
+        elif num_frames == 1:
+            velocities.append(np.zeros(3))
+
+        for obj, vel in zip(obj_list, velocities):
             frame = obj.timestamp
             detections_states[frame].append(obj.get_state_array())
-            #TODO velocity not provided
-            detections_velocity[frame].append([0.0, 0.0, 0.0])
+            detections_velocity[frame].append(vel)
             detections_tokens[frame].append(str(obj.globalID))
-            detections_types[frame].append(int(KIITI360_DETECTION_NAME_DICT[label]))
+            detections_types[frame].append(int(KIITI360_DETECTION_NAME_DICT[obj.label]))
+
 
     return detections_states, detections_velocity, detections_tokens, detections_types
 
@@ -543,7 +589,6 @@ def _extract_lidar(log_name: str, idx: int, data_converter_config: DataConverter
         raise FileNotFoundError(f"LiDAR file not found: {lidar_full_path}")
     return {LiDARType.LIDAR_TOP: lidar}
 
-#TODO check camera extrinsic now is from camera to pose
 def _extract_cameras(
     log_name: str, idx: int, data_converter_config: DataConverterConfig
 ) -> Dict[CameraType, Optional[str]]:

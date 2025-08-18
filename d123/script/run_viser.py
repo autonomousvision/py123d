@@ -19,13 +19,10 @@ def main(cfg: DictConfig) -> None:
 
     worker = build_worker(cfg)
     scene_filter = build_scene_filter(cfg.scene_filter)
-    logger.info(f"Scene filter: {scene_filter}")
-    logger.info(f"Using {cfg.scene_builder}")
-    scene_filter.duration_s = 50
     scene_builder = build_scene_builder(cfg.scene_builder)
     scenes = scene_builder.get_scenes(scene_filter, worker=worker)
-    logger.info(f"Found {len(scenes)} scenes.")
-    ViserVisualizationServer(scenes=scenes,scene_index=0)
+
+    ViserVisualizationServer(scenes=scenes)
 
 
 if __name__ == "__main__":

@@ -47,6 +47,9 @@ class KITTI360Bbox3D():
 
         # name
         self.name = '' 
+
+        #label
+        self.label = ''
            
     def parseOpencvMatrix(self, node):
         rows = int(node.find('rows').text)
@@ -75,28 +78,63 @@ class KITTI360Bbox3D():
 
         self.annotationId = int(child.find('index').text) + 1
 
+        self.label = child.find('label').text
+
         self.globalID = local2global(self.semanticId, self.instanceId)
+        self.parseVertices(child)
+        self.parse_scale_rotation()
+
+    def parseVertices(self, child):
         transform = self.parseOpencvMatrix(child.find('transform'))
-        self.R = transform[:3,:3]
-        self.T = transform[:3,3]
+        R = transform[:3,:3]
+        T = transform[:3,3]
+        vertices = self.parseOpencvMatrix(child.find('vertices'))
+        
+        vertices = np.matmul(R, vertices.transpose()).transpose() + T
+        self.vertices = vertices
+        
+        self.R = R
+        self.T = T
     
-    def polar_decompose_rotation_scale(self):
+    def parse_scale_rotation(self):
         Rm, Sm = polar(self.R) 
         scale = np.diag(Sm)
         yaw, pitch, roll = R.from_matrix(Rm).as_euler('zyx', degrees=False)
 
-        return scale, (yaw, pitch, roll)
+        self.Rm = np.array(Rm)
+        self.scale = scale
+        self.yaw = yaw
+        self.pitch = pitch  
+        self.roll = roll
 
+        # self.pose = np.eye(4, dtype=np.float64)
+        # self.pose[:3, :3] = self.Rm
+        # self.pose[:3, 3] = self.T
+        # self.w2e = np.linalg.inv(self.pose)
+        
     def get_state_array(self):
-        scale, (yaw, pitch, roll) = self.polar_decompose_rotation_scale()
         center = StateSE3(
             x=self.T[0],
             y=self.T[1],
             z=self.T[2],
-            roll=roll,
-            pitch=pitch,
-            yaw=yaw,
+            roll=self.roll,
+            pitch=self.pitch,
+            yaw=self.yaw,
         )
+        scale = self.scale
         bounding_box_se3 = BoundingBoxSE3(center, scale[0], scale[1], scale[2])
 
         return bounding_box_se3.array
+
+    def box_visible_in_point_cloud(self, points):
+        # points: (N,3) , box: (8,3)
+        box = self.vertices
+        O, A, B, C = box[0], box[1], box[2], box[5]
+        OA = A - O
+        OB = B - O
+        OC = C - O
+        POA, POB, POC = (points @ OA[..., None])[:, 0], (points @ OB[..., None])[:, 0], (points @ OC[..., None])[:, 0]
+        mask = (np.dot(O, OA) < POA) & (POA < np.dot(A, OA)) & \
+            (np.dot(O, OB) < POB) & (POB < np.dot(B, OB)) & \
+            (np.dot(O, OC) < POC) & (POC < np.dot(C, OC))
+        return True if np.sum(mask) > 100 else False
