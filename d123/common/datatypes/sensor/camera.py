@@ -23,6 +23,8 @@ class CameraType(SerialIntEnum):
     CAM_R0 = 5
     CAM_R1 = 6
     CAM_R2 = 7
+    CAM_STEREO_L = 8
+    CAM_STEREO_R = 9
 
 
 @dataclass
@@ -31,8 +33,8 @@ class CameraMetadata:
     camera_type: CameraType
     width: int
     height: int
-    intrinsic: npt.NDArray[np.float64]  # 3x3 matrix
-    distortion: npt.NDArray[np.float64]  # 5x1 vector
+    intrinsic: npt.NDArray[np.float64]  # 3x3 matrix # TODO: don't store matrix but values.
+    distortion: npt.NDArray[np.float64]  # 5x1 vector # TODO: don't store matrix but values.
 
     def to_dict(self) -> Dict[str, Any]:
         # TODO: remove None types. Only a placeholder for now.

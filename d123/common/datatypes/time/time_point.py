@@ -207,6 +207,16 @@ class TimePoint:
         assert self.time_us >= 0, "Time point has to be positive!"
 
     @classmethod
+    def from_ns(cls, t_ns: int) -> TimePoint:
+        """
+        Constructs a TimePoint from a value in nanoseconds.
+        :param t_ns: Time in nanoseconds.
+        :return: TimePoint.
+        """
+        assert isinstance(t_ns, int), "Nanoseconds must be an integer!"
+        return TimePoint(time_us=t_ns // 1000)
+
+    @classmethod
     def from_us(cls, t_us: int) -> TimePoint:
         """
         Constructs a TimePoint from a value in microseconds.

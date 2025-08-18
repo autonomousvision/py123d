@@ -8,6 +8,7 @@ This section provides comprehensive documentation for various autonomous driving
 .. toctree::
    :maxdepth: 0
 
+   av2
    nuplan
    nuscenes
    carla
