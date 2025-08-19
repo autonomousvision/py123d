@@ -97,6 +97,7 @@ from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360Bbox3D
 
 
+#TODO train and train_full
 bbox_3d_path = Path("/nas/datasets/KITTI-360/data_3d_bboxes/train/2013_05_28_drive_0000_sync.xml")
 
 tree = ET.parse(bbox_3d_path)
@@ -110,12 +111,34 @@ KIITI360_DETECTION_NAME_DICT = {
     "bicycle": DetectionType.BICYCLE,
     "pedestrian": DetectionType.PEDESTRIAN,
 }
-
+# x,y,z = 881.2268115,3247.493293,115.239219 
+# x,y,z = 867.715474,3229.630439,115.189221  # 自车
+# x,y,z = 873.533508, 3227.16235, 115.185341  # 要找的那个人
+x,y,z = 874.233508, 3231.56235, 115.185341  # 要找的那个车
+CENTER_REF = np.array([x, y, z], dtype=np.float64)
+objs_name = []
 for child in root:
     label = child.find('label').text
     if child.find('transform') is None or label not in KIITI360_DETECTION_NAME_DICT.keys():
         continue
     obj = KITTI360Bbox3D()
     obj.parseBbox(child)
+    # obj.parseVertices(child)
+    name = child.find('label').text
+    # if obj.start_frame < 10030 and obj.end_frame > 10030:
+    center = np.array(obj.T, dtype=np.float64)
+    dist = np.linalg.norm(center - CENTER_REF)
+    if dist < 7:
+        print(f"Object ID: {obj.name}, Start Frame: {obj.start_frame}, End Frame: {obj.end_frame},self.annotationId: {obj.annotationId},{obj.timestamp},{obj.T}")
+    objs_name.append(obj.name)
+print(len(objs_name))
+print(set(objs_name))
     # print(obj.Rm)
     # print(Sigma)
+names = []
+for child in root:
+    label = child.find('label').text
+    if child.find('transform') is None:
+        continue
+    names.append(label)
+print(set(names))

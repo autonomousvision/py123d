@@ -21,7 +21,7 @@ from pyquaternion import Quaternion
 from sqlalchemy import func
 
 
-from kitti_360_data_converter import _extract_ego_state_all,get_kitti360_lidar_metadata,_extract_cameras,_extract_detections
+from kitti_360_data_converter import _extract_ego_state_all,get_kitti360_lidar_metadata,_extract_cameras,_extract_detections,_read_timestamps
 
 # a =  _extract_ego_state_all("2013_05_28_drive_0000_sync")
 # print(a[0])
@@ -151,4 +151,5 @@ if __name__ == "__main__":
     #     # camera_data = _extract_camera(log_db, lidar_pc, log_path)
     #     camera_data = get_cam_info_from_lidar_pc(log_db,log_path, lidar_pc, rolling_shutter_s=1/60)
     # print(_extract_cameras("2013_05_28_drive_0000_sync",0))
-    _extract_detections("2013_05_28_drive_0000_sync", 0)
+    # _extract_detections("2013_05_28_drive_0000_sync", 0)
+    print(_read_timestamps("2013_05_28_drive_0000_sync"))

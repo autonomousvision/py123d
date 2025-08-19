@@ -23,8 +23,7 @@
 *.csv
 *.log
 *.mp4
-exp/*
-
+exp/
 
 # Sphinx documentation
 docs/_build/

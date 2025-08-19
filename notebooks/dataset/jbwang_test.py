@@ -2,7 +2,9 @@
 # s3_uri = "/data/jbwang/d123/data/nuplan_private_test/2021.09.22.13.20.34_veh-28_01446_01583.arrow"
 # s3_uri = "/data/jbwang/d123/data/carla/_Rep0_routes_validation1_route0_07_23_14_33_15.arrow"
 # s3_uri = "/data/jbwang/d123/data/nuplan_mini_val/2021.06.07.12.54.00_veh-35_01843_02314.arrow"
-s3_uri = "/data/jbwang/d123/data2/kitti360_c2e_train/2013_05_28_drive_0000_sync_c2e.arrow"
+# s3_uri = "/data/jbwang/d123/data2/kitti360_c2e_train/2013_05_28_drive_0000_sync_c2e.arrow"
+s3_uri = "/data/jbwang/d123/data2/kitti360_detection_all_test/2013_05_28_drive_0000_sync.arrow"
+
 
 import pyarrow as pa
 import pyarrow.fs as fs
@@ -35,10 +37,14 @@ for col in table.column_names:
     if col == "lidar":
         continue
     print(f"Column : {col}, Type: {table.schema.field(col).type}")
-    tokens = table[col]    # 或 table.column("token")
+    tokens = table["detections_velocity"]    # 或 table.column("token")
+    # tokens = table["detections_type"]
     # print(tokens)
-    print(len(tokens))
-    # print(tokens.slice(0, 100).to_pylist())
+    # print(len(tokens))
+    result = tokens.slice(1470, 40).to_pylist()
+    # for item in result:
+    #     print(len(item))
+print(result)
 # print(table["traffic_light_ids"])
 timer.log("3. Table created")
 # Save locally

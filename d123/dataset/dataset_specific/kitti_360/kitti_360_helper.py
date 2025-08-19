@@ -41,6 +41,7 @@ class KITTI360Bbox3D():
         # the window that contains the bbox
         self.start_frame = -1
         self.end_frame = -1
+        self.valid_radius_frames = []
 
         # timestamp of the bbox (-1 if statis)
         self.timestamp = -1
@@ -70,8 +71,8 @@ class KITTI360Bbox3D():
         self.semanticId = kittiId2label[semanticIdKITTI].id
         self.instanceId = int(child.find('instanceId').text)
         self.name = kittiId2label[semanticIdKITTI].name
-
-        self.start_frame = int(child.find('start_frame').text)
+ 
+        self.start_frame = int(child.find('start_frame').text) 
         self.end_frame = int(child.find('end_frame').text)
 
         self.timestamp = int(child.find('timestamp').text)
@@ -125,6 +126,15 @@ class KITTI360Bbox3D():
         bounding_box_se3 = BoundingBoxSE3(center, scale[0], scale[1], scale[2])
 
         return bounding_box_se3.array
+
+    def filter_by_radius(self,ego_state_xyz,radius=50.0):
+        # first stage of detection, used to filter out detections by radius
+
+        for index in range(len(ego_state_xyz)):
+            ego_state = ego_state_xyz[index]
+            distance = np.linalg.norm(ego_state[:3] - self.T)
+            if distance <= radius:
+                self.valid_radius_frames.append(index)
 
     def box_visible_in_point_cloud(self, points):
         # points: (N,3) , box: (8,3)

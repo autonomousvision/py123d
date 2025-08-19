@@ -37,7 +37,7 @@ SORT_BY_TIMESTAMP: Final[bool] = True
 
 KITTI360_DATA_ROOT = Path(os.environ["KITTI360_DATA_ROOT"])
 
-#TODO  carera mismatch
+#TODO cameraType 
 KITTI360_CAMERA_TYPES = {
     CameraType.CAM_L0: "image_00",  
     CameraType.CAM_R0: "image_01",   
@@ -55,6 +55,7 @@ DIR_POSES = "data_poses"
 DIR_CALIB = "calibration"
 
 #TODO PATH_2D_RAW_ROOT
+# PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_RAW
 PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT 
 PATH_2D_SMT_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_SMT
 PATH_3D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_RAW
@@ -206,13 +207,12 @@ def convert_kitti360_log_to_arrow(
             if not log_file_path.parent.exists():
                 log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-            #TODO location
             metadata = LogMetadata(
                 dataset="kitti360",
                 log_name=log_name,
-                location="None",
+                location=None,
                 timestep_seconds=KITTI360_DT,
-                map_has_z=False,
+                map_has_z=True,
             )
 
             vehicle_parameters = get_kitti360_station_wagon_parameters()
@@ -345,11 +345,9 @@ def _write_recording_table(
 ) -> None:
     
     ts_list = _read_timestamps(log_name)
-    #TODO
-    print("extracting detections...")
-    detections_states,detections_velocity,detections_tokens,detections_types = _extract_detections(log_name,len(ts_list))
-    print("extracting states...")
     ego_state_all = _extract_ego_state_all(log_name)
+    ego_states_xyz = np.array([ego_state[:3] for ego_state in ego_state_all],dtype=np.float64)
+    detections_states,detections_velocity,detections_tokens,detections_types = _extract_detections(log_name,len(ts_list),ego_states_xyz)
 
     with pa.OSFile(str(log_file_path), "wb") as sink:
         with pa.ipc.new_file(sink, recording_schema) as writer:
@@ -364,7 +362,6 @@ def _write_recording_table(
                     "detections_type": [detections_types[idx]],
                     "ego_states": [ego_state_all[idx]],
                     "traffic_light_ids": [[]],
-                    #may TODO traffic light types
                     "traffic_light_types": [[]],
                     "scenario_tag": [['unknown']],
                     "route_lane_group_ids": [[]],
@@ -391,36 +388,44 @@ def _write_recording_table(
                 batch = pa.record_batch(row_data, schema=recording_schema)
                 writer.write_batch(batch)
 
+                del batch
+
     if SORT_BY_TIMESTAMP:
         recording_table = open_arrow_table(log_file_path)
         recording_table = recording_table.sort_by([("timestamp", "ascending")])
         write_arrow_table(recording_table, log_file_path)
 
-#TODO default timestamps  and Synchronization all other sequences 
+#TODO Synchronization all other sequences)
 def _read_timestamps(log_name: str) -> Optional[List[TimePoint]]:
     # unix
-    ts_file = PATH_2D_RAW_ROOT / log_name / "image_01" / "timestamps.txt"
-    if ts_file.exists():
-        tps: List[TimePoint] = []
-        with open(ts_file, "r") as f:
-            for line in f:
-                s = line.strip()
-                if not s:
-                    continue
-                dt_str, ns_str = s.split('.')
-                dt_obj = datetime.datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
-                dt_obj = dt_obj.replace(tzinfo=datetime.timezone.utc)
-                unix_epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
-                
-                total_seconds = (dt_obj - unix_epoch).total_seconds()
-                
-                ns_value = int(ns_str)
-                us_from_ns = ns_value // 1000
+    # default using velodyne timestamps,if not available, use camera timestamps
+    ts_files = [
+        PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "timestamps.txt",
+        PATH_2D_RAW_ROOT / log_name / "image_00" / "timestamps.txt",
+        PATH_2D_RAW_ROOT / log_name / "image_01" / "timestamps.txt",
+    ]
+    for ts_file in ts_files:
+        if ts_file.exists():
+            tps: List[TimePoint] = []
+            with open(ts_file, "r") as f:
+                for line in f:
+                    s = line.strip()
+                    if not s:
+                        continue
+                    dt_str, ns_str = s.split('.')
+                    dt_obj = datetime.datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
+                    dt_obj = dt_obj.replace(tzinfo=datetime.timezone.utc)
+                    unix_epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
+                    
+                    total_seconds = (dt_obj - unix_epoch).total_seconds()
+                    
+                    ns_value = int(ns_str)
+                    us_from_ns = ns_value // 1000
 
-                total_us = int(total_seconds * 1_000_000) + us_from_ns
-                
-                tps.append(TimePoint.from_us(total_us))
-        return tps
+                    total_us = int(total_seconds * 1_000_000) + us_from_ns
+                    
+                    tps.append(TimePoint.from_us(total_us))
+            return tps
     return None
 
 def _extract_ego_state_all(log_name: str) -> List[List[float]]:
@@ -434,8 +439,12 @@ def _extract_ego_state_all(log_name: str) -> List[List[float]]:
     poses_time = poses[:, 0] - 1  # Adjusting time to start from 0
     
     #TODO 
+    #oxts_path =  PATH_POSES_ROOT / log_name / "oxts" / "data" 
     oxts_path = Path("/data/jbwang/d123/data_poses/") / log_name / "oxts" / "data" 
     
+    pose_idx = 0
+    poses_time_len = len(poses_time)    
+
     for idx in range(len(list(oxts_path.glob("*.txt")))):
         oxts_path_file = oxts_path / f"{int(idx):010d}.txt"
         oxts_data = np.loadtxt(oxts_path_file)
@@ -444,7 +453,10 @@ def _extract_ego_state_all(log_name: str) -> List[List[float]]:
         roll, pitch, yaw = oxts_data[3:6]
         vehicle_parameters = get_kitti360_station_wagon_parameters()
 
-        pos = np.searchsorted(poses_time, idx, side='right') - 1
+        while pose_idx + 1 < poses_time_len and poses_time[pose_idx + 1] <= idx:
+            pose_idx += 1
+        pos = pose_idx
+        # pos = np.searchsorted(poses_time, idx, side='right') - 1
         
         rear_axle_pose = StateSE3(
             x=poses[pos, 4],
@@ -454,7 +466,7 @@ def _extract_ego_state_all(log_name: str) -> List[List[float]]:
             pitch=pitch,
             yaw=yaw,
         )
-        # NOTE: The height to rear axle is not provided the dataset and is merely approximated.
+
         center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
         dynamic_state = DynamicStateSE3(
             velocity=Vector3D(
@@ -483,12 +495,10 @@ def _extract_ego_state_all(log_name: str) -> List[List[float]]:
         )
     return ego_state_all
 
-#TODO
-# We may distinguish between image and lidar detections
-# besides, now it is based only on start and end frame 
 def _extract_detections(
     log_name: str,
-    ts_len: int
+    ts_len: int,
+    ego_states_xyz: np.ndarray
 ) -> Tuple[List[List[float]], List[List[float]], List[str], List[int]]:
    
     detections_states: List[List[List[float]]] = [[] for _ in range(ts_len)]
@@ -505,15 +515,16 @@ def _extract_detections(
 
     dynamic_groups: Dict[int, List[KITTI360Bbox3D]] = defaultdict(list)
 
-    lidra_data_all = []
-    for index in range(ts_len):
-        lidar_full_path = PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "data" / f"{index:010d}.bin"
-        if not lidar_full_path.exists():
-            logging.warning(f"LiDAR file not found for frame {index}: {lidar_full_path}")
-            continue
-        lidar_data = np.fromfile(lidar_full_path, dtype=np.float32)
-        lidar_data = lidar_data.reshape(-1, 4)[:, :3]  # Keep only x, y, z coordinates
-        lidra_data_all.append(lidar_data)
+   
+    # lidra_data_all = []
+    # for index in range(ts_len):
+    #     lidar_full_path = PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "data" / f"{index:010d}.bin"
+    #     if not lidar_full_path.exists():
+    #         logging.warning(f"LiDAR file not found for frame {index}: {lidar_full_path}")
+    #         continue
+    #     lidar_data = np.fromfile(lidar_full_path, dtype=np.float32)
+    #     lidar_data = lidar_data.reshape(-1, 4)[:, :3]  # Keep only x, y, z coordinates
+    #     lidra_data_all.append(lidar_data)
 
     for child in root:
         label = child.find('label').text
@@ -524,11 +535,13 @@ def _extract_detections(
         
         #static object
         if obj.timestamp == -1:
-            start_frame = obj.start_frame
-            end_frame = obj.end_frame
-            for frame in range(start_frame, end_frame + 1):
-                lidar_data = lidra_data_all[frame]
-                #TODO  check yaw and box visible
+            # first filter by radius
+            obj.filter_by_radius(ego_states_xyz,radius=50.0)
+            # then filter by pointcloud
+            for frame in obj.valid_radius_frames:
+                # TODO in the future, now is too slow because cpu in the server is not free
+                # or using config?
+                # lidar_data = lidra_data_all[frame]
                 # if obj.box_visible_in_point_cloud(lidar_data):
                 detections_states[frame].append(obj.get_state_array())
                 detections_velocity[frame].append([0.0, 0.0, 0.0])
@@ -553,8 +566,7 @@ def _extract_detections(
             if dt_frames > 0:
                 dt = dt_frames * KITTI360_DT
                 vel = (positions[i+1] - positions[i-1]) / dt
-                # Transform velocity to the ego frame
-                vel = obj_list[i].Rm.T @ vel
+                vel = KITTI3602NUPLAN_IMU_CALIBRATION[:3,:3] @ obj_list[i].Rm.T @ vel
             else:
                 vel = np.zeros(3)
             velocities.append(vel)
@@ -572,7 +584,6 @@ def _extract_detections(
             detections_velocity[frame].append(vel)
             detections_tokens[frame].append(str(obj.globalID))
             detections_types[frame].append(int(KIITI360_DETECTION_NAME_DICT[obj.label]))
-
 
     return detections_states, detections_velocity, detections_tokens, detections_types
 
