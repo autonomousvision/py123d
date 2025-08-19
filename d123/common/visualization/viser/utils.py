@@ -51,9 +51,9 @@ def bounding_box_to_trimesh(bbox: BoundingBoxSE3, plot_config: PlotConfig) -> tr
     box_mesh = trimesh.creation.box(extents=[bbox.length, bbox.width, bbox.height])
 
     # Apply rotations in order: roll, pitch, yaw
-    box_mesh = box_mesh.apply_transform(trimesh.transformations.rotation_matrix(bbox.center.roll, [1, 0, 0]))
-    box_mesh = box_mesh.apply_transform(trimesh.transformations.rotation_matrix(bbox.center.pitch, [0, 1, 0]))
     box_mesh = box_mesh.apply_transform(trimesh.transformations.rotation_matrix(bbox.center.yaw, [0, 0, 1]))
+    box_mesh = box_mesh.apply_transform(trimesh.transformations.rotation_matrix(bbox.center.pitch, [0, 1, 0]))
+    box_mesh = box_mesh.apply_transform(trimesh.transformations.rotation_matrix(bbox.center.roll, [1, 0, 0]))
 
     # Apply translation
     box_mesh = box_mesh.apply_translation([bbox.center.x, bbox.center.y, bbox.center.z])
@@ -96,12 +96,12 @@ def get_map_meshes(scene: AbstractScene):
     initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
     center = initial_ego_vehicle_state.center_se3
     map_layers = [
-        # MapLayer.LANE_GROUP,
-        MapLayer.LANE,
+        MapLayer.LANE_GROUP,
+        # MapLayer.LANE,
         # MapLayer.WALKWAY,
-        # MapLayer.CROSSWALK,
+        MapLayer.CROSSWALK,
         # MapLayer.CARPARK,
-        # MapLayer.GENERIC_DRIVABLE,
+        MapLayer.GENERIC_DRIVABLE,
     ]
 
     map_objects_dict = scene.map_api.get_proximal_map_objects(center.point_2d, radius=MAP_RADIUS, layers=map_layers)
@@ -115,13 +115,13 @@ def get_map_meshes(scene: AbstractScene):
             if map_layer in [
                 MapLayer.WALKWAY,
                 MapLayer.CROSSWALK,
-                MapLayer.GENERIC_DRIVABLE,
+                # MapLayer.GENERIC_DRIVABLE,
                 MapLayer.CARPARK,
             ]:
                 # Push meshes up by a few centimeters to avoid overlap with the ground in the visualization.
                 trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z - 0.1).array
             else:
-                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z).array
+                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z + 0.1).array
 
             if not scene.log_metadata.map_has_z:
                 trimesh_mesh.vertices += Point3D(

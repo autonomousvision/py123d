@@ -16,7 +16,7 @@ from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_m
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.common.datatypes.vehicle_state.vehicle_parameters import (
-    get_av2_fusion_hybrid_parameters,
+    get_av2_ford_fusion_hybrid_parameters,
     rear_axle_se3_to_center_se3,
 )
 from d123.common.geometry.base import StateSE3
@@ -179,7 +179,7 @@ def convert_av2_log_to_arrow(
                 timestep_seconds=0.1,  # TODO: verify this
                 map_has_z=True,
             )
-            vehicle_parameters = get_av2_fusion_hybrid_parameters()  # TODO: Add av2 vehicle parameters
+            vehicle_parameters = get_av2_ford_fusion_hybrid_parameters()  # TODO: Add av2 vehicle parameters
             camera_metadata = get_av2_camera_metadata(log_path)
             lidar_metadata = get_av2_lidar_metadata(log_path)
 
@@ -438,7 +438,7 @@ def _extract_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_timestamp_ns:
         pitch=pitch,
         yaw=yaw,
     )
-    vehicle_parameters = get_av2_fusion_hybrid_parameters()  # TODO: Add av2 vehicle parameters
+    vehicle_parameters = get_av2_ford_fusion_hybrid_parameters()  # TODO: Add av2 vehicle parameters
     center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
     # TODO: Add script to calculate the dynamic state from log sequence.
     dynamic_state = DynamicStateSE3(

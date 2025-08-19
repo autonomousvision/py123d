@@ -20,7 +20,7 @@ from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, came
 from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
 from d123.common.datatypes.sensor.lidar_index import WopdLidarIndex
 from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
-from d123.common.datatypes.vehicle_state.vehicle_parameters import get_wopd_pacifica_parameters
+from d123.common.datatypes.vehicle_state.vehicle_parameters import get_wopd_chrysler_pacifica_parameters
 from d123.common.geometry.base import Point3D, StateSE3
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
 from d123.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
@@ -217,7 +217,7 @@ def convert_wopd_tfrecord_log_to_arrow(
                     timestep_seconds=TARGET_DT,  # TODO: Check if correct. Maybe not hardcode
                     map_has_z=True,
                 )
-                vehicle_parameters = get_wopd_pacifica_parameters()
+                vehicle_parameters = get_wopd_chrysler_pacifica_parameters()
                 camera_metadata = get_wopd_camera_metadata(initial_frame, data_converter_config)
                 lidar_metadata = get_wopd_lidar_metadata(initial_frame, data_converter_config)
 
@@ -454,7 +454,7 @@ def _extract_detections(frame: dataset_pb2.Frame) -> Tuple[List[List[float]], Li
 def _extract_ego_state(frame: dataset_pb2.Frame) -> List[float]:
     rear_axle_pose = _get_ego_pose_se3(frame)
 
-    vehicle_parameters = get_wopd_pacifica_parameters()
+    vehicle_parameters = get_wopd_chrysler_pacifica_parameters()
     # FIXME: Find dynamic state in waymo open perception dataset
     # https://github.com/waymo-research/waymo-open-dataset/issues/55#issuecomment-546152290
     dynamic_state = DynamicStateSE3(
