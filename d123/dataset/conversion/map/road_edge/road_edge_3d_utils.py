@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from typing import Dict, List, Set
 
@@ -11,6 +12,20 @@ from shapely.geometry import LineString
 from d123.common.geometry.base import Point3DIndex
 from d123.common.geometry.occupancy_map import OccupancyMap2D
 from d123.dataset.conversion.map.road_edge.road_edge_2d_utils import get_road_edge_linear_rings
+
+logger = logging.getLogger(__name__)
+
+
+def get_road_edges_3d_from_generic_drivable_area_df(generic_drivable_area_df: gpd.GeoDataFrame) -> List[LineString]:
+    """
+    Extracts 3D road edges from the generic drivable area GeoDataFrame.
+    """
+    # NOTE: this is a simplified version that assumes the generic drivable area covers all areas.
+    # This is the case for argoverse 2.
+    road_edges_2d = get_road_edge_linear_rings(generic_drivable_area_df.geometry.tolist())
+    outlines = generic_drivable_area_df.outline.tolist()
+    non_conflicting_road_edges = lift_road_edges_to_3d(road_edges_2d, outlines)
+    return non_conflicting_road_edges
 
 
 def get_road_edges_3d_from_gdf(
@@ -97,9 +112,13 @@ def _get_conflicting_lane_groups(lane_group_df: gpd.GeoDataFrame, lane_df: gpd.G
             intersecting_geometry = occupancy_map[intersecting_id]
             if intersecting_geometry.geom_type != "Polygon":
                 continue
+            try:
+                # Compute actual intersection for better centroid
+                intersection = lane_group_polygon.intersection(intersecting_geometry)
+            except shapely.errors.GEOSException as e:
+                logger.debug(f"Error computing intersection for {pair_key}: {e}")
+                continue
 
-            # Compute actual intersection for better centroid
-            intersection = lane_group_polygon.intersection(intersecting_geometry)
             if intersection.is_empty:
                 continue
 

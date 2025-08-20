@@ -16,13 +16,13 @@ from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_m
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.common.datatypes.vehicle_state.vehicle_parameters import (
-    get_nuplan_pacifica_parameters,
+    get_av2_ford_fusion_hybrid_parameters,
     rear_axle_se3_to_center_se3,
 )
 from d123.common.geometry.base import StateSE3
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
 from d123.common.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
-from d123.common.geometry.transform.se3 import convert_relative_to_absolute_se3_array
+from d123.common.geometry.transform.se3 import convert_relative_to_absolute_se3_array, get_rotation_matrix
 from d123.common.geometry.vector import Vector3D, Vector3DIndex
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.dataset.dataset_specific.av2.av2_constants import (
@@ -36,7 +36,7 @@ from d123.dataset.dataset_specific.av2.av2_helper import (
     find_closest_target_fpath,
     get_slice_with_timestamp_ns,
 )
-from d123.dataset.dataset_specific.nuplan.nuplan_map_conversion import MAP_LOCATIONS
+from d123.dataset.dataset_specific.av2.av2_map_conversion import convert_av2_map
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
 
@@ -100,10 +100,18 @@ class AV2SensorDataConverter(RawDataConverter):
         ]
 
     def convert_maps(self, worker: WorkerPool) -> None:
+        log_args = [
+            {
+                "log_path": log_path,
+                "split": split,
+            }
+            for split, log_paths in self._log_paths_per_split.items()
+            for log_path in log_paths
+        ]
         worker_map(
             worker,
             partial(convert_av2_map_to_gpkg, data_converter_config=self.data_converter_config),
-            list(MAP_LOCATIONS),
+            log_args,
         )
 
     def convert_logs(self, worker: WorkerPool) -> None:
@@ -126,13 +134,20 @@ class AV2SensorDataConverter(RawDataConverter):
         )
 
 
-def convert_av2_map_to_gpkg(map_names: List[str], data_converter_config: DataConverterConfig) -> List[Any]:
-    # TODO: Implement map
-    # for map_name in map_names:
-    #     map_path = data_converter_config.output_path / "maps" / f"av2_{map_name}.gpkg"
-    #     if data_converter_config.force_map_conversion or not map_path.exists():
-    #         map_path.unlink(missing_ok=True)
-    #         AV2MapConverter(data_converter_config.output_path / "maps").convert(map_name=map_name)
+def convert_av2_map_to_gpkg(
+    args: List[Dict[str, Union[List[str], List[Path]]]],
+    data_converter_config: DataConverterConfig,
+) -> List[Any]:
+    for log_info in args:
+        source_log_path: Path = log_info["log_path"]
+        split: str = log_info["split"]
+
+        source_log_name = source_log_path.name
+
+        map_path = data_converter_config.output_path / "maps" / split / f"{source_log_name}.gpkg"
+        if data_converter_config.force_map_conversion or not map_path.exists():
+            map_path.unlink(missing_ok=True)
+            convert_av2_map(source_log_path, map_path)
     return []
 
 
@@ -164,7 +179,7 @@ def convert_av2_log_to_arrow(
                 timestep_seconds=0.1,  # TODO: verify this
                 map_has_z=True,
             )
-            vehicle_parameters = get_nuplan_pacifica_parameters()  # TODO: Add av2 vehicle parameters
+            vehicle_parameters = get_av2_ford_fusion_hybrid_parameters()  # TODO: Add av2 vehicle parameters
             camera_metadata = get_av2_camera_metadata(log_path)
             lidar_metadata = get_av2_lidar_metadata(log_path)
 
@@ -327,6 +342,7 @@ def _write_recording_table(
                         lidar_timestamp_ns,
                         city_se3_egovehicle_df,
                         egovehicle_se3_sensor_df,
+                        ego_state_se3,
                         synchronization_df,
                         source_log_path,
                         data_converter_config,
@@ -422,7 +438,7 @@ def _extract_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_timestamp_ns:
         pitch=pitch,
         yaw=yaw,
     )
-    vehicle_parameters = get_nuplan_pacifica_parameters()  # TODO: Add av2 vehicle parameters
+    vehicle_parameters = get_av2_ford_fusion_hybrid_parameters()  # TODO: Add av2 vehicle parameters
     center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
     # TODO: Add script to calculate the dynamic state from log sequence.
     dynamic_state = DynamicStateSE3(
@@ -463,6 +479,7 @@ def _extract_camera(
     lidar_timestamp_ns: int,
     city_se3_egovehicle_df: pd.DataFrame,
     egovehicle_se3_sensor_df: pd.DataFrame,
+    ego_state_se3: EgoStateSE3,
     synchronization_df: pd.DataFrame,
     source_log_path: Path,
     data_converter_config: DataConverterConfig,
@@ -475,6 +492,11 @@ def _extract_camera(
     log_id = source_log_path.name
 
     source_dataset_dir = source_log_path.parent.parent
+
+    rear_axle_se3 = ego_state_se3.rear_axle_se3
+    ego_transform = np.zeros((4, 4), dtype=np.float64)
+    ego_transform[:3, :3] = get_rotation_matrix(ego_state_se3.rear_axle_se3)
+    ego_transform[:3, 3] = rear_axle_se3.point_3d.array
 
     for _, row in egovehicle_se3_sensor_df.iterrows():
         row = row.to_dict()
@@ -498,7 +520,7 @@ def _extract_camera(
             absolute_image_path = source_dataset_dir / relative_image_path
             assert absolute_image_path.exists()
             # TODO: Adjust for finer IMU timestamps to correct the camera extrinsic.
-            camera_extrinsic = np.zeros((4, 4), dtype=np.float64)
+            camera_extrinsic = np.eye(4, dtype=np.float64)
             camera_extrinsic[:3, :3] = Quaternion(
                 w=row["qw"],
                 x=row["qx"],
@@ -506,6 +528,7 @@ def _extract_camera(
                 z=row["qz"],
             ).rotation_matrix
             camera_extrinsic[:3, 3] = np.array([row["tx_m"], row["ty_m"], row["tz_m"]], dtype=np.float64)
+            # camera_extrinsic = camera_extrinsic @ ego_transform
             camera_extrinsic = camera_extrinsic.flatten().tolist()
 
             if data_converter_config.camera_store_option == "path":

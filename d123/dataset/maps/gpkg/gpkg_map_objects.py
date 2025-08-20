@@ -72,11 +72,21 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
             left_boundary = Polyline3D.from_linestring(self._object_row.left_boundary)
             right_boundary = Polyline3D.from_linestring(self._object_row.right_boundary)
             trimesh_mesh = get_trimesh_from_boundaries(left_boundary, right_boundary)
-        elif "geometry" in self._object_df.columns:
+        else:
             # Fallback to geometry if no boundaries are available
             outline_3d_array = self.outline_3d.array
-            _, faces = trimesh.creation.triangulate_polygon(geom.Polygon(outline_3d_array[:, Point3DIndex.XY]))
-            trimesh_mesh = trimesh.Trimesh(vertices=outline_3d_array, faces=faces)
+            vertices_2d, faces = trimesh.creation.triangulate_polygon(
+                geom.Polygon(outline_3d_array[:, Point3DIndex.XY])
+            )
+            if len(vertices_2d) == len(outline_3d_array):
+                # Regular case, where vertices match outline_3d_array
+                vertices_3d = outline_3d_array
+            elif len(vertices_2d) == len(outline_3d_array) + 1:
+                # outline array was not closed, so we need to add the first vertex again
+                vertices_3d = np.vstack((outline_3d_array, outline_3d_array[0]))
+            else:
+                raise ValueError("No vertices found for triangulation.")
+            trimesh_mesh = trimesh.Trimesh(vertices=vertices_3d, faces=faces)
         return trimesh_mesh
 
 
@@ -200,13 +210,19 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
     def successors(self) -> List[GPKGLaneGroup]:
         """Inherited, see superclass."""
         successor_ids = ast.literal_eval(self._object_row.successor_ids)
-        return [GPKGLaneGroup(lane_group_id, self._object_df) for lane_group_id in successor_ids]
+        return [
+            GPKGLaneGroup(lane_group_id, self._object_df, self._lane_df, self._intersection_df)
+            for lane_group_id in successor_ids
+        ]
 
     @property
     def predecessors(self) -> List[GPKGLaneGroup]:
         """Inherited, see superclass."""
         predecessor_ids = ast.literal_eval(self._object_row.predecessor_ids)
-        return [GPKGLaneGroup(lane_group_id, self._object_df) for lane_group_id in predecessor_ids]
+        return [
+            GPKGLaneGroup(lane_group_id, self._object_df, self._lane_df, self._intersection_df)
+            for lane_group_id in predecessor_ids
+        ]
 
     @property
     def left_boundary(self) -> Polyline3D:
@@ -299,16 +315,6 @@ class GPKGWalkway(GPKGSurfaceObject, AbstractWalkway):
 class GPKGGenericDrivable(GPKGSurfaceObject, AbstractGenericDrivable):
     def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)
-
-    @property
-    def trimesh_mesh(self) -> trimesh.Trimesh:
-        """Inherited, see superclass."""
-
-        # Fallback to geometry if no boundaries are available
-        outline_3d_array = self.outline_3d.array
-        _, faces = trimesh.creation.triangulate_polygon(geom.Polygon(outline_3d_array[:, Point3DIndex.XY]))
-        trimesh_mesh = trimesh.Trimesh(vertices=outline_3d_array, faces=faces)
-        return trimesh_mesh
 
 
 class GPKGRoadEdge(GPKGLineObject, AbstractRoadEdge):

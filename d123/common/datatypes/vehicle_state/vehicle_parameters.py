@@ -20,10 +20,10 @@ class VehicleParameters:
     rear_axle_to_center_longitudinal: float
 
 
-def get_nuplan_pacifica_parameters() -> VehicleParameters:
+def get_nuplan_chrysler_pacifica_parameters() -> VehicleParameters:
     # NOTE: use parameters from nuPlan dataset
     return VehicleParameters(
-        vehicle_name="nuplan_pacifica",
+        vehicle_name="nuplan_chrysler_pacifica",
         width=2.297,
         length=5.176,
         height=1.777,
@@ -46,16 +46,15 @@ def get_carla_lincoln_mkz_2020_parameters() -> VehicleParameters:
     )
 
 
-def get_wopd_pacifica_parameters() -> VehicleParameters:
+def get_wopd_chrysler_pacifica_parameters() -> VehicleParameters:
     # NOTE: use parameters from nuPlan dataset
     # Find better parameters for WOPD ego vehicle
     return VehicleParameters(
-        vehicle_name="wopd_pacifica",
+        vehicle_name="wopd_chrysler_pacifica",
         width=2.297,
         length=5.176,
         height=1.777,
         wheel_base=3.089,
-        # rear_axle_to_center_vertical=0.45,
         rear_axle_to_center_vertical=1.777 / 2,
         rear_axle_to_center_longitudinal=1.461,
     )
@@ -71,6 +70,21 @@ def get_kitti360_station_wagon_parameters() -> VehicleParameters:
         rear_axle_to_center_vertical=0.45,
         rear_axle_to_center_longitudinal=1.461,
     )
+
+def get_av2_ford_fusion_hybrid_parameters() -> VehicleParameters:
+    # NOTE: Parameters are estimated from the vehicle model.
+    # https://en.wikipedia.org/wiki/Ford_Fusion_Hybrid#Second_generation
+    # https://github.com/argoverse/av2-api/blob/6b22766247eda941cb1953d6a58e8d5631c561da/tests/unit/map/test_map_api.py#L375
+    return VehicleParameters(
+        vehicle_name="av2_ford_fusion_hybrid",
+        width=1.852 + 0.275,  # 0.275 is the estimated width of the side mirrors
+        length=4.869,
+        height=1.476,
+        wheel_base=2.850,
+        rear_axle_to_center_vertical=0.438,
+        rear_axle_to_center_longitudinal=1.339,
+    )
+
 
 def center_se3_to_rear_axle_se3(center_se3: StateSE3, vehicle_parameters: VehicleParameters) -> StateSE3:
     """

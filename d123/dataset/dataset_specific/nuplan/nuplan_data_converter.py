@@ -28,7 +28,7 @@ from d123.common.datatypes.sensor.lidar_index import NuplanLidarIndex
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.common.datatypes.vehicle_state.vehicle_parameters import (
-    get_nuplan_pacifica_parameters,
+    get_nuplan_chrysler_pacifica_parameters,
     rear_axle_se3_to_center_se3,
 )
 from d123.common.geometry.base import StateSE3
@@ -200,7 +200,7 @@ def convert_nuplan_log_to_arrow(
                 timestep_seconds=TARGET_DT,
                 map_has_z=False,
             )
-            vehicle_parameters = get_nuplan_pacifica_parameters()
+            vehicle_parameters = get_nuplan_chrysler_pacifica_parameters()
             camera_metadata = get_nuplan_camera_metadata(log_path)
             lidar_metadata = get_nuplan_lidar_metadata(log_db)
 
@@ -385,7 +385,7 @@ def _extract_detections(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[List
 def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
 
     yaw, pitch, roll = lidar_pc.ego_pose.quaternion.yaw_pitch_roll
-    vehicle_parameters = get_nuplan_pacifica_parameters()
+    vehicle_parameters = get_nuplan_chrysler_pacifica_parameters()
     # vehicle_parameters = get_pacifica_parameters()
 
     rear_axle_pose = StateSE3(
