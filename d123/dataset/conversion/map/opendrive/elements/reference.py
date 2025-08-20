@@ -15,6 +15,8 @@ from d123.dataset.conversion.map.opendrive.elements.elevation import ElevationPr
 from d123.dataset.conversion.map.opendrive.elements.geometry import Arc, Geometry, Line, Spiral
 from d123.dataset.conversion.map.opendrive.elements.lane import LaneOffset
 
+# NOTE: This file needs to be re-written because of licensing issues.
+
 
 @dataclass
 class PlanView:

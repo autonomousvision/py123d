@@ -236,6 +236,7 @@ def _create_outer_lane_border(
     lane: Lane,
     coeff_factor: float,
 ) -> Border:
+    # NOTE: This function needs to be re-written because of licensing issues.
 
     args = {}
     if len(lane_borders) == 1:
