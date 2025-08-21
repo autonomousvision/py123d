@@ -8,8 +8,8 @@ import shapely
 from d123.common.geometry.base import Point2D, Point3D, Point3DIndex, StateSE2
 from d123.common.geometry.transform.tranform_2d import translate_along_yaw
 from d123.common.geometry.utils import normalize_angle
-from d123.dataset.conversion.map.opendrive.elements.objects import Object
-from d123.dataset.conversion.map.opendrive.elements.reference import Border
+from d123.dataset.conversion.map.opendrive.parser.objects import Object
+from d123.dataset.conversion.map.opendrive.parser.reference import ReferenceLine
 
 # TODO: make naming consistent with group_collections.py
 
@@ -29,14 +29,14 @@ class OpenDriveObjectHelper:
         return shapely.geometry.Polygon(self.outline_3d[:, Point3DIndex.XY])
 
 
-def get_object_helper(object: Object, reference_border: Border) -> OpenDriveObjectHelper:
+def get_object_helper(object: Object, reference_line: ReferenceLine) -> OpenDriveObjectHelper:
 
     object_helper: Optional[OpenDriveObjectHelper] = None
 
     # 1. Extract object position in frenet frame of the reference line
 
-    object_se2: StateSE2 = StateSE2.from_array(reference_border.interpolate_se2(s=object.s, t=object.t))
-    object_3d: Point3D = Point3D.from_array(reference_border.interpolate_3d(s=object.s, t=object.t))
+    object_se2: StateSE2 = StateSE2.from_array(reference_line.interpolate_se2(s=object.s, t=object.t))
+    object_3d: Point3D = Point3D.from_array(reference_line.interpolate_3d(s=object.s, t=object.t))
 
     # Adjust yaw angle from object data
     object_se2.yaw = normalize_angle(object_se2.yaw + object.hdg)

@@ -4,12 +4,17 @@ from dataclasses import dataclass
 from typing import List, Optional
 from xml.etree.ElementTree import Element
 
-import numpy as np
-import numpy.typing as npt
+from d123.dataset.conversion.map.opendrive.parser.polynomial import Polynomial
 
 
 @dataclass
 class ElevationProfile:
+    """
+    Models elevation along s-axis of reference line.
+
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/10_roads/10_05_elevation.html#sec-1d876c00-d69e-46d9-bbcd-709ab48f14b1
+    """
+
     elevations: List[Elevation]
 
     def __post_init__(self):
@@ -27,27 +32,21 @@ class ElevationProfile:
 
 
 @dataclass
-class Elevation:
-    """TODO: Refactor and merge with other elements, e.g. LaneOffset"""
+class Elevation(Polynomial):
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/10_roads/10_05_elevation.html#sec-66ac2b58-dc5e-4538-884d-204406ea53f2
 
-    s: float
-    a: float
-    b: float
-    c: float
-    d: float
-
-    @classmethod
-    def parse(cls, elevation_element: Element) -> Elevation:
-        args = {key: float(elevation_element.get(key)) for key in ["s", "a", "b", "c", "d"]}
-        return Elevation(**args)
-
-    @property
-    def polynomial_coefficients(self) -> npt.NDArray[np.float64]:
-        return np.array([self.a, self.b, self.c, self.d], dtype=np.float64)
+    Represents an elevation profile in OpenDRIVE.
+    """
 
 
 @dataclass
 class LateralProfile:
+    """
+    Models elevation along t-axis of reference line.
+
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/10_roads/10_05_elevation.html#sec-66ac2b58-dc5e-4538-884d-204406ea53f2
+    """
 
     super_elevations: List[SuperElevation]
     shapes: List[Shape]
@@ -76,28 +75,21 @@ class LateralProfile:
 
 
 @dataclass
-class SuperElevation:
-    """TODO: Refactor and merge with other elements, e.g. Elevation, LaneOffset"""
+class SuperElevation(Polynomial):
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/10_roads/10_05_elevation.html#sec-4abf7baf-fb2f-4263-8133-ad0f64f0feac
 
-    s: float
-    a: float
-    b: float
-    c: float
-    d: float
-
-    @classmethod
-    def parse(cls, super_elevation_element: Element) -> SuperElevation:
-        args = {key: float(super_elevation_element.get(key)) for key in ["s", "a", "b", "c", "d"]}
-        return SuperElevation(**args)
-
-    @property
-    def polynomial_coefficients(self) -> npt.NDArray[np.float64]:
-        return np.array([self.a, self.b, self.c, self.d], dtype=np.float64)
+    superelevation (ds) = a + b*ds + c*ds² + d*ds³
+    """
 
 
 @dataclass
 class Shape:
-    """TODO: Refactor and merge with other elements, e.g. Elevation, LaneOffset"""
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/1.8.0/specification/10_roads/10_05_elevation.html#sec-66ac2b58-dc5e-4538-884d-204406ea53f2
+
+    hShape (dt)= a + b*dt + c*dt² + d*dt³
+    """
 
     s: float
     t: float
@@ -111,6 +103,8 @@ class Shape:
         args = {key: float(shape_element.get(key)) for key in ["s", "t", "a", "b", "c", "d"]}
         return Shape(**args)
 
-    @property
-    def polynomial_coefficients(self) -> npt.NDArray[np.float64]:
-        return np.array([self.a, self.b, self.c, self.d], dtype=np.float64)
+    def get_value(self, dt: float) -> float:
+        """
+        Evaluate the polynomial at a given t value.
+        """
+        return self.a + self.b * dt + self.c * dt**2 + self.d * dt**3

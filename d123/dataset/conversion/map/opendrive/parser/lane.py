@@ -4,12 +4,15 @@ from dataclasses import dataclass
 from typing import List, Optional
 from xml.etree.ElementTree import Element
 
-import numpy as np
-import numpy.typing as npt
+from d123.dataset.conversion.map.opendrive.parser.polynomial import Polynomial
 
 
 @dataclass
 class Lanes:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/11_lanes/11_01_introduction.html
+    """
+
     lane_offsets: List[LaneOffset]
     lane_sections: List[LaneSection]
 
@@ -32,40 +35,29 @@ class Lanes:
         return Lanes(**args)
 
     @property
-    def num_lane_sections(self):
+    def num_lane_sections(self) -> int:
         return len(self.lane_sections)
 
     @property
-    def last_lane_section_idx(self):
+    def last_lane_section_idx(self) -> int:
         return self.num_lane_sections - 1
 
 
 @dataclass
-class LaneOffset:
-    """Section 11.4"""
+class LaneOffset(Polynomial):
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/11_lanes/11_04_lane_offset.html
 
-    s: float
-    a: float
-    b: float
-    c: float
-    d: float
-
-    def __post_init__(self):
-        # NOTE: added assertion/filtering to check for element type or consistency
-        pass
-
-    @classmethod
-    def parse(cls, lane_offset_element: Element) -> LaneOffset:
-        args = {key: float(lane_offset_element.get(key)) for key in ["s", "a", "b", "c", "d"]}
-        return LaneOffset(**args)
-
-    @property
-    def polynomial_coefficients(self) -> npt.NDArray[np.float64]:
-        return np.array([self.a, self.b, self.c, self.d], dtype=np.float64)
+    offset (ds) = a + b*ds + c*ds² + d*ds³
+    """
 
 
 @dataclass
 class LaneSection:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/11_lanes/11_03_lane_sections.html
+    """
+
     s: float
     left_lanes: List[Lane]
     center_lanes: List[Lane]
@@ -104,6 +96,9 @@ class LaneSection:
 
 @dataclass
 class Lane:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/11_lanes/11_05_lane_link.html
+    """
 
     id: int
     type: str
@@ -147,6 +142,10 @@ class Lane:
 
 @dataclass
 class Width:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/11_lanes/11_06_lane_geometry.html#sec-8d8ac2e0-b3d6-4048-a9ed-d5191af5c74b
+    """
+
     s_offset: Optional[float] = None
     a: Optional[float] = None
     b: Optional[float] = None
@@ -163,13 +162,25 @@ class Width:
         args["d"] = float(width_element.get("d"))
         return Width(**args)
 
-    @property
-    def polynomial_coefficients(self) -> npt.NDArray[np.float64]:
-        return np.array([self.a, self.b, self.c, self.d], dtype=np.float64)
+    def get_polynomial(self, t_sign: float = 1.0) -> Polynomial:
+        """
+        Returns the polynomial representation of the width.
+        """
+        return Polynomial(
+            s=self.s_offset,
+            a=self.a * t_sign,
+            b=self.b * t_sign,
+            c=self.c * t_sign,
+            d=self.d * t_sign,
+        )
 
 
 @dataclass
 class RoadMark:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/11_lanes/11_08_road_markings.html
+    """
+
     s_offset: float = None
     type: str = None
     material: Optional[str] = None
