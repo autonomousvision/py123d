@@ -34,7 +34,7 @@ DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "nuplan": Path(os.environ["NUPLAN_DATA_ROOT"]) / "nuplan-v1.1" / "sensor_blobs",
     "carla": Path(os.environ["CARLA_DATA_ROOT"]) / "sensor_blobs",
     # "av2-sensor": Path(os.environ["AV2_SENSOR_DATA_ROOT"]) / "sensor",
-    # "kitti360": Path(os.environ["KITTI360_DATA_ROOT"]),
+    "kitti360": Path(os.environ["KITTI360_DATA_ROOT"]),
 }
 
 
@@ -155,6 +155,10 @@ def get_lidar_from_arrow_table(
             lidar = load_carla_lidar_from_path(full_lidar_path, lidar_metadata)
         elif log_metadata.dataset == "wopd":
             raise NotImplementedError
+        elif log_metadata.dataset == "kitti360":
+            from d123.dataset.dataset_specific.kitti_360.load_sensor import load_kitti360_lidar_from_path
+
+            lidar = load_kitti360_lidar_from_path(full_lidar_path, lidar_metadata)
         else:
             raise NotImplementedError(f"Loading LiDAR data for dataset {log_metadata.dataset} is not implemented.")
 

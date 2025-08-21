@@ -104,6 +104,54 @@ def camera_metadata_dict_from_json(json_dict: Dict[str, Dict[str, Any]]) -> Dict
         for camera_type, metadata in camera_metadata_dict.items()
     }
 
+#TODO Code Refactoring
+@dataclass
+class FisheyeMEICameraMetadata:
+    camera_type: CameraType
+    width: int
+    height: int
+    mirror_parameters: int
+    distortion: npt.NDArray[np.float64]  # k1,k2,p1,p2
+    projection_parameters: npt.NDArray[np.float64] #gamma1,gamma2,u0,v0
+
+    def to_dict(self) -> Dict[str, Any]:
+        # TODO: remove None types. Only a placeholder for now.
+        return {
+            "camera_type": int(self.camera_type),
+            "width": self.width,
+            "height": self.height,
+            "mirror_parameters": self.mirror_parameters,
+            "distortion": self.distortion.tolist() if self.distortion is not None else None,
+            "projection_parameters": self.projection_parameters.tolist() if self.projection_parameters is not None else None,
+        }
+
+    def cam2image(self, points_3d: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        ''' camera coordinate to image plane '''
+        norm = np.linalg.norm(points_3d, axis=1)
+
+        x = points_3d[:,0] / norm
+        y = points_3d[:,1] / norm
+        z = points_3d[:,2] / norm
+
+        x /= z+self.mirror_parameters
+        y /= z+self.mirror_parameters
+
+        k1 = self.distortion[0]
+        k2 = self.distortion[1]
+        gamma1 = self.projection_parameters[0]
+        gamma2 = self.projection_parameters[1]
+        u0 = self.projection_parameters[2]
+        v0 = self.projection_parameters[3]
+
+        ro2 = x*x + y*y
+        x *= 1 + k1*ro2 + k2*ro2*ro2
+        y *= 1 + k1*ro2 + k2*ro2*ro2
+
+        x = gamma1*x + u0
+        y = gamma2*y + v0
+
+        return x, y, norm * points_3d[:,2] / np.abs(points_3d[:,2])
+    
 
 @dataclass
 class Camera:

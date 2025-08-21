@@ -33,23 +33,23 @@ all_camera_types: List[CameraType] = [
 LINE_WIDTH: float = 4.0
 
 # Bounding box config:
-BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "mesh"
+BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "lines"
 
 # Map config:
-MAP_AVAILABLE: bool = True
+MAP_AVAILABLE: bool = False
 
 
 # Cameras config:
 
-VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_F0, CameraType.CAM_L0, CameraType.CAM_R0]
+# VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_F0, CameraType.CAM_L0, CameraType.CAM_R0]
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = all_camera_types
-# VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_STEREO_L, CameraType.CAM_STEREO_R]
+VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_STEREO_L, CameraType.CAM_STEREO_R]
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = []
 VISUALIZE_CAMERA_GUI: List[CameraType] = [CameraType.CAM_F0]
 CAMERA_SCALE: float = 1.0
 
 # Lidar config:
-LIDAR_AVAILABLE: bool = False
+LIDAR_AVAILABLE: bool = True
 
 LIDAR_TYPES: List[LiDARType] = [
     LiDARType.LIDAR_MERGED,

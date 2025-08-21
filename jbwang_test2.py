@@ -117,14 +117,21 @@ KIITI360_DETECTION_NAME_DICT = {
 x,y,z = 874.233508, 3231.56235, 115.185341  # 要找的那个车
 CENTER_REF = np.array([x, y, z], dtype=np.float64)
 objs_name = []
+lable_name = []
 for child in root:
     label = child.find('label').text
-    if child.find('transform') is None or label not in KIITI360_DETECTION_NAME_DICT.keys():
+    # if child.find('transform') is None or label not in KIITI360_DETECTION_NAME_DICT.keys():
+    #     continue
+    
+    if child.find('transform') is None:
         continue
+    print("this label is ",label)
+    print("!!!!!!!!!!!!!!!!!!!")
     obj = KITTI360Bbox3D()
     obj.parseBbox(child)
     # obj.parseVertices(child)
     name = child.find('label').text
+    lable_name.append(name)
     # if obj.start_frame < 10030 and obj.end_frame > 10030:
     center = np.array(obj.T, dtype=np.float64)
     dist = np.linalg.norm(center - CENTER_REF)
@@ -133,6 +140,7 @@ for child in root:
     objs_name.append(obj.name)
 print(len(objs_name))
 print(set(objs_name))
+print(set(lable_name))
     # print(obj.Rm)
     # print(Sigma)
 names = []

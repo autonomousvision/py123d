@@ -30,3 +30,5 @@ docs/_build/
 docs/build/
 _build/
 .doctrees/
+
+jbwang_*

@@ -7,10 +7,32 @@ from scipy.spatial.transform import Rotation as R
 
 from d123.common.geometry.base import StateSE3
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
+from d123.common.geometry.transform.se3 import get_rotation_matrix
 from d123.dataset.dataset_specific.kitti_360.labels import kittiId2label
 
 DEFAULT_ROLL = 0.0
 DEFAULT_PITCH = 0.0
+
+addtional_calibration = get_rotation_matrix(
+            StateSE3(
+                x=0.0,
+                y=0.0,
+                z=0.0,
+                roll=np.deg2rad(1.0),
+                pitch=np.deg2rad(1.0),
+                yaw=np.deg2rad(0.0),
+            )
+        )
+
+kitti3602nuplan_imu_calibration_ideal = np.array([
+        [1, 0, 0, 0],
+        [0, -1, 0, 0],
+        [0, 0, -1, 0],
+        [0, 0, 0, 1],
+    ], dtype=np.float64)
+
+KITTI3602NUPLAN_IMU_CALIBRATION = np.eye(4, dtype=np.float64)
+KITTI3602NUPLAN_IMU_CALIBRATION[:3, :3] = addtional_calibration @ kitti3602nuplan_imu_calibration_ideal[:3, :3]
 
 MAX_N = 1000
 def local2global(semanticId, instanceId):
@@ -99,6 +121,8 @@ class KITTI360Bbox3D():
     
     def parse_scale_rotation(self):
         Rm, Sm = polar(self.R) 
+        if np.linalg.det(Rm) < 0:
+            Rm[0] = -Rm[0]
         scale = np.diag(Sm)
         yaw, pitch, roll = R.from_matrix(Rm).as_euler('zyx', degrees=False)
 

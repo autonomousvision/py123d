@@ -166,3 +166,43 @@ def assureSingleInstanceName( name ):
         return None
     # all good then
     return name
+
+from d123.common.datatypes.detection.detection_types import DetectionType
+
+KIITI360_DETECTION_NAME_DICT = {
+    "traffic light": DetectionType.SIGN,
+    "traffic sign": DetectionType.SIGN,
+    "person": DetectionType.PEDESTRIAN,
+    "rider": DetectionType.BICYCLE,
+    "car": DetectionType.VEHICLE,
+    "truck": DetectionType.VEHICLE,
+    "bus": DetectionType.VEHICLE,
+    "caravan": DetectionType.VEHICLE,
+    "trailer": DetectionType.VEHICLE,
+    "train": DetectionType.VEHICLE,
+    "motorcycle": DetectionType.BICYCLE,
+    "bicycle": DetectionType.BICYCLE,
+    "stop": DetectionType.SIGN,
+}
+
+# KIITI360_DETECTION_NAME_DICT = {
+#     "pole": DetectionType.GENERIC_OBJECT,
+#     "traffic light": DetectionType.SIGN,
+#     "traffic sign": DetectionType.SIGN,
+#     "person": DetectionType.PEDESTRIAN,
+#     "rider": DetectionType.BICYCLE,
+#     "car": DetectionType.VEHICLE,
+#     "truck": DetectionType.VEHICLE,
+#     "bus": DetectionType.VEHICLE,
+#     "caravan": DetectionType.VEHICLE,
+#     "trailer": DetectionType.VEHICLE,
+#     "train": DetectionType.VEHICLE,
+#     "motorcycle": DetectionType.BICYCLE,
+#     "bicycle": DetectionType.BICYCLE,
+#     "stop": DetectionType.SIGN,
+#     "smallpole": DetectionType.GENERIC_OBJECT,
+#     "lamp": DetectionType.GENERIC_OBJECT,
+#     "trash bin": DetectionType.GENERIC_OBJECT,
+#     "vending machine": DetectionType.GENERIC_OBJECT,
+#     "box": DetectionType.GENERIC_OBJECT,
+# }

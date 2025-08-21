@@ -60,15 +60,16 @@ def get_wopd_chrysler_pacifica_parameters() -> VehicleParameters:
     )
 
 def get_kitti360_station_wagon_parameters() -> VehicleParameters:
-    #TODO  except wheel_base, all need to be checked
+    #NOTE: Parameters are estimated from the vehicle model.
+    #https://www.cvlibs.net/datasets/kitti-360/documentation.php
     return VehicleParameters(
         vehicle_name="kitti360_station_wagon",
-        width=2.297,
-        length=5.176,
+        width=1.800,
+        length=3.500,
         height=1.400,
         wheel_base=2.710,
         rear_axle_to_center_vertical=0.45,
-        rear_axle_to_center_longitudinal=1.461,
+        rear_axle_to_center_longitudinal=2.71/2 + 0.05,
     )
 
 def get_av2_ford_fusion_hybrid_parameters() -> VehicleParameters:
