@@ -12,7 +12,7 @@ from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE2
 from d123.common.geometry.line.polylines import PolylineSE2
 from d123.common.geometry.transform.se2_array import convert_absolute_to_relative_se2_array
 from d123.common.visualization.color.default import TrafficLightStatus
-from d123.dataset.maps.abstract_map import MapSurfaceType
+from d123.dataset.maps.abstract_map import MapLayer
 from d123.dataset.maps.abstract_map_objects import (
     AbstractCarpark,
     AbstractCrosswalk,
@@ -74,10 +74,10 @@ def _build_map_features(scene: AbstractScene, origin: StateSE2) -> Dict[str, np.
     map_objects = map_api.query(
         map_bounding_box.shapely_polygon,
         layers=[
-            MapSurfaceType.LANE_GROUP,
-            MapSurfaceType.CROSSWALK,
-            MapSurfaceType.CARPARK,
-            MapSurfaceType.GENERIC_DRIVABLE,
+            MapLayer.LANE_GROUP,
+            MapLayer.CROSSWALK,
+            MapLayer.CARPARK,
+            MapLayer.GENERIC_DRIVABLE,
         ],
         predicate="intersects",
     )
@@ -91,7 +91,7 @@ def _build_map_features(scene: AbstractScene, origin: StateSE2) -> Dict[str, np.
     pl_light_types: List[int] = []
 
     # 1. Add lane
-    for lane_group in map_objects[MapSurfaceType.LANE_GROUP]:
+    for lane_group in map_objects[MapLayer.LANE_GROUP]:
         lane_group: AbstractLaneGroup
         is_intersection = lane_group.intersection is not None
 
@@ -129,7 +129,7 @@ def _build_map_features(scene: AbstractScene, origin: StateSE2) -> Dict[str, np.
                 pl_light_types.extend([int(lane_traffic_light.status)] * len(lane_traj_se2))
 
     # 2. Crosswalks
-    for crosswalk in map_objects[MapSurfaceType.CROSSWALK]:
+    for crosswalk in map_objects[MapLayer.CROSSWALK]:
         crosswalk: AbstractCrosswalk
         crosswalk_traj_se2 = _split_segments(
             crosswalk.outline_3d.polyline_se2,
@@ -143,7 +143,7 @@ def _build_map_features(scene: AbstractScene, origin: StateSE2) -> Dict[str, np.
         pl_light_types.extend([int(TrafficLightStatus.OFF)] * len(crosswalk_traj_se2))
 
     # 3. Parking
-    for carpark in map_objects[MapSurfaceType.CARPARK]:
+    for carpark in map_objects[MapLayer.CARPARK]:
         carpark: AbstractCarpark
         carpark_traj_se2 = _split_segments(
             carpark.outline_3d.polyline_se2,
@@ -157,7 +157,7 @@ def _build_map_features(scene: AbstractScene, origin: StateSE2) -> Dict[str, np.
         pl_light_types.extend([int(TrafficLightStatus.OFF)] * len(carpark_traj_se2))
 
     # 4. Generic drivable
-    for generic_drivable in map_objects[MapSurfaceType.GENERIC_DRIVABLE]:
+    for generic_drivable in map_objects[MapLayer.GENERIC_DRIVABLE]:
         generic_drivable: AbstractGenericDrivable
         drivable_traj_se2 = _split_segments(
             generic_drivable.outline_3d.polyline_se2,

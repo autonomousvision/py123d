@@ -48,3 +48,22 @@ class BoundingBoxSE3Index(IntEnum):
     @classproperty
     def ROTATION_XYZ(cls) -> slice:
         return slice(cls.ROLL, cls.YAW + 1)
+
+
+class Corners3DIndex(IntEnum):
+    FRONT_LEFT_BOTTOM = 0
+    FRONT_RIGHT_BOTTOM = 1
+    BACK_RIGHT_BOTTOM = 2
+    BACK_LEFT_BOTTOM = 3
+    FRONT_LEFT_TOP = 4
+    FRONT_RIGHT_TOP = 5
+    BACK_RIGHT_TOP = 6
+    BACK_LEFT_TOP = 7
+
+    @classproperty
+    def BOTTOM(cls) -> slice:
+        return slice(cls.FRONT_LEFT_BOTTOM, cls.BACK_LEFT_BOTTOM + 1)
+
+    @classproperty
+    def TOP(cls) -> slice:
+        return slice(cls.FRONT_LEFT_TOP, cls.BACK_LEFT_TOP + 1)

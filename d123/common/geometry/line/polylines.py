@@ -9,7 +9,7 @@ import shapely.creation as geom_creation
 import shapely.geometry as geom
 from scipy.interpolate import interp1d
 
-from d123.common.geometry.base import Point2D, Point2DIndex, Point3D, StateSE2, StateSE2Index
+from d123.common.geometry.base import Point2D, Point2DIndex, Point3D, Point3DIndex, StateSE2, StateSE2Index
 from d123.common.geometry.constants import DEFAULT_Z
 from d123.common.geometry.line.helper import get_linestring_yaws, get_path_progress
 from d123.common.geometry.utils import normalize_angle
@@ -33,7 +33,15 @@ class Polyline2D:
 
     @classmethod
     def from_array(cls, polyline_array: npt.NDArray[np.float32]) -> Polyline2D:
-        raise NotImplementedError
+        assert polyline_array.ndim == 2
+        linestring: Optional[geom.LineString] = None
+        if polyline_array.shape[-1] == len(Point2DIndex):
+            linestring = geom_creation.linestrings(polyline_array)
+        elif polyline_array.shape[-1] == len(Point3DIndex):
+            linestring = geom_creation.linestrings(polyline_array[:, Point3DIndex.XY])
+        else:
+            raise ValueError("Array must have shape (N, 2) or (N, 3) for Point2D or Point3D respectively.")
+        return Polyline2D(linestring)
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
@@ -79,6 +87,7 @@ class PolylineSE2:
         if self.linestring is None:
             self.linestring = geom_creation.linestrings(self.se2_array[..., StateSE2Index.XY])
 
+        self.se2_array[:, StateSE2Index.YAW] = np.unwrap(self.se2_array[:, StateSE2Index.YAW], axis=0)
         self._progress = get_path_progress(self.se2_array)
         self._interpolator = interp1d(self._progress, self.se2_array, axis=0, bounds_error=False, fill_value=0.0)
 
@@ -149,10 +158,15 @@ class Polyline3D:
             else Polyline3D(geom_creation.linestrings(*linestring.xy, z=DEFAULT_Z))
         )
 
+    @classmethod
+    def from_array(cls, array: npt.NDArray[np.float64]) -> Polyline3D:
+        assert array.ndim == 2 and array.shape[1] == 3, "Array must be 2D with shape (N, 3)"
+        linestring = geom_creation.linestrings(*array.T)
+        return Polyline3D(linestring)
+
     @property
     def polyline_2d(self) -> Polyline2D:
-        Polyline2D(geom_creation.linestrings(*self.linestring.xy))
-        return Polyline2D.from_linestring(self.linestring)
+        return Polyline2D(geom_creation.linestrings(*self.linestring.xy))
 
     @property
     def polyline_se2(self) -> PolylineSE2:

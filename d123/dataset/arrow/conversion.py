@@ -1,8 +1,14 @@
 # TODO: rename this file and potentially move somewhere more appropriate.
 
+import io
+import os
+from pathlib import Path
+from typing import Dict, Optional
 
 import numpy as np
+import numpy.typing as npt
 import pyarrow as pa
+from PIL import Image
 
 from d123.common.datatypes.detection.detection import (
     BoxDetection,
@@ -14,12 +20,21 @@ from d123.common.datatypes.detection.detection import (
     TrafficLightStatus,
 )
 from d123.common.datatypes.detection.detection_types import DetectionType
+from d123.common.datatypes.sensor.camera import Camera, CameraMetadata
+from d123.common.datatypes.sensor.lidar import LiDAR, LiDARMetadata
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
 from d123.common.geometry.vector import Vector3D
+from d123.dataset.logs.log_metadata import LogMetadata
 from d123.dataset.maps.abstract_map import List
+
+DATASET_SENSOR_ROOT: Dict[str, Path] = {
+    "nuplan": Path(os.environ["NUPLAN_DATA_ROOT"]) / "nuplan-v1.1" / "sensor_blobs",
+    "carla": Path(os.environ["CARLA_DATA_ROOT"]) / "sensor_blobs",
+    # "av2-sensor": Path(os.environ["AV2_SENSOR_DATA_ROOT"]) / "sensor",
+}
 
 
 def get_timepoint_from_arrow_table(arrow_table: pa.Table, index: int) -> TimePoint:
@@ -76,3 +91,77 @@ def get_traffic_light_detections_from_arrow_table(arrow_table: pa.Table, index: 
         traffic_light_detections.append(traffic_light_detection)
 
     return TrafficLightDetectionWrapper(traffic_light_detections=traffic_light_detections)
+
+
+def get_camera_from_arrow_table(
+    arrow_table: pa.Table,
+    index: int,
+    camera_metadata: CameraMetadata,
+    log_metadata: LogMetadata,
+) -> Camera:
+
+    table_data = arrow_table[camera_metadata.camera_type.serialize()][index].as_py()
+    extrinsic = arrow_table[f"{camera_metadata.camera_type.serialize()}_extrinsic"][index].as_py()
+    extrinsic = np.array(extrinsic).reshape((4, 4)) if extrinsic else None
+
+    if table_data is None or extrinsic is None:
+        return None
+
+    image: Optional[npt.NDArray[np.uint8]] = None
+
+    if isinstance(table_data, str):
+        sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
+        full_image_path = sensor_root / table_data
+        assert full_image_path.exists(), f"Camera file not found: {full_image_path}"
+        img = Image.open(full_image_path)
+        img.load()
+        image = np.asarray(img, dtype=np.uint8)
+    elif isinstance(table_data, bytes):
+        image = np.array(Image.open(io.BytesIO(table_data)))
+    else:
+        raise NotImplementedError("Only string file paths for camera data are supported.")
+
+    return Camera(
+        metadata=camera_metadata,
+        image=image,
+        extrinsic=extrinsic,
+    )
+
+
+def get_lidar_from_arrow_table(
+    arrow_table: pa.Table,
+    index: int,
+    lidar_metadata: LiDARMetadata,
+    log_metadata: LogMetadata,
+) -> LiDAR:
+    assert (
+        lidar_metadata.lidar_type.serialize() in arrow_table.schema.names
+    ), f'"{lidar_metadata.lidar_type.serialize()}" field not found in Arrow table schema.'
+    lidar_data = arrow_table[lidar_metadata.lidar_type.serialize()][index].as_py()
+    if isinstance(lidar_data, str):
+        sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
+        full_lidar_path = sensor_root / lidar_data
+        assert full_lidar_path.exists(), f"LiDAR file not found: {full_lidar_path}"
+
+        # NOTE: We move data specific import into if-else block, to avoid data specific import errors
+        if log_metadata.dataset == "nuplan":
+            from d123.dataset.dataset_specific.nuplan.load_sensor import load_nuplan_lidar_from_path
+
+            lidar = load_nuplan_lidar_from_path(full_lidar_path, lidar_metadata)
+        elif log_metadata.dataset == "carla":
+            from d123.dataset.dataset_specific.carla.load_sensor import load_carla_lidar_from_path
+
+            lidar = load_carla_lidar_from_path(full_lidar_path, lidar_metadata)
+        elif log_metadata.dataset == "wopd":
+            raise NotImplementedError
+        else:
+            raise NotImplementedError(f"Loading LiDAR data for dataset {log_metadata.dataset} is not implemented.")
+
+    else:
+        if log_metadata.dataset == "wopd":
+            lidar_data = np.array(lidar_data, dtype=np.float64)
+            lidar = LiDAR(metadata=lidar_metadata, point_cloud=lidar_data.T)
+        else:
+            raise NotImplementedError("Only string file paths for lidar data are supported.")
+
+    return lidar

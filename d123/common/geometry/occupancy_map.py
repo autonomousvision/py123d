@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Dict, List, Literal, Optional, Sequence, Union
 
 import numpy as np
@@ -33,6 +35,12 @@ class OccupancyMap2D:
         self._geometries = geometries
         self._node_capacity = node_capacity
         self._str_tree = STRtree(self._geometries, node_capacity)
+
+    @classmethod
+    def from_dict(cls, geometry_dict: Dict[Union[str, int], BaseGeometry], node_capacity: int = 10) -> OccupancyMap2D:
+        ids = list(geometry_dict.keys())
+        geometries = list(geometry_dict.values())
+        return cls(geometries=geometries, ids=ids, node_capacity=node_capacity)
 
     def __getitem__(self, id: Union[str, int]) -> BaseGeometry:
         """

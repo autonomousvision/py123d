@@ -6,6 +6,7 @@ from typing import List, Optional
 
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 import shapely.geometry as geom
 import trimesh
 
@@ -19,10 +20,14 @@ from d123.dataset.maps.abstract_map_objects import (
     AbstractIntersection,
     AbstractLane,
     AbstractLaneGroup,
+    AbstractLineMapObject,
+    AbstractRoadEdge,
+    AbstractRoadLine,
     AbstractSurfaceMapObject,
     AbstractWalkway,
 )
 from d123.dataset.maps.gpkg.utils import get_row_with_value
+from d123.dataset.maps.map_datatypes import RoadEdgeType, RoadLineType
 
 
 class GPKGSurfaceObject(AbstractSurfaceMapObject):
@@ -30,7 +35,6 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
     Base interface representation of all map objects.
     """
 
-    # TODO: Extend for 3D outline
     def __init__(self, object_id: str, surface_df: gpd.GeoDataFrame) -> None:
         """
         Constructor of the base surface map object type.
@@ -62,10 +66,49 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
     @property
     def trimesh_mesh(self) -> trimesh.Trimesh:
         """Inherited, see superclass."""
-        outline_3d_array = self.outline_3d.array
-        _, faces = trimesh.creation.triangulate_polygon(geom.Polygon(outline_3d_array[:, Point3DIndex.XY]))
-        # NOTE: Optional add color information to the mesh
-        return trimesh.Trimesh(vertices=outline_3d_array, faces=faces)
+
+        trimesh_mesh: Optional[trimesh.Trimesh] = None
+        if "right_boundary" in self._object_df.columns and "left_boundary" in self._object_df.columns:
+            left_boundary = Polyline3D.from_linestring(self._object_row.left_boundary)
+            right_boundary = Polyline3D.from_linestring(self._object_row.right_boundary)
+            trimesh_mesh = get_trimesh_from_boundaries(left_boundary, right_boundary)
+        else:
+            # Fallback to geometry if no boundaries are available
+            outline_3d_array = self.outline_3d.array
+            vertices_2d, faces = trimesh.creation.triangulate_polygon(
+                geom.Polygon(outline_3d_array[:, Point3DIndex.XY])
+            )
+            if len(vertices_2d) == len(outline_3d_array):
+                # Regular case, where vertices match outline_3d_array
+                vertices_3d = outline_3d_array
+            elif len(vertices_2d) == len(outline_3d_array) + 1:
+                # outline array was not closed, so we need to add the first vertex again
+                vertices_3d = np.vstack((outline_3d_array, outline_3d_array[0]))
+            else:
+                raise ValueError("No vertices found for triangulation.")
+            trimesh_mesh = trimesh.Trimesh(vertices=vertices_3d, faces=faces)
+        return trimesh_mesh
+
+
+class GPKGLineObject(AbstractLineMapObject):
+
+    def __init__(self, object_id: str, line_df: gpd.GeoDataFrame) -> None:
+        """
+        Constructor of the base line map object type.
+        :param object_id: unique identifier of a line map object.
+        """
+        super().__init__(object_id)
+        # TODO: add assertion if columns are available
+        self._object_df = line_df
+
+    @cached_property
+    def _object_row(self) -> gpd.GeoSeries:
+        return get_row_with_value(self._object_df, "id", self.id)
+
+    @property
+    def polyline_3d(self) -> Polyline3D:
+        """Inherited, see superclass."""
+        return Polyline3D.from_linestring(self._object_row.geometry)
 
 
 class GPKGLane(GPKGSurfaceObject, AbstractLane):
@@ -108,6 +151,26 @@ class GPKGLane(GPKGSurfaceObject, AbstractLane):
         return Polyline3D.from_linestring(self._object_row.right_boundary)
 
     @property
+    def left_lane(self) -> Optional[GPKGLane]:
+        """Inherited, see superclass."""
+        left_lane_id = self._object_row.left_lane_id
+        return (
+            GPKGLane(left_lane_id, self._object_df, self._lane_group_df, self._intersection_df)
+            if left_lane_id is not None and not pd.isna(left_lane_id)
+            else None
+        )
+
+    @property
+    def right_lane(self) -> Optional[GPKGLane]:
+        """Inherited, see superclass."""
+        right_lane_id = self._object_row.right_lane_id
+        return (
+            GPKGLane(right_lane_id, self._object_df, self._lane_group_df, self._intersection_df)
+            if right_lane_id is not None and not pd.isna(right_lane_id)
+            else None
+        )
+
+    @property
     def centerline(self) -> Polyline3D:
         """Inherited, see superclass."""
         return Polyline3D.from_linestring(self._object_row.baseline_path)
@@ -118,11 +181,6 @@ class GPKGLane(GPKGSurfaceObject, AbstractLane):
         outline_array = np.vstack((self.left_boundary.array, self.right_boundary.array[::-1]))
         outline_array = np.vstack((outline_array, outline_array[0]))
         return Polyline3D.from_linestring(geom.LineString(outline_array))
-
-    @property
-    def trimesh_mesh(self) -> trimesh.Trimesh:
-        """Inherited, see superclass."""
-        return get_trimesh_from_boundaries(self.left_boundary, self.right_boundary)
 
     @property
     def lane_group(self) -> GPKGLaneGroup:
@@ -152,13 +210,19 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
     def successors(self) -> List[GPKGLaneGroup]:
         """Inherited, see superclass."""
         successor_ids = ast.literal_eval(self._object_row.successor_ids)
-        return [GPKGLaneGroup(lane_group_id, self._object_df) for lane_group_id in successor_ids]
+        return [
+            GPKGLaneGroup(lane_group_id, self._object_df, self._lane_df, self._intersection_df)
+            for lane_group_id in successor_ids
+        ]
 
     @property
     def predecessors(self) -> List[GPKGLaneGroup]:
         """Inherited, see superclass."""
         predecessor_ids = ast.literal_eval(self._object_row.predecessor_ids)
-        return [GPKGLaneGroup(lane_group_id, self._object_df) for lane_group_id in predecessor_ids]
+        return [
+            GPKGLaneGroup(lane_group_id, self._object_df, self._lane_df, self._intersection_df)
+            for lane_group_id in predecessor_ids
+        ]
 
     @property
     def left_boundary(self) -> Polyline3D:
@@ -175,11 +239,6 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
         """Inherited, see superclass."""
         outline_array = np.vstack((self.left_boundary.array, self.right_boundary.array[::-1]))
         return Polyline3D.from_linestring(geom.LineString(outline_array))
-
-    @property
-    def trimesh_mesh(self) -> trimesh.Trimesh:
-        """Inherited, see superclass."""
-        return get_trimesh_from_boundaries(self.left_boundary, self.right_boundary)
 
     @property
     def lanes(self) -> List[GPKGLane]:
@@ -206,7 +265,7 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
                 self._lane_df,
                 self._object_df,
             )
-            if intersection_id is not None
+            if intersection_id is not None and not pd.isna(intersection_id)
             else None
         )
 
@@ -256,3 +315,31 @@ class GPKGWalkway(GPKGSurfaceObject, AbstractWalkway):
 class GPKGGenericDrivable(GPKGSurfaceObject, AbstractGenericDrivable):
     def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)
+
+
+class GPKGRoadEdge(GPKGLineObject, AbstractRoadEdge):
+    def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
+        super().__init__(object_id, object_df)
+
+    @cached_property
+    def _object_row(self) -> gpd.GeoSeries:
+        return get_row_with_value(self._object_df, "id", self.id)
+
+    @property
+    def road_edge_type(self) -> RoadEdgeType:
+        """Inherited, see superclass."""
+        return RoadEdgeType(int(self._object_row.road_edge_type))
+
+
+class GPKGRoadLine(GPKGLineObject, AbstractRoadLine):
+    def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
+        super().__init__(object_id, object_df)
+
+    @cached_property
+    def _object_row(self) -> gpd.GeoSeries:
+        return get_row_with_value(self._object_df, "id", self.id)
+
+    @property
+    def road_line_type(self) -> RoadLineType:
+        """Inherited, see superclass."""
+        return RoadLineType(int(self._object_row.road_line_type))

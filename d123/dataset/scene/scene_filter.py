@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
+from d123.common.datatypes.sensor.camera import CameraType
+
 # TODO: Add more filter options (e.g. scene tags, ego movement, or whatever appropriate)
 
 
@@ -21,5 +23,22 @@ class SceneFilter:
     duration_s: Optional[float] = 10.0
     history_s: Optional[float] = 3.0
 
+    camera_types: Optional[List[CameraType]] = None
+
     max_num_scenes: Optional[int] = None
     shuffle: bool = False
+
+    def __post_init__(self):
+        if self.camera_types is not None:
+            assert isinstance(self.camera_types, list), "camera_types must be a list of CameraType"
+            camera_types = []
+            for camera_type in self.camera_types:
+                if isinstance(camera_type, str):
+                    camera_type = CameraType.deserialize[camera_type]
+                    camera_types.append(camera_type)
+                elif isinstance(camera_type, int):
+                    camera_type = CameraType(camera_type)
+                    camera_types.append(camera_type)
+                else:
+                    raise ValueError(f"Invalid camera type: {camera_type}")
+            self.camera_types = camera_types

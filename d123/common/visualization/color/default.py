@@ -13,12 +13,12 @@ from d123.common.visualization.color.color import (
     Color,
 )
 from d123.common.visualization.color.config import PlotConfig
-from d123.dataset.maps.map_datatypes import MapSurfaceType
+from d123.dataset.maps.map_datatypes import MapLayer
 
 HEADING_MARKER_STYLE: str = "^"  # "^": triangle, "-": line
 
-MAP_SURFACE_CONFIG: Dict[MapSurfaceType, PlotConfig] = {
-    MapSurfaceType.LANE: PlotConfig(
+MAP_SURFACE_CONFIG: Dict[MapLayer, PlotConfig] = {
+    MapLayer.LANE: PlotConfig(
         fill_color=LIGHT_GREY,
         fill_color_alpha=1.0,
         line_color=LIGHT_GREY,
@@ -27,7 +27,7 @@ MAP_SURFACE_CONFIG: Dict[MapSurfaceType, PlotConfig] = {
         line_style="-",
         zorder=1,
     ),
-    MapSurfaceType.LANE_GROUP: PlotConfig(
+    MapLayer.LANE_GROUP: PlotConfig(
         fill_color=LIGHT_GREY,
         fill_color_alpha=1.0,
         line_color=LIGHT_GREY,
@@ -36,7 +36,7 @@ MAP_SURFACE_CONFIG: Dict[MapSurfaceType, PlotConfig] = {
         line_style="-",
         zorder=1,
     ),
-    MapSurfaceType.INTERSECTION: PlotConfig(
+    MapLayer.INTERSECTION: PlotConfig(
         fill_color=LIGHT_GREY,
         fill_color_alpha=1.0,
         line_color=LIGHT_GREY,
@@ -45,7 +45,7 @@ MAP_SURFACE_CONFIG: Dict[MapSurfaceType, PlotConfig] = {
         line_style="-",
         zorder=1,
     ),
-    MapSurfaceType.CROSSWALK: PlotConfig(
+    MapLayer.CROSSWALK: PlotConfig(
         fill_color=Color("#c69fbb"),
         fill_color_alpha=1.0,
         line_color=Color("#c69fbb"),
@@ -54,7 +54,7 @@ MAP_SURFACE_CONFIG: Dict[MapSurfaceType, PlotConfig] = {
         line_style="-",
         zorder=2,
     ),
-    MapSurfaceType.WALKWAY: PlotConfig(
+    MapLayer.WALKWAY: PlotConfig(
         fill_color=Color("#d4d19e"),
         fill_color_alpha=1.0,
         line_color=Color("#d4d19e"),
@@ -63,7 +63,7 @@ MAP_SURFACE_CONFIG: Dict[MapSurfaceType, PlotConfig] = {
         line_style="-",
         zorder=1,
     ),
-    MapSurfaceType.CARPARK: PlotConfig(
+    MapLayer.CARPARK: PlotConfig(
         fill_color=Color("#b9d3b4"),
         fill_color_alpha=1.0,
         line_color=Color("#b9d3b4"),
@@ -72,7 +72,7 @@ MAP_SURFACE_CONFIG: Dict[MapSurfaceType, PlotConfig] = {
         line_style="-",
         zorder=1,
     ),
-    MapSurfaceType.GENERIC_DRIVABLE: PlotConfig(
+    MapLayer.GENERIC_DRIVABLE: PlotConfig(
         fill_color=LIGHT_GREY,
         fill_color_alpha=1.0,
         line_color=LIGHT_GREY,
@@ -149,6 +149,16 @@ BOX_DETECTION_CONFIG: Dict[DetectionType, PlotConfig] = {
     ),
     DetectionType.GENERIC_OBJECT: PlotConfig(
         fill_color=NEW_TAB_10[5],
+        fill_color_alpha=1.0,
+        line_color=BLACK,
+        line_color_alpha=1.0,
+        line_width=1.0,
+        line_style="-",
+        marker_style=None,
+        zorder=2,
+    ),
+    DetectionType.SIGN: PlotConfig(
+        fill_color=NEW_TAB_10[8],
         fill_color_alpha=1.0,
         line_color=BLACK,
         line_color_alpha=1.0,

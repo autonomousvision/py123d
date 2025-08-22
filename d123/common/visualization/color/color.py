@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Dict, Tuple
 
@@ -8,6 +10,11 @@ from PIL import ImageColor
 class Color:
 
     hex: str
+
+    @classmethod
+    def from_rgb(cls, rgb: Tuple[int, int, int]) -> Color:
+        r, g, b = rgb
+        return cls(f"#{r:02x}{g:02x}{b:02x}")
 
     @property
     def rgb(self) -> Tuple[int, int, int]:
@@ -24,6 +31,16 @@ class Color:
     @property
     def rgba_norm(self) -> Tuple[float, float, float]:
         return tuple([c / 255 for c in self.rgba])
+
+    def set_brightness(self, factor: float) -> Color:
+        r, g, b = self.rgb
+        return Color.from_rgb(
+            (
+                max(min(int(r * factor), 255), 0),
+                max(min(int(g * factor), 255), 0),
+                max(min(int(b * factor), 255), 0),
+            )
+        )
 
     def __str__(self) -> str:
         return self.hex

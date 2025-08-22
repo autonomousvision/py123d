@@ -24,6 +24,7 @@ class DetectionType(SerialIntEnum):
     GENERIC_OBJECT = 6  # Animals, debris, pushable/pullable objects, permanent poles.
 
     EGO = 7
+    SIGN = 8  # TODO: Remove or extent
 
 
 DYNAMIC_DETECTION_TYPES: set[DetectionType] = {

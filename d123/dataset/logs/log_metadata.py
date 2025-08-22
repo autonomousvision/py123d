@@ -8,6 +8,10 @@ import d123
 @dataclass
 class LogMetadata:
 
+    # TODO: add
+    # - split
+    # - global/local map
+
     dataset: str
     log_name: str
     location: str

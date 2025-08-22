@@ -1,5 +1,5 @@
 
-# Install Code
+# Installation
 
 Note, the following installation assumes the following folder structure:
 ```
@@ -19,13 +19,13 @@ Note, the following installation assumes the following folder structure:
     │   ├── ...
     │   └── 2021.10.06.07.26.10_veh-52_00006_00398.arrow
     ├── nuplan_mini_train
-    │   └── ...     
+    │   └── ...
     └── nuplan_mini_test
         └── ...
 ```
 
 
-First you need to create a new conda environment and install `d123` as editable pip package. 
+First you need to create a new conda environment and install `d123` as editable pip package.
 ```bash
 conda env create -f environment.yml
 conda activate d123

@@ -5,8 +5,7 @@ from functools import partial
 from pathlib import Path
 from typing import Iterator, List, Optional, Set, Union
 
-from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
-
+from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.dataset.arrow.helper import open_arrow_table
 from d123.dataset.logs.log_metadata import LogMetadata
 from d123.dataset.scene.abstract_scene import AbstractScene
@@ -85,7 +84,11 @@ def _discover_log_paths(dataset_path: Path, split_names: Set[str], log_names: Op
 def _extract_scenes_from_logs(log_paths: List[Path], filter: SceneFilter) -> List[AbstractScene]:
     scenes: List[AbstractScene] = []
     for log_path in log_paths:
-        scene_extraction_infos = _get_scene_extraction_info(log_path, filter)
+        try:
+            scene_extraction_infos = _get_scene_extraction_info(log_path, filter)
+        except Exception as e:
+            print(f"Error extracting scenes from {log_path}: {e}")
+            continue
         for scene_extraction_info in scene_extraction_infos:
             scenes.append(
                 ArrowScene(
@@ -106,7 +109,7 @@ def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) 
     if filter.map_names is not None and log_metadata.map_name not in filter.map_names:
         return scene_extraction_infos
 
-    start_idx = int(filter.history_s / log_metadata.timestep_seconds)  # if filter.history_s is not None else 0
+    start_idx = int(filter.history_s / log_metadata.timestep_seconds) if filter.history_s is not None else 0
     end_idx = (
         len(recording_table) - int(filter.duration_s / log_metadata.timestep_seconds)
         if filter.duration_s is not None
@@ -143,10 +146,20 @@ def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) 
             )
 
         if scene_extraction_info is not None:
-            # TODO: add more options
+            # Check of timestamp threshold exceeded between previous scene, if specified in filter
             if filter.timestamp_threshold_s is not None and len(scene_extraction_infos) > 0:
                 iteration_delta = idx - scene_extraction_infos[-1].initial_idx
                 if (iteration_delta * log_metadata.timestep_seconds) < filter.timestamp_threshold_s:
+                    continue
+
+            # Check if camera data is available for the scene, if specified in filter
+            # NOTE: We only check camera availability at the initial index of the scene.
+            if filter.camera_types is not None:
+                cameras_available = [
+                    recording_table[camera_type.serialize()][start_idx].as_py() is not None
+                    for camera_type in filter.camera_types
+                ]
+                if not all(cameras_available):
                     continue
 
             scene_extraction_infos.append(scene_extraction_info)

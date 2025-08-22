@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import abc
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import shapely.geometry as geom
 import trimesh
 
-from d123.common.geometry.line.polylines import Polyline2D, Polyline3D
-from d123.dataset.maps.map_datatypes import MapSurfaceType
+from d123.common.geometry.line.polylines import Polyline2D, Polyline3D, PolylineSE2
+from d123.dataset.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
 
 
 class AbstractMapObject(abc.ABC):
@@ -22,6 +22,14 @@ class AbstractMapObject(abc.ABC):
         """
         self.id = str(object_id)
 
+    @property
+    @abc.abstractmethod
+    def layer(self) -> MapLayer:
+        """
+        Returns map layer type, e.g. LANE, ROAD_EDGE.
+        :return: map layer type
+        """
+
 
 class AbstractSurfaceMapObject(AbstractMapObject):
     """
@@ -34,14 +42,6 @@ class AbstractSurfaceMapObject(AbstractMapObject):
         """
         Returns the 2D shapely polygon of the map object.
         :return: shapely polygon
-        """
-
-    @property
-    @abc.abstractmethod
-    def surface_type(self) -> MapSurfaceType:
-        """
-        Returns map surface type, e.g. LANE.
-        :return: map surface type
         """
 
     @property
@@ -64,12 +64,39 @@ class AbstractSurfaceMapObject(AbstractMapObject):
         return self.outline_3d.polyline_2d
 
 
+class AbstractLineMapObject(AbstractMapObject):
+
+    @property
+    @abc.abstractmethod
+    def polyline_3d(self) -> Polyline3D:
+        """
+        Returns the 3D polyline of the road edge.
+        :return: 3D polyline
+        """
+
+    @property
+    def polyline_2d(self) -> Polyline2D:
+        """
+        Returns the 2D polyline of the road line.
+        :return: 2D polyline
+        """
+        return self.polyline_3d.polyline_2d
+
+    @property
+    def polyline_se2(self) -> PolylineSE2:
+        """
+        Returns the 2D polyline of the road line in SE(2) coordinates.
+        :return: 2D polyline in SE(2)
+        """
+        return self.polyline_3d.polyline_se2
+
+
 class AbstractLane(AbstractSurfaceMapObject):
     """Abstract interface for lane objects."""
 
     @property
-    def surface_type(self) -> MapSurfaceType:
-        return MapSurfaceType.LANE
+    def layer(self) -> MapLayer:
+        return MapLayer.LANE
 
     @property
     @abc.abstractmethod
@@ -113,6 +140,22 @@ class AbstractLane(AbstractSurfaceMapObject):
 
     @property
     @abc.abstractmethod
+    def left_lane(self) -> Optional[AbstractLane]:
+        """
+        Property of left lane of lane.
+        :return: returns left lane or none, if no left lane
+        """
+
+    @property
+    @abc.abstractmethod
+    def right_lane(self) -> Optional[AbstractLane]:
+        """
+        Property of right lane of lane.
+        :return: returns right lane or none, if no right lane
+        """
+
+    @property
+    @abc.abstractmethod
     def centerline(self) -> Polyline3D:
         """
         Property of centerline of lane.
@@ -127,13 +170,21 @@ class AbstractLane(AbstractSurfaceMapObject):
         :return: returns lane group
         """
 
+    @property
+    def boundaries(self) -> Tuple[Polyline3D, Polyline3D]:
+        """
+        Property of left and right boundary.
+        :return: returns tuple of left and right boundary polylines
+        """
+        return self.left_boundary, self.right_boundary
+
 
 class AbstractLaneGroup(AbstractSurfaceMapObject):
     """Abstract interface lane groups (nearby lanes going in the same direction)."""
 
     @property
-    def surface_type(self) -> MapSurfaceType:
-        return MapSurfaceType.LANE_GROUP
+    def layer(self) -> MapLayer:
+        return MapLayer.LANE_GROUP
 
     @property
     @abc.abstractmethod
@@ -188,8 +239,8 @@ class AbstractIntersection(AbstractSurfaceMapObject):
     """Abstract interface for intersection objects."""
 
     @property
-    def surface_type(self) -> MapSurfaceType:
-        return MapSurfaceType.INTERSECTION
+    def layer(self) -> MapLayer:
+        return MapLayer.INTERSECTION
 
     @property
     @abc.abstractmethod
@@ -204,38 +255,69 @@ class AbstractCrosswalk(AbstractSurfaceMapObject):
     """Abstract interface for crosswalk objects."""
 
     @property
-    def surface_type(self) -> MapSurfaceType:
-        return MapSurfaceType.CROSSWALK
+    def layer(self) -> MapLayer:
+        return MapLayer.CROSSWALK
 
 
 class AbstractWalkway(AbstractSurfaceMapObject):
     """Abstract interface for walkway objects."""
 
     @property
-    def surface_type(self) -> MapSurfaceType:
-        return MapSurfaceType.WALKWAY
+    def layer(self) -> MapLayer:
+        return MapLayer.WALKWAY
 
 
 class AbstractCarpark(AbstractSurfaceMapObject):
     """Abstract interface for carpark objects."""
 
     @property
-    def surface_type(self) -> MapSurfaceType:
-        return MapSurfaceType.CARPARK
+    def layer(self) -> MapLayer:
+        return MapLayer.CARPARK
 
 
 class AbstractGenericDrivable(AbstractSurfaceMapObject):
     """Abstract interface for generic drivable objects."""
 
     @property
-    def surface_type(self) -> MapSurfaceType:
-        return MapSurfaceType.GENERIC_DRIVABLE
+    def layer(self) -> MapLayer:
+        return MapLayer.GENERIC_DRIVABLE
 
 
 class AbstractStopLine(AbstractSurfaceMapObject):
     """Abstract interface for stop line objects."""
 
     @property
-    def surface_type(self) -> MapSurfaceType:
-        # return MapSurfaceType.STOP_LINE
-        raise NotImplementedError
+    def layer(self) -> MapLayer:
+        return MapLayer.STOP_LINE
+
+
+class AbstractRoadEdge(AbstractLineMapObject):
+    """Abstract interface for road edge objects."""
+
+    @property
+    def layer(self) -> MapLayer:
+        return MapLayer.ROAD_EDGE
+
+    @property
+    @abc.abstractmethod
+    def road_edge_type(self) -> RoadEdgeType:
+        """
+        Returns the road edge type.
+        :return: RoadEdgeType
+        """
+
+
+class AbstractRoadLine(AbstractLineMapObject):
+    """Abstract interface for road line objects."""
+
+    @property
+    def layer(self) -> MapLayer:
+        return MapLayer.ROAD_LINE
+
+    @property
+    @abc.abstractmethod
+    def road_line_type(self) -> RoadLineType:
+        """
+        Returns the road line type.
+        :return: RoadLineType
+        """

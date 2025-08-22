@@ -8,6 +8,7 @@ import numpy as np
 import numpy.typing as npt
 import shapely.geometry as geom
 
+# from d123.common.geometry.transform.se3 import get_rotation_matrix
 from d123.common.utils.enums import classproperty
 
 # TODO: Reconsider if 2D/3D or SE2/SE3 structure would be better hierarchical, e.g. inheritance or composition.
@@ -144,8 +145,10 @@ class Point3D:
 
     @classmethod
     def from_array(cls, array: npt.NDArray[np.float64]) -> "Point3D":
-        assert array.ndim == 1
-        assert array.shape[0] == len(Point3DIndex)
+        assert array.ndim == 1, f"Array must be 1-dimensional, got shape {array.shape}"
+        assert array.shape[0] == len(
+            Point3DIndex
+        ), f"Array must have the same length as Point3DIndex, got shape {array.shape}"
         return cls(array[Point3DIndex.X], array[Point3DIndex.Y], array[Point3DIndex.Z])
 
     @property
@@ -180,7 +183,6 @@ class Point3D:
 
 
 class StateSE3Index(IntEnum):
-    # TODO: implement
 
     X = 0
     Y = 1
@@ -227,6 +229,21 @@ class StateSE3:
             array[StateSE3Index.YAW],
         )
 
+    @classmethod
+    def from_matrix(cls, array: npt.NDArray[np.float64]) -> StateSE3:
+        assert array.ndim == 2
+        assert array.shape == (4, 4)
+        translation = array[:3, 3]
+        rotation = array[:3, :3]
+        return StateSE3(
+            x=translation[0],
+            y=translation[1],
+            z=translation[2],
+            roll=np.arctan2(rotation[2, 1], rotation[2, 2]),
+            pitch=np.arctan2(-rotation[2, 0], np.sqrt(rotation[2, 1] ** 2 + rotation[2, 2] ** 2)),
+            yaw=np.arctan2(rotation[1, 0], rotation[0, 0]),
+        )
+
     @property
     def array(self) -> npt.NDArray[np.float64]:
         array = np.zeros(len(StateSE3Index), dtype=np.float64)
@@ -237,6 +254,16 @@ class StateSE3:
         array[StateSE3Index.PITCH] = self.pitch
         array[StateSE3Index.YAW] = self.yaw
         return array
+
+    # @property
+    # def matrix(self) -> npt.NDArray[np.float64]:
+    #     """Convert SE3 state to 4x4 transformation matrix."""
+    #     R = get_rotation_matrix(self)
+    #     translation = np.array([self.x, self.y, self.z], dtype=np.float64)
+    #     matrix = np.eye(4, dtype=np.float64)
+    #     matrix[:3, :3] = R
+    #     matrix[:3, 3] = translation
+    #     return matrix
 
     @property
     def state_se2(self) -> StateSE2:

@@ -18,7 +18,7 @@ class SerialIntEnum(IntEnum):
         return self.name.lower() if lower else self.name
 
     @classmethod
-    def deserialize(cls, key: str) -> type[SerialIntEnum]:
+    def deserialize(cls, key: str) -> SerialIntEnum:
         """Deserialize the type when loading from a string."""
         # Allow for lower/upper case letters during deserialize
         return cls.__members__[key.upper()] if key.islower() else cls.__members__[key]

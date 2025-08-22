@@ -16,4 +16,7 @@ ignore =
     E731
     # Local variable name is assigned to but never used
     F841
+per-file-ignores =
+    # imported but unused
+    __init__.py: F401
 max-line-length = 120
