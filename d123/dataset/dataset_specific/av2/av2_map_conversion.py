@@ -5,11 +5,13 @@ import geopandas as gpd
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+import shapely
 import shapely.geometry as geom
 from flask import json
 
 from d123.common.geometry.base import Point3DIndex
-from d123.common.geometry.line.polylines import Polyline3D
+from d123.common.geometry.line.polylines import Polyline2D, Polyline3D
+from d123.common.geometry.occupancy_map import OccupancyMap2D
 from d123.dataset.conversion.map.road_edge.road_edge_2d_utils import split_line_geometry_by_max_length
 from d123.dataset.conversion.map.road_edge.road_edge_3d_utils import (
     get_road_edges_3d_from_generic_drivable_area_df,
@@ -32,10 +34,7 @@ def convert_av2_map(source_log_path: Path, map_file_path: Path) -> None:
         return Polyline3D.from_array(polyline)
 
     map_folder = source_log_path / "map"
-
-    next(map_folder.glob("*.npy"))
     log_map_archive_path = next(map_folder.glob("log_map_archive_*.json"))
-    next(map_folder.glob("*img_Sim2_city.json*"))
 
     with open(log_map_archive_path, "r") as f:
         log_map_archive = json.load(f)
@@ -71,15 +70,18 @@ def convert_av2_map(source_log_path: Path, map_file_path: Path) -> None:
         p3, p4 = np.array([[p["x"], p["y"], p["z"]] for p in crosswalk_dict["edge2"]], dtype=np.float64)
         crosswalk_dict["outline"] = Polyline3D.from_array(np.array([p1, p2, p4, p3, p1], dtype=np.float64))
 
+    lane_group_dict = _extract_lane_group_dict(log_map_archive["lane_segments"])
+    intersection_dict = _extract_intersection_dict(log_map_archive["lane_segments"], lane_group_dict)
+
     lane_df = get_lane_df(log_map_archive["lane_segments"])
-    lane_group_df = get_lane_group_df(log_map_archive["lane_segments"])
-    get_empty_gdf()
+    lane_group_df = get_lane_group_df(lane_group_dict)
+    intersection_df = get_intersections_df(intersection_dict)
     crosswalk_df = get_crosswalk_df(log_map_archive["pedestrian_crossings"])
-    get_empty_gdf()
-    get_empty_gdf()
+    walkway_df = get_empty_gdf()  # NOTE: AV2 does not provide walkways, so we create an empty DataFrame.
+    carpark_df = get_empty_gdf()  # NOTE: AV2 does not provide carparks, so we create an empty DataFrame.
     generic_drivable_df = get_generic_drivable_df(drivable_areas)
     road_edge_df = get_road_edge_df(generic_drivable_df)
-    get_empty_gdf()
+    # road_line_df = get_empty_gdf()
 
     map_file_path.unlink(missing_ok=True)
     if not map_file_path.parent.exists():
@@ -87,10 +89,10 @@ def convert_av2_map(source_log_path: Path, map_file_path: Path) -> None:
 
     lane_df.to_file(map_file_path, layer=MapLayer.LANE.serialize(), driver="GPKG")
     lane_group_df.to_file(map_file_path, layer=MapLayer.LANE_GROUP.serialize(), driver="GPKG", mode="a")
-    # intersection_df.to_file(map_file_path, layer=MapLayer.INTERSECTION.serialize(), driver="GPKG", mode="a")
+    intersection_df.to_file(map_file_path, layer=MapLayer.INTERSECTION.serialize(), driver="GPKG", mode="a")
     crosswalk_df.to_file(map_file_path, layer=MapLayer.CROSSWALK.serialize(), driver="GPKG", mode="a")
-    # walkway_df.to_file(map_file_path, layer=MapLayer.WALKWAY.serialize(), driver="GPKG", mode="a")
-    # carpark_df.to_file(map_file_path, layer=MapLayer.CARPARK.serialize(), driver="GPKG", mode="a")
+    walkway_df.to_file(map_file_path, layer=MapLayer.WALKWAY.serialize(), driver="GPKG", mode="a")
+    carpark_df.to_file(map_file_path, layer=MapLayer.CARPARK.serialize(), driver="GPKG", mode="a")
     generic_drivable_df.to_file(map_file_path, layer=MapLayer.GENERIC_DRIVABLE.serialize(), driver="GPKG", mode="a")
     road_edge_df.to_file(map_file_path, layer=MapLayer.ROAD_EDGE.serialize(), driver="GPKG", mode="a")
     # road_line_df.to_file(map_file_path, layer=MapLayer.ROAD_LINE.serialize(), driver="GPKG", mode="a")
@@ -193,12 +195,9 @@ def get_lane_df(lanes: Dict[int, Any]) -> gpd.GeoDataFrame:
     return gdf
 
 
-def get_lane_group_df(lanes: Dict[int, Any]) -> gpd.GeoDataFrame:
+def get_lane_group_df(lane_group_dict: Dict[int, Any]) -> gpd.GeoDataFrame:
 
-    lane_group_sets = find_lane_groups(lanes)
-    lane_group_set_dict = {i: lane_group for i, lane_group in enumerate(lane_group_sets)}
-
-    ids = list(lane_group_set_dict.keys())
+    ids = list(lane_group_dict.keys())
     lane_ids = []
     intersection_ids = []
     predecessor_lane_group_ids = []
@@ -207,38 +206,21 @@ def get_lane_group_df(lanes: Dict[int, Any]) -> gpd.GeoDataFrame:
     right_boundaries = []
     geometries = []
 
-    def _get_lane_group_ids_of_lanes_ids(lane_ids: List[str]) -> List[int]:
-        """Helper to find lane group ids that contain any of the given lane ids."""
-        lane_group_ids_ = []
-        for lane_group_id_, lane_group_set_ in lane_group_set_dict.items():
-            if any(str(lane_id) in lane_group_set_ for lane_id in lane_ids):
-                lane_group_ids_.append(lane_group_id_)
-        return list(set(lane_group_ids_))
+    for lane_group_id, lane_group_values in lane_group_dict.items():
 
-    for lane_group_id, lane_group_set in lane_group_set_dict.items():
+        lane_ids.append(lane_group_values["lane_ids"])
+        intersection_ids.append(lane_group_values["intersection_id"])
 
-        lane_ids.append([int(lane_id) for lane_id in lane_group_set])
-        intersection_ids.append(None)  # NOTE: AV2 doesn't have explicit intersection objects.
-
-        successor_lanes = []
-        predecessor_lanes = []
-        for lane_id in lane_group_set:
-            lane_dict = lanes[str(lane_id)]
-            successor_lanes.extend(lane_dict["successors"])
-            predecessor_lanes.extend(lane_dict["predecessors"])
-
-        left_boundary = lanes[lane_group_set[0]]["left_lane_boundary"]
-        right_boundary = lanes[lane_group_set[-1]]["right_lane_boundary"]
-
-        predecessor_lane_group_ids.append(_get_lane_group_ids_of_lanes_ids(predecessor_lanes))
-        successor_lane_group_ids.append(_get_lane_group_ids_of_lanes_ids(successor_lanes))
-        left_boundaries.append(left_boundary.linestring)
-        right_boundaries.append(right_boundary.linestring)
+        predecessor_lane_group_ids.append(lane_group_values["predecessor_ids"])
+        successor_lane_group_ids.append(lane_group_values["successor_ids"])
+        left_boundaries.append(lane_group_values["left_boundary"].linestring)
+        right_boundaries.append(lane_group_values["right_boundary"].linestring)
         geometry = geom.Polygon(
             np.vstack(
                 [
-                    left_boundary.array[:, :2],
-                    right_boundary.array[:, :2][::-1],
+                    lane_group_values["left_boundary"].array[:, :2],
+                    lane_group_values["right_boundary"].array[:, :2][::-1],
+                    lane_group_values["left_boundary"].array[0, :2][None, ...],
                 ]
             )
         )
@@ -259,13 +241,19 @@ def get_lane_group_df(lanes: Dict[int, Any]) -> gpd.GeoDataFrame:
     return gdf
 
 
-def get_intersections_df() -> gpd.GeoDataFrame:
+def get_intersections_df(intersection_dict: Dict[int, Any]) -> gpd.GeoDataFrame:
     ids = []
     lane_group_ids = []
+    outlines = []
     geometries = []
 
-    # NOTE: WOPD does not provide intersections, so we create an empty DataFrame.
-    data = pd.DataFrame({"id": ids, "lane_group_ids": lane_group_ids})
+    for intersection_id, intersection_values in intersection_dict.items():
+        ids.append(intersection_id)
+        lane_group_ids.append(intersection_values["lane_group_ids"])
+        outlines.append(intersection_values["outline_3d"].linestring)
+        geometries.append(geom.Polygon(intersection_values["outline_3d"].array[:, Point3DIndex.XY]))
+
+    data = pd.DataFrame({"id": ids, "lane_group_ids": lane_group_ids, "outline": outlines})
     gdf = gpd.GeoDataFrame(data, geometry=geometries)
     return gdf
 
@@ -341,7 +329,56 @@ def get_road_line_df(
     return gdf
 
 
-def find_lane_groups(lanes) -> List[List[str]]:
+def _extract_lane_group_dict(lanes: Dict[int, Any]) -> gpd.GeoDataFrame:
+
+    lane_group_sets = _extract_lane_group(lanes)
+    lane_group_set_dict = {i: lane_group for i, lane_group in enumerate(lane_group_sets)}
+
+    lane_group_dict: Dict[int, Dict[str, Any]] = {}
+
+    def _get_lane_group_ids_of_lanes_ids(lane_ids: List[str]) -> List[int]:
+        """Helper to find lane group ids that contain any of the given lane ids."""
+        lane_group_ids_ = []
+        for lane_group_id_, lane_group_set_ in lane_group_set_dict.items():
+            if any(str(lane_id) in lane_group_set_ for lane_id in lane_ids):
+                lane_group_ids_.append(lane_group_id_)
+        return list(set(lane_group_ids_))
+
+    for lane_group_id, lane_group_set in lane_group_set_dict.items():
+
+        lane_group_dict[lane_group_id] = {}
+        lane_group_dict[lane_group_id]["id"] = lane_group_id
+        lane_group_dict[lane_group_id]["lane_ids"] = [int(lane_id) for lane_id in lane_group_set]
+
+        successor_lanes = []
+        predecessor_lanes = []
+        for lane_id in lane_group_set:
+            lane_dict = lanes[str(lane_id)]
+            successor_lanes.extend(lane_dict["successors"])
+            predecessor_lanes.extend(lane_dict["predecessors"])
+
+        left_boundary = lanes[lane_group_set[0]]["left_lane_boundary"]
+        right_boundary = lanes[lane_group_set[-1]]["right_lane_boundary"]
+
+        lane_group_dict[lane_group_id]["intersection_id"] = None
+        lane_group_dict[lane_group_id]["predecessor_ids"] = _get_lane_group_ids_of_lanes_ids(predecessor_lanes)
+        lane_group_dict[lane_group_id]["successor_ids"] = _get_lane_group_ids_of_lanes_ids(successor_lanes)
+        lane_group_dict[lane_group_id]["left_boundary"] = left_boundary
+        lane_group_dict[lane_group_id]["right_boundary"] = right_boundary
+        outline_array = np.vstack(
+            [
+                left_boundary.array[:, :3],
+                right_boundary.array[:, :3][::-1],
+                left_boundary.array[0, :3][None, ...],
+            ]
+        )
+
+        lane_group_dict[lane_group_id]["outline"] = Polyline3D.from_array(outline_array)
+
+    return lane_group_dict
+
+
+def _extract_lane_group(lanes) -> List[List[str]]:
 
     visited = set()
     lane_groups = []
@@ -391,3 +428,89 @@ def find_lane_groups(lanes) -> List[List[str]]:
             lane_groups.append(group)
 
     return lane_groups
+
+
+def _extract_intersection_dict(
+    lanes: Dict[int, Any], lane_group_dict: Dict[int, Any], max_distance: float = 0.01
+) -> Dict[str, Any]:
+
+    def _interpolate_z_on_segment(point: shapely.Point, segment_coords: npt.NDArray[np.float64]) -> float:
+        """Interpolate Z coordinate along a 3D line segment."""
+        p1, p2 = segment_coords[0], segment_coords[1]
+
+        # Project point onto segment
+        segment_vec = p2[:2] - p1[:2]
+        point_vec = np.array([point.x, point.y]) - p1[:2]
+
+        # Handle degenerate case
+        segment_length_sq = np.dot(segment_vec, segment_vec)
+        if segment_length_sq == 0:
+            return p1[2]
+
+        # Calculate projection parameter
+        t = np.dot(point_vec, segment_vec) / segment_length_sq
+        t = np.clip(t, 0, 1)  # Clamp to segment bounds
+
+        # Interpolate Z
+        return p1[2] + t * (p2[2] - p1[2])
+
+    # 1. Collect all lane groups where at least one lane is marked as an intersection.
+    lane_group_intersection_dict = {}
+    for lane_group_id, lane_group in lane_group_dict.items():
+        is_intersection_lanes = [lanes[str(lane_id)]["is_intersection"] for lane_id in lane_group["lane_ids"]]
+        if any(is_intersection_lanes):
+            lane_group_intersection_dict[lane_group_id] = lane_group
+
+    # 2. Merge polygons of lane groups that are marked as intersections.
+    lane_group_intersection_geometry = {
+        lane_group_id: shapely.Polygon(lane_group["outline"].array[:, Point3DIndex.XY])
+        for lane_group_id, lane_group in lane_group_intersection_dict.items()
+    }
+    intersection_polygons = gpd.GeoSeries(lane_group_intersection_geometry).union_all()
+
+    # 3. Collect all intersection polygons and their lane group IDs.
+    intersection_dict = {}
+    for intersection_idx, intersection_polygon in enumerate(intersection_polygons.geoms):
+        if intersection_polygon.is_empty:
+            continue
+        lane_group_ids = [
+            lane_group_id
+            for lane_group_id, lane_group_polygon in lane_group_intersection_geometry.items()
+            if intersection_polygon.intersects(lane_group_polygon)
+        ]
+        for lane_group_id in lane_group_ids:
+            lane_group_dict[lane_group_id]["intersection_id"] = intersection_idx
+
+        intersection_dict[intersection_idx] = {
+            "id": intersection_idx,
+            "outline_2d": Polyline2D.from_array(np.array(list(intersection_polygon.exterior.coords), dtype=np.float64)),
+            "lane_group_ids": lane_group_ids,
+        }
+
+    # 4. Lift intersection outlines to 3D.
+    boundary_segments = []
+    for lane_group in lane_group_intersection_dict.values():
+        coords = np.array(lane_group["outline"].linestring.coords, dtype=np.float64).reshape(-1, 1, 3)
+        segment_coords_boundary = np.concatenate([coords[:-1], coords[1:]], axis=1)
+        boundary_segments.append(segment_coords_boundary)
+
+    boundary_segments = np.concatenate(boundary_segments, axis=0)
+    boundary_segment_linestrings = shapely.creation.linestrings(boundary_segments)
+    occupancy_map = OccupancyMap2D(boundary_segment_linestrings)
+
+    for intersection_id, intersection_data in intersection_dict.items():
+        points_2d = intersection_data["outline_2d"].array
+        points_3d = np.zeros((len(points_2d), 3), dtype=np.float64)
+        points_3d[:, :2] = points_2d
+
+        query_points = shapely.creation.points(points_2d)
+        results = occupancy_map.query_nearest(query_points, max_distance=max_distance, exclusive=True)
+        for query_idx, geometry_idx in zip(*results):
+            query_point = query_points[query_idx]
+            segment_coords = boundary_segments[geometry_idx]
+            best_z = _interpolate_z_on_segment(query_point, segment_coords)
+            points_3d[query_idx, 2] = best_z
+
+        intersection_dict[intersection_id]["outline_3d"] = Polyline3D.from_array(points_3d)
+
+    return intersection_dict

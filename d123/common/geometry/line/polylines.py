@@ -9,7 +9,7 @@ import shapely.creation as geom_creation
 import shapely.geometry as geom
 from scipy.interpolate import interp1d
 
-from d123.common.geometry.base import Point2D, Point2DIndex, Point3D, StateSE2, StateSE2Index
+from d123.common.geometry.base import Point2D, Point2DIndex, Point3D, Point3DIndex, StateSE2, StateSE2Index
 from d123.common.geometry.constants import DEFAULT_Z
 from d123.common.geometry.line.helper import get_linestring_yaws, get_path_progress
 from d123.common.geometry.utils import normalize_angle
@@ -33,7 +33,15 @@ class Polyline2D:
 
     @classmethod
     def from_array(cls, polyline_array: npt.NDArray[np.float32]) -> Polyline2D:
-        raise NotImplementedError
+        assert polyline_array.ndim == 2
+        linestring: Optional[geom.LineString] = None
+        if polyline_array.shape[-1] == len(Point2DIndex):
+            linestring = geom_creation.linestrings(polyline_array)
+        elif polyline_array.shape[-1] == len(Point3DIndex):
+            linestring = geom_creation.linestrings(polyline_array[:, Point3DIndex.XY])
+        else:
+            raise ValueError("Array must have shape (N, 2) or (N, 3) for Point2D or Point3D respectively.")
+        return Polyline2D(linestring)
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
