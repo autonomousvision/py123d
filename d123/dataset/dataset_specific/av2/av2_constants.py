@@ -1,6 +1,7 @@
 from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.common.datatypes.sensor.camera import CameraType
 from d123.common.utils.enums import SerialIntEnum
+from d123.dataset.maps.map_datatypes import RoadLineType
 
 
 class AV2SensorBoxDetectionType(SerialIntEnum):
@@ -84,4 +85,23 @@ AV2_CAMERA_TYPE_MAPPING = {
     "ring_rear_right": CameraType.CAM_R2,
     "stereo_front_left": CameraType.CAM_STEREO_L,
     "stereo_front_right": CameraType.CAM_STEREO_R,
+}
+
+
+AV2_ROAD_LINE_TYPE_MAPPING = {
+    "NONE": RoadLineType.NONE,
+    "UNKNOWN": RoadLineType.UNKNOWN,
+    "DASH_SOLID_YELLOW": RoadLineType.DASH_SOLID_YELLOW,
+    "DASH_SOLID_WHITE": RoadLineType.DASH_SOLID_WHITE,
+    "DASHED_WHITE": RoadLineType.DASHED_WHITE,
+    "DASHED_YELLOW": RoadLineType.DASHED_YELLOW,
+    "DOUBLE_SOLID_YELLOW": RoadLineType.DOUBLE_SOLID_YELLOW,
+    "DOUBLE_SOLID_WHITE": RoadLineType.DOUBLE_SOLID_WHITE,
+    "DOUBLE_DASH_YELLOW": RoadLineType.DOUBLE_DASH_YELLOW,
+    "DOUBLE_DASH_WHITE": RoadLineType.DOUBLE_DASH_WHITE,
+    "SOLID_YELLOW": RoadLineType.SOLID_YELLOW,
+    "SOLID_WHITE": RoadLineType.SOLID_WHITE,
+    "SOLID_DASH_WHITE": RoadLineType.SOLID_DASH_WHITE,
+    "SOLID_DASH_YELLOW": RoadLineType.SOLID_DASH_YELLOW,
+    "SOLID_BLUE": RoadLineType.SOLID_BLUE,
 }

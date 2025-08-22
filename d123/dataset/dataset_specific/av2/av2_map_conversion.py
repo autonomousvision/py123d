@@ -1,3 +1,4 @@
+import warnings
 from pathlib import Path
 from typing import Any, Dict, Final, List
 
@@ -16,11 +17,16 @@ from d123.dataset.conversion.map.road_edge.road_edge_2d_utils import split_line_
 from d123.dataset.conversion.map.road_edge.road_edge_3d_utils import (
     get_road_edges_3d_from_generic_drivable_area_df,
 )
-from d123.dataset.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
+from d123.dataset.dataset_specific.av2.av2_constants import AV2_ROAD_LINE_TYPE_MAPPING
+from d123.dataset.maps.map_datatypes import MapLayer, RoadEdgeType
 
-# TODO:
-# - TODO
-LANE_GROUP_MARK_TYPES = ["DASHED_WHITE", "DOUBLE_DASH_WHITE", "DASH_SOLID_WHITE", "SOLID_DASH_WHITE", "SOLID_WHITE"]
+LANE_GROUP_MARK_TYPES: List[str] = [
+    "DASHED_WHITE",
+    "DOUBLE_DASH_WHITE",
+    "DASH_SOLID_WHITE",
+    "SOLID_DASH_WHITE",
+    "SOLID_WHITE",
+]
 MAX_ROAD_EDGE_LENGTH: Final[float] = 100.0  # TODO: Add to config
 
 
@@ -73,29 +79,27 @@ def convert_av2_map(source_log_path: Path, map_file_path: Path) -> None:
     lane_group_dict = _extract_lane_group_dict(log_map_archive["lane_segments"])
     intersection_dict = _extract_intersection_dict(log_map_archive["lane_segments"], lane_group_dict)
 
-    lane_df = get_lane_df(log_map_archive["lane_segments"])
-    lane_group_df = get_lane_group_df(lane_group_dict)
-    intersection_df = get_intersections_df(intersection_dict)
-    crosswalk_df = get_crosswalk_df(log_map_archive["pedestrian_crossings"])
-    walkway_df = get_empty_gdf()  # NOTE: AV2 does not provide walkways, so we create an empty DataFrame.
-    carpark_df = get_empty_gdf()  # NOTE: AV2 does not provide carparks, so we create an empty DataFrame.
-    generic_drivable_df = get_generic_drivable_df(drivable_areas)
-    road_edge_df = get_road_edge_df(generic_drivable_df)
-    # road_line_df = get_empty_gdf()
+    dataframes: Dict[MapLayer, gpd.GeoDataFrame] = {}
+
+    dataframes[MapLayer.LANE] = get_lane_df(log_map_archive["lane_segments"])
+    dataframes[MapLayer.LANE_GROUP] = get_lane_group_df(lane_group_dict)
+    dataframes[MapLayer.INTERSECTION] = get_intersections_df(intersection_dict)
+    dataframes[MapLayer.CROSSWALK] = get_crosswalk_df(log_map_archive["pedestrian_crossings"])
+    dataframes[MapLayer.GENERIC_DRIVABLE] = get_generic_drivable_df(drivable_areas)
+    dataframes[MapLayer.ROAD_EDGE] = get_road_edge_df(dataframes[MapLayer.GENERIC_DRIVABLE])
+    dataframes[MapLayer.ROAD_LINE] = get_road_line_df(log_map_archive["lane_segments"])
+    # NOTE: AV2 does not provide walkways or carparks, so we create an empty DataFrame.
+    dataframes[MapLayer.WALKWAY] = get_empty_gdf()
+    dataframes[MapLayer.CARPARK] = get_empty_gdf()
 
     map_file_path.unlink(missing_ok=True)
     if not map_file_path.parent.exists():
         map_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    lane_df.to_file(map_file_path, layer=MapLayer.LANE.serialize(), driver="GPKG")
-    lane_group_df.to_file(map_file_path, layer=MapLayer.LANE_GROUP.serialize(), driver="GPKG", mode="a")
-    intersection_df.to_file(map_file_path, layer=MapLayer.INTERSECTION.serialize(), driver="GPKG", mode="a")
-    crosswalk_df.to_file(map_file_path, layer=MapLayer.CROSSWALK.serialize(), driver="GPKG", mode="a")
-    walkway_df.to_file(map_file_path, layer=MapLayer.WALKWAY.serialize(), driver="GPKG", mode="a")
-    carpark_df.to_file(map_file_path, layer=MapLayer.CARPARK.serialize(), driver="GPKG", mode="a")
-    generic_drivable_df.to_file(map_file_path, layer=MapLayer.GENERIC_DRIVABLE.serialize(), driver="GPKG", mode="a")
-    road_edge_df.to_file(map_file_path, layer=MapLayer.ROAD_EDGE.serialize(), driver="GPKG", mode="a")
-    # road_line_df.to_file(map_file_path, layer=MapLayer.ROAD_LINE.serialize(), driver="GPKG", mode="a")
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="'crs' was not provided")
+        for layer, gdf in dataframes.items():
+            gdf.to_file(map_file_path, layer=layer.serialize(), driver="GPKG", mode="a")
 
 
 def get_empty_gdf() -> gpd.GeoDataFrame:
@@ -151,10 +155,7 @@ def get_lane_df(lanes: Dict[int, Any]) -> gpd.GeoDataFrame:
             left_boundary=lane_dict["left_lane_boundary"],
             right_boundary=lane_dict["right_lane_boundary"],
         )
-        lane_speed_limit_mps = None
-
-        # ids.append(lane_id)
-        # lane_types.append(lanes_type[lane_id])
+        lane_speed_limit_mps = None  # TODO: Consider using geo reference to retrieve speed limits.
         lane_group_ids.append(lane_id)
         speed_limits_mps.append(lane_speed_limit_mps)
         predecessor_ids.append(lane_dict["predecessors"])
@@ -313,18 +314,28 @@ def get_road_edge_df(generic_drivable_area_df: gpd.GeoDataFrame) -> gpd.GeoDataF
     return gpd.GeoDataFrame(pd.DataFrame({"id": ids, "road_edge_type": road_edge_types}), geometry=geometries)
 
 
-def get_road_line_df(
-    road_lines: Dict[int, npt.NDArray[np.float64]], road_lines_type: Dict[int, RoadLineType]
-) -> gpd.GeoDataFrame:
-    ids = list(road_lines.keys())
-    geometries = [Polyline3D.from_array(road_edge).linestring for road_edge in road_lines.values()]
+def get_road_line_df(lanes: Dict[int, Any]) -> gpd.GeoDataFrame:
 
-    data = pd.DataFrame(
-        {
-            "id": ids,
-            "road_line_type": [int(road_line_type) for road_line_type in road_lines_type.values()],
-        }
-    )
+    # TODO @DanielDauner: Allow lanes to reference road line dataframe.
+
+    ids = []
+    road_lines_type = []
+    geometries = []
+
+    running_id = 0
+    for lane in lanes.values():
+        for side in ["left", "right"]:
+            # NOTE: We currently ignore lane markings that are NONE in the AV2 dataset.
+            # TODO: Review if the road line system should be changed in the future.
+            if lane[f"{side}_lane_mark_type"] == "NONE":
+                continue
+
+            ids.append(running_id)
+            road_lines_type.append(AV2_ROAD_LINE_TYPE_MAPPING[lane[f"{side}_lane_mark_type"]])
+            geometries.append(lane[f"{side}_lane_boundary"].linestring)
+            running_id += 1
+
+    data = pd.DataFrame({"id": ids, "road_line_type": road_lines_type})
     gdf = gpd.GeoDataFrame(data, geometry=geometries)
     return gdf
 

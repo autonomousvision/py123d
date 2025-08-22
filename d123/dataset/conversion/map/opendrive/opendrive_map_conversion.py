@@ -358,19 +358,19 @@ def _extract_road_line_df(
         if str(lane_row.right_lane_id) in ["nan", "None"]:
             # This is a boundary lane, e.g. a border or sidewalk
             ids.append(running_id)
-            road_line_types.append(int(RoadLineType.SOLID_SINGLE_WHITE))
+            road_line_types.append(int(RoadLineType.SOLID_WHITE))
             geometries.append(lane_row.right_boundary)
             running_id += 1
         else:
             # This is a regular lane
             ids.append(running_id)
-            road_line_types.append(int(RoadLineType.BROKEN_SINGLE_WHITE))
+            road_line_types.append(int(RoadLineType.DASHED_WHITE))
             geometries.append(lane_row.right_boundary)
             running_id += 1
         if str(lane_row.left_lane_id) in ["nan", "None"]:
             # This is a boundary lane, e.g. a border or sidewalk
             ids.append(running_id)
-            road_line_types.append(int(RoadLineType.SOLID_SINGLE_WHITE))
+            road_line_types.append(int(RoadLineType.DASHED_WHITE))
             geometries.append(lane_row.left_boundary)
             running_id += 1
 

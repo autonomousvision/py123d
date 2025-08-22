@@ -53,8 +53,9 @@ GPKG_LAYERS: List[str] = [
 MAX_ROAD_EDGE_LENGTH = 100.0  # meters, used to filter out very long road edges
 
 NUPLAN_ROAD_LINE_CONVERSION = {
-    0: RoadLineType.BROKEN_SINGLE_WHITE,
-    2: RoadLineType.SOLID_SINGLE_WHITE,
+    0: RoadLineType.DASHED_WHITE,
+    2: RoadLineType.SOLID_WHITE,
+    3: RoadLineType.UNKNOWN,
 }
 
 
@@ -443,9 +444,6 @@ class NuPlanMapConverter:
         geometries = []
 
         for idx in range(len(boundary_types)):
-            # NOTE @DanielDauner: We ignore boundaries of nuPlan-type, which are on intersections.
-            if boundary_types[idx] not in NUPLAN_ROAD_LINE_CONVERSION.keys():
-                continue
             ids.append(fids[idx])
             road_line_types.append(int(NUPLAN_ROAD_LINE_CONVERSION[boundary_types[idx]]))
             geometries.append(boundaries[idx])
