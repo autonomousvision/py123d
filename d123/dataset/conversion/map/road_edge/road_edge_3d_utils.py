@@ -10,7 +10,7 @@ import shapely
 from shapely.geometry import LineString
 
 from d123.dataset.conversion.map.road_edge.road_edge_2d_utils import get_road_edge_linear_rings
-from d123.geometry.base import Point3DIndex
+from d123.geometry import Point3DIndex
 from d123.geometry.occupancy_map import OccupancyMap2D
 
 logger = logging.getLogger(__name__)

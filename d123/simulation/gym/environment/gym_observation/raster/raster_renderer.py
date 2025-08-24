@@ -12,7 +12,7 @@ from shapely import LineString, Polygon, union_all
 from shapely.affinity import scale as shapely_scale
 
 from d123.common.datatypes.detection.detection import BoxDetectionSE2, TrafficLightStatus
-from d123.geometry.base import StateSE2
+from d123.geometry.se import StateSE2
 from d123.geometry.transform.se2_array import convert_absolute_to_relative_point_2d_array
 from d123.geometry.transform.tranform_2d import translate_along_yaw
 from d123.geometry.vector import Vector2D

@@ -3,7 +3,7 @@ from nuplan.common.geometry.compute import principal_value
 
 from d123.common.datatypes.time.time_point import TimeDuration, TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE2, EgoStateSE2
-from d123.geometry.base import StateSE2
+from d123.geometry.se import StateSE2
 from d123.geometry.vector import Vector2D
 from d123.simulation.controller.motion_model.abstract_motion_model import AbstractMotionModel
 

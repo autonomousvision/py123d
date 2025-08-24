@@ -26,7 +26,7 @@ from d123.dataset.maps.gpkg.gpkg_map_objects import (
 )
 from d123.dataset.maps.gpkg.utils import load_gdf_with_geometry_columns
 from d123.dataset.maps.map_datatypes import MapLayer
-from d123.geometry.base import Point2D
+from d123.geometry import Point2D
 
 USE_ARROW: bool = True
 

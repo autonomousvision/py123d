@@ -24,9 +24,7 @@ from d123.dataset.logs.log_metadata import LogMetadata
 from d123.dataset.maps.abstract_map import AbstractMap, MapLayer
 from d123.dataset.maps.abstract_map_objects import AbstractLane
 from d123.dataset.scene.arrow_scene import get_map_api_from_names
-from d123.geometry.base import Point2D, Point3D
-from d123.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
-from d123.geometry.vector import Vector3DIndex
+from d123.geometry import BoundingBoxSE3Index, Point2D, Point3D, Vector3DIndex
 
 AVAILABLE_CARLA_MAP_LOCATIONS: Final[List[str]] = [
     "Town01",  # A small, simple town with a river and several bridges.

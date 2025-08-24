@@ -11,9 +11,8 @@ from waymo_open_dataset import dataset_pb2
 
 from d123.dataset.dataset_specific.wopd.waymo_map_utils.womp_boundary_utils import extract_lane_boundaries
 from d123.dataset.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
-from d123.geometry.base import Point3DIndex
-from d123.geometry.line.polylines import Polyline3D
-from d123.geometry.units import mph_to_mps
+from d123.geometry import Point3DIndex, Polyline3D
+from d123.geometry.utils.units import mph_to_mps
 
 # TODO:
 # - Implement stop signs

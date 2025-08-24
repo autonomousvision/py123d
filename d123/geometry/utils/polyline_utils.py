@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 from shapely.geometry import LineString
 
-from d123.geometry.base import Point2DIndex, StateSE2Index
+from d123.geometry.geometry_index import Point2DIndex, StateSE2Index
 
 
 def get_linestring_yaws(linestring: LineString) -> npt.NDArray[np.float64]:

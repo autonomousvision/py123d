@@ -9,7 +9,7 @@ import shapely.geometry as geom
 from matplotlib.path import Path
 
 from d123.common.visualization.color.config import PlotConfig
-from d123.geometry.base import StateSE2, StateSE3
+from d123.geometry import StateSE2, StateSE3
 
 
 def add_shapely_polygon_to_ax(

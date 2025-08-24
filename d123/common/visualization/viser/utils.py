@@ -15,9 +15,7 @@ from d123.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VE
 from d123.dataset.maps.abstract_map import MapLayer
 from d123.dataset.maps.abstract_map_objects import AbstractLane, AbstractSurfaceMapObject
 from d123.dataset.scene.abstract_scene import AbstractScene
-from d123.geometry.base import Point3D, StateSE3
-from d123.geometry.bounding_box.bounding_box import BoundingBoxSE3
-from d123.geometry.line.polylines import Polyline3D
+from d123.geometry import BoundingBoxSE3, Point3D, Polyline3D, StateSE3
 from d123.geometry.transform.se3 import convert_relative_to_absolute_points_3d_array
 
 # TODO: Refactor this file.

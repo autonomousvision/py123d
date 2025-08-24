@@ -7,9 +7,9 @@ import shapely
 
 from d123.dataset.conversion.map.opendrive.parser.objects import Object
 from d123.dataset.conversion.map.opendrive.parser.reference import ReferenceLine
-from d123.geometry.base import Point2D, Point3D, Point3DIndex, StateSE2
+from d123.geometry import Point2D, Point3D, Point3DIndex, StateSE2
 from d123.geometry.transform.tranform_2d import translate_along_yaw
-from d123.geometry.utils import normalize_angle
+from d123.geometry.utils.rotation_utils import normalize_angle
 
 # TODO: make naming consistent with group_collections.py
 

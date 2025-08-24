@@ -36,10 +36,8 @@ from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.nuplan.nuplan_map_conversion import MAP_LOCATIONS, NuPlanMapConverter
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
-from d123.geometry.base import StateSE3
-from d123.geometry.bounding_box.bounding_box import BoundingBoxSE3, BoundingBoxSE3Index
-from d123.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
-from d123.geometry.vector import Vector3D, Vector3DIndex
+from d123.geometry import BoundingBoxSE3, BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
+from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 
 TARGET_DT: Final[float] = 0.1
 NUPLAN_DT: Final[float] = 0.05

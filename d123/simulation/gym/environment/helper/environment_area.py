@@ -3,7 +3,7 @@ from typing import Tuple
 
 from shapely import Polygon
 
-from d123.geometry.base import StateSE2
+from d123.geometry.se import StateSE2
 from d123.geometry.transform.tranform_2d import translate_along_yaw
 from d123.geometry.vector import Vector2D
 

@@ -10,9 +10,10 @@ from d123.common.datatypes.detection.detection import BoxDetection, BoxDetection
 from d123.dataset.arrow.conversion import BoxDetectionWrapper
 from d123.dataset.maps.abstract_map import AbstractMap
 from d123.dataset.scene.abstract_scene import AbstractScene
-from d123.geometry.base import Point2D, StateSE2
-from d123.geometry.bounding_box.bounding_box import BoundingBoxSE2
-from d123.geometry.line.polylines import PolylineSE2
+from d123.geometry.bounding_box import BoundingBoxSE2
+from d123.geometry.point import Point2D
+from d123.geometry.polyline import PolylineSE2
+from d123.geometry.se import StateSE2
 from d123.geometry.transform.tranform_2d import translate_along_yaw
 from d123.geometry.vector import Vector2D
 from d123.simulation.agents.abstract_agents import AbstractAgents

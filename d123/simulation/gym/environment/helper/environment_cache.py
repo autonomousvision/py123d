@@ -24,8 +24,8 @@ from d123.dataset.maps.abstract_map_objects import (
     AbstractStopLine,
 )
 from d123.dataset.maps.map_datatypes import MapLayer
-from d123.geometry.base import StateSE2
 from d123.geometry.occupancy_map import OccupancyMap2D
+from d123.geometry.se import StateSE2
 from d123.simulation.gym.environment.helper.environment_area import AbstractEnvironmentArea
 from d123.simulation.planning.abstract_planner import PlannerInitialization, PlannerInput
 

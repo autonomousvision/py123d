@@ -16,9 +16,7 @@ from d123.dataset.conversion.map.road_edge.road_edge_3d_utils import (
 )
 from d123.dataset.dataset_specific.av2.av2_constants import AV2_ROAD_LINE_TYPE_MAPPING
 from d123.dataset.maps.map_datatypes import MapLayer, RoadEdgeType
-from d123.geometry.base import Point3DIndex
-from d123.geometry.line.polylines import Polyline2D, Polyline3D
-from d123.geometry.occupancy_map import OccupancyMap2D
+from d123.geometry import OccupancyMap2D, Point3DIndex, Polyline2D, Polyline3D
 
 LANE_GROUP_MARK_TYPES: List[str] = [
     "DASHED_WHITE",

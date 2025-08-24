@@ -3,6 +3,69 @@ from enum import IntEnum
 from d123.common.utils.enums import classproperty
 
 
+class Point2DIndex(IntEnum):
+    X = 0
+    Y = 1
+
+    @classproperty
+    def XY(cls) -> slice:
+        return slice(cls.X, cls.Y + 1)
+
+
+class Vector2DIndex(IntEnum):
+    X = 0
+    Y = 1
+
+
+class StateSE2Index(IntEnum):
+    X = 0
+    Y = 1
+    YAW = 2
+
+    @classproperty
+    def XY(cls) -> slice:
+        return slice(cls.X, cls.Y + 1)
+
+
+class Point3DIndex(IntEnum):
+
+    X = 0
+    Y = 1
+    Z = 2
+
+    @classproperty
+    def XY(cls) -> slice:
+        return slice(cls.X, cls.Y + 1)
+
+
+class Vector3DIndex(IntEnum):
+    X = 0
+    Y = 1
+    Z = 2
+
+
+class StateSE3Index(IntEnum):
+
+    X = 0
+    Y = 1
+    Z = 2
+    ROLL = 3
+    PITCH = 4
+    YAW = 5
+
+    @classproperty
+    def XY(cls) -> slice:
+        return slice(cls.X, cls.Y + 1)
+
+    @classproperty
+    def XYZ(cls) -> slice:
+        return slice(cls.X, cls.Z + 1)
+
+    @classproperty
+    def ROTATION_XYZ(cls) -> slice:
+        return slice(cls.ROLL, cls.YAW + 1)
+
+
 class BoundingBoxSE2Index(IntEnum):
     X = 0
     Y = 1

@@ -1,16 +1,9 @@
 from __future__ import annotations
 
-from enum import IntEnum
-
 import numpy as np
 import numpy.typing as npt
 
-from d123.geometry.base import Point2D, Point3D, Point3DIndex
-
-
-class Vector2DIndex(IntEnum):
-    X = 0
-    Y = 1
+from d123.geometry.point import Point2D, Point3D, Point3DIndex
 
 
 class Vector2D(Point2D):
@@ -33,12 +26,6 @@ class Vector2D(Point2D):
     @property
     def vector_2d(self) -> Vector2D:
         return self
-
-
-class Vector3DIndex(IntEnum):
-    X = 0
-    Y = 1
-    Z = 2
 
 
 class Vector3D(Point3D):

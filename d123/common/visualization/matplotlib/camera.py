@@ -15,7 +15,7 @@ from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.common.datatypes.sensor.camera import Camera
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.common.visualization.color.default import BOX_DETECTION_CONFIG
-from d123.geometry.bounding_box.bounding_box_index import BoundingBoxSE3Index, Corners3DIndex
+from d123.geometry import BoundingBoxSE3Index, Corners3DIndex
 from d123.geometry.transform.se3 import convert_absolute_to_relative_se3_array
 
 # from navsim.common.dataclasses import Annotations, Camera, Lidar

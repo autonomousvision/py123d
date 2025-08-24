@@ -13,7 +13,7 @@ from d123.dataset.conversion.map.opendrive.parser.elevation import Elevation
 from d123.dataset.conversion.map.opendrive.parser.geometry import Arc, Geometry, Line, Spiral
 from d123.dataset.conversion.map.opendrive.parser.lane import LaneOffset, Width
 from d123.dataset.conversion.map.opendrive.parser.polynomial import Polynomial
-from d123.geometry.base import Point3DIndex, StateSE2Index
+from d123.geometry import Point3DIndex, StateSE2Index
 
 TOLERANCE: Final[float] = 1e-3
 

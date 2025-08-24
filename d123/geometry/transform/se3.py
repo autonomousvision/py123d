@@ -1,8 +1,7 @@
 import numpy as np
 import numpy.typing as npt
 
-from d123.geometry.base import Point3DIndex, StateSE3, StateSE3Index
-from d123.geometry.vector import Vector3D
+from d123.geometry import Point3DIndex, StateSE3, StateSE3Index, Vector3D
 
 # def get_rotation_matrix(state_se3: StateSE3) -> npt.NDArray[np.float64]:
 #     R_x = np.array(

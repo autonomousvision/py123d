@@ -34,11 +34,9 @@ from d123.dataset.dataset_specific.av2.av2_helper import (
 from d123.dataset.dataset_specific.av2.av2_map_conversion import convert_av2_map
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
-from d123.geometry.base import StateSE3
-from d123.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
-from d123.geometry.constants import DEFAULT_PITCH, DEFAULT_ROLL
+from d123.geometry import BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
 from d123.geometry.transform.se3 import convert_relative_to_absolute_se3_array, get_rotation_matrix
-from d123.geometry.vector import Vector3D, Vector3DIndex
+from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 
 
 def create_token(input_data: str) -> str:

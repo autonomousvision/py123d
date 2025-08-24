@@ -26,8 +26,7 @@ from d123.dataset.maps.abstract_map import AbstractMap
 from d123.dataset.maps.abstract_map_objects import AbstractLane
 from d123.dataset.maps.map_datatypes import MapLayer
 from d123.dataset.scene.abstract_scene import AbstractScene
-from d123.geometry.base import Point2D
-from d123.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
+from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D
 from d123.geometry.transform.tranform_2d import translate_along_yaw
 
 

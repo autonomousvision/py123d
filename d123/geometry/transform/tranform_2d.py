@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.typing as npt
 
-from d123.geometry.base import StateSE2
+from d123.geometry.se import StateSE2
 from d123.geometry.vector import Vector2D
 
 # TODO: Refactor 2D and 3D transform functions in a more consistent and general way.

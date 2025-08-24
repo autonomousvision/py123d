@@ -7,7 +7,7 @@ import shapely
 
 from d123.dataset.maps.abstract_map_objects import AbstractMapObject
 from d123.dataset.maps.map_datatypes import MapLayer
-from d123.geometry.base import Point2D
+from d123.geometry import Point2D
 
 # TODO:
 # - add docstrings

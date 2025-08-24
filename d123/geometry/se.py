@@ -1,76 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import IntEnum
 from typing import Iterable
 
 import numpy as np
 import numpy.typing as npt
 import shapely.geometry as geom
 
-# from d123.geometry.transform.se3 import get_rotation_matrix
-from d123.common.utils.enums import classproperty
-
-# TODO: Reconsider if 2D/3D or SE2/SE3 structure would be better hierarchical, e.g. inheritance or composition.
-
-
-class Point2DIndex(IntEnum):
-    X = 0
-    Y = 1
-
-    @classproperty
-    def XY(cls) -> slice:
-        return slice(cls.X, cls.Y + 1)
-
-
-@dataclass
-class Point2D:
-    """Class to represents 2D points."""
-
-    x: float  # [m] location
-    y: float  # [m] location
-    __slots__ = "x", "y"
-
-    @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64]) -> Point2D:
-        assert array.ndim == 1
-        assert array.shape[0] == len(Point2DIndex)
-        return Point2D(array[Point2DIndex.X], array[Point2DIndex.Y])
-
-    @property
-    def array(self) -> npt.NDArray[np.float64]:
-        """
-        Convert vector to array
-        :return: array containing [x, y]
-        """
-        array = np.zeros(len(Point2DIndex), dtype=np.float64)
-        array[Point2DIndex.X] = self.x
-        array[Point2DIndex.Y] = self.y
-        return array
-
-    @property
-    def shapely_point(self) -> geom.Point:
-        return geom.Point(self.x, self.y)
-
-    def __iter__(self) -> Iterable[float]:
-        """
-        :return: iterator of tuples (x, y)
-        """
-        return iter((self.x, self.y))
-
-    def __hash__(self) -> int:
-        """Hash method"""
-        return hash((self.x, self.y))
-
-
-class StateSE2Index(IntEnum):
-    X = 0
-    Y = 1
-    YAW = 2
-
-    @classproperty
-    def XY(cls) -> slice:
-        return slice(cls.X, cls.Y + 1)
+from d123.geometry.geometry_index import StateSE2Index, StateSE3Index
+from d123.geometry.point import Point2D, Point3D
 
 
 @dataclass
@@ -121,87 +59,6 @@ class StateSE2:
     def __hash__(self) -> int:
         """Hash method"""
         return hash((self.x, self.y))
-
-
-class Point3DIndex(IntEnum):
-
-    X = 0
-    Y = 1
-    Z = 2
-
-    @classproperty
-    def XY(cls) -> slice:
-        return slice(cls.X, cls.Y + 1)
-
-
-@dataclass
-class Point3D:
-    """Class to represents 2D points."""
-
-    x: float  # [m] location
-    y: float  # [m] location
-    z: float  # [m] location
-    __slots__ = "x", "y", "z"
-
-    @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64]) -> "Point3D":
-        assert array.ndim == 1, f"Array must be 1-dimensional, got shape {array.shape}"
-        assert array.shape[0] == len(
-            Point3DIndex
-        ), f"Array must have the same length as Point3DIndex, got shape {array.shape}"
-        return cls(array[Point3DIndex.X], array[Point3DIndex.Y], array[Point3DIndex.Z])
-
-    @property
-    def array(self) -> npt.NDArray[np.float64]:
-        """
-        Convert vector to array
-        :return: array containing [x, y]
-        """
-        array = np.zeros(len(Point3DIndex), dtype=np.float64)
-        array[Point3DIndex.X] = self.x
-        array[Point3DIndex.Y] = self.y
-        array[Point3DIndex.Z] = self.z
-        return array
-
-    @property
-    def point_2d(self) -> Point2D:
-        return Point2D(self.x, self.y)
-
-    @property
-    def shapely_point(self) -> geom.Point:
-        return geom.Point(self.x, self.y, self.z)
-
-    def __iter__(self) -> Iterable[float]:
-        """
-        :return: iterator of tuples (x, y)
-        """
-        return iter((self.x, self.y, self.z))
-
-    def __hash__(self) -> int:
-        """Hash method"""
-        return hash((self.x, self.y, self.z))
-
-
-class StateSE3Index(IntEnum):
-
-    X = 0
-    Y = 1
-    Z = 2
-    ROLL = 3
-    PITCH = 4
-    YAW = 5
-
-    @classproperty
-    def XY(cls) -> slice:
-        return slice(cls.X, cls.Y + 1)
-
-    @classproperty
-    def XYZ(cls) -> slice:
-        return slice(cls.X, cls.Z + 1)
-
-    @classproperty
-    def ROTATION_XYZ(cls) -> slice:
-        return slice(cls.ROLL, cls.YAW + 1)
 
 
 @dataclass

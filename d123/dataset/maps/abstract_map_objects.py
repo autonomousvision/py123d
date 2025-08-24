@@ -7,7 +7,7 @@ import shapely.geometry as geom
 import trimesh
 
 from d123.dataset.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
-from d123.geometry.line.polylines import Polyline2D, Polyline3D, PolylineSE2
+from d123.geometry import Polyline2D, Polyline3D, PolylineSE2
 
 
 class AbstractMapObject(abc.ABC):

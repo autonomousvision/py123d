@@ -9,10 +9,11 @@ import shapely.creation as geom_creation
 import shapely.geometry as geom
 from scipy.interpolate import interp1d
 
-from d123.geometry.base import Point2D, Point2DIndex, Point3D, Point3DIndex, StateSE2, StateSE2Index
-from d123.geometry.constants import DEFAULT_Z
-from d123.geometry.line.helper import get_linestring_yaws, get_path_progress
-from d123.geometry.utils import normalize_angle
+from d123.geometry.point import Point2D, Point2DIndex, Point3D, Point3DIndex
+from d123.geometry.se import StateSE2, StateSE2Index
+from d123.geometry.utils.constants import DEFAULT_Z
+from d123.geometry.utils.polyline_utils import get_linestring_yaws, get_path_progress
+from d123.geometry.utils.rotation_utils import normalize_angle
 
 # TODO: Implement PolylineSE3
 # TODO: Benchmark interpolation performance and reconsider reliance on LineString
