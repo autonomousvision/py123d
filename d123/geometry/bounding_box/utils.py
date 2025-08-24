@@ -2,8 +2,8 @@ import numpy as np
 import numpy.typing as npt
 import shapely
 
-from d123.common.geometry.base import Point2DIndex
-from d123.common.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index, Corners2DIndex
+from d123.geometry.base import Point2DIndex
+from d123.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index, Corners2DIndex
 
 
 def bbse2_array_to_corners_array(bbse2: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:

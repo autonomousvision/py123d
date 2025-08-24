@@ -5,9 +5,9 @@ import numpy as np
 import numpy.typing as npt
 
 from d123.common.datatypes.detection.detection import BoxDetection, BoxDetectionWrapper, DetectionType
-from d123.common.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index
 from d123.dataset.maps.abstract_map import AbstractMap
 from d123.dataset.scene.abstract_scene import AbstractScene
+from d123.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index
 from d123.simulation.metrics.sim_agents.histogram_metric import (
     BinaryHistogramIntersectionMetric,
     HistogramIntersectionMetric,

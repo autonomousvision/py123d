@@ -8,7 +8,7 @@ import numpy as np
 import numpy.typing as npt
 import shapely.geometry as geom
 
-# from d123.common.geometry.transform.se3 import get_rotation_matrix
+# from d123.geometry.transform.se3 import get_rotation_matrix
 from d123.common.utils.enums import classproperty
 
 # TODO: Reconsider if 2D/3D or SE2/SE3 structure would be better hierarchical, e.g. inheritance or composition.

@@ -10,8 +10,6 @@ import pandas as pd
 import shapely.geometry as geom
 import trimesh
 
-from d123.common.geometry.base import Point3DIndex
-from d123.common.geometry.line.polylines import Polyline3D
 from d123.common.visualization.viser.utils import get_trimesh_from_boundaries
 from d123.dataset.maps.abstract_map_objects import (
     AbstractCarpark,
@@ -28,6 +26,8 @@ from d123.dataset.maps.abstract_map_objects import (
 )
 from d123.dataset.maps.gpkg.utils import get_row_with_value
 from d123.dataset.maps.map_datatypes import RoadEdgeType, RoadLineType
+from d123.geometry.base import Point3DIndex
+from d123.geometry.line.polylines import Polyline3D
 
 
 class GPKGSurfaceObject(AbstractSurfaceMapObject):

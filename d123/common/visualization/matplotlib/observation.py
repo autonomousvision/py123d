@@ -7,9 +7,6 @@ import shapely.geometry as geom
 from d123.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE2, EgoStateSE3
-from d123.common.geometry.base import Point2D
-from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
-from d123.common.geometry.transform.tranform_2d import translate_along_yaw
 from d123.common.visualization.color.config import PlotConfig
 from d123.common.visualization.color.default import (
     BOX_DETECTION_CONFIG,
@@ -29,6 +26,9 @@ from d123.dataset.maps.abstract_map import AbstractMap
 from d123.dataset.maps.abstract_map_objects import AbstractLane
 from d123.dataset.maps.map_datatypes import MapLayer
 from d123.dataset.scene.abstract_scene import AbstractScene
+from d123.geometry.base import Point2D
+from d123.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
+from d123.geometry.transform.tranform_2d import translate_along_yaw
 
 
 def add_default_map_on_ax(

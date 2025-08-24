@@ -7,10 +7,6 @@ import shapely
 
 from d123.common.datatypes.detection.detection import BoxDetection, BoxDetectionWrapper
 from d123.common.datatypes.detection.detection_types import DetectionType
-from d123.common.geometry.base import StateSE2, StateSE2Index
-from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE2
-from d123.common.geometry.line.polylines import PolylineSE2
-from d123.common.geometry.transform.se2_array import convert_absolute_to_relative_se2_array
 from d123.common.visualization.color.default import TrafficLightStatus
 from d123.dataset.maps.abstract_map import MapLayer
 from d123.dataset.maps.abstract_map_objects import (
@@ -20,6 +16,10 @@ from d123.dataset.maps.abstract_map_objects import (
     AbstractLaneGroup,
 )
 from d123.dataset.scene.abstract_scene import AbstractScene
+from d123.geometry.base import StateSE2, StateSE2Index
+from d123.geometry.bounding_box.bounding_box import BoundingBoxSE2
+from d123.geometry.line.polylines import PolylineSE2
+from d123.geometry.transform.se2_array import convert_absolute_to_relative_se2_array
 
 # TODO: Hind feature builder behind abstraction.
 

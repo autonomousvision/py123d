@@ -3,9 +3,9 @@ from typing import Final, List
 import numpy as np
 import numpy.typing as npt
 
-from d123.common.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index
-from d123.common.geometry.bounding_box.utils import bbse2_array_to_polygon_array
 from d123.dataset.arrow.conversion import BoxDetectionWrapper
+from d123.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index
+from d123.geometry.bounding_box.utils import bbse2_array_to_polygon_array
 
 MAX_OBJECT_DISTANCE: Final[float] = 50.0
 

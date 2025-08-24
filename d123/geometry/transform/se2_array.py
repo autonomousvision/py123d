@@ -3,8 +3,8 @@ from typing import Union
 import numpy as np
 import numpy.typing as npt
 
-from d123.common.geometry.base import StateSE2, StateSE2Index
-from d123.common.geometry.line.polylines import normalize_angle
+from d123.geometry.base import StateSE2, StateSE2Index
+from d123.geometry.line.polylines import normalize_angle
 
 # TODO: Refactor 2D and 3D transform functions in a more consistent and general way.
 

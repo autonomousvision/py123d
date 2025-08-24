@@ -7,9 +7,9 @@ import numpy as np
 import numpy.typing as npt
 import shapely
 
-from d123.common.geometry.base import StateSE2, StateSE3
-from d123.common.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index, BoundingBoxSE3Index
-from d123.common.geometry.bounding_box.utils import bbse2_array_to_corners_array
+from d123.geometry.base import StateSE2, StateSE3
+from d123.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index, BoundingBoxSE3Index
+from d123.geometry.bounding_box.utils import bbse2_array_to_corners_array
 
 # TODO: Reconsider naming SE2 and SE3 hierarchies. E.g. would inheritance be a better approach?
 

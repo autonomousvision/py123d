@@ -25,10 +25,10 @@ from d123.common.datatypes.sensor.lidar import LiDAR, LiDARMetadata
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
-from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
-from d123.common.geometry.vector import Vector3D
 from d123.dataset.logs.log_metadata import LogMetadata
 from d123.dataset.maps.abstract_map import List
+from d123.geometry.bounding_box.bounding_box import BoundingBoxSE3
+from d123.geometry.vector import Vector3D
 
 DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "nuplan": Path(os.environ["NUPLAN_DATA_ROOT"]) / "nuplan-v1.1" / "sensor_blobs",

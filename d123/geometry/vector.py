@@ -5,7 +5,7 @@ from enum import IntEnum
 import numpy as np
 import numpy.typing as npt
 
-from d123.common.geometry.base import Point2D, Point3D, Point3DIndex
+from d123.geometry.base import Point2D, Point3D, Point3DIndex
 
 
 class Vector2DIndex(IntEnum):

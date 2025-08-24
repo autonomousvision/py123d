@@ -1,8 +1,8 @@
 # import numpy as np
 # import numpy.typing as npt
 
-# from d123.common.geometry.base import Point3DIndex, StateSE3, StateSE3Index
-# from d123.common.geometry.vector import Vector3D
+# from d123.geometry.base import Point3DIndex, StateSE3, StateSE3Index
+# from d123.geometry.vector import Vector3D
 
 
 # def get_roll_pitch_yaw_from_rotation_matrix(

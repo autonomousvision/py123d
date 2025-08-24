@@ -1,3 +1,4 @@
+import json
 import warnings
 from pathlib import Path
 from typing import Any, Dict, Final, List
@@ -8,17 +9,16 @@ import numpy.typing as npt
 import pandas as pd
 import shapely
 import shapely.geometry as geom
-from flask import json
 
-from d123.common.geometry.base import Point3DIndex
-from d123.common.geometry.line.polylines import Polyline2D, Polyline3D
-from d123.common.geometry.occupancy_map import OccupancyMap2D
 from d123.dataset.conversion.map.road_edge.road_edge_2d_utils import split_line_geometry_by_max_length
 from d123.dataset.conversion.map.road_edge.road_edge_3d_utils import (
     get_road_edges_3d_from_generic_drivable_area_df,
 )
 from d123.dataset.dataset_specific.av2.av2_constants import AV2_ROAD_LINE_TYPE_MAPPING
 from d123.dataset.maps.map_datatypes import MapLayer, RoadEdgeType
+from d123.geometry.base import Point3DIndex
+from d123.geometry.line.polylines import Polyline2D, Polyline3D
+from d123.geometry.occupancy_map import OccupancyMap2D
 
 LANE_GROUP_MARK_TYPES: List[str] = [
     "DASHED_WHITE",

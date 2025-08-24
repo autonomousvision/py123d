@@ -3,11 +3,11 @@ from abc import abstractmethod
 from typing import List, Optional
 
 from d123.common.datatypes.detection.detection import BoxDetection, BoxDetectionSE2
-from d123.common.geometry.base import Point2D
-from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE2
-from d123.common.geometry.transform.tranform_2d import translate_along_yaw
 from d123.dataset.maps.abstract_map import AbstractMap
 from d123.dataset.scene.abstract_scene import AbstractScene
+from d123.geometry.base import Point2D
+from d123.geometry.bounding_box.bounding_box import BoundingBoxSE2
+from d123.geometry.transform.tranform_2d import translate_along_yaw
 from d123.simulation.agents.abstract_agents import AbstractAgents
 
 

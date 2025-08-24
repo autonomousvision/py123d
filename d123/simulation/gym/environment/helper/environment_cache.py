@@ -14,8 +14,6 @@ from d123.common.datatypes.detection.detection import (
 from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.common.datatypes.recording.detection_recording import DetectionRecording
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE2
-from d123.common.geometry.base import StateSE2
-from d123.common.geometry.occupancy_map import OccupancyMap2D
 from d123.dataset.maps.abstract_map import AbstractMap
 from d123.dataset.maps.abstract_map_objects import (
     AbstractCarpark,
@@ -26,6 +24,8 @@ from d123.dataset.maps.abstract_map_objects import (
     AbstractStopLine,
 )
 from d123.dataset.maps.map_datatypes import MapLayer
+from d123.geometry.base import StateSE2
+from d123.geometry.occupancy_map import OccupancyMap2D
 from d123.simulation.gym.environment.helper.environment_area import AbstractEnvironmentArea
 from d123.simulation.planning.abstract_planner import PlannerInitialization, PlannerInput
 
