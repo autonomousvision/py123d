@@ -76,6 +76,7 @@ docs = [
     "sphinx-rtd-theme",
     "sphinx-autobuild",
     "myst-parser",
+    "sphinx-copybutton",
 ]
 nuplan = [
     "nuplan-devkit @ git+https://github.com/motional/nuplan-devkit/@nuplan-devkit-v1.2",

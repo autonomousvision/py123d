@@ -16,6 +16,7 @@ documentation for details.
    :caption: Contents:
 
    installation
+   geometry
    datasets/index
    schema
    visualization

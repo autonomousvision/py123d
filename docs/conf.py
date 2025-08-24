@@ -20,6 +20,8 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.napoleon",
+    "sphinx_copybutton",
     "myst_parser",
 ]
 
@@ -65,4 +67,15 @@ html_theme_options = {
     "navigation_depth": 3,
     "includehidden": True,
     "titles_only": False,
+}
+
+autodoc_typehints = "both"
+autodoc_class_signature = "separated"
+autodoc_default_options = {
+    "members": True,
+    "member-order": "bysource",
+    "undoc-members": True,
+    "inherited-members": True,
+    "exclude-members": "__init__, __post_init__",
+    "imported-members": True,
 }
