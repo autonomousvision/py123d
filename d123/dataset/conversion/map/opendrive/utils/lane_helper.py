@@ -8,19 +8,14 @@ import shapely
 
 from d123.common.geometry.base import StateSE2Index
 from d123.common.geometry.units import kmph_to_mps, mph_to_mps
-from d123.dataset.conversion.map.opendrive.conversion.id_system import (
+from d123.dataset.conversion.map.opendrive.parser.lane import Lane, LaneSection
+from d123.dataset.conversion.map.opendrive.parser.reference import ReferenceLine
+from d123.dataset.conversion.map.opendrive.parser.road import RoadType
+from d123.dataset.conversion.map.opendrive.utils.id_system import (
     derive_lane_group_id,
     derive_lane_id,
     lane_group_id_from_lane_id,
 )
-from d123.dataset.conversion.map.opendrive.elements.lane import Lane, LaneSection
-from d123.dataset.conversion.map.opendrive.elements.reference import Border
-from d123.dataset.conversion.map.opendrive.elements.road import RoadType
-
-# TODO: Add to config
-STEP_SIZE = 1.0
-
-# TODO: make naming consistent with objects_collections.py
 
 
 @dataclass
@@ -30,9 +25,10 @@ class OpenDriveLaneHelper:
     open_drive_lane: Lane
     s_inner_offset: float
     s_range: Tuple[float, float]
-    inner_border: Border
-    outer_border: Border
+    inner_boundary: ReferenceLine
+    outer_boundary: ReferenceLine
     speed_limit_mps: Optional[float]
+    interpolation_step_size: float
 
     # lazy loaded
     predecessor_lane_ids: Optional[List[str]] = None
@@ -54,23 +50,27 @@ class OpenDriveLaneHelper:
     def _s_positions(self) -> npt.NDArray[np.float64]:
         length = self.s_range[1] - self.s_range[0]
         _s_positions = np.linspace(
-            self.s_range[0], self.s_range[1], int(np.ceil(length / STEP_SIZE)) + 1, endpoint=True, dtype=np.float64
+            self.s_range[0],
+            self.s_range[1],
+            int(np.ceil(length / self.interpolation_step_size)) + 1,
+            endpoint=True,
+            dtype=np.float64,
         )
         _s_positions[..., -1] = np.clip(_s_positions[..., -1], 0.0, self.s_range[-1])
         return _s_positions
 
     @cached_property
-    def _is_last_mask(self) -> npt.NDArray[np.float64]:
-        is_last_mask = np.zeros(len(self._s_positions), dtype=bool)
-        is_last_mask[-1] = True
-        return is_last_mask
+    def _lane_section_end_mask(self) -> npt.NDArray[np.float64]:
+        lane_section_end_mask = np.zeros(len(self._s_positions), dtype=bool)
+        lane_section_end_mask[-1] = True
+        return lane_section_end_mask
 
     @cached_property
     def inner_polyline_se2(self) -> npt.NDArray[np.float64]:
         inner_polyline = np.array(
             [
-                self.inner_border.interpolate_se2(self.s_inner_offset + s - self.s_range[0], is_last_pos=is_last)
-                for s, is_last in zip(self._s_positions, self._is_last_mask)
+                self.inner_boundary.interpolate_se2(self.s_inner_offset + s - self.s_range[0], lane_section_end=end)
+                for s, end in zip(self._s_positions, self._lane_section_end_mask)
             ],
             dtype=np.float64,
         )
@@ -80,8 +80,8 @@ class OpenDriveLaneHelper:
     def inner_polyline_3d(self) -> npt.NDArray[np.float64]:
         inner_polyline = np.array(
             [
-                self.inner_border.interpolate_3d(self.s_inner_offset + s - self.s_range[0], is_last_pos=is_last)
-                for s, is_last in zip(self._s_positions, self._is_last_mask)
+                self.inner_boundary.interpolate_3d(self.s_inner_offset + s - self.s_range[0], lane_section_end=end)
+                for s, end in zip(self._s_positions, self._lane_section_end_mask)
             ],
             dtype=np.float64,
         )
@@ -91,8 +91,8 @@ class OpenDriveLaneHelper:
     def outer_polyline_se2(self) -> npt.NDArray[np.float64]:
         outer_polyline = np.array(
             [
-                self.outer_border.interpolate_se2(s - self.s_range[0], is_last_pos=is_last)
-                for s, is_last in zip(self._s_positions, self._is_last_mask)
+                self.outer_boundary.interpolate_se2(s - self.s_range[0], lane_section_end=end)
+                for s, end in zip(self._s_positions, self._lane_section_end_mask)
             ],
             dtype=np.float64,
         )
@@ -102,8 +102,8 @@ class OpenDriveLaneHelper:
     def outer_polyline_3d(self) -> npt.NDArray[np.float64]:
         outer_polyline = np.array(
             [
-                self.outer_border.interpolate_3d(s - self.s_range[0], is_last_pos=is_last)
-                for s, is_last in zip(self._s_positions, self._is_last_mask)
+                self.outer_boundary.interpolate_3d(s - self.s_range[0], lane_section_end=end)
+                for s, end in zip(self._s_positions, self._lane_section_end_mask)
             ],
             dtype=np.float64,
         )
@@ -198,74 +198,53 @@ class OpenDriveLaneGroupHelper:
 def lane_section_to_lane_helpers(
     lane_section_id: str,
     lane_section: LaneSection,
-    reference_border: Border,
+    reference_line: ReferenceLine,
     s_min: float,
     s_max: float,
     road_types: List[RoadType],
+    interpolation_step_size: float,
 ) -> Dict[str, OpenDriveLaneHelper]:
 
     lane_helpers: Dict[str, OpenDriveLaneHelper] = {}
 
-    for side in ["right", "left"]:
+    for lanes, t_sign, side in zip([lane_section.left_lanes, lane_section.right_lanes], [1.0, -1.0], ["left", "right"]):
         lane_group_id = derive_lane_group_id(lane_section_id, side)
-        lanes = lane_section.right_lanes if side == "right" else lane_section.left_lanes
-        coeff_factor = -1.0 if side == "right" else 1.0
-
-        lane_borders = [reference_border]
+        lane_boundaries = [reference_line]
         for lane in lanes:
             lane_id = derive_lane_id(lane_group_id, lane.id)
-            s_inner_offset = lane_section.s if len(lane_borders) == 1 else 0.0
-            lane_borders.append(_create_outer_lane_border(lane_borders, lane_section, lane, coeff_factor))
+            s_inner_offset = lane_section.s if len(lane_boundaries) == 1 else 0.0
+            lane_boundaries.append(
+                ReferenceLine.from_reference_line(
+                    reference_line=lane_boundaries[-1],
+                    widths=lane.widths,
+                    s_offset=s_inner_offset,
+                    t_sign=t_sign,
+                )
+            )
             lane_helper = OpenDriveLaneHelper(
                 lane_id=lane_id,
                 open_drive_lane=lane,
                 s_inner_offset=s_inner_offset,
                 s_range=(s_min, s_max),
-                inner_border=lane_borders[-2],
-                outer_border=lane_borders[-1],
-                speed_limit_mps=_get_speed_limit_mps(s_min, s_max, road_types),
+                inner_boundary=lane_boundaries[-2],
+                outer_boundary=lane_boundaries[-1],
+                speed_limit_mps=_get_speed_limit_mps(s_min, road_types),
+                interpolation_step_size=interpolation_step_size,
             )
             lane_helpers[lane_id] = lane_helper
 
     return lane_helpers
 
 
-def _create_outer_lane_border(
-    lane_borders: List[Border],
-    lane_section: LaneSection,
-    lane: Lane,
-    coeff_factor: float,
-) -> Border:
-
-    args = {}
-    if len(lane_borders) == 1:
-        args["s_offset"] = lane_section.s
-
-    args["reference"] = lane_borders[-1]
-    args["elevation_profile"] = lane_borders[-1].elevation_profile
-
-    width_coefficient_offsets = []
-    width_coefficients = []
-
-    for width in lane.widths:
-        width_coefficient_offsets.append(width.s_offset)
-        width_coefficients.append([x * coeff_factor for x in width.polynomial_coefficients])
-
-    args["width_coefficient_offsets"] = width_coefficient_offsets
-    args["width_coefficients"] = width_coefficients
-    return Border(**args)
-
-
-def _get_speed_limit_mps(s_min: float, s_max: float, road_types: List[RoadType]) -> Optional[float]:
+def _get_speed_limit_mps(s: float, road_types: List[RoadType]) -> Optional[float]:
 
     # NOTE: Likely not correct way to extract speed limit from CARLA maps, but serves as a placeholder
     speed_limit_mps: Optional[float] = None
     s_road_types = [road_type.s for road_type in road_types] + [float("inf")]
 
     if len(road_types) > 0:
-        # 1. Find current road type
         for road_type_idx, road_type in enumerate(road_types):
-            if s_min >= road_type.s and s_min < s_road_types[road_type_idx + 1]:
+            if s >= road_type.s and s < s_road_types[road_type_idx + 1]:
                 if road_type.speed is not None:
                     if road_type.speed.unit == "mps":
                         speed_limit_mps = road_type.speed.max

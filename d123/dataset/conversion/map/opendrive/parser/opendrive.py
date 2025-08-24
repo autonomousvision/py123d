@@ -3,14 +3,17 @@ from __future__ import annotations
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional
 from xml.etree.ElementTree import Element, parse
 
-from d123.dataset.conversion.map.opendrive.elements.road import Road
+from d123.dataset.conversion.map.opendrive.parser.road import Road
 
 
 @dataclass
 class OpenDrive:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/06_general_architecture/06_03_root_element.html
+    """
 
     header: Header
 
@@ -55,7 +58,9 @@ class OpenDrive:
 
 @dataclass
 class Header:
-    """Section 4.4.2"""
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/06_general_architecture/06_04_header.html
+    """
 
     rev_major: Optional[int] = None
     rev_minor: Optional[int] = None
@@ -95,6 +100,10 @@ class Header:
 
 @dataclass
 class Controller:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/14_signals/14_06_controllers.html
+    """
+
     name: str
     id: int
     sequence: int
@@ -118,6 +127,9 @@ class Controller:
 
 @dataclass
 class Control:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/14_signals/14_06_controllers.html
+    """
 
     signal_id: str
     type: str
@@ -132,6 +144,10 @@ class Control:
 
 @dataclass
 class Junction:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/12_junctions/12_02_common_junctions.html
+    """
+
     id: int
     name: str
     connections: List[Connection]
@@ -153,11 +169,18 @@ class Junction:
 
 @dataclass
 class Connection:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/12_junctions/12_02_common_junctions.html
+    """
+
     id: int
     incoming_road: int
     connecting_road: int
-    contact_point: str
+    contact_point: Literal["start", "end"]
     lane_links: List[LaneLink]
+
+    def __post_init__(self):
+        assert self.contact_point in ["start", "end"]
 
     @classmethod
     def parse(cls, connection_element: Optional[Element]) -> Connection:
@@ -178,6 +201,10 @@ class Connection:
 
 @dataclass
 class LaneLink:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/1.8.0/specification/12_junctions/12_04_connecting_roads.html#top-3e9bb97e-f2ab-4751-906a-c25e9fb7ac4e
+    """
+
     start: int  # NOTE: named "from" in xml
     end: int  # NOTE: named "to" in xml
 

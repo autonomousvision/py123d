@@ -25,7 +25,6 @@ class MapLayer(SerialIntEnum):
 class LaneType(SerialIntEnum):
     """
     Enum for LaneType.
-    NOTE: We use the lane types from Waymo.
     https://github.com/waymo-research/waymo-open-dataset/blob/99a4cb3ff07e2fe06c2ce73da001f850f628e45a/src/waymo_open_dataset/protos/map.proto#L147
     """
 
@@ -55,12 +54,18 @@ class RoadLineType(SerialIntEnum):
     https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/protos/map.proto#L208
     """
 
-    UNKNOWN = 0
-    BROKEN_SINGLE_WHITE = 1
-    SOLID_SINGLE_WHITE = 2
-    SOLID_DOUBLE_WHITE = 3
-    BROKEN_SINGLE_YELLOW = 4
-    BROKEN_DOUBLE_YELLOW = 5
-    SOLID_SINGLE_YELLOW = 6
-    SOLID_DOUBLE_YELLOW = 7
-    PASSING_DOUBLE_YELLOW = 8
+    NONE = 0
+    UNKNOWN = 1
+    DASH_SOLID_YELLOW = 2
+    DASH_SOLID_WHITE = 3
+    DASHED_WHITE = 4
+    DASHED_YELLOW = 5
+    DOUBLE_SOLID_YELLOW = 6
+    DOUBLE_SOLID_WHITE = 7
+    DOUBLE_DASH_YELLOW = 8
+    DOUBLE_DASH_WHITE = 9
+    SOLID_YELLOW = 10
+    SOLID_WHITE = 11
+    SOLID_DASH_WHITE = 12
+    SOLID_DASH_YELLOW = 13
+    SOLID_BLUE = 14

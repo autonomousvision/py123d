@@ -97,14 +97,15 @@ def get_map_meshes(scene: AbstractScene):
     center = initial_ego_vehicle_state.center_se3
     map_layers = [
         MapLayer.LANE_GROUP,
-        # MapLayer.LANE,
-        # MapLayer.WALKWAY,
+        MapLayer.LANE,
+        MapLayer.WALKWAY,
         MapLayer.CROSSWALK,
-        # MapLayer.CARPARK,
+        MapLayer.CARPARK,
         MapLayer.GENERIC_DRIVABLE,
     ]
 
     map_objects_dict = scene.map_api.get_proximal_map_objects(center.point_2d, radius=MAP_RADIUS, layers=map_layers)
+    print(map_objects_dict.keys())
     output = {}
 
     for map_layer in map_objects_dict.keys():
@@ -115,13 +116,13 @@ def get_map_meshes(scene: AbstractScene):
             if map_layer in [
                 MapLayer.WALKWAY,
                 MapLayer.CROSSWALK,
-                # MapLayer.GENERIC_DRIVABLE,
+                MapLayer.GENERIC_DRIVABLE,
                 MapLayer.CARPARK,
             ]:
                 # Push meshes up by a few centimeters to avoid overlap with the ground in the visualization.
                 trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z - 0.1).array
             else:
-                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z + 0.1).array
+                trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z).array
 
             if not scene.log_metadata.map_has_z:
                 trimesh_mesh.vertices += Point3D(
@@ -131,7 +132,6 @@ def get_map_meshes(scene: AbstractScene):
             trimesh_mesh = configure_trimesh(trimesh_mesh, MAP_SURFACE_CONFIG[map_layer].fill_color)
             surface_meshes.append(trimesh_mesh)
         output[f"{map_layer.serialize()}"] = trimesh.util.concatenate(surface_meshes)
-
     return output
 
 

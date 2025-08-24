@@ -4,17 +4,21 @@ from dataclasses import dataclass
 from typing import List, Optional
 from xml.etree.ElementTree import Element
 
-from d123.dataset.conversion.map.opendrive.elements.elevation import ElevationProfile, LateralProfile
-from d123.dataset.conversion.map.opendrive.elements.lane import Lanes
-from d123.dataset.conversion.map.opendrive.elements.objects import Object
-from d123.dataset.conversion.map.opendrive.elements.reference import PlanView
+from d123.dataset.conversion.map.opendrive.parser.elevation import ElevationProfile, LateralProfile
+from d123.dataset.conversion.map.opendrive.parser.lane import Lanes
+from d123.dataset.conversion.map.opendrive.parser.objects import Object
+from d123.dataset.conversion.map.opendrive.parser.reference import PlanView
 
 
 @dataclass
 class Road:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/10_roads/10_01_introduction.html
+    """
+
     id: int
     junction: Optional[str]
-    length: float  # [m]
+    length: float
     name: Optional[str]
 
     link: Link
@@ -66,7 +70,9 @@ class Road:
 
 @dataclass
 class Link:
-    """Section 8.2"""
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/10_roads/10_03_road_linkage.html
+    """
 
     predecessor: Optional[PredecessorSuccessor] = None
     successor: Optional[PredecessorSuccessor] = None
@@ -84,6 +90,10 @@ class Link:
 
 @dataclass
 class PredecessorSuccessor:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/10_roads/10_03_road_linkage.html
+    """
+
     element_type: Optional[str] = None
     element_id: Optional[int] = None
     contact_point: Optional[str] = None
@@ -103,6 +113,9 @@ class PredecessorSuccessor:
 
 @dataclass
 class RoadType:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/10_roads/10_04_road_type.html
+    """
 
     s: Optional[float] = None
     type: Optional[str] = None
@@ -120,6 +133,10 @@ class RoadType:
 
 @dataclass
 class Speed:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/10_roads/10_04_road_type.html#sec-33dc6899-854e-4533-a3d9-76e9e1518ee7
+    """
+
     max: Optional[float] = None
     unit: Optional[str] = None
 

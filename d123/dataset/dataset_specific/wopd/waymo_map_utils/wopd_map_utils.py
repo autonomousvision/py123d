@@ -20,18 +20,17 @@ from d123.dataset.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
 # - Implement speed bumps
 # - Implement driveways with a different semantic type if needed
 # - Implement intersections and lane group logic
-# - Handle lane type, e.g. TYPE_UNDEFINED = 0; TYPE_FREEWAY = 1; TYPE_SURFACE_STREET = 2; TYPE_BIKE_LANE = 3;
 
 WAYMO_ROAD_LINE_CONVERSION = {
-    0: RoadLineType.UNKNOWN,
-    1: RoadLineType.BROKEN_SINGLE_WHITE,
-    2: RoadLineType.SOLID_SINGLE_WHITE,
-    3: RoadLineType.SOLID_DOUBLE_WHITE,
-    4: RoadLineType.BROKEN_SINGLE_YELLOW,
-    5: RoadLineType.BROKEN_DOUBLE_YELLOW,
-    6: RoadLineType.SOLID_SINGLE_YELLOW,
-    7: RoadLineType.SOLID_DOUBLE_YELLOW,
-    8: RoadLineType.PASSING_DOUBLE_YELLOW,
+    0: RoadLineType.UNKNOWN,  # aka. UNKNOWN
+    1: RoadLineType.DASHED_WHITE,  # aka. BROKEN_SINGLE_WHITE
+    2: RoadLineType.SOLID_WHITE,  # aka. SOLID_SINGLE_WHITE
+    3: RoadLineType.DOUBLE_SOLID_WHITE,  # aka. SOLID_DOUBLE_WHITE
+    4: RoadLineType.DASHED_YELLOW,  # aka. BROKEN_SINGLE_YELLOW
+    5: RoadLineType.DOUBLE_DASH_YELLOW,  # aka. BROKEN_DOUBLE_YELLOW
+    6: RoadLineType.SOLID_YELLOW,  # aka. SOLID_SINGLE_YELLOW
+    7: RoadLineType.DOUBLE_SOLID_YELLOW,  # aka. SOLID_DOUBLE_YELLOW
+    8: RoadLineType.DOUBLE_DASH_YELLOW,  # aka. PASSING_DOUBLE_YELLOW
 }
 
 WAYMO_ROAD_EDGE_CONVERSION = {

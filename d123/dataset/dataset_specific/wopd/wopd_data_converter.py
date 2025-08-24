@@ -537,7 +537,6 @@ def _extract_lidar(
         range_image_top_pose=range_image_top_pose,
         keep_polar_features=True,
     )
-    print(f"Extracted {len(points)} points from {len(frame.lasers)} lasers.")
 
     lidar_data: Dict[LiDARType, npt.NDArray[np.float32]] = {}
     for lidar_idx, frame_lidar in enumerate(frame.lasers):

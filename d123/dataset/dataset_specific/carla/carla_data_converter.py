@@ -21,8 +21,7 @@ from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
 from d123.common.geometry.vector import Vector3DIndex
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
-from d123.dataset.conversion.map.opendrive.elements.opendrive import OpenDrive
-from d123.dataset.conversion.map.opendrive.opendrive_converter import OpenDriveConverter
+from d123.dataset.conversion.map.opendrive.opendrive_map_conversion import convert_from_xodr
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
 from d123.dataset.maps.abstract_map import AbstractMap, MapLayer
@@ -130,6 +129,10 @@ class CarlaDataConverter(RawDataConverter):
 
 
 def convert_carla_map_to_gpkg(map_names: List[str], data_converter_config: DataConverterConfig) -> List[Any]:
+
+    # TODO: add to config
+    _interpolation_step_size = 0.5  # [m]
+    _connection_distance_threshold = 0.1  # [m]
     for map_name in map_names:
         map_path = data_converter_config.output_path / "maps" / f"carla_{map_name.lower()}.gpkg"
         if data_converter_config.force_map_conversion or not map_path.exists():
@@ -145,8 +148,12 @@ def convert_carla_map_to_gpkg(map_names: List[str], data_converter_config: DataC
                     CARLA_ROOT / "CarlaUE4" / "Content" / "Carla" / "Maps" / map_name / "OpenDrive" / f"{map_name}.xodr"
                 )
 
-            OpenDriveConverter(OpenDrive.parse_from_file(carla_map_path)).run(f"carla_{map_name.lower()}")
-
+            convert_from_xodr(
+                carla_map_path,
+                f"carla_{map_name.lower()}",
+                _interpolation_step_size,
+                _connection_distance_threshold,
+            )
     return []
 
 

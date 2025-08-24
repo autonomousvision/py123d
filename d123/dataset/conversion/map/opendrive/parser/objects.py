@@ -7,6 +7,9 @@ from xml.etree.ElementTree import Element
 
 @dataclass
 class Object:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/13_objects/13_01_introduction.html
+    """
 
     id: int
     name: str
@@ -55,6 +58,10 @@ class Object:
 
 @dataclass
 class CornerLocal:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/13_objects/13_03_object_outline.html#sec-cc00c8a6-eea6-49e6-b90c-37b21524c748
+    """
+
     u: float
     v: float
     z: float

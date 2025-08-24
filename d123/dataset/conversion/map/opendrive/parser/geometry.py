@@ -13,6 +13,10 @@ from d123.common.geometry.base import StateSE2Index
 
 @dataclass
 class Geometry:
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/09_geometries/09_02_road_reference_line.html
+    """
+
     s: float
     x: float
     y: float
@@ -33,6 +37,10 @@ class Geometry:
 
 @dataclass
 class Line(Geometry):
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/09_geometries/09_03_straight_line.html
+    """
+
     @classmethod
     def parse(cls, geometry_element: Element) -> Geometry:
         args = {key: float(geometry_element.get(key)) for key in ["s", "x", "y", "hdg", "length"]}
@@ -53,8 +61,15 @@ class Line(Geometry):
 
 @dataclass
 class Arc(Geometry):
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/09_geometries/09_05_arc.html
+    """
 
     curvature: float
+
+    def __post_init__(self):
+        if self.curvature == 0.0:
+            raise ValueError("Curvature cannot be zero for Arc geometry.")
 
     @classmethod
     def parse(cls, geometry_element: Element) -> Geometry:
@@ -64,19 +79,20 @@ class Arc(Geometry):
 
     def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
 
-        c = self.curvature
-        hdg = self.hdg - np.pi / 2
+        kappa = self.curvature
+        radius = 1.0 / kappa if kappa != 0 else float("inf")
 
-        a = 2 / c * np.sin(s * c / 2)
-        alpha = (np.pi - s * c) / 2 - hdg
+        initial_heading = self.hdg
+        final_heading = initial_heading + s * kappa
 
-        dx = -1 * a * np.cos(alpha)
-        dy = a * np.sin(alpha)
+        # Parametric circle equations
+        dx = radius * (np.sin(final_heading) - np.sin(initial_heading))
+        dy = -radius * (np.cos(final_heading) - np.cos(initial_heading))
 
         interpolated_se2 = self.start_se2.copy()
         interpolated_se2[StateSE2Index.X] += dx
         interpolated_se2[StateSE2Index.Y] += dy
-        interpolated_se2[StateSE2Index.YAW] += s * self.curvature
+        interpolated_se2[StateSE2Index.YAW] = final_heading
 
         if t != 0.0:
             interpolated_se2[StateSE2Index.X] += t * np.cos(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
@@ -86,30 +102,19 @@ class Arc(Geometry):
 
 
 @dataclass
-class Geometry:
-    s: float
-    x: float
-    y: float
-    hdg: float
-    length: float
-
-    @property
-    def start_se2(self) -> npt.NDArray[np.float64]:
-        start_se2 = np.zeros(len(StateSE2Index), dtype=np.float64)
-        start_se2[StateSE2Index.X] = self.x
-        start_se2[StateSE2Index.Y] = self.y
-        start_se2[StateSE2Index.YAW] = self.hdg
-        return start_se2
-
-    def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
-        raise NotImplementedError
-
-
-@dataclass
 class Spiral(Geometry):
+    """
+    https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/09_geometries/09_04_spiral.html
+    https://en.wikipedia.org/wiki/Euler_spiral
+    """
 
     curvature_start: float
     curvature_end: float
+
+    def __post_init__(self):
+        gamma = (self.curvature_end - self.curvature_start) / self.length
+        if abs(gamma) < 1e-10:
+            raise ValueError("Curvature change is too small, cannot define a valid spiral.")
 
     @classmethod
     def parse(cls, geometry_element: Element) -> Geometry:
@@ -120,18 +125,9 @@ class Spiral(Geometry):
         return cls(**args)
 
     def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
-        """
-        https://en.wikipedia.org/wiki/Euler_spiral
-        :param s: _description_
-        :param t: _description_, defaults to 0.0
-        :return: _description_
-        """
         interpolated_se2 = self.start_se2.copy()
 
         gamma = (self.curvature_end - self.curvature_start) / self.length
-        if abs(gamma) < 1e-10:
-            print(gamma)
-        # NOTE: doesn't consider case where gamma == 0
 
         dx, dy = self._compute_spiral_position(s, gamma)
 

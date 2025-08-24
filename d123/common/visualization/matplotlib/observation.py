@@ -5,6 +5,7 @@ import numpy as np
 import shapely.geometry as geom
 
 from d123.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE2, EgoStateSE3
 from d123.common.geometry.base import Point2D
 from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
@@ -27,6 +28,7 @@ from d123.common.visualization.matplotlib.utils import (
 from d123.dataset.maps.abstract_map import AbstractMap
 from d123.dataset.maps.abstract_map_objects import AbstractLane
 from d123.dataset.maps.map_datatypes import MapLayer
+from d123.dataset.scene.abstract_scene import AbstractScene
 
 
 def add_default_map_on_ax(
@@ -85,6 +87,39 @@ def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionWrapper) 
         #     continue
         plot_config = BOX_DETECTION_CONFIG[box_detection.metadata.detection_type]
         add_bounding_box_to_ax(ax, box_detection.bounding_box, plot_config)
+
+
+def add_box_future_detections_to_ax(ax: plt.Axes, scene: AbstractScene, iteration: int) -> None:
+
+    # TODO: Refactor this function
+    initial_agents = scene.get_box_detections_at_iteration(iteration)
+    agents_poses = {
+        agent.metadata.track_token: [agent.center_se3]
+        for agent in initial_agents
+        if agent.metadata.detection_type == DetectionType.VEHICLE
+    }
+    frequency = 1
+    for iteration in range(iteration + frequency, scene.get_number_of_iterations(), frequency):
+        agents = scene.get_box_detections_at_iteration(iteration)
+        for agent in agents:
+            if agent.metadata.track_token in agents_poses:
+                agents_poses[agent.metadata.track_token].append(agent.center_se3)
+
+    for track_token, poses in agents_poses.items():
+        if len(poses) < 2:
+            continue
+        poses = np.array([pose.point_2d.array for pose in poses])
+        num_poses = poses.shape[0]
+        alphas = 1 - np.linspace(0.2, 1.0, num_poses)  # Start low, end high
+        for i in range(num_poses - 1):
+            ax.plot(
+                poses[i : i + 2, 0],
+                poses[i : i + 2, 1],
+                color=BOX_DETECTION_CONFIG[DetectionType.VEHICLE].fill_color.hex,
+                alpha=alphas[i + 1],
+                linewidth=BOX_DETECTION_CONFIG[DetectionType.VEHICLE].line_width * 5,
+                zorder=BOX_DETECTION_CONFIG[DetectionType.VEHICLE].zorder,
+            )
 
 
 def add_ego_vehicle_to_ax(ax: plt.Axes, ego_vehicle_state: Union[EgoStateSE3, EgoStateSE2]) -> None:
