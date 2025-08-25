@@ -16,7 +16,7 @@ from d123.dataset.maps.abstract_map import MapLayer
 from d123.dataset.maps.abstract_map_objects import AbstractLane, AbstractSurfaceMapObject
 from d123.dataset.scene.abstract_scene import AbstractScene
 from d123.geometry import BoundingBoxSE3, Point3D, Polyline3D, StateSE3
-from d123.geometry.transform.se3 import convert_relative_to_absolute_points_3d_array
+from d123.geometry.transform.transform_se3 import convert_relative_to_absolute_points_3d_array
 
 # TODO: Refactor this file.
 # TODO: Add general utilities for 3D primitives and mesh support.
@@ -231,11 +231,8 @@ def get_camera_values(
     camera_to_ego = camera.extrinsic  # 4x4 transformation from camera to ego frame
 
     # Get the rotation matrix of the rear axle pose
-    from d123.geometry.transform.se3 import get_rotation_matrix
 
-    ego_transform = np.eye(4, dtype=np.float64)
-    ego_transform[:3, :3] = get_rotation_matrix(rear_axle)
-    ego_transform[:3, 3] = rear_axle.point_3d.array
+    ego_transform = rear_axle.transformation_matrix
 
     camera_transform = ego_transform @ camera_to_ego
 

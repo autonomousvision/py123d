@@ -11,7 +11,7 @@ from d123.dataset.maps.abstract_map import AbstractMap
 from d123.dataset.scene.abstract_scene import AbstractScene
 from d123.geometry.bounding_box import BoundingBoxSE2
 from d123.geometry.se import StateSE2
-from d123.geometry.transform.se2_array import convert_relative_to_absolute_point_2d_array
+from d123.geometry.transform.transform_se2 import convert_relative_to_absolute_point_2d_array
 from d123.geometry.utils.rotation_utils import normalize_angle
 from d123.simulation.agents.abstract_agents import AbstractAgents
 from d123.training.feature_builder.smart_feature_builder import SMARTFeatureBuilder

@@ -70,6 +70,10 @@ class Vector3DIndex(IntEnum):
     Y = 1
     Z = 2
 
+    @classproperty
+    def XYZ(cls) -> slice:
+        return slice(cls.X, cls.Z + 1)
+
 
 class EulerAnglesIndex(IntEnum):
     """
@@ -115,6 +119,10 @@ class StateSE3Index(IntEnum):
 
     @classproperty
     def ROTATION_XYZ(cls) -> slice:
+        return slice(cls.ROLL, cls.YAW + 1)
+
+    @classproperty
+    def EULER_ANGLES(cls) -> slice:
         return slice(cls.ROLL, cls.YAW + 1)
 
 

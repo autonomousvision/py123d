@@ -27,7 +27,9 @@ from d123.dataset.maps.abstract_map_objects import AbstractLane
 from d123.dataset.maps.map_datatypes import MapLayer
 from d123.dataset.scene.abstract_scene import AbstractScene
 from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D
-from d123.geometry.transform.tranform_2d import translate_along_yaw
+from d123.geometry.geometry_index import StateSE2Index
+from d123.geometry.transform.transform_se2 import translate_se2_along_yaw
+from d123.geometry.vector import Vector2D
 
 
 def add_default_map_on_ax(
@@ -156,7 +158,10 @@ def add_bounding_box_to_ax(
             )
             arrow = np.zeros((2, 2), dtype=np.float64)
             arrow[0] = center_se2.point_2d.array
-            arrow[1] = translate_along_yaw(center_se2, Point2D(bounding_box.length / 2.0 + 0.5, 0.0)).point_2d.array
+            arrow[1] = translate_se2_along_yaw(
+                center_se2,
+                Vector2D(bounding_box.length / 2.0 + 0.5, 0.0),
+            ).array[StateSE2Index.XY]
             ax.plot(
                 arrow[:, 0],
                 arrow[:, 1],

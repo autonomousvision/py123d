@@ -18,7 +18,7 @@ from d123.dataset.maps.abstract_map_objects import (
 from d123.dataset.scene.abstract_scene import AbstractScene
 from d123.geometry import BoundingBoxSE2, PolylineSE2, StateSE2
 from d123.geometry.geometry_index import StateSE2Index
-from d123.geometry.transform.se2_array import convert_absolute_to_relative_se2_array
+from d123.geometry.transform.transform_se2 import convert_absolute_to_relative_se2_array
 
 # TODO: Hind feature builder behind abstraction.
 

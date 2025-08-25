@@ -256,7 +256,7 @@ class StateSE3(ArrayMixin):
 
         :return: A 3x3 numpy array representing the rotation matrix.
         """
-        raise NotImplementedError("Rotation matrix conversion not implemented yet.")
+        return EulerAngles.from_array(self.array[StateSE3Index.EULER_ANGLES]).rotation_matrix
 
     @property
     def transformation_matrix(self) -> npt.NDArray[np.float64]:
