@@ -49,7 +49,7 @@ class ConstantVelocityAgents(AbstractAgents):
         time_delta_s = self._timestep_s * self._current_iteration
         current_target_agents = []
         for initial_agent in self._initial_target_agents:
-            speed: float = float(initial_agent.velocity.vector_2d.magnitude())
+            speed: float = float(initial_agent.velocity.vector_2d.magnitude)
 
             propagated_center = translate_along_yaw(initial_agent.center, Point2D(speed * time_delta_s, 0.0))
             propagated_bounding_box = BoundingBoxSE2(

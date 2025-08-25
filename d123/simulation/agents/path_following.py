@@ -72,7 +72,7 @@ class PathFollowingAgents(AbstractAgents):
         time_delta_s = self._timestep_s * self._current_iteration
         current_target_agents = []
         for initial_agent in self._initial_target_agents:
-            speed: float = float(initial_agent.velocity.vector_2d.magnitude())
+            speed: float = float(initial_agent.velocity.vector_2d.magnitude)
 
             propagate_distance = speed * time_delta_s
             propagated_center = self._agent_paths[initial_agent.metadata.track_token].interpolate(propagate_distance)

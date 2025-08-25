@@ -3,33 +3,6 @@ import numpy.typing as npt
 
 from d123.geometry import Point3DIndex, StateSE3, StateSE3Index, Vector3D
 
-# def get_rotation_matrix(state_se3: StateSE3) -> npt.NDArray[np.float64]:
-#     R_x = np.array(
-#         [
-#             [1, 0, 0],
-#             [0, np.cos(state_se3.roll), -np.sin(state_se3.roll)],
-#             [0, np.sin(state_se3.roll), np.cos(state_se3.roll)],
-#         ],
-#         dtype=np.float64,
-#     )
-#     R_y = np.array(
-#         [
-#             [np.cos(state_se3.pitch), 0, np.sin(state_se3.pitch)],
-#             [0, 1, 0],
-#             [-np.sin(state_se3.pitch), 0, np.cos(state_se3.pitch)],
-#         ],
-#         dtype=np.float64,
-#     )
-#     R_z = np.array(
-#         [
-#             [np.cos(state_se3.yaw), -np.sin(state_se3.yaw), 0],
-#             [np.sin(state_se3.yaw), np.cos(state_se3.yaw), 0],
-#             [0, 0, 1],
-#         ],
-#         dtype=np.float64,
-#     )
-#     return R_z @ R_y @ R_x
-
 
 def get_rotation_matrix(state_se3: StateSE3) -> npt.NDArray[np.float64]:
     # Intrinsic Z-Y'-X'' rotation: R = R_x(roll) @ R_y(pitch) @ R_z(yaw)

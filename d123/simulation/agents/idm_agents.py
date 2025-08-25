@@ -91,7 +91,7 @@ class IDMAgents(AbstractAgents):
             self._agent_paths_buffer[agent.metadata.track_token] = polyline_se2.linestring.buffer(
                 agent.bounding_box_se2.width / 2, cap_style=CAP_STYLE.square
             )
-            self._agent_initial_vel[agent.metadata.track_token] = float(agent.velocity.vector_2d.magnitude())
+            self._agent_initial_vel[agent.metadata.track_token] = float(agent.velocity.vector_2d.magnitude)
 
         self._past_target_agents = self._initial_target_agents
         return self._initial_target_agents
@@ -105,7 +105,7 @@ class IDMAgents(AbstractAgents):
         # time_delta_s = self._timestep_s * self._current_iteration
         current_target_agents = []
         for past_agent in self._past_target_agents:
-            agent_velocity: float = float(past_agent.velocity.vector_2d.magnitude())
+            agent_velocity: float = float(past_agent.velocity.vector_2d.magnitude)
 
             agent_path = self._agent_paths[past_agent.metadata.track_token]
             agent_path_buffer = self._agent_paths_buffer[past_agent.metadata.track_token]
@@ -133,7 +133,7 @@ class IDMAgents(AbstractAgents):
 
             if leading_agent is not None:
                 distance_to_lead_agent = past_agent.shapely_polygon.distance(leading_agent.shapely_polygon)
-                lead_agent_velocity = float(leading_agent.velocity.vector_2d.magnitude())
+                lead_agent_velocity = float(leading_agent.velocity.vector_2d.magnitude)
             else:
                 distance_to_lead_agent = float(
                     np.clip(agent_path.length - agent_distance_on_path, a_min=0.0, a_max=None)

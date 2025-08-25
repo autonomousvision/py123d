@@ -4,6 +4,10 @@ from d123.common.utils.enums import classproperty
 
 
 class Point2DIndex(IntEnum):
+    """
+    Indexes array-like representations of 2D points (x,y).
+    """
+
     X = 0
     Y = 1
 
@@ -13,11 +17,23 @@ class Point2DIndex(IntEnum):
 
 
 class Vector2DIndex(IntEnum):
+    """
+    Indexes array-like representations of 2D vectors (x,y).
+    """
+
     X = 0
     Y = 1
 
+    @classproperty
+    def XY(cls) -> slice:
+        return slice(cls.X, cls.Y + 1)
+
 
 class StateSE2Index(IntEnum):
+    """
+    Indexes array-like representations of SE2 states (x,y,yaw).
+    """
+
     X = 0
     Y = 1
     YAW = 2
@@ -28,6 +44,9 @@ class StateSE2Index(IntEnum):
 
 
 class Point3DIndex(IntEnum):
+    """
+    Indexes array-like representations of 3D points (x,y,z).
+    """
 
     X = 0
     Y = 1
@@ -37,14 +56,26 @@ class Point3DIndex(IntEnum):
     def XY(cls) -> slice:
         return slice(cls.X, cls.Y + 1)
 
+    @classproperty
+    def XYZ(cls) -> slice:
+        return slice(cls.X, cls.Z + 1)
+
 
 class Vector3DIndex(IntEnum):
+    """
+    Indexes array-like representations of 3D vectors (x,y,z).
+    """
+
     X = 0
     Y = 1
     Z = 2
 
 
 class StateSE3Index(IntEnum):
+    """
+    Indexes array-like representations of SE3 states (x,y,z,roll,pitch,yaw).
+    TODO: Use quaternions for rotation.
+    """
 
     X = 0
     Y = 1
@@ -67,6 +98,10 @@ class StateSE3Index(IntEnum):
 
 
 class BoundingBoxSE2Index(IntEnum):
+    """
+    Indexes array-like representations of rotated 2D bounding boxes (x,y,yaw,length,width).
+    """
+
     X = 0
     Y = 1
     YAW = 2
@@ -83,6 +118,10 @@ class BoundingBoxSE2Index(IntEnum):
 
 
 class Corners2DIndex(IntEnum):
+    """
+    Indexes the corners of a BoundingBoxSE2 in the order: front-left, front-right, back-right, back-left.
+    """
+
     FRONT_LEFT = 0
     FRONT_RIGHT = 1
     BACK_RIGHT = 2
@@ -90,6 +129,11 @@ class Corners2DIndex(IntEnum):
 
 
 class BoundingBoxSE3Index(IntEnum):
+    """
+    Indexes array-like representations of rotated 3D bounding boxes (x,y,z,roll,pitch,yaw,length,width,height).
+    TODO: Use quaternions for rotation.
+    """
+
     X = 0
     Y = 1
     Z = 2
@@ -112,8 +156,18 @@ class BoundingBoxSE3Index(IntEnum):
     def ROTATION_XYZ(cls) -> slice:
         return slice(cls.ROLL, cls.YAW + 1)
 
+    @classproperty
+    def EXTENT(cls) -> slice:
+        return slice(cls.LENGTH, cls.HEIGHT + 1)
+
 
 class Corners3DIndex(IntEnum):
+    """
+    Indexes the corners of a BoundingBoxSE3 in the order:
+        front-left-bottom, front-right-bottom, back-right-bottom, back-left-bottom,
+        front-left-top, front-right-top, back-right-top, back-left-top.
+    """
+
     FRONT_LEFT_BOTTOM = 0
     FRONT_RIGHT_BOTTOM = 1
     BACK_RIGHT_BOTTOM = 2
