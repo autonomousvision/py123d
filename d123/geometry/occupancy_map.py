@@ -152,6 +152,6 @@ class OccupancyMap2D:
         """
         output = np.zeros((len(self._geometries), len(points)), dtype=bool)
         for i, geometry in enumerate(self._geometries):
-            output[i] = shapely.vectorized.contains(geometry, points[..., Point2DIndex.X], points[..., Point2DIndex.Y])
+            output[i] = shapely.contains_xy(geometry, points[..., Point2DIndex.X], points[..., Point2DIndex.Y])
 
         return output
