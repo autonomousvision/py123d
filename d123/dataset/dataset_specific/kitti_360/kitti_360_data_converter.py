@@ -16,6 +16,7 @@ import xml.etree.ElementTree as ET
 import pyarrow as pa
 from PIL import Image
 import logging
+from pyquaternion import Quaternion
 
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 
@@ -455,15 +456,24 @@ def _extract_ego_state_all(log_name: str) -> List[List[float]]:
         oxts_path_file = oxts_path / f"{int(idx):010d}.txt"
         oxts_data = np.loadtxt(oxts_path_file)
 
-        #TODO check roll, pitch, yaw again
-        roll, pitch, yaw = oxts_data[3:6]
         vehicle_parameters = get_kitti360_station_wagon_parameters()
 
         while pose_idx + 1 < poses_time_len and poses_time[pose_idx + 1] < idx:
             pose_idx += 1
         pos = pose_idx
-        # pos = np.searchsorted(pwwwoses_time, idx, side='right') - 1
+        # pos = np.searchsorted(poses_time, idx, side='right') - 1
         
+        # NOTE you can use oxts_data[3:6] as roll, pitch, yaw for simplicity
+        #roll, pitch, yaw = oxts_data[3:6]
+        r00, r01, r02 = poses[pos, 1:4]
+        r10, r11, r12 = poses[pos, 5:8]
+        r20, r21, r22 = poses[pos, 9:12]
+        R_mat = np.array([[r00, r01, r02],
+                        [r10, r11, r12],
+                        [r20, r21, r22]], dtype=np.float64)
+        R_mat_cali = R_mat @ KITTI3602NUPLAN_IMU_CALIBRATION[:3,:3]
+        yaw, pitch, roll = Quaternion(matrix=R_mat_cali[:3, :3]).yaw_pitch_roll
+
         rear_axle_pose = StateSE3(
             x=poses[pos, 4],
             y=poses[pos, 8],
