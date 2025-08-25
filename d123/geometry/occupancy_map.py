@@ -4,7 +4,7 @@ from typing import Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
-import shapely.vectorized
+import shapely
 from shapely.geometry.base import BaseGeometry
 from shapely.strtree import STRtree
 
