@@ -79,7 +79,7 @@ class OccupancyMap2D:
         return self._geometries
 
     @property
-    def token_to_idx(self) -> Dict[Union[int, str], int]:
+    def id_to_idx(self) -> Dict[Union[int, str], int]:
         """Mapping from geometry IDs to indices in the occupancy map.
 
         :return: dictionary of IDs and indices

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from ast import Dict
-from dataclasses import dataclass
 from functools import cached_property
 from typing import Union
 
@@ -16,7 +15,6 @@ from d123.geometry.se import StateSE2, StateSE3
 from d123.geometry.utils.bounding_box_utils import bbse2_array_to_corners_array, bbse3_array_to_corners_array
 
 
-@dataclass
 class BoundingBoxSE2(ArrayMixin):
     """
     Rotated bounding box in 2D defined by center (StateSE2), length and width.
@@ -32,23 +30,67 @@ class BoundingBoxSE2(ArrayMixin):
         8.0
     """
 
-    center: StateSE2
-    length: float
-    width: float
+    _array: npt.NDArray[np.float64]
+
+    def __init__(self, center: StateSE2, length: float, width: float):
+        """Initialize BoundingBoxSE2 with center (StateSE2), length and width.
+
+        :param center: Center of the bounding box as a StateSE2 instance.
+        :param length: Length of the bounding box along the x-axis in the local frame.
+        :param width: Width of the bounding box along the y-axis in the local frame.
+        """
+        array = np.zeros(len(BoundingBoxSE2Index), dtype=np.float64)
+        array[BoundingBoxSE2Index.SE2] = center.array
+        array[BoundingBoxSE2Index.LENGTH] = length
+        array[BoundingBoxSE2Index.WIDTH] = width
+        object.__setattr__(self, "_array", array)
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64]) -> BoundingBoxSE2:
-        """Create a BoundingBoxSE2 from a numpy array, index by :class:`~d123.geometry.BoundingBoxSE2Index`.
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> BoundingBoxSE2:
+        """Create a BoundingBoxSE2 from a numpy array.
 
-        :param array: A 1D numpy array containing the bounding box parameters.
+        :param array: A 1D numpy array containing the bounding box parameters, indexed by \
+            :class:`~d123.geometry.BoundingBoxSE2Index`.
+        :param copy: Whether to copy the input array. Defaults to True.
         :return: A BoundingBoxSE2 instance.
         """
-        assert array.ndim == 1 and array.shape[-1] == len(BoundingBoxSE2Index)
-        return BoundingBoxSE2(
-            center=StateSE2.from_array(array[BoundingBoxSE2Index.SE2]),
-            length=array[BoundingBoxSE2Index.LENGTH],
-            width=array[BoundingBoxSE2Index.WIDTH],
-        )
+        assert array.ndim == 1
+        assert array.shape[-1] == len(BoundingBoxSE2Index)
+        instance = object.__new__(cls)
+        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        return instance
+
+    @property
+    def center(self) -> StateSE2:
+        """The center of the bounding box as a StateSE2 instance.
+
+        :return: The center of the bounding box as a StateSE2 instance.
+        """
+        return StateSE2.from_array(self._array[BoundingBoxSE2Index.SE2])
+
+    @property
+    def center_se2(self) -> StateSE2:
+        """The center of the bounding box as a StateSE2 instance.
+
+        :return: The center of the bounding box as a StateSE2 instance.
+        """
+        return self.center
+
+    @property
+    def length(self) -> float:
+        """The length of the bounding box along the x-axis in the local frame.
+
+        :return: The length of the bounding box.
+        """
+        return self._array[BoundingBoxSE2Index.LENGTH]
+
+    @property
+    def width(self) -> float:
+        """The width of the bounding box along the y-axis in the local frame.
+
+        :return: The width of the bounding box.
+        """
+        return self._array[BoundingBoxSE2Index.WIDTH]
 
     @cached_property
     def array(self) -> npt.NDArray[np.float64]:
@@ -56,13 +98,7 @@ class BoundingBoxSE2(ArrayMixin):
 
         :return: A numpy array of shape (5,) containing the bounding box parameters [x, y, yaw, length, width].
         """
-        array = np.zeros(len(BoundingBoxSE2Index), dtype=np.float64)
-        array[BoundingBoxSE2Index.X] = self.center.x
-        array[BoundingBoxSE2Index.Y] = self.center.y
-        array[BoundingBoxSE2Index.YAW] = self.center.yaw
-        array[BoundingBoxSE2Index.LENGTH] = self.length
-        array[BoundingBoxSE2Index.WIDTH] = self.width
-        return array
+        return self._array
 
     @cached_property
     def shapely_polygon(self) -> geom.Polygon:
@@ -99,7 +135,6 @@ class BoundingBoxSE2(ArrayMixin):
         return {index: Point2D.from_array(corners_array[index]) for index in Corners2DIndex}
 
 
-@dataclass
 class BoundingBoxSE3(ArrayMixin):
     """
     Rotated bounding box in 3D defined by center (StateSE3), length, width and height.
@@ -115,45 +150,86 @@ class BoundingBoxSE3(ArrayMixin):
         8.0
     """
 
-    center: StateSE3
-    length: float
-    width: float
-    height: float
+    _array: npt.NDArray[np.float64]
+
+    def __init__(self, center: StateSE3, length: float, width: float, height: float):
+        """Initialize BoundingBoxSE3 with center (StateSE3), length, width and height.
+
+        :param center: Center of the bounding box as a StateSE3 instance.
+        :param length: Length of the bounding box along the x-axis in the local frame.
+        :param width: Width of the bounding box along the y-axis in the local frame.
+        :param height: Height of the bounding box along the z-axis in the local frame.
+        """
+        array = np.zeros(len(BoundingBoxSE3Index), dtype=np.float64)
+        array[BoundingBoxSE3Index.STATE_SE3] = center.array
+        array[BoundingBoxSE3Index.LENGTH] = length
+        array[BoundingBoxSE3Index.WIDTH] = width
+        array[BoundingBoxSE3Index.HEIGHT] = height
+        object.__setattr__(self, "_array", array)
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64]) -> BoundingBoxSE3:
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> BoundingBoxSE3:
         """Create a BoundingBoxSE3 from a numpy array.
 
         :param array: A 1D numpy array containing the bounding box parameters, indexed by \
             :class:`~d123.geometry.BoundingBoxSE3Index`.
+        :param copy: Whether to copy the input array. Defaults to True.
         :return: A BoundingBoxSE3 instance.
         """
-        assert array.ndim == 1 and array.shape[-1] == len(BoundingBoxSE3Index)
-        return BoundingBoxSE3(
-            center=StateSE3.from_array(array[BoundingBoxSE3Index.STATE_SE3]),
-            length=array[BoundingBoxSE3Index.LENGTH],
-            width=array[BoundingBoxSE3Index.WIDTH],
-            height=array[BoundingBoxSE3Index.HEIGHT],
-        )
+        assert array.ndim == 1
+        assert array.shape[-1] == len(BoundingBoxSE3Index)
+        instance = object.__new__(cls)
+        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        return instance
 
-    @cached_property
+    @property
+    def center(self) -> StateSE3:
+        """The center of the bounding box as a StateSE3 instance.
+
+        :return: The center of the bounding box as a StateSE3 instance.
+        """
+        return StateSE3.from_array(self._array[BoundingBoxSE3Index.STATE_SE3])
+
+    @property
+    def center_se3(self) -> StateSE3:
+        """The center of the bounding box as a StateSE3 instance.
+
+        :return: The center of the bounding box as a StateSE3 instance.
+        """
+        return self.center
+
+    @property
+    def length(self) -> float:
+        """The length of the bounding box along the x-axis in the local frame.
+
+        :return: The length of the bounding box.
+        """
+        return self._array[BoundingBoxSE3Index.LENGTH]
+
+    @property
+    def width(self) -> float:
+        """The width of the bounding box along the y-axis in the local frame.
+
+        :return: The width of the bounding box.
+        """
+        return self._array[BoundingBoxSE3Index.WIDTH]
+
+    @property
+    def height(self) -> float:
+        """The height of the bounding box along the z-axis in the local frame.
+
+        :return: The height of the bounding box.
+        """
+        return self._array[BoundingBoxSE3Index.HEIGHT]
+
+    @property
     def array(self) -> npt.NDArray[np.float64]:
         """Convert the BoundingBoxSE3 instance to a numpy array.
 
         :return: A 1D numpy array containing the bounding box parameters, indexed by \
             :class:`~d123.geometry.BoundingBoxSE3Index`.
         """
-        array = np.zeros(len(BoundingBoxSE3Index), dtype=np.float64)
-        array[BoundingBoxSE3Index.X] = self.center.x
-        array[BoundingBoxSE3Index.Y] = self.center.y
-        array[BoundingBoxSE3Index.Z] = self.center.z
-        array[BoundingBoxSE3Index.ROLL] = self.center.roll
-        array[BoundingBoxSE3Index.PITCH] = self.center.pitch
-        array[BoundingBoxSE3Index.YAW] = self.center.yaw
-        array[BoundingBoxSE3Index.LENGTH] = self.length
-        array[BoundingBoxSE3Index.WIDTH] = self.width
-        array[BoundingBoxSE3Index.HEIGHT] = self.height
-        return array
+        return self._array
 
     @property
     def bounding_box_se2(self) -> BoundingBoxSE2:
@@ -161,19 +237,12 @@ class BoundingBoxSE3(ArrayMixin):
 
         :return: A BoundingBoxSE2 instance.
         """
+        center_se3 = self.center_se3
         return BoundingBoxSE2(
-            center=StateSE2(self.center.x, self.center.y, self.center.yaw),
+            center=StateSE2(center_se3.x, center_se3.y, center_se3.yaw),
             length=self.length,
             width=self.width,
         )
-
-    @property
-    def center_se3(self) -> StateSE3:
-        """Returns the center of the bounding box as a StateSE3 instance.
-
-        :return: The center of the bounding box as a StateSE3 instance.
-        """
-        return self.center
 
     @property
     def shapely_polygon(self) -> geom.Polygon:

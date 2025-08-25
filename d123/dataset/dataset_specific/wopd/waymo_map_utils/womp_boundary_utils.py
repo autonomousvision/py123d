@@ -67,7 +67,7 @@ def _collect_perpendicular_hits(
     perp_end_point = translate_along_yaw(lane_query_se2, Vector2D(0.0, sign * MAX_LANE_WIDTH / 2.0))
     perp_linestring = geom.LineString([[perp_start_point.x, perp_start_point.y], [perp_end_point.x, perp_end_point.y]])
 
-    lane_linestring = occupancy_2d.geometries[occupancy_2d.token_to_idx[lane_token]]
+    lane_linestring = occupancy_2d.geometries[occupancy_2d.id_to_idx[lane_token]]
 
     # 1. find intersecting lines, compute 3D distance
     intersecting_tokens = occupancy_2d.intersects(perp_linestring)
@@ -75,7 +75,7 @@ def _collect_perpendicular_hits(
     perpendicular_hits: List[PerpendicularHit] = []
     for intersecting_token in intersecting_tokens:
         intersecting_polyline_3d = get_polyline_from_token(polyline_dict, intersecting_token)
-        intersecting_linestring = occupancy_2d.geometries[occupancy_2d.token_to_idx[intersecting_token]]
+        intersecting_linestring = occupancy_2d.geometries[occupancy_2d.id_to_idx[intersecting_token]]
         centerline_hit_crossing: bool = (
             lane_linestring.intersects(intersecting_linestring) if intersecting_token.startswith("lane_") else False
         )
