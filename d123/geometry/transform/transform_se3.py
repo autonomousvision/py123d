@@ -4,7 +4,7 @@ import numpy as np
 import numpy.typing as npt
 
 from d123.geometry import StateSE3, StateSE3Index, Vector3D
-from d123.geometry.geometry_index import Vector3DIndex
+from d123.geometry.geometry_index import Point3DIndex, Vector3DIndex
 from d123.geometry.rotation import EulerAngles
 from d123.geometry.utils.rotation_utils import (
     get_rotation_matrices_from_euler_array,
@@ -14,6 +14,12 @@ from d123.geometry.utils.rotation_utils import (
 
 
 def translate_se3_along_z(state_se3: StateSE3, distance: float) -> StateSE3:
+    """Translates a SE3 state along the Z-axis.
+
+    :param state_se3: The SE3 state to translate.
+    :param distance: The distance to translate along the Z-axis.
+    :return: The translated SE3 state.
+    """
 
     R = state_se3.rotation_matrix
     z_axis = R[:, 2]
@@ -26,6 +32,12 @@ def translate_se3_along_z(state_se3: StateSE3, distance: float) -> StateSE3:
 
 
 def translate_se3_along_y(state_se3: StateSE3, distance: float) -> StateSE3:
+    """Translates a SE3 state along the Y-axis.
+
+    :param state_se3: The SE3 state to translate.
+    :param distance: The distance to translate along the Y-axis.
+    :return: The translated SE3 state.
+    """
 
     R = state_se3.rotation_matrix
     y_axis = R[:, 1]
@@ -38,6 +50,12 @@ def translate_se3_along_y(state_se3: StateSE3, distance: float) -> StateSE3:
 
 
 def translate_se3_along_x(state_se3: StateSE3, distance: float) -> StateSE3:
+    """Translates a SE3 state along the X-axis.
+
+    :param state_se3: The SE3 state to translate.
+    :param distance: The distance to translate along the X-axis.
+    :return: The translated SE3 state.
+    """
 
     R = state_se3.rotation_matrix
     x_axis = R[:, 0]
@@ -51,6 +69,13 @@ def translate_se3_along_x(state_se3: StateSE3, distance: float) -> StateSE3:
 
 
 def translate_body_frame(state_se3: StateSE3, vector_3d: Vector3D) -> StateSE3:
+    """Translates a SE3 state along a vector in the body frame.
+
+    :param state_se3: The SE3 state to translate.
+    :param vector_3d: The vector to translate along in the body frame.
+    :return: The translated SE3 state.
+    """
+
     R = state_se3.rotation_matrix
 
     # Transform to world frame
@@ -62,27 +87,16 @@ def translate_body_frame(state_se3: StateSE3, vector_3d: Vector3D) -> StateSE3:
     return StateSE3.from_array(state_se3_array)
 
 
-def convert_relative_to_absolute_points_3d_array(
-    origin: Union[StateSE3, npt.NDArray[np.float64]], points_3d_array: npt.NDArray[np.float64]
-) -> npt.NDArray[np.float64]:
-
-    # TODO: implement function for origin as np.ndarray
-    if isinstance(origin, StateSE3):
-        origin_array = origin.array
-    elif isinstance(origin, np.ndarray):
-        assert origin.ndim == 1 and origin.shape[-1] == len(StateSE3Index)
-        origin_array = origin
-    else:
-        raise TypeError(f"Expected StateSE3 or np.ndarray, got {type(origin)}")
-
-    R = EulerAngles.from_array(origin_array[StateSE3Index.EULER_ANGLES]).rotation_matrix
-    absolute_points = points_3d_array @ R.T + origin.point_3d.array
-    return absolute_points
-
-
 def convert_absolute_to_relative_se3_array(
     origin: Union[StateSE3, npt.NDArray[np.float64]], se3_array: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:
+    """Converts an SE3 array from the absolute frame to the relative frame.
+
+    :param origin: The origin state in the absolute frame, as a StateSE3 or np.ndarray.
+    :param se3_array: The SE3 array in the absolute frame.
+    :raises TypeError: If the origin is not a StateSE3 or np.ndarray.
+    :return: The SE3 array in the relative frame, indexed by :class:`~d123.geometry.StateSE3Index`.
+    """
     if isinstance(origin, StateSE3):
         origin_array = origin.array
         t_origin = origin.point_3d.array
@@ -95,6 +109,7 @@ def convert_absolute_to_relative_se3_array(
     else:
         raise TypeError(f"Expected StateSE3 or np.ndarray, got {type(origin)}")
 
+    assert se3_array.ndim >= 1
     assert se3_array.shape[-1] == len(StateSE3Index)
 
     # Extract positions and orientations from se3_array
@@ -126,6 +141,14 @@ def convert_absolute_to_relative_se3_array(
 def convert_relative_to_absolute_se3_array(
     origin: StateSE3, se3_array: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:
+    """Converts an SE3 array from the relative frame to the absolute frame.
+
+    :param origin: The origin state in the relative frame, as a StateSE3 or np.ndarray.
+    :param se3_array: The SE3 array in the relative frame.
+    :raises TypeError: If the origin is not a StateSE3 or np.ndarray.
+    :return: The SE3 array in the absolute frame, indexed by :class:`~d123.geometry.StateSE3Index`.
+    """
+
     if isinstance(origin, StateSE3):
         origin_array = origin.array
         t_origin = origin.point_3d.array
@@ -137,6 +160,8 @@ def convert_relative_to_absolute_se3_array(
         R_origin = get_rotation_matrix_from_euler_array(origin_array[StateSE3Index.EULER_ANGLES])
     else:
         raise TypeError(f"Expected StateSE3 or np.ndarray, got {type(origin)}")
+
+    assert se3_array.ndim >= 1
     assert se3_array.shape[-1] == len(StateSE3Index)
 
     # Extract relative positions and orientations
@@ -161,6 +186,13 @@ def convert_relative_to_absolute_se3_array(
 def convert_absolute_to_relative_points_3d_array(
     origin: Union[StateSE3, npt.NDArray[np.float64]], points_3d_array: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:
+    """Converts 3D points from the absolute frame to the relative frame.
+
+    :param origin: The origin state in the absolute frame, as a StateSE3 or np.ndarray.
+    :param points_3d_array: The 3D points in the absolute frame.
+    :raises TypeError: If the origin is not a StateSE3 or np.ndarray.
+    :return: The 3D points in the relative frame    , indexed by :class:`~d123.geometry.Point3DIndex`.
+    """
 
     if isinstance(origin, StateSE3):
         t_origin = origin.point_3d.array
@@ -172,6 +204,34 @@ def convert_absolute_to_relative_points_3d_array(
     else:
         raise TypeError(f"Expected StateSE3 or np.ndarray, got {type(origin)}")
 
+    assert points_3d_array.ndim >= 1
+    assert points_3d_array.shape[-1] == len(Point3DIndex)
+
     # Translate points to origin frame, then rotate to body frame
     relative_points = (points_3d_array - t_origin) @ R_origin
     return relative_points
+
+
+def convert_relative_to_absolute_points_3d_array(
+    origin: Union[StateSE3, npt.NDArray[np.float64]], points_3d_array: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
+    """Converts 3D points from the relative frame to the absolute frame.
+
+    :param origin: The origin state in the absolute frame, as a StateSE3 or np.ndarray.
+    :param points_3d_array: The 3D points in the relative frame, indexed by :class:`~d123.geometry.Point3DIndex`.
+    :raises TypeError: If the origin is not a StateSE3 or np.ndarray.
+    :return: The 3D points in the absolute frame, indexed by :class:`~d123.geometry.Point3DIndex`.
+    """
+    if isinstance(origin, StateSE3):
+        origin_array = origin.array
+    elif isinstance(origin, np.ndarray):
+        assert origin.ndim == 1 and origin.shape[-1] == len(StateSE3Index)
+        origin_array = origin
+    else:
+        raise TypeError(f"Expected StateSE3 or np.ndarray, got {type(origin)}")
+
+    assert points_3d_array.shape[-1] == len(Point3DIndex)
+
+    R = EulerAngles.from_array(origin_array[StateSE3Index.EULER_ANGLES]).rotation_matrix
+    absolute_points = points_3d_array @ R.T + origin.point_3d.array
+    return absolute_points
