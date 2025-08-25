@@ -243,26 +243,6 @@ def get_camera_values(
     return camera_position, camera_rotation, camera
 
 
-def _get_ego_frame_pose(scene: AbstractScene, iteration: int) -> StateSE3:
-
-    initial_point_3d = scene.get_ego_state_at_iteration(0).center_se3.point_3d
-    state_se3 = scene.get_ego_state_at_iteration(iteration).center_se3
-
-    state_se3.x = state_se3.x - initial_point_3d.x
-    state_se3.y = state_se3.y - initial_point_3d.y
-    state_se3.z = state_se3.z - initial_point_3d.z
-
-    return state_se3
-
-
-def euler_to_quaternion_scipy(roll: float, pitch: float, yaw: float) -> npt.NDArray[np.float64]:
-    from scipy.spatial.transform import Rotation
-
-    r = Rotation.from_euler("xyz", [roll, pitch, yaw], degrees=False)
-    quat = r.as_quat(scalar_first=True)
-    return quat
-
-
 def get_lidar_points(
     scene: AbstractScene, iteration: int, lidar_types: List[LiDARType]
 ) -> Tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]:

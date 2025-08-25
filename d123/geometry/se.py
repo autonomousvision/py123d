@@ -267,7 +267,7 @@ class StateSE3(ArrayMixin):
         rotation_matrix = self.rotation_matrix
         transformation_matrix = np.eye(4, dtype=np.float64)
         transformation_matrix[:3, :3] = rotation_matrix
-        transformation_matrix[3, :3] = self.array[StateSE3Index.XYZ]
+        transformation_matrix[:3, 3] = self.array[StateSE3Index.XYZ]
         return transformation_matrix
 
     @property
