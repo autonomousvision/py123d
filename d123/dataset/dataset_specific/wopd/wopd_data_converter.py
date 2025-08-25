@@ -14,7 +14,6 @@ import tensorflow as tf
 from pyquaternion import Quaternion
 from waymo_open_dataset import dataset_pb2
 
-from d123.common.datatypes.detection.detection import TrafficLightStatus
 from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
@@ -28,8 +27,11 @@ from d123.dataset.dataset_specific.wopd.waymo_map_utils.wopd_map_utils import co
 from d123.dataset.dataset_specific.wopd.wopd_utils import parse_range_image_and_camera_projection
 from d123.dataset.logs.log_metadata import LogMetadata
 from d123.geometry import BoundingBoxSE3Index, Point3D, StateSE3, Vector3D, Vector3DIndex
-from d123.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array, get_rotation_matrix
+from d123.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array
 from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
+
+# TODO: Make keep_polar_features an optional argument.
+# With polar features, the lidar loading time is SIGNIFICANTLY higher.
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 D123_MAPS_ROOT = Path(os.environ.get("D123_MAPS_ROOT"))
@@ -37,11 +39,6 @@ D123_MAPS_ROOT = Path(os.environ.get("D123_MAPS_ROOT"))
 TARGET_DT: Final[float] = 0.1
 SORT_BY_TIMESTAMP: Final[bool] = False
 
-NUPLAN_TRAFFIC_STATUS_DICT: Final[Dict[str, TrafficLightStatus]] = {
-    "green": TrafficLightStatus.GREEN,
-    "red": TrafficLightStatus.RED,
-    "unknown": TrafficLightStatus.UNKNOWN,
-}
 
 # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/label.proto#L63
 WOPD_DETECTION_NAME_DICT: Dict[int, DetectionType] = {
@@ -248,9 +245,7 @@ def convert_wopd_tfrecord_log_to_arrow(
                         if data_converter_config.lidar_store_option == "path":
                             raise NotImplementedError("Filepath lidar storage is not implemented.")
                         elif data_converter_config.lidar_store_option == "binary":
-                            schema_column_list.append(
-                                (lidar_type.serialize(), pa.list_(pa.list_(pa.float32(), len(WopdLidarIndex))))
-                            )
+                            schema_column_list.append((lidar_type.serialize(), (pa.list_(pa.float32()))))
 
                 recording_schema = pa.schema(schema_column_list)
                 recording_schema = recording_schema.with_metadata(
@@ -491,16 +486,14 @@ def _extract_camera(
         transform = np.array(calibration.extrinsic.transform).reshape(4, 4)
 
         # FIXME: This is an ugly hack to convert to uniform camera convention.
-        flip_camera = get_rotation_matrix(
-            StateSE3(
-                x=0.0,
-                y=0.0,
-                z=0.0,
-                roll=np.deg2rad(0.0),
-                pitch=np.deg2rad(90.0),
-                yaw=np.deg2rad(-90.0),
-            )
-        )
+        flip_camera = StateSE3(
+            x=0.0,
+            y=0.0,
+            z=0.0,
+            roll=np.deg2rad(0.0),
+            pitch=np.deg2rad(90.0),
+            yaw=np.deg2rad(-90.0),
+        ).rotation_matrix
         transform[:3, :3] = transform[:3, :3] @ flip_camera
         context_extrinsic[camera_type] = transform
 
@@ -533,12 +526,12 @@ def _extract_lidar(
         range_images=range_images,
         camera_projections=camera_projections,
         range_image_top_pose=range_image_top_pose,
-        keep_polar_features=True,
+        keep_polar_features=False,
     )
 
     lidar_data: Dict[LiDARType, npt.NDArray[np.float32]] = {}
     for lidar_idx, frame_lidar in enumerate(frame.lasers):
         lidar_type = WOPD_LIDAR_TYPES[frame_lidar.name]
-        lidar_data[lidar_type] = np.array(points[lidar_idx], dtype=np.float32)
+        lidar_data[lidar_type] = np.array(points[lidar_idx], dtype=np.float32).flatten()
 
     return lidar_data

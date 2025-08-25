@@ -49,7 +49,7 @@ VISUALIZE_CAMERA_GUI: List[CameraType] = [CameraType.CAM_F0]
 CAMERA_SCALE: float = 1.0
 
 # Lidar config:
-LIDAR_AVAILABLE: bool = False
+LIDAR_AVAILABLE: bool = True
 
 LIDAR_TYPES: List[LiDARType] = [
     LiDARType.LIDAR_MERGED,

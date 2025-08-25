@@ -6,7 +6,7 @@ import numpy.typing as npt
 import shapely.geometry as geom
 
 from d123.geometry import OccupancyMap2D, Point3D, Polyline3D, PolylineSE2, StateSE2, Vector2D
-from d123.geometry.transform.tranform_2d import translate_along_yaw
+from d123.geometry.transform.transform_se2 import translate_se2_along_yaw
 from d123.geometry.utils.rotation_utils import normalize_angle
 
 MAX_LANE_WIDTH = 25.0  # meters
@@ -64,7 +64,7 @@ def _collect_perpendicular_hits(
     assert sign in [1.0, -1.0], "Sign must be either 1.0 (left) or -1.0 (right)"
     # perp_start_point = translate_along_yaw(lane_query_se2, Vector2D(0.0, sign * PERP_START_OFFSET))
     perp_start_point = lane_query_se2
-    perp_end_point = translate_along_yaw(lane_query_se2, Vector2D(0.0, sign * MAX_LANE_WIDTH / 2.0))
+    perp_end_point = translate_se2_along_yaw(lane_query_se2, Vector2D(0.0, sign * MAX_LANE_WIDTH / 2.0))
     perp_linestring = geom.LineString([[perp_start_point.x, perp_start_point.y], [perp_end_point.x, perp_end_point.y]])
 
     lane_linestring = occupancy_2d.geometries[occupancy_2d.id_to_idx[lane_token]]
@@ -261,7 +261,9 @@ def extract_lane_boundaries(
                 lane_query_se2: StateSE2, lane_query_3d: Point3D, sign: float
             ) -> Point3D:
                 perp_boundary_distance = DEFAULT_LANE_WIDTH / 2.0
-                boundary_point_se2 = translate_along_yaw(lane_query_se2, Vector2D(0.0, sign * perp_boundary_distance))
+                boundary_point_se2 = translate_se2_along_yaw(
+                    lane_query_se2, Vector2D(0.0, sign * perp_boundary_distance)
+                )
                 return Point3D(boundary_point_se2.x, boundary_point_se2.y, lane_query_3d.z)
 
             if no_boundary_ratio > 0.8:

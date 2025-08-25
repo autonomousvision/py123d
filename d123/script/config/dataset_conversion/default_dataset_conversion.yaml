@@ -17,8 +17,8 @@ defaults:
   - datasets:
     # - nuplan_private_dataset
     # - carla_dataset
-    # - wopd_dataset
-    - av2_sensor_dataset
+    - wopd_dataset
+    # - av2_sensor_dataset
 
 force_log_conversion: True
 force_map_conversion: True

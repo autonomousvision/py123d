@@ -157,10 +157,12 @@ def get_lidar_from_arrow_table(
             raise NotImplementedError(f"Loading LiDAR data for dataset {log_metadata.dataset} is not implemented.")
 
     else:
+        # FIXME: This is a temporary fix for WOPD dataset. The lidar data is stored as a flattened array of float32.
+        # Ideally the lidar index should handle the dimension. But for now we hardcode it here.
+        lidar_data = np.array(lidar_data, dtype=np.float32).reshape(-1, 3)
+        lidar_data = np.concatenate([np.zeros_like(lidar_data), lidar_data], axis=-1)
         if log_metadata.dataset == "wopd":
-            lidar_data = np.array(lidar_data, dtype=np.float64)
             lidar = LiDAR(metadata=lidar_metadata, point_cloud=lidar_data.T)
         else:
             raise NotImplementedError("Only string file paths for lidar data are supported.")
-
     return lidar
