@@ -105,14 +105,13 @@ class Polyline2D(ArrayMixin):
         :param distances: The distances at which to interpolate the polyline.
         :return: The interpolated point(s) on the polyline.
         """
-        distances_ = distances * self.length if normalized else distances
 
         if isinstance(distances, float) or isinstance(distances, int):
-            point = self.linestring.interpolate(distances_, normalized=normalized)
+            point = self.linestring.interpolate(distances, normalized=normalized)
             return Point2D(point.x, point.y)
         else:
-            distances = np.asarray(distances_, dtype=np.float64)
-            points = self.linestring.interpolate(distances_, normalized=normalized)
+            distances_ = np.asarray(distances, dtype=np.float64)
+            points = self.linestring.interpolate(distances, normalized=normalized)
             return np.array([[p.x, p.y] for p in points], dtype=np.float64)
 
     def project(
@@ -126,12 +125,10 @@ class Polyline2D(ArrayMixin):
         :param normalized: Whether to return the normalized distance, defaults to False.
         :return: The distance along the polyline to the closest point.
         """
-        if isinstance(point, Point2D):
-            point_ = point.array
-        elif isinstance(point, StateSE2):
-            point_ = point.array[StateSE2Index.XY]
+        if isinstance(point, Point2D) or isinstance(point, StateSE2):
+            point_ = point.shapely_point
         elif isinstance(point, geom.Point):
-            point_ = np.array(point.coords[0], dtype=np.float64)
+            point_ = point
         else:
             point_ = np.array(point, dtype=np.float64)
         return self.linestring.project(point_, normalized=normalized)
@@ -241,12 +238,10 @@ class PolylineSE2(ArrayMixin):
         :param normalized: Whether to return the normalized distance, defaults to False.
         :return: The distance along the polyline to the closest point.
         """
-        if isinstance(point, Point2D):
-            point_ = point.array
-        elif isinstance(point, StateSE2):
-            point_ = point.array[StateSE2Index.XY]
+        if isinstance(point, Point2D) or isinstance(point, StateSE2):
+            point_ = point.shapely_point
         elif isinstance(point, geom.Point):
-            point_ = np.array(point.coords[0], dtype=np.float64)
+            point_ = point
         else:
             point_ = np.array(point, dtype=np.float64)
         return self.linestring.project(point_, normalized=normalized)
@@ -327,14 +322,13 @@ class Polyline3D(ArrayMixin):
         :param normalized: Whether to interpret the distances as fractions of the length.
         :return: A Point3D instance or a numpy array of shape (N, 3) representing the interpolated points.
         """
-        distances * self.length if normalized else distances
 
         if isinstance(distances, float) or isinstance(distances, int):
-            point = self.linestring.interpolate(distances)
+            point = self.linestring.interpolate(distances, normalized=normalized)
             return Point3D(point.x, point.y, point.z)
         else:
             distances = np.asarray(distances, dtype=np.float64)
-            points = self.linestring.interpolate(distances)
+            points = self.linestring.interpolate(distances, normalized=normalized)
             return np.array([[p.x, p.y, p.z] for p in points], dtype=np.float64)
 
     def project(
@@ -348,14 +342,10 @@ class Polyline3D(ArrayMixin):
         :param normalized: Whether to return normalized distances, defaults to False.
         :return: The distance along the polyline to the closest point.
         """
-        if isinstance(point, Point2D):
-            point_ = point.array
-        elif isinstance(point, StateSE2):
-            point_ = point.array[StateSE2Index.XY]
-        elif isinstance(point, Point3D):
-            point_ = point.array[Point3DIndex.XYZ]
+        if isinstance(point, Point2D) or isinstance(point, StateSE2) or isinstance(point, Point3D):
+            point_ = point.shapely_point
         elif isinstance(point, geom.Point):
-            point_ = np.array(point.coords[0], dtype=np.float64)
+            point_ = point
         else:
             point_ = np.array(point, dtype=np.float64)
         return self.linestring.project(point_, normalized=normalized)

@@ -3,6 +3,7 @@ from __future__ import annotations
 from ast import Dict
 from dataclasses import dataclass
 from functools import cached_property
+from typing import Union
 
 import numpy as np
 import numpy.typing as npt
@@ -202,4 +203,4 @@ class BoundingBoxSE3(ArrayMixin):
         return {index: Point3D.from_array(corners_array[index]) for index in Corners3DIndex}
 
 
-BoundingBox = BoundingBoxSE2 | BoundingBoxSE3
+BoundingBox = Union[BoundingBoxSE2, BoundingBoxSE3]

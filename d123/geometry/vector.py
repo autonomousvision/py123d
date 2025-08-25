@@ -6,11 +6,11 @@ from typing import Iterable
 import numpy as np
 import numpy.typing as npt
 
+from d123.common.utils.mixin import ArrayMixin
 from d123.geometry.geometry_index import Vector2DIndex, Vector3DIndex
 
 
-@dataclass
-class Vector2D:
+class Vector2D(ArrayMixin):
     """
     Class to represents 2D vectors, in x, y direction.
 
@@ -26,21 +26,45 @@ class Vector2D:
         5.0
     """
 
-    x: float  # [m] x-component of the vector
-    y: float  # [m] y-component of the vector
-    __slots__ = "x", "y"
+    _array: npt.NDArray[np.float64]
+
+    def __init__(self, x: float, y: float):
+        """Initialize Vector2D with x, y components."""
+        array = np.zeros(len(Vector2DIndex), dtype=np.float64)
+        array[Vector2DIndex.X] = x
+        array[Vector2DIndex.Y] = y
+        object.__setattr__(self, "_array", array)
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64]) -> Vector2D:
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> Vector2D:
         """Constructs a Vector2D from a numpy array.
 
         :param array: Array of shape (2,) representing the vector components [x, y], indexed by \
             :class:`~d123.geometry.Vector2DIndex`.
+        :param copy: Whether to copy the input array. Defaults to True.
         :return: A Vector2D instance.
         """
         assert array.ndim == 1
         assert array.shape[0] == len(Vector2DIndex)
-        return Vector2D(array[Vector2DIndex.X], array[Vector2DIndex.Y])
+        instance = object.__new__(cls)
+        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        return instance
+
+    @property
+    def x(self) -> float:
+        """The x component of the vector.
+
+        :return: The x component of the vector.
+        """
+        return self._array[Vector2DIndex.X]
+
+    @property
+    def y(self) -> float:
+        """The y component of the vector.
+
+        :return: The y component of the vector.
+        """
+        return self._array[Vector2DIndex.Y]
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
@@ -112,7 +136,7 @@ class Vector2D:
 
 
 @dataclass
-class Vector3D:
+class Vector3D(ArrayMixin):
     """
     Class to represents 3D vectors, in x, y, z direction.
 
@@ -128,21 +152,53 @@ class Vector3D:
         3.7416573867739413
     """
 
-    x: float  # [m] x-component of the vector
-    y: float  # [m] y-component of the vector
-    z: float  # [m] z-component of the vector
-    __slots__ = "x", "y", "z"
+    _array: npt.NDArray[np.float64]
+
+    def __init__(self, x: float, y: float, z: float):
+        """Initialize Vector3D with x, y, z components."""
+        array = np.zeros(len(Vector3DIndex), dtype=np.float64)
+        array[Vector3DIndex.X] = x
+        array[Vector3DIndex.Y] = y
+        array[Vector3DIndex.Z] = z
+        object.__setattr__(self, "_array", array)
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64]) -> Vector3D:
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> Vector3D:
         """Constructs a Vector3D from a numpy array.
 
         :param array: Array of shape (3,), indexed by :class:`~d123.geometry.geometry_index.Vector3DIndex`.
+        :param copy: Whether to copy the input array. Defaults to True.
         :return: A Vector3D instance.
         """
         assert array.ndim == 1
         assert array.shape[0] == len(Vector3DIndex)
-        return Vector3D(array[Vector3DIndex.X], array[Vector3DIndex.Y], array[Vector3DIndex.Z])
+        instance = object.__new__(cls)
+        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        return instance
+
+    @property
+    def x(self) -> float:
+        """The x component of the vector.
+
+        :return: The x component of the vector.
+        """
+        return self._array[Vector3DIndex.X]
+
+    @property
+    def y(self) -> float:
+        """The y component of the vector.
+
+        :return: The y component of the vector.
+        """
+        return self._array[Vector3DIndex.Y]
+
+    @property
+    def z(self) -> float:
+        """The z component of the vector.
+
+        :return: The z component of the vector.
+        """
+        return self._array[Vector3DIndex.Z]
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
@@ -152,11 +208,7 @@ class Vector3D:
         :return: A numpy array representing the vector components [x, y, z], indexed by \
             :class:`~d123.geometry.geometry_index.Vector3DIndex`.
         """
-        array = np.zeros(len(Vector3DIndex), dtype=np.float64)
-        array[Vector3DIndex.X] = self.x
-        array[Vector3DIndex.Y] = self.y
-        array[Vector3DIndex.Z] = self.z
-        return array
+        return self._array
 
     @property
     def magnitude(self) -> float:

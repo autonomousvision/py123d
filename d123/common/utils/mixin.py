@@ -1,20 +1,18 @@
 from __future__ import annotations
 
-import abc
 import copy as pycopy
-from functools import cached_property
 
 import numpy as np
 import numpy.typing as npt
 
 
-class ArrayMixin(abc.ABC):
+class ArrayMixin:
     """Abstract base class for geometric entities."""
 
-    @cached_property
-    @abc.abstractmethod
+    @property
     def array(self) -> npt.NDArray[np.float64]:
         """The array representation of the geometric entity."""
+        raise NotImplementedError
 
     def __array__(self, dtype: npt.DtypeLike = None, copy: bool = False) -> npt.NDArray:
         array = self.array
@@ -34,6 +32,7 @@ class ArrayMixin(abc.ABC):
             return np.array_equal(self.array, other.array)
         return False
 
+    @property
     def shape(self) -> tuple:
         """Return the shape of the array."""
         return self.array.shape

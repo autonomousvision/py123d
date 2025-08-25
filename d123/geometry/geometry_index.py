@@ -71,6 +71,27 @@ class Vector3DIndex(IntEnum):
     Z = 2
 
 
+class EulerAnglesIndex(IntEnum):
+    """
+    Indexes array-like representations of Euler angles (roll,pitch,yaw).
+    """
+
+    ROLL = 0
+    PITCH = 1
+    YAW = 2
+
+
+class QuaternionIndex(IntEnum):
+    """
+    Indexes array-like representations of quaternions (qw,qx,qy,qz).
+    """
+
+    QW = 0
+    QX = 1
+    QY = 2
+    QZ = 3
+
+
 class StateSE3Index(IntEnum):
     """
     Indexes array-like representations of SE3 states (x,y,z,roll,pitch,yaw).
@@ -95,6 +116,32 @@ class StateSE3Index(IntEnum):
     @classproperty
     def ROTATION_XYZ(cls) -> slice:
         return slice(cls.ROLL, cls.YAW + 1)
+
+
+class QuaternionSE3Index(IntEnum):
+    """
+    Indexes array-like representations of SE3 states with quaternions (x,y,z,qw,qx,qy,qz).
+    """
+
+    X = 0
+    Y = 1
+    Z = 2
+    QW = 3
+    QX = 4
+    QY = 5
+    QZ = 6
+
+    @classproperty
+    def XY(cls) -> slice:
+        return slice(cls.X, cls.Y + 1)
+
+    @classproperty
+    def XYZ(cls) -> slice:
+        return slice(cls.X, cls.Z + 1)
+
+    @classproperty
+    def QUATERNION(cls) -> slice:
+        return slice(cls.QW, cls.QZ + 1)
 
 
 class BoundingBoxSE2Index(IntEnum):

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from functools import cached_property
 from typing import Iterable
 
@@ -12,41 +11,57 @@ from d123.common.utils.mixin import ArrayMixin
 from d123.geometry.geometry_index import Point2DIndex, Point3DIndex
 
 
-@dataclass
 class Point2D(ArrayMixin):
-    """Class to represents 2D points.
+    """Class to represents 2D points."""
 
-    :return: A Point2D instance.
-    """
+    _array: npt.NDArray[np.float64]
 
-    x: float  # [m] location
-    y: float  # [m] location
-    __slots__ = "x", "y"
+    def __init__(self, x: float, y: float):
+        """Initialize StateSE2 with x, y, yaw coordinates."""
+        array = np.zeros(len(Point2DIndex), dtype=np.float64)
+        array[Point2DIndex.X] = x
+        array[Point2DIndex.Y] = y
+        object.__setattr__(self, "_array", array)
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64]) -> Point2D:
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> Point2D:
         """Constructs a Point2D from a numpy array.
 
         :param array: Array of shape (2,) representing the point coordinates [x, y], indexed by \
             :class:`~d123.geometry.Point2DIndex`.
+        :param copy: Whether to copy the input array. Defaults to True.
         :return: A Point2D instance.
         """
-
         assert array.ndim == 1
         assert array.shape[0] == len(Point2DIndex)
-        return Point2D(array[Point2DIndex.X], array[Point2DIndex.Y])
+        instance = object.__new__(cls)
+        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        return instance
 
-    @cached_property
+    @property
+    def x(self) -> float:
+        """The x coordinate of the point.
+
+        :return: The x coordinate of the point.
+        """
+        return self._array[Point2DIndex.X]
+
+    @property
+    def y(self) -> float:
+        """The y coordinate of the point.
+
+        :return: The y coordinate of the point.
+        """
+        return self._array[Point2DIndex.Y]
+
+    @property
     def array(self) -> npt.NDArray[np.float64]:
         """The array representation of the point.
 
         :return: A numpy array of shape (2,) containing the point coordinates [x, y], indexed by \
             :class:`~d123.geometry.Point2DIndex`.
         """
-        array = np.zeros(len(Point2DIndex), dtype=np.float64)
-        array[Point2DIndex.X] = self.x
-        array[Point2DIndex.Y] = self.y
-        return array
+        return self._array
 
     @property
     def shapely_point(self) -> geom.Point:
@@ -65,40 +80,66 @@ class Point2D(ArrayMixin):
         return hash((self.x, self.y))
 
 
-@dataclass
 class Point3D(ArrayMixin):
     """Class to represents 3D points."""
 
-    x: float  # [m] location
-    y: float  # [m] location
-    z: float  # [m] location
-    __slots__ = "x", "y", "z"
+    _array: npt.NDArray[np.float64]
+
+    def __init__(self, x: float, y: float, z: float):
+        """Initialize Point3D with x, y, z coordinates."""
+        array = np.zeros(len(Point3DIndex), dtype=np.float64)
+        array[Point3DIndex.X] = x
+        array[Point3DIndex.Y] = y
+        array[Point3DIndex.Z] = z
+        object.__setattr__(self, "_array", array)
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64]) -> "Point3D":
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> Point3D:
         """Constructs a Point3D from a numpy array.
 
         :param array: Array of shape (3,) representing the point coordinates [x, y, z], indexed by \
             :class:`~d123.geometry.Point3DIndex`.
+        :param copy: Whether to copy the input array. Defaults to True.
         :return: A Point3D instance.
         """
-        assert array.ndim == 1, f"Array must be 1-dimensional, got shape {array.shape}"
-        assert array.shape[0] == len(
-            Point3DIndex
-        ), f"Array must have the same length as Point3DIndex, got shape {array.shape}"
-        return cls(array[Point3DIndex.X], array[Point3DIndex.Y], array[Point3DIndex.Z])
+        assert array.ndim == 1
+        assert array.shape[0] == len(Point3DIndex)
+        instance = object.__new__(cls)
+        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        return instance
 
     @cached_property
     def array(self) -> npt.NDArray[np.float64]:
-        """Converts the Point3D instance to a numpy array, indexed by :class:`~d123.geometry.Point3DIndex`.
+        """The array representation of the point.
 
-        :return: A numpy array of shape (3,) containing the point coordinates [x, y, z].
+        :return: A numpy array of shape (3,) containing the point coordinates [x, y, z], indexed by \
+            :class:`~d123.geometry.Point3DIndex`.
         """
-        array = np.zeros(len(Point3DIndex), dtype=np.float64)
-        array[Point3DIndex.X] = self.x
-        array[Point3DIndex.Y] = self.y
-        array[Point3DIndex.Z] = self.z
-        return array
+        return self._array
+
+    @property
+    def x(self) -> float:
+        """The x coordinate of the point.
+
+        :return: The x coordinate of the point.
+        """
+        return self._array[Point3DIndex.X]
+
+    @property
+    def y(self) -> float:
+        """The y coordinate of the point.
+
+        :return: The y coordinate of the point.
+        """
+        return self._array[Point3DIndex.Y]
+
+    @property
+    def z(self) -> float:
+        """The z coordinate of the point.
+
+        :return: The z coordinate of the point.
+        """
+        return self._array[Point3DIndex.Z]
 
     @property
     def point_2d(self) -> Point2D:
@@ -106,7 +147,7 @@ class Point3D(ArrayMixin):
 
         :return: A Point2D instance representing the 2D projection of the 3D point.
         """
-        return Point2D(self.x, self.y)
+        return Point2D.from_array(self.array[Point3DIndex.XY], copy=False)
 
     @property
     def shapely_point(self) -> geom.Point:

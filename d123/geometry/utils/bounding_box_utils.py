@@ -29,14 +29,30 @@ def bbse2_array_to_corners_array(bbse2: npt.NDArray[np.float64]) -> npt.NDArray[
     half_length = bbse2[..., BoundingBoxSE2Index.LENGTH] / 2.0
     half_width = bbse2[..., BoundingBoxSE2Index.WIDTH] / 2.0
 
-    corners_array[..., Corners2DIndex.FRONT_LEFT, :] = translate_along_yaw_array(centers, yaws, half_length, half_width)
+    corners_array[..., Corners2DIndex.FRONT_LEFT, :] = translate_along_yaw_array(
+        centers,
+        yaws,
+        half_length,
+        half_width,
+    )
     corners_array[..., Corners2DIndex.FRONT_RIGHT, :] = translate_along_yaw_array(
-        centers, yaws, half_length, -half_width
+        centers,
+        yaws,
+        half_length,
+        -half_width,
     )
     corners_array[..., Corners2DIndex.BACK_RIGHT, :] = translate_along_yaw_array(
-        centers, yaws, -half_length, -half_width
+        centers,
+        yaws,
+        -half_length,
+        -half_width,
     )
-    corners_array[..., Corners2DIndex.BACK_LEFT, :] = translate_along_yaw_array(centers, yaws, -half_length, half_width)
+    corners_array[..., Corners2DIndex.BACK_LEFT, :] = translate_along_yaw_array(
+        centers,
+        yaws,
+        -half_length,
+        half_width,
+    )
 
     return corners_array.squeeze(axis=0) if ndim_one else corners_array
 
