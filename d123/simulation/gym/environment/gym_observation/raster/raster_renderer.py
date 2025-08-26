@@ -12,10 +12,10 @@ from shapely import LineString, Polygon, union_all
 from shapely.affinity import scale as shapely_scale
 
 from d123.common.datatypes.detection.detection import BoxDetectionSE2, TrafficLightStatus
-from d123.common.geometry.base import StateSE2
-from d123.common.geometry.transform.se2_array import convert_absolute_to_relative_point_2d_array
-from d123.common.geometry.transform.tranform_2d import translate_along_yaw
-from d123.common.geometry.vector import Vector2D
+from d123.geometry.se import StateSE2
+from d123.geometry.transform.tranform_2d import translate_along_yaw
+from d123.geometry.transform.transform_se2 import convert_absolute_to_relative_point_2d_array
+from d123.geometry.vector import Vector2D
 from d123.simulation.gym.environment.helper.environment_area import AbstractEnvironmentArea, RectangleEnvironmentArea
 from d123.simulation.gym.environment.helper.environment_cache import BoxDetectionCache, MapCache
 
@@ -318,11 +318,11 @@ class RasterRenderer:
         :param agent: Agent object containing the state and velocity.
         :param color: Integer value of color
         """
-        if box_detection.velocity.magnitude() > self._meter_per_pixel:
+        if box_detection.velocity.magnitude > self._meter_per_pixel:
             future = translate_along_yaw(
                 pose=box_detection.center,
                 translation=Vector2D(
-                    x=box_detection.bounding_box_se2.half_length + box_detection.velocity.magnitude(),
+                    x=box_detection.bounding_box_se2.half_length + box_detection.velocity.magnitude,
                     y=0.0,
                 ),
             )
@@ -445,7 +445,7 @@ class RasterRenderer:
             polygon: Polygon = self._scale_polygon(vehicle.bounding_box_se2.shapely_polygon, self._vehicle_scaling)
             self._render_convex_polygons(mask, box_detection_cache.origin, [polygon], color=MAX_VALUE)
             vehicles_raster[mask > 0] = self._scale_to_color(
-                vehicle.velocity.magnitude(),
+                vehicle.velocity.magnitude,
                 self._max_vehicle_speed,
             )
             mask.fill(0)
@@ -460,7 +460,7 @@ class RasterRenderer:
             )
             self._render_convex_polygons(mask, box_detection_cache.origin, [polygon], color=MAX_VALUE)
             pedestrians_raster[mask > 0] = self._scale_to_color(
-                pedestrian.velocity.magnitude(),
+                pedestrian.velocity.magnitude,
                 self._max_pedestrian_speed,
             )
             mask.fill(0)
@@ -484,7 +484,7 @@ class RasterRenderer:
 
         ego_polygon: Polygon = self._scale_polygon(ego_detection.shapely_polygon, self._vehicle_scaling)
         self._render_convex_polygons(mask, box_detection_cache.origin, [ego_polygon], color=MAX_VALUE)
-        ego_raster[mask > 0] = self._scale_to_color(ego_detection.velocity.magnitude(), self._max_vehicle_speed)
+        ego_raster[mask > 0] = self._scale_to_color(ego_detection.velocity.magnitude, self._max_vehicle_speed)
         mask.fill(0)
 
         return [vehicles_raster, pedestrians_raster, ego_raster]

@@ -1,5 +1,5 @@
 from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE2, EgoStateSE2
-from d123.common.geometry.vector import Vector2D
+from d123.geometry.vector import Vector2D
 from d123.simulation.planning.planner_output.abstract_planner_output import AbstractPlannerOutput
 
 

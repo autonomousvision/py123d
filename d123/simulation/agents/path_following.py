@@ -3,12 +3,13 @@ from abc import abstractmethod
 from typing import Dict, List, Optional
 
 from d123.common.datatypes.detection.detection import BoxDetection, BoxDetectionSE2
-from d123.common.geometry.base import Point2D, StateSE2
-from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE2
-from d123.common.geometry.line.polylines import PolylineSE2
-from d123.common.geometry.transform.tranform_2d import translate_along_yaw
 from d123.dataset.maps.abstract_map import AbstractMap
 from d123.dataset.scene.abstract_scene import AbstractScene
+from d123.geometry.bounding_box import BoundingBoxSE2
+from d123.geometry.point import Point2D
+from d123.geometry.polyline import PolylineSE2
+from d123.geometry.se import StateSE2
+from d123.geometry.transform.tranform_2d import translate_along_yaw
 from d123.simulation.agents.abstract_agents import AbstractAgents
 
 
@@ -71,7 +72,7 @@ class PathFollowingAgents(AbstractAgents):
         time_delta_s = self._timestep_s * self._current_iteration
         current_target_agents = []
         for initial_agent in self._initial_target_agents:
-            speed: float = float(initial_agent.velocity.vector_2d.magnitude())
+            speed: float = float(initial_agent.velocity.vector_2d.magnitude)
 
             propagate_distance = speed * time_delta_s
             propagated_center = self._agent_paths[initial_agent.metadata.track_token].interpolate(propagate_distance)

@@ -22,10 +22,8 @@ from d123.common.datatypes.vehicle_state.vehicle_parameters import (
     rear_axle_se2_to_center_se2,
     rear_axle_se3_to_center_se3,
 )
-from d123.common.geometry.base import StateSE2, StateSE3
-from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
-from d123.common.geometry.vector import Vector2D, Vector3D
 from d123.common.utils.enums import classproperty
+from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, StateSE2, StateSE3, Vector2D, Vector3D
 
 # TODO: Find an appropriate way to handle SE2 and SE3 states.
 

@@ -1,7 +1,8 @@
-from d123.common.geometry.base import StateSE2, StateSE3, dataclass
-from d123.common.geometry.transform.se3 import translate_se3_along_x, translate_se3_along_z
-from d123.common.geometry.transform.tranform_2d import translate_along_yaw
-from d123.common.geometry.vector import Vector2D
+from dataclasses import dataclass
+
+from d123.geometry import StateSE2, StateSE3, Vector2D
+from d123.geometry.transform.transform_se2 import translate_se2_along_yaw
+from d123.geometry.transform.transform_se3 import translate_se3_along_x, translate_se3_along_z
 
 # TODO: Add more vehicle parameters, potentially extend the parameters.
 
@@ -126,7 +127,7 @@ def center_se2_to_rear_axle_se2(center_se2: StateSE2, vehicle_parameters: Vehicl
     :param vehicle_parameters: The vehicle parameters.
     :return: The rear axle state in 2D.
     """
-    return translate_along_yaw(center_se2, Vector2D(-vehicle_parameters.rear_axle_to_center_longitudinal, 0))
+    return translate_se2_along_yaw(center_se2, Vector2D(-vehicle_parameters.rear_axle_to_center_longitudinal, 0))
 
 
 def rear_axle_se2_to_center_se2(rear_axle_se2: StateSE2, vehicle_parameters: VehicleParameters) -> StateSE2:
@@ -136,4 +137,4 @@ def rear_axle_se2_to_center_se2(rear_axle_se2: StateSE2, vehicle_parameters: Veh
     :param vehicle_parameters: The vehicle parameters.
     :return: The center state in 2D.
     """
-    return translate_along_yaw(rear_axle_se2, Vector2D(vehicle_parameters.rear_axle_to_center_longitudinal, 0))
+    return translate_se2_along_yaw(rear_axle_se2, Vector2D(vehicle_parameters.rear_axle_to_center_longitudinal, 0))

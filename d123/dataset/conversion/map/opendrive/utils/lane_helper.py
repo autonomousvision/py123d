@@ -6,8 +6,6 @@ import numpy as np
 import numpy.typing as npt
 import shapely
 
-from d123.common.geometry.base import StateSE2Index
-from d123.common.geometry.units import kmph_to_mps, mph_to_mps
 from d123.dataset.conversion.map.opendrive.parser.lane import Lane, LaneSection
 from d123.dataset.conversion.map.opendrive.parser.reference import ReferenceLine
 from d123.dataset.conversion.map.opendrive.parser.road import RoadType
@@ -16,6 +14,8 @@ from d123.dataset.conversion.map.opendrive.utils.id_system import (
     derive_lane_id,
     lane_group_id_from_lane_id,
 )
+from d123.geometry import StateSE2Index
+from d123.geometry.utils.units import kmph_to_mps, mph_to_mps
 
 
 @dataclass

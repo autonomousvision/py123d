@@ -1,15 +1,13 @@
 import numpy as np
 import numpy.typing as npt
 
-# from d123.common.datatypes.sensor.camera_parameters import get_nuplan_camera_parameters
-from d123.common.geometry.base import Point3D, Point3DIndex
-from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
-from d123.common.geometry.bounding_box.bounding_box_index import Corners3DIndex
-from d123.common.geometry.transform.se3 import translate_body_frame
-from d123.common.geometry.vector import Vector3D
 from d123.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VEHICLE_CONFIG
 from d123.common.visualization.viser.utils import BRIGHTNESS_FACTOR
 from d123.dataset.scene.abstract_scene import AbstractScene
+
+# from d123.common.datatypes.sensor.camera_parameters import get_nuplan_camera_parameters
+from d123.geometry import BoundingBoxSE3, Corners3DIndex, Point3D, Point3DIndex, Vector3D
+from d123.geometry.transform.transform_se3 import translate_body_frame
 
 # TODO: Refactor this file.
 # TODO: Add general utilities for 3D primitives and mesh support.

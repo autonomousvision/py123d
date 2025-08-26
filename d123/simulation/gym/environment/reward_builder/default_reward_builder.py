@@ -613,7 +613,7 @@ def _calculate_off_road(
         [[point.x, point.y] for point in ego_state.agent.box.all_corners()],
         dtype=np.float64,
     )
-    corner_in_polygons = drivable_area_map.points_in_polygons(ego_corners)  # (geom, 4)
+    corner_in_polygons = drivable_area_map.contains_vectorized(ego_corners)  # (geom, 4)
 
     polygon_indices = np.where(corner_in_polygons.sum(axis=-1) > 0)[0]
     corners_dwithin_polygons = corner_in_polygons.sum(axis=0) > 0

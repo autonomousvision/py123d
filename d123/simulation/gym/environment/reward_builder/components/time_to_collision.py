@@ -84,7 +84,7 @@ def calculate_ttc_v1(simulation_wrapper: SimulationWrapper, resolution: int = 2)
     ) = simulation_wrapper.current_planner_input.history.current_state
     assert isinstance(observation, DetectionsTracks)
     tracked_objects = observation.tracked_objects
-    ego_speed = ego_state.dynamic_car_state.center_velocity_2d.magnitude()
+    ego_speed = ego_state.dynamic_car_state.center_velocity_2d.magnitude
     if len(tracked_objects) == 0 or ego_speed < STOPPED_SPEED_THRESHOLD:
         return SUCCESS_TTC
 
@@ -119,7 +119,7 @@ def calculate_ttc_v1(simulation_wrapper: SimulationWrapper, resolution: int = 2)
         if _add_object(agent):
             agent_tokens.append(agent.track_token)
             agent_coords_list.append(_get_coords_array(agent.box))
-            agent_dxy.append(_get_dxy(agent.box.center.heading, agent.velocity.magnitude()))
+            agent_dxy.append(_get_dxy(agent.box.center.heading, agent.velocity.magnitude))
     agent_coords_array = np.array(agent_coords_list, dtype=np.float64)  # (num_agents, 5, 2)
     agent_dxy = np.array(agent_dxy, dtype=np.float64)  # (num_agents, 2)
     if len(agent_tokens) == 0:
@@ -227,7 +227,7 @@ def _extract_tracks_info_excluding_collided_tracks(
 
     tracks_poses: List[List[float]] = [[*tracked_object.center] for tracked_object in tracked_objects]
     tracks_speed: List[float] = [
-        tracked_object.velocity.magnitude() if isinstance(tracked_object, Agent) else 0
+        tracked_object.velocity.magnitude if isinstance(tracked_object, Agent) else 0
         for tracked_object in tracked_objects
     ]
     tracks_boxes: List[OrientedBox] = [tracked_object.box for tracked_object in tracked_objects]

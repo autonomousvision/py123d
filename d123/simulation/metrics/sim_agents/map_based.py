@@ -4,13 +4,13 @@ import numpy as np
 import numpy.typing as npt
 import shapely
 
-from d123.common.geometry.base import StateSE2, StateSE2Index
-from d123.common.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index
-from d123.common.geometry.bounding_box.utils import Corners2DIndex, bbse2_array_to_corners_array
-from d123.common.geometry.utils import normalize_angle
 from d123.dataset.maps.abstract_map import AbstractMap
 from d123.dataset.maps.abstract_map_objects import AbstractLane
 from d123.dataset.maps.map_datatypes import MapLayer
+from d123.geometry.geometry_index import BoundingBoxSE2Index, Corners2DIndex, StateSE2Index
+from d123.geometry.se import StateSE2
+from d123.geometry.utils.bounding_box_utils import bbse2_array_to_corners_array
+from d123.geometry.utils.rotation_utils import normalize_angle
 
 MAX_LANE_CENTER_DISTANCE: Final[float] = 10.0
 

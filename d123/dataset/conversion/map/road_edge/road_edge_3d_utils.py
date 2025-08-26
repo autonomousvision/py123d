@@ -9,9 +9,9 @@ import numpy.typing as npt
 import shapely
 from shapely.geometry import LineString
 
-from d123.common.geometry.base import Point3DIndex
-from d123.common.geometry.occupancy_map import OccupancyMap2D
 from d123.dataset.conversion.map.road_edge.road_edge_2d_utils import get_road_edge_linear_rings
+from d123.geometry import Point3DIndex
+from d123.geometry.occupancy_map import OccupancyMap2D
 
 logger = logging.getLogger(__name__)
 

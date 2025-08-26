@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.signal import savgol_filter
 
-from d123.common.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index
+from d123.geometry.bounding_box.bounding_box_index import BoundingBoxSE2Index
 
 SECONDS_PER_ITERATION = 0.1
 

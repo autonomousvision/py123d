@@ -6,11 +6,8 @@ import shapely
 
 from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.common.datatypes.time.time_point import TimePoint
-from d123.common.geometry.base import StateSE2, StateSE3
-from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE2, BoundingBoxSE3
-from d123.common.geometry.occupancy_map import OccupancyMap2D
-from d123.common.geometry.vector import Vector2D, Vector3D
 from d123.common.utils.enums import SerialIntEnum
+from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, OccupancyMap2D, StateSE2, StateSE3, Vector2D, Vector3D
 
 
 @dataclass

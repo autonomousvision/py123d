@@ -9,16 +9,14 @@ from typing_extensions import Final
 # from d123.common.datatypes.sensor.camera_parameters import get_nuplan_camera_parameters
 from d123.common.datatypes.sensor.camera import Camera, CameraType
 from d123.common.datatypes.sensor.lidar import LiDARType
-from d123.common.geometry.base import Point3D, StateSE3
-from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
-from d123.common.geometry.line.polylines import Polyline3D
-from d123.common.geometry.transform.se3 import convert_relative_to_absolute_points_3d_array
 from d123.common.visualization.color.color import TAB_10, Color
 from d123.common.visualization.color.config import PlotConfig
 from d123.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VEHICLE_CONFIG, MAP_SURFACE_CONFIG
 from d123.dataset.maps.abstract_map import MapLayer
 from d123.dataset.maps.abstract_map_objects import AbstractLane, AbstractSurfaceMapObject
 from d123.dataset.scene.abstract_scene import AbstractScene
+from d123.geometry import BoundingBoxSE3, Point3D, Polyline3D, StateSE3
+from d123.geometry.transform.transform_se3 import convert_relative_to_absolute_points_3d_array
 
 # TODO: Refactor this file.
 # TODO: Add general utilities for 3D primitives and mesh support.
@@ -233,11 +231,8 @@ def get_camera_values(
     camera_to_ego = camera.extrinsic  # 4x4 transformation from camera to ego frame
 
     # Get the rotation matrix of the rear axle pose
-    from d123.common.geometry.transform.se3 import get_rotation_matrix
 
-    ego_transform = np.eye(4, dtype=np.float64)
-    ego_transform[:3, :3] = get_rotation_matrix(rear_axle)
-    ego_transform[:3, 3] = rear_axle.point_3d.array
+    ego_transform = rear_axle.transformation_matrix
 
     camera_transform = ego_transform @ camera_to_ego
 
@@ -246,26 +241,6 @@ def get_camera_values(
     camera_rotation = Quaternion(matrix=camera_transform[:3, :3])
 
     return camera_position, camera_rotation, camera
-
-
-def _get_ego_frame_pose(scene: AbstractScene, iteration: int) -> StateSE3:
-
-    initial_point_3d = scene.get_ego_state_at_iteration(0).center_se3.point_3d
-    state_se3 = scene.get_ego_state_at_iteration(iteration).center_se3
-
-    state_se3.x = state_se3.x - initial_point_3d.x
-    state_se3.y = state_se3.y - initial_point_3d.y
-    state_se3.z = state_se3.z - initial_point_3d.z
-
-    return state_se3
-
-
-def euler_to_quaternion_scipy(roll: float, pitch: float, yaw: float) -> npt.NDArray[np.float64]:
-    from scipy.spatial.transform import Rotation
-
-    r = Rotation.from_euler("xyz", [roll, pitch, yaw], degrees=False)
-    quat = r.as_quat(scalar_first=True)
-    return quat
 
 
 def get_lidar_points(

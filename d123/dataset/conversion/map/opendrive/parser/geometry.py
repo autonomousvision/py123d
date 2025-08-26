@@ -8,7 +8,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.special import fresnel
 
-from d123.common.geometry.base import StateSE2Index
+from d123.geometry import StateSE2Index
 
 
 @dataclass
