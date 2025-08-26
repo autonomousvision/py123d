@@ -25,10 +25,8 @@ def translate_se3_along_z(state_se3: StateSE3, distance: float) -> StateSE3:
     z_axis = R[:, 2]
 
     state_se3_array = state_se3.array.copy()
-    state_se3_array[StateSE3Index.X] += distance * z_axis[0]
-    state_se3_array[StateSE3Index.Y] += distance * z_axis[1]
-    state_se3_array[StateSE3Index.Z] += distance * z_axis[2]
-    return StateSE3.from_array(state_se3_array)
+    state_se3_array[StateSE3Index.XYZ] += distance * z_axis[Vector3DIndex.XYZ]
+    return StateSE3.from_array(state_se3_array, copy=False)
 
 
 def translate_se3_along_y(state_se3: StateSE3, distance: float) -> StateSE3:
@@ -43,10 +41,8 @@ def translate_se3_along_y(state_se3: StateSE3, distance: float) -> StateSE3:
     y_axis = R[:, 1]
 
     state_se3_array = state_se3.array.copy()
-    state_se3_array[StateSE3Index.X] += distance * y_axis[0]
-    state_se3_array[StateSE3Index.Y] += distance * y_axis[1]
-    state_se3_array[StateSE3Index.Z] += distance * y_axis[2]
-    return StateSE3.from_array(state_se3_array)
+    state_se3_array[StateSE3Index.XYZ] += distance * y_axis[Vector3DIndex.XYZ]
+    return StateSE3.from_array(state_se3_array, copy=False)
 
 
 def translate_se3_along_x(state_se3: StateSE3, distance: float) -> StateSE3:
@@ -61,14 +57,11 @@ def translate_se3_along_x(state_se3: StateSE3, distance: float) -> StateSE3:
     x_axis = R[:, 0]
 
     state_se3_array = state_se3.array.copy()
-    state_se3_array[StateSE3Index.X] += distance * x_axis[0]
-    state_se3_array[StateSE3Index.Y] += distance * x_axis[1]
-    state_se3_array[StateSE3Index.Z] += distance * x_axis[2]
-
-    return StateSE3.from_array(state_se3_array)
+    state_se3_array[StateSE3Index.XYZ] += distance * x_axis[Vector3DIndex.XYZ]
+    return StateSE3.from_array(state_se3_array, copy=False)
 
 
-def translate_body_frame(state_se3: StateSE3, vector_3d: Vector3D) -> StateSE3:
+def translate_se3_along_body_frame(state_se3: StateSE3, vector_3d: Vector3D) -> StateSE3:
     """Translates a SE3 state along a vector in the body frame.
 
     :param state_se3: The SE3 state to translate.
@@ -77,14 +70,11 @@ def translate_body_frame(state_se3: StateSE3, vector_3d: Vector3D) -> StateSE3:
     """
 
     R = state_se3.rotation_matrix
-
-    # Transform to world frame
     world_translation = R @ vector_3d.array
 
     state_se3_array = state_se3.array.copy()
     state_se3_array[StateSE3Index.XYZ] += world_translation[Vector3DIndex.XYZ]
-
-    return StateSE3.from_array(state_se3_array)
+    return StateSE3.from_array(state_se3_array, copy=False)
 
 
 def convert_absolute_to_relative_se3_array(

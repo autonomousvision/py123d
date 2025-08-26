@@ -256,7 +256,7 @@ class StateSE3(ArrayMixin):
 
         :return: A 3x3 numpy array representing the rotation matrix.
         """
-        return EulerAngles.from_array(self.array[StateSE3Index.EULER_ANGLES]).rotation_matrix
+        return self.euler_angles.rotation_matrix
 
     @property
     def transformation_matrix(self) -> npt.NDArray[np.float64]:
@@ -269,6 +269,10 @@ class StateSE3(ArrayMixin):
         transformation_matrix[:3, :3] = rotation_matrix
         transformation_matrix[:3, 3] = self.array[StateSE3Index.XYZ]
         return transformation_matrix
+
+    @cached_property
+    def euler_angles(self) -> EulerAngles:
+        return EulerAngles.from_array(self.array[StateSE3Index.EULER_ANGLES])
 
     @property
     def quaternion(self) -> npt.NDArray[np.float64]:

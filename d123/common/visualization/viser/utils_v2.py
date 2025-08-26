@@ -7,7 +7,7 @@ from d123.dataset.scene.abstract_scene import AbstractScene
 
 # from d123.common.datatypes.sensor.camera_parameters import get_nuplan_camera_parameters
 from d123.geometry import BoundingBoxSE3, Corners3DIndex, Point3D, Point3DIndex, Vector3D
-from d123.geometry.transform.transform_se3 import translate_body_frame
+from d123.geometry.transform.transform_se3 import translate_se3_along_body_frame
 
 # TODO: Refactor this file.
 # TODO: Add general utilities for 3D primitives and mesh support.
@@ -31,7 +31,7 @@ def _get_bounding_box_corners(bounding_box: BoundingBoxSE3) -> npt.NDArray[np.fl
     bounding_box_extent = np.array([bounding_box.length, bounding_box.width, bounding_box.height], dtype=np.float64)
     for idx, vec in corner_extent_factors.items():
         vector_3d = Vector3D.from_array(bounding_box_extent * vec.array)
-        corners[idx] = translate_body_frame(bounding_box.center, vector_3d).point_3d.array
+        corners[idx] = translate_se3_along_body_frame(bounding_box.center, vector_3d).point_3d.array
     return corners
 
 

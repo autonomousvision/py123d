@@ -30,6 +30,8 @@ def convert_absolute_to_relative_se2_array(
     else:
         raise TypeError(f"Expected StateSE2 or np.ndarray, got {type(origin)}")
 
+    assert len(StateSE2Index) == state_se2_array.shape[-1]
+
     rotate_rad = -origin_array[StateSE2Index.YAW]
     cos, sin = np.cos(rotate_rad), np.sin(rotate_rad)
     R_inv = np.array([[cos, -sin], [sin, cos]])
@@ -39,6 +41,39 @@ def convert_absolute_to_relative_se2_array(
     state_se2_rel[..., StateSE2Index.YAW] = normalize_angle(state_se2_rel[..., StateSE2Index.YAW])
 
     return state_se2_rel
+
+
+def convert_relative_to_absolute_se2_array(
+    origin: Union[StateSE2, npt.NDArray[np.float64]], state_se2_array: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
+    """
+    Converts an StateSE2 array from global to relative coordinates.
+    :param origin: origin pose of relative coords system
+    :param state_se2_array: array of SE2 states with (x,y,θ) in last dim
+    :return: SE2 coords array in relative coordinates
+    """
+    if isinstance(origin, StateSE2):
+        origin_array = origin.array
+    elif isinstance(origin, np.ndarray):
+        assert origin.ndim == 1 and origin.shape[-1] == len(StateSE2Index)
+        origin_array = origin
+    else:
+        raise TypeError(f"Expected StateSE2 or np.ndarray, got {type(origin)}")
+
+    assert len(StateSE2Index) == state_se2_array.shape[-1]
+
+    rotate_rad = origin_array[StateSE2Index.YAW]
+    cos, sin = np.cos(rotate_rad), np.sin(rotate_rad)
+    R = np.array([[cos, -sin], [sin, cos]])
+
+    state_se2_abs = np.zeros_like(state_se2_array, dtype=np.float64)
+    state_se2_abs[..., StateSE2Index.XY] = state_se2_array[..., StateSE2Index.XY] @ R.T
+    state_se2_abs[..., StateSE2Index.XY] += origin_array[..., StateSE2Index.XY]
+    state_se2_abs[..., StateSE2Index.YAW] = normalize_angle(
+        state_se2_array[..., StateSE2Index.YAW] + origin_array[..., StateSE2Index.YAW]
+    )
+
+    return state_se2_abs
 
 
 def convert_absolute_to_relative_point_2d_array(
@@ -60,40 +95,12 @@ def convert_absolute_to_relative_point_2d_array(
 
     rotate_rad = -origin_array[StateSE2Index.YAW]
     cos, sin = np.cos(rotate_rad), np.sin(rotate_rad)
-    R = np.array([[cos, -sin], [sin, cos]])
+    R = np.array([[cos, -sin], [sin, cos]], dtype=np.float64)
 
     point_2d_rel = point_2d_array - origin_array[..., StateSE2Index.XY]
     point_2d_rel = point_2d_rel @ R.T
 
     return point_2d_rel
-
-
-def convert_relative_to_absolute_se2_array(
-    origin: Union[StateSE2, npt.NDArray[np.float64]], state_se2_array: npt.NDArray[np.float64]
-) -> npt.NDArray[np.float64]:
-    """
-    Converts an StateSE2 array from global to relative coordinates.
-    :param origin: origin pose of relative coords system
-    :param state_se2_array: array of SE2 states with (x,y,θ) in last dim
-    :return: SE2 coords array in relative coordinates
-    """
-    if isinstance(origin, StateSE2):
-        origin_array = origin.array
-    elif isinstance(origin, np.ndarray):
-        assert origin.ndim == 1 and origin.shape[-1] == len(StateSE2Index)
-        origin_array = origin
-    else:
-        raise TypeError(f"Expected StateSE2 or np.ndarray, got {type(origin)}")
-
-    rotate_rad = origin_array[StateSE2Index.YAW]
-    cos, sin = np.cos(rotate_rad), np.sin(rotate_rad)
-    R = np.array([[cos, -sin], [sin, cos]])
-
-    state_se2_rel = state_se2_array + origin_array
-    state_se2_rel[..., StateSE2Index.XY] = state_se2_rel[..., StateSE2Index.XY] @ R.T
-    state_se2_rel[..., StateSE2Index.YAW] = normalize_angle(state_se2_rel[..., StateSE2Index.YAW])
-
-    return state_se2_rel
 
 
 def convert_relative_to_absolute_point_2d_array(
@@ -110,7 +117,7 @@ def convert_relative_to_absolute_point_2d_array(
 
     rotate_rad = origin_array[StateSE2Index.YAW]
     cos, sin = np.cos(rotate_rad), np.sin(rotate_rad)
-    R = np.array([[cos, -sin], [sin, cos]])
+    R = np.array([[cos, -sin], [sin, cos]], dtype=np.float64)
 
     point_2d_abs = point_2d_array @ R.T
     point_2d_abs = point_2d_abs + origin_array[..., StateSE2Index.XY]
@@ -137,30 +144,13 @@ def translate_se2_array(state_se2_array: npt.NDArray[np.float64], translation: V
     :param translation: 2D translation vector
     :return: translated SE2 array
     """
+    assert len(StateSE2Index) == state_se2_array.shape[-1]
     result = state_se2_array.copy()
     result[..., StateSE2Index.XY] += translation.array[Vector2DIndex.XY]
     return result
 
 
-def translate_se2_along_yaw(state_se2: StateSE2, translation: Vector2D) -> StateSE2:
-    """Translate a single SE2 state along its local coordinate frame.
-
-    :param state_se2: SE2 state to translate
-    :param translation: 2D translation in local frame (x: forward, y: left)
-    :return: translated SE2 state
-    """
-    yaw = state_se2.array[StateSE2Index.YAW]
-    cos_yaw, sin_yaw = np.cos(yaw), np.sin(yaw)
-
-    # Transform translation from local to global frame
-    global_translation = np.array(
-        [translation.x * cos_yaw - translation.y * sin_yaw, translation.x * sin_yaw + translation.y * cos_yaw]
-    )
-
-    return translate_se2(state_se2, Vector2D.from_array(global_translation))
-
-
-def translate_se2_array_along_yaw(
+def translate_se2_array_along_body_frame(
     state_se2_array: npt.NDArray[np.float64], translation: Vector2D
 ) -> npt.NDArray[np.float64]:
     """Translate an array of SE2 states along their respective local coordinate frames.
@@ -169,15 +159,29 @@ def translate_se2_array_along_yaw(
     :param translation: 2D translation in local frame (x: forward, y: left)
     :return: translated SE2 array
     """
+    assert len(StateSE2Index) == state_se2_array.shape[-1]
     result = state_se2_array.copy()
     yaws = state_se2_array[..., StateSE2Index.YAW]
     cos_yaws, sin_yaws = np.cos(yaws), np.sin(yaws)
 
     # Transform translation from local to global frame for each state
-    global_translation_x = translation.x * cos_yaws - translation.y * sin_yaws
-    global_translation_y = translation.x * sin_yaws + translation.y * cos_yaws
+    # Create rotation matrices for each state
+    R = np.stack([cos_yaws, -sin_yaws, sin_yaws, cos_yaws], axis=-1).reshape(*cos_yaws.shape, 2, 2)
 
-    result[..., StateSE2Index.X] += global_translation_x
-    result[..., StateSE2Index.Y] += global_translation_y
+    # Transform translation vector from local to global frame
+    translation_vector = translation.array[Vector2DIndex.XY]  # [x, y]
+    global_translation = np.einsum("...ij,...j->...i", R, translation_vector)
+
+    result[..., StateSE2Index.XY] += global_translation
 
     return result
+
+
+def translate_se2_along_body_frame(state_se2: StateSE2, translation: Vector2D) -> StateSE2:
+    """Translate a single SE2 state along its local coordinate frame.
+
+    :param state_se2: SE2 state to translate
+    :param translation: 2D translation in local frame (x: forward, y: left)
+    :return: translated SE2 state
+    """
+    return StateSE2.from_array(translate_se2_array_along_body_frame(state_se2.array, translation), copy=False)

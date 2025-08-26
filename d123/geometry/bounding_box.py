@@ -199,6 +199,14 @@ class BoundingBoxSE3(ArrayMixin):
         return self.center
 
     @property
+    def center_se2(self) -> StateSE2:
+        """The center of the bounding box as a StateSE2 instance.
+
+        :return: The center of the bounding box as a StateSE2 instance.
+        """
+        return self.center_se3.state_se2
+
+    @property
     def length(self) -> float:
         """The length of the bounding box along the x-axis in the local frame.
 
