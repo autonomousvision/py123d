@@ -10,9 +10,9 @@ from d123.geometry.transform.transform_se2 import (
     convert_absolute_to_relative_se2_array,
     convert_relative_to_absolute_point_2d_array,
     convert_relative_to_absolute_se2_array,
-    translate_se2,
     translate_se2_along_body_frame,
-    translate_se2_array,
+    translate_se2_along_x,
+    translate_se2_along_y,
     translate_se2_array_along_body_frame,
 )
 from d123.geometry.transform.transform_se3 import (
@@ -33,58 +33,73 @@ class TestTransformSE2(unittest.TestCase):
     def setUp(self):
         self.decimal = 6  # Decimal places for np.testing.assert_array_almost_equal
 
-    def test_translate_se2(self) -> None:
+    def test_translate_se2_along_x(self) -> None:
+        """Tests translating a SE2 state along the X-axis."""
+        pose: StateSE2 = StateSE2.from_array(np.array([0.0, 0.0, 0.0], dtype=np.float64))
+        distance: float = 1.0
+        result: StateSE2 = translate_se2_along_x(pose, distance)
+        expected: StateSE2 = StateSE2.from_array(np.array([1.0, 0.0, 0.0], dtype=np.float64))
+        np.testing.assert_array_almost_equal(result.array, expected.array, decimal=self.decimal)
+
+    def test_translate_se2_along_x_negative(self) -> None:
+        """Tests translating a SE2 state along the X-axis in the negative direction."""
         pose: StateSE2 = StateSE2.from_array(np.array([1.0, 2.0, 0.0], dtype=np.float64))
-        translation: Vector2D = Vector2D(1.0, 1.0)
-
-        result: StateSE2 = translate_se2(pose, translation)
-        expected: StateSE2 = StateSE2.from_array(np.array([2.0, 3.0, 0.0], dtype=np.float64))
+        distance: float = -0.5
+        result: StateSE2 = translate_se2_along_x(pose, distance)
+        expected: StateSE2 = StateSE2.from_array(np.array([0.5, 2.0, 0.0], dtype=np.float64))
         np.testing.assert_array_almost_equal(result.array, expected.array, decimal=self.decimal)
 
-    def test_translate_se2_negative_translation(self) -> None:
+    def test_translate_se2_along_x_with_rotation(self) -> None:
+        """Tests translating a SE2 state along the X-axis with 90 degree rotation."""
+        pose: StateSE2 = StateSE2.from_array(np.array([0.0, 0.0, np.pi / 2], dtype=np.float64))
+        distance: float = 1.0
+        result: StateSE2 = translate_se2_along_x(pose, distance)
+        expected: StateSE2 = StateSE2.from_array(np.array([0.0, 1.0, np.pi / 2], dtype=np.float64))
+        np.testing.assert_array_almost_equal(result.array, expected.array, decimal=self.decimal)
+
+    def test_translate_se2_along_y(self) -> None:
+        """Tests translating a SE2 state along the Y-axis."""
+        pose: StateSE2 = StateSE2.from_array(np.array([0.0, 0.0, 0.0], dtype=np.float64))
+        distance: float = 1.0
+        result: StateSE2 = translate_se2_along_y(pose, distance)
+        expected: StateSE2 = StateSE2.from_array(np.array([0.0, 1.0, 0.0], dtype=np.float64))
+        np.testing.assert_array_almost_equal(result.array, expected.array, decimal=self.decimal)
+
+    def test_translate_se2_along_y_negative(self) -> None:
+        """Tests translating a SE2 state along the Y-axis in the negative direction."""
         pose: StateSE2 = StateSE2.from_array(np.array([1.0, 2.0, 0.0], dtype=np.float64))
-        translation: Vector2D = Vector2D(-0.5, -1.5)
-        result: StateSE2 = translate_se2(pose, translation)
-        expected: StateSE2 = StateSE2.from_array(np.array([0.5, 0.5, 0.0], dtype=np.float64))
+        distance: float = -1.5
+        result: StateSE2 = translate_se2_along_y(pose, distance)
+        expected: StateSE2 = StateSE2.from_array(np.array([1.0, 0.5, 0.0], dtype=np.float64))
         np.testing.assert_array_almost_equal(result.array, expected.array, decimal=self.decimal)
 
-    def test_translate_se2_with_rotation(self) -> None:
-        pose: StateSE2 = StateSE2.from_array(np.array([0.0, 0.0, np.pi / 4], dtype=np.float64))
-        translation: Vector2D = Vector2D(1.0, 0.0)
-        result: StateSE2 = translate_se2(pose, translation)
-        expected: StateSE2 = StateSE2.from_array(np.array([1.0, 0.0, np.pi / 4], dtype=np.float64))
+    def test_translate_se2_along_y_with_rotation(self) -> None:
+        """Tests translating a SE2 state along the Y-axis with -90 degree rotation."""
+        pose: StateSE2 = StateSE2.from_array(np.array([0.0, 0.0, -np.pi / 2], dtype=np.float64))
+        distance: float = 2.0
+        result: StateSE2 = translate_se2_along_y(pose, distance)
+        expected: StateSE2 = StateSE2.from_array(np.array([2.0, 0.0, -np.pi / 2], dtype=np.float64))
         np.testing.assert_array_almost_equal(result.array, expected.array, decimal=self.decimal)
 
-    def test_translate_se2_array(self) -> None:
-        poses: npt.NDArray[np.float64] = np.array([[1.0, 2.0, 0.0], [0.0, 0.0, np.pi / 2]], dtype=np.float64)
-        translation: Vector2D = Vector2D(1.0, 1.0)
-        result: npt.NDArray[np.float64] = translate_se2_array(poses, translation)
-        expected: npt.NDArray[np.float64] = np.array([[2.0, 3.0, 0.0], [1.0, 1.0, np.pi / 2]], dtype=np.float64)
-        np.testing.assert_array_almost_equal(result, expected)
-
-    def test_translate_se2_array_zero_translation(self) -> None:
-        poses: npt.NDArray[np.float64] = np.array([[1.0, 2.0, 0.0], [0.0, 0.0, np.pi / 2]], dtype=np.float64)
-        translation: Vector2D = Vector2D(0.0, 0.0)
-        result: npt.NDArray[np.float64] = translate_se2_array(poses, translation)
-        expected: npt.NDArray[np.float64] = poses.copy()
-        np.testing.assert_array_almost_equal(result, expected)
-
-    def test_translate_se2_along_yaw(self) -> None:
+    def test_translate_se2_along_body_frame_forward(self) -> None:
+        """Tests translating a SE2 state along the body frame forward direction, with 90 degree rotation."""
         # Move 1 unit forward in the direction of yaw (pi/2 = 90 degrees = +Y direction)
-        pose: StateSE2 = StateSE2.from_array(np.array([0.0, 0.0, np.deg2rad(90)], dtype=np.float64))
+        pose: StateSE2 = StateSE2.from_array(np.array([0.0, 0.0, np.pi / 2], dtype=np.float64))
         vector: Vector2D = Vector2D(1.0, 0.0)
         result: StateSE2 = translate_se2_along_body_frame(pose, vector)
-        expected: StateSE2 = StateSE2.from_array(np.array([0.0, 1.0, np.deg2rad(90)], dtype=np.float64))
+        expected: StateSE2 = StateSE2.from_array(np.array([0.0, 1.0, np.pi / 2], dtype=np.float64))
         np.testing.assert_array_almost_equal(result.array, expected.array, decimal=self.decimal)
 
-    def test_translate_se2_along_yaw_backward(self) -> None:
+    def test_translate_se2_along_body_frame_backward(self) -> None:
+        """Tests translating a SE2 state along the body frame backward direction."""
         pose: StateSE2 = StateSE2.from_array(np.array([0.0, 0.0, 0.0], dtype=np.float64))
         vector: Vector2D = Vector2D(-1.0, 0.0)
         result: StateSE2 = translate_se2_along_body_frame(pose, vector)
         expected: StateSE2 = StateSE2.from_array(np.array([-1.0, 0.0, 0.0], dtype=np.float64))
         np.testing.assert_array_almost_equal(result.array, expected.array, decimal=self.decimal)
 
-    def test_translate_se2_along_yaw_diagonal(self) -> None:
+    def test_translate_se2_along_body_frame_diagonal(self) -> None:
+        """Tests translating a SE2 state along the body frame diagonal direction."""
         pose: StateSE2 = StateSE2.from_array(np.array([1.0, 0.0, np.deg2rad(45)], dtype=np.float64))
         vector: Vector2D = Vector2D(1.0, 0.0)
         result: StateSE2 = translate_se2_along_body_frame(pose, vector)
@@ -93,61 +108,127 @@ class TestTransformSE2(unittest.TestCase):
         )
         np.testing.assert_array_almost_equal(result.array, expected.array, decimal=self.decimal)
 
-    def test_translate_se2_array_along_yaw(self) -> None:
+    def test_translate_se2_along_body_frame_lateral(self) -> None:
+        """Tests translating a SE2 state along the body frame lateral direction."""
+        # Move 1 unit to the right (positive y in body frame)
+        pose: StateSE2 = StateSE2.from_array(np.array([0.0, 0.0, 0.0], dtype=np.float64))
+        vector: Vector2D = Vector2D(0.0, 1.0)
+        result: StateSE2 = translate_se2_along_body_frame(pose, vector)
+        expected: StateSE2 = StateSE2.from_array(np.array([0.0, 1.0, 0.0], dtype=np.float64))
+        np.testing.assert_array_almost_equal(result.array, expected.array, decimal=self.decimal)
+
+    def test_translate_se2_along_body_frame_lateral_with_rotation(self) -> None:
+        """Tests translating a SE2 state along the body frame lateral direction with 90 degree rotation."""
+        # Move 1 unit to the right when facing 90 degrees
+        pose: StateSE2 = StateSE2.from_array(np.array([0.0, 0.0, np.pi / 2], dtype=np.float64))
+        vector: Vector2D = Vector2D(0.0, 1.0)
+        result: StateSE2 = translate_se2_along_body_frame(pose, vector)
+        expected: StateSE2 = StateSE2.from_array(np.array([-1.0, 0.0, np.pi / 2], dtype=np.float64))
+        np.testing.assert_array_almost_equal(result.array, expected.array, decimal=self.decimal)
+
+    def test_translate_se2_array_along_body_frame_single_distance(self) -> None:
+        """Tests translating a SE2 state array along the body frame forward direction."""
         poses: npt.NDArray[np.float64] = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, np.pi / 2]], dtype=np.float64)
-        distance: float = Vector2D(1.0, 0.0)
+        distance: Vector2D = Vector2D(1.0, 0.0)
         result: npt.NDArray[np.float64] = translate_se2_array_along_body_frame(poses, distance)
         expected: npt.NDArray[np.float64] = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, np.pi / 2]], dtype=np.float64)
-        np.testing.assert_array_almost_equal(result, expected)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
 
-    def test_translate_se2_array_along_yaw_multiple_distances(self) -> None:
+    def test_translate_se2_array_along_body_frame_multiple_distances(self) -> None:
+        """Tests translating a SE2 state array along the body frame forward direction with different distances."""
         poses: npt.NDArray[np.float64] = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, np.pi]], dtype=np.float64)
-        distance: float = Vector2D(2.0, 0.0)
+        distance: Vector2D = Vector2D(2.0, 0.0)
         result: npt.NDArray[np.float64] = translate_se2_array_along_body_frame(poses, distance)
         expected: npt.NDArray[np.float64] = np.array([[2.0, 0.0, 0.0], [-2.0, 0.0, np.pi]], dtype=np.float64)
-        np.testing.assert_array_almost_equal(result, expected)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
+
+    def test_translate_se2_array_along_body_frame_lateral(self) -> None:
+        """Tests translating a SE2 state array along the body frame lateral direction with 90 degree rotation."""
+        poses: npt.NDArray[np.float64] = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, np.pi / 2]], dtype=np.float64)
+        distance: Vector2D = Vector2D(0.0, 1.0)
+        result: npt.NDArray[np.float64] = translate_se2_array_along_body_frame(poses, distance)
+        expected: npt.NDArray[np.float64] = np.array([[0.0, 1.0, 0.0], [-1.0, 0.0, np.pi / 2]], dtype=np.float64)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
 
     def test_convert_absolute_to_relative_se2_array(self) -> None:
+        """Tests converting absolute SE2 poses to relative SE2 poses."""
         origin: StateSE2 = StateSE2.from_array(np.array([1.0, 1.0, 0.0], dtype=np.float64))
         absolute_poses: npt.NDArray[np.float64] = np.array([[2.0, 2.0, 0.0], [0.0, 1.0, np.pi / 2]], dtype=np.float64)
         result: npt.NDArray[np.float64] = convert_absolute_to_relative_se2_array(origin, absolute_poses)
         expected: npt.NDArray[np.float64] = np.array([[1.0, 1.0, 0.0], [-1.0, 0.0, np.pi / 2]], dtype=np.float64)
-        np.testing.assert_array_almost_equal(result, expected)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
 
     def test_convert_absolute_to_relative_se2_array_with_rotation(self) -> None:
+        """Tests converting absolute SE2 poses to relative SE2 poses with 90 degree rotation."""
         reference: StateSE2 = StateSE2.from_array(np.array([0.0, 0.0, np.pi / 2], dtype=np.float64))
         absolute_poses: npt.NDArray[np.float64] = np.array([[1.0, 0.0, np.pi / 2]], dtype=np.float64)
         result: npt.NDArray[np.float64] = convert_absolute_to_relative_se2_array(reference, absolute_poses)
         expected: npt.NDArray[np.float64] = np.array([[0.0, -1.0, 0.0]], dtype=np.float64)
-        np.testing.assert_array_almost_equal(result, expected)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
+
+    def test_convert_absolute_to_relative_se2_array_identity(self) -> None:
+        """Tests converting absolute SE2 poses to relative SE2 poses with identity transformation."""
+        reference: StateSE2 = StateSE2.from_array(np.array([0.0, 0.0, 0.0], dtype=np.float64))
+        absolute_poses: npt.NDArray[np.float64] = np.array([[1.0, 2.0, np.pi / 4]], dtype=np.float64)
+        result: npt.NDArray[np.float64] = convert_absolute_to_relative_se2_array(reference, absolute_poses)
+        expected: npt.NDArray[np.float64] = np.array([[1.0, 2.0, np.pi / 4]], dtype=np.float64)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
 
     def test_convert_relative_to_absolute_se2_array(self) -> None:
+        """Tests converting relative SE2 poses to absolute SE2 poses."""
         reference: StateSE2 = StateSE2.from_array(np.array([1.0, 1.0, 0.0], dtype=np.float64))
         relative_poses: npt.NDArray[np.float64] = np.array([[1.0, 1.0, 0.0], [-1.0, 0.0, np.pi / 2]], dtype=np.float64)
         result: npt.NDArray[np.float64] = convert_relative_to_absolute_se2_array(reference, relative_poses)
         expected: npt.NDArray[np.float64] = np.array([[2.0, 2.0, 0.0], [0.0, 1.0, np.pi / 2]], dtype=np.float64)
-        np.testing.assert_array_almost_equal(result, expected)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
+
+    def test_convert_relative_to_absolute_se2_array_with_rotation(self) -> None:
+        """Tests converting relative SE2 poses to absolute SE2 poses with rotation."""
+        reference: StateSE2 = StateSE2.from_array(np.array([1.0, 0.0, np.pi / 2], dtype=np.float64))
+        relative_poses: npt.NDArray[np.float64] = np.array([[1.0, 0.0, 0.0]], dtype=np.float64)
+        result: npt.NDArray[np.float64] = convert_relative_to_absolute_se2_array(reference, relative_poses)
+        expected: npt.NDArray[np.float64] = np.array([[1.0, 1.0, np.pi / 2]], dtype=np.float64)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
 
     def test_convert_absolute_to_relative_point_2d_array(self) -> None:
+        """Tests converting absolute 2D points to relative 2D points."""
         reference: StateSE2 = StateSE2.from_array(np.array([1.0, 1.0, 0.0], dtype=np.float64))
         absolute_points: npt.NDArray[np.float64] = np.array([[2.0, 2.0], [0.0, 1.0]], dtype=np.float64)
         result: npt.NDArray[np.float64] = convert_absolute_to_relative_point_2d_array(reference, absolute_points)
         expected: npt.NDArray[np.float64] = np.array([[1.0, 1.0], [-1.0, 0.0]], dtype=np.float64)
-        np.testing.assert_array_almost_equal(result, expected)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
 
     def test_convert_absolute_to_relative_point_2d_array_with_rotation(self) -> None:
+        """Tests converting absolute 2D points to relative 2D points with 90 degree rotation."""
         reference: StateSE2 = StateSE2.from_array(np.array([0.0, 0.0, np.pi / 2], dtype=np.float64))
         absolute_points: npt.NDArray[np.float64] = np.array([[0.0, 1.0], [1.0, 0.0]], dtype=np.float64)
         result: npt.NDArray[np.float64] = convert_absolute_to_relative_point_2d_array(reference, absolute_points)
         expected: npt.NDArray[np.float64] = np.array([[1.0, 0.0], [0.0, -1.0]], dtype=np.float64)
-        np.testing.assert_array_almost_equal(result, expected)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
+
+    def test_convert_absolute_to_relative_point_2d_array_empty(self) -> None:
+        """Tests converting an empty array of absolute 2D points to relative 2D points."""
+        reference: StateSE2 = StateSE2.from_array(np.array([1.0, 1.0, 0.0], dtype=np.float64))
+        absolute_points: npt.NDArray[np.float64] = np.array([], dtype=np.float64).reshape(0, 2)
+        result: npt.NDArray[np.float64] = convert_absolute_to_relative_point_2d_array(reference, absolute_points)
+        expected: npt.NDArray[np.float64] = np.array([], dtype=np.float64).reshape(0, 2)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
 
     def test_convert_relative_to_absolute_point_2d_array(self) -> None:
+        """Tests converting relative 2D points to absolute 2D points."""
         reference: StateSE2 = StateSE2.from_array(np.array([1.0, 1.0, 0.0], dtype=np.float64))
         relative_points: npt.NDArray[np.float64] = np.array([[1.0, 1.0], [-1.0, 0.0]], dtype=np.float64)
         result: npt.NDArray[np.float64] = convert_relative_to_absolute_point_2d_array(reference, relative_points)
         expected: npt.NDArray[np.float64] = np.array([[2.0, 2.0], [0.0, 1.0]], dtype=np.float64)
-        np.testing.assert_array_almost_equal(result, expected)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
+
+    def test_convert_relative_to_absolute_point_2d_array_with_rotation(self) -> None:
+        """Tests converting relative 2D points to absolute 2D points with 90 degree rotation."""
+        reference: StateSE2 = StateSE2.from_array(np.array([1.0, 0.0, np.pi / 2], dtype=np.float64))
+        relative_points: npt.NDArray[np.float64] = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float64)
+        result: npt.NDArray[np.float64] = convert_relative_to_absolute_point_2d_array(reference, relative_points)
+        expected: npt.NDArray[np.float64] = np.array([[1.0, 1.0], [0.0, 0.0]], dtype=np.float64)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
 
 
 class TestTransformSE3(unittest.TestCase):
@@ -157,6 +238,7 @@ class TestTransformSE3(unittest.TestCase):
         self.num_consistency_tests = 10  # Number of random test cases for consistency checks
 
     def test_translate_se3_along_x(self) -> None:
+        """Tests translating a SE3 state along the body frame forward direction."""
         pose: StateSE3 = StateSE3.from_array(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float64))
         distance: float = 1.0
         result: StateSE3 = translate_se3_along_x(pose, distance)
@@ -164,13 +246,23 @@ class TestTransformSE3(unittest.TestCase):
         np.testing.assert_array_almost_equal(result.array, expected.array)
 
     def test_translate_se3_along_x_negative(self) -> None:
+        """Tests translating a SE3 state along the body frame backward direction."""
         pose: StateSE3 = StateSE3.from_array(np.array([1.0, 2.0, 3.0, 0.0, 0.0, 0.0], dtype=np.float64))
         distance: float = -0.5
         result: StateSE3 = translate_se3_along_x(pose, distance)
         expected: StateSE3 = StateSE3.from_array(np.array([0.5, 2.0, 3.0, 0.0, 0.0, 0.0], dtype=np.float64))
         np.testing.assert_array_almost_equal(result.array, expected.array)
 
+    def test_translate_se3_along_x_with_rotation(self) -> None:
+        """Tests translating a SE3 state along the body frame forward direction with yaw rotation."""
+        pose: StateSE3 = StateSE3.from_array(np.array([0.0, 0.0, 0.0, 0.0, 0.0, np.pi / 2], dtype=np.float64))
+        distance: float = 2.5
+        result: StateSE3 = translate_se3_along_x(pose, distance)
+        expected: StateSE3 = StateSE3.from_array(np.array([0.0, 2.5, 0.0, 0.0, 0.0, np.pi / 2], dtype=np.float64))
+        np.testing.assert_array_almost_equal(result.array, expected.array)
+
     def test_translate_se3_along_y(self) -> None:
+        """Tests translating a SE3 state along the body frame lateral direction."""
         pose: StateSE3 = StateSE3.from_array(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float64))
         distance: float = 1.0
         result: StateSE3 = translate_se3_along_y(pose, distance)
@@ -178,13 +270,31 @@ class TestTransformSE3(unittest.TestCase):
         np.testing.assert_array_almost_equal(result.array, expected.array)
 
     def test_translate_se3_along_y_with_existing_position(self) -> None:
+        """Tests translating a SE3 state along the body frame lateral direction with existing position."""
         pose: StateSE3 = StateSE3.from_array(np.array([1.0, 2.0, 3.0, 0.0, 0.0, 0.0], dtype=np.float64))
         distance: float = 2.5
         result: StateSE3 = translate_se3_along_y(pose, distance)
         expected: StateSE3 = StateSE3.from_array(np.array([1.0, 4.5, 3.0, 0.0, 0.0, 0.0], dtype=np.float64))
         np.testing.assert_array_almost_equal(result.array, expected.array)
 
+    def test_translate_se3_along_y_negative(self) -> None:
+        """Tests translating a SE3 state along the body frame lateral direction in the negative direction."""
+        pose: StateSE3 = StateSE3.from_array(np.array([1.0, 2.0, 3.0, 0.0, 0.0, 0.0], dtype=np.float64))
+        distance: float = -1.0
+        result: StateSE3 = translate_se3_along_y(pose, distance)
+        expected: StateSE3 = StateSE3.from_array(np.array([1.0, 1.0, 3.0, 0.0, 0.0, 0.0], dtype=np.float64))
+        np.testing.assert_array_almost_equal(result.array, expected.array)
+
+    def test_translate_se3_along_y_with_rotation(self) -> None:
+        """Tests translating a SE3 state along the body frame lateral direction with roll rotation."""
+        pose: StateSE3 = StateSE3.from_array(np.array([1.0, 2.0, 3.0, np.pi / 2, 0.0, 0.0], dtype=np.float64))
+        distance: float = -1.0
+        result: StateSE3 = translate_se3_along_y(pose, distance)
+        expected: StateSE3 = StateSE3.from_array(np.array([1.0, 2.0, 2.0, np.pi / 2, 0.0, 0.0], dtype=np.float64))
+        np.testing.assert_array_almost_equal(result.array, expected.array)
+
     def test_translate_se3_along_z(self) -> None:
+        """Tests translating a SE3 state along the body frame vertical direction."""
         pose: StateSE3 = StateSE3.from_array(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float64))
         distance: float = 1.0
         result: StateSE3 = translate_se3_along_z(pose, distance)
@@ -192,34 +302,65 @@ class TestTransformSE3(unittest.TestCase):
         np.testing.assert_array_almost_equal(result.array, expected.array)
 
     def test_translate_se3_along_z_large_distance(self) -> None:
+        """Tests translating a SE3 state along the body frame vertical direction with a large distance."""
         pose: StateSE3 = StateSE3.from_array(np.array([0.0, 0.0, 5.0, 0.0, 0.0, 0.0], dtype=np.float64))
         distance: float = 10.0
         result: StateSE3 = translate_se3_along_z(pose, distance)
         expected: StateSE3 = StateSE3.from_array(np.array([0.0, 0.0, 15.0, 0.0, 0.0, 0.0], dtype=np.float64))
         np.testing.assert_array_almost_equal(result.array, expected.array)
 
-    def test_translate_body_frame(self) -> None:
+    def test_translate_se3_along_z_negative(self) -> None:
+        """Tests translating a SE3 state along the body frame vertical direction in the negative direction."""
+        pose: StateSE3 = StateSE3.from_array(np.array([1.0, 2.0, 5.0, 0.0, 0.0, 0.0], dtype=np.float64))
+        distance: float = -2.0
+        result: StateSE3 = translate_se3_along_z(pose, distance)
+        expected: StateSE3 = StateSE3.from_array(np.array([1.0, 2.0, 3.0, 0.0, 0.0, 0.0], dtype=np.float64))
+        np.testing.assert_array_almost_equal(result.array, expected.array)
+
+    def test_translate_se3_along_z_with_rotation(self) -> None:
+        """Tests translating a SE3 state along the body frame vertical direction with pitch rotation."""
+        pose: StateSE3 = StateSE3.from_array(np.array([1.0, 2.0, 3.0, 0.0, np.pi / 2, 0.0], dtype=np.float64))
+        distance: float = 2.0
+        result: StateSE3 = translate_se3_along_z(pose, distance)
+        expected: StateSE3 = StateSE3.from_array(np.array([3.0, 2.0, 3.0, 0.0, np.pi / 2, 0.0], dtype=np.float64))
+        np.testing.assert_array_almost_equal(result.array, expected.array)
+
+    def test_translate_se3_along_body_frame(self) -> None:
+        """Tests translating a SE3 state along the body frame forward direction."""
         pose: StateSE3 = StateSE3.from_array(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float64))
         translation: Vector3D = Vector3D.from_array(np.array([1.0, 0.0, 0.0], dtype=np.float64))
         result: StateSE3 = translate_se3_along_body_frame(pose, translation)
         expected: StateSE3 = StateSE3.from_array(np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float64))
         np.testing.assert_array_almost_equal(result.array, expected.array)
 
-    def test_translate_body_frame_multiple_axes(self) -> None:
+    def test_translate_se3_along_body_frame_multiple_axes(self) -> None:
+        """Tests translating a SE3 state along the body frame in multiple axes."""
         pose: StateSE3 = StateSE3.from_array(np.array([1.0, 2.0, 3.0, 0.0, 0.0, 0.0], dtype=np.float64))
         translation: Vector3D = Vector3D.from_array(np.array([0.5, -1.0, 2.0], dtype=np.float64))
         result: StateSE3 = translate_se3_along_body_frame(pose, translation)
         expected: StateSE3 = StateSE3.from_array(np.array([1.5, 1.0, 5.0, 0.0, 0.0, 0.0], dtype=np.float64))
         np.testing.assert_array_almost_equal(result.array, expected.array)
 
-    def test_translate_body_frame_zero_translation(self) -> None:
+    def test_translate_se3_along_body_frame_zero_translation(self) -> None:
+        """Tests translating a SE3 state along the body frame with zero translation."""
         pose: StateSE3 = StateSE3.from_array(np.array([1.0, 2.0, 3.0, 0.0, 0.0, 0.0], dtype=np.float64))
         translation: Vector3D = Vector3D.from_array(np.array([0.0, 0.0, 0.0], dtype=np.float64))
         result: StateSE3 = translate_se3_along_body_frame(pose, translation)
         expected: StateSE3 = StateSE3.from_array(np.array([1.0, 2.0, 3.0, 0.0, 0.0, 0.0], dtype=np.float64))
         np.testing.assert_array_almost_equal(result.array, expected.array)
 
-    def test_translate_body_frame_consistency(self) -> None:
+    def test_translate_se3_along_body_frame_with_rotation(self) -> None:
+        """Tests translating a SE3 state along the body frame forward direction with yaw rotation."""
+        # Rotate 90 degrees around z-axis, then translate 1 unit along body x-axis
+        pose: StateSE3 = StateSE3.from_array(np.array([0.0, 0.0, 0.0, 0.0, 0.0, np.pi / 2], dtype=np.float64))
+        translation: Vector3D = Vector3D.from_array(np.array([1.0, 0.0, 0.0], dtype=np.float64))
+        result: StateSE3 = translate_se3_along_body_frame(pose, translation)
+        # Should move in +Y direction in world frame
+        expected: StateSE3 = StateSE3.from_array(np.array([0.0, 1.0, 0.0, 0.0, 0.0, np.pi / 2], dtype=np.float64))
+        np.testing.assert_array_almost_equal(result.array, expected.array, decimal=self.decimal)
+
+    def test_translate_se3_along_body_frame_consistency(self) -> None:
+        """Tests consistency between translate_se3_along_body_frame and axis-specific translation functions."""
 
         for _ in range(self.num_consistency_tests):
             # Generate random parameters
@@ -280,6 +421,7 @@ class TestTransformSE3(unittest.TestCase):
             )
 
     def test_convert_absolute_to_relative_se3_array(self) -> None:
+        """Tests converting absolute SE3 poses to relative SE3 poses."""
         reference: StateSE3 = StateSE3.from_array(np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0], dtype=np.float64))
         absolute_poses: npt.NDArray[np.float64] = np.array(
             [
@@ -299,13 +441,23 @@ class TestTransformSE3(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_convert_absolute_to_relative_se3_array_single_pose(self) -> None:
+        """Tests converting a single absolute SE3 pose to a relative SE3 pose."""
         reference: StateSE3 = StateSE3.from_array(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float64))
         absolute_poses: npt.NDArray[np.float64] = np.array([[1.0, 2.0, 3.0, 0.0, 0.0, 0.0]], dtype=np.float64)
         result: npt.NDArray[np.float64] = convert_absolute_to_relative_se3_array(reference, absolute_poses)
         expected: npt.NDArray[np.float64] = np.array([[1.0, 2.0, 3.0, 0.0, 0.0, 0.0]], dtype=np.float64)
         np.testing.assert_array_almost_equal(result, expected)
 
+    def test_convert_absolute_to_relative_se3_array_with_rotation(self) -> None:
+        """Tests converting absolute SE3 poses to relative SE3 poses with 90 degree yaw rotation."""
+        reference: StateSE3 = StateSE3.from_array(np.array([0.0, 0.0, 0.0, 0.0, 0.0, np.pi / 2], dtype=np.float64))
+        absolute_poses: npt.NDArray[np.float64] = np.array([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0]], dtype=np.float64)
+        result: npt.NDArray[np.float64] = convert_absolute_to_relative_se3_array(reference, absolute_poses)
+        expected: npt.NDArray[np.float64] = np.array([[0.0, -1.0, 0.0, 0.0, 0.0, -np.pi / 2]], dtype=np.float64)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
+
     def test_convert_relative_to_absolute_se3_array(self) -> None:
+        """Tests converting relative SE3 poses to absolute SE3 poses."""
         reference: StateSE3 = StateSE3.from_array(np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0], dtype=np.float64))
         relative_poses: npt.NDArray[np.float64] = np.array(
             [
@@ -324,7 +476,16 @@ class TestTransformSE3(unittest.TestCase):
         )
         np.testing.assert_array_almost_equal(result, expected)
 
+    def test_convert_relative_to_absolute_se3_array_with_rotation(self) -> None:
+        """Tests converting relative SE3 poses to absolute SE3 poses with 90 degree yaw rotation."""
+        reference: StateSE3 = StateSE3.from_array(np.array([1.0, 0.0, 0.0, 0.0, 0.0, np.pi / 2], dtype=np.float64))
+        relative_poses: npt.NDArray[np.float64] = np.array([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0]], dtype=np.float64)
+        result: npt.NDArray[np.float64] = convert_relative_to_absolute_se3_array(reference, relative_poses)
+        expected: npt.NDArray[np.float64] = np.array([[1.0, 1.0, 0.0, 0.0, 0.0, np.pi / 2]], dtype=np.float64)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
+
     def test_convert_absolute_to_relative_points_3d_array(self) -> None:
+        """Tests converting absolute 3D points to relative 3D points."""
         reference: StateSE3 = StateSE3.from_array(np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0], dtype=np.float64))
         absolute_points: npt.NDArray[np.float64] = np.array([[2.0, 2.0, 2.0], [0.0, 1.0, 0.0]], dtype=np.float64)
         result: npt.NDArray[np.float64] = convert_absolute_to_relative_points_3d_array(reference, absolute_points)
@@ -332,13 +493,23 @@ class TestTransformSE3(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_convert_absolute_to_relative_points_3d_array_origin_reference(self) -> None:
+        """Tests converting absolute 3D points to relative 3D points with origin reference."""
         reference: StateSE3 = StateSE3.from_array(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float64))
         absolute_points: npt.NDArray[np.float64] = np.array([[1.0, 2.0, 3.0], [-1.0, -2.0, -3.0]], dtype=np.float64)
         result: npt.NDArray[np.float64] = convert_absolute_to_relative_points_3d_array(reference, absolute_points)
         expected: npt.NDArray[np.float64] = np.array([[1.0, 2.0, 3.0], [-1.0, -2.0, -3.0]], dtype=np.float64)
         np.testing.assert_array_almost_equal(result, expected)
 
+    def test_convert_absolute_to_relative_points_3d_array_with_rotation(self) -> None:
+        """Tests converting absolute 3D points to relative 3D points with 90 degree yaw rotation."""
+        reference: StateSE3 = StateSE3.from_array(np.array([0.0, 0.0, 0.0, 0.0, 0.0, np.pi / 2], dtype=np.float64))
+        absolute_points: npt.NDArray[np.float64] = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 1.0]], dtype=np.float64)
+        result: npt.NDArray[np.float64] = convert_absolute_to_relative_points_3d_array(reference, absolute_points)
+        expected: npt.NDArray[np.float64] = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 1.0]], dtype=np.float64)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
+
     def test_convert_relative_to_absolute_points_3d_array(self) -> None:
+        """Tests converting relative 3D points to absolute 3D points."""
         reference: StateSE3 = StateSE3.from_array(np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0], dtype=np.float64))
         relative_points: npt.NDArray[np.float64] = np.array([[1.0, 1.0, 1.0], [-1.0, 0.0, -1.0]], dtype=np.float64)
         result: npt.NDArray[np.float64] = convert_relative_to_absolute_points_3d_array(reference, relative_points)
@@ -346,14 +517,25 @@ class TestTransformSE3(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_convert_relative_to_absolute_points_3d_array_empty(self) -> None:
+        """Tests converting an empty array of relative 3D points to absolute 3D points."""
         reference: StateSE3 = StateSE3.from_array(np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0], dtype=np.float64))
         relative_points: npt.NDArray[np.float64] = np.array([], dtype=np.float64).reshape(0, 3)
         result: npt.NDArray[np.float64] = convert_relative_to_absolute_points_3d_array(reference, relative_points)
         expected: npt.NDArray[np.float64] = np.array([], dtype=np.float64).reshape(0, 3)
         np.testing.assert_array_almost_equal(result, expected)
 
+    def test_convert_relative_to_absolute_points_3d_array_with_rotation(self) -> None:
+        """Tests converting relative 3D points to absolute 3D points with 90 degree yaw rotation."""
+        reference: StateSE3 = StateSE3.from_array(np.array([1.0, 0.0, 0.0, 0.0, 0.0, np.pi / 2], dtype=np.float64))
+        relative_points: npt.NDArray[np.float64] = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 1.0]], dtype=np.float64)
+        result: npt.NDArray[np.float64] = convert_relative_to_absolute_points_3d_array(reference, relative_points)
+        expected: npt.NDArray[np.float64] = np.array([[1.0, 1.0, 0.0], [0.0, 0.0, 1.0]], dtype=np.float64)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
+
 
 class TestTransformConsistency(unittest.TestCase):
+    """Tests to ensure consistency between different transformation functions."""
+
     def setUp(self):
         self.decimal = 6  # Decimal places for np.testing.assert_array_almost_equal
         self.num_consistency_tests = 10  # Number of random test cases for consistency checks
@@ -433,6 +615,31 @@ class TestTransformConsistency(unittest.TestCase):
             np.testing.assert_array_almost_equal(
                 recovered_absolute_se2[..., StateSE2Index.XY], absolute_points, decimal=self.decimal
             )
+
+    def test_se2_translation_consistency(self) -> None:
+        """Test that SE2 translations are consistent between different methods"""
+        for _ in range(self.num_consistency_tests):
+            # Generate random pose
+            pose = StateSE2.from_array(self._get_random_se2_array(1)[0])
+
+            # Generate random distances
+            dx = np.random.uniform(-10.0, 10.0)
+            dy = np.random.uniform(-10.0, 10.0)
+
+            # Test x-translation consistency
+            result_x_direct = translate_se2_along_x(pose, dx)
+            result_x_body = translate_se2_along_body_frame(pose, Vector2D(dx, 0.0))
+            np.testing.assert_array_almost_equal(result_x_direct.array, result_x_body.array, decimal=self.decimal)
+
+            # Test y-translation consistency
+            result_y_direct = translate_se2_along_y(pose, dy)
+            result_y_body = translate_se2_along_body_frame(pose, Vector2D(0.0, dy))
+            np.testing.assert_array_almost_equal(result_y_direct.array, result_y_body.array, decimal=self.decimal)
+
+            # Test combined translation
+            result_xy_body = translate_se2_along_body_frame(pose, Vector2D(dx, dy))
+            result_xy_sequential = translate_se2_along_y(translate_se2_along_x(pose, dx), dy)
+            np.testing.assert_array_almost_equal(result_xy_body.array, result_xy_sequential.array, decimal=self.decimal)
 
     def test_se3_absolute_relative_conversion_consistency(self) -> None:
         """Test that converting absolute->relative->absolute returns original poses"""
@@ -569,28 +776,141 @@ class TestTransformConsistency(unittest.TestCase):
             relative_3d = convert_absolute_to_relative_points_3d_array(reference_se3, points_3d)
             absolute_3d_recovered = convert_relative_to_absolute_points_3d_array(reference_se3, relative_3d)
 
-            # Check that SE2 and SE3 results are consistent (ignoring z-component)
+            # Check that SE2 and SE3 conversions are consistent for the x,y components
+            np.testing.assert_array_almost_equal(relative_2d, relative_3d[:, Point3DIndex.XY], decimal=self.decimal)
             np.testing.assert_array_almost_equal(
-                relative_2d,
-                relative_3d[..., Point3DIndex.XY],
+                absolute_2d_recovered, absolute_3d_recovered[:, Point3DIndex.XY], decimal=self.decimal
+            )
+
+            # Check that z-components remain zero
+            np.testing.assert_array_almost_equal(
+                relative_3d[:, Point3DIndex.Z], np.zeros(num_points), decimal=self.decimal
+            )
+            np.testing.assert_array_almost_equal(
+                absolute_3d_recovered[:, Point3DIndex.Z], np.zeros(num_points), decimal=self.decimal
+            )
+
+    def test_se2_array_translation_consistency(self) -> None:
+        """Test that SE2 array translation is consistent with single pose translation"""
+        for _ in range(self.num_consistency_tests):
+            # Generate random poses
+            num_poses = np.random.randint(self.min_random_poses, self.max_random_poses)
+            poses_array = self._get_random_se2_array(num_poses)
+
+            # Generate random translation
+            dx = np.random.uniform(-5.0, 5.0)
+            dy = np.random.uniform(-5.0, 5.0)
+            translation = Vector2D(dx, dy)
+
+            # Translate using array function
+            result_array = translate_se2_array_along_body_frame(poses_array, translation)
+
+            # Translate each pose individually
+            result_individual = np.zeros_like(poses_array)
+            for i in range(num_poses):
+                pose = StateSE2.from_array(poses_array[i])
+                translated = translate_se2_along_body_frame(pose, translation)
+                result_individual[i] = translated.array
+
+            np.testing.assert_array_almost_equal(result_array, result_individual, decimal=self.decimal)
+
+    def test_transform_empty_arrays(self) -> None:
+        """Test that transform functions handle empty arrays correctly"""
+        reference_se2 = StateSE2.from_array(np.array([1.0, 2.0, np.pi / 4], dtype=np.float64))
+        reference_se3 = StateSE3.from_array(np.array([1.0, 2.0, 3.0, 0.1, 0.2, 0.3], dtype=np.float64))
+
+        # Test SE2 empty arrays
+        empty_se2_poses = np.array([], dtype=np.float64).reshape(0, len(StateSE2Index))
+        empty_2d_points = np.array([], dtype=np.float64).reshape(0, len(Point2DIndex))
+
+        result_se2_poses = convert_absolute_to_relative_se2_array(reference_se2, empty_se2_poses)
+        result_2d_points = convert_absolute_to_relative_point_2d_array(reference_se2, empty_2d_points)
+
+        self.assertEqual(result_se2_poses.shape, (0, len(StateSE2Index)))
+        self.assertEqual(result_2d_points.shape, (0, len(Point2DIndex)))
+
+        # Test SE3 empty arrays
+        empty_se3_poses = np.array([], dtype=np.float64).reshape(0, len(StateSE3Index))
+        empty_3d_points = np.array([], dtype=np.float64).reshape(0, len(Point3DIndex))
+
+        result_se3_poses = convert_absolute_to_relative_se3_array(reference_se3, empty_se3_poses)
+        result_3d_points = convert_absolute_to_relative_points_3d_array(reference_se3, empty_3d_points)
+
+        self.assertEqual(result_se3_poses.shape, (0, len(StateSE3Index)))
+        self.assertEqual(result_3d_points.shape, (0, len(Point3DIndex)))
+
+    def test_transform_identity_operations(self) -> None:
+        """Test that transforms with identity reference frames work correctly"""
+        # Identity SE2 pose
+        identity_se2 = StateSE2.from_array(np.array([0.0, 0.0, 0.0], dtype=np.float64))
+        identity_se3 = StateSE3.from_array(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float64))
+
+        for _ in range(self.num_consistency_tests):
+            # Test SE2 identity transforms
+            num_poses = np.random.randint(1, 10)
+            se2_poses = self._get_random_se2_array(num_poses)
+            se2_points = se2_poses[:, StateSE2Index.XY]
+
+            relative_se2_poses = convert_absolute_to_relative_se2_array(identity_se2, se2_poses)
+            relative_se2_points = convert_absolute_to_relative_point_2d_array(identity_se2, se2_points)
+
+            np.testing.assert_array_almost_equal(se2_poses, relative_se2_poses, decimal=self.decimal)
+            np.testing.assert_array_almost_equal(se2_points, relative_se2_points, decimal=self.decimal)
+
+            # Test SE3 identity transforms
+            se3_poses = self._get_random_se3_array(num_poses)
+            se3_points = se3_poses[:, StateSE3Index.XYZ]
+
+            relative_se3_poses = convert_absolute_to_relative_se3_array(identity_se3, se3_poses)
+            relative_se3_points = convert_absolute_to_relative_points_3d_array(identity_se3, se3_points)
+
+            np.testing.assert_array_almost_equal(se3_poses, relative_se3_poses, decimal=self.decimal)
+            np.testing.assert_array_almost_equal(se3_points, relative_se3_points, decimal=self.decimal)
+
+    def test_transform_large_rotations(self) -> None:
+        """Test transforms with large rotation angles beyond [-π, π]"""
+        for _ in range(self.num_consistency_tests):
+            # Create poses with large rotation angles
+            large_yaw_se2 = np.random.uniform(-4 * np.pi, 4 * np.pi)
+            large_euler_se3 = np.random.uniform(-4 * np.pi, 4 * np.pi, 3)
+
+            reference_se2 = StateSE2.from_array(np.array([0.0, 0.0, large_yaw_se2], dtype=np.float64))
+            reference_se3 = StateSE3.from_array(
+                np.array([0.0, 0.0, 0.0, large_euler_se3[0], large_euler_se3[1], large_euler_se3[2]], dtype=np.float64)
+            )
+
+            # Generate test poses/points
+            test_se2_poses = self._get_random_se2_array(5)
+            test_se3_poses = self._get_random_se3_array(5)
+            test_2d_points = test_se2_poses[:, StateSE2Index.XY]
+            test_3d_points = test_se3_poses[:, StateSE3Index.XYZ]
+
+            # Test round-trip conversions should still work
+            relative_se2 = convert_absolute_to_relative_se2_array(reference_se2, test_se2_poses)
+            recovered_se2 = convert_relative_to_absolute_se2_array(reference_se2, relative_se2)
+
+            relative_se3 = convert_absolute_to_relative_se3_array(reference_se3, test_se3_poses)
+            recovered_se3 = convert_relative_to_absolute_se3_array(reference_se3, relative_se3)
+
+            relative_2d_points = convert_absolute_to_relative_point_2d_array(reference_se2, test_2d_points)
+            recovered_2d_points = convert_relative_to_absolute_point_2d_array(reference_se2, relative_2d_points)
+
+            relative_3d_points = convert_absolute_to_relative_points_3d_array(reference_se3, test_3d_points)
+            recovered_3d_points = convert_relative_to_absolute_points_3d_array(reference_se3, relative_3d_points)
+
+            # Check consistency (allowing for angle wrapping)
+            np.testing.assert_array_almost_equal(
+                test_se2_poses[:, StateSE2Index.XY],
+                recovered_se2[:, StateSE2Index.XY],
                 decimal=self.decimal,
             )
             np.testing.assert_array_almost_equal(
-                absolute_2d_recovered,
-                absolute_3d_recovered[..., Point3DIndex.XY],
+                test_se3_poses[:, StateSE3Index.XYZ],
+                recovered_se3[:, StateSE3Index.XYZ],
                 decimal=self.decimal,
             )
-            # Z-component should remain zero
-            np.testing.assert_array_almost_equal(
-                relative_3d[..., Point3DIndex.Z],
-                np.zeros(num_points),
-                decimal=self.decimal,
-            )
-            np.testing.assert_array_almost_equal(
-                absolute_3d_recovered[..., Point3DIndex.Z],
-                np.zeros(num_points),
-                decimal=self.decimal,
-            )
+            np.testing.assert_array_almost_equal(test_2d_points, recovered_2d_points, decimal=self.decimal)
+            np.testing.assert_array_almost_equal(test_3d_points, recovered_3d_points, decimal=self.decimal)
 
 
 if __name__ == "__main__":
