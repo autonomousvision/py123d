@@ -1,13 +1,11 @@
 import numpy as np
 
 from collections import defaultdict
-
+from typing import Dict, Optional, Any, List
 from scipy.linalg import polar
 from scipy.spatial.transform import Rotation as R
 
-from d123.common.geometry.base import StateSE3
-from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3
-from d123.common.geometry.transform.se3 import get_rotation_matrix
+from d123.geometry import BoundingBoxSE3, StateSE3
 from d123.dataset.dataset_specific.kitti_360.labels import kittiId2label
 
 DEFAULT_ROLL = 0.0
@@ -51,7 +49,6 @@ class KITTI360Bbox3D():
         # the window that contains the bbox
         self.start_frame = -1
         self.end_frame = -1
-        self.valid_radius_frames = []
 
         # timestamp of the bbox (-1 if statis)
         self.timestamp = -1
@@ -92,6 +89,9 @@ class KITTI360Bbox3D():
         self.label = child.find('label').text
 
         self.globalID = local2global(self.semanticId, self.instanceId)
+
+        self.valid_frames = {"global_id": self.globalID, "records": []}
+
         self.parseVertices(child)
         self.parse_scale_rotation()
 
@@ -119,11 +119,6 @@ class KITTI360Bbox3D():
         self.yaw = yaw
         self.pitch = pitch  
         self.roll = roll
-
-        # self.pose = np.eye(4, dtype=np.float64)
-        # self.pose[:3, :3] = self.Rm
-        # self.pose[:3, 3] = self.T
-        # self.w2e = np.linalg.inv(self.pose)
         
     def get_state_array(self):
         center = StateSE3(
@@ -140,16 +135,17 @@ class KITTI360Bbox3D():
         return bounding_box_se3.array
 
     def filter_by_radius(self,ego_state_xyz,radius=50.0):
-        # first stage of detection, used to filter out detections by radius
-
-        for index in range(len(ego_state_xyz)):
-            ego_state = ego_state_xyz[index]
-            distance = np.linalg.norm(ego_state[:3] - self.T)
-            if distance <= radius:
-                self.valid_radius_frames.append(index)
+        ''' first stage of detection, used to filter out detections by radius '''
+        d = np.linalg.norm(ego_state_xyz - self.T[None, :], axis=1)
+        idxs = np.where(d <= radius)[0]
+        for idx in idxs:
+            self.valid_frames["records"].append({
+                "timestamp": idx,
+                "points_in_box": None,
+                })
 
     def box_visible_in_point_cloud(self, points):
-        # points: (N,3) , box: (8,3)
+        ''' points: (N,3) , box: (8,3) '''
         box = self.vertices
         O, A, B, C = box[0], box[1], box[2], box[5]
         OA = A - O
@@ -159,4 +155,11 @@ class KITTI360Bbox3D():
         mask = (np.dot(O, OA) < POA) & (POA < np.dot(A, OA)) & \
             (np.dot(O, OB) < POB) & (POB < np.dot(B, OB)) & \
             (np.dot(O, OC) < POC) & (POC < np.dot(C, OC))
-        return True if np.sum(mask) > 100 else False
+        
+        points_in_box = np.sum(mask)
+        visible = True if points_in_box > 50 else False
+        return visible, points_in_box
+    
+    def load_detection_preprocess(self, records_dict: Dict[int, Any]):
+        if self.globalID in records_dict:
+            self.valid_frames["records"] = records_dict[self.globalID]["records"]

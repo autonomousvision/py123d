@@ -213,12 +213,17 @@ for idx in range(len(list(oxts_path.glob("*.txt")))):
                         [0.0, -1.0, 0.0],
                         [0.0, 0.0, -1.0]], dtype=np.float64)    
     R_mat = R_mat @ calib
+    from d123.geometry.rotation import EulerAngles
     if idx <= 300:
         # print("R_mat",R_mat)
+        
         new_yaw, new_pitch, new_roll = Quaternion(matrix=R_mat[:3, :3]).yaw_pitch_roll
+        R = EulerAngles.from_array(np.array([new_roll, new_pitch, new_yaw])).rotation_matrix
+        # print("R from yaw_pitch_roll",R)
+        print(R_mat - R)
         # new_yaw,new_pitch,new_roll = R.from_matrix(R_mat).as_euler('yxz', degrees=False)
-        print("new",new_roll,new_pitch,new_yaw)
-        print("roll,pitch,yaw",oxts_data[3:6])  # 前6个元素是位置和速度
-        roll, pitch, yaw = oxts_data[3:6]
+        # print("new",new_roll,new_pitch,new_yaw)
+        # print("roll,pitch,yaw",oxts_data[3:6])  # 前6个元素是位置和速度
+        # roll, pitch, yaw = oxts_data[3:6]
         # print("true",get_rotation_matrix(roll,pitch,yaw))
         # print("new",roll,pitch,yaw)

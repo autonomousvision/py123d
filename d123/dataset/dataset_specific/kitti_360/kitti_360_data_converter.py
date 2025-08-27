@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
 import numpy as np
+import pickle
 from collections import defaultdict
 import datetime
 import hashlib
@@ -27,14 +28,12 @@ from d123.common.datatypes.sensor.lidar_index import Kitti360LidarIndex
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.common.datatypes.vehicle_state.vehicle_parameters import get_kitti360_station_wagon_parameters,rear_axle_se3_to_center_se3
-from d123.common.geometry.base import StateSE3
-from d123.common.geometry.bounding_box.bounding_box import BoundingBoxSE3Index
-from d123.common.geometry.vector import Vector3D, Vector3DIndex
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
 from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION
 from d123.dataset.dataset_specific.kitti_360.labels import KIITI360_DETECTION_NAME_DICT,kittiId2label
+from d123.geometry import BoundingBoxSE3, BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
 
 KITTI360_DT: Final[float] = 0.1
 SORT_BY_TIMESTAMP: Final[bool] = True
@@ -73,6 +72,9 @@ KITTI360_REQUIRED_MODALITY_ROOTS: Dict[str, Path] = {
     DIR_POSES: PATH_POSES_ROOT,
     DIR_3D_BBOX: PATH_3D_BBOX_ROOT / "train",
 }
+
+D123_DEVKIT_ROOT = Path(os.environ["D123_DEVKIT_ROOT"])
+PREPOCESS_DETECTION_DIR = D123_DEVKIT_ROOT / "d123" / "dataset" / "dataset_specific" / "kitti_360" / "detection_preprocess"
 
 def create_token(input_data: str) -> str:
     # TODO: Refactor this function.
@@ -316,7 +318,15 @@ def _readYAMLFile(fileName):
 
 def get_kitti360_lidar_metadata() -> Dict[LiDARType, LiDARMetadata]:
     metadata: Dict[LiDARType, LiDARMetadata] = {}
+    extrinsic = get_lidar_extrinsic()
+    metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
+        lidar_type=LiDARType.LIDAR_TOP,
+        lidar_index=Kitti360LidarIndex,
+        extrinsic=extrinsic, 
+    )
+    return metadata
 
+def get_lidar_extrinsic() -> np.ndarray:
     cam2pose_txt = PATH_CALIB_ROOT / "calib_cam_to_pose.txt"
     if not cam2pose_txt.exists():
         raise FileNotFoundError(f"calib_cam_to_pose.txt file not found: {cam2pose_txt}")
@@ -336,13 +346,7 @@ def get_kitti360_lidar_metadata() -> Dict[LiDARType, LiDARMetadata]:
     
     cam2velo = np.concatenate((np.loadtxt(cam2velo_txt).reshape(3,4), lastrow))
     extrinsic =  cam2pose @ np.linalg.inv(cam2velo)
-
-    metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
-        lidar_type=LiDARType.LIDAR_TOP,
-        lidar_index=Kitti360LidarIndex,
-        extrinsic=extrinsic, 
-    )
-    return metadata
+    return extrinsic
 
 def _write_recording_table(
     log_name: str,
@@ -405,11 +409,10 @@ def _write_recording_table(
 #TODO Synchronization all other sequences)
 def _read_timestamps(log_name: str) -> Optional[List[TimePoint]]:
     # unix
-    # default using velodyne timestamps,if not available, use camera timestamps
     ts_files = [
-        PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "timestamps.txt",
         PATH_2D_RAW_ROOT / log_name / "image_00" / "timestamps.txt",
         PATH_2D_RAW_ROOT / log_name / "image_01" / "timestamps.txt",
+        PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "timestamps.txt",
     ]
     for ts_file in ts_files:
         if ts_file.exists():
@@ -531,16 +534,13 @@ def _extract_detections(
 
     dynamic_groups: Dict[int, List[KITTI360Bbox3D]] = defaultdict(list)
 
-   
-    # lidra_data_all = []
-    # for index in range(ts_len):
-    #     lidar_full_path = PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "data" / f"{index:010d}.bin"
-    #     if not lidar_full_path.exists():
-    #         logging.warning(f"LiDAR file not found for frame {index}: {lidar_full_path}")
-    #         continue
-    #     lidar_data = np.fromfile(lidar_full_path, dtype=np.float32)
-    #     lidar_data = lidar_data.reshape(-1, 4)[:, :3]  # Keep only x, y, z coordinates
-    #     lidra_data_all.append(lidar_data)
+    detection_preprocess_path = PREPOCESS_DETECTION_DIR / f"{log_name}_detection_preprocessed.pkl"
+    if detection_preprocess_path.exists():
+        with open(detection_preprocess_path, "rb") as f:
+            detection_preprocess_result = pickle.load(f)
+            records_dict = {record_item["global_id"]: record_item for record_item in detection_preprocess_result["records"]}
+    else:
+        detection_preprocess_result = None
 
     for child in root:
         semanticIdKITTI = int(child.find('semanticId').text)
@@ -552,14 +552,12 @@ def _extract_detections(
         
         #static object
         if obj.timestamp == -1:
-            # first filter by radius
-            obj.filter_by_radius(ego_states_xyz,radius=50.0)
-            # then filter by pointcloud
-            for frame in obj.valid_radius_frames:
-                # TODO in the future, now is too slow because cpu in the server is not free
-                # or using config?
-                # lidar_data = lidra_data_all[frame]
-                # if obj.box_visible_in_point_cloud(lidar_data):
+            if detection_preprocess_result is None:
+                obj.filter_by_radius(ego_states_xyz,radius=50.0)
+            else:
+                obj.load_detection_preprocess(records_dict)
+            for record in obj.valid_frames["records"]:
+                frame = record["timestamp"]
                 detections_states[frame].append(obj.get_state_array())
                 detections_velocity[frame].append([0.0, 0.0, 0.0])
                 detections_tokens[frame].append(str(obj.globalID))
@@ -606,6 +604,11 @@ def _extract_detections(
 
 #TODO lidar extraction now only velo
 def _extract_lidar(log_name: str, idx: int, data_converter_config: DataConverterConfig) -> Dict[LiDARType, Optional[str]]:
+    
+    #NOTE special case for sequence 2013_05_28_drive_0002_sync which has no lidar data before frame 4391
+    if log_name == "2013_05_28_drive_0002_sync" and idx <= 4390:
+        return {LiDARType.LIDAR_TOP: None}
+    
     lidar: Optional[str] = None
     lidar_full_path = PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "data" / f"{idx:010d}.bin"
     if lidar_full_path.exists():
