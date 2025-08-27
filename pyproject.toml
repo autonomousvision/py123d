@@ -13,7 +13,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
 ]
 name = "d123"
-version = "v0.0.6"
+version = "v0.0.7"
 authors = [{ name = "Daniel Dauner", email = "daniel.dauner@gmail.com" }]
 description = "TODO"
 readme = "README.md"
@@ -63,6 +63,10 @@ dependencies = [
     "trimesh",
     "viser",
 ]
+
+[project.scripts]
+d123-viser = "d123.script.run_viser:main"
+
 
 [project.optional-dependencies]
 dev = [

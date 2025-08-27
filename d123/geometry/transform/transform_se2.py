@@ -8,8 +8,6 @@ from d123.geometry.se import StateSE2, StateSE2Index
 from d123.geometry.utils.rotation_utils import normalize_angle
 from d123.geometry.vector import Vector2D
 
-# TODO: Refactor 2D and 3D transform functions in a more consistent and general way.
-
 
 def convert_absolute_to_relative_se2_array(
     origin: Union[StateSE2, npt.NDArray[np.float64]], state_se2_array: npt.NDArray[np.float64]
@@ -125,31 +123,6 @@ def convert_relative_to_absolute_point_2d_array(
     return point_2d_abs
 
 
-def translate_se2(state_se2: StateSE2, translation: Vector2D) -> StateSE2:
-    """Translate a single SE2 state by a 2D vector.
-
-    :param state_se2: SE2 state to translate
-    :param translation: 2D translation vector
-    :return: translated SE2 state
-    """
-    translated_xy = state_se2.array[StateSE2Index.XY] + translation.array[Vector2DIndex.XY]
-    return StateSE2(translated_xy[0], translated_xy[1], state_se2.array[StateSE2Index.YAW])
-
-
-def translate_se2_array(state_se2_array: npt.NDArray[np.float64], translation: Vector2D) -> npt.NDArray[np.float64]:
-    """Translate an array of SE2 states by a 2D vector.
-
-    :param state_se2_array: array of SE2 states, indexed by \
-        :class:`~d123.geometry.geometry_index.StateSE2Index`, in last dim
-    :param translation: 2D translation vector
-    :return: translated SE2 array
-    """
-    assert len(StateSE2Index) == state_se2_array.shape[-1]
-    result = state_se2_array.copy()
-    result[..., StateSE2Index.XY] += translation.array[Vector2DIndex.XY]
-    return result
-
-
 def translate_se2_array_along_body_frame(
     state_se2_array: npt.NDArray[np.float64], translation: Vector2D
 ) -> npt.NDArray[np.float64]:
@@ -184,4 +157,26 @@ def translate_se2_along_body_frame(state_se2: StateSE2, translation: Vector2D) -
     :param translation: 2D translation in local frame (x: forward, y: left)
     :return: translated SE2 state
     """
+    return StateSE2.from_array(translate_se2_array_along_body_frame(state_se2.array, translation), copy=False)
+
+
+def translate_se2_along_x(state_se2: StateSE2, distance: float) -> StateSE2:
+    """Translate a single SE2 state along its local X-axis.
+
+    :param state_se2: SE2 state to translate
+    :param distance: distance to translate along the local X-axis
+    :return: translated SE2 state
+    """
+    translation = Vector2D.from_array(np.array([distance, 0.0], dtype=np.float64))
+    return StateSE2.from_array(translate_se2_array_along_body_frame(state_se2.array, translation), copy=False)
+
+
+def translate_se2_along_y(state_se2: StateSE2, distance: float) -> StateSE2:
+    """Translate a single SE2 state along its local Y-axis.
+
+    :param state_se2: SE2 state to translate
+    :param distance: distance to translate along the local Y-axis
+    :return: translated SE2 state
+    """
+    translation = Vector2D.from_array(np.array([0.0, distance], dtype=np.float64))
     return StateSE2.from_array(translate_se2_array_along_body_frame(state_se2.array, translation), copy=False)

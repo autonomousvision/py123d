@@ -118,10 +118,6 @@ class StateSE3Index(IntEnum):
         return slice(cls.X, cls.Z + 1)
 
     @classproperty
-    def ROTATION_XYZ(cls) -> slice:
-        return slice(cls.ROLL, cls.YAW + 1)
-
-    @classproperty
     def EULER_ANGLES(cls) -> slice:
         return slice(cls.ROLL, cls.YAW + 1)
 
@@ -208,7 +204,7 @@ class BoundingBoxSE3Index(IntEnum):
         return slice(cls.X, cls.YAW + 1)
 
     @classproperty
-    def ROTATION_XYZ(cls) -> slice:
+    def EULER_ANGLES(cls) -> slice:
         return slice(cls.ROLL, cls.YAW + 1)
 
     @classproperty

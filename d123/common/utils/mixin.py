@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-import copy as pycopy
-
 import numpy as np
 import numpy.typing as npt
 
 
 class ArrayMixin:
     """Abstract base class for geometric entities."""
+
+    @classmethod
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> ArrayMixin:
+        """Create an instance from a NumPy array."""
+        raise NotImplementedError
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
@@ -43,6 +46,4 @@ class ArrayMixin:
 
     def copy(self) -> ArrayMixin:
         """Return a copy of the object with a copied array."""
-        obj = pycopy.copy(self)
-        obj.array = self.array.copy()
-        return obj
+        return self.__class__.from_array(self.array, copy=True)

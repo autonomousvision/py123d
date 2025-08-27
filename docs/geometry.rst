@@ -17,8 +17,8 @@ Vectors
 
 .. autoclass:: d123.geometry.Vector3D()
 
-Super Euclidean States
-~~~~~~~~~~~~~~~~~~~~~~
+Special Euclidean Group
+~~~~~~~~~~~~~~~~~~~~~~~
 .. autoclass:: d123.geometry.StateSE2()
 
 .. autoclass:: d123.geometry.StateSE3()
@@ -51,6 +51,36 @@ Indexing Enums
 
 .. autoclass:: d123.geometry.Corners3DIndex()
 
+
+Transformations
+---------------
+
+Transformations in 2D
+~~~~~~~~~~~~~~~~~~~~~
+.. autofunction:: d123.geometry.transform.convert_absolute_to_relative_se2_array
+
+.. autofunction:: d123.geometry.transform.convert_relative_to_absolute_se2_array
+
+.. autofunction:: d123.geometry.transform.translate_se2_along_body_frame
+
+.. autofunction:: d123.geometry.transform.translate_se2_along_x
+
+.. autofunction:: d123.geometry.transform.translate_se2_along_y
+
+
+Transformations in 3D
+~~~~~~~~~~~~~~~~~~~~~
+.. autofunction:: d123.geometry.transform.convert_absolute_to_relative_se3_array
+
+.. autofunction:: d123.geometry.transform.convert_relative_to_absolute_se3_array
+
+.. autofunction:: d123.geometry.transform.translate_se3_along_body_frame
+
+.. autofunction:: d123.geometry.transform.translate_se3_along_x
+
+.. autofunction:: d123.geometry.transform.translate_se3_along_y
+
+.. autofunction:: d123.geometry.transform.translate_se3_along_z
 
 Occupancy Map
 -------------

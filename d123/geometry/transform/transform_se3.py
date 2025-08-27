@@ -7,7 +7,6 @@ from d123.geometry import StateSE3, StateSE3Index, Vector3D
 from d123.geometry.geometry_index import Point3DIndex, Vector3DIndex
 from d123.geometry.rotation import EulerAngles
 from d123.geometry.utils.rotation_utils import (
-    get_rotation_matrices_from_euler_array,
     get_rotation_matrix_from_euler_array,
     normalize_angle,
 )
@@ -108,12 +107,6 @@ def convert_absolute_to_relative_se3_array(
 
     # Vectorized relative position calculation
     rel_positions = (abs_positions - t_origin) @ R_origin
-
-    # Get rotation matrices for all absolute orientations
-    R_abs = get_rotation_matrices_from_euler_array(abs_euler_angles)
-
-    # Compute relative rotations: R_rel = R_origin^T @ R_abs
-    np.transpose(R_origin) @ R_abs
 
     # Convert back to Euler angles (this may need a custom function)
     # For now, using simple subtraction as approximation (this is incorrect for general rotations)

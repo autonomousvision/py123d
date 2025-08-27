@@ -60,7 +60,7 @@ class PlanView:
                 s = self.length
             else:
                 raise ValueError(
-                    f"s={s} is beyond the end of the plan view (length={self.length}) with tolerance={TOLERANCE}."
+                    f"PlanView: s={s} is beyond the end of the plan view (length={self.length}) with tolerance={TOLERANCE}."
                 )
 
         # Find the geometry segment containing s
@@ -131,6 +131,11 @@ class ReferenceLine:
                     out_polynomial = polynomial
                     break
 
+        # s_values = np.array([poly.s for poly in polynomials])
+        # side = "left" if lane_section_end else "right"
+        # poly_idx = np.searchsorted(s_values, s, side=side) - 1
+        # poly_idx = int(np.clip(poly_idx, 0, len(polynomials) - 1))
+        # return polynomials[poly_idx]
         return out_polynomial
 
     def interpolate_se2(self, s: float, t: float = 0.0, lane_section_end: bool = False) -> npt.NDArray[np.float64]:
