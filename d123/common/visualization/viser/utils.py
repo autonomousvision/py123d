@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -216,21 +216,22 @@ def _create_lane_mesh_from_boundary_arrays(
     return mesh
 
 
-def get_camera_values(
-    scene: AbstractScene, camera_type: CameraType, iteration: int
-) -> Tuple[Point3D, Quaternion, Camera]:
+def get_camera_if_available(scene: AbstractScene, camera_type: CameraType, iteration: int) -> Optional[Camera]:
+    camera: Optional[Camera] = None
+    if camera_type in scene.available_camera_types:
+        camera: Camera = scene.get_camera_at_iteration(iteration, camera_type)
+    return camera
+
+
+def get_camera_values(scene: AbstractScene, camera: Camera, iteration: int) -> Tuple[Point3D, Quaternion]:
     initial_point_3d = scene.get_ego_state_at_iteration(0).center_se3.point_3d
     rear_axle = scene.get_ego_state_at_iteration(iteration).rear_axle_se3
-
-    camera = scene.get_camera_at_iteration(iteration, camera_type)
 
     rear_axle_array = rear_axle.array
     rear_axle_array[:3] -= initial_point_3d.array
     rear_axle = StateSE3.from_array(rear_axle_array)
 
     camera_to_ego = camera.extrinsic  # 4x4 transformation from camera to ego frame
-
-    # Get the rotation matrix of the rear axle pose
 
     ego_transform = rear_axle.transformation_matrix
 
@@ -240,7 +241,7 @@ def get_camera_values(
     camera_position = Point3D(*camera_transform[:3, 3])
     camera_rotation = Quaternion(matrix=camera_transform[:3, :3])
 
-    return camera_position, camera_rotation, camera
+    return camera_position, camera_rotation
 
 
 def get_lidar_points(

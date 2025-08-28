@@ -5,10 +5,6 @@ import numpy.typing as npt
 
 from d123.geometry.geometry_index import EulerAnglesIndex
 
-# TODO: move this somewhere else
-# TODO: Maybe rename wrap angle?
-# TODO: Add implementation for torch, jax, or whatever else is needed.
-
 
 def normalize_angle(angle: Union[float, npt.NDArray[np.float64]]) -> Union[float, npt.NDArray[np.float64]]:
     """
