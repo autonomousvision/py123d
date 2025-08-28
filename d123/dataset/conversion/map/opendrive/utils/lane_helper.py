@@ -50,9 +50,9 @@ class OpenDriveLaneHelper:
     def _s_positions(self) -> npt.NDArray[np.float64]:
         length = self.s_range[1] - self.s_range[0]
         _s_positions = np.linspace(
-            self.s_range[0],
-            self.s_range[1],
-            int(np.ceil(length / self.interpolation_step_size)) + 1,
+            start=self.s_range[0],
+            stop=self.s_range[1],
+            num=int(np.ceil(length / self.interpolation_step_size)) + 1,
             endpoint=True,
             dtype=np.float64,
         )

@@ -99,7 +99,16 @@ class OccupancyMap2D:
         self,
         geometry: Union[BaseGeometry, np.ndarray],
         predicate: Optional[
-            Literal["intersects", "within", "contains", "overlaps", "crosses", "touches", "covers", "covered_by"]
+            Literal[
+                "intersects",
+                "within",
+                "contains",
+                "overlaps",
+                "crosses",
+                "touches",
+                "covers",
+                "covered_by",
+            ]
         ] = None,
         distance: Optional[float] = None,
     ) -> npt.NDArray[np.int64]:

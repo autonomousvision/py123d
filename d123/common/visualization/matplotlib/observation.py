@@ -28,7 +28,7 @@ from d123.dataset.maps.map_datatypes import MapLayer
 from d123.dataset.scene.abstract_scene import AbstractScene
 from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D
 from d123.geometry.geometry_index import StateSE2Index
-from d123.geometry.transform.transform_se2 import translate_se2_along_yaw
+from d123.geometry.transform.transform_se2 import translate_se2_along_body_frame
 from d123.geometry.vector import Vector2D
 
 
@@ -153,12 +153,10 @@ def add_bounding_box_to_ax(
     if plot_config.marker_style is not None:
         assert plot_config.marker_style in ["-", "^"], f"Unknown marker style: {plot_config.marker_style}"
         if plot_config.marker_style == "-":
-            center_se2 = (
-                bounding_box.center if isinstance(bounding_box, BoundingBoxSE2) else bounding_box.center.state_se2
-            )
+            center_se2 = bounding_box.center_se2
             arrow = np.zeros((2, 2), dtype=np.float64)
             arrow[0] = center_se2.point_2d.array
-            arrow[1] = translate_se2_along_yaw(
+            arrow[1] = translate_se2_along_body_frame(
                 center_se2,
                 Vector2D(bounding_box.length / 2.0 + 0.5, 0.0),
             ).array[StateSE2Index.XY]

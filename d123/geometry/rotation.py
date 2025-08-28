@@ -80,20 +80,16 @@ class EulerAngles(ArrayMixin):
         """
         return self._array[EulerAnglesIndex.YAW]
 
-    @cached_property
+    @property
     def array(self) -> npt.NDArray[np.float64]:
         """Converts the EulerAngles instance to a numpy array.
 
         :return: A numpy array of shape (3,) containing the Euler angles [roll, pitch, yaw], indexed by \
             :class:`~d123.geometry.EulerAnglesIndex`.
         """
-        array = np.zeros(len(EulerAnglesIndex), dtype=np.float64)
-        array[EulerAnglesIndex.ROLL] = self.roll
-        array[EulerAnglesIndex.PITCH] = self.pitch
-        array[EulerAnglesIndex.YAW] = self.yaw
-        return array
+        return self._array
 
-    @property
+    @cached_property
     def rotation_matrix(self) -> npt.NDArray[np.float64]:
         """Returns the 3x3 rotation matrix representation of the Euler angles.
         NOTE: The rotation order is intrinsic Z-Y'-X'' (yaw-pitch-roll).
@@ -206,7 +202,7 @@ class Quaternion(ArrayMixin):
         """
         return self._array
 
-    @property
+    @cached_property
     def pyquaternion(self) -> pyquaternion.Quaternion:
         """Returns the pyquaternion.Quaternion representation of the quaternion.
 

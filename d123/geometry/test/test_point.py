@@ -7,8 +7,6 @@ from d123.geometry import Point2D, Point2DIndex
 from d123.geometry.geometry_index import Point3DIndex
 from d123.geometry.point import Point3D
 
-# Point3D, Point3DIndex
-
 
 class TestPoint2D(unittest.TestCase):
     """Unit tests for Point2D class."""

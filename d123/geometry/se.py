@@ -256,7 +256,7 @@ class StateSE3(ArrayMixin):
 
         :return: A 3x3 numpy array representing the rotation matrix.
         """
-        return EulerAngles.from_array(self.array[StateSE3Index.EULER_ANGLES]).rotation_matrix
+        return self.euler_angles.rotation_matrix
 
     @property
     def transformation_matrix(self) -> npt.NDArray[np.float64]:
@@ -269,6 +269,22 @@ class StateSE3(ArrayMixin):
         transformation_matrix[:3, :3] = rotation_matrix
         transformation_matrix[:3, 3] = self.array[StateSE3Index.XYZ]
         return transformation_matrix
+
+    @cached_property
+    def euler_angles(self) -> EulerAngles:
+        return EulerAngles.from_array(self.array[StateSE3Index.EULER_ANGLES])
+
+    @property
+    def quaternion_se3(self) -> QuaternionSE3:
+        """Returns the QuaternionSE3 representation of the state.
+
+        :return: A QuaternionSE3 instance representing the quaternion.
+        """
+        quaternion_se3_array = np.zeros(len(QuaternionSE3Index), dtype=np.float64)
+        quaternion_se3_array[QuaternionSE3Index.XYZ] = self.array[StateSE3Index.XYZ]
+        quaternion_se3_array[QuaternionSE3Index.QUATERNION] = Quaternion.from_euler_angles(self.euler_angles)
+
+        return QuaternionSE3.from_array(quaternion_se3_array)
 
     @property
     def quaternion(self) -> npt.NDArray[np.float64]:
@@ -295,7 +311,7 @@ class StateSE3(ArrayMixin):
         return StateSE3.from_transformation_matrix(self.transformation_matrix @ other.transformation_matrix)
 
 
-class QuaternionSE3:
+class QuaternionSE3(ArrayMixin):
     """Class representing a quaternion in SE3 space.
 
     TODO: Implement and replace StateSE3.
@@ -434,3 +450,11 @@ class QuaternionSE3:
         :return: A Quaternion instance representing the quaternion.
         """
         return Quaternion.from_array(self.array[QuaternionSE3Index.QUATERNION])
+
+    @property
+    def rotation_matrix(self) -> npt.NDArray[np.float64]:
+        """Returns the 3x3 rotation matrix representation of the state's orientation.
+
+        :return: A 3x3 numpy array representing the rotation matrix.
+        """
+        return self.quaternion.rotation_matrix
