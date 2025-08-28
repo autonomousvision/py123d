@@ -56,11 +56,11 @@ DIR_3D_BBOX = "data_3d_bboxes"
 DIR_POSES = "data_poses"
 DIR_CALIB = "calibration"
 
-#TODO PATH_2D_RAW_ROOT
-# PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_RAW
-PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT 
+PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_RAW
+# PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT 
 PATH_2D_SMT_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_SMT
 PATH_3D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_RAW
+# PATH_3D_RAW_ROOT: Path = Path("/data/jbwang/d123/data_3d_raw")
 PATH_3D_SMT_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_SMT
 PATH_3D_BBOX_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_BBOX
 PATH_POSES_ROOT: Path = KITTI360_DATA_ROOT / DIR_POSES
@@ -406,7 +406,9 @@ def _write_recording_table(
         write_arrow_table(recording_table, log_file_path)
 
 def _read_timestamps(log_name: str) -> Optional[List[TimePoint]]:
-    # unix
+    """
+    Read KITTI-360 timestamps for the given sequence and return Unix epoch timestamps.
+    """
     ts_files = [
         PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "timestamps.txt",
         PATH_2D_RAW_ROOT / log_name / "image_00" / "timestamps.txt",
@@ -449,10 +451,9 @@ def _extract_ego_state_all(log_name: str) -> List[List[float]]:
         raise FileNotFoundError(f"Pose file not found: {pose_file}")
     poses = np.loadtxt(pose_file)
     poses_time = poses[:, 0] - 1  # Adjusting time to start from 0
-    
-    #TODO 
-    #oxts_path =  PATH_POSES_ROOT / log_name / "oxts" / "data" 
-    oxts_path = Path("/data/jbwang/d123/data_poses/") / log_name / "oxts" / "data" 
+     
+    oxts_path =  PATH_POSES_ROOT / log_name / "oxts" / "data" 
+    # oxts_path = Path("/data/jbwang/d123/data_poses/") / log_name / "oxts" / "data" 
     
     pose_idx = 0
     poses_time_len = len(poses_time)    
@@ -632,29 +633,29 @@ def _extract_cameras(
         elif cam_dir_name in ["image_02", "image_03"]:
             img_path_png = PATH_2D_RAW_ROOT / log_name / cam_dir_name / "data_rgb" / f"{idx:010d}.png"
 
+        cam2pose_txt = PATH_CALIB_ROOT / "calib_cam_to_pose.txt"
+        if not cam2pose_txt.exists():
+            raise FileNotFoundError(f"calib_cam_to_pose.txt file not found: {cam2pose_txt}")
+    
+        lastrow = np.array([0,0,0,1]).reshape(1,4)
+        with open(cam2pose_txt, 'r') as f:
+            for line in f:
+                parts = line.strip().split()
+                key = parts[0][:-1]
+                if key == cam_dir_name:
+                    values = list(map(float, parts[1:]))
+                    matrix = np.array(values).reshape(3, 4)
+                    cam2pose = np.concatenate((matrix, lastrow))
+                    cam2pose = KITTI3602NUPLAN_IMU_CALIBRATION @ cam2pose
+
         if img_path_png.exists():
-            cam2pose_txt = PATH_CALIB_ROOT / "calib_cam_to_pose.txt"
-            if not cam2pose_txt.exists():
-                raise FileNotFoundError(f"calib_cam_to_pose.txt file not found: {cam2pose_txt}")
-        
-            lastrow = np.array([0,0,0,1]).reshape(1,4)
-
-            with open(cam2pose_txt, 'r') as f:
-                for line in f:
-                    parts = line.strip().split()
-                    key = parts[0][:-1]
-                    if key == cam_dir_name:
-                        values = list(map(float, parts[1:]))
-                        matrix = np.array(values).reshape(3, 4)
-                        cam2pose = np.concatenate((matrix, lastrow))
-                        cam2pose = KITTI3602NUPLAN_IMU_CALIBRATION @ cam2pose
-
             if data_converter_config.camera_store_option == "path":
                 camera_data = str(img_path_png), cam2pose.flatten().tolist()
             elif data_converter_config.camera_store_option == "binary":
                 with open(img_path_png, "rb") as f:
                     camera_data = f.read(), cam2pose
         else:
-            raise FileNotFoundError(f"Camera image not found: {img_path_png}")
+            #TODO
+            camera_data = None, cam2pose.flatten().tolist()
         camera_dict[camera_type] = camera_data
     return camera_dict

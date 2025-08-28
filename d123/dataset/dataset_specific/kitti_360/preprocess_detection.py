@@ -163,7 +163,7 @@ def process_detection(
     for obj in static_objs:
         records.append(obj.valid_frames)
     if output_dir is None:
-        output_dir = PATH_3D_BBOX_ROOT / "preprocessed"
+        output_dir = PATH_3D_BBOX_ROOT / "preprocess"
     output_dir.mkdir(parents=True, exist_ok=True)
     out_path = output_dir / f"{log_name}_detection_preprocessed.pkl"
     payload = {

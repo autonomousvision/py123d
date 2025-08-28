@@ -43,9 +43,9 @@ MAP_AVAILABLE: bool = False
 
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_F0, CameraType.CAM_L0, CameraType.CAM_R0]
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = all_camera_types
-VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_STEREO_L, CameraType.CAM_STEREO_R]
+VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_STEREO_L]
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = []
-VISUALIZE_CAMERA_GUI: List[CameraType] = [CameraType.CAM_F0]
+VISUALIZE_CAMERA_GUI: List[CameraType] = [CameraType.CAM_STEREO_L]
 CAMERA_SCALE: float = 1.0
 
 # Lidar config:
