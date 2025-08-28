@@ -197,7 +197,6 @@ def convert_kitti360_log_to_arrow(
 
             vehicle_parameters = get_kitti360_station_wagon_parameters()
             camera_metadata = get_kitti360_camera_metadata()
-            #TODO  now only velodyne lidar
             lidar_metadata = get_kitti360_lidar_metadata()
 
             schema_column_list = [
@@ -406,14 +405,17 @@ def _write_recording_table(
         recording_table = recording_table.sort_by([("timestamp", "ascending")])
         write_arrow_table(recording_table, log_file_path)
 
-#TODO Synchronization all other sequences)
 def _read_timestamps(log_name: str) -> Optional[List[TimePoint]]:
     # unix
     ts_files = [
+        PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "timestamps.txt",
         PATH_2D_RAW_ROOT / log_name / "image_00" / "timestamps.txt",
         PATH_2D_RAW_ROOT / log_name / "image_01" / "timestamps.txt",
-        PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "timestamps.txt",
     ]
+    
+    if log_name == "2013_05_28_drive_0002_sync":
+        ts_files = ts_files[1:]
+
     for ts_file in ts_files:
         if ts_file.exists():
             tps: List[TimePoint] = []
@@ -602,7 +604,6 @@ def _extract_detections(
 
     return detections_states, detections_velocity, detections_tokens, detections_types
 
-#TODO lidar extraction now only velo
 def _extract_lidar(log_name: str, idx: int, data_converter_config: DataConverterConfig) -> Dict[LiDARType, Optional[str]]:
     
     #NOTE special case for sequence 2013_05_28_drive_0002_sync which has no lidar data before frame 4391
