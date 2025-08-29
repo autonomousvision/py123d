@@ -13,3 +13,8 @@ ego_displacement_minimum_m: null
 
 duration_s: 9.2
 history_s: 3.0
+
+camera_types: null
+
+max_num_scenes: null
+shuffle: false

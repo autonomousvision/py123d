@@ -1,6 +1,7 @@
 import time
 from typing import Dict, List, Literal
 
+import numpy as np
 import trimesh
 import viser
 
@@ -8,6 +9,7 @@ from d123.common.datatypes.sensor.camera import CameraType
 from d123.common.datatypes.sensor.lidar import LiDARType
 from d123.common.visualization.viser.utils import (
     get_bounding_box_meshes,
+    get_camera_if_available,
     get_camera_values,
     get_lidar_points,
     get_map_meshes,
@@ -186,23 +188,26 @@ class ViserVisualizationServer:
                 current_frame_handle = mew_frame_handle
 
                 for camera_type in VISUALIZE_CAMERA_GUI:
-                    if camera_type in scene.available_camera_types:
-                        camera_gui_handles[camera_type].image = scene.get_camera_at_iteration(
-                            gui_timestep.value, camera_type
-                        ).image
+                    camera = get_camera_if_available(scene, camera_type, gui_timestep.value)
+                    if camera is not None:
+                        camera_gui_handles[camera_type].image = camera.image
 
                 for camera_type in VISUALIZE_CAMERA_FRUSTUM:
-                    if camera_type in scene.available_camera_types:
-                        camera_position, camera_quaternion, camera = get_camera_values(
-                            scene, camera_type, gui_timestep.value
-                        )
-
+                    camera = get_camera_if_available(scene, camera_type, gui_timestep.value)
+                    if camera is not None:
+                        camera_position, camera_quaternion = get_camera_values(scene, camera, gui_timestep.value)
                         camera_frustum_handles[camera_type].position = camera_position.array
                         camera_frustum_handles[camera_type].wxyz = camera_quaternion.q
                         camera_frustum_handles[camera_type].image = camera.image
 
                 if LIDAR_AVAILABLE:
-                    points, colors = get_lidar_points(scene, gui_timestep.value, LIDAR_TYPES)
+                    try:
+                        points, colors = get_lidar_points(scene, gui_timestep.value, LIDAR_TYPES)
+                    except Exception as e:
+                        print(f"Error getting lidar points: {e}")
+                        points = np.zeros((0, 3))
+                        colors = np.zeros((0, 3))
+
                     gui_lidar.points = points
                     gui_lidar.colors = colors
 
@@ -221,19 +226,19 @@ class ViserVisualizationServer:
             camera_frustum_handles: Dict[CameraType, viser.CameraFrustumHandle] = {}
 
             for camera_type in VISUALIZE_CAMERA_GUI:
-                if camera_type in scene.available_camera_types:
+                camera = get_camera_if_available(scene, camera_type, gui_timestep.value)
+                if camera is not None:
                     with self.server.gui.add_folder(f"Camera {camera_type.serialize()}"):
                         camera_gui_handles[camera_type] = self.server.gui.add_image(
-                            image=scene.get_camera_at_iteration(gui_timestep.value, camera_type).image,
+                            image=camera.image,
                             label=camera_type.serialize(),
                             format="jpeg",
                         )
 
             for camera_type in VISUALIZE_CAMERA_FRUSTUM:
-                if camera_type in scene.available_camera_types:
-                    camera_position, camera_quaternion, camera = get_camera_values(
-                        scene, camera_type, gui_timestep.value
-                    )
+                camera = get_camera_if_available(scene, camera_type, gui_timestep.value)
+                if camera is not None:
+                    camera_position, camera_quaternion = get_camera_values(scene, camera, gui_timestep.value)
                     camera_frustum_handles[camera_type] = self.server.scene.add_camera_frustum(
                         f"camera_frustum_{camera_type.serialize()}",
                         fov=camera.metadata.fov_y,
@@ -245,7 +250,13 @@ class ViserVisualizationServer:
                     )
 
             if LIDAR_AVAILABLE:
-                points, colors = get_lidar_points(scene, gui_timestep.value, LIDAR_TYPES)
+                try:
+                    points, colors = get_lidar_points(scene, gui_timestep.value, LIDAR_TYPES)
+                except Exception as e:
+                    print(f"Error getting lidar points: {e}")
+                    points = np.zeros((0, 3))
+                    colors = np.zeros((0, 3))
+
                 gui_lidar = self.server.scene.add_point_cloud(
                     name="LiDAR",
                     points=points,
