@@ -43,9 +43,8 @@ KITTI360_DATA_ROOT = Path(os.environ["KITTI360_DATA_ROOT"])
 KITTI360_CAMERA_TYPES = {
     CameraType.CAM_STEREO_L: "image_00",  
     CameraType.CAM_STEREO_R: "image_01",   
-    # TODO need code refactoring to support fisheye cameras
-    # CameraType.CAM_L1: "image_02", 
-    # CameraType.CAM_R1: "image_03", 
+    CameraType.CAM_L1: "image_02", 
+    CameraType.CAM_R1: "image_03", 
 }
 
 DIR_2D_RAW = "data_2d_raw"
@@ -655,7 +654,6 @@ def _extract_cameras(
                 with open(img_path_png, "rb") as f:
                     camera_data = f.read(), cam2pose
         else:
-            #TODO
             camera_data = None, cam2pose.flatten().tolist()
         camera_dict[camera_type] = camera_data
     return camera_dict

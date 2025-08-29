@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -80,31 +80,6 @@ class CameraMetadata:
         return fov_y_rad
 
 
-def camera_metadata_dict_to_json(camera_metadata: Dict[CameraType, CameraMetadata]) -> Dict[str, Dict[str, Any]]:
-    """
-    Converts a dictionary of CameraMetadata to a JSON-serializable format.
-    :param camera_metadata: Dictionary of CameraMetadata.
-    :return: JSON-serializable dictionary.
-    """
-    camera_metadata_dict = {
-        camera_type.serialize(): metadata.to_dict() for camera_type, metadata in camera_metadata.items()
-    }
-    return json.dumps(camera_metadata_dict)
-
-
-def camera_metadata_dict_from_json(json_dict: Dict[str, Dict[str, Any]]) -> Dict[CameraType, CameraMetadata]:
-    """
-    Converts a JSON-serializable dictionary back to a dictionary of CameraMetadata.
-    :param json_dict: JSON-serializable dictionary.
-    :return: Dictionary of CameraMetadata.
-    """
-    camera_metadata_dict = json.loads(json_dict)
-    return {
-        CameraType.deserialize(camera_type): CameraMetadata.from_dict(metadata)
-        for camera_type, metadata in camera_metadata_dict.items()
-    }
-
-#TODO Code Refactoring
 @dataclass
 class FisheyeMEICameraMetadata:
     camera_type: CameraType
@@ -124,6 +99,18 @@ class FisheyeMEICameraMetadata:
             "distortion": self.distortion.tolist() if self.distortion is not None else None,
             "projection_parameters": self.projection_parameters.tolist() if self.projection_parameters is not None else None,
         }
+    
+    @classmethod
+    def from_dict(cls, json_dict: Dict[str, Any]) -> CameraMetadata:
+        # TODO: remove None types. Only a placeholder for now.
+        return cls(
+            camera_type=CameraType(json_dict["camera_type"]),
+            width=json_dict["width"],
+            height=json_dict["height"],
+            mirror_parameters=json_dict["mirror_parameters"],
+            distortion=np.array(json_dict["distortion"]) if json_dict["distortion"] is not None else None,
+            projection_parameters=np.array(json_dict["projection_parameters"]) if json_dict["projection_parameters"] is not None else None,
+        )
 
     def cam2image(self, points_3d: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         ''' camera coordinate to image plane '''
@@ -151,7 +138,34 @@ class FisheyeMEICameraMetadata:
         y = gamma2*y + v0
 
         return x, y, norm * points_3d[:,2] / np.abs(points_3d[:,2])
-    
+
+def camera_metadata_dict_to_json(camera_metadata: Dict[CameraType, CameraMetadata]) -> Dict[str, Dict[str, Any]]:
+    """
+    Converts a dictionary of CameraMetadata to a JSON-serializable format.
+    :param camera_metadata: Dictionary of CameraMetadata.
+    :return: JSON-serializable dictionary.
+    """
+    camera_metadata_dict = {
+        camera_type.serialize(): metadata.to_dict() for camera_type, metadata in camera_metadata.items()
+    }
+    return json.dumps(camera_metadata_dict)
+
+
+def camera_metadata_dict_from_json(json_dict: Dict[str, Dict[str, Any]]) -> Dict[CameraType, Union[CameraMetadata, FisheyeMEICameraMetadata]]:
+    """
+    Converts a JSON-serializable dictionary back to a dictionary of CameraMetadata.
+    :param json_dict: JSON-serializable dictionary.
+    :return: Dictionary of CameraMetadata.
+    """
+    camera_metadata_dict = json.loads(json_dict)
+    out: Dict[CameraType, Union[CameraMetadata, FisheyeMEICameraMetadata]] = {}
+    for camera_type, metadata in camera_metadata_dict.items():
+        cam_type = CameraType.deserialize(camera_type)
+        if isinstance(metadata, dict) and "mirror_parameters" in metadata:
+            out[cam_type] = FisheyeMEICameraMetadata.from_dict(metadata)
+        else:
+            out[cam_type] = CameraMetadata.from_dict(metadata)
+    return out
 
 @dataclass
 class Camera:

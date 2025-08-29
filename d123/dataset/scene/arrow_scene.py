@@ -6,7 +6,7 @@ import pyarrow as pa
 
 from d123.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from d123.common.datatypes.recording.detection_recording import DetectionRecording
-from d123.common.datatypes.sensor.camera import Camera, CameraMetadata, CameraType, camera_metadata_dict_from_json
+from d123.common.datatypes.sensor.camera import Camera, CameraMetadata, FisheyeMEICameraMetadata, CameraType, camera_metadata_dict_from_json
 from d123.common.datatypes.sensor.lidar import LiDAR, LiDARMetadata, LiDARType, lidar_metadata_dict_from_json
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
@@ -70,7 +70,7 @@ class ArrowScene(AbstractScene):
         ) = _get_scene_data(arrow_file_path)
         self._metadata: LogMetadata = _metadata
         self._vehicle_parameters: VehicleParameters = _vehicle_parameters
-        self._camera_metadata: Dict[CameraType, CameraMetadata] = _camera_metadata
+        self._camera_metadata: Dict[CameraType, Union[CameraMetadata, FisheyeMEICameraMetadata]] = _camera_metadata
         self._lidar_metadata: Dict[LiDARType, LiDARMetadata] = _lidar_metadata
 
         self._map_api: Optional[AbstractMap] = None
