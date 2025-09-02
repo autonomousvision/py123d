@@ -10,9 +10,8 @@ from typing import Any, Dict, Final, List, Literal, Tuple, Union
 import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
-import tensorflow as tf
 from pyquaternion import Quaternion
-from waymo_open_dataset import dataset_pb2
+
 
 from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
@@ -21,6 +20,7 @@ from d123.common.datatypes.sensor.lidar_index import WopdLidarIndex
 from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.common.datatypes.vehicle_state.vehicle_parameters import get_wopd_chrysler_pacifica_parameters
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
+from d123.common.utils.dependencies import check_dependencies
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.dataset_specific.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
@@ -29,6 +29,10 @@ from d123.dataset.logs.log_metadata import LogMetadata
 from d123.geometry import BoundingBoxSE3Index, Point3D, StateSE3, Vector3D, Vector3DIndex
 from d123.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array
 from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
+
+check_dependencies(modules=["tensorflow", "waymo_open_dataset"], optional_name="waymo")
+import tensorflow as tf
+from waymo_open_dataset import dataset_pb2
 
 # TODO: Make keep_polar_features an optional argument.
 # With polar features, the lidar loading time is SIGNIFICANTLY higher.

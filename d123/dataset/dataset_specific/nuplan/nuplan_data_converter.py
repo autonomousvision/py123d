@@ -10,14 +10,8 @@ from typing import Any, Dict, Final, List, Optional, Tuple, Union
 import numpy as np
 import pyarrow as pa
 import yaml
-from nuplan.database.nuplan_db.nuplan_scenario_queries import get_cameras, get_images_from_lidar_tokens
-from nuplan.database.nuplan_db_orm.ego_pose import EgoPose
-from nuplan.database.nuplan_db_orm.lidar_box import LidarBox
-from nuplan.database.nuplan_db_orm.lidar_pc import LidarPc
-from nuplan.database.nuplan_db_orm.nuplandb import NuPlanDB
-from nuplan.planning.simulation.observation.observation_type import CameraChannel
 from pyquaternion import Quaternion
-from sqlalchemy import func
+
 
 import d123.dataset.dataset_specific.nuplan.utils as nuplan_utils
 from d123.common.datatypes.detection.detection import TrafficLightStatus
@@ -32,12 +26,22 @@ from d123.common.datatypes.vehicle_state.vehicle_parameters import (
     rear_axle_se3_to_center_se3,
 )
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
+from d123.common.utils.dependencies import check_dependencies
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.nuplan.nuplan_map_conversion import MAP_LOCATIONS, NuPlanMapConverter
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
 from d123.geometry import BoundingBoxSE3, BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
 from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
+
+check_dependencies(["nuplan", "sqlalchemy"], "nuplan")
+from nuplan.database.nuplan_db.nuplan_scenario_queries import get_cameras, get_images_from_lidar_tokens
+from nuplan.database.nuplan_db_orm.ego_pose import EgoPose
+from nuplan.database.nuplan_db_orm.lidar_box import LidarBox
+from nuplan.database.nuplan_db_orm.lidar_pc import LidarPc
+from nuplan.database.nuplan_db_orm.nuplandb import NuPlanDB
+from nuplan.planning.simulation.observation.observation_type import CameraChannel
+from sqlalchemy import func
 
 TARGET_DT: Final[float] = 0.1
 NUPLAN_DT: Final[float] = 0.05
