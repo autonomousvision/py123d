@@ -20,43 +20,28 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "Apache-2.0"}
 dependencies = [
-    "aioboto3",
-    "aiofiles",
     "bokeh",
-    "casadi",
-    "control",
-    "Fiona",
     "geopandas",
-    "guppy3",
     "joblib",
     "matplotlib",
-    "nest_asyncio",
     "numpy",
     "opencv-python",
     "pandas",
     "Pillow",
     "psutil",
     "pyarrow",
-    "pyinstrument",
     "pyogrio",
     "pyquaternion",
     "pytest",
     "rasterio",
     "ray",
-    "retry",
     "rtree",
     "scipy",
-    "selenium",
     "setuptools",
     "shapely>=2.0.0",
-    "SQLAlchemy==1.4.27",
-    "sympy",
-    "tornado",
     "tqdm",
-    "ujson",
     "notebook",
     "pre-commit",
-    "cachetools",
     "hydra_colorlog",
     "hydra-core",
     "lxml",
@@ -84,20 +69,32 @@ docs = [
 ]
 nuplan = [
     "nuplan-devkit @ git+https://github.com/motional/nuplan-devkit/@nuplan-devkit-v1.2",
+    "ujson",
+    "tornado",
+    "sympy",
+    "SQLAlchemy==1.4.27",
+    "selenium",
+    "nest_asyncio",
+    "cachetools",
+    "aioboto3",
+    "aiofiles",
+    "casadi",
+    "control",
+    "pyinstrument",
+    "Fiona",
+    "guppy3",
+    "retry",
 ]
 waymo = [
     "tensorflow==2.11.0",
     "waymo-open-dataset-tf-2-11-0",
     "intervaltree",
 ]
-av2 = [
-    "av2==0.2.1",
-]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["d123*"]  # Only include d123 package
-exclude = ["notebooks*", "tests*", "docs*"]  # Explicitly exclude notebooks
+exclude = ["notebooks*", "docs*"]  # Explicitly exclude notebooks
 
 [project.urls]
 "Homepage" = "https://github.com/DanielDauner/d123"
