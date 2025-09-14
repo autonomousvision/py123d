@@ -8,6 +8,13 @@ from scipy.spatial.transform import Rotation as R
 from d123.geometry import BoundingBoxSE3, StateSE3
 from d123.dataset.dataset_specific.kitti_360.labels import kittiId2label
 
+import os
+from pathlib import Path
+
+KITTI360_DATA_ROOT = Path(os.environ["KITTI360_DATA_ROOT"])
+DIR_CALIB = "calibration"
+PATH_CALIB_ROOT: Path = KITTI360_DATA_ROOT / DIR_CALIB
+
 DEFAULT_ROLL = 0.0
 DEFAULT_PITCH = 0.0
 
@@ -163,3 +170,26 @@ class KITTI360Bbox3D():
     def load_detection_preprocess(self, records_dict: Dict[int, Any]):
         if self.globalID in records_dict:
             self.valid_frames["records"] = records_dict[self.globalID]["records"]
+
+
+def get_lidar_extrinsic() -> np.ndarray:
+    cam2pose_txt = PATH_CALIB_ROOT / "calib_cam_to_pose.txt"
+    if not cam2pose_txt.exists():
+        raise FileNotFoundError(f"calib_cam_to_pose.txt file not found: {cam2pose_txt}")
+    
+    cam2velo_txt = PATH_CALIB_ROOT / "calib_cam_to_velo.txt"
+    if not cam2velo_txt.exists():
+        raise FileNotFoundError(f"calib_cam_to_velo.txt file not found: {cam2velo_txt}")
+    
+    lastrow = np.array([0,0,0,1]).reshape(1,4)
+
+    with open(cam2pose_txt, 'r') as f:
+        image_00 = next(f)
+        values = list(map(float, image_00.strip().split()[1:]))
+        matrix = np.array(values).reshape(3, 4)
+        cam2pose = np.concatenate((matrix, lastrow))
+        cam2pose = KITTI3602NUPLAN_IMU_CALIBRATION @ cam2pose
+    
+    cam2velo = np.concatenate((np.loadtxt(cam2velo_txt).reshape(3,4), lastrow))
+    extrinsic =  cam2pose @ np.linalg.inv(cam2velo)
+    return extrinsic

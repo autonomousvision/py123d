@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from typing import Any, Dict, Union
+from abc import ABC, abstractmethod
 
 import numpy as np
 import numpy.typing as npt
@@ -26,13 +27,24 @@ class CameraType(SerialIntEnum):
     CAM_STEREO_L = 8
     CAM_STEREO_R = 9
 
-
 @dataclass
-class CameraMetadata:
-
+class CameraMetadata(ABC):
     camera_type: CameraType
     width: int
     height: int
+
+    @abstractmethod
+    def to_dict(self) -> Dict[str, Any]:
+        ...
+
+    @classmethod
+    @abstractmethod
+    def from_dict(cls, json_dict: Dict[str, Any]) -> CameraMetadata:
+        ...
+
+@dataclass
+class PinholeCameraMetadata(CameraMetadata):
+
     intrinsic: npt.NDArray[np.float64]  # 3x3 matrix # TODO: don't store matrix but values.
     distortion: npt.NDArray[np.float64]  # 5x1 vector # TODO: don't store matrix but values.
 
@@ -47,7 +59,7 @@ class CameraMetadata:
         }
 
     @classmethod
-    def from_dict(cls, json_dict: Dict[str, Any]) -> CameraMetadata:
+    def from_dict(cls, json_dict: Dict[str, Any]) -> PinholeCameraMetadata:
         # TODO: remove None types. Only a placeholder for now.
         return cls(
             camera_type=CameraType(json_dict["camera_type"]),
@@ -81,11 +93,9 @@ class CameraMetadata:
 
 
 @dataclass
-class FisheyeMEICameraMetadata:
-    camera_type: CameraType
-    width: int
-    height: int
-    mirror_parameters: int
+class FisheyeMEICameraMetadata(CameraMetadata):
+    
+    mirror_parameters: float
     distortion: npt.NDArray[np.float64]  # k1,k2,p1,p2
     projection_parameters: npt.NDArray[np.float64] #gamma1,gamma2,u0,v0
 
@@ -101,7 +111,7 @@ class FisheyeMEICameraMetadata:
         }
     
     @classmethod
-    def from_dict(cls, json_dict: Dict[str, Any]) -> CameraMetadata:
+    def from_dict(cls, json_dict: Dict[str, Any]) -> FisheyeMEICameraMetadata:
         # TODO: remove None types. Only a placeholder for now.
         return cls(
             camera_type=CameraType(json_dict["camera_type"]),
@@ -151,26 +161,26 @@ def camera_metadata_dict_to_json(camera_metadata: Dict[CameraType, CameraMetadat
     return json.dumps(camera_metadata_dict)
 
 
-def camera_metadata_dict_from_json(json_dict: Dict[str, Dict[str, Any]]) -> Dict[CameraType, Union[CameraMetadata, FisheyeMEICameraMetadata]]:
+def camera_metadata_dict_from_json(json_dict: Dict[str, Dict[str, Any]]) -> Dict[CameraType, Union[PinholeCameraMetadata, FisheyeMEICameraMetadata]]:
     """
     Converts a JSON-serializable dictionary back to a dictionary of CameraMetadata.
     :param json_dict: JSON-serializable dictionary.
     :return: Dictionary of CameraMetadata.
     """
     camera_metadata_dict = json.loads(json_dict)
-    out: Dict[CameraType, Union[CameraMetadata, FisheyeMEICameraMetadata]] = {}
+    out: Dict[CameraType, Union[PinholeCameraMetadata, FisheyeMEICameraMetadata]] = {}
     for camera_type, metadata in camera_metadata_dict.items():
         cam_type = CameraType.deserialize(camera_type)
         if isinstance(metadata, dict) and "mirror_parameters" in metadata:
             out[cam_type] = FisheyeMEICameraMetadata.from_dict(metadata)
         else:
-            out[cam_type] = CameraMetadata.from_dict(metadata)
+            out[cam_type] = PinholeCameraMetadata.from_dict(metadata)
     return out
 
 @dataclass
 class Camera:
 
-    metadata: CameraMetadata
+    metadata: PinholeCameraMetadata
     image: npt.NDArray[np.uint8]
     extrinsic: npt.NDArray[np.float64]  # 4x4 matrix
 

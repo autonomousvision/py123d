@@ -14,7 +14,7 @@ from pyquaternion import Quaternion
 
 
 from d123.common.datatypes.detection.detection_types import DetectionType
-from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
+from d123.common.datatypes.sensor.camera import PinholeCameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
 from d123.common.datatypes.sensor.lidar_index import WopdLidarIndex
 from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
@@ -275,9 +275,9 @@ def convert_wopd_tfrecord_log_to_arrow(
 
 def get_wopd_camera_metadata(
     initial_frame: dataset_pb2.Frame, data_converter_config: DataConverterConfig
-) -> Dict[CameraType, CameraMetadata]:
+) -> Dict[CameraType, PinholeCameraMetadata]:
 
-    cam_metadatas: Dict[CameraType, CameraMetadata] = {}
+    cam_metadatas: Dict[CameraType, PinholeCameraMetadata] = {}
     if data_converter_config.camera_store_option is not None:
         for calibration in initial_frame.context.camera_calibrations:
             camera_type = WOPD_CAMERA_TYPES[calibration.name]
@@ -289,7 +289,7 @@ def get_wopd_camera_metadata(
             _distortions = np.array([k1, k2, p1, p2, k3])
 
             if camera_type in WOPD_CAMERA_TYPES.values():
-                cam_metadatas[camera_type] = CameraMetadata(
+                cam_metadatas[camera_type] = PinholeCameraMetadata(
                     camera_type=camera_type,
                     width=calibration.width,
                     height=calibration.height,

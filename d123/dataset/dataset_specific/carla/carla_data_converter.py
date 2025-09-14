@@ -11,7 +11,7 @@ from typing import Any, Dict, Final, List, Optional, Tuple, Union
 import numpy as np
 import pyarrow as pa
 
-from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
+from d123.common.datatypes.sensor.camera import PinholeCameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
 from d123.common.datatypes.sensor.lidar_index import CarlaLidarIndex
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3Index
@@ -247,7 +247,7 @@ def _get_metadata(location: str, log_name: str) -> LogMetadata:
     )
 
 
-def get_carla_camera_metadata(first_log_dict: Dict[str, Any]) -> Dict[CameraType, CameraMetadata]:
+def get_carla_camera_metadata(first_log_dict: Dict[str, Any]) -> Dict[CameraType, PinholeCameraMetadata]:
 
     # FIXME: This is a placeholder function to return camera metadata.
 
@@ -256,7 +256,7 @@ def get_carla_camera_metadata(first_log_dict: Dict[str, Any]) -> Dict[CameraType
         dtype=np.float64,
     )
     camera_metadata = {
-        CameraType.CAM_F0: CameraMetadata(
+        CameraType.CAM_F0: PinholeCameraMetadata(
             camera_type=CameraType.CAM_F0,
             width=1024,
             height=512,

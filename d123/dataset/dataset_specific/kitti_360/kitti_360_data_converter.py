@@ -22,7 +22,7 @@ from pyquaternion import Quaternion
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 
 from d123.common.datatypes.detection.detection_types import DetectionType
-from d123.common.datatypes.sensor.camera import CameraMetadata, FisheyeMEICameraMetadata, CameraType, camera_metadata_dict_to_json
+from d123.common.datatypes.sensor.camera import PinholeCameraMetadata, FisheyeMEICameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
 from d123.common.datatypes.sensor.lidar_index import Kitti360LidarIndex
 from d123.common.datatypes.time.time_point import TimePoint
@@ -31,7 +31,7 @@ from d123.common.datatypes.vehicle_state.vehicle_parameters import get_kitti360_
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
-from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION
+from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic
 from d123.dataset.dataset_specific.kitti_360.labels import KIITI360_DETECTION_NAME_DICT,kittiId2label
 from d123.geometry import BoundingBoxSE3, BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
 
@@ -55,8 +55,8 @@ DIR_3D_BBOX = "data_3d_bboxes"
 DIR_POSES = "data_poses"
 DIR_CALIB = "calibration"
 
-PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_RAW
-# PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT 
+# PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_RAW
+PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT 
 PATH_2D_SMT_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_SMT
 PATH_3D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_RAW
 # PATH_3D_RAW_ROOT: Path = Path("/data/jbwang/d123/data_3d_raw")
@@ -244,7 +244,7 @@ def convert_kitti360_log_to_arrow(
     return []
 
 
-def get_kitti360_camera_metadata() -> Dict[CameraType, Union[CameraMetadata, FisheyeMEICameraMetadata]]:
+def get_kitti360_camera_metadata() -> Dict[CameraType, Union[PinholeCameraMetadata, FisheyeMEICameraMetadata]]:
     
     persp = PATH_CALIB_ROOT / "perspective.txt"
 
@@ -270,10 +270,10 @@ def get_kitti360_camera_metadata() -> Dict[CameraType, Union[CameraMetadata, Fis
     fisheye03 = _readYAMLFile(fisheye_camera03_path)
     fisheye_result = {"image_02": fisheye02, "image_03": fisheye03}
     
-    log_cam_infos: Dict[str, Union[CameraMetadata, FisheyeMEICameraMetadata]] = {}
+    log_cam_infos: Dict[str, Union[PinholeCameraMetadata, FisheyeMEICameraMetadata]] = {}
     for cam_type, cam_name in KITTI360_CAMERA_TYPES.items():
         if cam_name in ["image_00", "image_01"]:
-            log_cam_infos[cam_type] = CameraMetadata(
+            log_cam_infos[cam_type] = PinholeCameraMetadata(
                 camera_type=cam_type,
                 width=persp_result[cam_name]["wh"][0],
                 height=persp_result[cam_name]["wh"][1],
@@ -323,28 +323,6 @@ def get_kitti360_lidar_metadata() -> Dict[LiDARType, LiDARMetadata]:
         extrinsic=extrinsic, 
     )
     return metadata
-
-def get_lidar_extrinsic() -> np.ndarray:
-    cam2pose_txt = PATH_CALIB_ROOT / "calib_cam_to_pose.txt"
-    if not cam2pose_txt.exists():
-        raise FileNotFoundError(f"calib_cam_to_pose.txt file not found: {cam2pose_txt}")
-    
-    cam2velo_txt = PATH_CALIB_ROOT / "calib_cam_to_velo.txt"
-    if not cam2velo_txt.exists():
-        raise FileNotFoundError(f"calib_cam_to_velo.txt file not found: {cam2velo_txt}")
-    
-    lastrow = np.array([0,0,0,1]).reshape(1,4)
-
-    with open(cam2pose_txt, 'r') as f:
-        image_00 = next(f)
-        values = list(map(float, image_00.strip().split()[1:]))
-        matrix = np.array(values).reshape(3, 4)
-        cam2pose = np.concatenate((matrix, lastrow))
-        cam2pose = KITTI3602NUPLAN_IMU_CALIBRATION @ cam2pose
-    
-    cam2velo = np.concatenate((np.loadtxt(cam2velo_txt).reshape(3,4), lastrow))
-    extrinsic =  cam2pose @ np.linalg.inv(cam2velo)
-    return extrinsic
 
 def _write_recording_table(
     log_name: str,
@@ -451,8 +429,8 @@ def _extract_ego_state_all(log_name: str) -> List[List[float]]:
     poses = np.loadtxt(pose_file)
     poses_time = poses[:, 0] - 1  # Adjusting time to start from 0
      
-    oxts_path =  PATH_POSES_ROOT / log_name / "oxts" / "data" 
-    # oxts_path = Path("/data/jbwang/d123/data_poses/") / log_name / "oxts" / "data" 
+    # oxts_path =  PATH_POSES_ROOT / log_name / "oxts" / "data" 
+    oxts_path = Path("/data/jbwang/d123/data_poses/") / log_name / "oxts" / "data" 
     
     pose_idx = 0
     poses_time_len = len(poses_time)    

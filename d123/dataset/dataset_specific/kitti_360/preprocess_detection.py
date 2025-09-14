@@ -25,13 +25,13 @@ DIR_3D_RAW = "data_3d_raw"
 DIR_3D_BBOX = "data_3d_bboxes"
 DIR_POSES = "data_poses"
 
-PATH_3D_RAW_ROOT = KITTI360_DATA_ROOT / DIR_3D_RAW
+# PATH_3D_RAW_ROOT = KITTI360_DATA_ROOT / DIR_3D_RAW
+PATH_3D_RAW_ROOT = Path("/data/jbwang/d123/data_3d_raw/")
 PATH_3D_BBOX_ROOT = KITTI360_DATA_ROOT / DIR_3D_BBOX
 PATH_POSES_ROOT = KITTI360_DATA_ROOT / DIR_POSES
 
-from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION
+from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic
 from d123.dataset.dataset_specific.kitti_360.labels import KIITI360_DETECTION_NAME_DICT, kittiId2label
-from d123.dataset.dataset_specific.kitti_360.kitti_360_data_converter import get_lidar_extrinsic
 
 def _bbox_xml_path(log_name: str) -> Path:
     return PATH_3D_BBOX_ROOT / "train" / f"{log_name}.xml"
@@ -178,9 +178,9 @@ if __name__ == "__main__":
     import argparse
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(description="Precompute KITTI-360 static detections filters")
-    parser.add_argument("--log_name", default="2013_05_28_drive_0000_sync")
+    parser.add_argument("--log_name", default="2013_05_28_drive_0007_sync")
     parser.add_argument("--radius", type=float, default=60.0)
-    parser.add_argument("--out", type=Path, default=None, help="output directory for pkl")
+    parser.add_argument("--out", type=Path, default="detection_preprocess", help="output directory for pkl")
     args = parser.parse_args()
     process_detection(
         log_name=args.log_name,

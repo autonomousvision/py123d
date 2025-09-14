@@ -16,7 +16,7 @@ from pyquaternion import Quaternion
 import d123.dataset.dataset_specific.nuplan.utils as nuplan_utils
 from d123.common.datatypes.detection.detection import TrafficLightStatus
 from d123.common.datatypes.detection.detection_types import DetectionType
-from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
+from d123.common.datatypes.sensor.camera import PinholeCameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
 from d123.common.datatypes.sensor.lidar_index import NuplanLidarIndex
 from d123.common.datatypes.time.time_point import TimePoint
@@ -256,15 +256,15 @@ def convert_nuplan_log_to_arrow(
     return []
 
 
-def get_nuplan_camera_metadata(log_path: Path) -> Dict[CameraType, CameraMetadata]:
+def get_nuplan_camera_metadata(log_path: Path) -> Dict[CameraType, PinholeCameraMetadata]:
 
-    def _get_camera_metadata(camera_type: CameraType) -> CameraMetadata:
+    def _get_camera_metadata(camera_type: CameraType) -> PinholeCameraMetadata:
         cam = list(get_cameras(log_path, [str(NUPLAN_CAMERA_TYPES[camera_type].value)]))[0]
         intrinsic = np.array(pickle.loads(cam.intrinsic))
         rotation = np.array(pickle.loads(cam.rotation))
         rotation = Quaternion(rotation).rotation_matrix
         distortion = np.array(pickle.loads(cam.distortion))
-        return CameraMetadata(
+        return PinholeCameraMetadata(
             camera_type=camera_type,
             width=cam.width,
             height=cam.height,
@@ -272,7 +272,7 @@ def get_nuplan_camera_metadata(log_path: Path) -> Dict[CameraType, CameraMetadat
             distortion=distortion,
         )
 
-    log_cam_infos: Dict[str, CameraMetadata] = {}
+    log_cam_infos: Dict[str, PinholeCameraMetadata] = {}
     for camera_type in NUPLAN_CAMERA_TYPES.keys():
         log_cam_infos[camera_type] = _get_camera_metadata(camera_type)
 

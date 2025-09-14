@@ -11,7 +11,7 @@ import pandas as pd
 import pyarrow as pa
 from pyquaternion import Quaternion
 
-from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
+from d123.common.datatypes.sensor.camera import PinholeCameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
 from d123.common.datatypes.time.time_point import TimePoint
 from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
@@ -234,17 +234,17 @@ def convert_av2_log_to_arrow(
     return []
 
 
-def get_av2_camera_metadata(log_path: Path) -> Dict[CameraType, CameraMetadata]:
+def get_av2_camera_metadata(log_path: Path) -> Dict[CameraType, PinholeCameraMetadata]:
 
     intrinsics_file = log_path / "calibration" / "intrinsics.feather"
     intrinsics_df = pd.read_feather(intrinsics_file)
 
-    camera_metadata: Dict[CameraType, CameraMetadata] = {}
+    camera_metadata: Dict[CameraType, PinholeCameraMetadata] = {}
     for _, row in intrinsics_df.iterrows():
         row = row.to_dict()
 
         camera_type = AV2_CAMERA_TYPE_MAPPING[row["sensor_name"]]
-        camera_metadata[camera_type] = CameraMetadata(
+        camera_metadata[camera_type] = PinholeCameraMetadata(
             camera_type=camera_type,
             width=row["width_px"],
             height=row["height_px"],
