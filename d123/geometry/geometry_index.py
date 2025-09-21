@@ -95,6 +95,14 @@ class QuaternionIndex(IntEnum):
     QY = 2
     QZ = 3
 
+    @classproperty
+    def SCALAR(cls) -> int:
+        return cls.QW
+
+    @classproperty
+    def VECTOR(cls) -> slice:
+        return slice(cls.QX, cls.QZ + 1)
+
 
 class StateSE3Index(IntEnum):
     """
@@ -146,6 +154,14 @@ class QuaternionSE3Index(IntEnum):
     @classproperty
     def QUATERNION(cls) -> slice:
         return slice(cls.QW, cls.QZ + 1)
+
+    @classproperty
+    def SCALAR(cls) -> slice:
+        return cls.QW
+
+    @classproperty
+    def VECTOR(cls) -> slice:
+        return slice(cls.QX, cls.QZ + 1)
 
 
 class BoundingBoxSE2Index(IntEnum):

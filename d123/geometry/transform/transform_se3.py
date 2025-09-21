@@ -7,6 +7,7 @@ from d123.geometry import StateSE3, StateSE3Index, Vector3D
 from d123.geometry.geometry_index import Point3DIndex, Vector3DIndex
 from d123.geometry.rotation import EulerAngles
 from d123.geometry.utils.rotation_utils import (
+    get_rotation_matrices_from_euler_array,
     get_rotation_matrix_from_euler_array,
     normalize_angle,
 )
@@ -101,17 +102,15 @@ def convert_absolute_to_relative_se3_array(
     assert se3_array.ndim >= 1
     assert se3_array.shape[-1] == len(StateSE3Index)
 
-    # Extract positions and orientations from se3_array
     abs_positions = se3_array[..., StateSE3Index.XYZ]
-    abs_euler_angles = se3_array[..., StateSE3Index.EULER_ANGLES]
+    abs_rotation_matrices = get_rotation_matrices_from_euler_array(se3_array[..., StateSE3Index.EULER_ANGLES])
+
+    # Convert absolute rotation matrices to relative rotation matrices
+    rel_rotation_matrices = np.einsum("ij,...jk->...ik", R_origin.T, abs_rotation_matrices)
+    rel_euler_angles = np.array([EulerAngles.from_rotation_matrix(R).array for R in rel_rotation_matrices])
 
     # Vectorized relative position calculation
     rel_positions = (abs_positions - t_origin) @ R_origin
-
-    # Convert back to Euler angles (this may need a custom function)
-    # For now, using simple subtraction as approximation (this is incorrect for general rotations)
-    origin_euler = origin_array[StateSE3Index.EULER_ANGLES]
-    rel_euler_angles = abs_euler_angles - origin_euler
 
     # Prepare output array
     rel_se3_array = se3_array.copy()
@@ -149,14 +148,14 @@ def convert_relative_to_absolute_se3_array(
 
     # Extract relative positions and orientations
     rel_positions = se3_array[..., StateSE3Index.XYZ]
-    rel_euler_angles = se3_array[..., StateSE3Index.EULER_ANGLES]
+    rel_rotation_matrices = get_rotation_matrices_from_euler_array(se3_array[..., StateSE3Index.EULER_ANGLES])
 
     # Vectorized absolute position calculation: rotate and translate
-    abs_positions = (R_origin @ rel_positions.T).T + t_origin
+    abs_positions = (rel_positions @ R_origin.T) + t_origin
 
-    # Vectorized absolute orientation: add origin's euler angles
-    origin_euler = np.array([origin.roll, origin.pitch, origin.yaw], dtype=np.float64)
-    abs_euler_angles = rel_euler_angles + origin_euler
+    # Convert relative rotation matrices to absolute rotation matrices
+    abs_rotation_matrices = np.einsum("ij,...jk->...ik", R_origin, rel_rotation_matrices)
+    abs_euler_angles = np.array([EulerAngles.from_rotation_matrix(R).array for R in abs_rotation_matrices])
 
     # Prepare output array
     abs_se3_array = se3_array.copy()
