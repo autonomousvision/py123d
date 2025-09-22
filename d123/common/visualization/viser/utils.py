@@ -1,20 +1,18 @@
-from typing import List, Optional, Tuple
+from typing import Final, List, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
 import trimesh
-from pyquaternion import Quaternion
-from typing_extensions import Final
+from pyquaternion import Quaternion  # TODO: remove
 
-# from d123.common.datatypes.sensor.camera_parameters import get_nuplan_camera_parameters
-from d123.common.datatypes.sensor.camera import Camera, CameraType
-from d123.common.datatypes.sensor.lidar import LiDARType
 from d123.common.visualization.color.color import TAB_10, Color
 from d123.common.visualization.color.config import PlotConfig
 from d123.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VEHICLE_CONFIG, MAP_SURFACE_CONFIG
-from d123.datasets.maps.abstract_map import MapLayer
-from d123.datasets.maps.abstract_map_objects import AbstractLane, AbstractSurfaceMapObject
-from d123.datasets.scene.abstract_scene import AbstractScene
+from d123.datatypes.maps.abstract_map import MapLayer
+from d123.datatypes.maps.abstract_map_objects import AbstractLane, AbstractSurfaceMapObject
+from d123.datatypes.scene.abstract_scene import AbstractScene
+from d123.datatypes.sensors.camera import Camera, CameraType
+from d123.datatypes.sensors.lidar import LiDARType
 from d123.geometry import BoundingBoxSE3, EulerStateSE3, Point3D, Polyline3D
 from d123.geometry.transform.transform_euler_se3 import convert_relative_to_absolute_points_3d_array
 
@@ -103,7 +101,6 @@ def get_map_meshes(scene: AbstractScene):
     ]
 
     map_objects_dict = scene.map_api.get_proximal_map_objects(center.point_2d, radius=MAP_RADIUS, layers=map_layers)
-    print(map_objects_dict.keys())
     output = {}
 
     for map_layer in map_objects_dict.keys():

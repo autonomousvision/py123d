@@ -10,11 +10,11 @@ import numpy.typing as npt
 # from PIL import ImageColor
 from pyquaternion import Quaternion
 
-from d123.common.datatypes.detection.detection import BoxDetectionSE3, BoxDetectionWrapper
-from d123.common.datatypes.detection.detection_types import DetectionType
-from d123.common.datatypes.sensor.camera import Camera
-from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.common.visualization.color.default import BOX_DETECTION_CONFIG
+from d123.datatypes.detections.detection import BoxDetectionSE3, BoxDetectionWrapper
+from d123.datatypes.detections.detection_types import DetectionType
+from d123.datatypes.sensors.camera import Camera
+from d123.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.geometry import BoundingBoxSE3Index, Corners3DIndex
 from d123.geometry.transform.transform_euler_se3 import convert_absolute_to_relative_euler_se3_array
 

@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Iterable
+from typing import Iterable, Optional, Union
 
 import shapely
 
 from d123.common.utils.enums import SerialIntEnum
 from d123.datatypes.detections.detection_types import DetectionType
 from d123.datatypes.time.time_point import TimePoint
-from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, EulerStateSE3, OccupancyMap2D, StateSE2, Vector2D, Vector3D
+from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, OccupancyMap2D, StateSE2, StateSE3, Vector2D, Vector3D
 
 
 @dataclass
@@ -16,7 +16,7 @@ class BoxDetectionMetadata:
     detection_type: DetectionType
     timepoint: TimePoint
     track_token: str
-    confidence: float | None = None
+    confidence: Optional[float] = None
 
 
 @dataclass
@@ -44,18 +44,18 @@ class BoxDetectionSE3:
 
     metadata: BoxDetectionMetadata
     bounding_box_se3: BoundingBoxSE3
-    velocity: Vector3D | None = None
+    velocity: Optional[Vector3D] = None
 
     @property
     def shapely_polygon(self) -> shapely.geometry.Polygon:
         return self.bounding_box_se3.shapely_polygon
 
     @property
-    def center(self) -> EulerStateSE3:
+    def center(self) -> StateSE3:
         return self.bounding_box_se3.center
 
     @property
-    def center_se3(self) -> EulerStateSE3:
+    def center_se3(self) -> StateSE3:
         return self.bounding_box_se3.center_se3
 
     @property
@@ -75,7 +75,7 @@ class BoxDetectionSE3:
         )
 
 
-BoxDetection = BoxDetectionSE2 | BoxDetectionSE3
+BoxDetection = Union[BoxDetectionSE2, BoxDetectionSE3]
 
 
 @dataclass
@@ -143,8 +143,8 @@ class TrafficLightDetectionWrapper:
     def __iter__(self):
         return iter(self.traffic_light_detections)
 
-    def get_detection_by_lane_id(self, lane_id: int) -> TrafficLightDetection | None:
-        traffic_light_detection: TrafficLightDetection | None = None
+    def get_detection_by_lane_id(self, lane_id: int) -> Optional[TrafficLightDetection]:
+        traffic_light_detection: Optional[TrafficLightDetection] = None
         for detection in self.traffic_light_detections:
             if int(detection.lane_id) == int(lane_id):
                 traffic_light_detection = detection
