@@ -3,10 +3,8 @@ from typing import Union
 import numpy as np
 import numpy.typing as npt
 
-from d123.geometry.geometry_index import Point2DIndex, Vector2DIndex
-from d123.geometry.se import StateSE2, StateSE2Index
+from d123.geometry import Point2DIndex, StateSE2, StateSE2Index, Vector2D, Vector2DIndex
 from d123.geometry.utils.rotation_utils import normalize_angle
-from d123.geometry.vector import Vector2D
 
 
 def convert_absolute_to_relative_se2_array(

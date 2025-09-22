@@ -3,9 +3,7 @@ from typing import Union
 import numpy as np
 import numpy.typing as npt
 
-from d123.geometry import EulerStateSE3, EulerStateSE3Index, Vector3D
-from d123.geometry.geometry_index import Point3DIndex, Vector3DIndex
-from d123.geometry.rotation import EulerAngles
+from d123.geometry import EulerAngles, EulerStateSE3, EulerStateSE3Index, Point3DIndex, Vector3D, Vector3DIndex
 from d123.geometry.utils.rotation_utils import (
     get_rotation_matrices_from_euler_array,
     get_rotation_matrix_from_euler_array,

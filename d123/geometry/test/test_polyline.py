@@ -3,9 +3,7 @@ import unittest
 import numpy as np
 import shapely.geometry as geom
 
-from d123.geometry.point import Point2D, Point3D
-from d123.geometry.polyline import Polyline2D, Polyline3D, PolylineSE2
-from d123.geometry.se import StateSE2
+from d123.geometry import Point2D, Point3D, Polyline2D, Polyline3D, PolylineSE2, StateSE2
 
 
 class TestPolyline2D(unittest.TestCase):

@@ -10,7 +10,7 @@ from omegaconf import DictConfig
 from tqdm import tqdm
 
 from d123.common.multithreading.worker_utils import worker_map
-from d123.dataset.scene.abstract_scene import AbstractScene
+from d123.datatypes.scene.abstract_scene import AbstractScene
 from d123.script.builders.scene_builder_builder import build_scene_builder
 from d123.script.builders.scene_filter_builder import build_scene_filter
 from d123.script.run_dataset_conversion import build_worker

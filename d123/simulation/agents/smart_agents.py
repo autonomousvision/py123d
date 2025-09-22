@@ -6,9 +6,9 @@ import torch
 from torch_geometric.data import HeteroData
 
 from d123.common.datatypes.detection.detection import BoxDetection, BoxDetectionSE2
-from d123.dataset.arrow.conversion import BoxDetectionWrapper, DetectionType
-from d123.dataset.maps.abstract_map import AbstractMap
-from d123.dataset.scene.abstract_scene import AbstractScene
+from d123.datasets.maps.abstract_map import AbstractMap
+from d123.datasets.scene.abstract_scene import AbstractScene
+from d123.datatypes.scene.arrow.utils.conversion import BoxDetectionWrapper, DetectionType
 from d123.geometry.bounding_box import BoundingBoxSE2
 from d123.geometry.se import StateSE2
 from d123.geometry.transform.transform_se2 import convert_relative_to_absolute_point_2d_array

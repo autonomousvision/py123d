@@ -1,7 +1,5 @@
 from typing import Dict
 
-from d123.common.datatypes.detection.detection import TrafficLightStatus
-from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.common.visualization.color.color import (
     BLACK,
     DARKER_GREY,
@@ -13,7 +11,9 @@ from d123.common.visualization.color.color import (
     Color,
 )
 from d123.common.visualization.color.config import PlotConfig
-from d123.dataset.maps.map_datatypes import MapLayer
+from d123.datatypes.detections.detection import TrafficLightStatus
+from d123.datatypes.detections.detection_types import DetectionType
+from d123.datatypes.maps.map_datatypes import MapLayer
 
 HEADING_MARKER_STYLE: str = "^"  # "^": triangle, "-": line
 

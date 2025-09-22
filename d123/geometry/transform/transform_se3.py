@@ -3,9 +3,7 @@ from typing import Union
 import numpy as np
 import numpy.typing as npt
 
-from d123.geometry import Vector3D
-from d123.geometry.geometry_index import Point3DIndex, QuaternionIndex, StateSE3Index, Vector3DIndex
-from d123.geometry.se import StateSE3
+from d123.geometry import Point3DIndex, QuaternionIndex, StateSE3, StateSE3Index, Vector3D, Vector3DIndex
 from d123.geometry.utils.rotation_utils import (
     conjugate_quaternion_array,
     get_rotation_matrices_from_quaternion_array,

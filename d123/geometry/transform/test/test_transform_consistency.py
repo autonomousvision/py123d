@@ -3,8 +3,8 @@ import unittest
 import numpy as np
 import numpy.typing as npt
 
+from d123.geometry import EulerStateSE3, StateSE2, Vector2D, Vector3D
 from d123.geometry.geometry_index import EulerStateSE3Index, Point2DIndex, Point3DIndex, StateSE2Index
-from d123.geometry.se import EulerStateSE3, StateSE2
 from d123.geometry.transform.transform_euler_se3 import (
     convert_absolute_to_relative_euler_se3_array,
     convert_absolute_to_relative_points_3d_array,
@@ -24,7 +24,6 @@ from d123.geometry.transform.transform_se2 import (
     translate_se2_along_y,
     translate_se2_array_along_body_frame,
 )
-from d123.geometry.vector import Vector2D, Vector3D
 
 
 class TestTransformConsistency(unittest.TestCase):

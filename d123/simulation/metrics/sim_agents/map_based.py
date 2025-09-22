@@ -4,9 +4,9 @@ import numpy as np
 import numpy.typing as npt
 import shapely
 
-from d123.dataset.maps.abstract_map import AbstractMap
-from d123.dataset.maps.abstract_map_objects import AbstractLane
-from d123.dataset.maps.map_datatypes import MapLayer
+from d123.datasets.maps.abstract_map import AbstractMap
+from d123.datasets.maps.abstract_map_objects import AbstractLane
+from d123.datasets.maps.map_datatypes import MapLayer
 from d123.geometry.geometry_index import BoundingBoxSE2Index, Corners2DIndex, StateSE2Index
 from d123.geometry.se import StateSE2
 from d123.geometry.utils.bounding_box_utils import bbse2_array_to_corners_array

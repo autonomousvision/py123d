@@ -4,7 +4,7 @@ from typing import Any
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 
-from d123.dataset.scene.scene_filter import SceneFilter
+from d123.datatypes.scene.scene_filter import SceneFilter
 
 logger = logging.getLogger(__name__)
 

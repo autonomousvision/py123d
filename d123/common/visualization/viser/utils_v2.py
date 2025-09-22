@@ -3,7 +3,7 @@ import numpy.typing as npt
 
 from d123.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VEHICLE_CONFIG
 from d123.common.visualization.viser.utils import BRIGHTNESS_FACTOR
-from d123.dataset.scene.abstract_scene import AbstractScene
+from d123.datasets.scene.abstract_scene import AbstractScene
 
 # from d123.common.datatypes.sensor.camera_parameters import get_nuplan_camera_parameters
 from d123.geometry import BoundingBoxSE3, Corners3DIndex, Point3D, Point3DIndex, Vector3D

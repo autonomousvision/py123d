@@ -22,10 +22,10 @@ from d123.common.visualization.matplotlib.utils import (
     get_pose_triangle,
     shapely_geometry_local_coords,
 )
-from d123.dataset.maps.abstract_map import AbstractMap
-from d123.dataset.maps.abstract_map_objects import AbstractLane
-from d123.dataset.maps.map_datatypes import MapLayer
-from d123.dataset.scene.abstract_scene import AbstractScene
+from d123.datasets.maps.abstract_map import AbstractMap
+from d123.datasets.maps.abstract_map_objects import AbstractLane
+from d123.datasets.maps.map_datatypes import MapLayer
+from d123.datasets.scene.abstract_scene import AbstractScene
 from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D
 from d123.geometry.geometry_index import StateSE2Index
 from d123.geometry.transform.transform_se2 import translate_se2_along_body_frame

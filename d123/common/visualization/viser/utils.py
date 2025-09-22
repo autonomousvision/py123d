@@ -12,9 +12,9 @@ from d123.common.datatypes.sensor.lidar import LiDARType
 from d123.common.visualization.color.color import TAB_10, Color
 from d123.common.visualization.color.config import PlotConfig
 from d123.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VEHICLE_CONFIG, MAP_SURFACE_CONFIG
-from d123.dataset.maps.abstract_map import MapLayer
-from d123.dataset.maps.abstract_map_objects import AbstractLane, AbstractSurfaceMapObject
-from d123.dataset.scene.abstract_scene import AbstractScene
+from d123.datasets.maps.abstract_map import MapLayer
+from d123.datasets.maps.abstract_map_objects import AbstractLane, AbstractSurfaceMapObject
+from d123.datasets.scene.abstract_scene import AbstractScene
 from d123.geometry import BoundingBoxSE3, EulerStateSE3, Point3D, Polyline3D
 from d123.geometry.transform.transform_euler_se3 import convert_relative_to_absolute_points_3d_array
 

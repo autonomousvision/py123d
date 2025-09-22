@@ -3,9 +3,8 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 
-from d123.geometry import Point2D, Point2DIndex
-from d123.geometry.geometry_index import Point3DIndex
-from d123.geometry.point import Point3D
+from d123.geometry import Point2D, Point3D
+from d123.geometry.geometry_index import Point2DIndex, Point3DIndex
 
 
 class TestPoint2D(unittest.TestCase):

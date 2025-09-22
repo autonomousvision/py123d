@@ -15,7 +15,7 @@ from d123.common.visualization.viser.utils import (
     get_map_meshes,
 )
 from d123.common.visualization.viser.utils_v2 import get_bounding_box_outlines
-from d123.dataset.scene.abstract_scene import AbstractScene
+from d123.datasets.scene.abstract_scene import AbstractScene
 
 # TODO: Try to fix performance issues.
 # TODO: Refactor this file.

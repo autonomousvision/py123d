@@ -3,7 +3,7 @@ from __future__ import annotations
 import abc
 from typing import Tuple
 
-from d123.dataset.scene.abstract_scene import AbstractScene
+from d123.datasets.scene.abstract_scene import AbstractScene
 from d123.simulation.time_controller.simulation_iteration import SimulationIteration
 
 

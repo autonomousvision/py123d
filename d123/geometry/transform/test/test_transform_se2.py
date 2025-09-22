@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import numpy.typing as npt
 
-from d123.geometry.se import StateSE2
+from d123.geometry import StateSE2, Vector2D
 from d123.geometry.transform.transform_se2 import (
     convert_absolute_to_relative_point_2d_array,
     convert_absolute_to_relative_se2_array,
@@ -14,7 +14,6 @@ from d123.geometry.transform.transform_se2 import (
     translate_se2_along_y,
     translate_se2_array_along_body_frame,
 )
-from d123.geometry.vector import Vector2D
 
 
 class TestTransformSE2(unittest.TestCase):
