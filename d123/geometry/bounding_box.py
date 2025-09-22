@@ -11,7 +11,7 @@ import shapely.geometry as geom
 from d123.common.utils.mixin import ArrayMixin
 from d123.geometry.geometry_index import BoundingBoxSE2Index, BoundingBoxSE3Index, Corners2DIndex, Corners3DIndex
 from d123.geometry.point import Point2D, Point3D
-from d123.geometry.se import StateSE2, EulerStateSE3
+from d123.geometry.se import StateSE2, StateSE3
 from d123.geometry.utils.bounding_box_utils import bbse2_array_to_corners_array, bbse3_array_to_corners_array
 
 
@@ -137,22 +137,22 @@ class BoundingBoxSE2(ArrayMixin):
 
 class BoundingBoxSE3(ArrayMixin):
     """
-    Rotated bounding box in 3D defined by center (StateSE3), length, width and height.
+    Rotated bounding box in 3D defined by center with quaternion rotation (StateSE3), length, width and height.
 
     Example:
         >>> from d123.geometry import StateSE3
-        >>> bbox = BoundingBoxSE3(center=StateSE3(1.0, 2.0, 3.0, 0.1, 0.2, 0.3), length=4.0, width=2.0, height=1.5)
+        >>> bbox = BoundingBoxSE3(center=StateSE3(1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0), length=4.0, width=2.0, height=1.5)
         >>> bbox.array
-        array([1. , 2. , 3. , 0.1, 0.2, 0.3, 4. , 2. , 1.5])
+        array([1. , 2. , 3. , 1. , 0. , 0. , 0. , 4. , 2. , 1.5])
         >>> bbox.bounding_box_se2.array
-        array([1. , 2. , 0.3, 4. , 2. ])
+        array([1., 2., 0., 4., 2.])
         >>> bbox.shapely_polygon.area
         8.0
     """
 
     _array: npt.NDArray[np.float64]
 
-    def __init__(self, center: EulerStateSE3, length: float, width: float, height: float):
+    def __init__(self, center: StateSE3, length: float, width: float, height: float):
         """Initialize BoundingBoxSE3 with center (StateSE3), length, width and height.
 
         :param center: Center of the bounding box as a StateSE3 instance.
@@ -183,15 +183,15 @@ class BoundingBoxSE3(ArrayMixin):
         return instance
 
     @property
-    def center(self) -> EulerStateSE3:
+    def center(self) -> StateSE3:
         """The center of the bounding box as a StateSE3 instance.
 
         :return: The center of the bounding box as a StateSE3 instance.
         """
-        return EulerStateSE3.from_array(self._array[BoundingBoxSE3Index.STATE_SE3])
+        return StateSE3.from_array(self._array[BoundingBoxSE3Index.STATE_SE3])
 
     @property
-    def center_se3(self) -> EulerStateSE3:
+    def center_se3(self) -> StateSE3:
         """The center of the bounding box as a StateSE3 instance.
 
         :return: The center of the bounding box as a StateSE3 instance.
@@ -245,9 +245,8 @@ class BoundingBoxSE3(ArrayMixin):
 
         :return: A BoundingBoxSE2 instance.
         """
-        center_se3 = self.center_se3
         return BoundingBoxSE2(
-            center=StateSE2(center_se3.x, center_se3.y, center_se3.yaw),
+            center=self.center_se2,
             length=self.length,
             width=self.width,
         )

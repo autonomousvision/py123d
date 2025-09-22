@@ -3,7 +3,7 @@ from typing import Union
 import numpy as np
 import numpy.typing as npt
 
-from d123.geometry.geometry_index import Vector2DIndex
+from d123.geometry.geometry_index import Point2DIndex, Vector2DIndex
 from d123.geometry.se import StateSE2, StateSE2Index
 from d123.geometry.utils.rotation_utils import normalize_angle
 from d123.geometry.vector import Vector2D
@@ -180,3 +180,29 @@ def translate_se2_along_y(state_se2: StateSE2, distance: float) -> StateSE2:
     """
     translation = Vector2D.from_array(np.array([0.0, distance], dtype=np.float64))
     return StateSE2.from_array(translate_se2_array_along_body_frame(state_se2.array, translation), copy=False)
+
+
+def translate_2d_along_body_frame(
+    points_2d: npt.NDArray[np.float64],
+    yaws: npt.NDArray[np.float64],
+    x_translate: npt.NDArray[np.float64],
+    y_translate: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """Translate 2D points along their body frame.
+
+    :param points_2d: Array of 2D points, indexed by :class:`~d123.geometry.Point2DIndex`.
+    :param yaws: Array of yaw angles.
+    :param x_translate: Array of x translation, i.e. forward translation.
+    :param y_translate: Array of y translation, i.e. left translation.
+    :return: Array of translated 2D points, indexed by :class:`~d123.geometry.Point2DIndex`.
+    """
+    assert points_2d.shape[-1] == len(Point2DIndex)
+    half_pi = np.pi / 2.0
+    translation: npt.NDArray[np.float64] = np.stack(
+        [
+            (y_translate * np.cos(yaws + half_pi)) + (x_translate * np.cos(yaws)),
+            (y_translate * np.sin(yaws + half_pi)) + (x_translate * np.sin(yaws)),
+        ],
+        axis=-1,
+    )
+    return points_2d + translation

@@ -246,6 +246,14 @@ class StateSE3(ArrayMixin):
         return Quaternion.from_array(self.array[StateSE3Index.QUATERNION])
 
     @property
+    def euler_angles(self) -> EulerAngles:
+        """Returns the Euler angles (roll, pitch, yaw) representation of the state's orientation.
+
+        :return: An EulerAngles instance representing the Euler angles.
+        """
+        return self.quaternion.euler_angles
+
+    @property
     def rotation_matrix(self) -> npt.NDArray[np.float64]:
         """Returns the 3x3 rotation matrix representation of the state's orientation.
 

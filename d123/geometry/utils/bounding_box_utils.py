@@ -6,136 +6,133 @@ from d123.geometry.geometry_index import (
     BoundingBoxSE2Index,
     BoundingBoxSE3Index,
     Corners2DIndex,
+    Corners3DIndex,
     Point2DIndex,
+    Vector2DIndex,
+    Vector3DIndex,
 )
+from d123.geometry.transform.transform_se2 import translate_2d_along_body_frame
+from d123.geometry.transform.transform_se3 import translate_3d_along_body_frame
+
+
+def get_corners_2d_factors() -> npt.NDArray[np.float64]:
+    """Returns the factors to compute the corners of a SE2 bounding box in the body frame.
+
+    The factors are defined such that multiplying them with the length and width
+    of the bounding box yields the corner coordinates in the body frame.
+
+    :return: A (4, 2), indexed by :class:`~d123.geometry.Corners2DIndex` and
+        :class:`~d123.geometry.Point2DIndex`, respectively.
+    """
+    # NOTE: ISO 8855 convention for rotation
+    factors = np.zeros((len(Corners2DIndex), len(Point2DIndex)), dtype=np.float64)
+    factors.fill(0.5)
+    factors[Corners2DIndex.FRONT_LEFT] *= [+1, +1]
+    factors[Corners2DIndex.FRONT_RIGHT] *= [+1, -1]
+    factors[Corners2DIndex.BACK_RIGHT] *= [-1, -1]
+    factors[Corners2DIndex.BACK_LEFT] *= [-1, +1]
+    return factors
+
+
+def get_corners_3d_factors() -> npt.NDArray[np.float64]:
+    """Returns the factors to compute the corners of a SE3 bounding box in the body frame.
+
+    The factors are defined such that multiplying them with the length, width, and height
+    of the bounding box yields the corner coordinates in the body frame.
+
+    :return: A (8, 3), indexed by :class:`~d123.geometry.Corners3DIndex` and
+        :class:`~d123.geometry.Vector3DIndex`, respectively.
+    """
+    # NOTE: ISO 8855 convention for rotation
+    factors = np.zeros((len(Corners3DIndex), len(Vector3DIndex)), dtype=np.float64)
+    factors.fill(0.5)
+    factors[Corners3DIndex.FRONT_LEFT_BOTTOM] *= [+1, +1, -1]
+    factors[Corners3DIndex.FRONT_RIGHT_BOTTOM] *= [+1, -1, -1]
+    factors[Corners3DIndex.BACK_RIGHT_BOTTOM] *= [-1, -1, -1]
+    factors[Corners3DIndex.BACK_LEFT_BOTTOM] *= [-1, +1, -1]
+    factors[Corners3DIndex.FRONT_LEFT_TOP] *= [+1, +1, +1]
+    factors[Corners3DIndex.FRONT_RIGHT_TOP] *= [+1, -1, +1]
+    factors[Corners3DIndex.BACK_RIGHT_TOP] *= [-1, -1, +1]
+    factors[Corners3DIndex.BACK_LEFT_TOP] *= [-1, +1, +1]
+    return factors
 
 
 def bbse2_array_to_corners_array(bbse2: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    """
-    Converts an array of BoundingBoxSE2 objects to a coordinates array.
-    :param bbse2: Array of BoundingBoxSE2 objects.
-    :return: Coordinates array of shape (n, 5, 2) where n is the number of bounding boxes.
+    """Converts an array of BoundingBoxSE2 objects to the 2D coordinates array of their corners.
+
+    :param bbse2: Array of SE2 bounding boxes, indexed by :class:`~d123.geometry.BoundingBoxSE2Index`.
+    :return: Coordinates array of shape (..., 4, 2), indexed by
+        :class:`~d123.geometry.Corners2DIndex` and :class:`~d123.geometry.Point2DIndex`, respectively.
     """
     assert bbse2.shape[-1] == len(BoundingBoxSE2Index)
 
     ndim_one: bool = bbse2.ndim == 1
     if ndim_one:
-        bbse2 = bbse2[None, :]
-
-    corners_array = np.zeros((*bbse2.shape[:-1], len(Corners2DIndex), len(Point2DIndex)), dtype=np.float64)
+        bbse2 = bbse2[None, ...]
 
     centers = bbse2[..., BoundingBoxSE2Index.XY]
     yaws = bbse2[..., BoundingBoxSE2Index.YAW]
-    half_length = bbse2[..., BoundingBoxSE2Index.LENGTH] / 2.0
-    half_width = bbse2[..., BoundingBoxSE2Index.WIDTH] / 2.0
+    extents = bbse2[..., BoundingBoxSE2Index.EXTENT]  # (..., 2)
 
-    corners_array[..., Corners2DIndex.FRONT_LEFT, :] = translate_along_yaw_array(
-        centers,
-        yaws,
-        half_length,
-        half_width,
-    )
-    corners_array[..., Corners2DIndex.FRONT_RIGHT, :] = translate_along_yaw_array(
-        centers,
-        yaws,
-        half_length,
-        -half_width,
-    )
-    corners_array[..., Corners2DIndex.BACK_RIGHT, :] = translate_along_yaw_array(
-        centers,
-        yaws,
-        -half_length,
-        -half_width,
-    )
-    corners_array[..., Corners2DIndex.BACK_LEFT, :] = translate_along_yaw_array(
-        centers,
-        yaws,
-        -half_length,
-        half_width,
-    )
+    factors = get_corners_2d_factors()  # (4, 2)
+    corner_translation_body = extents[..., None, :] * factors[None, :, :]  # (..., 4, 2)
+
+    corners_array = translate_2d_along_body_frame(  # (..., 4, 2)
+        points_2d=centers[..., None, :],  # (..., 1, 2)
+        yaws=yaws[..., None],  # (..., 1)
+        x_translate=corner_translation_body[..., Vector2DIndex.X],
+        y_translate=corner_translation_body[..., Vector2DIndex.Y],
+    )  # (..., 4, 2)
 
     return corners_array.squeeze(axis=0) if ndim_one else corners_array
 
 
 def corners_2d_array_to_polygon_array(corners_array: npt.NDArray[np.float64]) -> npt.NDArray[np.object_]:
+    """Converts an array of 2D corners to an array of shapely Polygons.
+    TODO: Consider removing this function?
+
+    :param corners_array: Array of shape (..., 4, 2) where 4 is the number of corners.
+    :return: Array of shapely Polygons.
+    """
     polygons = shapely.creation.polygons(corners_array)
     return polygons
 
 
-def bbse2_array_to_polygon_array(bbse2: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+def bbse2_array_to_polygon_array(bbse2: npt.NDArray[np.float64]) -> npt.NDArray[np.object_]:
+    """Converts an array of BoundingBoxSE2 objects to an array of shapely Polygons.
+
+    :param bbse2: Array of SE2 bounding boxes, indexed by :class:`~d123.geometry.BoundingBoxSE2Index`.
+    :return: Array of shapely Polygons.
+    """
     return corners_2d_array_to_polygon_array(bbse2_array_to_corners_array(bbse2))
 
 
-def translate_along_yaw_array(
-    points_2d: npt.NDArray[np.float64],
-    headings: npt.NDArray[np.float64],
-    lon: npt.NDArray[np.float64],
-    lat: npt.NDArray[np.float64],
-) -> npt.NDArray[np.float64]:
-    # TODO: move somewhere else
-    assert points_2d.shape[-1] == len(Point2DIndex)
-    half_pi = np.pi / 2.0
-    translation: npt.NDArray[np.float64] = np.stack(
-        [
-            (lat * np.cos(headings + half_pi)) + (lon * np.cos(headings)),
-            (lat * np.sin(headings + half_pi)) + (lon * np.sin(headings)),
-        ],
-        axis=-1,
-    )
-    return points_2d + translation
-
-
 def bbse3_array_to_corners_array(bbse3_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    """Converts an array of BoundingBoxSE3 objects to a coordinates array.
-    TODO: Fix this function
+    """Converts an array of BoundingBoxSE3 objects to the 3D coordinates array of their corners.
 
-    :param bbse3_array: Array of BoundingBoxSE3 objects, shape (..., 7) [x, y, z, yaw, pitch, roll, length, width, height].
-    :return: Coordinates array of shape (..., 8, 3) where 8 is the number of corners.
+    :param bbse3_array: Array of SE3 bounding boxes, indexed by :class:`~d123.geometry.BoundingBoxSE3Index`.
+    :return: Coordinates array of shape (..., 8, 3), indexed by
+        :class:`~d123.geometry.Corners3DIndex` and :class:`~d123.geometry.Point3DIndex`, respectively.
     """
     assert bbse3_array.shape[-1] == len(BoundingBoxSE3Index)
 
+    # Flag whether to unsqueeze and squeeze the input dim
     ndim_one: bool = bbse3_array.ndim == 1
     if ndim_one:
-        bbse3_array = bbse3_array[None, :]
+        bbse3_array = bbse3_array[None, ...]
 
     # Extract parameters
     centers = bbse3_array[..., BoundingBoxSE3Index.XYZ]  # (..., 3)
-    yaws = bbse3_array[..., BoundingBoxSE3Index.YAW]  # (...,)
-    pitches = bbse3_array[..., BoundingBoxSE3Index.PITCH]  # (...,)
-    rolls = bbse3_array[..., BoundingBoxSE3Index.ROLL]  # (...,)
-
-    # Corner factors: (x, y, z) in box frame
-    factors = np.array(
-        [
-            [+0.5, -0.5, -0.5],  # FRONT_LEFT_BOTTOM
-            [+0.5, +0.5, -0.5],  # FRONT_RIGHT_BOTTOM
-            [-0.5, +0.5, -0.5],  # BACK_RIGHT_BOTTOM
-            [-0.5, -0.5, -0.5],  # BACK_LEFT_BOTTOM
-            [+0.5, -0.5, +0.5],  # FRONT_LEFT_TOP
-            [+0.5, +0.5, +0.5],  # FRONT_RIGHT_TOP
-            [-0.5, +0.5, +0.5],  # BACK_RIGHT_TOP
-            [-0.5, -0.5, +0.5],  # BACK_LEFT_TOP
-        ],
-        dtype=np.float64,
-    )  # (8, 3)
+    quaternions = bbse3_array[..., BoundingBoxSE3Index.QUATERNION]  # (..., 4)
 
     # Box extents
-    extents = bbse3_array[..., BoundingBoxSE3Index.EXTENT]  # (...,)
-    corners_local = factors[None, :, :] * extents  # (..., 8, 3)
-
-    # Rotation matrices (yaw, pitch, roll)
-    def rotation_matrix(yaw, pitch, roll):
-        cy, sy = np.cos(yaw), np.sin(yaw)
-        cp, sp = np.cos(pitch), np.sin(pitch)
-        cr, sr = np.cos(roll), np.sin(roll)
-        Rz = np.array([[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]])
-        Ry = np.array([[cp, 0, sp], [0, 1, 0], [-sp, 0, cp]])
-        Rx = np.array([[1, 0, 0], [0, cr, -sr], [0, sr, cr]])
-        return Rz @ Ry @ Rx
-
-    corners_world = np.empty((*bbse3_array.shape[:-1], 8, 3), dtype=np.float64)
-    for idx in np.ndindex(bbse3_array.shape[:-1]):
-        R = rotation_matrix(yaws[idx], pitches[idx], rolls[idx])
-        corners_world[idx] = centers[idx] + (corners_local[idx] @ R.T)
+    factors = get_corners_3d_factors()  # (8, 3)
+    extents = bbse3_array[..., BoundingBoxSE3Index.EXTENT]  # (..., 3)
+    corner_translation_body = extents[..., None, :] * factors[None, :, :]  # (..., 8, 3)
+    corners_world = translate_3d_along_body_frame(
+        centers[..., None, :],  # (..., 1, 3)
+        quaternions[..., None, :],  # (..., 1, 4)
+        corner_translation_body,
+    )
 
     return corners_world.squeeze(axis=0) if ndim_one else corners_world

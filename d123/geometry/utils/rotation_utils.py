@@ -39,12 +39,21 @@ def get_rotation_matrices_from_euler_array(euler_angles_array: npt.NDArray[np.fl
     Convention: Intrinsic rotations in order Z-Y-X (yaw, pitch, roll)
     Equivalent to: R = R_x(roll) @ R_y(pitch) @ R_z(yaw)
     """
-    assert euler_angles_array.ndim == 2 and euler_angles_array.shape[1] == len(EulerAnglesIndex)
+    assert euler_angles_array.ndim >= 1 and euler_angles_array.shape[-1] == len(EulerAnglesIndex)
+
+    # Store original shape for reshaping later
+    original_shape = euler_angles_array.shape[:-1]
+
+    # Flatten to 2D if needed
+    if euler_angles_array.ndim > 2:
+        euler_angles_array_ = euler_angles_array.reshape(-1, len(EulerAnglesIndex))
+    else:
+        euler_angles_array_ = euler_angles_array
 
     # Extract roll, pitch, yaw for all samples at once
-    roll = euler_angles_array[:, EulerAnglesIndex.ROLL]
-    pitch = euler_angles_array[:, EulerAnglesIndex.PITCH]
-    yaw = euler_angles_array[:, EulerAnglesIndex.YAW]
+    roll = euler_angles_array_[:, EulerAnglesIndex.ROLL]
+    pitch = euler_angles_array_[:, EulerAnglesIndex.PITCH]
+    yaw = euler_angles_array_[:, EulerAnglesIndex.YAW]
 
     # Compute sin/cos for all angles at once
     cos_roll, sin_roll = np.cos(roll), np.sin(roll)
@@ -52,7 +61,7 @@ def get_rotation_matrices_from_euler_array(euler_angles_array: npt.NDArray[np.fl
     cos_yaw, sin_yaw = np.cos(yaw), np.sin(yaw)
 
     # Build rotation matrices for entire batch
-    batch_size = euler_angles_array.shape[0]
+    batch_size = euler_angles_array_.shape[0]
     rotation_matrices = np.zeros((batch_size, 3, 3), dtype=np.float64)
 
     # ZYX Tait-Bryan rotation matrix elements
@@ -67,6 +76,10 @@ def get_rotation_matrices_from_euler_array(euler_angles_array: npt.NDArray[np.fl
     rotation_matrices[:, 2, 0] = -cos_roll * sin_pitch * cos_yaw + sin_roll * sin_yaw
     rotation_matrices[:, 2, 1] = cos_roll * sin_pitch * sin_yaw + sin_roll * cos_yaw
     rotation_matrices[:, 2, 2] = cos_roll * cos_pitch
+
+    # Reshape back to original batch dimensions + (3, 3)
+    if len(original_shape) > 1:
+        rotation_matrices = rotation_matrices.reshape(original_shape + (3, 3))
 
     return rotation_matrices
 
@@ -140,12 +153,28 @@ def get_rotation_matrix_from_euler_array(euler_angles: npt.NDArray[np.float64]) 
 
 
 def get_rotation_matrices_from_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    assert quaternion_array.ndim == 2 and quaternion_array.shape[-1] == len(QuaternionIndex)
-    norm_quaternion = normalize_quaternion_array(quaternion_array)
+    assert quaternion_array.ndim >= 1 and quaternion_array.shape[-1] == len(QuaternionIndex)
+
+    # Store original shape for reshaping later
+    original_shape = quaternion_array.shape[:-1]
+
+    # Flatten to 2D if needed
+    if quaternion_array.ndim > 2:
+        quaternion_array_ = quaternion_array.reshape(-1, len(QuaternionIndex))
+    else:
+        quaternion_array_ = quaternion_array
+
+    norm_quaternion = normalize_quaternion_array(quaternion_array_)
     Q_matrices = get_q_matrices(norm_quaternion)
     Q_bar_matrices = get_q_bar_matrices(norm_quaternion)
     rotation_matrix = batch_matmul(Q_matrices, Q_bar_matrices.conj().swapaxes(-1, -2))
-    return rotation_matrix[:, 1:][:, :, 1:]
+    rotation_matrix = rotation_matrix[:, 1:][:, :, 1:]
+
+    # Reshape back to original batch dimensions + (3, 3)
+    if len(original_shape) > 1:
+        rotation_matrix = rotation_matrix.reshape(original_shape + (3, 3))
+
+    return rotation_matrix
 
 
 def get_rotation_matrix_from_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:

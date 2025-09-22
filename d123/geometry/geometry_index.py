@@ -183,6 +183,10 @@ class BoundingBoxSE2Index(IntEnum):
     def SE2(cls) -> slice:
         return slice(cls.X, cls.YAW + 1)
 
+    @classproperty
+    def EXTENT(cls) -> slice:
+        return slice(cls.LENGTH, cls.WIDTH + 1)
+
 
 class Corners2DIndex(IntEnum):
     """
@@ -197,19 +201,22 @@ class Corners2DIndex(IntEnum):
 
 class BoundingBoxSE3Index(IntEnum):
     """
-    Indexes array-like representations of rotated 3D bounding boxes (x,y,z,roll,pitch,yaw,length,width,height).
-    TODO: Use quaternions for rotation.
+    Indexes array-like representations of rotated 3D bounding boxes
+    - center (x,y,z).
+    - rotation (qw,qx,qy,qz).
+    - extent (length,width,height).
     """
 
     X = 0
     Y = 1
     Z = 2
-    ROLL = 3
-    PITCH = 4
-    YAW = 5
-    LENGTH = 6
-    WIDTH = 7
-    HEIGHT = 8
+    QW = 3
+    QX = 4
+    QY = 5
+    QZ = 6
+    LENGTH = 7
+    WIDTH = 8
+    HEIGHT = 9
 
     @classproperty
     def XYZ(cls) -> slice:
@@ -217,11 +224,11 @@ class BoundingBoxSE3Index(IntEnum):
 
     @classproperty
     def STATE_SE3(cls) -> slice:
-        return slice(cls.X, cls.YAW + 1)
+        return slice(cls.X, cls.QZ + 1)
 
     @classproperty
-    def EULER_ANGLES(cls) -> slice:
-        return slice(cls.ROLL, cls.YAW + 1)
+    def QUATERNION(cls) -> slice:
+        return slice(cls.QW, cls.QZ + 1)
 
     @classproperty
     def EXTENT(cls) -> slice:

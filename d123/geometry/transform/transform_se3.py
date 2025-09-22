@@ -4,10 +4,11 @@ import numpy as np
 import numpy.typing as npt
 
 from d123.geometry import Vector3D
-from d123.geometry.geometry_index import Point3DIndex, StateSE3Index, Vector3DIndex
+from d123.geometry.geometry_index import Point3DIndex, QuaternionIndex, StateSE3Index, Vector3DIndex
 from d123.geometry.se import StateSE3
 from d123.geometry.utils.rotation_utils import (
     conjugate_quaternion_array,
+    get_rotation_matrices_from_quaternion_array,
     get_rotation_matrix_from_quaternion_array,
     multiply_quaternion_arrays,
 )
@@ -211,3 +212,24 @@ def translate_se3_along_body_frame(state_se3: StateSE3, vector_3d: Vector3D) -> 
     state_se3_array = state_se3.array.copy()
     state_se3_array[StateSE3Index.XYZ] += world_translation
     return StateSE3.from_array(state_se3_array, copy=False)
+
+
+def translate_3d_along_body_frame(
+    points_3d: npt.NDArray[np.float64],
+    quaternions: npt.NDArray[np.float64],
+    translation: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """Translates 3D points along a vector in the body frame defined by quaternions.
+
+    :param points_3d: Array of 3D points, index by :class:`~d123.geometry.Point3DIndex`.
+    :param quaternions: Array of quaternions, index by :class:`~d123.geometry.QuaternionIndex`.
+    :param translation: Array of translation vectors, index by :class:`~d123.geometry.Vector3DIndex`.
+    :return: The translated 3D points in the world frame, index by :class:`~d123.geometry.Point3DIndex`.
+    """
+    assert points_3d.shape[-1] == len(Point3DIndex)
+    assert quaternions.shape[-1] == len(QuaternionIndex)
+    assert translation.shape[-1] == len(Vector3DIndex)
+
+    R = get_rotation_matrices_from_quaternion_array(quaternions)
+    world_translation = np.einsum("...ij,...j->...i", R, translation)
+    return points_3d + world_translation

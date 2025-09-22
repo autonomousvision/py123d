@@ -12,6 +12,7 @@ from d123.geometry.geometry_index import (
     Corners3DIndex,
     Point2DIndex,
 )
+from d123.geometry.se import StateSE3
 
 
 class TestBoundingBoxSE2(unittest.TestCase):
@@ -109,7 +110,8 @@ class TestBoundingBoxSE3(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.center = EulerStateSE3(1.0, 2.0, 3.0, 0.1, 0.2, 0.3)
+        self.array = np.array([1.0, 2.0, 3.0, 0.98185617, 0.06407135, 0.09115755, 0.1534393, 4.0, 2.0, 1.5])
+        self.center = StateSE3(1.0, 2.0, 3.0, 0.98185617, 0.06407135, 0.09115755, 0.1534393)
         self.length = 4.0
         self.width = 2.0
         self.height = 1.5
@@ -125,13 +127,13 @@ class TestBoundingBoxSE3(unittest.TestCase):
 
     def test_from_array(self):
         """Test BoundingBoxSE3.from_array method."""
-        array = np.array([1.0, 2.0, 3.0, 0.1, 0.2, 0.3, 4.0, 2.0, 1.5])
+        array = self.array.copy()
         bbox = BoundingBoxSE3.from_array(array)
         np.testing.assert_array_equal(bbox.array, array)
 
     def test_from_array_copy(self):
         """Test BoundingBoxSE3.from_array with copy parameter."""
-        array = np.array([1.0, 2.0, 3.0, 0.1, 0.2, 0.3, 4.0, 2.0, 1.5])
+        array = self.array.copy()
         bbox_copy = BoundingBoxSE3.from_array(array, copy=True)
         bbox_no_copy = BoundingBoxSE3.from_array(array, copy=False)
 
@@ -149,14 +151,14 @@ class TestBoundingBoxSE3(unittest.TestCase):
 
     def test_array_property(self):
         """Test array property."""
-        expected = np.array([1.0, 2.0, 3.0, 0.1, 0.2, 0.3, 4.0, 2.0, 1.5])
+        expected = self.array.copy()
         np.testing.assert_array_equal(self.bbox.array, expected)
 
     def test_array_mixin(self):
         """Test that BoundingBoxSE3 is an instance of ArrayMixin."""
         self.assertIsInstance(self.bbox, ArrayMixin)
 
-        expected = np.array([1.0, 2.0, 3.0, 0.1, 0.2, 0.3, 4.0, 2.0, 1.5], dtype=np.float16)
+        expected = np.array(self.array, dtype=np.float16)
         output_array = np.array(self.bbox, dtype=np.float16)
         np.testing.assert_array_equal(output_array, expected)
         self.assertEqual(output_array.dtype, np.float16)
@@ -170,7 +172,7 @@ class TestBoundingBoxSE3(unittest.TestCase):
         self.assertEqual(bbox_2d.width, self.width)
         self.assertEqual(bbox_2d.center.x, self.center.x)
         self.assertEqual(bbox_2d.center.y, self.center.y)
-        self.assertEqual(bbox_2d.center.yaw, self.center.yaw)
+        self.assertEqual(bbox_2d.center.yaw, self.center.euler_angles.yaw)
 
     def test_corners_array(self):
         """Test corners_array property."""
@@ -196,15 +198,19 @@ class TestBoundingBoxSE3(unittest.TestCase):
         """Test array assertions in from_array."""
         # Test 2D array
         with self.assertRaises(AssertionError):
-            BoundingBoxSE3.from_array(np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9]]))
+            BoundingBoxSE3.from_array(np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]))
 
-        # Test wrong size
+        # Test wrong size, less than required
         with self.assertRaises(AssertionError):
-            BoundingBoxSE3.from_array(np.array([1, 2, 3, 4, 5, 6, 7, 8]))
+            BoundingBoxSE3.from_array(np.array([1, 2, 3, 4, 5, 6, 7, 8, 9]))
+
+        # Test wrong size, greater than required
+        with self.assertRaises(AssertionError):
+            BoundingBoxSE3.from_array(np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]))
 
     def test_zero_dimensions(self):
         """Test bounding box with zero dimensions."""
-        center = EulerStateSE3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        center = StateSE3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         bbox = BoundingBoxSE3(center, 0.0, 0.0, 0.0)
         self.assertEqual(bbox.length, 0.0)
         self.assertEqual(bbox.width, 0.0)
