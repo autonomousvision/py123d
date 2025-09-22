@@ -26,8 +26,8 @@ from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig
 from d123.dataset.dataset_specific.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
 from d123.dataset.dataset_specific.wopd.wopd_utils import parse_range_image_and_camera_projection
 from d123.dataset.logs.log_metadata import LogMetadata
-from d123.geometry import BoundingBoxSE3Index, Point3D, StateSE3, Vector3D, Vector3DIndex
-from d123.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array
+from d123.geometry import BoundingBoxSE3Index, Point3D, EulerStateSE3, Vector3D, Vector3DIndex
+from d123.geometry.transform.transform_euler_se3 import convert_relative_to_absolute_euler_se3_array
 from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 
 check_dependencies(modules=["tensorflow", "waymo_open_dataset"], optional_name="waymo")
@@ -389,12 +389,12 @@ def _write_recording_table(
         write_arrow_table(recording_table, log_file_path)
 
 
-def _get_ego_pose_se3(frame: dataset_pb2.Frame) -> StateSE3:
+def _get_ego_pose_se3(frame: dataset_pb2.Frame) -> EulerStateSE3:
     ego_pose_matrix = np.array(frame.pose.transform).reshape(4, 4)
     yaw, pitch, roll = Quaternion(matrix=ego_pose_matrix[:3, :3]).yaw_pitch_roll
     ego_point_3d = Point3D.from_array(ego_pose_matrix[:3, 3])
 
-    return StateSE3(x=ego_point_3d.x, y=ego_point_3d.y, z=ego_point_3d.z, roll=roll, pitch=pitch, yaw=yaw)
+    return EulerStateSE3(x=ego_point_3d.x, y=ego_point_3d.y, z=ego_point_3d.z, roll=roll, pitch=pitch, yaw=yaw)
 
 
 def _extract_detections(frame: dataset_pb2.Frame) -> Tuple[List[List[float]], List[List[float]], List[str], List[int]]:
@@ -434,7 +434,7 @@ def _extract_detections(frame: dataset_pb2.Frame) -> Tuple[List[List[float]], Li
         detections_token.append(str(detection.id))
         detections_types.append(int(WOPD_DETECTION_NAME_DICT[detection.type]))
 
-    detections_state[:, BoundingBoxSE3Index.STATE_SE3] = convert_relative_to_absolute_se3_array(
+    detections_state[:, BoundingBoxSE3Index.STATE_SE3] = convert_relative_to_absolute_euler_se3_array(
         origin=ego_rear_axle, se3_array=detections_state[:, BoundingBoxSE3Index.STATE_SE3]
     )
     if DETECTION_ROLL_PITCH == "ego":
@@ -490,7 +490,7 @@ def _extract_camera(
         transform = np.array(calibration.extrinsic.transform).reshape(4, 4)
 
         # FIXME: This is an ugly hack to convert to uniform camera convention.
-        flip_camera = StateSE3(
+        flip_camera = EulerStateSE3(
             x=0.0,
             y=0.0,
             z=0.0,

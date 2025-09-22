@@ -104,7 +104,7 @@ class QuaternionIndex(IntEnum):
         return slice(cls.QX, cls.QZ + 1)
 
 
-class StateSE3Index(IntEnum):
+class EulerStateSE3Index(IntEnum):
     """
     Indexes array-like representations of SE3 states (x,y,z,roll,pitch,yaw).
     TODO: Use quaternions for rotation.
@@ -130,7 +130,7 @@ class StateSE3Index(IntEnum):
         return slice(cls.ROLL, cls.YAW + 1)
 
 
-class QuaternionSE3Index(IntEnum):
+class StateSE3Index(IntEnum):
     """
     Indexes array-like representations of SE3 states with quaternions (x,y,z,qw,qx,qy,qz).
     """

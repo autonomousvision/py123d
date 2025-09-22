@@ -23,7 +23,7 @@ from d123.common.datatypes.vehicle_state.vehicle_parameters import (
     rear_axle_se3_to_center_se3,
 )
 from d123.common.utils.enums import classproperty
-from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, StateSE2, StateSE3, Vector2D, Vector3D
+from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, StateSE2, EulerStateSE3, Vector2D, Vector3D
 
 # TODO: Find an appropriate way to handle SE2 and SE3 states.
 
@@ -59,7 +59,7 @@ class EgoStateSE3Index(IntEnum):
 @dataclass
 class EgoStateSE3:
 
-    center_se3: StateSE3
+    center_se3: EulerStateSE3
     dynamic_state_se3: DynamicStateSE3
     vehicle_parameters: VehicleParameters
     timepoint: Optional[TimePoint] = None
@@ -72,14 +72,14 @@ class EgoStateSE3:
         vehicle_parameters: VehicleParameters,
         timepoint: Optional[TimePoint] = None,
     ) -> EgoStateSE3:
-        state_se3 = StateSE3.from_array(array[EgoStateSE3Index.SE3])
+        state_se3 = EulerStateSE3.from_array(array[EgoStateSE3Index.SE3])
         dynamic_state = DynamicStateSE3.from_array(array[EgoStateSE3Index.DYNAMIC_VEHICLE_STATE])
         return EgoStateSE3(state_se3, dynamic_state, vehicle_parameters, timepoint)
 
     @classmethod
     def from_rear_axle(
         cls,
-        rear_axle_se3: StateSE3,
+        rear_axle_se3: EulerStateSE3,
         dynamic_state_se3: DynamicStateSE3,
         vehicle_parameters: VehicleParameters,
         time_point: TimePoint,
@@ -100,7 +100,7 @@ class EgoStateSE3:
         Convert the EgoVehicleState to an array.
         :return: An array containing the bounding box and dynamic state information.
         """
-        assert isinstance(self.center_se3, StateSE3)
+        assert isinstance(self.center_se3, EulerStateSE3)
         assert isinstance(self.dynamic_state_se3, DynamicStateSE3)
 
         center_array = self.center_se3.array
@@ -109,11 +109,11 @@ class EgoStateSE3:
         return np.concatenate((center_array, dynamic_array), axis=0)
 
     @property
-    def center(self) -> StateSE3:
+    def center(self) -> EulerStateSE3:
         return self.center_se3
 
     @property
-    def rear_axle_se3(self) -> StateSE3:
+    def rear_axle_se3(self) -> EulerStateSE3:
         return center_se3_to_rear_axle_se3(center_se3=self.center_se3, vehicle_parameters=self.vehicle_parameters)
 
     @property
@@ -121,7 +121,7 @@ class EgoStateSE3:
         return self.rear_axle_se3.state_se2
 
     @property
-    def rear_axle(self) -> StateSE3:
+    def rear_axle(self) -> EulerStateSE3:
         return self.rear_axle_se3
 
     @cached_property

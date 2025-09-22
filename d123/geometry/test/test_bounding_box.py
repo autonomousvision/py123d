@@ -4,7 +4,7 @@ import numpy as np
 import shapely.geometry as geom
 
 from d123.common.utils.mixin import ArrayMixin
-from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D, Point3D, StateSE2, StateSE3
+from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D, Point3D, StateSE2, EulerStateSE3
 from d123.geometry.geometry_index import (
     BoundingBoxSE2Index,
     BoundingBoxSE3Index,
@@ -109,7 +109,7 @@ class TestBoundingBoxSE3(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.center = StateSE3(1.0, 2.0, 3.0, 0.1, 0.2, 0.3)
+        self.center = EulerStateSE3(1.0, 2.0, 3.0, 0.1, 0.2, 0.3)
         self.length = 4.0
         self.width = 2.0
         self.height = 1.5
@@ -204,7 +204,7 @@ class TestBoundingBoxSE3(unittest.TestCase):
 
     def test_zero_dimensions(self):
         """Test bounding box with zero dimensions."""
-        center = StateSE3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        center = EulerStateSE3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         bbox = BoundingBoxSE3(center, 0.0, 0.0, 0.0)
         self.assertEqual(bbox.length, 0.0)
         self.assertEqual(bbox.width, 0.0)

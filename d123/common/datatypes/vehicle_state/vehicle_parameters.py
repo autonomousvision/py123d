@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from d123.geometry import StateSE2, StateSE3, Vector2D, Vector3D
+from d123.geometry import StateSE2, EulerStateSE3, Vector2D, Vector3D
 from d123.geometry.transform.transform_se2 import translate_se2_along_body_frame
-from d123.geometry.transform.transform_se3 import translate_se3_along_body_frame
+from d123.geometry.transform.transform_euler_se3 import translate_euler_se3_along_body_frame
 
 # TODO: Add more vehicle parameters, potentially extend the parameters.
 
@@ -76,14 +76,14 @@ def get_av2_ford_fusion_hybrid_parameters() -> VehicleParameters:
     )
 
 
-def center_se3_to_rear_axle_se3(center_se3: StateSE3, vehicle_parameters: VehicleParameters) -> StateSE3:
+def center_se3_to_rear_axle_se3(center_se3: EulerStateSE3, vehicle_parameters: VehicleParameters) -> EulerStateSE3:
     """
     Converts a center state to a rear axle state.
     :param center_se3: The center state.
     :param vehicle_parameters: The vehicle parameters.
     :return: The rear axle state.
     """
-    return translate_se3_along_body_frame(
+    return translate_euler_se3_along_body_frame(
         center_se3,
         Vector3D(
             -vehicle_parameters.rear_axle_to_center_longitudinal,
@@ -93,14 +93,14 @@ def center_se3_to_rear_axle_se3(center_se3: StateSE3, vehicle_parameters: Vehicl
     )
 
 
-def rear_axle_se3_to_center_se3(rear_axle_se3: StateSE3, vehicle_parameters: VehicleParameters) -> StateSE3:
+def rear_axle_se3_to_center_se3(rear_axle_se3: EulerStateSE3, vehicle_parameters: VehicleParameters) -> EulerStateSE3:
     """
     Converts a rear axle state to a center state.
     :param rear_axle_se3: The rear axle state.
     :param vehicle_parameters: The vehicle parameters.
     :return: The center state.
     """
-    return translate_se3_along_body_frame(
+    return translate_euler_se3_along_body_frame(
         rear_axle_se3,
         Vector3D(
             vehicle_parameters.rear_axle_to_center_longitudinal,

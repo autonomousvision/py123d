@@ -31,7 +31,7 @@ from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.nuplan.nuplan_map_conversion import MAP_LOCATIONS, NuPlanMapConverter
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
-from d123.geometry import BoundingBoxSE3, BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
+from d123.geometry import BoundingBoxSE3, BoundingBoxSE3Index, EulerStateSE3, Vector3D, Vector3DIndex
 from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 
 check_dependencies(["nuplan", "sqlalchemy"], "nuplan")
@@ -366,7 +366,7 @@ def _extract_detections(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[List
 
     for lidar_box in lidar_pc.lidar_boxes:
         lidar_box: LidarBox
-        center = StateSE3(
+        center = EulerStateSE3(
             x=lidar_box.x,
             y=lidar_box.y,
             z=lidar_box.z,
@@ -390,7 +390,7 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
     vehicle_parameters = get_nuplan_chrysler_pacifica_parameters()
     # vehicle_parameters = get_pacifica_parameters()
 
-    rear_axle_pose = StateSE3(
+    rear_axle_pose = EulerStateSE3(
         x=lidar_pc.ego_pose.x,
         y=lidar_pc.ego_pose.y,
         z=lidar_pc.ego_pose.z,
