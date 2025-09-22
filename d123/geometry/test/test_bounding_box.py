@@ -4,7 +4,7 @@ import numpy as np
 import shapely.geometry as geom
 
 from d123.common.utils.mixin import ArrayMixin
-from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D, Point3D, StateSE2, EulerStateSE3
+from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D, Point3D, StateSE2
 from d123.geometry.geometry_index import (
     BoundingBoxSE2Index,
     BoundingBoxSE3Index,

@@ -8,20 +8,17 @@ from d123.geometry.geometry_index import (
     BoundingBoxSE3Index,
     Corners2DIndex,
     Corners3DIndex,
+    EulerStateSE3Index,
     Point2DIndex,
     Point3DIndex,
-    StateSE3Index,
-    EulerStateSE3Index,
 )
-from d123.geometry.point import Point3D
-from d123.geometry.rotation import Quaternion
 from d123.geometry.se import EulerStateSE3, StateSE3
 from d123.geometry.transform.transform_se3 import translate_se3_along_body_frame
 from d123.geometry.utils.bounding_box_utils import (
     bbse2_array_to_corners_array,
-    corners_2d_array_to_polygon_array,
     bbse2_array_to_polygon_array,
     bbse3_array_to_corners_array,
+    corners_2d_array_to_polygon_array,
     get_corners_3d_factors,
 )
 from d123.geometry.vector import Vector3D

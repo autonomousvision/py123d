@@ -12,7 +12,6 @@ import pyarrow as pa
 import yaml
 from pyquaternion import Quaternion
 
-
 import d123.dataset.dataset_specific.nuplan.utils as nuplan_utils
 from d123.common.datatypes.detection.detection import TrafficLightStatus
 from d123.common.datatypes.detection.detection_types import DetectionType

@@ -15,7 +15,7 @@ from d123.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VE
 from d123.dataset.maps.abstract_map import MapLayer
 from d123.dataset.maps.abstract_map_objects import AbstractLane, AbstractSurfaceMapObject
 from d123.dataset.scene.abstract_scene import AbstractScene
-from d123.geometry import BoundingBoxSE3, Point3D, Polyline3D, EulerStateSE3
+from d123.geometry import BoundingBoxSE3, EulerStateSE3, Point3D, Polyline3D
 from d123.geometry.transform.transform_euler_se3 import convert_relative_to_absolute_points_3d_array
 
 # TODO: Refactor this file.

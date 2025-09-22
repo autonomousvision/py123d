@@ -3,7 +3,8 @@ import unittest
 import numpy as np
 import numpy.typing as npt
 
-from d123.geometry.geometry_index import StateSE3Index, EulerStateSE3Index
+import d123.geometry.transform.transform_euler_se3 as euler_transform_se3
+from d123.geometry.geometry_index import EulerStateSE3Index, StateSE3Index
 from d123.geometry.point import Point3D
 from d123.geometry.rotation import Quaternion
 from d123.geometry.se import EulerStateSE3, StateSE3
@@ -12,12 +13,11 @@ from d123.geometry.transform.transform_se3 import (
     convert_absolute_to_relative_se3_array,
     convert_relative_to_absolute_points_3d_array,
     convert_relative_to_absolute_se3_array,
+    translate_se3_along_body_frame,
     translate_se3_along_x,
     translate_se3_along_y,
     translate_se3_along_z,
-    translate_se3_along_body_frame,
 )
-import d123.geometry.transform.transform_euler_se3 as euler_transform_se3
 from d123.geometry.utils.rotation_utils import (
     get_rotation_matrices_from_euler_array,
     get_rotation_matrices_from_quaternion_array,

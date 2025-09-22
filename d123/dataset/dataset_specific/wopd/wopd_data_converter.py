@@ -12,7 +12,6 @@ import numpy.typing as npt
 import pyarrow as pa
 from pyquaternion import Quaternion
 
-
 from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.common.datatypes.sensor.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
@@ -26,7 +25,7 @@ from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig
 from d123.dataset.dataset_specific.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
 from d123.dataset.dataset_specific.wopd.wopd_utils import parse_range_image_and_camera_projection
 from d123.dataset.logs.log_metadata import LogMetadata
-from d123.geometry import BoundingBoxSE3Index, Point3D, EulerStateSE3, Vector3D, Vector3DIndex
+from d123.geometry import BoundingBoxSE3Index, EulerStateSE3, Point3D, Vector3D, Vector3DIndex
 from d123.geometry.transform.transform_euler_se3 import convert_relative_to_absolute_euler_se3_array
 from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 

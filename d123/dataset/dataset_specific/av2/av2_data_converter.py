@@ -35,7 +35,10 @@ from d123.dataset.dataset_specific.av2.av2_map_conversion import convert_av2_map
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
 from d123.geometry import BoundingBoxSE3Index, EulerStateSE3, Vector3D, Vector3DIndex
-from d123.geometry.transform.transform_euler_se3 import convert_relative_to_absolute_euler_se3_array, get_rotation_matrix
+from d123.geometry.transform.transform_euler_se3 import (
+    convert_relative_to_absolute_euler_se3_array,
+    get_rotation_matrix,
+)
 from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 
 

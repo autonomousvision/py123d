@@ -3,9 +3,9 @@ from typing import Union
 import numpy as np
 import numpy.typing as npt
 
-# import pyquaternion
-
 from d123.geometry.geometry_index import EulerAnglesIndex, QuaternionIndex
+
+# import pyquaternion
 
 
 def batch_matmul(A: npt.NDArray[np.float64], B: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:

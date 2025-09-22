@@ -8,7 +8,7 @@ import shapely.geometry as geom
 from pyparsing import cached_property
 
 from d123.common.utils.mixin import ArrayMixin
-from d123.geometry.geometry_index import Point3DIndex, StateSE3Index, StateSE2Index, EulerStateSE3Index
+from d123.geometry.geometry_index import EulerStateSE3Index, Point3DIndex, StateSE2Index, StateSE3Index
 from d123.geometry.point import Point2D, Point3D
 from d123.geometry.rotation import EulerAngles, Quaternion
 
