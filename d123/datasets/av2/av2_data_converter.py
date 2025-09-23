@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-from pyquaternion import Quaternion
 
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.datasets.av2.av2_constants import (
@@ -34,12 +33,8 @@ from d123.datatypes.vehicle_state.vehicle_parameters import (
     get_av2_ford_fusion_hybrid_parameters,
     rear_axle_se3_to_center_se3,
 )
-from d123.geometry import BoundingBoxSE3Index, EulerStateSE3, Vector3D, Vector3DIndex
-from d123.geometry.transform.transform_euler_se3 import (
-    convert_relative_to_absolute_euler_se3_array,
-    get_rotation_matrix,
-)
-from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
+from d123.geometry import BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
+from d123.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array
 
 
 def create_token(input_data: str) -> str:
@@ -382,34 +377,18 @@ def _extract_box_detections(
 
     for detection_idx, (_, row) in enumerate(annotations_slice.iterrows()):
         row = row.to_dict()
-        yaw, pitch, roll = Quaternion(
-            w=row["qw"],
-            x=row["qx"],
-            y=row["qy"],
-            z=row["qz"],
-        ).yaw_pitch_roll
 
-        detections_state[detection_idx, BoundingBoxSE3Index.X] = row["tx_m"]
-        detections_state[detection_idx, BoundingBoxSE3Index.Y] = row["ty_m"]
-        detections_state[detection_idx, BoundingBoxSE3Index.Z] = row["tz_m"]
-        detections_state[detection_idx, BoundingBoxSE3Index.ROLL] = roll
-        detections_state[detection_idx, BoundingBoxSE3Index.PITCH] = pitch
-        detections_state[detection_idx, BoundingBoxSE3Index.YAW] = yaw
-        detections_state[detection_idx, BoundingBoxSE3Index.LENGTH] = row["length_m"]
-        detections_state[detection_idx, BoundingBoxSE3Index.WIDTH] = row["width_m"]
-        detections_state[detection_idx, BoundingBoxSE3Index.HEIGHT] = row["height_m"]
+        detections_state[detection_idx, BoundingBoxSE3Index.XYZ] = [row["tx_m"], row["ty_m"], row["tz_m"]]
+        detections_state[detection_idx, BoundingBoxSE3Index.QUATERNION] = [row["qw"], row["qx"], row["qy"], row["qz"]]
+        detections_state[detection_idx, BoundingBoxSE3Index.EXTENT] = [row["length_m"], row["width_m"], row["height_m"]]
 
         av2_detection_type = AV2SensorBoxDetectionType.deserialize(row["category"])
         detections_types.append(int(AV2_TO_DETECTION_TYPE[av2_detection_type]))
 
-    detections_state[:, BoundingBoxSE3Index.STATE_SE3] = convert_relative_to_absolute_euler_se3_array(
-        origin=ego_state_se3.rear_axle_se3, se3_array=detections_state[:, BoundingBoxSE3Index.STATE_SE3]
+    detections_state[:, BoundingBoxSE3Index.STATE_SE3] = convert_relative_to_absolute_se3_array(
+        origin=ego_state_se3.rear_axle_se3,
+        se3_array=detections_state[:, BoundingBoxSE3Index.STATE_SE3],
     )
-
-    ZERO_BOX_ROLL_PITCH = False  # TODO: Add config option or remove
-    if ZERO_BOX_ROLL_PITCH:
-        detections_state[:, BoundingBoxSE3Index.ROLL] = DEFAULT_ROLL
-        detections_state[:, BoundingBoxSE3Index.PITCH] = DEFAULT_PITCH
 
     return detections_state.tolist(), detections_velocity.tolist(), detections_token, detections_types
 
@@ -421,26 +400,19 @@ def _extract_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_timestamp_ns:
     ), f"Expected exactly one ego state for timestamp {lidar_timestamp_ns}, got {len(ego_state_slice)}."
 
     ego_pose_dict = ego_state_slice.iloc[0].to_dict()
-
-    ego_pose_quat = Quaternion(
-        w=ego_pose_dict["qw"],
-        x=ego_pose_dict["qx"],
-        y=ego_pose_dict["qy"],
-        z=ego_pose_dict["qz"],
-    )
-
-    yaw, pitch, roll = ego_pose_quat.yaw_pitch_roll
-
-    rear_axle_pose = EulerStateSE3(
+    rear_axle_pose = StateSE3(
         x=ego_pose_dict["tx_m"],
         y=ego_pose_dict["ty_m"],
         z=ego_pose_dict["tz_m"],
-        roll=roll,
-        pitch=pitch,
-        yaw=yaw,
+        qw=ego_pose_dict["qw"],
+        qx=ego_pose_dict["qx"],
+        qy=ego_pose_dict["qy"],
+        qz=ego_pose_dict["qz"],
     )
-    vehicle_parameters = get_av2_ford_fusion_hybrid_parameters()  # TODO: Add av2 vehicle parameters
+
+    vehicle_parameters = get_av2_ford_fusion_hybrid_parameters()
     center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
+
     # TODO: Add script to calculate the dynamic state from log sequence.
     dynamic_state = DynamicStateSE3(
         velocity=Vector3D(
@@ -495,9 +467,8 @@ def _extract_camera(
     source_dataset_dir = source_log_path.parent.parent
 
     rear_axle_se3 = ego_state_se3.rear_axle_se3
-    ego_transform = np.zeros((4, 4), dtype=np.float64)
-    ego_transform[:3, :3] = get_rotation_matrix(ego_state_se3.rear_axle_se3)
-    ego_transform[:3, 3] = rear_axle_se3.point_3d.array
+    ego_transform = rear_axle_se3.transformation_matrix
+    ego_transform  # TODO: Refactor this file, ie. why is the ego transform calculated but not used?
 
     for _, row in egovehicle_se3_sensor_df.iterrows():
         row = row.to_dict()
@@ -521,16 +492,13 @@ def _extract_camera(
             absolute_image_path = source_dataset_dir / relative_image_path
             assert absolute_image_path.exists()
             # TODO: Adjust for finer IMU timestamps to correct the camera extrinsic.
-            camera_extrinsic = np.eye(4, dtype=np.float64)
-            camera_extrinsic[:3, :3] = Quaternion(
-                w=row["qw"],
-                x=row["qx"],
-                y=row["qy"],
-                z=row["qz"],
-            ).rotation_matrix
-            camera_extrinsic[:3, 3] = np.array([row["tx_m"], row["ty_m"], row["tz_m"]], dtype=np.float64)
+
+            camera_extrinsic = StateSE3(
+                x=row["tx_m"], y=row["ty_m"], z=row["tz_m"], qw=row["qw"], qx=row["qx"], qy=row["qy"], qz=row["qz"]
+            )
+
             # camera_extrinsic = camera_extrinsic @ ego_transform
-            camera_extrinsic = camera_extrinsic.flatten().tolist()
+            camera_extrinsic = camera_extrinsic.transformation_matrix.flatten().tolist()
 
             if data_converter_config.camera_store_option == "path":
                 camera_dict[camera_type] = (str(relative_image_path), camera_extrinsic)

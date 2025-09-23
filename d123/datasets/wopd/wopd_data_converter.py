@@ -13,7 +13,6 @@ import pyarrow as pa
 from pyquaternion import Quaternion
 
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
-from d123.common.utils.arrow_helper import open_arrow_table, write_arrow_table
 from d123.common.utils.dependencies import check_dependencies
 from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.datasets.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
@@ -32,6 +31,7 @@ from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 check_dependencies(modules=["tensorflow", "waymo_open_dataset"], optional_name="waymo")
 import tensorflow as tf
 from waymo_open_dataset import dataset_pb2
+from waymo_open_dataset.utils import frame_utils
 
 # TODO: Make keep_polar_features an optional argument.
 # With polar features, the lidar loading time is SIGNIFICANTLY higher.
@@ -71,7 +71,7 @@ WOPD_LIDAR_TYPES: Dict[int, LiDARType] = {
     5: LiDARType.LIDAR_BACK,  # REAR
 }
 
-WOPD_DATA_ROOT = Path("/media/nvme1/waymo_perception")  # TODO: set as environment variable
+WOPD_DATA_ROOT = Path("/media/nvme1/waymo_perception")  # TODO: set as environment variable !!!!
 
 # Whether to use ego or zero roll and pitch values for bounding box detections (after global conversion)
 DETECTION_ROLL_PITCH: Final[Literal["ego", "zero"]] = "zero"
@@ -382,11 +382,6 @@ def _write_recording_table(
                 writer.write_batch(batch)
                 del batch, row_data, detections_state, detections_velocity, detections_token, detections_types
 
-    if SORT_BY_TIMESTAMP:
-        recording_table = open_arrow_table(log_file_path)
-        recording_table = recording_table.sort_by([("timestamp", "ascending")])
-        write_arrow_table(recording_table, log_file_path)
-
 
 def _get_ego_pose_se3(frame: dataset_pb2.Frame) -> EulerStateSE3:
     ego_pose_matrix = np.array(frame.pose.transform).reshape(4, 4)
@@ -519,7 +514,6 @@ def _extract_camera(
 def _extract_lidar(
     frame: dataset_pb2.Frame, data_converter_config: DataConverterConfig
 ) -> Dict[LiDARType, npt.NDArray[np.float32]]:
-    from waymo_open_dataset.utils import frame_utils
 
     assert data_converter_config.lidar_store_option == "binary", "Lidar store option must be 'binary' for WOPD."
     (range_images, camera_projections, _, range_image_top_pose) = parse_range_image_and_camera_projection(frame)

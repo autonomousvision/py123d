@@ -13,7 +13,7 @@ from d123.datatypes.maps.abstract_map_objects import AbstractLane, AbstractSurfa
 from d123.datatypes.scene.abstract_scene import AbstractScene
 from d123.datatypes.sensors.camera import Camera, CameraType
 from d123.datatypes.sensors.lidar import LiDARType
-from d123.geometry import BoundingBoxSE3, EulerStateSE3, Point3D, Polyline3D
+from d123.geometry import BoundingBoxSE3, Point3D, Polyline3D, StateSE3
 from d123.geometry.transform.transform_euler_se3 import convert_relative_to_absolute_points_3d_array
 
 # TODO: Refactor this file.
@@ -226,7 +226,7 @@ def get_camera_values(scene: AbstractScene, camera: Camera, iteration: int) -> T
 
     rear_axle_array = rear_axle.array
     rear_axle_array[:3] -= initial_point_3d.array
-    rear_axle = EulerStateSE3.from_array(rear_axle_array)
+    rear_axle = StateSE3.from_array(rear_axle_array)
 
     camera_to_ego = camera.extrinsic  # 4x4 transformation from camera to ego frame
 

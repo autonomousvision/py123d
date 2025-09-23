@@ -30,7 +30,8 @@ from d123.datatypes.vehicle_state.vehicle_parameters import (
     get_nuplan_chrysler_pacifica_parameters,
     rear_axle_se3_to_center_se3,
 )
-from d123.geometry import BoundingBoxSE3, BoundingBoxSE3Index, EulerStateSE3, Vector3D, Vector3DIndex
+from d123.geometry import BoundingBoxSE3, BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
+from d123.geometry.rotation import EulerAngles
 from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 
 check_dependencies(["nuplan", "sqlalchemy"], "nuplan")
@@ -365,17 +366,19 @@ def _extract_detections(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[List
 
     for lidar_box in lidar_pc.lidar_boxes:
         lidar_box: LidarBox
-        center = EulerStateSE3(
+        lidar_quaternion = EulerAngles(roll=DEFAULT_ROLL, pitch=DEFAULT_PITCH, yaw=lidar_box.yaw).quaternion
+        center = StateSE3(
             x=lidar_box.x,
             y=lidar_box.y,
             z=lidar_box.z,
-            roll=DEFAULT_ROLL,
-            pitch=DEFAULT_PITCH,
-            yaw=lidar_box.yaw,
+            qw=lidar_quaternion.qw,
+            qx=lidar_quaternion.qx,
+            qy=lidar_quaternion.qy,
+            qz=lidar_quaternion.qz,
         )
         bounding_box_se3 = BoundingBoxSE3(center, lidar_box.length, lidar_box.width, lidar_box.height)
 
-        detections_state.append(bounding_box_se3.array)
+        detections_state.append(bounding_box_se3.tolist())
         detections_velocity.append(lidar_box.velocity)
         detections_token.append(lidar_box.track_token)
         detections_types.append(int(NUPLAN_DETECTION_NAME_DICT[lidar_box.category.name]))
@@ -385,19 +388,16 @@ def _extract_detections(lidar_pc: LidarPc) -> Tuple[List[List[float]], List[List
 
 def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
 
-    yaw, pitch, roll = lidar_pc.ego_pose.quaternion.yaw_pitch_roll
     vehicle_parameters = get_nuplan_chrysler_pacifica_parameters()
-    # vehicle_parameters = get_pacifica_parameters()
-
-    rear_axle_pose = EulerStateSE3(
+    rear_axle_pose = StateSE3(
         x=lidar_pc.ego_pose.x,
         y=lidar_pc.ego_pose.y,
         z=lidar_pc.ego_pose.z,
-        roll=roll,
-        pitch=pitch,
-        yaw=yaw,
+        qw=lidar_pc.ego_pose.qw,
+        qx=lidar_pc.ego_pose.qx,
+        qy=lidar_pc.ego_pose.qy,
+        qz=lidar_pc.ego_pose.qz,
     )
-    # NOTE: The height to rear axle is not provided the dataset and is merely approximated.
     center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
     dynamic_state = DynamicStateSE3(
         velocity=Vector3D(
@@ -416,7 +416,6 @@ def _extract_ego_state(lidar_pc: LidarPc) -> List[float]:
             z=lidar_pc.ego_pose.angular_rate_z,
         ),
     )
-
     return EgoStateSE3(
         center_se3=center,
         dynamic_state_se3=dynamic_state,
@@ -436,7 +435,6 @@ def _extract_traffic_lights(log_db: NuPlanDB, lidar_pc_token: str) -> Tuple[List
 
 
 def _extract_scenario_tag(log_db: NuPlanDB, lidar_pc_token: str) -> List[str]:
-
     scenario_tags = [
         scenario_tag.type for scenario_tag in log_db.scenario_tag.select_many(lidar_pc_token=lidar_pc_token)
     ]
@@ -454,7 +452,6 @@ def _extract_camera(
 
     camera_dict: Dict[str, Union[str, bytes]] = {}
     sensor_root = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "sensor_blobs"
-
     log_cam_infos = {camera.token: camera for camera in log_db.log.cameras}
 
     for camera_type, camera_channel in NUPLAN_CAMERA_TYPES.items():
@@ -468,7 +465,7 @@ def _extract_camera(
 
                 # Code taken from MTGS
                 # https://github.com/OpenDriveLab/MTGS/blob/main/nuplan_scripts/utils/nuplan_utils_custom.py#L117
-
+                # TODO: Refactor
                 timestamp = image.timestamp + NUPLAN_ROLLING_SHUTTER_S.time_us
                 img_ego_pose: EgoPose = (
                     log_db.log._session.query(EgoPose).order_by(func.abs(EgoPose.timestamp - timestamp)).first()
