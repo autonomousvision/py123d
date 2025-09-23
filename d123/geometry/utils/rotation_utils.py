@@ -178,6 +178,7 @@ def get_rotation_matrices_from_quaternion_array(quaternion_array: npt.NDArray[np
 
 
 def get_rotation_matrix_from_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    # TODO: Check if this function is necessary or batch-wise function is universally applicable
     assert quaternion_array.ndim == 1 and quaternion_array.shape[0] == len(QuaternionIndex)
     return get_rotation_matrices_from_quaternion_array(quaternion_array[None, :])[0]
 

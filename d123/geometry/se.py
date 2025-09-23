@@ -254,6 +254,30 @@ class StateSE3(ArrayMixin):
         return self.quaternion.euler_angles
 
     @property
+    def roll(self) -> float:
+        """The roll (x-axis rotation) angle in radians.
+
+        :return: The roll angle in radians.
+        """
+        return self.euler_angles.roll
+
+    @property
+    def pitch(self) -> float:
+        """The pitch (y-axis rotation) angle in radians.
+
+        :return: The pitch angle in radians.
+        """
+        return self.euler_angles.pitch
+
+    @property
+    def yaw(self) -> float:
+        """The yaw (z-axis rotation) angle in radians.
+
+        :return: The yaw angle in radians.
+        """
+        return self.euler_angles.yaw
+
+    @property
     def rotation_matrix(self) -> npt.NDArray[np.float64]:
         """Returns the 3x3 rotation matrix representation of the state's orientation.
 
@@ -261,11 +285,22 @@ class StateSE3(ArrayMixin):
         """
         return self.quaternion.rotation_matrix
 
+    @property
+    def transformation_matrix(self) -> npt.NDArray[np.float64]:
+        """Returns the 4x4 transformation matrix representation of the state.
+
+        :return: A 4x4 numpy array representing the transformation matrix.
+        """
+        transformation_matrix = np.eye(4, dtype=np.float64)
+        transformation_matrix[:3, :3] = self.rotation_matrix
+        transformation_matrix[:3, 3] = self.array[StateSE3Index.XYZ]
+        return transformation_matrix
+
 
 class EulerStateSE3(ArrayMixin):
     """
     Class to represents a 3D pose as SE3 (x, y, z, roll, pitch, yaw).
-    TODO: Use quaternions for rotation representation.
+    NOTE: This class is deprecated, use :class:`~d123.geometry.StateSE3` instead (quaternion based).
     """
 
     _array: npt.NDArray[np.float64]
@@ -450,11 +485,3 @@ class EulerStateSE3(ArrayMixin):
     def __hash__(self) -> int:
         """Hash method"""
         return hash((self.x, self.y, self.z, self.roll, self.pitch, self.yaw))
-
-    def __matmul__(self, other: EulerStateSE3) -> EulerStateSE3:
-        """Combines two SE3 states by applying the transformation of the other state to this state.
-
-        :param other: Another StateSE3 instance representing the transformation to apply.
-        :return: A new StateSE3 instance representing the combined transformation.
-        """
-        return EulerStateSE3.from_transformation_matrix(self.transformation_matrix @ other.transformation_matrix)

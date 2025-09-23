@@ -157,7 +157,7 @@ class StateSE3Index(IntEnum):
 
     @classproperty
     def SCALAR(cls) -> slice:
-        return cls.QW
+        return slice(cls.QW, cls.QW + 1)
 
     @classproperty
     def VECTOR(cls) -> slice:
@@ -233,6 +233,14 @@ class BoundingBoxSE3Index(IntEnum):
     @classproperty
     def EXTENT(cls) -> slice:
         return slice(cls.LENGTH, cls.HEIGHT + 1)
+
+    @classproperty
+    def SCALAR(cls) -> slice:
+        return slice(cls.QW, cls.QW + 1)
+
+    @classproperty
+    def VECTOR(cls) -> slice:
+        return slice(cls.QX, cls.QZ + 1)
 
 
 class Corners3DIndex(IntEnum):

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Iterable, Optional, Union
+from typing import Iterable, List, Optional, Union
 
 import shapely
 
@@ -92,7 +92,7 @@ class BoxDetectionWrapper:
     def __iter__(self):
         return iter(self.box_detections)
 
-    def get_box_detections_by_types(self, detection_types: Iterable[DetectionType]) -> list[BoxDetection]:
+    def get_box_detections_by_types(self, detection_types: Iterable[DetectionType]) -> List[BoxDetection]:
         return [detection for detection in self.box_detections if detection.metadata.detection_type in detection_types]
 
     def get_detection_by_track_token(self, track_token: str) -> BoxDetection | None:
