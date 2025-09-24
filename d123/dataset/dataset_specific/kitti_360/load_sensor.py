@@ -1,12 +1,16 @@
 from pathlib import Path
 
 import numpy as np
+import logging
 
 from d123.common.datatypes.sensor.lidar import LiDAR, LiDARMetadata
 
 
 def load_kitti360_lidar_from_path(filepath: Path, lidar_metadata: LiDARMetadata) -> LiDAR:
-    assert filepath.exists(), f"LiDAR file not found: {filepath}"
+    if not filepath.exists():
+        logging.warning(f"LiDAR file does not exist: {filepath}. Returning empty point cloud.")
+        return LiDAR(metadata=lidar_metadata, point_cloud=np.zeros((4, 0), dtype=np.float32))
+    
     pcd = np.fromfile(filepath, dtype=np.float32)
     pcd = np.reshape(pcd,[-1,4]) # [N,4]
 

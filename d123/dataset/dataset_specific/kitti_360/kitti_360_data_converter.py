@@ -10,6 +10,7 @@ from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
 import numpy as np
 import pickle
+import copy
 from collections import defaultdict
 import datetime
 import hashlib
@@ -31,8 +32,9 @@ from d123.common.datatypes.vehicle_state.vehicle_parameters import get_kitti360_
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
-from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic
-from d123.dataset.dataset_specific.kitti_360.labels import KIITI360_DETECTION_NAME_DICT,kittiId2label
+from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic,interpolate_obj_list
+from d123.dataset.dataset_specific.kitti_360.labels import KIITI360_DETECTION_NAME_DICT,kittiId2label,BBOX_LABLES_TO_DETECTION_NAME_DICT
+from d123.dataset.dataset_specific.kitti_360.kitti_360_map_conversion import convert_kitti360_map
 from d123.geometry import BoundingBoxSE3, BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
 
 KITTI360_DT: Final[float] = 0.1
@@ -55,11 +57,10 @@ DIR_3D_BBOX = "data_3d_bboxes"
 DIR_POSES = "data_poses"
 DIR_CALIB = "calibration"
 
-# PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_RAW
-PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT 
+PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_RAW
+# PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT 
 PATH_2D_SMT_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_SMT
 PATH_3D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_RAW
-# PATH_3D_RAW_ROOT: Path = Path("/data/jbwang/d123/data_3d_raw")
 PATH_3D_SMT_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_SMT
 PATH_3D_BBOX_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_BBOX
 PATH_POSES_ROOT: Path = KITTI360_DATA_ROOT / DIR_POSES
@@ -146,8 +147,22 @@ class Kitti360DataConverter(RawDataConverter):
         return ["kitti360"]
 
     def convert_maps(self, worker: WorkerPool) -> None:
-        logging.info("KITTI-360 does not provide standard maps. Skipping map conversion.")
-        return None
+        log_args = [
+            {
+                "log_path": log_path,
+                "split": split,
+            }
+            for split, log_paths in self._log_paths_per_split.items()
+            for log_path in log_paths
+        ]
+        worker_map(
+            worker,
+            partial(
+                convert_kitti360_map_to_gpkg,
+                data_converter_config=self.data_converter_config
+            ),
+            log_args,
+        )
 
     def convert_logs(self, worker: WorkerPool) -> None:
         log_args = [
@@ -167,6 +182,20 @@ class Kitti360DataConverter(RawDataConverter):
             ),
             log_args,
         )
+
+def convert_kitti360_map_to_gpkg(
+    args: List[Dict[str, Union[List[str], List[Path]]]], data_converter_config: DataConverterConfig
+) -> List[Any]:
+    for log_info in args:
+        log_path: Path = log_info["log_path"]
+        split: str = log_info["split"]
+        log_name = log_path.stem
+
+        map_path = data_converter_config.output_path / "maps" / split / f"kitti360_{log_name}.gpkg"
+        if data_converter_config.force_map_conversion or not map_path.exists():
+            map_path.unlink(missing_ok=True)
+            convert_kitti360_map(log_name, map_path)
+    return []
 
 def convert_kitti360_log_to_arrow(
     args: List[Dict[str, Union[List[str], List[Path]]]], data_converter_config: DataConverterConfig
@@ -189,7 +218,7 @@ def convert_kitti360_log_to_arrow(
             metadata = LogMetadata(
                 dataset="kitti360",
                 log_name=log_name,
-                location=None,
+                location=log_name,
                 timestep_seconds=KITTI360_DT,
                 map_has_z=True,
             )
@@ -505,26 +534,34 @@ def _extract_detections(
     detections_tokens: List[List[str]] = [[] for _ in range(ts_len)]
     detections_types: List[List[int]] = [[] for _ in range(ts_len)]
 
-    bbox_3d_path = PATH_3D_BBOX_ROOT / "train" / f"{log_name}.xml"
+    if log_name == "2013_05_28_drive_0004_sync":
+        bbox_3d_path = PATH_3D_BBOX_ROOT / "train_full" / f"{log_name}.xml"
+    else:
+        bbox_3d_path = PATH_3D_BBOX_ROOT / "train" / f"{log_name}.xml"
     if not bbox_3d_path.exists():
         raise FileNotFoundError(f"BBox 3D file not found: {bbox_3d_path}")
     
     tree = ET.parse(bbox_3d_path)
     root = tree.getroot()
 
-    dynamic_groups: Dict[int, List[KITTI360Bbox3D]] = defaultdict(list)
+    dynamic_objs: Dict[int, List[KITTI360Bbox3D]] = defaultdict(list)
 
     detection_preprocess_path = PREPOCESS_DETECTION_DIR / f"{log_name}_detection_preprocessed.pkl"
     if detection_preprocess_path.exists():
         with open(detection_preprocess_path, "rb") as f:
             detection_preprocess_result = pickle.load(f)
-            records_dict = {record_item["global_id"]: record_item for record_item in detection_preprocess_result["records"]}
+            static_records_dict = {record_item["global_id"]: record_item for record_item in detection_preprocess_result["static"]}
+            dynamic_records_dict = detection_preprocess_result["dynamic"]
     else:
         detection_preprocess_result = None
 
     for child in root:
-        semanticIdKITTI = int(child.find('semanticId').text)
-        name = kittiId2label[semanticIdKITTI].name
+        if child.find('semanticId') is not None:
+            semanticIdKITTI = int(child.find('semanticId').text)
+            name = kittiId2label[semanticIdKITTI].name
+        else:
+            lable = child.find('label').text
+            name = BBOX_LABLES_TO_DETECTION_NAME_DICT.get(lable, 'unknown')
         if child.find('transform') is None or name not in KIITI360_DETECTION_NAME_DICT.keys():
             continue
         obj = KITTI360Bbox3D()
@@ -535,7 +572,7 @@ def _extract_detections(
             if detection_preprocess_result is None:
                 obj.filter_by_radius(ego_states_xyz,radius=50.0)
             else:
-                obj.load_detection_preprocess(records_dict)
+                obj.load_detection_preprocess(static_records_dict)
             for record in obj.valid_frames["records"]:
                 frame = record["timestamp"]
                 detections_states[frame].append(obj.get_state_array())
@@ -543,12 +580,15 @@ def _extract_detections(
                 detections_tokens[frame].append(str(obj.globalID))
                 detections_types[frame].append(int(KIITI360_DETECTION_NAME_DICT[obj.name]))
         else:
-            ann_id = obj.annotationId
-            dynamic_groups[ann_id].append(obj)
+            global_ID = obj.globalID
+            dynamic_objs[global_ID].append(obj)
 
     # dynamic object
-    for ann_id, obj_list in dynamic_groups.items():
-        obj_list.sort(key=lambda obj: obj.timestamp)
+    if detection_preprocess_result is not None:
+        dynamic_objs = copy.deepcopy(dynamic_records_dict)
+
+    for global_id, obj_list in dynamic_objs.items():
+        obj_list = interpolate_obj_list(obj_list)
         num_frames = len(obj_list)
         
         positions = [obj.get_state_array()[:3] for obj in obj_list]

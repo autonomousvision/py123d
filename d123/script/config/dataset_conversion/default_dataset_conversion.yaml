@@ -22,4 +22,4 @@ defaults:
     - kitti360_dataset
 
 force_log_conversion: True
-force_map_conversion: False
+force_map_conversion: True

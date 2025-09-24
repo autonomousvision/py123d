@@ -38,7 +38,7 @@ LINE_WIDTH: float = 4.0
 BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "lines"
 
 # Map config:
-MAP_AVAILABLE: bool = False
+MAP_AVAILABLE: bool = True
 
 
 # Cameras config:

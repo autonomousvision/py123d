@@ -169,6 +169,21 @@ def assureSingleInstanceName( name ):
 
 from d123.common.datatypes.detection.detection_types import DetectionType
 
+BBOX_LABLES_TO_DETECTION_NAME_DICT = {
+    'car': 'car',
+    'truck': 'truck',
+    "bicycle": "bicycle",
+    "trafficLight": "traffic light",
+    "trailer": "trailer",
+    "bus": "bus",
+    "pedestrian": "person",
+    "motorcycle": "motorcycle",
+    "stop": "stop",
+    "trafficSign": "traffic sign",
+    "rider": "rider",
+    "caravan": "caravan",
+}
+
 KIITI360_DETECTION_NAME_DICT = {
     "traffic light": DetectionType.SIGN,
     "traffic sign": DetectionType.SIGN,
