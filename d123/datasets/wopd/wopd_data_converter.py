@@ -10,13 +10,13 @@ from typing import Any, Dict, Final, List, Tuple, Union
 import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
+from fromd123.datatypes.detections.detection_types import DetectionType
 
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.common.utils.dependencies import check_dependencies
 from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.datasets.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
 from d123.datasets.wopd.wopd_utils import parse_range_image_and_camera_projection
-from d123.datatypes.detections.detection_types import DetectionType
 from d123.datatypes.scene.scene_metadata import LogMetadata
 from d123.datatypes.sensors.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.datatypes.sensors.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json

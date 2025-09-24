@@ -4,9 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import shapely.geometry as geom
 
-from d123.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
-from d123.common.datatypes.detection.detection_types import DetectionType
-from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE2, EgoStateSE3
 from d123.common.visualization.color.config import PlotConfig
 from d123.common.visualization.color.default import (
     BOX_DETECTION_CONFIG,
@@ -22,10 +19,13 @@ from d123.common.visualization.matplotlib.utils import (
     get_pose_triangle,
     shapely_geometry_local_coords,
 )
-from d123.datasets.maps.abstract_map import AbstractMap
-from d123.datasets.maps.abstract_map_objects import AbstractLane
-from d123.datasets.maps.map_datatypes import MapLayer
-from d123.datasets.scene.abstract_scene import AbstractScene
+from d123.datatypes.detections.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from d123.datatypes.detections.detection_types import DetectionType
+from d123.datatypes.maps.abstract_map import AbstractMap
+from d123.datatypes.maps.abstract_map_objects import AbstractLane
+from d123.datatypes.maps.map_datatypes import MapLayer
+from d123.datatypes.scene.abstract_scene import AbstractScene
+from d123.datatypes.vehicle_state.ego_state import EgoStateSE2, EgoStateSE3
 from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D
 from d123.geometry.geometry_index import StateSE2Index
 from d123.geometry.transform.transform_se2 import translate_se2_along_body_frame
