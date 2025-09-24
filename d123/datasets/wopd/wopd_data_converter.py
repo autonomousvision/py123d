@@ -5,12 +5,11 @@ import os
 from dataclasses import asdict
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Final, List, Literal, Tuple, Union
+from typing import Any, Dict, Final, List, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
-from pyquaternion import Quaternion
 
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.common.utils.dependencies import check_dependencies
@@ -24,8 +23,8 @@ from d123.datatypes.sensors.lidar import LiDARMetadata, LiDARType, lidar_metadat
 from d123.datatypes.sensors.lidar_index import WopdLidarIndex
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.datatypes.vehicle_state.vehicle_parameters import get_wopd_chrysler_pacifica_parameters
-from d123.geometry import BoundingBoxSE3Index, EulerStateSE3, Point3D, Vector3D, Vector3DIndex
-from d123.geometry.transform.transform_euler_se3 import convert_relative_to_absolute_euler_se3_array
+from d123.geometry import BoundingBoxSE3Index, EulerAngles, StateSE3, Vector3D, Vector3DIndex
+from d123.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array
 from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 
 check_dependencies(modules=["tensorflow", "waymo_open_dataset"], optional_name="waymo")
@@ -74,7 +73,7 @@ WOPD_LIDAR_TYPES: Dict[int, LiDARType] = {
 WOPD_DATA_ROOT = Path("/media/nvme1/waymo_perception")  # TODO: set as environment variable !!!!
 
 # Whether to use ego or zero roll and pitch values for bounding box detections (after global conversion)
-DETECTION_ROLL_PITCH: Final[Literal["ego", "zero"]] = "zero"
+ZERO_ROLL_PITCH: Final[bool] = True
 
 
 def create_token(input_data: str) -> str:
@@ -383,16 +382,12 @@ def _write_recording_table(
                 del batch, row_data, detections_state, detections_velocity, detections_token, detections_types
 
 
-def _get_ego_pose_se3(frame: dataset_pb2.Frame) -> EulerStateSE3:
-    ego_pose_matrix = np.array(frame.pose.transform).reshape(4, 4)
-    yaw, pitch, roll = Quaternion(matrix=ego_pose_matrix[:3, :3]).yaw_pitch_roll
-    ego_point_3d = Point3D.from_array(ego_pose_matrix[:3, 3])
-
-    return EulerStateSE3(x=ego_point_3d.x, y=ego_point_3d.y, z=ego_point_3d.z, roll=roll, pitch=pitch, yaw=yaw)
+def _get_ego_pose_se3(frame: dataset_pb2.Frame) -> StateSE3:
+    ego_pose_matrix = np.array(frame.pose.transform, dtype=np.float64).reshape(4, 4)
+    return StateSE3.from_transformation_matrix(ego_pose_matrix)
 
 
 def _extract_detections(frame: dataset_pb2.Frame) -> Tuple[List[List[float]], List[List[float]], List[str], List[int]]:
-    # TODO: implement
 
     ego_rear_axle = _get_ego_pose_se3(frame)
 
@@ -406,13 +401,22 @@ def _extract_detections(frame: dataset_pb2.Frame) -> Tuple[List[List[float]], Li
         if detection.type not in WOPD_DETECTION_NAME_DICT:
             continue
 
-        # 1. SS3 Bounding Box
+        # 1. Quaternion rotations
+        # NOTE: WOPD bounding boxes are (1) stored in ego frame and (2) only supply yaw rotation
+        #   The global pose can either consider ego roll and pitch or set them to zero.
+        #   (zero roll/pitch corresponds to setting it to the ego roll/pitch, before transformation to global frame)
+        #
+        detection_quaternion = EulerAngles(
+            roll=ego_rear_axle.roll if ZERO_ROLL_PITCH else DEFAULT_ROLL,
+            pitch=ego_rear_axle.pitch if ZERO_ROLL_PITCH else DEFAULT_PITCH,
+            yaw=detection.box.heading,
+        ).quaternion
+
+        # 2. Fill SE3 Bounding Box
         detections_state[detection_idx, BoundingBoxSE3Index.X] = detection.box.center_x
         detections_state[detection_idx, BoundingBoxSE3Index.Y] = detection.box.center_y
         detections_state[detection_idx, BoundingBoxSE3Index.Z] = detection.box.center_z
-        detections_state[detection_idx, BoundingBoxSE3Index.ROLL] = DEFAULT_ROLL  # not provided in WOPD
-        detections_state[detection_idx, BoundingBoxSE3Index.PITCH] = DEFAULT_PITCH  # not provided in WOPD
-        detections_state[detection_idx, BoundingBoxSE3Index.YAW] = detection.box.heading
+        detections_state[detection_idx, BoundingBoxSE3Index.QUATERNION] = detection_quaternion
         detections_state[detection_idx, BoundingBoxSE3Index.LENGTH] = detection.box.length
         detections_state[detection_idx, BoundingBoxSE3Index.WIDTH] = detection.box.width
         detections_state[detection_idx, BoundingBoxSE3Index.HEIGHT] = detection.box.height
@@ -428,17 +432,9 @@ def _extract_detections(frame: dataset_pb2.Frame) -> Tuple[List[List[float]], Li
         detections_token.append(str(detection.id))
         detections_types.append(int(WOPD_DETECTION_NAME_DICT[detection.type]))
 
-    detections_state[:, BoundingBoxSE3Index.STATE_SE3] = convert_relative_to_absolute_euler_se3_array(
+    detections_state[:, BoundingBoxSE3Index.STATE_SE3] = convert_relative_to_absolute_se3_array(
         origin=ego_rear_axle, se3_array=detections_state[:, BoundingBoxSE3Index.STATE_SE3]
     )
-    if DETECTION_ROLL_PITCH == "ego":
-        pass
-    if DETECTION_ROLL_PITCH == "zero":
-        detections_state[:, BoundingBoxSE3Index.ROLL] = DEFAULT_ROLL
-        detections_state[:, BoundingBoxSE3Index.PITCH] = DEFAULT_PITCH
-    else:
-        raise ValueError(f"Invalid DETECTION_ROLL_PITCH value: {DETECTION_ROLL_PITCH}. Must be 'ego' or 'zero'.")
-
     return detections_state.tolist(), detections_velocity.tolist(), detections_token, detections_types
 
 
@@ -484,17 +480,12 @@ def _extract_camera(
         transform = np.array(calibration.extrinsic.transform).reshape(4, 4)
 
         # FIXME: This is an ugly hack to convert to uniform camera convention.
-        flip_camera = EulerStateSE3(
-            x=0.0,
-            y=0.0,
-            z=0.0,
-            roll=np.deg2rad(0.0),
-            pitch=np.deg2rad(90.0),
-            yaw=np.deg2rad(-90.0),
-        ).rotation_matrix
+        # TODO: Extract function to convert between different camera conventions.
+        flip_camera = EulerAngles(roll=np.deg2rad(0.0), pitch=np.deg2rad(90.0), yaw=np.deg2rad(-90.0)).rotation_matrix
         transform[:3, :3] = transform[:3, :3] @ flip_camera
         context_extrinsic[camera_type] = transform
 
+    # TODO: Refactor to avoid code duplication
     for image_proto in frame.images:
         camera_type = WOPD_CAMERA_TYPES[image_proto.name]
 

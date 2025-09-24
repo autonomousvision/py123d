@@ -139,6 +139,20 @@ class StateSE3(ArrayMixin):
         object.__setattr__(instance, "_array", array.copy() if copy else array)
         return instance
 
+    @classmethod
+    def from_transformation_matrix(cls, transformation_matrix: npt.NDArray[np.float64]) -> StateSE3:
+        """Constructs a StateSE3 from a 4x4 transformation matrix.
+
+        :param transformation_matrix: A 4x4 numpy array representing the transformation matrix.
+        :return: A StateSE3 instance.
+        """
+        assert transformation_matrix.ndim == 2
+        assert transformation_matrix.shape == (4, 4)
+        array = np.zeros(len(StateSE3Index), dtype=np.float64)
+        array[StateSE3Index.XYZ] = transformation_matrix[:3, :3]
+        array[StateSE3Index.QUATERNION] = Quaternion.from_rotation_matrix(transformation_matrix[:3, :3])
+        return StateSE3.from_array(array)
+
     @property
     def x(self) -> float:
         """Returns the x-coordinate of the quaternion.
@@ -332,18 +346,17 @@ class EulerStateSE3(ArrayMixin):
         return instance
 
     @classmethod
-    def from_transformation_matrix(cls, array: npt.NDArray[np.float64]) -> EulerStateSE3:
-        """Constructs a StateSE3 from a 4x4 transformation matrix.
+    def from_transformation_matrix(cls, transformation_matrix: npt.NDArray[np.float64]) -> EulerStateSE3:
+        """Constructs a EulerStateSE3 from a 4x4 transformation matrix.
 
         :param array: A 4x4 numpy array representing the transformation matrix.
-        :return: A StateSE3 instance.
+        :return: A EulerStateSE3 instance.
         """
-        assert array.ndim == 2
-        assert array.shape == (4, 4)
-        translation = array[:3, 3]
-        rotation = array[:3, :3]
+        assert transformation_matrix.ndim == 2
+        assert transformation_matrix.shape == (4, 4)
+        translation = transformation_matrix[:3, 3]
+        rotation = transformation_matrix[:3, :3]
         roll, pitch, yaw = EulerAngles.from_rotation_matrix(rotation)
-
         return EulerStateSE3(
             x=translation[Point3DIndex.X],
             y=translation[Point3DIndex.Y],
