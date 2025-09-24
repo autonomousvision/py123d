@@ -1,4 +1,4 @@
-_target_: d123.dataset.scene.scene_filter.SceneFilter
+_target_: d123.datatypes.scene.scene_filter.SceneFilter
 _convert_: 'all'
 
 split_types: null
