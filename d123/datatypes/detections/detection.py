@@ -24,7 +24,7 @@ class BoxDetectionSE2:
 
     metadata: BoxDetectionMetadata
     bounding_box_se2: BoundingBoxSE2
-    velocity: Vector2D | None = None
+    velocity: Optional[Vector2D] = None
 
     @property
     def shapely_polygon(self) -> shapely.geometry.Polygon:
@@ -81,7 +81,7 @@ BoxDetection = Union[BoxDetectionSE2, BoxDetectionSE3]
 @dataclass
 class BoxDetectionWrapper:
 
-    box_detections: list[BoxDetection]
+    box_detections: List[BoxDetection]
 
     def __getitem__(self, index: int) -> BoxDetection:
         return self.box_detections[index]
@@ -132,7 +132,8 @@ class TrafficLightDetection:
 
 @dataclass
 class TrafficLightDetectionWrapper:
-    traffic_light_detections: list[TrafficLightDetection]
+
+    traffic_light_detections: List[TrafficLightDetection]
 
     def __getitem__(self, index: int) -> TrafficLightDetection:
         return self.traffic_light_detections[index]
