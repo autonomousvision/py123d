@@ -11,14 +11,14 @@ import pyogrio
 from shapely.geometry import LineString
 import shapely.geometry as geom
 
-from d123.dataset.conversion.map.road_edge.road_edge_2d_utils import (
+from d123.datasets.utils.maps.road_edge.road_edge_2d_utils import (
     get_road_edge_linear_rings,
     split_line_geometry_by_max_length,
 )
-from d123.dataset.maps.gpkg.utils import get_all_rows_with_value, get_row_with_value
-from d123.dataset.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
+from d123.datatypes.maps.gpkg.utils import get_all_rows_with_value, get_row_with_value
+from d123.datatypes.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
 from d123.geometry.polyline import Polyline3D
-from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360_MAP_Bbox3D
+from d123.datasets.kitti_360.kitti_360_helper import KITTI360_MAP_Bbox3D
 
 MAX_ROAD_EDGE_LENGTH = 100.0  # meters, used to filter out very long road edges
 

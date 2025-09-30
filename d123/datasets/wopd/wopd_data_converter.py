@@ -18,7 +18,7 @@ from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConvert
 from d123.datasets.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
 from d123.datasets.wopd.wopd_utils import parse_range_image_and_camera_projection
 from d123.datatypes.scene.scene_metadata import LogMetadata
-from d123.datatypes.sensors.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
+from d123.datatypes.sensors.camera import PinholeCameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.datatypes.sensors.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
 from d123.datatypes.sensors.lidar_index import WopdLidarIndex
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index

@@ -22,20 +22,21 @@ from pyquaternion import Quaternion
 
 from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
 
-from d123.common.datatypes.detection.detection_types import DetectionType
-from d123.common.datatypes.sensor.camera import PinholeCameraMetadata, FisheyeMEICameraMetadata, CameraType, camera_metadata_dict_to_json
-from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
-from d123.common.datatypes.sensor.lidar_index import Kitti360LidarIndex
-from d123.common.datatypes.time.time_point import TimePoint
-from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
-from d123.common.datatypes.vehicle_state.vehicle_parameters import get_kitti360_station_wagon_parameters,rear_axle_se3_to_center_se3
-from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
-from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
-from d123.dataset.logs.log_metadata import LogMetadata
-from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic
-from d123.dataset.dataset_specific.kitti_360.labels import KIITI360_DETECTION_NAME_DICT,kittiId2label,BBOX_LABLES_TO_DETECTION_NAME_DICT
-from d123.dataset.dataset_specific.kitti_360.kitti_360_map_conversion import convert_kitti360_map
+from d123.datatypes.detections.detection_types import DetectionType
+from d123.datatypes.sensors.camera import PinholeCameraMetadata, FisheyeMEICameraMetadata, CameraType, camera_metadata_dict_to_json
+from d123.datatypes.sensors.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
+from d123.datatypes.sensors.lidar_index import Kitti360LidarIndex
+from d123.datatypes.time.time_point import TimePoint
+from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
+from d123.datatypes.vehicle_state.vehicle_parameters import get_kitti360_station_wagon_parameters,rear_axle_se3_to_center_se3
+from d123.common.utils.arrow_helper import open_arrow_table, write_arrow_table
+from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConverter
+from d123.datatypes.scene.scene_metadata import LogMetadata
+from d123.datasets.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic
+from d123.datasets.kitti_360.labels import KIITI360_DETECTION_NAME_DICT,kittiId2label,BBOX_LABLES_TO_DETECTION_NAME_DICT
+from d123.datasets.kitti_360.kitti_360_map_conversion import convert_kitti360_map
 from d123.geometry import BoundingBoxSE3, BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
+from d123.geometry.rotation import EulerAngles
 
 KITTI360_DT: Final[float] = 0.1
 SORT_BY_TIMESTAMP: Final[bool] = True
@@ -482,13 +483,15 @@ def _extract_ego_state_all(log_name: str) -> Tuple[List[List[float]], List[int]]
         R_mat_cali = R_mat @ KITTI3602NUPLAN_IMU_CALIBRATION[:3,:3]
         yaw, pitch, roll = Quaternion(matrix=R_mat_cali[:3, :3]).yaw_pitch_roll
 
+        ego_quaternion = EulerAngles(roll=roll, pitch=pitch, yaw=yaw).quaternion
         rear_axle_pose = StateSE3(
             x=poses[pos, 4],
             y=poses[pos, 8],
             z=poses[pos, 12],
-            roll=roll,
-            pitch=pitch,
-            yaw=yaw,
+            qw=ego_quaternion.qw,
+            qx=ego_quaternion.qx,
+            qy=ego_quaternion.qy,
+            qz=ego_quaternion.qz,
         )
 
         center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)

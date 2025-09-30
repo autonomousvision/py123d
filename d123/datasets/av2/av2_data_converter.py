@@ -25,7 +25,7 @@ from d123.datasets.av2.av2_helper import (
 from d123.datasets.av2.av2_map_conversion import convert_av2_map
 from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.datatypes.scene.scene_metadata import LogMetadata
-from d123.datatypes.sensors.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
+from d123.datatypes.sensors.camera import PinholeCameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.datatypes.sensors.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index

@@ -1,12 +1,12 @@
 kitti360_dataset:
-  _target_: d123.dataset.dataset_specific.kitti_360.kitti_360_data_converter.Kitti360DataConverter
+  _target_: d123.datasets.kitti_360.kitti_360_data_converter.Kitti360DataConverter
   _convert_: 'all'
 
   splits: ["kitti360"]
   log_path: ${oc.env:KITTI360_DATA_ROOT}
 
   data_converter_config:
-    _target_: d123.dataset.dataset_specific.raw_data_converter.DataConverterConfig
+    _target_: d123.datasets.raw_data_converter.DataConverterConfig
     _convert_: 'all'
 
     output_path: ${d123_data_root}

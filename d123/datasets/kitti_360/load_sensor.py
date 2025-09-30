@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import logging
 
-from d123.common.datatypes.sensor.lidar import LiDAR, LiDARMetadata
+from d123.datatypes.sensors.lidar import LiDAR, LiDARMetadata
 
 
 def load_kitti360_lidar_from_path(filepath: Path, lidar_metadata: LiDARMetadata) -> LiDAR:

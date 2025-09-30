@@ -8,7 +8,8 @@ from scipy.spatial.transform import Rotation as R
 
 from d123.geometry import BoundingBoxSE3, StateSE3
 from d123.geometry.polyline import Polyline3D
-from d123.dataset.dataset_specific.kitti_360.labels import kittiId2label,BBOX_LABLES_TO_DETECTION_NAME_DICT
+from d123.geometry.rotation import EulerAngles
+from d123.datasets.kitti_360.labels import kittiId2label,BBOX_LABLES_TO_DETECTION_NAME_DICT
 
 import os
 from pathlib import Path
@@ -124,6 +125,7 @@ class KITTI360Bbox3D():
             Rm[0] = -Rm[0]
         scale = np.diag(Sm)
         yaw, pitch, roll = R.from_matrix(Rm).as_euler('zyx', degrees=False)
+        obj_quaternion = EulerAngles(roll=roll, pitch=pitch, yaw=yaw).quaternion
 
         self.Rm = np.array(Rm)
         self.Sm = np.array(Sm)
@@ -131,15 +133,20 @@ class KITTI360Bbox3D():
         self.yaw = yaw
         self.pitch = pitch  
         self.roll = roll
+        self.qw = obj_quaternion.qw
+        self.qx = obj_quaternion.qx
+        self.qy = obj_quaternion.qy
+        self.qz = obj_quaternion.qz
         
     def get_state_array(self) -> np.ndarray:
         center = StateSE3(
             x=self.T[0],
             y=self.T[1],
             z=self.T[2],
-            roll=self.roll,
-            pitch=self.pitch,
-            yaw=self.yaw,
+            qw=self.qw,
+            qx=self.qx,
+            qy=self.qy,
+            qz=self.qz,
         )
         scale = self.scale
         bounding_box_se3 = BoundingBoxSE3(center, scale[0], scale[1], scale[2])

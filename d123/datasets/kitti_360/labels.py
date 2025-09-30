@@ -167,7 +167,7 @@ def assureSingleInstanceName( name ):
     # all good then
     return name
 
-from d123.common.datatypes.detection.detection_types import DetectionType
+from d123.datatypes.detections.detection_types import DetectionType
 
 BBOX_LABLES_TO_DETECTION_NAME_DICT = {
     'car': 'car',

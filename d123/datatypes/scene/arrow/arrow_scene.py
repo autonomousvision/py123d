@@ -69,7 +69,7 @@ class ArrowScene(AbstractScene):
         ) = _get_scene_data(arrow_file_path)
         self._metadata: LogMetadata = _metadata
         self._vehicle_parameters: VehicleParameters = _vehicle_parameters
-        self._camera_metadata: Dict[CameraType, Union[PinholeCameraMetadata, FisheyeMEICameraMetadata]] = _camera_metadata
+        self._camera_metadata: Dict[CameraType, CameraMetadata] = _camera_metadata
         self._lidar_metadata: Dict[LiDARType, LiDARMetadata] = _lidar_metadata
 
         self._map_api: Optional[AbstractMap] = None

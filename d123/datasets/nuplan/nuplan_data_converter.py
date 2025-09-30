@@ -21,7 +21,7 @@ from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConvert
 from d123.datatypes.detections.detection import TrafficLightStatus
 from d123.datatypes.detections.detection_types import DetectionType
 from d123.datatypes.scene.scene_metadata import LogMetadata
-from d123.datatypes.sensors.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
+from d123.datatypes.sensors.camera import PinholeCameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.datatypes.sensors.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
 from d123.datatypes.sensors.lidar_index import NuplanLidarIndex
 from d123.datatypes.time.time_point import TimePoint

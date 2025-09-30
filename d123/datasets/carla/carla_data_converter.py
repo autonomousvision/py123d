@@ -19,7 +19,7 @@ from d123.datatypes.maps.abstract_map import AbstractMap, MapLayer
 from d123.datatypes.maps.abstract_map_objects import AbstractLane
 from d123.datatypes.maps.gpkg.gpkg_map import get_map_api_from_names
 from d123.datatypes.scene.scene_metadata import LogMetadata
-from d123.datatypes.sensors.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
+from d123.datatypes.sensors.camera import PinholeCameraMetadata, CameraType, camera_metadata_dict_to_json
 from d123.datatypes.sensors.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
 from d123.datatypes.sensors.lidar_index import CarlaLidarIndex
 from d123.datatypes.vehicle_state.ego_state import EgoStateSE3Index
