@@ -10,17 +10,6 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 
-<<<<<<< HEAD:d123/dataset/dataset_specific/av2/av2_data_converter.py
-from d123.common.datatypes.sensor.camera import PinholeCameraMetadata, CameraType, camera_metadata_dict_to_json
-from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
-from d123.common.datatypes.time.time_point import TimePoint
-from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
-from d123.common.datatypes.vehicle_state.vehicle_parameters import (
-    get_av2_ford_fusion_hybrid_parameters,
-    rear_axle_se3_to_center_se3,
-)
-=======
->>>>>>> dev_v0.0.7:d123/datasets/av2/av2_data_converter.py
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.datasets.av2.av2_constants import (
     AV2_CAMERA_TYPE_MAPPING,

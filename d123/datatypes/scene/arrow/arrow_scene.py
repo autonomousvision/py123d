@@ -4,23 +4,12 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import pyarrow as pa
 
-<<<<<<< HEAD:d123/dataset/scene/arrow_scene.py
-from d123.common.datatypes.detection.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
-from d123.common.datatypes.recording.detection_recording import DetectionRecording
-from d123.common.datatypes.sensor.camera import Camera, CameraMetadata, PinholeCameraMetadata, FisheyeMEICameraMetadata, CameraType, camera_metadata_dict_from_json
-from d123.common.datatypes.sensor.lidar import LiDAR, LiDARMetadata, LiDARType, lidar_metadata_dict_from_json
-from d123.common.datatypes.time.time_point import TimePoint
-from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
-from d123.common.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
-from d123.dataset.arrow.conversion import (
-=======
 from d123.common.utils.arrow_helper import open_arrow_table
 from d123.datatypes.detections.detection import BoxDetectionWrapper, DetectionRecording, TrafficLightDetectionWrapper
 from d123.datatypes.maps.abstract_map import AbstractMap
 from d123.datatypes.maps.gpkg.gpkg_map import get_local_map_api, get_map_api_from_names
 from d123.datatypes.scene.abstract_scene import AbstractScene
 from d123.datatypes.scene.arrow.utils.conversion import (
->>>>>>> dev_v0.0.7:d123/datatypes/scene/arrow/arrow_scene.py
     get_box_detections_from_arrow_table,
     get_camera_from_arrow_table,
     get_ego_vehicle_state_from_arrow_table,

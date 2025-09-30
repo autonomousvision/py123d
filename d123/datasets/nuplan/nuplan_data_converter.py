@@ -12,18 +12,6 @@ import pyarrow as pa
 import yaml
 from pyquaternion import Quaternion
 
-<<<<<<< HEAD:d123/dataset/dataset_specific/nuplan/nuplan_data_converter.py
-
-import d123.dataset.dataset_specific.nuplan.utils as nuplan_utils
-from d123.common.datatypes.detection.detection import TrafficLightStatus
-from d123.common.datatypes.detection.detection_types import DetectionType
-from d123.common.datatypes.sensor.camera import PinholeCameraMetadata, CameraType, camera_metadata_dict_to_json
-from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
-from d123.common.datatypes.sensor.lidar_index import NuplanLidarIndex
-from d123.common.datatypes.time.time_point import TimePoint
-from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
-from d123.common.datatypes.vehicle_state.vehicle_parameters import (
-=======
 import d123.datasets.nuplan.utils as nuplan_utils
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.common.utils.arrow_helper import open_arrow_table, write_arrow_table
@@ -39,7 +27,6 @@ from d123.datatypes.sensors.lidar_index import NuplanLidarIndex
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.datatypes.vehicle_state.vehicle_parameters import (
->>>>>>> dev_v0.0.7:d123/datasets/nuplan/nuplan_data_converter.py
     get_nuplan_chrysler_pacifica_parameters,
     rear_axle_se3_to_center_se3,
 )

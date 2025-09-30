@@ -11,14 +11,6 @@ from typing import Any, Dict, Final, List, Optional, Tuple, Union
 import numpy as np
 import pyarrow as pa
 
-<<<<<<< HEAD:d123/dataset/dataset_specific/carla/carla_data_converter.py
-from d123.common.datatypes.sensor.camera import PinholeCameraMetadata, CameraType, camera_metadata_dict_to_json
-from d123.common.datatypes.sensor.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
-from d123.common.datatypes.sensor.lidar_index import CarlaLidarIndex
-from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3Index
-from d123.common.datatypes.vehicle_state.vehicle_parameters import get_carla_lincoln_mkz_2020_parameters
-=======
->>>>>>> dev_v0.0.7:d123/datasets/carla/carla_data_converter.py
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.common.utils.arrow_helper import open_arrow_table, write_arrow_table
 from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConverter
