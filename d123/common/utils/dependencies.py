@@ -2,8 +2,8 @@ from typing import List, Union
 
 
 def check_dependencies(modules: Union[str, List[str,]], optional_name: str) -> None:
-    """
-    Checks if the given modules can be imported, otherwise raises an ImportError with a message
+    """Checks if the given modules can be imported, otherwise raises an ImportError with a message
+
     :param modules: Module name or list of module names to check
     :param optional_name: Name of the optional feature
     :raises ImportError: If any of the modules cannot be imported

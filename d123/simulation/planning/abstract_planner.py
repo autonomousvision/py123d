@@ -4,7 +4,7 @@
 from dataclasses import dataclass
 from typing import List
 
-from d123.dataset.maps.abstract_map import AbstractMap
+from d123.datasets.maps.abstract_map import AbstractMap
 from d123.simulation.history.simulation_history_buffer import Simulation2DHistoryBuffer
 from d123.simulation.time_controller.simulation_iteration import SimulationIteration
 

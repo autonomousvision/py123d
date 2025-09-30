@@ -8,7 +8,12 @@ import pyquaternion
 
 from d123.common.utils.mixin import ArrayMixin
 from d123.geometry.geometry_index import EulerAnglesIndex, QuaternionIndex
-from d123.geometry.utils.rotation_utils import get_rotation_matrix_from_euler_array
+from d123.geometry.utils.rotation_utils import (
+    get_euler_array_from_quaternion_array,
+    get_quaternion_array_from_rotation_matrix,
+    get_rotation_matrix_from_euler_array,
+    get_rotation_matrix_from_quaternion_array,
+)
 
 
 class EulerAngles(ArrayMixin):
@@ -89,6 +94,10 @@ class EulerAngles(ArrayMixin):
         """
         return self._array
 
+    @property
+    def quaternion(self) -> Quaternion:
+        return Quaternion.from_euler_angles(self)
+
     @cached_property
     def rotation_matrix(self) -> npt.NDArray[np.float64]:
         """Returns the 3x3 rotation matrix representation of the Euler angles.
@@ -110,7 +119,6 @@ class EulerAngles(ArrayMixin):
 class Quaternion(ArrayMixin):
     """
     Represents a quaternion for 3D rotations.
-    NOTE: This class uses the pyquaternion library for internal computations.
     """
 
     _array: npt.NDArray[np.float64]
@@ -147,8 +155,7 @@ class Quaternion(ArrayMixin):
         """
         assert rotation_matrix.ndim == 2
         assert rotation_matrix.shape == (3, 3)
-        quaternion = pyquaternion.Quaternion(matrix=rotation_matrix)
-        return Quaternion(qw=quaternion.w, qx=quaternion.x, qy=quaternion.y, qz=quaternion.z)
+        return Quaternion.from_array(get_quaternion_array_from_rotation_matrix(rotation_matrix), copy=False)
 
     @classmethod
     def from_euler_angles(cls, euler_angles: EulerAngles) -> Quaternion:
@@ -217,8 +224,7 @@ class Quaternion(ArrayMixin):
 
         :return: An EulerAngles instance representing the Euler angles.
         """
-        yaw, pitch, roll = self.pyquaternion.yaw_pitch_roll
-        return EulerAngles(roll=roll, pitch=pitch, yaw=yaw)
+        return EulerAngles.from_array(get_euler_array_from_quaternion_array(self.array), copy=False)
 
     @cached_property
     def rotation_matrix(self) -> npt.NDArray[np.float64]:
@@ -226,7 +232,7 @@ class Quaternion(ArrayMixin):
 
         :return: A 3x3 numpy array representing the rotation matrix.
         """
-        return self.pyquaternion.rotation_matrix
+        return get_rotation_matrix_from_quaternion_array(self.array)
 
     def __iter__(self):
         """Iterator over quaternion components."""

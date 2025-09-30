@@ -3,7 +3,7 @@ from typing import Final, List
 import numpy as np
 import numpy.typing as npt
 
-from d123.dataset.arrow.conversion import BoxDetectionWrapper
+from d123.datatypes.scene.arrow.utils.conversion import BoxDetectionWrapper
 from d123.geometry.geometry_index import BoundingBoxSE2Index
 from d123.geometry.utils.bounding_box_utils import bbse2_array_to_polygon_array
 

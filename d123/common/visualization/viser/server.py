@@ -5,17 +5,17 @@ import numpy as np
 import trimesh
 import viser
 
-from d123.common.datatypes.sensor.camera import CameraType
-from d123.common.datatypes.sensor.lidar import LiDARType
 from d123.common.visualization.viser.utils import (
     get_bounding_box_meshes,
+    get_bounding_box_outlines,
     get_camera_if_available,
     get_camera_values,
     get_lidar_points,
     get_map_meshes,
 )
-from d123.common.visualization.viser.utils_v2 import get_bounding_box_outlines
-from d123.dataset.scene.abstract_scene import AbstractScene
+from d123.datatypes.scene.abstract_scene import AbstractScene
+from d123.datatypes.sensors.camera import CameraType
+from d123.datatypes.sensors.lidar import LiDARType
 
 # TODO: Try to fix performance issues.
 # TODO: Refactor this file.
@@ -35,7 +35,7 @@ all_camera_types: List[CameraType] = [
 LINE_WIDTH: float = 4.0
 
 # Bounding box config:
-BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "lines"
+BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "mesh"
 
 # Map config:
 MAP_AVAILABLE: bool = True

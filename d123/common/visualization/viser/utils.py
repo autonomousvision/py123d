@@ -1,22 +1,21 @@
-from typing import List, Optional, Tuple
+from typing import Final, List, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
 import trimesh
-from pyquaternion import Quaternion
-from typing_extensions import Final
+from pyquaternion import Quaternion  # TODO: remove
 
-# from d123.common.datatypes.sensor.camera_parameters import get_nuplan_camera_parameters
-from d123.common.datatypes.sensor.camera import Camera, CameraType
-from d123.common.datatypes.sensor.lidar import LiDARType
 from d123.common.visualization.color.color import TAB_10, Color
 from d123.common.visualization.color.config import PlotConfig
 from d123.common.visualization.color.default import BOX_DETECTION_CONFIG, EGO_VEHICLE_CONFIG, MAP_SURFACE_CONFIG
-from d123.dataset.maps.abstract_map import MapLayer
-from d123.dataset.maps.abstract_map_objects import AbstractLane, AbstractSurfaceMapObject
-from d123.dataset.scene.abstract_scene import AbstractScene
-from d123.geometry import BoundingBoxSE3, Point3D, Polyline3D, StateSE3
-from d123.geometry.transform.transform_se3 import convert_relative_to_absolute_points_3d_array
+from d123.datatypes.maps.abstract_map import MapLayer
+from d123.datatypes.maps.abstract_map_objects import AbstractLane, AbstractSurfaceMapObject
+from d123.datatypes.scene.abstract_scene import AbstractScene
+from d123.datatypes.sensors.camera import Camera, CameraType
+from d123.datatypes.sensors.lidar import LiDARType
+from d123.geometry import BoundingBoxSE3, Corners3DIndex, Point3D, Point3DIndex, Polyline3D, StateSE3, StateSE3Index
+from d123.geometry.geometry_index import BoundingBoxSE3Index
+from d123.geometry.transform.transform_euler_se3 import convert_relative_to_absolute_points_3d_array
 
 # TODO: Refactor this file.
 # TODO: Add general utilities for 3D primitives and mesh support.
@@ -59,13 +58,6 @@ def bounding_box_to_trimesh(bbox: BoundingBoxSE3, plot_config: PlotConfig) -> tr
     return configure_trimesh(box_mesh, plot_config.fill_color)
 
 
-def translate_bounding_box_se3(bounding_box_se3: BoundingBoxSE3, point_3d: Point3D) -> BoundingBoxSE3:
-    bounding_box_se3.center.x = bounding_box_se3.center.x - point_3d.x
-    bounding_box_se3.center.y = bounding_box_se3.center.y - point_3d.y
-    bounding_box_se3.center.z = bounding_box_se3.center.z - point_3d.z
-    return bounding_box_se3
-
-
 def get_bounding_box_meshes(scene: AbstractScene, iteration: int):
     initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
 
@@ -77,17 +69,78 @@ def get_bounding_box_meshes(scene: AbstractScene, iteration: int):
     output = {}
     for box_detection in box_detections:
         bbox: BoundingBoxSE3 = box_detection.bounding_box
-        bbox = translate_bounding_box_se3(bbox, initial_ego_vehicle_state.center_se3)
+        bbox.array[BoundingBoxSE3Index.XYZ] -= initial_ego_vehicle_state.center_se3.array[StateSE3Index.XYZ]
         plot_config = BOX_DETECTION_CONFIG[box_detection.metadata.detection_type]
         trimesh_box = bounding_box_to_trimesh(bbox, plot_config)
         output[f"{box_detection.metadata.detection_type.serialize()}/{box_detection.metadata.track_token}"] = (
             trimesh_box
         )
 
-    ego_bbox = translate_bounding_box_se3(ego_vehicle_state.bounding_box, initial_ego_vehicle_state.center_se3)
+    ego_bbox = ego_vehicle_state.bounding_box
+    ego_bbox.array[BoundingBoxSE3Index.XYZ] -= initial_ego_vehicle_state.center_se3.array[StateSE3Index.XYZ]
     trimesh_box = bounding_box_to_trimesh(ego_bbox, EGO_VEHICLE_CONFIG)
     output["ego"] = trimesh_box
     return output
+
+
+def _get_bounding_box_lines(bounding_box: BoundingBoxSE3) -> npt.NDArray[np.float64]:
+    """
+    TODO: Vectorize this function and move to geometry module.
+    """
+    corners = bounding_box.corners_array
+    index_pairs = [
+        (Corners3DIndex.FRONT_LEFT_BOTTOM, Corners3DIndex.FRONT_RIGHT_BOTTOM),
+        (Corners3DIndex.FRONT_RIGHT_BOTTOM, Corners3DIndex.BACK_RIGHT_BOTTOM),
+        (Corners3DIndex.BACK_RIGHT_BOTTOM, Corners3DIndex.BACK_LEFT_BOTTOM),
+        (Corners3DIndex.BACK_LEFT_BOTTOM, Corners3DIndex.FRONT_LEFT_BOTTOM),
+        (Corners3DIndex.FRONT_LEFT_TOP, Corners3DIndex.FRONT_RIGHT_TOP),
+        (Corners3DIndex.FRONT_RIGHT_TOP, Corners3DIndex.BACK_RIGHT_TOP),
+        (Corners3DIndex.BACK_RIGHT_TOP, Corners3DIndex.BACK_LEFT_TOP),
+        (Corners3DIndex.BACK_LEFT_TOP, Corners3DIndex.FRONT_LEFT_TOP),
+        (Corners3DIndex.FRONT_LEFT_BOTTOM, Corners3DIndex.FRONT_LEFT_TOP),
+        (Corners3DIndex.FRONT_RIGHT_BOTTOM, Corners3DIndex.FRONT_RIGHT_TOP),
+        (Corners3DIndex.BACK_RIGHT_BOTTOM, Corners3DIndex.BACK_RIGHT_TOP),
+        (Corners3DIndex.BACK_LEFT_BOTTOM, Corners3DIndex.BACK_LEFT_TOP),
+    ]
+    lines = np.zeros((len(index_pairs), 2, len(Point3DIndex)), dtype=np.float64)
+    for i, (start_idx, end_idx) in enumerate(index_pairs):
+        lines[i, 0] = corners[start_idx]
+        lines[i, 1] = corners[end_idx]
+    return lines
+
+
+def get_bounding_box_outlines(scene: AbstractScene, iteration: int):
+
+    initial_ego_vehicle_state = scene.get_ego_state_at_iteration(0)
+    origin: StateSE3 = initial_ego_vehicle_state.center_se3
+
+    ego_vehicle_state = scene.get_ego_state_at_iteration(iteration)
+    box_detections = scene.get_box_detections_at_iteration(iteration)
+
+    lines = []
+    colors = []
+    for box_detection in box_detections:
+        bbox: BoundingBoxSE3 = box_detection.bounding_box_se3
+        bbox_lines = _get_bounding_box_lines(bbox)
+        bbox_lines[..., Point3DIndex.XYZ] = bbox_lines[..., Point3DIndex.XYZ] - origin.array[StateSE3Index.XYZ]
+        bbox_color = np.zeros(bbox_lines.shape, dtype=np.float32)
+        bbox_color[..., :] = (
+            BOX_DETECTION_CONFIG[box_detection.metadata.detection_type]
+            .fill_color.set_brightness(BRIGHTNESS_FACTOR)
+            .rgb_norm
+        )
+
+        lines.append(bbox_lines)
+        colors.append(bbox_color)
+
+    ego_bbox_lines = _get_bounding_box_lines(ego_vehicle_state.bounding_box_se3)
+    ego_bbox_lines[..., Point3DIndex.XYZ] = ego_bbox_lines[..., Point3DIndex.XYZ] - origin.array[StateSE3Index.XYZ]
+    ego_bbox_color = np.zeros(ego_bbox_lines.shape, dtype=np.float32)
+    ego_bbox_color[..., :] = EGO_VEHICLE_CONFIG.fill_color.set_brightness(BRIGHTNESS_FACTOR).rgb_norm
+
+    lines.append(ego_bbox_lines)
+    colors.append(ego_bbox_color)
+    return np.concatenate(lines, axis=0), np.concatenate(colors, axis=0)
 
 
 def get_map_meshes(scene: AbstractScene):
@@ -103,7 +156,6 @@ def get_map_meshes(scene: AbstractScene):
     ]
 
     map_objects_dict = scene.map_api.get_proximal_map_objects(center.point_2d, radius=MAP_RADIUS, layers=map_layers)
-    print(map_objects_dict.keys())
     output = {}
 
     for map_layer in map_objects_dict.keys():

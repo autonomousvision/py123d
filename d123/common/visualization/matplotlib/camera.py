@@ -10,13 +10,13 @@ import numpy.typing as npt
 # from PIL import ImageColor
 from pyquaternion import Quaternion
 
-from d123.common.datatypes.detection.detection import BoxDetectionSE3, BoxDetectionWrapper
-from d123.common.datatypes.detection.detection_types import DetectionType
-from d123.common.datatypes.sensor.camera import Camera
-from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.common.visualization.color.default import BOX_DETECTION_CONFIG
+from d123.datatypes.detections.detection import BoxDetectionSE3, BoxDetectionWrapper
+from d123.datatypes.detections.detection_types import DetectionType
+from d123.datatypes.sensors.camera import Camera
+from d123.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.geometry import BoundingBoxSE3Index, Corners3DIndex
-from d123.geometry.transform.transform_se3 import convert_absolute_to_relative_se3_array
+from d123.geometry.transform.transform_euler_se3 import convert_absolute_to_relative_euler_se3_array
 
 # from navsim.common.dataclasses import Annotations, Camera, Lidar
 # from navsim.common.enums import BoundingBoxIndex, LidarIndex
@@ -98,7 +98,7 @@ def add_box_detections_to_camera_ax(
         box_detection_array[idx] = box_detection.bounding_box_se3.array
 
     # FIXME
-    box_detection_array[..., BoundingBoxSE3Index.STATE_SE3] = convert_absolute_to_relative_se3_array(
+    box_detection_array[..., BoundingBoxSE3Index.STATE_SE3] = convert_absolute_to_relative_euler_se3_array(
         ego_state_se3.rear_axle_se3, box_detection_array[..., BoundingBoxSE3Index.STATE_SE3]
     )
     # box_detection_array[..., BoundingBoxSE3Index.XYZ] -= ego_state_se3.rear_axle_se3.point_3d.array

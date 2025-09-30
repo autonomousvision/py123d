@@ -95,8 +95,16 @@ class QuaternionIndex(IntEnum):
     QY = 2
     QZ = 3
 
+    @classproperty
+    def SCALAR(cls) -> int:
+        return cls.QW
 
-class StateSE3Index(IntEnum):
+    @classproperty
+    def VECTOR(cls) -> slice:
+        return slice(cls.QX, cls.QZ + 1)
+
+
+class EulerStateSE3Index(IntEnum):
     """
     Indexes array-like representations of SE3 states (x,y,z,roll,pitch,yaw).
     TODO: Use quaternions for rotation.
@@ -122,7 +130,7 @@ class StateSE3Index(IntEnum):
         return slice(cls.ROLL, cls.YAW + 1)
 
 
-class QuaternionSE3Index(IntEnum):
+class StateSE3Index(IntEnum):
     """
     Indexes array-like representations of SE3 states with quaternions (x,y,z,qw,qx,qy,qz).
     """
@@ -147,6 +155,14 @@ class QuaternionSE3Index(IntEnum):
     def QUATERNION(cls) -> slice:
         return slice(cls.QW, cls.QZ + 1)
 
+    @classproperty
+    def SCALAR(cls) -> slice:
+        return slice(cls.QW, cls.QW + 1)
+
+    @classproperty
+    def VECTOR(cls) -> slice:
+        return slice(cls.QX, cls.QZ + 1)
+
 
 class BoundingBoxSE2Index(IntEnum):
     """
@@ -167,6 +183,10 @@ class BoundingBoxSE2Index(IntEnum):
     def SE2(cls) -> slice:
         return slice(cls.X, cls.YAW + 1)
 
+    @classproperty
+    def EXTENT(cls) -> slice:
+        return slice(cls.LENGTH, cls.WIDTH + 1)
+
 
 class Corners2DIndex(IntEnum):
     """
@@ -181,19 +201,22 @@ class Corners2DIndex(IntEnum):
 
 class BoundingBoxSE3Index(IntEnum):
     """
-    Indexes array-like representations of rotated 3D bounding boxes (x,y,z,roll,pitch,yaw,length,width,height).
-    TODO: Use quaternions for rotation.
+    Indexes array-like representations of rotated 3D bounding boxes
+    - center (x,y,z).
+    - rotation (qw,qx,qy,qz).
+    - extent (length,width,height).
     """
 
     X = 0
     Y = 1
     Z = 2
-    ROLL = 3
-    PITCH = 4
-    YAW = 5
-    LENGTH = 6
-    WIDTH = 7
-    HEIGHT = 8
+    QW = 3
+    QX = 4
+    QY = 5
+    QZ = 6
+    LENGTH = 7
+    WIDTH = 8
+    HEIGHT = 9
 
     @classproperty
     def XYZ(cls) -> slice:
@@ -201,15 +224,23 @@ class BoundingBoxSE3Index(IntEnum):
 
     @classproperty
     def STATE_SE3(cls) -> slice:
-        return slice(cls.X, cls.YAW + 1)
+        return slice(cls.X, cls.QZ + 1)
 
     @classproperty
-    def EULER_ANGLES(cls) -> slice:
-        return slice(cls.ROLL, cls.YAW + 1)
+    def QUATERNION(cls) -> slice:
+        return slice(cls.QW, cls.QZ + 1)
 
     @classproperty
     def EXTENT(cls) -> slice:
         return slice(cls.LENGTH, cls.HEIGHT + 1)
+
+    @classproperty
+    def SCALAR(cls) -> slice:
+        return slice(cls.QW, cls.QW + 1)
+
+    @classproperty
+    def VECTOR(cls) -> slice:
+        return slice(cls.QX, cls.QZ + 1)
 
 
 class Corners3DIndex(IntEnum):

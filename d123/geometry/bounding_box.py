@@ -137,15 +137,15 @@ class BoundingBoxSE2(ArrayMixin):
 
 class BoundingBoxSE3(ArrayMixin):
     """
-    Rotated bounding box in 3D defined by center (StateSE3), length, width and height.
+    Rotated bounding box in 3D defined by center with quaternion rotation (StateSE3), length, width and height.
 
     Example:
         >>> from d123.geometry import StateSE3
-        >>> bbox = BoundingBoxSE3(center=StateSE3(1.0, 2.0, 3.0, 0.1, 0.2, 0.3), length=4.0, width=2.0, height=1.5)
+        >>> bbox = BoundingBoxSE3(center=StateSE3(1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0), length=4.0, width=2.0, height=1.5)
         >>> bbox.array
-        array([1. , 2. , 3. , 0.1, 0.2, 0.3, 4. , 2. , 1.5])
+        array([1. , 2. , 3. , 1. , 0. , 0. , 0. , 4. , 2. , 1.5])
         >>> bbox.bounding_box_se2.array
-        array([1. , 2. , 0.3, 4. , 2. ])
+        array([1., 2., 0., 4., 2.])
         >>> bbox.shapely_polygon.area
         8.0
     """
@@ -245,9 +245,8 @@ class BoundingBoxSE3(ArrayMixin):
 
         :return: A BoundingBoxSE2 instance.
         """
-        center_se3 = self.center_se3
         return BoundingBoxSE2(
-            center=StateSE2(center_se3.x, center_se3.y, center_se3.yaw),
+            center=self.center_se2,
             length=self.length,
             width=self.width,
         )

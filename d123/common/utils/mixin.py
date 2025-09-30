@@ -5,7 +5,7 @@ import numpy.typing as npt
 
 
 class ArrayMixin:
-    """Abstract base class for geometric entities."""
+    """Mixin class for object entities."""
 
     @classmethod
     def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> ArrayMixin:
