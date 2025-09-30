@@ -1,8 +1,8 @@
 """
-This script precomputes detection records for KITTI-360:
+This script precomputes static detection records for KITTI-360:
   - Stage 1: radius filtering using ego positions (from poses.txt).
   - Stage 2: LiDAR visibility check to fill per-frame point counts.
-It writes a pickle containing, for each object, all feasible frames and
+It writes a pickle containing, for each static object, all feasible frames and
 their point counts to avoid recomputation in later pipelines.
 We have precomputed and saved the pickle for all training logs, you can either
 download them or run this script to generate
@@ -31,8 +31,8 @@ PATH_3D_RAW_ROOT = KITTI360_DATA_ROOT / DIR_3D_RAW
 PATH_3D_BBOX_ROOT = KITTI360_DATA_ROOT / DIR_3D_BBOX
 PATH_POSES_ROOT = KITTI360_DATA_ROOT / DIR_POSES
 
-from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic,interpolate_obj_list
-from d123.dataset.dataset_specific.kitti_360.labels import KIITI360_DETECTION_NAME_DICT, kittiId2label,BBOX_LABLES_TO_DETECTION_NAME_DICT
+from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic
+from d123.dataset.dataset_specific.kitti_360.labels import KIITI360_DETECTION_NAME_DICT, kittiId2label, BBOX_LABLES_TO_DETECTION_NAME_DICT
 
 def _bbox_xml_path(log_name: str) -> Path:
     if log_name == "2013_05_28_drive_0004_sync":
@@ -47,8 +47,8 @@ def _load_lidar_xyz(filepath: Path) -> np.ndarray:
     arr = np.fromfile(filepath, dtype=np.float32)
     return arr.reshape(-1, 4)[:, :3]
 
-def _collect_objects(log_name: str) -> Tuple[List[KITTI360Bbox3D], Dict[int, List[KITTI360Bbox3D]]]:
-    """Parse XML and collect objects with valid class names."""
+def _collect_static_objects(log_name: str) -> List[KITTI360Bbox3D]:
+    """Parse XML and collect static objects with valid class names."""
     xml_path = _bbox_xml_path(log_name)
     if not xml_path.exists():
         raise FileNotFoundError(f"BBox 3D file not found: {xml_path}")
@@ -56,7 +56,6 @@ def _collect_objects(log_name: str) -> Tuple[List[KITTI360Bbox3D], Dict[int, Lis
     root = tree.getroot()
 
     static_objs: List[KITTI360Bbox3D] = []
-    dynamic_objs: Dict[int, List[KITTI360Bbox3D]] = defaultdict(list)
 
     for child in root:
         if child.find('semanticId') is not None:
@@ -65,20 +64,15 @@ def _collect_objects(log_name: str) -> Tuple[List[KITTI360Bbox3D], Dict[int, Lis
         else:
             lable = child.find('label').text
             name = BBOX_LABLES_TO_DETECTION_NAME_DICT.get(lable, 'unknown')
-        if child.find("transform") is None or name not in KIITI360_DETECTION_NAME_DICT:
+        timestamp = int(child.find('timestamp').text)  # -1 for static objects
+        if child.find("transform") is None or name not in KIITI360_DETECTION_NAME_DICT or timestamp != -1:
             continue
         obj = KITTI360Bbox3D()
         obj.parseBbox(child)
-        timestamp = int(child.find('timestamp').text)   
-        if timestamp == -1:
-            static_objs.append(obj)
-        else:
-            global_ID = obj.globalID
-            dynamic_objs[global_ID].append(obj)
+        static_objs.append(obj)
+    return static_objs
 
-    return static_objs, dynamic_objs
-
-def _collect_ego_states(log_name: str,length: int) -> npt.NDArray[np.float64]:
+def _collect_ego_states(log_name: str) -> Tuple[npt.NDArray[np.float64], list[int]]:
     """Load ego states from poses.txt."""
 
     pose_file = PATH_POSES_ROOT / log_name / "poses.txt"
@@ -86,17 +80,12 @@ def _collect_ego_states(log_name: str,length: int) -> npt.NDArray[np.float64]:
         raise FileNotFoundError(f"Pose file not found: {pose_file}")
     
     poses = np.loadtxt(pose_file)
-    poses_time = poses[:, 0] - 1  # Adjusting time to start from 0
+    poses_time = poses[:, 0].astype(np.int32)
+    valid_timestamp: List[int] = list(poses_time)
     
-    pose_idx = 0
-    poses_time_len = len(poses_time)    
-
     ego_states = []
-
-    for time_idx in range(length):
-        while pose_idx + 1 < poses_time_len and poses_time[pose_idx + 1] < time_idx:
-            pose_idx += 1
-        pos = pose_idx
+    for time_idx in range(len(valid_timestamp)):
+        pos = time_idx
         state_item = np.eye(4)
         r00, r01, r02 = poses[pos, 1:4]
         r10, r11, r12 = poses[pos, 5:8]
@@ -115,7 +104,8 @@ def _collect_ego_states(log_name: str,length: int) -> npt.NDArray[np.float64]:
         state_item[:3, 3] = ego_state_xyz
         ego_states.append(state_item)
 
-    return np.array(ego_states) # [N,4,4]
+    # [N,4,4]
+    return np.array(ego_states), valid_timestamp
 
 
 def process_detection(
@@ -128,9 +118,6 @@ def process_detection(
     for static objects:
       1) filter by ego-centered radius over all frames
       2) filter by LiDAR point cloud visibility
-    for dynamic objects:
-      1) interpolate boxes for missing frames
-      2) select box with highest LiDAR point count
     Save per-frame detections to a pickle to avoid recomputation.
     """
 
@@ -141,31 +128,22 @@ def process_detection(
     logging.info(f"[preprocess] {log_name}: found {ts_len} lidar frames")
 
     # 1) Parse objects from XML
-    static_objs: List[KITTI360Bbox3D]
-    dynamic_objs: Dict[int, List[KITTI360Bbox3D]] 
-    static_objs, dynamic_objs = _collect_objects(log_name)
-
-    # only interpolate dynamic objects
-    for global_ID, obj_list in dynamic_objs.items():
-        obj_list_interpolated = interpolate_obj_list(obj_list)
-        dynamic_objs[global_ID] = obj_list_interpolated
-    dymanic_objs_updated = copy.deepcopy(dynamic_objs)
-
+    static_objs: List[KITTI360Bbox3D] = _collect_static_objects(log_name)
     logging.info(f"[preprocess] {log_name}: static objects = {len(static_objs)}")
-    logging.info(f"[preprocess] {log_name}: dynamic objects = {len(dynamic_objs.keys())}")
 
     # 2) Filter static objs by ego-centered radius
-    ego_states = _collect_ego_states(log_name,ts_len)
+    ego_states, valid_timestamp = _collect_ego_states(log_name)
     logging.info(f"[preprocess] {log_name}: ego states = {len(ego_states)}")
     for obj in static_objs:
-        obj.filter_by_radius(ego_states[:, :3, 3], radius_m)
+        obj.filter_by_radius(ego_states[:, :3, 3], valid_timestamp, radius_m)
 
     # 3) Filter static objs by LiDAR point cloud visibility
     lidar_extrinsic = get_lidar_extrinsic()
 
     def process_one_frame(time_idx: int) -> None:
-        logging.info(f"[preprocess] {log_name}: t={time_idx}")
-        lidar_path = _lidar_frame_path(log_name, time_idx)
+        valid_time_idx = valid_timestamp[time_idx]
+        logging.info(f"[preprocess] {log_name}: t={valid_time_idx}")
+        lidar_path = _lidar_frame_path(log_name, valid_time_idx)
         if not lidar_path.exists():
             logging.warning(f"[preprocess] {log_name}: LiDAR frame not found: {lidar_path}")
             return
@@ -181,49 +159,20 @@ def process_detection(
         lidar_in_world = lidar_in_imu @ ego_states[time_idx][:3,:3].T + ego_states[time_idx][:3,3]
 
         for obj in static_objs:
-            if not any(record["timestamp"] == time_idx for record in obj.valid_frames["records"]):
+            if not any(record["timestamp"] == valid_time_idx for record in obj.valid_frames["records"]):
                 continue
             visible, points_in_box = obj.box_visible_in_point_cloud(lidar_in_world)
             if not visible:
-                obj.valid_frames["records"] = [record for record in obj.valid_frames["records"] if record["timestamp"] != time_idx]
+                obj.valid_frames["records"] = [record for record in obj.valid_frames["records"] if record["timestamp"] != valid_time_idx]
             else:
                 for record in obj.valid_frames["records"]:
-                    if record["timestamp"] == time_idx:
+                    if record["timestamp"] == valid_time_idx:
                         record["points_in_box"] = points_in_box
                         break
 
-        # for dynamic objects, select the box with the highest LiDAR point count
-        for global_ID, obj_list in dynamic_objs.items():
-            obj_at_time = [obj for obj in obj_list if obj.timestamp == time_idx]
-            if not obj_at_time:
-                continue
-
-            obj = obj_at_time[0]
-            # NOTE only update interpolated boxes
-            if not obj.is_interpolated:
-                continue
-
-            max_points = -1
-            best_obj = None
-            ts_prev = obj.idx_prev
-            ts_next = obj.idx_next
-            candidates = [candidate for candidate in obj_list if ts_prev <= candidate.timestamp <= ts_next]
-
-            for obj in candidates:
-                visible, points_in_box = obj.box_visible_in_point_cloud(lidar_in_world)
-                if points_in_box > max_points:
-                    max_points = points_in_box
-                    best_obj = obj
-
-            if best_obj is not None:
-                idx = next((i for i, o in enumerate(dynamic_objs[global_ID]) if o.timestamp == time_idx), None)
-                if idx is not None:
-                    dymanic_objs_updated[global_ID][idx] = copy.deepcopy(best_obj)
-                    dymanic_objs_updated[global_ID][idx].timestamp = time_idx
-
     max_workers = os.cpu_count() * 2
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        results = list(executor.map(process_one_frame, range(ts_len)))
+        results = list(executor.map(process_one_frame, range(len(valid_timestamp))))
 
     # 4) Save pickle
     static_records: List[Dict[str, Any]] = []
@@ -238,7 +187,6 @@ def process_detection(
     payload = {
         "log_name": log_name,
         "static": static_records,
-        "dynamic": dymanic_objs_updated
     }
     with open(out_path, "wb") as f:
         pickle.dump(payload, f)
@@ -248,7 +196,7 @@ if __name__ == "__main__":
     import argparse
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(description="Precompute KITTI-360 detections filters")
-    parser.add_argument("--log_name", default="2013_05_28_drive_0004_sync")
+    parser.add_argument("--log_name", default="2013_05_28_drive_0000_sync")
     parser.add_argument("--radius", type=float, default=60.0)
     parser.add_argument("--out", type=Path, default="detection_preprocess", help="output directory for pkl")
     args = parser.parse_args()

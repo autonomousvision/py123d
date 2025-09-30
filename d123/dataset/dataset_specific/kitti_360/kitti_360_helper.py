@@ -1,7 +1,7 @@
 import numpy as np
 
 from collections import defaultdict
-from typing import Dict, Optional, Any, List
+from typing import Dict, Optional, Any, List, Tuple
 import copy
 from scipy.linalg import polar
 from scipy.spatial.transform import Rotation as R
@@ -30,14 +30,14 @@ kitti3602nuplan_imu_calibration_ideal = np.array([
 KITTI3602NUPLAN_IMU_CALIBRATION = kitti3602nuplan_imu_calibration_ideal
 
 MAX_N = 1000
-def local2global(semanticId, instanceId):
+def local2global(semanticId: int, instanceId: int) -> int: 
     globalId = semanticId*MAX_N + instanceId
     if isinstance(globalId, np.ndarray):
         return globalId.astype(np.int32)
     else:
         return int(globalId)
     
-def global2local(globalId):
+def global2local(globalId: int) -> Tuple[int, int]:
     semanticId = globalId // MAX_N
     instanceId = globalId % MAX_N
     if isinstance(globalId, np.ndarray):
@@ -72,12 +72,6 @@ class KITTI360Bbox3D():
 
         #label
         self.label = ''
-
-        # used to mark if the bbox is interpolated
-        self.is_interpolated = False
-        # GT annotation idx
-        self.idx_next = -1
-        self.idx_prev = -1
            
     def parseBbox(self, child):
         self.timestamp = int(child.find('timestamp').text)
@@ -138,7 +132,7 @@ class KITTI360Bbox3D():
         self.pitch = pitch  
         self.roll = roll
         
-    def get_state_array(self):
+    def get_state_array(self) -> np.ndarray:
         center = StateSE3(
             x=self.T[0],
             y=self.T[1],
@@ -152,17 +146,17 @@ class KITTI360Bbox3D():
 
         return bounding_box_se3.array
 
-    def filter_by_radius(self,ego_state_xyz,radius=50.0):
+    def filter_by_radius(self, ego_state_xyz: np.ndarray, valid_timestamp: List[int], radius: float = 50.0) -> None:
         ''' first stage of detection, used to filter out detections by radius '''
         d = np.linalg.norm(ego_state_xyz - self.T[None, :], axis=1)
         idxs = np.where(d <= radius)[0]
         for idx in idxs:
             self.valid_frames["records"].append({
-                "timestamp": idx,
+                "timestamp": valid_timestamp[idx],
                 "points_in_box": None,
                 })
 
-    def box_visible_in_point_cloud(self, points):
+    def box_visible_in_point_cloud(self, points: np.ndarray) -> Tuple[bool, int]:
         ''' points: (N,3) , box: (8,3) '''
         box = self.vertices.copy()
         # avoid calculating ground point cloud
@@ -184,67 +178,6 @@ class KITTI360Bbox3D():
     def load_detection_preprocess(self, records_dict: Dict[int, Any]):
         if self.globalID in records_dict:
             self.valid_frames["records"] = records_dict[self.globalID]["records"]
-
-def interpolate_obj_list(obj_list: List[KITTI360Bbox3D]) -> List[KITTI360Bbox3D]:
-    """
-    Fill missing timestamps in obj_list by linear interpolation.
-    For each missing timestamp between two objects, create a new KITTI360Bbox3D object
-    with only interpolated position (T), yaw, pitch, roll, and copy other attributes.
-    Returns a new list with all timestamps filled and sorted.
-    """
-    if not obj_list:
-        return obj_list
-
-    # Sort by timestamp ascending
-    obj_list.sort(key=lambda obj: obj.timestamp)
-    timestamps = [obj.timestamp for obj in obj_list]
-    min_ts, max_ts = min(timestamps), max(timestamps)
-    full_ts = list(range(min_ts, max_ts + 1))
-    missing_ts = sorted(set(full_ts) - set(timestamps))
-
-    # Prepare arrays for interpolation
-    T_arr = np.array([obj.T for obj in obj_list])           
-    yaw_arr = np.array([obj.yaw for obj in obj_list])       
-    pitch_arr = np.array([obj.pitch for obj in obj_list])   
-    roll_arr = np.array([obj.roll for obj in obj_list])     
-    ts_arr = np.array(timestamps)                           
-
-    for ts in missing_ts:
-        idx_next = np.searchsorted(ts_arr, ts)
-        idx_prev = idx_next - 1
-        if idx_prev < 0 or idx_next >= len(obj_list):
-            continue
-        
-        frac = (ts - ts_arr[idx_prev]) / (ts_arr[idx_next] - ts_arr[idx_prev])
-        T_interp = T_arr[idx_prev] * (1 - frac) + T_arr[idx_next] * frac
-        
-        yaw_delat = normalize_angle(yaw_arr[idx_next] - yaw_arr[idx_prev])
-        yaw_interp = yaw_arr[idx_prev] + yaw_delat * frac
-        yaw_interp = normalize_angle(yaw_interp)
-        
-        pitch_interp = pitch_arr[idx_prev] * (1 - frac) + pitch_arr[idx_next] * frac
-        roll_interp = roll_arr[idx_prev] * (1 - frac) + roll_arr[idx_next] * frac
-
-        obj_new = copy.deepcopy(obj_list[idx_prev])
-        obj_new.timestamp = ts
-        obj_new.T = T_interp
-        obj_new.yaw = yaw_interp
-        obj_new.pitch = pitch_interp
-        obj_new.roll = roll_interp
-        obj_new.Rm = R.from_euler('zyx', [obj_new.yaw, obj_new.pitch, obj_new.roll], degrees=False).as_matrix()
-        obj_new.R = obj_new.Rm @ obj_new.Sm
-        obj_new.vertices = (obj_new.R @ obj_new.vertices_template.T).T + obj_new.T
-        obj_new.is_interpolated = True
-        obj_new.idx_prev = ts_arr[idx_prev]
-        obj_new.idx_next = ts_arr[idx_next]
-
-        obj_list.append(obj_new)
-
-    obj_list.sort(key=lambda obj: obj.timestamp)
-    return obj_list
-
-def normalize_angle(a):
-    return np.arctan2(np.sin(a), np.cos(a))
 
 class KITTI360_MAP_Bbox3D():
     def __init__(self):

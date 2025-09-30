@@ -32,7 +32,7 @@ from d123.common.datatypes.vehicle_state.vehicle_parameters import get_kitti360_
 from d123.dataset.arrow.helper import open_arrow_table, write_arrow_table
 from d123.dataset.dataset_specific.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.dataset.logs.log_metadata import LogMetadata
-from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic,interpolate_obj_list
+from d123.dataset.dataset_specific.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic
 from d123.dataset.dataset_specific.kitti_360.labels import KIITI360_DETECTION_NAME_DICT,kittiId2label,BBOX_LABLES_TO_DETECTION_NAME_DICT
 from d123.dataset.dataset_specific.kitti_360.kitti_360_map_conversion import convert_kitti360_map
 from d123.geometry import BoundingBoxSE3, BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
@@ -57,8 +57,8 @@ DIR_3D_BBOX = "data_3d_bboxes"
 DIR_POSES = "data_poses"
 DIR_CALIB = "calibration"
 
-PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_RAW
-# PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT 
+# PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_RAW
+PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT
 PATH_2D_SMT_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_SMT
 PATH_3D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_RAW
 PATH_3D_SMT_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_SMT
@@ -330,7 +330,7 @@ def _read_projection_matrix(p_line: str) -> np.ndarray:
     K = P[:, :3]
     return K
 
-def _readYAMLFile(fileName):
+def _readYAMLFile(fileName:Path) -> Dict[str, Any]:
     '''make OpenCV YAML file compatible with python'''
     ret = {}
     skip_lines=1    # Skip the first line which says "%YAML:1.0". Or replace it with "%YAML 1.0"
@@ -360,22 +360,22 @@ def _write_recording_table(
     data_converter_config: DataConverterConfig
 ) -> None:
     
-    ts_list = _read_timestamps(log_name)
-    ego_state_all = _extract_ego_state_all(log_name)
+    ts_list: List[TimePoint] = _read_timestamps(log_name)
+    ego_state_all, valid_timestamp = _extract_ego_state_all(log_name)
     ego_states_xyz = np.array([ego_state[:3] for ego_state in ego_state_all],dtype=np.float64)
-    detections_states,detections_velocity,detections_tokens,detections_types = _extract_detections(log_name,len(ts_list),ego_states_xyz)
+    detections_states,detections_velocity,detections_tokens,detections_types = _extract_detections(log_name,len(ts_list),ego_states_xyz,valid_timestamp)
 
     with pa.OSFile(str(log_file_path), "wb") as sink:
         with pa.ipc.new_file(sink, recording_schema) as writer:
-            for idx, tp in enumerate(ts_list):
-
+            for idx in range(len(valid_timestamp)):
+                valid_idx = valid_timestamp[idx]
                 row_data = {
                     "token": [create_token(f"{log_name}_{idx}")],
-                    "timestamp": [tp.time_us],
-                    "detections_state": [detections_states[idx]],
-                    "detections_velocity": [detections_velocity[idx]],
-                    "detections_token": [detections_tokens[idx]],
-                    "detections_type": [detections_types[idx]],
+                    "timestamp": [ts_list[valid_idx].time_us],
+                    "detections_state": [detections_states[valid_idx]],
+                    "detections_velocity": [detections_velocity[valid_idx]],
+                    "detections_token": [detections_tokens[valid_idx]],
+                    "detections_type": [detections_types[valid_idx]],
                     "ego_states": [ego_state_all[idx]],
                     "traffic_light_ids": [[]],
                     "traffic_light_types": [[]],
@@ -384,7 +384,7 @@ def _write_recording_table(
                 }
 
                 if data_converter_config.lidar_store_option is not None:
-                    lidar_data_dict = _extract_lidar(log_name, idx, data_converter_config)
+                    lidar_data_dict = _extract_lidar(log_name, valid_idx, data_converter_config)
                     for lidar_type, lidar_data in lidar_data_dict.items():
                         if lidar_data is not None:
                             row_data[lidar_type.serialize()] = [lidar_data]
@@ -392,7 +392,7 @@ def _write_recording_table(
                             row_data[lidar_type.serialize()] = [None]
 
                 if data_converter_config.camera_store_option is not None:
-                    camera_data_dict = _extract_cameras(log_name, idx, data_converter_config)
+                    camera_data_dict = _extract_cameras(log_name, valid_idx, data_converter_config)
                     for camera_type, camera_data in camera_data_dict.items():
                         if camera_data is not None:
                             row_data[camera_type.serialize()] = [camera_data[0]]
@@ -448,7 +448,7 @@ def _read_timestamps(log_name: str) -> Optional[List[TimePoint]]:
             return tps
     return None
 
-def _extract_ego_state_all(log_name: str) -> List[List[float]]:
+def _extract_ego_state_all(log_name: str) -> Tuple[List[List[float]], List[int]]:
 
     ego_state_all: List[List[float]] = []
 
@@ -456,24 +456,20 @@ def _extract_ego_state_all(log_name: str) -> List[List[float]]:
     if not pose_file.exists():
         raise FileNotFoundError(f"Pose file not found: {pose_file}")
     poses = np.loadtxt(pose_file)
-    poses_time = poses[:, 0] - 1  # Adjusting time to start from 0
+    poses_time = poses[:, 0].astype(np.int32)
+    valid_timestamp: List[int] = list(poses_time)
      
-    # oxts_path =  PATH_POSES_ROOT / log_name / "oxts" / "data" 
-    oxts_path = Path("/data/jbwang/d123/data_poses/") / log_name / "oxts" / "data" 
+    oxts_path =  PATH_POSES_ROOT / log_name / "oxts" / "data" 
     
-    pose_idx = 0
-    poses_time_len = len(poses_time)    
-
-    for idx in range(len(list(oxts_path.glob("*.txt")))):
-        oxts_path_file = oxts_path / f"{int(idx):010d}.txt"
+    for idx in range(len(valid_timestamp)):
+        oxts_path_file = oxts_path / f"{int(valid_timestamp[idx]):010d}.txt"
         oxts_data = np.loadtxt(oxts_path_file)
 
         vehicle_parameters = get_kitti360_station_wagon_parameters()
 
-        while pose_idx + 1 < poses_time_len and poses_time[pose_idx + 1] < idx:
-            pose_idx += 1
-        pos = pose_idx
-        # pos = np.searchsorted(poses_time, idx, side='right') - 1
+        pos = idx 
+        if log_name=="2013_05_28_drive_0004_sync" and pos == 0:
+            pos = 1
         
         # NOTE you can use oxts_data[3:6] as roll, pitch, yaw for simplicity
         #roll, pitch, yaw = oxts_data[3:6]
@@ -521,12 +517,13 @@ def _extract_ego_state_all(log_name: str) -> List[List[float]]:
                 timepoint=None,
             ).array.tolist()
         )
-    return ego_state_all
+    return ego_state_all, valid_timestamp
 
 def _extract_detections(
     log_name: str,
     ts_len: int,
-    ego_states_xyz: np.ndarray
+    ego_states_xyz: np.ndarray,
+    valid_timestamp: List[int],
 ) -> Tuple[List[List[float]], List[List[float]], List[str], List[int]]:
    
     detections_states: List[List[List[float]]] = [[] for _ in range(ts_len)]
@@ -544,16 +541,15 @@ def _extract_detections(
     tree = ET.parse(bbox_3d_path)
     root = tree.getroot()
 
-    dynamic_objs: Dict[int, List[KITTI360Bbox3D]] = defaultdict(list)
-
     detection_preprocess_path = PREPOCESS_DETECTION_DIR / f"{log_name}_detection_preprocessed.pkl"
     if detection_preprocess_path.exists():
         with open(detection_preprocess_path, "rb") as f:
             detection_preprocess_result = pickle.load(f)
             static_records_dict = {record_item["global_id"]: record_item for record_item in detection_preprocess_result["static"]}
-            dynamic_records_dict = detection_preprocess_result["dynamic"]
     else:
         detection_preprocess_result = None
+
+    dynamic_objs: Dict[int, List[KITTI360Bbox3D]] = defaultdict(list)
 
     for child in root:
         if child.find('semanticId') is not None:
@@ -570,7 +566,7 @@ def _extract_detections(
         #static object
         if obj.timestamp == -1:
             if detection_preprocess_result is None:
-                obj.filter_by_radius(ego_states_xyz,radius=50.0)
+                obj.filter_by_radius(ego_states_xyz,valid_timestamp,radius=50.0)
             else:
                 obj.load_detection_preprocess(static_records_dict)
             for record in obj.valid_frames["records"]:
@@ -584,11 +580,8 @@ def _extract_detections(
             dynamic_objs[global_ID].append(obj)
 
     # dynamic object
-    if detection_preprocess_result is not None:
-        dynamic_objs = copy.deepcopy(dynamic_records_dict)
-
     for global_id, obj_list in dynamic_objs.items():
-        obj_list = interpolate_obj_list(obj_list)
+        obj_list.sort(key=lambda obj: obj.timestamp)
         num_frames = len(obj_list)
         
         positions = [obj.get_state_array()[:3] for obj in obj_list]

@@ -36,7 +36,7 @@ KIITI360_MAP_BBOX = [
     # "driveway",
 ]
 
-def convert_kitti360_map(log_name, map_path):
+def convert_kitti360_map(log_name: str, map_path: Path) -> None:
 
     xml_path = PATH_3D_BBOX_ROOT / "train_full" / f"{log_name}.xml"
 
