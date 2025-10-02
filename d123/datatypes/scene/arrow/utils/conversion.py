@@ -1,14 +1,13 @@
 # TODO: rename this file and potentially move somewhere more appropriate.
 
-import io
 import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import cv2
 import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
-from PIL import Image
 
 from d123.datatypes.detections.detection import (
     BoxDetection,
@@ -31,7 +30,7 @@ from d123.geometry import BoundingBoxSE3, Vector3D
 DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "nuplan": Path(os.environ["NUPLAN_DATA_ROOT"]) / "nuplan-v1.1" / "sensor_blobs",
     "carla": Path(os.environ["CARLA_DATA_ROOT"]) / "sensor_blobs",
-    # "av2-sensor": Path(os.environ["AV2_SENSOR_DATA_ROOT"]) / "sensor",
+    "av2-sensor": Path(os.environ["AV2_SENSOR_DATA_ROOT"]) / "sensor_mini",
 }
 
 
@@ -111,11 +110,11 @@ def get_camera_from_arrow_table(
         sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
         full_image_path = sensor_root / table_data
         assert full_image_path.exists(), f"Camera file not found: {full_image_path}"
-        img = Image.open(full_image_path)
-        img.load()
-        image = np.asarray(img, dtype=np.uint8)
+        image = cv2.imread(str(full_image_path), cv2.IMREAD_COLOR)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     elif isinstance(table_data, bytes):
-        image = np.array(Image.open(io.BytesIO(table_data)))
+        image = cv2.imdecode(np.frombuffer(table_data, np.uint8), cv2.IMREAD_UNCHANGED)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     else:
         raise NotImplementedError("Only string file paths for camera data are supported.")
 

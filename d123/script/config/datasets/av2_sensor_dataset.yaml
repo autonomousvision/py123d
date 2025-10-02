@@ -3,7 +3,7 @@ av2_sensor_dataset:
   _convert_: 'all'
 
   splits: ["av2-sensor-mini_train"]
-  log_path: "/mnt/elements_0/argoverse"
+  log_path: "/media/nvme1/argoverse"
 
   data_converter_config:
     _target_: d123.datasets.raw_data_converter.DataConverterConfig
@@ -13,4 +13,4 @@ av2_sensor_dataset:
     force_log_conversion: ${force_log_conversion}
     force_map_conversion: ${force_map_conversion}
     camera_store_option: "path"
-    lidar_store_option: null
+    lidar_store_option: "path"

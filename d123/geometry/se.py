@@ -149,7 +149,7 @@ class StateSE3(ArrayMixin):
         assert transformation_matrix.ndim == 2
         assert transformation_matrix.shape == (4, 4)
         array = np.zeros(len(StateSE3Index), dtype=np.float64)
-        array[StateSE3Index.XYZ] = transformation_matrix[:3, :3]
+        array[StateSE3Index.XYZ] = transformation_matrix[:3, 3]
         array[StateSE3Index.QUATERNION] = Quaternion.from_rotation_matrix(transformation_matrix[:3, :3])
         return StateSE3.from_array(array)
 

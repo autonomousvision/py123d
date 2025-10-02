@@ -1,10 +1,11 @@
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Literal
 
 import numpy as np
-import trimesh
 import viser
 
+from d123.common.utils.timer import Timer
 from d123.common.visualization.viser.utils import (
     get_bounding_box_meshes,
     get_bounding_box_outlines,
@@ -43,15 +44,19 @@ MAP_AVAILABLE: bool = True
 
 # Cameras config:
 
-VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_F0, CameraType.CAM_L0, CameraType.CAM_R0]
-# VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = all_camera_types
+# VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_F0, CameraType.CAM_L0, CameraType.CAM_R0]
+VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = all_camera_types
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_STEREO_L, CameraType.CAM_STEREO_R]
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = []
-VISUALIZE_CAMERA_GUI: List[CameraType] = [CameraType.CAM_F0]
+# VISUALIZE_CAMERA_GUI: List[CameraType] = [CameraType.CAM_F0]
+
+VISUALIZE_CAMERA_GUI: List[CameraType] = []
+
 CAMERA_SCALE: float = 1.0
+RESIZE_FACTOR = 0.25
 
 # Lidar config:
-LIDAR_AVAILABLE: bool = True
+LIDAR_AVAILABLE: bool = False
 
 LIDAR_TYPES: List[LiDARType] = [
     LiDARType.LIDAR_MERGED,
@@ -124,8 +129,8 @@ class ViserVisualizationServer:
             gui_prev_frame = self.server.gui.add_button("Prev Frame", disabled=True)
             gui_next_scene = self.server.gui.add_button("Next Scene", disabled=False)
             gui_playing = self.server.gui.add_checkbox("Playing", True)
-            gui_framerate = self.server.gui.add_slider("FPS", min=1, max=60, step=0.1, initial_value=10)
-            gui_framerate_options = self.server.gui.add_button_group("FPS options", ("10", "20", "30", "60"))
+            gui_framerate = self.server.gui.add_slider("FPS", min=1, max=90, step=0.1, initial_value=10)
+            gui_framerate_options = self.server.gui.add_button_group("FPS options", ("10", "20", "30", "60", "90"))
 
             # Frame step buttons.
             @gui_next_frame.on_click
@@ -158,25 +163,26 @@ class ViserVisualizationServer:
             # Toggle frame visibility when the timestep slider changes.
             @gui_timestep.on_update
             def _(_) -> None:
-                nonlocal current_frame_handle, current_frame_handle, prev_timestep
+                nonlocal prev_timestep, bounding_box_handle
                 current_timestep = gui_timestep.value
 
-                start = time.time()
+                timer = Timer()
+                timer.start()
+
+                start = time.perf_counter()
                 # with self.server.atomic():
-                mew_frame_handle = self.server.scene.add_frame(f"/frame{gui_timestep.value}", show_axes=False)
+
                 if BOUNDING_BOX_TYPE == "mesh":
-                    meshes = []
-                    for _, mesh in get_bounding_box_meshes(scene, gui_timestep.value).items():
-                        meshes.append(mesh)
-                    self.server.scene.add_mesh_trimesh(
-                        f"/frame{gui_timestep.value}/detections",
-                        trimesh.util.concatenate(meshes),
+                    mesh = get_bounding_box_meshes(scene, gui_timestep.value)
+                    new_bounding_box_handle = self.server.scene.add_mesh_trimesh(
+                        "box_detections",
+                        mesh=mesh,
                         visible=True,
                     )
                 elif BOUNDING_BOX_TYPE == "lines":
                     lines, colors = get_bounding_box_outlines(scene, gui_timestep.value)
-                    self.server.scene.add_line_segments(
-                        f"/frame{gui_timestep.value}/detections",
+                    new_bounding_box_handle = self.server.scene.add_line_segments(
+                        "box_detections",
                         points=lines,
                         colors=colors,
                         line_width=LINE_WIDTH,
@@ -184,43 +190,114 @@ class ViserVisualizationServer:
                 else:
                     raise ValueError(f"Unknown bounding box type: {BOUNDING_BOX_TYPE}")
 
-                current_frame_handle.remove()
-                current_frame_handle = mew_frame_handle
+                # bounding_box_handle.visible = False
+                # time.sleep(0.005)
+                # bounding_box_handle.remove()
+                bounding_box_handle = new_bounding_box_handle
+                new_bounding_box_handle.visible = True
+
+                timer.log("Update bounding boxes")
 
                 for camera_type in VISUALIZE_CAMERA_GUI:
                     camera = get_camera_if_available(scene, camera_type, gui_timestep.value)
                     if camera is not None:
                         camera_gui_handles[camera_type].image = camera.image
 
-                for camera_type in VISUALIZE_CAMERA_FRUSTUM:
+                camera_timer = Timer()
+                camera_timer.start()
+                import concurrent.futures
+
+                def load_camera_data(camera_type):
                     camera = get_camera_if_available(scene, camera_type, gui_timestep.value)
                     if camera is not None:
-                        camera_position, camera_quaternion = get_camera_values(scene, camera, gui_timestep.value)
-                        camera_frustum_handles[camera_type].position = camera_position.array
-                        camera_frustum_handles[camera_type].wxyz = camera_quaternion.q
-                        camera_frustum_handles[camera_type].image = camera.image
+                        camera_position, camera_rotation, camera_image = get_camera_values(
+                            scene, camera, gui_timestep.value, resize_factor=RESIZE_FACTOR
+                        )
+                        camera_frustum_handles[camera_type].position = camera_position
+                        camera_frustum_handles[camera_type].wxyz = camera_rotation
+                        camera_frustum_handles[camera_type].image = camera_image
+
+                        return camera_type, None
+                    return camera_type, None
+
+                with ThreadPoolExecutor(max_workers=len(VISUALIZE_CAMERA_FRUSTUM)) as executor:
+                    future_to_camera = {
+                        executor.submit(load_camera_data, camera_type): camera_type
+                        for camera_type in VISUALIZE_CAMERA_FRUSTUM
+                    }
+
+                    for future in concurrent.futures.as_completed(future_to_camera):
+                        camera_type, camera_data = future.result()
+
+                camera_timer.log("Load camera data")
+
+                # for camera_type in VISUALIZE_CAMERA_FRUSTUM:
+
+                #     # camera = get_camera_if_available(scene, camera_type, gui_timestep.value)
+                #     # camera_timer.log("Get camera")
+
+                #     if camera_type in camera_cache.keys():
+                #         camera_position, camera_rotation, camera_image = camera_cache[camera_type]
+                #         # camera_position, camera_quaternion, camera_image = get_camera_values(
+                #         #     scene, camera, gui_timestep.value, resize_factor=RESIZE_FACTOR
+                #         # )
+
+                #         # camera_timer.log("Get camera values")
+
+                #         camera_frustum_handles[camera_type].position = camera_position
+                #         camera_frustum_handles[camera_type].wxyz = camera_rotation
+                #         camera_frustum_handles[camera_type].image = camera_image
+
+                camera_timer.log("Update camera frustum")
+                camera_timer.end()
+                # print(camera_timer)  # 0.0082
+
+                timer.log("Update cameras")
 
                 if LIDAR_AVAILABLE:
                     try:
                         points, colors = get_lidar_points(scene, gui_timestep.value, LIDAR_TYPES)
                     except Exception as e:
-                        print(f"Error getting lidar points: {e}")
+                        # print(f"Error getting lidar points: {e}")
                         points = np.zeros((0, 3))
                         colors = np.zeros((0, 3))
 
                     gui_lidar.points = points
                     gui_lidar.colors = colors
 
+                # timer.log("Update lidar")
+                timer.end()
+                # print(timer)
+
                 prev_timestep = current_timestep
 
-                rendering_time = time.time() - start
+                rendering_time = time.perf_counter() - start
                 sleep_time = 1.0 / gui_framerate.value - rendering_time
-                time.sleep(max(sleep_time, 0.0))
-                self.server.flush()  # Optional!
+                if sleep_time > 0:
+                    time.sleep(max(sleep_time, 0.0))
+                # self.server.flush()  # Optional!
+                # print(f"Render time: {rendering_time:.3f}s, sleep time: {sleep_time:.3f}s")
 
             # Load in frames.
-            current_frame_handle = self.server.scene.add_frame(f"/frame{gui_timestep.value}", show_axes=False)
             self.server.scene.add_frame("/map", show_axes=False)
+
+            if BOUNDING_BOX_TYPE == "mesh":
+                mesh = get_bounding_box_meshes(scene, gui_timestep.value)
+                bounding_box_handle = self.server.scene.add_mesh_trimesh(
+                    "box_detections",
+                    mesh=mesh,
+                    visible=True,
+                )
+            elif BOUNDING_BOX_TYPE == "lines":
+                lines, colors = get_bounding_box_outlines(scene, gui_timestep.value)
+                bounding_box_handle = self.server.scene.add_line_segments(
+                    "box_detections",
+                    points=lines,
+                    colors=colors,
+                    line_width=LINE_WIDTH,
+                )
+            else:
+                raise ValueError(f"Unknown bounding box type: {BOUNDING_BOX_TYPE}")
 
             camera_gui_handles: Dict[CameraType, viser.GuiImageHandle] = {}
             camera_frustum_handles: Dict[CameraType, viser.CameraFrustumHandle] = {}
@@ -232,28 +309,29 @@ class ViserVisualizationServer:
                         camera_gui_handles[camera_type] = self.server.gui.add_image(
                             image=camera.image,
                             label=camera_type.serialize(),
-                            format="jpeg",
                         )
 
             for camera_type in VISUALIZE_CAMERA_FRUSTUM:
                 camera = get_camera_if_available(scene, camera_type, gui_timestep.value)
                 if camera is not None:
-                    camera_position, camera_quaternion = get_camera_values(scene, camera, gui_timestep.value)
+                    camera_position, camera_quaternion, camera_image = get_camera_values(
+                        scene, camera, gui_timestep.value, resize_factor=RESIZE_FACTOR
+                    )
                     camera_frustum_handles[camera_type] = self.server.scene.add_camera_frustum(
                         f"camera_frustum_{camera_type.serialize()}",
                         fov=camera.metadata.fov_y,
                         aspect=camera.metadata.aspect_ratio,
                         scale=CAMERA_SCALE,
-                        image=camera.image,
-                        position=camera_position.array,
-                        wxyz=camera_quaternion.q,
+                        image=camera_image,
+                        position=camera_position,
+                        wxyz=camera_quaternion,
                     )
 
             if LIDAR_AVAILABLE:
                 try:
                     points, colors = get_lidar_points(scene, gui_timestep.value, LIDAR_TYPES)
                 except Exception as e:
-                    print(f"Error getting lidar points: {e}")
+                    # print(f"Error getting lidar points: {e}")
                     points = np.zeros((0, 3))
                     colors = np.zeros((0, 3))
 

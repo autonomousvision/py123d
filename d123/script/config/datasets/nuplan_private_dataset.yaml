@@ -12,5 +12,5 @@ nuplan_private_dataset:
     output_path: ${d123_data_root}
     force_log_conversion: ${force_log_conversion}
     force_map_conversion: ${force_map_conversion}
-    camera_store_option: "path"
+    camera_store_option: "binary"
     lidar_store_option: "path"

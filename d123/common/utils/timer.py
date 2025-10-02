@@ -55,7 +55,7 @@ class Timer:
 
         self._time_logs[self._end_key].append(time.perf_counter() - self._start_time)
 
-    def stats(self, verbose: bool = True) -> Optional[pd.DataFrame]:
+    def to_pandas(self) -> Optional[pd.DataFrame]:
         """
         Returns a DataFrame with statistics of the logged times.
         :param verbose: whether to print the timings, defaults to True
@@ -71,8 +71,8 @@ class Timer:
             statistics[key] = timings_statistics
         dataframe = pd.DataFrame.from_dict(statistics).transpose()
 
-        if verbose:
-            print(dataframe.to_string())
+        # if verbose:
+        #     print(dataframe.to_string())
 
         return dataframe
 
@@ -91,3 +91,8 @@ class Timer:
         self._time_logs: Dict[str, List[float]] = {}
         self._start_time: Optional[float] = None
         self._iteration_time: Optional[float] = None
+
+    def __str__(self) -> str:
+        """String representation of the Timer."""
+        dataframe = self.to_pandas()
+        return dataframe.to_string() if dataframe is not None else "No timings logged"

@@ -167,6 +167,16 @@ BOX_DETECTION_CONFIG: Dict[DetectionType, PlotConfig] = {
         marker_style=None,
         zorder=2,
     ),
+    DetectionType.EGO: PlotConfig(
+        fill_color=ELLIS_5[0],
+        fill_color_alpha=1.0,
+        line_color=BLACK,
+        line_color_alpha=1.0,
+        line_width=1.0,
+        line_style="-",
+        marker_style=HEADING_MARKER_STYLE,
+        zorder=4,
+    ),
 }
 
 EGO_VEHICLE_CONFIG: PlotConfig = PlotConfig(
