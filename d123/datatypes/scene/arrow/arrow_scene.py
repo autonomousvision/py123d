@@ -132,52 +132,62 @@ class ArrowScene(AbstractScene):
         self._lazy_initialize()
         return get_timepoint_from_arrow_table(self._recording_table, self._get_table_index(iteration))
 
-    def get_ego_state_at_iteration(self, iteration: int) -> EgoStateSE3:
+    def get_ego_state_at_iteration(self, iteration: int) -> Optional[EgoStateSE3]:
         self._lazy_initialize()
         return get_ego_vehicle_state_from_arrow_table(
             self._recording_table, self._get_table_index(iteration), self._vehicle_parameters
         )
 
-    def get_box_detections_at_iteration(self, iteration: int) -> BoxDetectionWrapper:
+    def get_box_detections_at_iteration(self, iteration: int) -> Optional[BoxDetectionWrapper]:
+        # TODO: Make box detections optional in ArrowScene
         self._lazy_initialize()
         return get_box_detections_from_arrow_table(self._recording_table, self._get_table_index(iteration))
 
-    def get_traffic_light_detections_at_iteration(self, iteration: int) -> TrafficLightDetectionWrapper:
+    def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetectionWrapper]:
+        # TODO: Make traffic lights optional in ArrowScene
         self._lazy_initialize()
         return get_traffic_light_detections_from_arrow_table(self._recording_table, self._get_table_index(iteration))
 
-    def get_detection_recording_at_iteration(self, iteration: int) -> DetectionRecording:
+    def get_detection_recording_at_iteration(self, iteration: int) -> Optional[DetectionRecording]:
+        # TODO: Make detection recording optional in ArrowScene
         return DetectionRecording(
             box_detections=self.get_box_detections_at_iteration(iteration),
             traffic_light_detections=self.get_traffic_light_detections_at_iteration(iteration),
         )
 
-    def get_route_lane_group_ids(self, iteration: int) -> List[int]:
+    def get_route_lane_group_ids(self, iteration: int) -> Optional[List[int]]:
         self._lazy_initialize()
-        table_index = self._get_table_index(iteration)
-        return self._recording_table["route_lane_group_ids"][table_index].as_py()
+        route_lane_group_ids: Optional[List[int]] = None
+        if "route_lane_group_ids" in self._recording_table.column_names:
+            table_index = self._get_table_index(iteration)
+            route_lane_group_ids = self._recording_table["route_lane_group_ids"][table_index].as_py()
+        return route_lane_group_ids
 
-    def get_camera_at_iteration(self, iteration: int, camera_type: CameraType) -> Camera:
+    def get_camera_at_iteration(self, iteration: int, camera_type: CameraType) -> Optional[Camera]:
         self._lazy_initialize()
-        assert camera_type in self._camera_metadata, f"Camera type {camera_type} not found in metadata."
-        table_index = self._get_table_index(iteration)
-        return get_camera_from_arrow_table(
-            self._recording_table,
-            table_index,
-            self._camera_metadata[camera_type],
-            self.log_metadata,
-        )
+        camera: Optional[Camera] = None
+        if camera_type in self._camera_metadata:
+            table_index = self._get_table_index(iteration)
+            camera = get_camera_from_arrow_table(
+                self._recording_table,
+                table_index,
+                self._camera_metadata[camera_type],
+                self.log_metadata,
+            )
+        return camera
 
-    def get_lidar_at_iteration(self, iteration: int, lidar_type: LiDARType) -> LiDAR:
+    def get_lidar_at_iteration(self, iteration: int, lidar_type: LiDARType) -> Optional[LiDAR]:
         self._lazy_initialize()
-        assert lidar_type in self._lidar_metadata, f"LiDAR type {lidar_type} not found in metadata."
-        table_index = self._get_table_index(iteration)
-        return get_lidar_from_arrow_table(
-            self._recording_table,
-            table_index,
-            self._lidar_metadata[lidar_type],
-            self.log_metadata,
-        )
+        lidar: Optional[LiDAR] = None
+        if lidar_type in self._lidar_metadata:
+            table_index = self._get_table_index(iteration)
+            lidar = get_lidar_from_arrow_table(
+                self._recording_table,
+                table_index,
+                self._lidar_metadata[lidar_type],
+                self.log_metadata,
+            )
+        return lidar
 
     def _lazy_initialize(self) -> None:
         self.open()

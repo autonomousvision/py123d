@@ -59,31 +59,31 @@ class AbstractScene(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_ego_state_at_iteration(self, iteration: int) -> EgoStateSE3:
+    def get_ego_state_at_iteration(self, iteration: int) -> Optional[EgoStateSE3]:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_box_detections_at_iteration(self, iteration: int) -> BoxDetectionWrapper:
+    def get_box_detections_at_iteration(self, iteration: int) -> Optional[BoxDetectionWrapper]:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_traffic_light_detections_at_iteration(self, iteration: int) -> TrafficLightDetectionWrapper:
+    def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetectionWrapper]:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_detection_recording_at_iteration(self, iteration: int) -> DetectionRecording:
+    def get_detection_recording_at_iteration(self, iteration: int) -> Optional[DetectionRecording]:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_route_lane_group_ids(self, iteration: int) -> List[int]:
+    def get_route_lane_group_ids(self, iteration: int) -> Optional[List[int]]:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_camera_at_iteration(self, iteration: int, camera_type: CameraType) -> Camera:
+    def get_camera_at_iteration(self, iteration: int, camera_type: CameraType) -> Optional[Camera]:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_lidar_at_iteration(self, iteration: int, lidar_type: LiDARType) -> LiDAR:
+    def get_lidar_at_iteration(self, iteration: int, lidar_type: LiDARType) -> Optional[LiDAR]:
         raise NotImplementedError
 
     def open(self) -> None:
