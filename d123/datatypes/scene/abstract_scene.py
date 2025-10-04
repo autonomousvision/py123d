@@ -6,8 +6,8 @@ from typing import List, Optional
 from d123.datatypes.detections.detection import BoxDetectionWrapper, DetectionRecording, TrafficLightDetectionWrapper
 from d123.datatypes.maps.abstract_map import AbstractMap
 from d123.datatypes.scene.scene_metadata import LogMetadata
-from d123.datatypes.sensors.camera import Camera, CameraType
-from d123.datatypes.sensors.lidar import LiDAR, LiDARType
+from d123.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
+from d123.datatypes.sensors.lidar.lidar import LiDAR, LiDARType
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import EgoStateSE3
 
@@ -33,7 +33,7 @@ class AbstractScene(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def available_camera_types(self) -> List[CameraType]:
+    def available_camera_types(self) -> List[PinholeCameraType]:
         raise NotImplementedError
 
     @property
@@ -79,7 +79,7 @@ class AbstractScene(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_camera_at_iteration(self, iteration: int, camera_type: CameraType) -> Optional[Camera]:
+    def get_camera_at_iteration(self, iteration: int, camera_type: PinholeCameraType) -> Optional[PinholeCamera]:
         raise NotImplementedError
 
     @abc.abstractmethod

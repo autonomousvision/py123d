@@ -12,6 +12,11 @@ class ArrayMixin:
         """Create an instance from a NumPy array."""
         raise NotImplementedError
 
+    @classmethod
+    def from_list(cls, values: list) -> ArrayMixin:
+        """Create an instance from a list of values."""
+        return cls.from_array(np.array(values, dtype=np.float64), copy=False)
+
     @property
     def array(self) -> npt.NDArray[np.float64]:
         """The array representation of the geometric entity."""

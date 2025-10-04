@@ -20,17 +20,18 @@ from d123.datatypes.detections.detection import (
 )
 from d123.datatypes.detections.detection_types import DetectionType
 from d123.datatypes.scene.scene_metadata import LogMetadata
-from d123.datatypes.sensors.camera import Camera, CameraMetadata
-from d123.datatypes.sensors.lidar import LiDAR, LiDARMetadata
+from d123.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraMetadata
+from d123.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 from d123.geometry import BoundingBoxSE3, Vector3D
+from d123.geometry.se import StateSE3
 
 DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "nuplan": Path(os.environ["NUPLAN_DATA_ROOT"]) / "nuplan-v1.1" / "sensor_blobs",
     "carla": Path(os.environ["CARLA_DATA_ROOT"]) / "sensor_blobs",
-    "av2-sensor": Path(os.environ["AV2_SENSOR_DATA_ROOT"]) / "sensor_mini",
+    # "av2-sensor": Path(os.environ["AV2_SENSOR_DATA_ROOT"]) / "sensor_mini",
 }
 
 
@@ -93,13 +94,13 @@ def get_traffic_light_detections_from_arrow_table(arrow_table: pa.Table, index: 
 def get_camera_from_arrow_table(
     arrow_table: pa.Table,
     index: int,
-    camera_metadata: CameraMetadata,
+    camera_metadata: PinholeCameraMetadata,
     log_metadata: LogMetadata,
-) -> Camera:
+) -> PinholeCamera:
 
     table_data = arrow_table[camera_metadata.camera_type.serialize()][index].as_py()
-    extrinsic = arrow_table[f"{camera_metadata.camera_type.serialize()}_extrinsic"][index].as_py()
-    extrinsic = np.array(extrinsic).reshape((4, 4)) if extrinsic else None
+    extrinsic_list = arrow_table[f"{camera_metadata.camera_type.serialize()}_extrinsic"][index].as_py()
+    extrinsic = StateSE3.from_list(extrinsic_list) if extrinsic_list is not None else None
 
     if table_data is None or extrinsic is None:
         return None
@@ -118,7 +119,7 @@ def get_camera_from_arrow_table(
     else:
         raise NotImplementedError("Only string file paths for camera data are supported.")
 
-    return Camera(
+    return PinholeCamera(
         metadata=camera_metadata,
         image=image,
         extrinsic=extrinsic,

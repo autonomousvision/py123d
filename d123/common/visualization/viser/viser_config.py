@@ -1,18 +1,18 @@
 from dataclasses import dataclass, field
 from typing import List, Literal, Optional, Tuple
 
-from d123.datatypes.sensors.camera import CameraType
-from d123.datatypes.sensors.lidar import LiDARType
+from d123.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
+from d123.datatypes.sensors.lidar.lidar import LiDARType
 
-all_camera_types: List[CameraType] = [
-    CameraType.CAM_F0,
-    CameraType.CAM_B0,
-    CameraType.CAM_L0,
-    CameraType.CAM_L1,
-    CameraType.CAM_L2,
-    CameraType.CAM_R0,
-    CameraType.CAM_R1,
-    CameraType.CAM_R2,
+all_camera_types: List[PinholeCameraType] = [
+    PinholeCameraType.CAM_F0,
+    PinholeCameraType.CAM_B0,
+    PinholeCameraType.CAM_L0,
+    PinholeCameraType.CAM_L1,
+    PinholeCameraType.CAM_L2,
+    PinholeCameraType.CAM_R0,
+    PinholeCameraType.CAM_R1,
+    PinholeCameraType.CAM_R2,
 ]
 
 all_lidar_types: List[LiDARType] = [
@@ -44,7 +44,7 @@ class ViserConfig:
 
     # Map
     map_visible: bool = True
-    map_radius: float = 1000.0  # [m]
+    map_radius: float = 200.0  # [m]
     map_non_road_z_offset: float = 0.0  # small translation to place crosswalks, parking, etc. on top of the road
 
     # Bounding boxes
@@ -55,13 +55,13 @@ class ViserConfig:
     # Cameras
     # -> Frustum
     camera_frustum_visible: bool = True
-    camera_frustum_types: List[CameraType] = field(default_factory=lambda: all_camera_types.copy())
+    camera_frustum_types: List[PinholeCameraType] = field(default_factory=lambda: all_camera_types.copy())
     camera_frustum_frustum_scale: float = 1.0
     camera_frustum_image_scale: float = 0.25  # Resize factor for the camera image shown on the frustum (<1.0 for speed)
 
     # -> GUI
     camera_gui_visible: bool = True
-    camera_gui_types: List[CameraType] = field(default_factory=lambda: [CameraType.CAM_F0].copy())
+    camera_gui_types: List[PinholeCameraType] = field(default_factory=lambda: [PinholeCameraType.CAM_F0].copy())
     camera_gui_image_scale: float = 0.25  # Resize factor for the camera image shown in the GUI (<1.0 for speed)
 
     # LiDAR

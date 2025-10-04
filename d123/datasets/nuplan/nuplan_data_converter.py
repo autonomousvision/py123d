@@ -10,7 +10,6 @@ from typing import Any, Dict, Final, List, Optional, Tuple, Union
 import numpy as np
 import pyarrow as pa
 import yaml
-from pyquaternion import Quaternion
 
 import d123.datasets.nuplan.utils as nuplan_utils
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
@@ -18,12 +17,18 @@ from d123.common.utils.arrow_helper import open_arrow_table, write_arrow_table
 from d123.common.utils.dependencies import check_dependencies
 from d123.datasets.nuplan.nuplan_map_conversion import MAP_LOCATIONS, NuPlanMapConverter
 from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConverter
+from d123.datasets.utils.sensor.lidar_index_registry import NuplanLidarIndex
 from d123.datatypes.detections.detection import TrafficLightStatus
 from d123.datatypes.detections.detection_types import DetectionType
 from d123.datatypes.scene.scene_metadata import LogMetadata
-from d123.datatypes.sensors.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
-from d123.datatypes.sensors.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
-from d123.datatypes.sensors.lidar_index import NuplanLidarIndex
+from d123.datatypes.sensors.camera.pinhole_camera import (
+    PinholeCameraMetadata,
+    PinholeCameraType,
+    PinholeDistortion,
+    PinholeIntrinsics,
+    camera_metadata_dict_to_json,
+)
+from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.datatypes.vehicle_state.vehicle_parameters import (
@@ -31,6 +36,7 @@ from d123.datatypes.vehicle_state.vehicle_parameters import (
     rear_axle_se3_to_center_se3,
 )
 from d123.geometry import BoundingBoxSE3, BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
+from d123.geometry.geometry_index import StateSE3Index
 from d123.geometry.rotation import EulerAngles
 from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 
@@ -63,14 +69,14 @@ NUPLAN_DETECTION_NAME_DICT = {
 }
 
 NUPLAN_CAMERA_TYPES = {
-    CameraType.CAM_F0: CameraChannel.CAM_F0,
-    CameraType.CAM_B0: CameraChannel.CAM_B0,
-    CameraType.CAM_L0: CameraChannel.CAM_L0,
-    CameraType.CAM_L1: CameraChannel.CAM_L1,
-    CameraType.CAM_L2: CameraChannel.CAM_L2,
-    CameraType.CAM_R0: CameraChannel.CAM_R0,
-    CameraType.CAM_R1: CameraChannel.CAM_R1,
-    CameraType.CAM_R2: CameraChannel.CAM_R2,
+    PinholeCameraType.CAM_F0: CameraChannel.CAM_F0,
+    PinholeCameraType.CAM_B0: CameraChannel.CAM_B0,
+    PinholeCameraType.CAM_L0: CameraChannel.CAM_L0,
+    PinholeCameraType.CAM_L1: CameraChannel.CAM_L1,
+    PinholeCameraType.CAM_L2: CameraChannel.CAM_L2,
+    PinholeCameraType.CAM_R0: CameraChannel.CAM_R0,
+    PinholeCameraType.CAM_R1: CameraChannel.CAM_R1,
+    PinholeCameraType.CAM_R2: CameraChannel.CAM_R2,
 }
 
 NUPLAN_DATA_ROOT = Path(os.environ["NUPLAN_DATA_ROOT"])
@@ -106,7 +112,7 @@ class NuplanDataConverter(RawDataConverter):
     def _collect_log_paths(self) -> Dict[str, List[Path]]:
         # NOTE: the nuplan mini folder has an internal train, val, test structure, all stored in "mini".
         # The complete dataset is saved in the "trainval" folder (train and val), or in the "test" folder (for test).
-        subsplit_log_names: Dict[str, List[str]] = create_splits_logs()
+        # subsplit_log_names: Dict[str, List[str]] = create_splits_logs()
         log_paths_per_split: Dict[str, List[Path]] = {}
 
         for split in self._splits:
@@ -123,7 +129,7 @@ class NuplanDataConverter(RawDataConverter):
 
             all_log_files_in_path = [log_file for log_file in log_path.glob("*.db")]
             all_log_names = set([str(log_file.stem) for log_file in all_log_files_in_path])
-            set(subsplit_log_names[subsplit])
+            # set(subsplit_log_names[subsplit])
             # log_paths = [log_path / f"{log_name}.db" for log_name in list(all_log_names & split_log_names)]
             log_paths = [log_path / f"{log_name}.db" for log_name in list(all_log_names)]
             log_paths_per_split[split] = log_paths
@@ -138,7 +144,7 @@ class NuplanDataConverter(RawDataConverter):
             "nuplan_mini_train",
             "nuplan_mini_val",
             "nuplan_mini_test",
-            "nuplan_private_test",
+            "nuplan_private_test",  # TODO: remove, not publicly available
         ]
 
     def convert_maps(self, worker: WorkerPool) -> None:
@@ -204,7 +210,7 @@ def convert_nuplan_log_to_arrow(
             )
             vehicle_parameters = get_nuplan_chrysler_pacifica_parameters()
             camera_metadata = get_nuplan_camera_metadata(log_path)
-            lidar_metadata = get_nuplan_lidar_metadata(log_db)
+            lidar_metadata = get_nuplan_lidar_metadata()
 
             schema_column_list = [
                 ("token", pa.string()),
@@ -231,7 +237,7 @@ def convert_nuplan_log_to_arrow(
                     if data_converter_config.camera_store_option == "path":
                         schema_column_list.append((camera_type.serialize(), pa.string()))
                         schema_column_list.append(
-                            (f"{camera_type.serialize()}_extrinsic", pa.list_(pa.float64(), 4 * 4))
+                            (f"{camera_type.serialize()}_extrinsic", pa.list_(pa.float64(), len(StateSE3Index)))
                         )
 
                     elif data_converter_config.camera_store_option == "binary":
@@ -256,30 +262,33 @@ def convert_nuplan_log_to_arrow(
     return []
 
 
-def get_nuplan_camera_metadata(log_path: Path) -> Dict[CameraType, CameraMetadata]:
+def get_nuplan_camera_metadata(log_path: Path) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
 
-    def _get_camera_metadata(camera_type: CameraType) -> CameraMetadata:
+    def _get_camera_metadata(camera_type: PinholeCameraType) -> PinholeCameraMetadata:
         cam = list(get_cameras(log_path, [str(NUPLAN_CAMERA_TYPES[camera_type].value)]))[0]
-        intrinsic = np.array(pickle.loads(cam.intrinsic))
-        rotation = np.array(pickle.loads(cam.rotation))
-        rotation = Quaternion(rotation).rotation_matrix
-        distortion = np.array(pickle.loads(cam.distortion))
-        return CameraMetadata(
+
+        intrinsics_camera_matrix = np.array(pickle.loads(cam.intrinsic))  # array of shape (3, 3)
+        intrinsic = PinholeIntrinsics.from_camera_matrix(intrinsics_camera_matrix)
+
+        distortion_array = np.array(pickle.loads(cam.distortion))  # array of shape (5,)
+        distortion = PinholeDistortion.from_array(distortion_array, copy=False)
+
+        return PinholeCameraMetadata(
             camera_type=camera_type,
             width=cam.width,
             height=cam.height,
-            intrinsic=intrinsic,
+            intrinsics=intrinsic,
             distortion=distortion,
         )
 
-    log_cam_infos: Dict[str, CameraMetadata] = {}
+    log_cam_infos: Dict[str, PinholeCameraMetadata] = {}
     for camera_type in NUPLAN_CAMERA_TYPES.keys():
         log_cam_infos[camera_type] = _get_camera_metadata(camera_type)
 
     return log_cam_infos
 
 
-def get_nuplan_lidar_metadata(log_db: NuPlanDB) -> Dict[LiDARType, LiDARMetadata]:
+def get_nuplan_lidar_metadata() -> Dict[LiDARType, LiDARMetadata]:
     metadata: Dict[LiDARType, LiDARMetadata] = {}
     metadata[LiDARType.LIDAR_MERGED] = LiDARMetadata(
         lidar_type=LiDARType.LIDAR_MERGED,
@@ -297,7 +306,6 @@ def _write_recording_table(
     data_converter_config: DataConverterConfig,
 ) -> None:
 
-    # with pa.ipc.new_stream(str(log_file_path), recording_schema) as writer:
     with pa.OSFile(str(log_file_path), "wb") as sink:
         with pa.ipc.new_file(sink, recording_schema) as writer:
             step_interval: float = int(TARGET_DT / NUPLAN_DT)
@@ -448,7 +456,7 @@ def _extract_camera(
     lidar_pc: LidarPc,
     source_log_path: Path,
     data_converter_config: DataConverterConfig,
-) -> Dict[CameraType, Union[str, bytes]]:
+) -> Dict[PinholeCameraType, Union[str, bytes]]:
 
     camera_dict: Dict[str, Union[str, bytes]] = {}
     sensor_root = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "sensor_blobs"
@@ -477,11 +485,13 @@ def _extract_camera(
                 c2img_e = cam_info.trans_matrix
                 c2e = img_e2e @ c2img_e
 
+                extrinsic = StateSE3.from_transformation_matrix(c2e)
+
                 if data_converter_config.camera_store_option == "path":
-                    camera_data = str(filename_jpg), c2e.flatten().tolist()
+                    camera_data = str(filename_jpg), extrinsic.tolist()
                 elif data_converter_config.camera_store_option == "binary":
                     with open(filename_jpg, "rb") as f:
-                        camera_data = f.read(), c2e
+                        camera_data = f.read(), extrinsic.tolist()
 
         camera_dict[camera_type] = camera_data
 

@@ -10,20 +10,29 @@ from typing import Any, Dict, Final, List, Tuple, Union
 import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
-from fromd123.datatypes.detections.detection_types import DetectionType
+from pyparsing import Optional
 
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.common.utils.dependencies import check_dependencies
 from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConverter
+from d123.datasets.utils.sensor.camera_conventions import CameraConvention, convert_camera_convention
+from d123.datasets.utils.sensor.lidar_index_registry import WopdLidarIndex
 from d123.datasets.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
 from d123.datasets.wopd.wopd_utils import parse_range_image_and_camera_projection
+from d123.datatypes.detections.detection_types import DetectionType
 from d123.datatypes.scene.scene_metadata import LogMetadata
-from d123.datatypes.sensors.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
-from d123.datatypes.sensors.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
-from d123.datatypes.sensors.lidar_index import WopdLidarIndex
+from d123.datatypes.sensors.camera.pinhole_camera import (
+    PinholeCameraMetadata,
+    PinholeCameraType,
+    PinholeDistortion,
+    PinholeIntrinsics,
+    camera_metadata_dict_to_json,
+)
+from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.datatypes.vehicle_state.vehicle_parameters import get_wopd_chrysler_pacifica_parameters
 from d123.geometry import BoundingBoxSE3Index, EulerAngles, StateSE3, Vector3D, Vector3DIndex
+from d123.geometry.geometry_index import StateSE3Index
 from d123.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array
 from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 
@@ -52,12 +61,12 @@ WOPD_DETECTION_NAME_DICT: Dict[int, DetectionType] = {
 }
 
 # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L50
-WOPD_CAMERA_TYPES: Dict[int, CameraType] = {
-    1: CameraType.CAM_F0,  # front_camera
-    2: CameraType.CAM_L0,  # front_left_camera
-    3: CameraType.CAM_R0,  # front_right_camera
-    4: CameraType.CAM_L1,  # left_camera
-    5: CameraType.CAM_R1,  # right_camera
+WOPD_CAMERA_TYPES: Dict[int, PinholeCameraType] = {
+    1: PinholeCameraType.CAM_F0,  # front_camera
+    2: PinholeCameraType.CAM_L0,  # front_left_camera
+    3: PinholeCameraType.CAM_R0,  # front_right_camera
+    4: PinholeCameraType.CAM_L1,  # left_camera
+    5: PinholeCameraType.CAM_R1,  # right_camera
 }
 
 # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L66
@@ -239,7 +248,7 @@ def convert_wopd_tfrecord_log_to_arrow(
                         elif data_converter_config.camera_store_option == "binary":
                             schema_column_list.append((camera_type.serialize(), pa.binary()))
                             schema_column_list.append(
-                                (f"{camera_type.serialize()}_extrinsic", pa.list_(pa.float64(), 4 * 4))
+                                (f"{camera_type.serialize()}_extrinsic", pa.list_(pa.float64(), len(StateSE3Index)))
                             )
 
                 if data_converter_config.lidar_store_option is not None:
@@ -273,26 +282,24 @@ def convert_wopd_tfrecord_log_to_arrow(
 
 def get_wopd_camera_metadata(
     initial_frame: dataset_pb2.Frame, data_converter_config: DataConverterConfig
-) -> Dict[CameraType, CameraMetadata]:
+) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
 
-    cam_metadatas: Dict[CameraType, CameraMetadata] = {}
+    cam_metadatas: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
     if data_converter_config.camera_store_option is not None:
         for calibration in initial_frame.context.camera_calibrations:
             camera_type = WOPD_CAMERA_TYPES[calibration.name]
-
             # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L96
             # https://github.com/waymo-research/waymo-open-dataset/issues/834#issuecomment-2134995440
             fx, fy, cx, cy, k1, k2, p1, p2, k3 = calibration.intrinsic
-            _intrinsics = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
-            _distortions = np.array([k1, k2, p1, p2, k3])
-
+            intrinsics = PinholeIntrinsics(fx=fx, fy=fy, cx=cx, cy=cy)
+            distortion = PinholeDistortion(k1=k1, k2=k2, p1=p1, p2=p2, k3=k3)
             if camera_type in WOPD_CAMERA_TYPES.values():
-                cam_metadatas[camera_type] = CameraMetadata(
+                cam_metadatas[camera_type] = PinholeCameraMetadata(
                     camera_type=camera_type,
                     width=calibration.width,
                     height=calibration.height,
-                    intrinsic=_intrinsics,
-                    distortion=_distortions,
+                    intrinsics=intrinsics,
+                    distortion=distortion,
                 )
 
     return cam_metadatas
@@ -305,12 +312,14 @@ def get_wopd_lidar_metadata(
     laser_metadatas: Dict[LiDARType, LiDARMetadata] = {}
     if data_converter_config.lidar_store_option is not None:
         for laser_calibration in initial_frame.context.laser_calibrations:
+
             lidar_type = WOPD_LIDAR_TYPES[laser_calibration.name]
-            extrinsic = (
-                np.array(laser_calibration.extrinsic.transform, dtype=np.float64).reshape(4, 4)
-                if laser_calibration.extrinsic
-                else None
-            )
+
+            extrinsic: Optional[StateSE3] = None
+            if laser_calibration.extrinsic:
+                extrinsic_transform = np.array(laser_calibration.extrinsic.transform, dtype=np.float64).reshape(4, 4)
+                extrinsic = StateSE3.from_transformation_matrix(extrinsic_transform)
+
             laser_metadatas[lidar_type] = LiDARMetadata(
                 lidar_type=lidar_type,
                 lidar_index=WopdLidarIndex,
@@ -328,7 +337,6 @@ def _write_recording_table(
     data_converter_config: DataConverterConfig,
 ) -> None:
 
-    # with pa.ipc.new_stream(str(log_file_path), recording_schema) as writer:
     with pa.OSFile(str(log_file_path), "wb") as sink:
         with pa.ipc.new_file(sink, recording_schema) as writer:
 
@@ -464,40 +472,32 @@ def _extract_traffic_lights() -> Tuple[List[int], List[int]]:
 
 def _extract_camera(
     frame: dataset_pb2.Frame, data_converter_config: DataConverterConfig
-) -> Dict[CameraType, Union[str, bytes]]:
+) -> Dict[PinholeCameraType, Union[str, bytes]]:
 
     camera_dict: Dict[str, Union[str, bytes]] = {}  # TODO: Fix wrong type hint
     np.array(frame.pose.transform).reshape(4, 4)
 
     # NOTE: The extrinsic matrix in frame.context.camera_calibration is fixed to model the ego to camera transformation.
     # The poses in frame.images[idx] are the motion compensated ego poses when the camera triggers.
-    #
 
-    context_extrinsic: Dict[str, npt.NDArray] = {}
+    context_extrinsic: Dict[str, StateSE3] = {}
     for calibration in frame.context.camera_calibrations:
         camera_type = WOPD_CAMERA_TYPES[calibration.name]
+        camera_transform = np.array(calibration.extrinsic.transform, dtype=np.float64).reshape(4, 4)
+        camera_pose = StateSE3.from_transformation_matrix(camera_transform)
+        # NOTE: WOPD uses a different camera convention than d123
+        # https://arxiv.org/pdf/1912.04838 (Figure 1.)
+        camera_pose = convert_camera_convention(
+            camera_pose,
+            from_convention=CameraConvention.pXpZmY,
+            to_convention=CameraConvention.pZmYpX,
+        )
+        context_extrinsic[camera_type] = camera_pose
 
-        transform = np.array(calibration.extrinsic.transform).reshape(4, 4)
-
-        # FIXME: This is an ugly hack to convert to uniform camera convention.
-        # TODO: Extract function to convert between different camera conventions.
-        flip_camera = EulerAngles(roll=np.deg2rad(0.0), pitch=np.deg2rad(90.0), yaw=np.deg2rad(-90.0)).rotation_matrix
-        transform[:3, :3] = transform[:3, :3] @ flip_camera
-        context_extrinsic[camera_type] = transform
-
-    # TODO: Refactor to avoid code duplication
     for image_proto in frame.images:
         camera_type = WOPD_CAMERA_TYPES[image_proto.name]
-
-        np.array(image_proto.pose.transform).reshape(4, 4)
         camera_bytes = image_proto.image
-
-        # # Compute the transform from ego_global_transform to ego_at_camera_transform
-        # # ego_global_transform * T = ego_at_camera_transform  =>  T = ego_global_transform^-1 * ego_at_camera_transform
-        # np.linalg.inv(ego_global_transform) @ ego_at_trigger_transform
-
-        # TODO: figure out the correct transform
-        camera_dict[camera_type] = camera_bytes, context_extrinsic[camera_type].flatten().tolist()
+        camera_dict[camera_type] = camera_bytes, context_extrinsic[camera_type].tolist()
 
     return camera_dict
 

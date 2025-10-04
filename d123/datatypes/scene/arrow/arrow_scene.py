@@ -18,8 +18,13 @@ from d123.datatypes.scene.arrow.utils.conversion import (
     get_traffic_light_detections_from_arrow_table,
 )
 from d123.datatypes.scene.scene_metadata import LogMetadata, SceneExtractionInfo
-from d123.datatypes.sensors.camera import Camera, CameraMetadata, CameraType, camera_metadata_dict_from_json
-from d123.datatypes.sensors.lidar import LiDAR, LiDARMetadata, LiDARType, lidar_metadata_dict_from_json
+from d123.datatypes.sensors.camera.pinhole_camera import (
+    PinholeCamera,
+    PinholeCameraMetadata,
+    PinholeCameraType,
+    camera_metadata_dict_from_json,
+)
+from d123.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata, LiDARType, lidar_metadata_dict_from_json
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
@@ -29,7 +34,7 @@ from d123.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 
 def _get_scene_data(
     arrow_file_path: Union[Path, str],
-) -> Tuple[LogMetadata, VehicleParameters, Dict[CameraType, CameraMetadata]]:
+) -> Tuple[LogMetadata, VehicleParameters, Dict[PinholeCameraType, PinholeCameraMetadata]]:
     """
     Extracts the metadata and vehicle parameters from the arrow file.
     """
@@ -60,7 +65,6 @@ class ArrowScene(AbstractScene):
     ) -> None:
 
         self._recording_table: pa.Table = None
-
         (
             _metadata,
             _vehicle_parameters,
@@ -69,7 +73,7 @@ class ArrowScene(AbstractScene):
         ) = _get_scene_data(arrow_file_path)
         self._metadata: LogMetadata = _metadata
         self._vehicle_parameters: VehicleParameters = _vehicle_parameters
-        self._camera_metadata: Dict[CameraType, CameraMetadata] = _camera_metadata
+        self._camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = _camera_metadata
         self._lidar_metadata: Dict[LiDARType, LiDARMetadata] = _lidar_metadata
 
         self._map_api: Optional[AbstractMap] = None
@@ -105,7 +109,7 @@ class ArrowScene(AbstractScene):
         return self._metadata
 
     @property
-    def available_camera_types(self) -> List[CameraType]:
+    def available_camera_types(self) -> List[PinholeCameraType]:
         return list(self._camera_metadata.keys())
 
     @property
@@ -163,9 +167,9 @@ class ArrowScene(AbstractScene):
             route_lane_group_ids = self._recording_table["route_lane_group_ids"][table_index].as_py()
         return route_lane_group_ids
 
-    def get_camera_at_iteration(self, iteration: int, camera_type: CameraType) -> Optional[Camera]:
+    def get_camera_at_iteration(self, iteration: int, camera_type: PinholeCameraType) -> Optional[PinholeCamera]:
         self._lazy_initialize()
-        camera: Optional[Camera] = None
+        camera: Optional[PinholeCamera] = None
         if camera_type in self._camera_metadata:
             table_index = self._get_table_index(iteration)
             camera = get_camera_from_arrow_table(

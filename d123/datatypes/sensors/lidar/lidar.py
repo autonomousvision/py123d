@@ -8,7 +8,8 @@ import numpy as np
 import numpy.typing as npt
 
 from d123.common.utils.enums import SerialIntEnum
-from d123.datatypes.sensors.lidar_index import LIDAR_INDEX_REGISTRY, LiDARIndex
+from d123.datasets.utils.sensor.lidar_index_registry import LIDAR_INDEX_REGISTRY, LiDARIndex
+from d123.geometry import StateSE3
 
 
 class LiDARType(SerialIntEnum):
@@ -27,8 +28,7 @@ class LiDARMetadata:
 
     lidar_type: LiDARType
     lidar_index: Type[LiDARIndex]
-    extrinsic: Optional[npt.NDArray[np.float64]] = None  # 4x4 matrix
-
+    extrinsic: Optional[StateSE3] = None
     # TODO: add identifier if point cloud is returned in lidar or ego frame.
 
     def to_dict(self) -> dict:
@@ -44,7 +44,7 @@ class LiDARMetadata:
         if json_dict["lidar_index"] not in LIDAR_INDEX_REGISTRY:
             raise ValueError(f"Unknown lidar index: {json_dict['lidar_index']}")
         lidar_index_class = LIDAR_INDEX_REGISTRY[json_dict["lidar_index"]]
-        extrinsic = np.array(json_dict["extrinsic"]) if json_dict["extrinsic"] is not None else None
+        extrinsic = StateSE3.from_list(json_dict["extrinsic"]) if json_dict["extrinsic"] is not None else None
         return cls(lidar_type=lidar_type, lidar_index=lidar_index_class, extrinsic=extrinsic)
 
 

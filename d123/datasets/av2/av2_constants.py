@@ -1,7 +1,7 @@
 from d123.common.utils.enums import SerialIntEnum
 from d123.datatypes.detections.detection_types import DetectionType
 from d123.datatypes.maps.map_datatypes import RoadLineType
-from d123.datatypes.sensors.camera import CameraType
+from d123.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
 
 
 class AV2SensorBoxDetectionType(SerialIntEnum):
@@ -76,15 +76,15 @@ AV2_TO_DETECTION_TYPE = {
 
 
 AV2_CAMERA_TYPE_MAPPING = {
-    "ring_front_center": CameraType.CAM_F0,
-    "ring_front_left": CameraType.CAM_L0,
-    "ring_front_right": CameraType.CAM_R0,
-    "ring_side_left": CameraType.CAM_L1,
-    "ring_side_right": CameraType.CAM_R1,
-    "ring_rear_left": CameraType.CAM_L2,
-    "ring_rear_right": CameraType.CAM_R2,
-    "stereo_front_left": CameraType.CAM_STEREO_L,
-    "stereo_front_right": CameraType.CAM_STEREO_R,
+    "ring_front_center": PinholeCameraType.CAM_F0,
+    "ring_front_left": PinholeCameraType.CAM_L0,
+    "ring_front_right": PinholeCameraType.CAM_R0,
+    "ring_side_left": PinholeCameraType.CAM_L1,
+    "ring_side_right": PinholeCameraType.CAM_R1,
+    "ring_rear_left": PinholeCameraType.CAM_L2,
+    "ring_rear_right": PinholeCameraType.CAM_R2,
+    "stereo_front_left": PinholeCameraType.CAM_STEREO_L,
+    "stereo_front_right": PinholeCameraType.CAM_STEREO_R,
 }
 
 

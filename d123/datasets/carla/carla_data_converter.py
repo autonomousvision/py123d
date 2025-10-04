@@ -15,13 +15,17 @@ from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.common.utils.arrow_helper import open_arrow_table, write_arrow_table
 from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.datasets.utils.maps.opendrive.opendrive_map_conversion import convert_from_xodr
+from d123.datasets.utils.sensor.lidar_index_registry import CarlaLidarIndex
 from d123.datatypes.maps.abstract_map import AbstractMap, MapLayer
 from d123.datatypes.maps.abstract_map_objects import AbstractLane
 from d123.datatypes.maps.gpkg.gpkg_map import get_map_api_from_names
 from d123.datatypes.scene.scene_metadata import LogMetadata
-from d123.datatypes.sensors.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
-from d123.datatypes.sensors.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
-from d123.datatypes.sensors.lidar_index import CarlaLidarIndex
+from d123.datatypes.sensors.camera.pinhole_camera import (
+    PinholeCameraMetadata,
+    PinholeCameraType,
+    camera_metadata_dict_to_json,
+)
+from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
 from d123.datatypes.vehicle_state.ego_state import EgoStateSE3Index
 from d123.datatypes.vehicle_state.vehicle_parameters import get_carla_lincoln_mkz_2020_parameters
 from d123.geometry import BoundingBoxSE3Index, Point2D, Point3D, Vector3DIndex
@@ -45,7 +49,7 @@ CARLA_DT: Final[float] = 0.1  # [s]
 TRAFFIC_LIGHT_ASSIGNMENT_DISTANCE: Final[float] = 1.0  # [m]
 SORT_BY_TIMESTAMP: Final[bool] = True
 
-CARLA_CAMERA_TYPES = {CameraType.CAM_F0}
+CARLA_CAMERA_TYPES = {PinholeCameraType.CAM_F0}
 
 CARLA_DATA_ROOT: Final[Path] = Path(os.environ["CARLA_DATA_ROOT"])
 
@@ -247,20 +251,20 @@ def _get_metadata(location: str, log_name: str) -> LogMetadata:
     )
 
 
-def get_carla_camera_metadata(first_log_dict: Dict[str, Any]) -> Dict[CameraType, CameraMetadata]:
+def get_carla_camera_metadata(first_log_dict: Dict[str, Any]) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
 
     # FIXME: This is a placeholder function to return camera metadata.
 
     intrinsic = np.array(
-        first_log_dict[f"{CameraType.CAM_F0.serialize()}_intrinsics"],
+        first_log_dict[f"{PinholeCameraType.CAM_F0.serialize()}_intrinsics"],
         dtype=np.float64,
     )
     camera_metadata = {
-        CameraType.CAM_F0: CameraMetadata(
-            camera_type=CameraType.CAM_F0,
+        PinholeCameraType.CAM_F0: PinholeCameraMetadata(
+            camera_type=PinholeCameraType.CAM_F0,
             width=1024,
             height=512,
-            intrinsic=intrinsic,
+            intrinsics=intrinsic,
             distortion=np.zeros((5,), dtype=np.float64),
         )
     }
@@ -417,7 +421,7 @@ def _extract_route_lane_group_ids(route: List[List[float]], map_api: AbstractMap
 
 def _extract_cameras(
     data: Dict[str, Any], log_name: str, sample_name: str, data_converter_config: DataConverterConfig
-) -> Dict[CameraType, Optional[str]]:
+) -> Dict[PinholeCameraType, Optional[str]]:
     camera_dict: Dict[str, Union[str, bytes]] = {}
     for camera_type in CARLA_CAMERA_TYPES:
         camera_full_path = CARLA_DATA_ROOT / "sensor_blobs" / log_name / camera_type.name / f"{sample_name}.jpg"

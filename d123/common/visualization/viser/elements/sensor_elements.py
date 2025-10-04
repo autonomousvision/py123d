@@ -8,10 +8,10 @@ import viser
 
 from d123.common.visualization.viser.viser_config import ViserConfig
 from d123.datatypes.scene.abstract_scene import AbstractScene
-from d123.datatypes.sensors.camera import Camera, CameraType
-from d123.datatypes.sensors.lidar import LiDARType
+from d123.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
+from d123.datatypes.sensors.lidar.lidar import LiDARType
 from d123.datatypes.vehicle_state.ego_state import EgoStateSE3
-from d123.geometry import StateSE3, StateSE3Index
+from d123.geometry import StateSE3Index
 from d123.geometry.transform.transform_se3 import (
     convert_relative_to_absolute_points_3d_array,
     convert_relative_to_absolute_se3_array,
@@ -24,7 +24,7 @@ def add_camera_frustums_to_viser_server(
     initial_ego_state: EgoStateSE3,
     viser_server: viser.ViserServer,
     viser_config: ViserConfig,
-    camera_frustum_handles: Dict[CameraType, viser.CameraFrustumHandle],
+    camera_frustum_handles: Dict[PinholeCameraType, viser.CameraFrustumHandle],
 ) -> None:
 
     if viser_config.camera_frustum_visible:
@@ -32,7 +32,7 @@ def add_camera_frustums_to_viser_server(
         ego_pose = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
         ego_pose[StateSE3Index.XYZ] -= scene_center_array
 
-        def _add_camera_frustums_to_viser_server(camera_type: CameraType) -> None:
+        def _add_camera_frustums_to_viser_server(camera_type: PinholeCameraType) -> None:
             camera = scene.get_camera_at_iteration(scene_interation, camera_type)
             if camera is not None:
                 camera_position, camera_quaternion, camera_image = _get_camera_values(
@@ -78,7 +78,7 @@ def add_camera_gui_to_viser_server(
     scene_interation: int,
     viser_server: viser.ViserServer,
     viser_config: ViserConfig,
-    camera_gui_handles: Dict[CameraType, viser.GuiImageHandle],
+    camera_gui_handles: Dict[PinholeCameraType, viser.GuiImageHandle],
 ) -> None:
     if viser_config.camera_gui_visible:
         for camera_type in viser_config.camera_gui_types:
@@ -145,13 +145,13 @@ def add_lidar_pc_to_viser_server(
 
 
 def _get_camera_values(
-    camera: Camera,
+    camera: PinholeCamera,
     ego_pose: npt.NDArray[np.float64],
     resize_factor: Optional[float] = None,
 ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.uint8]]:
     assert ego_pose.ndim == 1 and len(ego_pose) == len(StateSE3Index)
 
-    rel_camera_pose = StateSE3.from_transformation_matrix(camera.extrinsic).array
+    rel_camera_pose = camera.extrinsic.array
     abs_camera_pose = convert_relative_to_absolute_se3_array(origin=ego_pose, se3_array=rel_camera_pose)
 
     camera_position = abs_camera_pose[StateSE3Index.XYZ]

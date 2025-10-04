@@ -14,22 +14,22 @@ from d123.common.visualization.viser.elements import (
 )
 from d123.common.visualization.viser.viser_config import ViserConfig
 from d123.datatypes.scene.abstract_scene import AbstractScene
-from d123.datatypes.sensors.camera import CameraType
-from d123.datatypes.sensors.lidar import LiDARType
+from d123.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
+from d123.datatypes.sensors.lidar.lidar import LiDARType
 from d123.datatypes.vehicle_state.ego_state import EgoStateSE3
 
 logger = logging.getLogger(__name__)
 
 
-all_camera_types: List[CameraType] = [
-    CameraType.CAM_F0,
-    CameraType.CAM_B0,
-    CameraType.CAM_L0,
-    CameraType.CAM_L1,
-    CameraType.CAM_L2,
-    CameraType.CAM_R0,
-    CameraType.CAM_R1,
-    CameraType.CAM_R2,
+all_camera_types: List[PinholeCameraType] = [
+    PinholeCameraType.CAM_F0,
+    PinholeCameraType.CAM_B0,
+    PinholeCameraType.CAM_L0,
+    PinholeCameraType.CAM_L1,
+    PinholeCameraType.CAM_L2,
+    PinholeCameraType.CAM_R0,
+    PinholeCameraType.CAM_R1,
+    PinholeCameraType.CAM_R2,
 ]
 
 all_lidar_types: List[LiDARType] = [
@@ -200,8 +200,8 @@ class ViserViewer:
             if sleep_time > 0:
                 time.sleep(max(sleep_time, 0.0))
 
-        camera_frustum_handles: Dict[CameraType, viser.CameraFrustumHandle] = {}
-        camera_gui_handles: Dict[CameraType, viser.GuiImageHandle] = {}
+        camera_frustum_handles: Dict[PinholeCameraType, viser.CameraFrustumHandle] = {}
+        camera_gui_handles: Dict[PinholeCameraType, viser.GuiImageHandle] = {}
         lidar_pc_handle: Optional[viser.PointCloudHandle] = None
 
         add_box_detections_to_viser_server(

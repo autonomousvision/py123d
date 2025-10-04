@@ -25,8 +25,14 @@ from d123.datasets.av2.av2_helper import (
 from d123.datasets.av2.av2_map_conversion import convert_av2_map
 from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConverter
 from d123.datatypes.scene.scene_metadata import LogMetadata
-from d123.datatypes.sensors.camera import CameraMetadata, CameraType, camera_metadata_dict_to_json
-from d123.datatypes.sensors.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
+from d123.datatypes.sensors.camera.pinhole_camera import (
+    PinholeCameraMetadata,
+    PinholeCameraType,
+    PinholeDistortion,
+    PinholeIntrinsics,
+    camera_metadata_dict_to_json,
+)
+from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.datatypes.vehicle_state.vehicle_parameters import (
@@ -232,24 +238,32 @@ def convert_av2_log_to_arrow(
     return []
 
 
-def get_av2_camera_metadata(log_path: Path) -> Dict[CameraType, CameraMetadata]:
+def get_av2_camera_metadata(log_path: Path) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
 
     intrinsics_file = log_path / "calibration" / "intrinsics.feather"
     intrinsics_df = pd.read_feather(intrinsics_file)
 
-    camera_metadata: Dict[CameraType, CameraMetadata] = {}
+    camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
     for _, row in intrinsics_df.iterrows():
         row = row.to_dict()
-
         camera_type = AV2_CAMERA_TYPE_MAPPING[row["sensor_name"]]
-        camera_metadata[camera_type] = CameraMetadata(
+        camera_metadata[camera_type] = PinholeCameraMetadata(
             camera_type=camera_type,
             width=row["width_px"],
             height=row["height_px"],
-            intrinsic=np.array(
-                [[row["fx_px"], 0, row["cx_px"]], [0, row["fy_px"], row["cy_px"]], [0, 0, 1]], dtype=np.float64
+            intrinsics=PinholeIntrinsics(
+                fx=row["fx_px"],
+                fy=row["fy_px"],
+                cx=row["cx_px"],
+                cy=row["cy_px"],
             ),
-            distortion=np.array([row["k1"], row["k2"], row["k3"], 0, 0], dtype=np.float64),
+            distortion=PinholeDistortion(
+                k1=row["k1"],
+                k2=row["k2"],
+                p1=0.0,
+                p2=0.0,
+                k3=row["k3"],
+            ),
         )
 
     return camera_metadata
@@ -456,9 +470,9 @@ def _extract_camera(
     synchronization_df: pd.DataFrame,
     source_log_path: Path,
     data_converter_config: DataConverterConfig,
-) -> Dict[CameraType, Union[str, bytes]]:
+) -> Dict[PinholeCameraType, Union[str, bytes]]:
 
-    camera_dict: Dict[CameraType, Union[str, bytes]] = {
+    camera_dict: Dict[PinholeCameraType, Union[str, bytes]] = {
         camera_type: None for camera_type in AV2_CAMERA_TYPE_MAPPING.values()
     }
     split = source_log_path.parent.name
@@ -491,30 +505,27 @@ def _extract_camera(
         else:
             absolute_image_path = source_dataset_dir / relative_image_path
             assert absolute_image_path.exists()
-            # TODO: Adjust for finer IMU timestamps to correct the camera extrinsic.
 
+            # TODO: Adjust for finer IMU timestamps to correct the camera extrinsic.
             camera_extrinsic = StateSE3(
-                x=row["tx_m"], y=row["ty_m"], z=row["tz_m"], qw=row["qw"], qx=row["qx"], qy=row["qy"], qz=row["qz"]
+                x=row["tx_m"],
+                y=row["ty_m"],
+                z=row["tz_m"],
+                qw=row["qw"],
+                qx=row["qx"],
+                qy=row["qy"],
+                qz=row["qz"],
             )
 
-            # camera_extrinsic = camera_extrinsic @ ego_transform
-            camera_extrinsic = camera_extrinsic.transformation_matrix.flatten().tolist()
-
             if data_converter_config.camera_store_option == "path":
-                camera_dict[camera_type] = (str(relative_image_path), camera_extrinsic)
+                camera_dict[camera_type] = (str(relative_image_path), camera_extrinsic.tolist())
             elif data_converter_config.camera_store_option == "binary":
                 with open(absolute_image_path, "rb") as f:
-                    camera_dict[camera_type] = (f.read(), camera_extrinsic)
+                    camera_dict[camera_type] = (f.read(), camera_extrinsic.tolist())
 
     return camera_dict
 
 
 def _extract_lidar(lidar_pc, data_converter_config: DataConverterConfig) -> Dict[LiDARType, Optional[str]]:
-
-    # lidar: Optional[str] = None
-    # lidar_full_path = NUPLAN_DATA_ROOT / "nuplan-v1.1" / "sensor_blobs" / lidar_pc.filename
-    # if lidar_full_path.exists():
-    #     lidar = lidar_pc.filename
-
-    # return {LiDARType.LIDAR_MERGED: lidar}
+    # TODO: Implement this function to extract lidar data.
     return {}

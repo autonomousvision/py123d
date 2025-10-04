@@ -1,5 +1,7 @@
 defaults:
   - default_dataset_paths
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
   - _self_
 
 # Cache parameters

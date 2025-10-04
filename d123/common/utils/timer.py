@@ -58,7 +58,6 @@ class Timer:
     def to_pandas(self) -> Optional[pd.DataFrame]:
         """
         Returns a DataFrame with statistics of the logged times.
-        :param verbose: whether to print the timings, defaults to True
         :return: pandas dataframe.
         """
 
@@ -70,9 +69,6 @@ class Timer:
                 timings_statistics[name] = function(timings_array)
             statistics[key] = timings_statistics
         dataframe = pd.DataFrame.from_dict(statistics).transpose()
-
-        # if verbose:
-        #     print(dataframe.to_string())
 
         return dataframe
 

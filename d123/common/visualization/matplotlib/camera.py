@@ -13,7 +13,7 @@ from pyquaternion import Quaternion
 from d123.common.visualization.color.default import BOX_DETECTION_CONFIG
 from d123.datatypes.detections.detection import BoxDetectionSE3, BoxDetectionWrapper
 from d123.datatypes.detections.detection_types import DetectionType
-from d123.datatypes.sensors.camera import Camera
+from d123.datatypes.sensors.camera.pinhole_camera import PinholeCamera
 from d123.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.geometry import BoundingBoxSE3Index, Corners3DIndex
 from d123.geometry.transform.transform_euler_se3 import convert_absolute_to_relative_euler_se3_array
@@ -25,7 +25,7 @@ from d123.geometry.transform.transform_euler_se3 import convert_absolute_to_rela
 # from navsim.visualization.lidar import filter_lidar_pc, get_lidar_pc_color
 
 
-def add_camera_ax(ax: plt.Axes, camera: Camera) -> plt.Axes:
+def add_camera_ax(ax: plt.Axes, camera: PinholeCamera) -> plt.Axes:
     """
     Adds camera image to matplotlib ax object
     :param ax: matplotlib ax object
@@ -70,7 +70,7 @@ def add_camera_ax(ax: plt.Axes, camera: Camera) -> plt.Axes:
 
 def add_box_detections_to_camera_ax(
     ax: plt.Axes,
-    camera: Camera,
+    camera: PinholeCamera,
     box_detections: BoxDetectionWrapper,
     ego_state_se3: EgoStateSE3,
 ) -> plt.Axes:
@@ -115,7 +115,7 @@ def add_box_detections_to_camera_ax(
     corners += detection_positions.reshape(-1, 1, 3)
 
     # Then draw project corners to image.
-    box_corners, corners_pc_in_fov = _transform_points_to_image(corners.reshape(-1, 3), camera.metadata.intrinsic)
+    box_corners, corners_pc_in_fov = _transform_points_to_image(corners.reshape(-1, 3), camera.metadata.intrinsics)
     box_corners = box_corners.reshape(-1, 8, 2)
     corners_pc_in_fov = corners_pc_in_fov.reshape(-1, 8)
     valid_corners = corners_pc_in_fov.any(-1)
