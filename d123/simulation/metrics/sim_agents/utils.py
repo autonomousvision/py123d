@@ -13,15 +13,15 @@ def _get_log_agents_array(
 ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
 
     log_agents_array = np.zeros(
-        (len(agent_tokens), scene.get_number_of_iterations(), len(BoundingBoxSE2Index)),
+        (len(agent_tokens), scene.number_of_iterations, len(BoundingBoxSE2Index)),
         dtype=np.float64,
     )
     log_agents_mask = np.zeros(
-        (len(agent_tokens), scene.get_number_of_iterations()),
+        (len(agent_tokens), scene.number_of_iterations),
         dtype=bool,
     )
 
-    for iteration in range(scene.get_number_of_iterations()):
+    for iteration in range(scene.number_of_iterations):
         box_detections = scene.get_box_detections_at_iteration(iteration)
         for agent_idx, agent_token in enumerate(agent_tokens):
             box_detection = box_detections.get_detection_by_track_token(agent_token)

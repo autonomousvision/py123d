@@ -5,53 +5,30 @@ from typing import List, Optional
 
 from d123.datatypes.detections.detection import BoxDetectionWrapper, DetectionRecording, TrafficLightDetectionWrapper
 from d123.datatypes.maps.abstract_map import AbstractMap
-from d123.datatypes.scene.scene_metadata import LogMetadata
+from d123.datatypes.scene.scene_metadata import LogMetadata, SceneExtractionMetadata
 from d123.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
 from d123.datatypes.sensors.lidar.lidar import LiDAR, LiDARType
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import EgoStateSE3
-
-# TODO: Remove or improve open/close dynamic of Scene object.
+from d123.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 
 
 class AbstractScene(abc.ABC):
 
-    @property
-    @abc.abstractmethod
-    def log_name(self) -> str:
-        raise NotImplementedError
+    ####################################################################################################################
+    # Abstract Methods, to be implemented by subclasses
+    ####################################################################################################################
 
-    @property
     @abc.abstractmethod
-    def token(self) -> str:
-        raise NotImplementedError
-
-    @property
-    @abc.abstractmethod
-    def log_metadata(self) -> LogMetadata:
-        raise NotImplementedError
-
-    @property
-    @abc.abstractmethod
-    def available_camera_types(self) -> List[PinholeCameraType]:
-        raise NotImplementedError
-
-    @property
-    @abc.abstractmethod
-    def available_lidar_types(self) -> List[LiDARType]:
-        raise NotImplementedError
-
-    @property
-    @abc.abstractmethod
-    def map_api(self) -> Optional[AbstractMap]:
+    def get_log_metadata(self) -> LogMetadata:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_number_of_iterations(self) -> int:
+    def get_scene_extraction_metadata(self) -> SceneExtractionMetadata:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_number_of_history_iterations() -> int:
+    def get_map_api(self) -> Optional[AbstractMap]:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -86,8 +63,44 @@ class AbstractScene(abc.ABC):
     def get_lidar_at_iteration(self, iteration: int, lidar_type: LiDARType) -> Optional[LiDAR]:
         raise NotImplementedError
 
-    def open(self) -> None:
-        pass
+    ####################################################################################################################
+    # Syntactic Sugar / Properties, for easier access to common attributes
+    ####################################################################################################################
 
-    def close(self) -> None:
-        pass
+    # 1. Log Metadata properties
+    @property
+    def log_metadata(self) -> LogMetadata:
+        return self.get_log_metadata()
+
+    @property
+    def log_name(self) -> str:
+        return self.log_metadata.log_name
+
+    @property
+    def vehicle_parameters(self) -> VehicleParameters:
+        return self.log_metadata.vehicle_parameters
+
+    @property
+    def available_camera_types(self) -> List[PinholeCameraType]:
+        return list(self.log_metadata.camera_metadata.keys())
+
+    @property
+    def available_lidar_types(self) -> List[LiDARType]:
+        return list(self.log_metadata.lidar_metadata.keys())
+
+    # 2. Scene Extraction Metadata properties
+    @property
+    def scene_extraction_metadata(self) -> SceneExtractionMetadata:
+        return self.get_scene_extraction_metadata()
+
+    @property
+    def token(self) -> str:
+        return self.scene_extraction_metadata.initial_token
+
+    @property
+    def number_of_iterations(self) -> int:
+        return self.scene_extraction_metadata.number_of_iterations
+
+    @property
+    def number_of_history_iterations(self) -> int:
+        return self.scene_extraction_metadata.number_of_history_iterations

@@ -26,10 +26,8 @@ from d123.datatypes.maps.abstract_map_objects import AbstractLane
 from d123.datatypes.maps.map_datatypes import MapLayer
 from d123.datatypes.scene.abstract_scene import AbstractScene
 from d123.datatypes.vehicle_state.ego_state import EgoStateSE2, EgoStateSE3
-from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D
-from d123.geometry.geometry_index import StateSE2Index
+from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D, StateSE2Index, Vector2D
 from d123.geometry.transform.transform_se2 import translate_se2_along_body_frame
-from d123.geometry.vector import Vector2D
 
 
 def add_default_map_on_ax(
@@ -100,7 +98,7 @@ def add_box_future_detections_to_ax(ax: plt.Axes, scene: AbstractScene, iteratio
         if agent.metadata.detection_type == DetectionType.VEHICLE
     }
     frequency = 1
-    for iteration in range(iteration + frequency, scene.get_number_of_iterations(), frequency):
+    for iteration in range(iteration + frequency, scene.number_of_iterations, frequency):
         agents = scene.get_box_detections_at_iteration(iteration)
         for agent in agents:
             if agent.metadata.track_token in agents_poses:

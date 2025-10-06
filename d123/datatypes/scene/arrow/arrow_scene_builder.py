@@ -1,16 +1,16 @@
-import json
 import random
 from functools import partial
 from pathlib import Path
 from typing import Iterator, List, Optional, Set, Union
 
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
-from d123.common.utils.arrow_helper import open_arrow_table
+from d123.common.utils.arrow_helper import get_lru_cached_arrow_table
 from d123.datatypes.scene.abstract_scene import AbstractScene
 from d123.datatypes.scene.abstract_scene_builder import SceneBuilder
 from d123.datatypes.scene.arrow.arrow_scene import ArrowScene
+from d123.datatypes.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow
 from d123.datatypes.scene.scene_filter import SceneFilter
-from d123.datatypes.scene.scene_metadata import LogMetadata, SceneExtractionInfo
+from d123.datatypes.scene.scene_metadata import SceneExtractionMetadata
 
 
 class ArrowSceneBuilder(SceneBuilder):
@@ -71,29 +71,29 @@ def _extract_scenes_from_logs(log_paths: List[Path], filter: SceneFilter) -> Lis
     scenes: List[AbstractScene] = []
     for log_path in log_paths:
         try:
-            scene_extraction_infos = _get_scene_extraction_info(log_path, filter)
+            scene_extraction_metadatas = _get_scene_extraction_metadatas(log_path, filter)
         except Exception as e:
             print(f"Error extracting scenes from {log_path}: {e}")
             continue
-        for scene_extraction_info in scene_extraction_infos:
+        for scene_extraction_metadata in scene_extraction_metadatas:
             scenes.append(
                 ArrowScene(
                     arrow_file_path=log_path,
-                    scene_extraction_info=scene_extraction_info,
+                    scene_extraction_metadata=scene_extraction_metadata,
                 )
             )
     return scenes
 
 
-def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) -> List[SceneExtractionInfo]:
-    scene_extraction_infos: List[SceneExtractionInfo] = []
+def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFilter) -> List[SceneExtractionMetadata]:
+    scene_extraction_metadatas: List[SceneExtractionMetadata] = []
 
-    recording_table = open_arrow_table(log_path)
-    log_metadata = LogMetadata(**json.loads(recording_table.schema.metadata[b"log_metadata"].decode()))
+    recording_table = get_lru_cached_arrow_table(log_path)
+    log_metadata = get_log_metadata_from_arrow(log_path)
 
     # 1. Filter map name
     if filter.map_names is not None and log_metadata.map_name not in filter.map_names:
-        return scene_extraction_infos
+        return scene_extraction_metadatas
 
     start_idx = int(filter.history_s / log_metadata.timestep_seconds) if filter.history_s is not None else 0
     end_idx = (
@@ -103,7 +103,8 @@ def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) 
     )
     if filter.duration_s is None:
         return [
-            SceneExtractionInfo(
+            SceneExtractionMetadata(
+                initial_token=str(recording_table["token"][start_idx].as_py()),
                 initial_idx=start_idx,
                 duration_s=(end_idx - start_idx) * log_metadata.timestep_seconds,
                 history_s=filter.history_s if filter.history_s is not None else 0.0,
@@ -114,27 +115,29 @@ def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) 
     scene_token_set = set(filter.scene_tokens) if filter.scene_tokens is not None else None
 
     for idx in range(start_idx, end_idx):
-        scene_extraction_info: Optional[SceneExtractionInfo] = None
+        scene_extraction_metadata: Optional[SceneExtractionMetadata] = None
 
         if scene_token_set is None:
-            scene_extraction_info = SceneExtractionInfo(
+            scene_extraction_metadata = SceneExtractionMetadata(
+                initial_token=str(recording_table["token"][idx].as_py()),
                 initial_idx=idx,
                 duration_s=filter.duration_s,
                 history_s=filter.history_s,
                 iteration_duration_s=log_metadata.timestep_seconds,
             )
         elif str(recording_table["token"][idx]) in scene_token_set:
-            scene_extraction_info = SceneExtractionInfo(
+            scene_extraction_metadata = SceneExtractionMetadata(
+                initial_token=str(recording_table["token"][idx].as_py()),
                 initial_idx=idx,
                 duration_s=filter.duration_s,
                 history_s=filter.history_s,
                 iteration_duration_s=log_metadata.timestep_seconds,
             )
 
-        if scene_extraction_info is not None:
+        if scene_extraction_metadata is not None:
             # Check of timestamp threshold exceeded between previous scene, if specified in filter
-            if filter.timestamp_threshold_s is not None and len(scene_extraction_infos) > 0:
-                iteration_delta = idx - scene_extraction_infos[-1].initial_idx
+            if filter.timestamp_threshold_s is not None and len(scene_extraction_metadatas) > 0:
+                iteration_delta = idx - scene_extraction_metadatas[-1].initial_idx
                 if (iteration_delta * log_metadata.timestep_seconds) < filter.timestamp_threshold_s:
                     continue
 
@@ -148,7 +151,7 @@ def _get_scene_extraction_info(log_path: Union[str, Path], filter: SceneFilter) 
                 if not all(cameras_available):
                     continue
 
-            scene_extraction_infos.append(scene_extraction_info)
+            scene_extraction_metadatas.append(scene_extraction_metadata)
 
     del recording_table, log_metadata
-    return scene_extraction_infos
+    return scene_extraction_metadatas

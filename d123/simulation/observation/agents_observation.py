@@ -6,7 +6,7 @@ from d123.common.datatypes.recording.abstract_recording import Recording
 from d123.common.datatypes.recording.detection_recording import DetectionRecording
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE2
 from d123.datasets.scene.abstract_scene import AbstractScene
-from d123.datatypes.scene.arrow.utils.conversion import BoxDetectionWrapper
+from d123.datatypes.scene.arrow.utils.arrow_getters import BoxDetectionWrapper
 from d123.simulation.agents.abstract_agents import AbstractAgents
 
 # from d123.simulation.agents.path_following import PathFollowingAgents
@@ -43,7 +43,7 @@ class AgentsObservation(AbstractObservation):
             detection_types=[DetectionType.VEHICLE],
         )
         cars = self._agents.reset(
-            map_api=self._scene.map_api,
+            map_api=self._scene.get_map_api(),
             target_agents=cars,
             non_target_agents=non_cars,
             scene=self._scene if self._agents.requires_scene else None,

@@ -8,21 +8,20 @@ from d123.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
 
 if __name__ == "__main__":
 
-    splits = ["nuplan_private_test"]
+    # splits = ["nuplan_private_test"]
     # splits = ["carla"]
-    # splits = ["wopd_train"]
+    splits = ["wopd_train"]
     # splits = ["av2-sensor-mini_train"]
     log_names = None
-
     scene_tokens = None
 
     scene_filter = SceneFilter(
         split_names=splits,
         log_names=log_names,
         scene_tokens=scene_tokens,
-        duration_s=18,
-        history_s=0.5,
-        timestamp_threshold_s=10,
+        duration_s=None,
+        history_s=None,
+        timestamp_threshold_s=None,
         shuffle=True,
         camera_types=[PinholeCameraType.CAM_F0],
     )

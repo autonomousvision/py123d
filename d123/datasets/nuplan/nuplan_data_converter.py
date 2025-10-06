@@ -1,8 +1,6 @@
 import gc
-import json
 import os
 import pickle
-from dataclasses import asdict
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, Final, List, Optional, Tuple, Union
@@ -20,15 +18,15 @@ from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConvert
 from d123.datasets.utils.sensor.lidar_index_registry import NuplanLidarIndex
 from d123.datatypes.detections.detection import TrafficLightStatus
 from d123.datatypes.detections.detection_types import DetectionType
+from d123.datatypes.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
 from d123.datatypes.scene.scene_metadata import LogMetadata
 from d123.datatypes.sensors.camera.pinhole_camera import (
     PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
-    camera_metadata_dict_to_json,
 )
-from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
+from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.datatypes.vehicle_state.vehicle_parameters import (
@@ -197,20 +195,23 @@ def convert_nuplan_log_to_arrow(
         log_file_path = data_converter_config.output_path / split / f"{log_path.stem}.arrow"
 
         if data_converter_config.force_log_conversion or not log_file_path.exists():
+
             log_file_path.unlink(missing_ok=True)
             if not log_file_path.parent.exists():
                 log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-            metadata = LogMetadata(
+            log_metadata = LogMetadata(
                 dataset="nuplan",
+                split=split,
                 log_name=log_db.log_name,
                 location=log_db.log.map_version,
                 timestep_seconds=TARGET_DT,
+                vehicle_parameters=get_nuplan_chrysler_pacifica_parameters(),
+                camera_metadata=get_nuplan_camera_metadata(log_path),
+                lidar_metadata=get_nuplan_lidar_metadata(),
                 map_has_z=False,
+                map_is_local=False,
             )
-            vehicle_parameters = get_nuplan_chrysler_pacifica_parameters()
-            camera_metadata = get_nuplan_camera_metadata(log_path)
-            lidar_metadata = get_nuplan_lidar_metadata()
 
             schema_column_list = [
                 ("token", pa.string()),
@@ -226,14 +227,14 @@ def convert_nuplan_log_to_arrow(
                 ("route_lane_group_ids", pa.list_(pa.int64())),
             ]
             if data_converter_config.lidar_store_option is not None:
-                for lidar_type in lidar_metadata.keys():
+                for lidar_type in log_metadata.lidar_metadata.keys():
                     if data_converter_config.lidar_store_option == "path":
                         schema_column_list.append((lidar_type.serialize(), pa.string()))
                     elif data_converter_config.lidar_store_option == "binary":
                         raise NotImplementedError("Binary lidar storage is not implemented.")
 
             if data_converter_config.camera_store_option is not None:
-                for camera_type in camera_metadata.keys():
+                for camera_type in log_metadata.camera_metadata.keys():
                     if data_converter_config.camera_store_option == "path":
                         schema_column_list.append((camera_type.serialize(), pa.string()))
                         schema_column_list.append(
@@ -244,21 +245,15 @@ def convert_nuplan_log_to_arrow(
                         raise NotImplementedError("Binary camera storage is not implemented.")
 
             recording_schema = pa.schema(schema_column_list)
-            recording_schema = recording_schema.with_metadata(
-                {
-                    "log_metadata": json.dumps(asdict(metadata)),
-                    "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
-                    "camera_metadata": camera_metadata_dict_to_json(camera_metadata),
-                    "lidar_metadata": lidar_metadata_dict_to_json(lidar_metadata),
-                }
-            )
-
+            recording_schema = add_log_metadata_to_arrow_schema(recording_schema, log_metadata)
             _write_recording_table(log_db, recording_schema, log_file_path, log_path, data_converter_config)
 
+            # Detach and remove log_db, for memory management
             log_db.detach_tables()
             log_db.remove_ref()
-            del recording_schema, vehicle_parameters, log_db
-        gc.collect()
+            del recording_schema, log_db
+            gc.collect()
+
     return []
 
 

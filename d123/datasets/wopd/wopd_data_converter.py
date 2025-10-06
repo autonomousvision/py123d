@@ -1,8 +1,6 @@
 import gc
 import hashlib
-import json
 import os
-from dataclasses import asdict
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, Final, List, Tuple, Union
@@ -20,21 +18,25 @@ from d123.datasets.utils.sensor.lidar_index_registry import WopdLidarIndex
 from d123.datasets.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
 from d123.datasets.wopd.wopd_utils import parse_range_image_and_camera_projection
 from d123.datatypes.detections.detection_types import DetectionType
+from d123.datatypes.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
 from d123.datatypes.scene.scene_metadata import LogMetadata
 from d123.datatypes.sensors.camera.pinhole_camera import (
     PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
-    camera_metadata_dict_to_json,
 )
-from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
+from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.datatypes.vehicle_state.vehicle_parameters import get_wopd_chrysler_pacifica_parameters
 from d123.geometry import BoundingBoxSE3Index, EulerAngles, StateSE3, Vector3D, Vector3DIndex
-from d123.geometry.geometry_index import StateSE3Index
+from d123.geometry.geometry_index import EulerAnglesIndex, StateSE3Index
 from d123.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array
 from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
+from d123.geometry.utils.rotation_utils import (
+    get_euler_array_from_quaternion_array,
+    get_quaternion_array_from_euler_array,
+)
 
 check_dependencies(modules=["tensorflow", "waymo_open_dataset"], optional_name="waymo")
 import tensorflow as tf
@@ -216,16 +218,18 @@ def convert_wopd_tfrecord_log_to_arrow(
                 if not log_file_path.parent.exists():
                     log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-                metadata = LogMetadata(
+                log_metadata = LogMetadata(
                     dataset="wopd",
+                    split=split,
                     log_name=log_name,
-                    location=None,  # TODO: implement map name
-                    timestep_seconds=TARGET_DT,  # TODO: Check if correct. Maybe not hardcode
+                    location=None,  # TODO: Add location information.
+                    timestep_seconds=TARGET_DT,
+                    vehicle_parameters=get_wopd_chrysler_pacifica_parameters(),
+                    camera_metadata=get_wopd_camera_metadata(initial_frame, data_converter_config),
+                    lidar_metadata=get_wopd_lidar_metadata(initial_frame, data_converter_config),
                     map_has_z=True,
+                    map_is_local=True,
                 )
-                vehicle_parameters = get_wopd_chrysler_pacifica_parameters()
-                camera_metadata = get_wopd_camera_metadata(initial_frame, data_converter_config)
-                lidar_metadata = get_wopd_lidar_metadata(initial_frame, data_converter_config)
 
                 schema_column_list = [
                     ("token", pa.string()),
@@ -242,7 +246,7 @@ def convert_wopd_tfrecord_log_to_arrow(
                 ]
                 # TODO: Adjust how cameras are added
                 if data_converter_config.camera_store_option is not None:
-                    for camera_type in camera_metadata.keys():
+                    for camera_type in log_metadata.camera_metadata.keys():
                         if data_converter_config.camera_store_option == "path":
                             raise NotImplementedError("Path camera storage is not implemented.")
                         elif data_converter_config.camera_store_option == "binary":
@@ -252,25 +256,18 @@ def convert_wopd_tfrecord_log_to_arrow(
                             )
 
                 if data_converter_config.lidar_store_option is not None:
-                    for lidar_type in lidar_metadata.keys():
+                    for lidar_type in log_metadata.lidar_metadata.keys():
                         if data_converter_config.lidar_store_option == "path":
                             raise NotImplementedError("Filepath lidar storage is not implemented.")
                         elif data_converter_config.lidar_store_option == "binary":
                             schema_column_list.append((lidar_type.serialize(), (pa.list_(pa.float32()))))
 
                 recording_schema = pa.schema(schema_column_list)
-                recording_schema = recording_schema.with_metadata(
-                    {
-                        "log_metadata": json.dumps(asdict(metadata)),
-                        "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
-                        "camera_metadata": camera_metadata_dict_to_json(camera_metadata),
-                        "lidar_metadata": lidar_metadata_dict_to_json(lidar_metadata),
-                    }
-                )
+                recording_schema = add_log_metadata_to_arrow_schema(recording_schema, log_metadata)
 
                 _write_recording_table(dataset, recording_schema, log_file_path, tf_record_path, data_converter_config)
 
-                del recording_schema, vehicle_parameters, dataset
+                del recording_schema, dataset
         except Exception as e:
             import traceback
 
@@ -408,15 +405,9 @@ def _extract_detections(frame: dataset_pb2.Frame) -> Tuple[List[List[float]], Li
     for detection_idx, detection in enumerate(frame.laser_labels):
         if detection.type not in WOPD_DETECTION_NAME_DICT:
             continue
-
-        # 1. Quaternion rotations
-        # NOTE: WOPD bounding boxes are (1) stored in ego frame and (2) only supply yaw rotation
-        #   The global pose can either consider ego roll and pitch or set them to zero.
-        #   (zero roll/pitch corresponds to setting it to the ego roll/pitch, before transformation to global frame)
-        #
         detection_quaternion = EulerAngles(
-            roll=ego_rear_axle.roll if ZERO_ROLL_PITCH else DEFAULT_ROLL,
-            pitch=ego_rear_axle.pitch if ZERO_ROLL_PITCH else DEFAULT_PITCH,
+            roll=DEFAULT_ROLL,
+            pitch=DEFAULT_PITCH,
             yaw=detection.box.heading,
         ).quaternion
 
@@ -443,6 +434,12 @@ def _extract_detections(frame: dataset_pb2.Frame) -> Tuple[List[List[float]], Li
     detections_state[:, BoundingBoxSE3Index.STATE_SE3] = convert_relative_to_absolute_se3_array(
         origin=ego_rear_axle, se3_array=detections_state[:, BoundingBoxSE3Index.STATE_SE3]
     )
+    if ZERO_ROLL_PITCH:
+        euler_array = get_euler_array_from_quaternion_array(detections_state[:, BoundingBoxSE3Index.QUATERNION])
+        euler_array[..., EulerAnglesIndex.ROLL] = DEFAULT_ROLL
+        euler_array[..., EulerAnglesIndex.PITCH] = DEFAULT_PITCH
+        detections_state[..., BoundingBoxSE3Index.QUATERNION] = get_quaternion_array_from_euler_array(euler_array)
+
     return detections_state.tolist(), detections_velocity.tolist(), detections_token, detections_types
 
 

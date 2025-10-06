@@ -18,7 +18,7 @@ from d123.datasets.utils.maps.opendrive.opendrive_map_conversion import convert_
 from d123.datasets.utils.sensor.lidar_index_registry import CarlaLidarIndex
 from d123.datatypes.maps.abstract_map import AbstractMap, MapLayer
 from d123.datatypes.maps.abstract_map_objects import AbstractLane
-from d123.datatypes.maps.gpkg.gpkg_map import get_map_api_from_names
+from d123.datatypes.maps.gpkg.gpkg_map import get_global_map_api
 from d123.datatypes.scene.scene_metadata import LogMetadata
 from d123.datatypes.sensors.camera.pinhole_camera import (
     PinholeCameraMetadata,
@@ -178,7 +178,7 @@ def convert_carla_log_to_arrow(
                 bounding_box_paths = sorted([bb_path for bb_path in (log_path / "boxes").iterdir()])
                 first_log_dict = _load_json_gz(bounding_box_paths[0])
                 map_name = first_log_dict["location"]
-                map_api = get_map_api_from_names("carla", map_name)
+                map_api = get_global_map_api("carla", map_name)
 
                 metadata = _get_metadata(map_name, str(log_path.stem))
                 vehicle_parameters = get_carla_lincoln_mkz_2020_parameters()

@@ -41,4 +41,4 @@ class LogTimeController(AbstractTimeController):
 
     def number_of_iterations(self) -> int:
         """Inherited, see superclass."""
-        return self._scene.get_number_of_iterations()
+        return self._scene.number_of_iterations

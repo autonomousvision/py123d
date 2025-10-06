@@ -43,7 +43,7 @@ def _get_map_trimesh_dict(
         MapLayer.CARPARK,
         MapLayer.GENERIC_DRIVABLE,
     ]
-    map_objects_dict = scene.map_api.get_proximal_map_objects(
+    map_objects_dict = scene.get_map_api().get_proximal_map_objects(
         scene_center.point_2d,
         radius=viser_config.map_radius,
         layers=map_layers,

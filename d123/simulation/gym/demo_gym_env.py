@@ -11,7 +11,7 @@ from nuplan.planning.simulation.controller.motion_model.kinematic_bicycle import
 from d123.common.datatypes.recording.detection_recording import DetectionRecording
 from d123.datasets.maps.abstract_map import AbstractMap
 from d123.datasets.scene.abstract_scene import AbstractScene
-from d123.datatypes.scene.arrow.utils.conversion import EgoStateSE3
+from d123.datatypes.scene.arrow.utils.arrow_getters import EgoStateSE3
 from d123.simulation.observation.abstract_observation import AbstractObservation
 from d123.simulation.observation.agents_observation import AgentsObservation
 
@@ -59,7 +59,12 @@ class DemoGymEnv:
         # )
         detection_observation = self._observation.reset(self._current_scene)
 
-        return self._current_scene.map_api, self._current_ego_vehicle_state, detection_observation, self._current_scene
+        return (
+            self._current_scene.get_map_api(),
+            self._current_ego_vehicle_state,
+            detection_observation,
+            self._current_scene,
+        )
 
     def step(self, action: npt.NDArray[np.float64]) -> Tuple[EgoState, DetectionRecording, bool]:
         self._current_scene_index += 1
@@ -73,7 +78,7 @@ class DemoGymEnv:
             )
 
         detection_observation = self._observation.step()
-        is_done = self._current_scene_index == self._current_scene.get_number_of_iterations() - 1
+        is_done = self._current_scene_index == self._current_scene.number_of_iterations - 1
 
         return self._current_ego_vehicle_state, detection_observation, is_done
 

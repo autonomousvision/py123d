@@ -47,7 +47,7 @@ class PathFollowingAgents(AbstractAgents):
         self._initial_target_agents = [copy.deepcopy(agent) for agent in target_agents]
 
         future_box_detections = [
-            scene.get_box_detections_at_iteration(iteration) for iteration in range(0, scene.get_number_of_iterations())
+            scene.get_box_detections_at_iteration(iteration) for iteration in range(0, scene.number_of_iterations)
         ]
 
         # TODO: refactor or move for general use

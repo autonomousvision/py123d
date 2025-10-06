@@ -113,7 +113,7 @@ class ViserViewer:
         self.set_scene(self._scenes[self._scene_index])
 
     def set_scene(self, scene: AbstractScene) -> None:
-        num_frames = scene.get_number_of_iterations()
+        num_frames = scene.number_of_iterations
         initial_ego_state: EgoStateSE3 = scene.get_ego_state_at_iteration(0)
 
         with self._viser_server.gui.add_folder("Playback"):

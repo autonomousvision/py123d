@@ -1,4 +1,3 @@
-from functools import lru_cache
 from typing import Union
 
 import matplotlib.patches as patches
@@ -99,7 +98,6 @@ def add_shapely_linestring_to_ax(
     return ax
 
 
-@lru_cache(maxsize=32)
 def get_pose_triangle(size: float) -> geom.Polygon:
     """Create a triangle shape for the pose."""
     half_size = size / 2

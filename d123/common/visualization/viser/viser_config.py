@@ -45,7 +45,7 @@ class ViserConfig:
     # Map
     map_visible: bool = True
     map_radius: float = 200.0  # [m]
-    map_non_road_z_offset: float = 0.0  # small translation to place crosswalks, parking, etc. on top of the road
+    map_non_road_z_offset: float = 0.1  # small z-translation to place crosswalks, parking, etc. on top of the road
 
     # Bounding boxes
     bounding_box_visible: bool = True
@@ -65,7 +65,7 @@ class ViserConfig:
     camera_gui_image_scale: float = 0.25  # Resize factor for the camera image shown in the GUI (<1.0 for speed)
 
     # LiDAR
-    lidar_visible: bool = True
+    lidar_visible: bool = False
     lidar_types: List[LiDARType] = field(default_factory=lambda: all_lidar_types.copy())
     lidar_point_size: float = 0.05
     lidar_point_shape: Literal["square", "diamond", "circle", "rounded", "sparkle"] = "circle"

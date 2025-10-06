@@ -349,7 +349,7 @@ class DefaultRewardBuilder(AbstractRewardBuilder):
         assert len(self._reward_history) > 0
 
         current_iteration = simulation_wrapper.current_planner_input.iteration.index
-        num_simulation_iterations = simulation_wrapper.scenario.get_number_of_iterations()
+        num_simulation_iterations = simulation_wrapper.scenario.number_of_iterations
 
         remaining_time = 1 - (current_iteration / num_simulation_iterations)
         remaining_progress = 1 - simulation_wrapper.route_completion

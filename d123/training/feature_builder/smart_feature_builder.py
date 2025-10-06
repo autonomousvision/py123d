@@ -69,7 +69,7 @@ def _build_map_features(scene: AbstractScene, origin: StateSE2) -> Dict[str, np.
     # create map extent polygon
     map_bounding_box = BoundingBoxSE2(origin, height, width)
 
-    map_api = scene.map_api
+    map_api = scene.get_map_api()
     map_objects = map_api.query(
         map_bounding_box.shapely_polygon,
         layers=[
@@ -194,7 +194,7 @@ def _build_map_features(scene: AbstractScene, origin: StateSE2) -> Dict[str, np.
 def _build_agent_features(scene: AbstractScene, origin: StateSE2) -> None:
     iteration_indices = np.arange(
         -scene.get_number_of_history_iterations(),
-        scene.get_number_of_iterations(),
+        scene.number_of_iterations,
     )
     # print(iteration_indices[scene.get_number_of_history_iterations()])
     num_steps = len(iteration_indices)

@@ -1,7 +1,5 @@
 import gc
 import hashlib
-import json
-from dataclasses import asdict
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -24,15 +22,15 @@ from d123.datasets.av2.av2_helper import (
 )
 from d123.datasets.av2.av2_map_conversion import convert_av2_map
 from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConverter
+from d123.datatypes.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
 from d123.datatypes.scene.scene_metadata import LogMetadata
 from d123.datatypes.sensors.camera.pinhole_camera import (
     PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
-    camera_metadata_dict_to_json,
 )
-from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
+from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.datatypes.vehicle_state.vehicle_parameters import (
@@ -40,6 +38,7 @@ from d123.datatypes.vehicle_state.vehicle_parameters import (
     rear_axle_se3_to_center_se3,
 )
 from d123.geometry import BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
+from d123.geometry.geometry_index import StateSE3Index
 from d123.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array
 
 
@@ -174,16 +173,18 @@ def convert_av2_log_to_arrow(
             sensor_df = build_sensor_dataframe(log_path)
             synchronization_df = build_synchronization_dataframe(sensor_df)
 
-            metadata = LogMetadata(
+            log_metadata = LogMetadata(
                 dataset="av2-sensor",
+                split=split,
                 log_name=log_path.name,
-                location=None,
-                timestep_seconds=0.1,  # TODO: verify this
+                location=None,  # TODO: Add location information.
+                timestep_seconds=0.1,
+                vehicle_parameters=get_av2_ford_fusion_hybrid_parameters(),
+                camera_metadata=get_av2_camera_metadata(log_path),
+                lidar_metadata=get_av2_lidar_metadata(log_path),
                 map_has_z=True,
+                map_is_local=True,
             )
-            vehicle_parameters = get_av2_ford_fusion_hybrid_parameters()  # TODO: Add av2 vehicle parameters
-            camera_metadata = get_av2_camera_metadata(log_path)
-            lidar_metadata = get_av2_lidar_metadata(log_path)
 
             schema_column_list = [
                 ("token", pa.string()),
@@ -199,31 +200,26 @@ def convert_av2_log_to_arrow(
                 ("route_lane_group_ids", pa.list_(pa.int64())),
             ]
             if data_converter_config.lidar_store_option is not None:
-                for lidar_type in lidar_metadata.keys():
+                for lidar_type in log_metadata.lidar_metadata.keys():
                     if data_converter_config.lidar_store_option == "path":
                         schema_column_list.append((lidar_type.serialize(), pa.string()))
                     elif data_converter_config.lidar_store_option == "binary":
                         raise NotImplementedError("Binary lidar storage is not implemented.")
 
             if data_converter_config.camera_store_option is not None:
-                for camera_type in camera_metadata.keys():
+                for camera_type in log_metadata.camera_metadata.keys():
                     if data_converter_config.camera_store_option == "path":
                         schema_column_list.append((camera_type.serialize(), pa.string()))
 
                     elif data_converter_config.camera_store_option == "binary":
                         schema_column_list.append((camera_type.serialize(), pa.binary()))
 
-                    schema_column_list.append((f"{camera_type.serialize()}_extrinsic", pa.list_(pa.float64(), 4 * 4)))
+                    schema_column_list.append(
+                        (f"{camera_type.serialize()}_extrinsic", pa.list_(pa.float64(), len(StateSE3Index)))
+                    )
 
             recording_schema = pa.schema(schema_column_list)
-            recording_schema = recording_schema.with_metadata(
-                {
-                    "log_metadata": json.dumps(asdict(metadata)),
-                    "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
-                    "camera_metadata": camera_metadata_dict_to_json(camera_metadata),
-                    "lidar_metadata": lidar_metadata_dict_to_json(lidar_metadata),
-                }
-            )
+            recording_schema = add_log_metadata_to_arrow_schema(recording_schema, log_metadata)
 
             _write_recording_table(
                 sensor_df,
@@ -233,7 +229,7 @@ def convert_av2_log_to_arrow(
                 log_path,
                 data_converter_config,
             )
-            del recording_schema, vehicle_parameters
+            del recording_schema
         gc.collect()
     return []
 
