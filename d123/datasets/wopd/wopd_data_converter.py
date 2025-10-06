@@ -3,12 +3,11 @@ import hashlib
 import os
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Final, List, Tuple, Union
+from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
-from pyparsing import Optional
 
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.common.utils.dependencies import check_dependencies
