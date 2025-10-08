@@ -14,6 +14,6 @@ def get_log_metadata_from_arrow(arrow_file_path: Union[Path, str]) -> LogMetadat
     return log_metadata
 
 
-def add_log_metadata_to_arrow_schema(schema: pa.Schema, log_metadata: LogMetadata) -> pa.Schema:
+def add_log_metadata_to_arrow_schema(schema: pa.schema, log_metadata: LogMetadata) -> pa.schema:
     schema = schema.with_metadata({"log_metadata": json.dumps(log_metadata.to_dict())})
     return schema

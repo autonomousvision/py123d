@@ -10,8 +10,8 @@ if __name__ == "__main__":
 
     # splits = ["nuplan_private_test"]
     # splits = ["carla"]
-    splits = ["wopd_train"]
-    # splits = ["av2-sensor-mini_train"]
+    # splits = ["wopd_train"]
+    splits = ["av2-sensor-mini_train"]
     log_names = None
     scene_tokens = None
 

@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Final, Literal, Optional, Union
+from typing import Final, Union
 
 import pyarrow as pa
 
@@ -15,10 +15,12 @@ def open_arrow_table(arrow_file_path: Union[str, Path]) -> pa.Table:
 
 
 def write_arrow_table(table: pa.Table, arrow_file_path: Union[str, Path]) -> None:
-    compression: Optional[Literal["lz4", "zstd"]] = "zstd"
-    options = pa.ipc.IpcWriteOptions(compression=compression)
+    # compression: Optional[Literal["lz4", "zstd"]] = "lz4"
+    # codec = pa.Codec("zstd", compression_level=100) if compression is not None else None
+    # options = pa.ipc.IpcWriteOptions(compression=codec)
     with pa.OSFile(str(arrow_file_path), "wb") as sink:
-        with pa.ipc.new_file(sink, table.schema, options=options) as writer:
+        # with pa.ipc.new_file(sink, table.schema, options=options) as writer:
+        with pa.ipc.new_file(sink, table.schema) as writer:
             writer.write_table(table)
 
 

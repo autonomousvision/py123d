@@ -43,7 +43,7 @@ def get_ego_vehicle_state_from_arrow_table(
 ) -> EgoStateSE3:
     timepoint = get_timepoint_from_arrow_table(arrow_table, index)
     return EgoStateSE3.from_array(
-        array=pa.array(arrow_table["ego_states"][index]).to_numpy(),
+        array=pa.array(arrow_table["ego_state"][index]).to_numpy(),
         vehicle_parameters=vehicle_parameters,
         timepoint=timepoint,
     )
@@ -54,10 +54,10 @@ def get_box_detections_from_arrow_table(arrow_table: pa.Table, index: int) -> Bo
     box_detections: List[BoxDetection] = []
 
     for detection_state, detection_velocity, detection_token, detection_type in zip(
-        arrow_table["detections_state"][index].as_py(),
-        arrow_table["detections_velocity"][index].as_py(),
-        arrow_table["detections_token"][index].as_py(),
-        arrow_table["detections_type"][index].as_py(),
+        arrow_table["box_detection_state"][index].as_py(),
+        arrow_table["box_detection_velocity"][index].as_py(),
+        arrow_table["box_detection_token"][index].as_py(),
+        arrow_table["box_detection_type"][index].as_py(),
     ):
         box_detection = BoxDetectionSE3(
             metadata=BoxDetectionMetadata(
@@ -97,8 +97,9 @@ def get_camera_from_arrow_table(
     log_metadata: LogMetadata,
 ) -> PinholeCamera:
 
-    table_data = arrow_table[camera_type.serialize()][index].as_py()
-    extrinsic_values = arrow_table[f"{camera_type.serialize()}_extrinsic"][index].as_py()
+    camera_name = camera_type.serialize()
+    table_data = arrow_table[f"{camera_name}_data"][index].as_py()
+    extrinsic_values = arrow_table[f"{camera_name}_extrinsic"][index].as_py()
     extrinsic = StateSE3.from_list(extrinsic_values) if extrinsic_values is not None else None
 
     if table_data is None or extrinsic is None:

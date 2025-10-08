@@ -14,7 +14,7 @@ from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, OccupancyMap2D, StateS
 class BoxDetectionMetadata:
 
     detection_type: DetectionType
-    timepoint: TimePoint
+    timepoint: TimePoint  # TODO: Consider removing or making optional
     track_token: str
     confidence: Optional[float] = None
 
@@ -125,7 +125,7 @@ class TrafficLightStatus(SerialIntEnum):
 @dataclass
 class TrafficLightDetection:
 
-    timepoint: TimePoint
+    timepoint: TimePoint  # TODO: Consider removing or making optional
     lane_id: int
     status: TrafficLightStatus
 
