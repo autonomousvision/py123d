@@ -3,7 +3,7 @@ import os
 import pickle
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Final, List, Optional, Tuple, Union
+from typing import Any, Dict, Final, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import pyarrow as pa
@@ -300,9 +300,11 @@ def _write_recording_table(
     source_log_path: Path,
     data_converter_config: DataConverterConfig,
 ) -> None:
+    compression: Optional[Literal["lz4", "zstd"]] = "zstd"
+    options = pa.ipc.IpcWriteOptions(compression=compression)
 
     with pa.OSFile(str(log_file_path), "wb") as sink:
-        with pa.ipc.new_file(sink, recording_schema) as writer:
+        with pa.ipc.new_file(sink, recording_schema, options=options) as writer:
             step_interval: float = int(TARGET_DT / NUPLAN_DT)
             for lidar_pc in log_db.lidar_pc[::step_interval]:
                 lidar_pc_token: str = lidar_pc.token
