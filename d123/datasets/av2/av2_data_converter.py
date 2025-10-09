@@ -10,11 +10,7 @@ from typing_extensions import Final
 
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.common.utils.arrow_helper import open_arrow_table, write_arrow_table
-from d123.datasets.av2.av2_constants import (
-    AV2_CAMERA_TYPE_MAPPING,
-    AV2_TO_DETECTION_TYPE,
-    AV2SensorBoxDetectionType,
-)
+from d123.datasets.av2.av2_constants import AV2_CAMERA_TYPE_MAPPING, AV2_TO_DETECTION_TYPE, AV2SensorBoxDetectionType
 from d123.datasets.av2.av2_helper import (
     build_sensor_dataframe,
     build_synchronization_dataframe,
@@ -348,7 +344,7 @@ def _extract_av2_sensor_box_detections(
         box_detections.append(
             BoxDetectionSE3(
                 metadata=BoxDetectionMetadata(
-                    detection_type=int(detections_types[detection_idx]),
+                    detection_type=detections_types[detection_idx],
                     timepoint=None,
                     track_token=detections_token[detection_idx],
                     confidence=None,

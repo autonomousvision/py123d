@@ -7,17 +7,17 @@ from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
+import pyarrow as pa
 
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.common.utils.dependencies import check_dependencies
 from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConverter
-from d123.datasets.utils.arrow_ipc_writer import ArrowLogWriter
 from d123.datasets.utils.sensor.camera_conventions import CameraConvention, convert_camera_convention
 from d123.datasets.utils.sensor.lidar_index_registry import WopdLidarIndex
 from d123.datasets.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
 from d123.datasets.wopd.wopd_utils import parse_range_image_and_camera_projection
-from d123.datatypes.detections.detection import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from d123.datatypes.detections.detection_types import DetectionType
+from d123.datatypes.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
 from d123.datatypes.scene.scene_metadata import LogMetadata
 from d123.datatypes.sensors.camera.pinhole_camera import (
     PinholeCameraMetadata,
@@ -26,12 +26,10 @@ from d123.datatypes.sensors.camera.pinhole_camera import (
     PinholeIntrinsics,
 )
 from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
-from d123.datatypes.time.time_point import TimePoint
-from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
+from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.datatypes.vehicle_state.vehicle_parameters import get_wopd_chrysler_pacifica_parameters
 from d123.geometry import BoundingBoxSE3Index, EulerAngles, StateSE3, Vector3D, Vector3DIndex
-from d123.geometry.bounding_box import BoundingBoxSE3
-from d123.geometry.geometry_index import EulerAnglesIndex
+from d123.geometry.geometry_index import EulerAnglesIndex, StateSE3Index
 from d123.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array
 from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from d123.geometry.utils.rotation_utils import (
@@ -232,15 +230,43 @@ def convert_wopd_tfrecord_log_to_arrow(
                     map_is_local=True,
                 )
 
-                log_writer = ArrowLogWriter(
-                    log_path=log_file_path,
-                    data_converter_config=data_converter_config,
-                    log_metadata=log_metadata,
-                )
+                schema_column_list = [
+                    ("token", pa.string()),
+                    ("timestamp", pa.int64()),
+                    ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
+                    ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
+                    ("detections_token", pa.list_(pa.string())),
+                    ("detections_type", pa.list_(pa.int16())),
+                    ("ego_states", pa.list_(pa.float64(), len(EgoStateSE3Index))),
+                    ("traffic_light_ids", pa.list_(pa.int64())),
+                    ("traffic_light_types", pa.list_(pa.int16())),
+                    ("scenario_tag", pa.list_(pa.string())),
+                    ("route_lane_group_ids", pa.list_(pa.int64())),
+                ]
+                # TODO: Adjust how cameras are added
+                if data_converter_config.camera_store_option is not None:
+                    for camera_type in log_metadata.camera_metadata.keys():
+                        if data_converter_config.camera_store_option == "path":
+                            raise NotImplementedError("Path camera storage is not implemented.")
+                        elif data_converter_config.camera_store_option == "binary":
+                            schema_column_list.append((camera_type.serialize(), pa.binary()))
+                            schema_column_list.append(
+                                (f"{camera_type.serialize()}_extrinsic", pa.list_(pa.float64(), len(StateSE3Index)))
+                            )
 
-                _write_recording_table(dataset, log_writer, tf_record_path, data_converter_config)
+                if data_converter_config.lidar_store_option is not None:
+                    for lidar_type in log_metadata.lidar_metadata.keys():
+                        if data_converter_config.lidar_store_option == "path":
+                            raise NotImplementedError("Filepath lidar storage is not implemented.")
+                        elif data_converter_config.lidar_store_option == "binary":
+                            schema_column_list.append((lidar_type.serialize(), (pa.list_(pa.float32()))))
 
-                del dataset
+                recording_schema = pa.schema(schema_column_list)
+                recording_schema = add_log_metadata_to_arrow_schema(recording_schema, log_metadata)
+
+                _write_recording_table(dataset, recording_schema, log_file_path, tf_record_path, data_converter_config)
+
+                del recording_schema, dataset
         except Exception as e:
             import traceback
 
@@ -301,29 +327,63 @@ def get_wopd_lidar_metadata(
 
 def _write_recording_table(
     dataset: tf.data.TFRecordDataset,
-    log_writer: ArrowLogWriter,
+    recording_schema: pa.schema,
+    log_file_path: Path,
     tf_record_path: Path,
     data_converter_config: DataConverterConfig,
 ) -> None:
 
-    dataset = tf.data.TFRecordDataset(tf_record_path, compression_type="")
-    for frame_idx, data in enumerate(dataset):
-        frame = dataset_pb2.Frame()
-        frame.ParseFromString(data.numpy())
+    with pa.OSFile(str(log_file_path), "wb") as sink:
+        with pa.ipc.new_file(sink, recording_schema) as writer:
 
-        log_writer.add_row(
-            token=create_token(f"{frame.context.name}_{int(frame.timestamp_micros)}"),
-            timestamp=TimePoint.from_us(frame.timestamp_micros),
-            ego_state=_extract_wopd_ego_state(frame),
-            box_detections=_extract_wopd_box_detections(frame),
-            traffic_lights=None,  # NOTE: WOPD does not have traffic light information
-            cameras=_extract_wopd_cameras(frame, data_converter_config),
-            lidars=_extract_wopd_lidars(frame, data_converter_config),
-            scenario_tags=None,  # NOTE: WOPD does not have scenario tags
-            route_lane_group_ids=None,  # NOTE: WOPD does not have route information
-        )
+            dataset = tf.data.TFRecordDataset(tf_record_path, compression_type="")
+            for frame_idx, data in enumerate(dataset):
+                frame = dataset_pb2.Frame()
+                frame.ParseFromString(data.numpy())
 
-    log_writer.close()
+                (detections_state, detections_velocity, detections_token, detections_types) = _extract_detections(frame)
+
+                # TODO: Implement traffic light extraction
+                traffic_light_ids = []
+                traffic_light_types = []
+
+                # TODO: Implement detections
+                row_data = {
+                    "token": [create_token(f"{frame.context.name}_{int(frame.timestamp_micros)}")],
+                    "timestamp": [int(frame.timestamp_micros)],
+                    "detections_state": [detections_state],
+                    "detections_velocity": [detections_velocity],
+                    "detections_token": [detections_token],
+                    "detections_type": [detections_types],
+                    "ego_states": [_extract_ego_state(frame)],
+                    "traffic_light_ids": [traffic_light_ids],
+                    "traffic_light_types": [traffic_light_types],
+                    "scenario_tag": ["unknown"],
+                    "route_lane_group_ids": [None],
+                }
+
+                # TODO: Implement lidar extraction
+                if data_converter_config.lidar_store_option is not None:
+                    lidar_data_dict = _extract_lidar(frame, data_converter_config)
+                    for lidar_type, lidar_data in lidar_data_dict.items():
+                        if lidar_data is not None:
+                            row_data[lidar_type.serialize()] = [lidar_data.tolist()]
+                        else:
+                            row_data[lidar_type.serialize()] = [None]
+
+                if data_converter_config.camera_store_option is not None:
+                    camera_data_dict = _extract_camera(frame, data_converter_config)
+                    for camera_type, camera_data in camera_data_dict.items():
+                        if camera_data is not None:
+                            row_data[camera_type.serialize()] = [camera_data[0]]
+                            row_data[f"{camera_type.serialize()}_extrinsic"] = [camera_data[1]]
+                        else:
+                            row_data[camera_type.serialize()] = [None]
+                            row_data[f"{camera_type.serialize()}_extrinsic"] = [None]
+
+                batch = pa.record_batch(row_data, schema=recording_schema)
+                writer.write_batch(batch)
+                del batch, row_data, detections_state, detections_velocity, detections_token, detections_types
 
 
 def _get_ego_pose_se3(frame: dataset_pb2.Frame) -> StateSE3:
@@ -331,35 +391,15 @@ def _get_ego_pose_se3(frame: dataset_pb2.Frame) -> StateSE3:
     return StateSE3.from_transformation_matrix(ego_pose_matrix)
 
 
-def _extract_wopd_ego_state(frame: dataset_pb2.Frame) -> List[float]:
-    rear_axle_pose = _get_ego_pose_se3(frame)
-
-    vehicle_parameters = get_wopd_chrysler_pacifica_parameters()
-    # FIXME: Find dynamic state in waymo open perception dataset
-    # https://github.com/waymo-research/waymo-open-dataset/issues/55#issuecomment-546152290
-    dynamic_state = DynamicStateSE3(
-        velocity=Vector3D(*np.zeros(3)),
-        acceleration=Vector3D(*np.zeros(3)),
-        angular_velocity=Vector3D(*np.zeros(3)),
-    )
-
-    return EgoStateSE3.from_rear_axle(
-        rear_axle_se3=rear_axle_pose,
-        dynamic_state_se3=dynamic_state,
-        vehicle_parameters=vehicle_parameters,
-        time_point=None,
-    )
-
-
-def _extract_wopd_box_detections(frame: dataset_pb2.Frame) -> BoxDetectionWrapper:
+def _extract_detections(frame: dataset_pb2.Frame) -> Tuple[List[List[float]], List[List[float]], List[str], List[int]]:
 
     ego_rear_axle = _get_ego_pose_se3(frame)
 
     num_detections = len(frame.laser_labels)
     detections_state = np.zeros((num_detections, len(BoundingBoxSE3Index)), dtype=np.float64)
     detections_velocity = np.zeros((num_detections, len(Vector3DIndex)), dtype=np.float64)
-    detections_types: List[int] = []
     detections_token: List[str] = []
+    detections_types: List[int] = []
 
     for detection_idx, detection in enumerate(frame.laser_labels):
         if detection.type not in WOPD_DETECTION_NAME_DICT:
@@ -387,8 +427,8 @@ def _extract_wopd_box_detections(frame: dataset_pb2.Frame) -> BoxDetectionWrappe
         ).array
 
         # 3. Type and track token
-        detections_types.append(WOPD_DETECTION_NAME_DICT[detection.type])
         detections_token.append(str(detection.id))
+        detections_types.append(int(WOPD_DETECTION_NAME_DICT[detection.type]))
 
     detections_state[:, BoundingBoxSE3Index.STATE_SE3] = convert_relative_to_absolute_se3_array(
         origin=ego_rear_axle, se3_array=detections_state[:, BoundingBoxSE3Index.STATE_SE3]
@@ -399,37 +439,44 @@ def _extract_wopd_box_detections(frame: dataset_pb2.Frame) -> BoxDetectionWrappe
         euler_array[..., EulerAnglesIndex.PITCH] = DEFAULT_PITCH
         detections_state[..., BoundingBoxSE3Index.QUATERNION] = get_quaternion_array_from_euler_array(euler_array)
 
-    box_detections: List[BoxDetectionSE3] = []
-    for detection_idx in range(num_detections):
-        box_detections.append(
-            BoxDetectionSE3(
-                metadata=BoxDetectionMetadata(
-                    detection_type=detections_types[detection_idx],
-                    timepoint=None,
-                    track_token=detections_token[detection_idx],
-                    confidence=None,
-                ),
-                bounding_box_se3=BoundingBoxSE3.from_array(detections_state[detection_idx]),
-                velocity=Vector3D.from_array(detections_velocity[detection_idx]),
-            )
-        )
-
-    return BoxDetectionWrapper(box_detections=box_detections)
+    return detections_state.tolist(), detections_velocity.tolist(), detections_token, detections_types
 
 
-def _extract_wopd_cameras(
+def _extract_ego_state(frame: dataset_pb2.Frame) -> List[float]:
+    rear_axle_pose = _get_ego_pose_se3(frame)
+
+    vehicle_parameters = get_wopd_chrysler_pacifica_parameters()
+    # FIXME: Find dynamic state in waymo open perception dataset
+    # https://github.com/waymo-research/waymo-open-dataset/issues/55#issuecomment-546152290
+    dynamic_state = DynamicStateSE3(
+        velocity=Vector3D(*np.zeros(3)),
+        acceleration=Vector3D(*np.zeros(3)),
+        angular_velocity=Vector3D(*np.zeros(3)),
+    )
+
+    return EgoStateSE3.from_rear_axle(
+        rear_axle_se3=rear_axle_pose,
+        dynamic_state_se3=dynamic_state,
+        vehicle_parameters=vehicle_parameters,
+        time_point=None,
+    ).array.tolist()
+
+
+def _extract_traffic_lights() -> Tuple[List[int], List[int]]:
+    pass
+
+
+def _extract_camera(
     frame: dataset_pb2.Frame, data_converter_config: DataConverterConfig
-) -> Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]]:
+) -> Dict[PinholeCameraType, Union[str, bytes]]:
 
-    # TODO: Implement option to store images as paths
-    assert data_converter_config.camera_store_option == "binary", "Camera store option must be 'binary' for WOPD."
-
-    camera_dict: Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]] = {}
+    camera_dict: Dict[str, Union[str, bytes]] = {}  # TODO: Fix wrong type hint
+    np.array(frame.pose.transform).reshape(4, 4)
 
     # NOTE: The extrinsic matrix in frame.context.camera_calibration is fixed to model the ego to camera transformation.
     # The poses in frame.images[idx] are the motion compensated ego poses when the camera triggers.
 
-    camera_extrinsic: Dict[str, StateSE3] = {}
+    context_extrinsic: Dict[str, StateSE3] = {}
     for calibration in frame.context.camera_calibrations:
         camera_type = WOPD_CAMERA_TYPES[calibration.name]
         camera_transform = np.array(calibration.extrinsic.transform, dtype=np.float64).reshape(4, 4)
@@ -441,21 +488,20 @@ def _extract_wopd_cameras(
             from_convention=CameraConvention.pXpZmY,
             to_convention=CameraConvention.pZmYpX,
         )
-        camera_extrinsic[camera_type] = camera_pose
+        context_extrinsic[camera_type] = camera_pose
 
     for image_proto in frame.images:
         camera_type = WOPD_CAMERA_TYPES[image_proto.name]
-        camera_bytes: bytes = image_proto.image
-        camera_dict[camera_type] = camera_bytes, camera_extrinsic[camera_type]
+        camera_bytes = image_proto.image
+        camera_dict[camera_type] = camera_bytes, context_extrinsic[camera_type].tolist()
 
     return camera_dict
 
 
-def _extract_wopd_lidars(
+def _extract_lidar(
     frame: dataset_pb2.Frame, data_converter_config: DataConverterConfig
 ) -> Dict[LiDARType, npt.NDArray[np.float32]]:
 
-    # TODO: Implement option to store point clouds as paths
     assert data_converter_config.lidar_store_option == "binary", "Lidar store option must be 'binary' for WOPD."
     (range_images, camera_projections, _, range_image_top_pose) = parse_range_image_and_camera_projection(frame)
 

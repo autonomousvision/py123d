@@ -4,6 +4,7 @@ from typing import List
 import hydra
 from omegaconf import DictConfig
 
+from d123 import ascii_banner
 from d123.script.builders.data_converter_builder import RawDataConverter, build_data_converter
 from d123.script.builders.worker_pool_builder import build_worker
 
@@ -19,6 +20,7 @@ def main(cfg: DictConfig) -> None:
     Main entrypoint for metric caching.
     :param cfg: omegaconf dictionary
     """
+    logger.info(ascii_banner)
 
     # Build worker
     worker = build_worker(cfg)

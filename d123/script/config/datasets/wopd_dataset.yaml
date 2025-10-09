@@ -20,15 +20,15 @@ wopd_dataset:
     include_box_detections: true
 
     # Traffic Lights
-    include_traffic_lights: true
+    include_traffic_lights: false
 
     # Cameras
     include_cameras: true
-    camera_store_option: "path" # "path", "binary", "mp4"
+    camera_store_option: "binary" # "path", "binary", "mp4"
 
     # LiDARs
-    include_lidars: true
-    lidar_store_option: "path" # "path", "binary"
+    include_lidars: false
+    lidar_store_option: "binary" # "path", "binary"
 
     # Scenario tag / Route
     # NOTE: These are only supported for nuPlan. Consider removing or expanding support.
