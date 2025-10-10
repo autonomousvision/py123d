@@ -1,4 +1,6 @@
-from dataclasses import dataclass
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
 
 from d123.geometry import StateSE2, StateSE3, Vector2D, Vector3D
 from d123.geometry.transform.transform_se2 import translate_se2_along_body_frame
@@ -17,6 +19,13 @@ class VehicleParameters:
     wheel_base: float
     rear_axle_to_center_vertical: float
     rear_axle_to_center_longitudinal: float
+
+    @classmethod
+    def from_dict(cls, data_dict: dict) -> VehicleParameters:
+        return VehicleParameters(**data_dict)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
 
 
 def get_nuplan_chrysler_pacifica_parameters() -> VehicleParameters:

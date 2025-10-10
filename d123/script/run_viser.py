@@ -3,7 +3,7 @@ import logging
 import hydra
 from omegaconf import DictConfig
 
-from d123.common.visualization.viser.server import ViserVisualizationServer
+from d123.common.visualization.viser.viser_viewer import ViserViewer
 from d123.script.builders.scene_builder_builder import build_scene_builder
 from d123.script.builders.scene_filter_builder import build_scene_filter
 from d123.script.run_dataset_conversion import build_worker
@@ -21,8 +21,13 @@ def main(cfg: DictConfig) -> None:
     scene_filter = build_scene_filter(cfg.scene_filter)
     scene_builder = build_scene_builder(cfg.scene_builder)
     scenes = scene_builder.get_scenes(scene_filter, worker=worker)
+<<<<<<< HEAD
     
     ViserVisualizationServer(scenes=scenes)
+=======
+
+    ViserViewer(scenes=scenes)
+>>>>>>> dev_v0.0.7
 
 
 if __name__ == "__main__":

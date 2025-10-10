@@ -2,9 +2,9 @@ import logging
 from typing import List
 
 import hydra
-from nuplan.planning.script.builders.logging_builder import build_logger
 from omegaconf import DictConfig
 
+from d123 import ascii_banner
 from d123.script.builders.data_converter_builder import RawDataConverter, build_data_converter
 from d123.script.builders.worker_pool_builder import build_worker
 
@@ -20,8 +20,7 @@ def main(cfg: DictConfig) -> None:
     Main entrypoint for metric caching.
     :param cfg: omegaconf dictionary
     """
-    # Configure logger
-    build_logger(cfg)
+    logger.info(ascii_banner)
 
     # Build worker
     worker = build_worker(cfg)

@@ -54,7 +54,7 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
     # TODO: Add ego vehicle state to the metrics
     log_rollouts: List[BoxDetectionWrapper] = []
 
-    for iteration in range(scene.get_number_of_iterations()):
+    for iteration in range(scene.number_of_iterations):
         background_detections = scene.get_box_detections_at_iteration(iteration).box_detections
         ego_detection = scene.get_ego_state_at_iteration(iteration).box_detection
         log_rollouts.append(BoxDetectionWrapper(background_detections + [ego_detection]))
@@ -63,8 +63,8 @@ def get_sim_agents_metrics(scene: AbstractScene, agent_rollouts: List[BoxDetecti
     log_agents_array, log_agents_mask = _get_log_agents_array(scene, initial_agent_tokens)
     agents_array, agents_mask = _get_rollout_agents_array(agent_rollouts, initial_agent_tokens)
 
-    log_agents_data = _extract_sim_agent_data(log_agents_array, log_agents_mask, log_rollouts, scene.map_api)
-    agents_data = _extract_sim_agent_data(agents_array, agents_mask, agent_rollouts, scene.map_api)
+    log_agents_data = _extract_sim_agent_data(log_agents_array, log_agents_mask, log_rollouts, scene.get_map_api())
+    agents_data = _extract_sim_agent_data(agents_array, agents_mask, agent_rollouts, scene.get_map_api())
 
     results: Dict[str, float] = {}
 

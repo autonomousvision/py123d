@@ -2,7 +2,7 @@ import io
 from pathlib import Path
 
 from d123.common.utils.dependencies import check_dependencies
-from d123.datatypes.sensors.lidar import LiDAR, LiDARMetadata
+from d123.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata
 
 check_dependencies(["nuplan"], "nuplan")
 from nuplan.database.utils.pointclouds.lidar import LidarPointCloud

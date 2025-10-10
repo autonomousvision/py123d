@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
-from d123.datatypes.sensors.camera import CameraType
+from d123.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
 
 # TODO: Add more filter options (e.g. scene tags, ego movement, or whatever appropriate)
 
@@ -23,7 +23,7 @@ class SceneFilter:
     duration_s: Optional[float] = 10.0
     history_s: Optional[float] = 3.0
 
-    camera_types: Optional[List[CameraType]] = None
+    camera_types: Optional[List[PinholeCameraType]] = None
 
     max_num_scenes: Optional[int] = None
     shuffle: bool = False
@@ -34,10 +34,10 @@ class SceneFilter:
             camera_types = []
             for camera_type in self.camera_types:
                 if isinstance(camera_type, str):
-                    camera_type = CameraType.deserialize[camera_type]
+                    camera_type = PinholeCameraType.deserialize[camera_type]
                     camera_types.append(camera_type)
                 elif isinstance(camera_type, int):
-                    camera_type = CameraType(camera_type)
+                    camera_type = PinholeCameraType(camera_type)
                     camera_types.append(camera_type)
                 else:
                     raise ValueError(f"Invalid camera type: {camera_type}")

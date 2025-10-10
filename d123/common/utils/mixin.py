@@ -3,6 +3,8 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
+# import pyarrow as pa
+
 
 class ArrayMixin:
     """Mixin class for object entities."""
@@ -11,6 +13,11 @@ class ArrayMixin:
     def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> ArrayMixin:
         """Create an instance from a NumPy array."""
         raise NotImplementedError
+
+    @classmethod
+    def from_list(cls, values: list) -> ArrayMixin:
+        """Create an instance from a list of values."""
+        return cls.from_array(np.array(values, dtype=np.float64), copy=False)
 
     @property
     def array(self) -> npt.NDArray[np.float64]:

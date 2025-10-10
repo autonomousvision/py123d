@@ -9,7 +9,7 @@ from shapely.geometry import CAP_STYLE, Polygon
 from d123.common.datatypes.detection.detection import BoxDetection, BoxDetectionSE2
 from d123.datasets.maps.abstract_map import AbstractMap
 from d123.datasets.scene.abstract_scene import AbstractScene
-from d123.datatypes.scene.arrow.utils.conversion import BoxDetectionWrapper
+from d123.datatypes.scene.arrow.utils.arrow_getters import BoxDetectionWrapper
 from d123.geometry.bounding_box import BoundingBoxSE2
 from d123.geometry.point import Point2D
 from d123.geometry.polyline import PolylineSE2
@@ -68,7 +68,7 @@ class IDMAgents(AbstractAgents):
         self._initial_target_agents = [copy.deepcopy(agent) for agent in target_agents]
 
         future_box_detections = [
-            scene.get_box_detections_at_iteration(iteration) for iteration in range(0, scene.get_number_of_iterations())
+            scene.get_box_detections_at_iteration(iteration) for iteration in range(0, scene.number_of_iterations)
         ]
 
         # TODO: refactor or move for general use

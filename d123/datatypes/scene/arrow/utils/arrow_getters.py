@@ -1,14 +1,13 @@
 # TODO: rename this file and potentially move somewhere more appropriate.
 
-import io
 import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import cv2
 import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
-from PIL import Image
 
 from d123.datatypes.detections.detection import (
     BoxDetection,
@@ -21,18 +20,19 @@ from d123.datatypes.detections.detection import (
 )
 from d123.datatypes.detections.detection_types import DetectionType
 from d123.datatypes.scene.scene_metadata import LogMetadata
-from d123.datatypes.sensors.camera import Camera, CameraMetadata
-from d123.datatypes.sensors.lidar import LiDAR, LiDARMetadata
+from d123.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
+from d123.datatypes.sensors.lidar.lidar import LiDAR, LiDARType
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import EgoStateSE3
 from d123.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
-from d123.geometry import BoundingBoxSE3, Vector3D
+from d123.geometry import BoundingBoxSE3, StateSE3, Vector3D
 
 DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "nuplan": Path(os.environ["NUPLAN_DATA_ROOT"]) / "nuplan-v1.1" / "sensor_blobs",
     "carla": Path(os.environ["CARLA_DATA_ROOT"]) / "sensor_blobs",
     # "av2-sensor": Path(os.environ["AV2_SENSOR_DATA_ROOT"]) / "sensor",
     "kitti360": Path(os.environ["KITTI360_DATA_ROOT"]),
+    # "av2-sensor": Path(os.environ["AV2_SENSOR_DATA_ROOT"]) / "sensor_mini",
 }
 
 
@@ -45,7 +45,7 @@ def get_ego_vehicle_state_from_arrow_table(
 ) -> EgoStateSE3:
     timepoint = get_timepoint_from_arrow_table(arrow_table, index)
     return EgoStateSE3.from_array(
-        array=pa.array(arrow_table["ego_states"][index]).to_numpy(),
+        array=pa.array(arrow_table["ego_state"][index]).to_numpy(),
         vehicle_parameters=vehicle_parameters,
         timepoint=timepoint,
     )
@@ -56,10 +56,10 @@ def get_box_detections_from_arrow_table(arrow_table: pa.Table, index: int) -> Bo
     box_detections: List[BoxDetection] = []
 
     for detection_state, detection_velocity, detection_token, detection_type in zip(
-        arrow_table["detections_state"][index].as_py(),
-        arrow_table["detections_velocity"][index].as_py(),
-        arrow_table["detections_token"][index].as_py(),
-        arrow_table["detections_type"][index].as_py(),
+        arrow_table["box_detection_state"][index].as_py(),
+        arrow_table["box_detection_velocity"][index].as_py(),
+        arrow_table["box_detection_token"][index].as_py(),
+        arrow_table["box_detection_type"][index].as_py(),
     ):
         box_detection = BoxDetectionSE3(
             metadata=BoxDetectionMetadata(
@@ -95,13 +95,14 @@ def get_traffic_light_detections_from_arrow_table(arrow_table: pa.Table, index: 
 def get_camera_from_arrow_table(
     arrow_table: pa.Table,
     index: int,
-    camera_metadata: CameraMetadata,
+    camera_type: PinholeCameraType,
     log_metadata: LogMetadata,
-) -> Camera:
+) -> PinholeCamera:
 
-    table_data = arrow_table[camera_metadata.camera_type.serialize()][index].as_py()
-    extrinsic = arrow_table[f"{camera_metadata.camera_type.serialize()}_extrinsic"][index].as_py()
-    extrinsic = np.array(extrinsic).reshape((4, 4)) if extrinsic else None
+    camera_name = camera_type.serialize()
+    table_data = arrow_table[f"{camera_name}_data"][index].as_py()
+    extrinsic_values = arrow_table[f"{camera_name}_extrinsic"][index].as_py()
+    extrinsic = StateSE3.from_list(extrinsic_values) if extrinsic_values is not None else None
 
     if table_data is None or extrinsic is None:
         return None
@@ -112,16 +113,16 @@ def get_camera_from_arrow_table(
         sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
         full_image_path = sensor_root / table_data
         assert full_image_path.exists(), f"Camera file not found: {full_image_path}"
-        img = Image.open(full_image_path)
-        img.load()
-        image = np.asarray(img, dtype=np.uint8)
+        image = cv2.imread(str(full_image_path), cv2.IMREAD_COLOR)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     elif isinstance(table_data, bytes):
-        image = np.array(Image.open(io.BytesIO(table_data)))
+        image = cv2.imdecode(np.frombuffer(table_data, np.uint8), cv2.IMREAD_UNCHANGED)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     else:
         raise NotImplementedError("Only string file paths for camera data are supported.")
 
-    return Camera(
-        metadata=camera_metadata,
+    return PinholeCamera(
+        metadata=log_metadata.camera_metadata[camera_type],
         image=image,
         extrinsic=extrinsic,
     )
@@ -130,13 +131,15 @@ def get_camera_from_arrow_table(
 def get_lidar_from_arrow_table(
     arrow_table: pa.Table,
     index: int,
-    lidar_metadata: LiDARMetadata,
+    lidar_type: LiDARType,
     log_metadata: LogMetadata,
 ) -> LiDAR:
     assert (
-        lidar_metadata.lidar_type.serialize() in arrow_table.schema.names
-    ), f'"{lidar_metadata.lidar_type.serialize()}" field not found in Arrow table schema.'
-    lidar_data = arrow_table[lidar_metadata.lidar_type.serialize()][index].as_py()
+        lidar_type.serialize() in arrow_table.schema.names
+    ), f'"{lidar_type.serialize()}" field not found in Arrow table schema.'
+    lidar_data = arrow_table[lidar_type.serialize()][index].as_py()
+    lidar_metadata = log_metadata.lidar_metadata[lidar_type]
+
     if isinstance(lidar_data, str):
         sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
         full_lidar_path = sensor_root / lidar_data
@@ -144,7 +147,7 @@ def get_lidar_from_arrow_table(
 
         # NOTE: We move data specific import into if-else block, to avoid data specific import errors
         if log_metadata.dataset == "nuplan":
-            from d123.datasets.nuplan.load_sensor import load_nuplan_lidar_from_path
+            from d123.datasets.nuplan.nuplan_load_sensor import load_nuplan_lidar_from_path
 
             lidar = load_nuplan_lidar_from_path(full_lidar_path, lidar_metadata)
         elif log_metadata.dataset == "carla":

@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import numpy as np
 import numpy.typing as npt
 import shapely
@@ -8,6 +10,7 @@ from d123.geometry.geometry_index import (
     Corners2DIndex,
     Corners3DIndex,
     Point2DIndex,
+    Point3DIndex,
     Vector2DIndex,
     Vector3DIndex,
 )
@@ -136,3 +139,78 @@ def bbse3_array_to_corners_array(bbse3_array: npt.NDArray[np.float64]) -> npt.ND
     )
 
     return corners_world.squeeze(axis=0) if ndim_one else corners_world
+
+
+def corners_array_to_3d_mesh(
+    corners_array: npt.NDArray[np.float64],
+) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.int32]]:
+
+    num_boxes = corners_array.shape[0]
+    vertices = corners_array.reshape(-1, 3)
+
+    # Define the faces for a single box using Corners3DIndex
+    faces_single = np.array(
+        [
+            # Bottom face
+            [Corners3DIndex.FRONT_LEFT_BOTTOM, Corners3DIndex.FRONT_RIGHT_BOTTOM, Corners3DIndex.BACK_RIGHT_BOTTOM],
+            [Corners3DIndex.FRONT_LEFT_BOTTOM, Corners3DIndex.BACK_RIGHT_BOTTOM, Corners3DIndex.BACK_LEFT_BOTTOM],
+            # Top face
+            [Corners3DIndex.BACK_RIGHT_TOP, Corners3DIndex.FRONT_RIGHT_TOP, Corners3DIndex.FRONT_LEFT_TOP],
+            [Corners3DIndex.BACK_LEFT_TOP, Corners3DIndex.BACK_RIGHT_TOP, Corners3DIndex.FRONT_LEFT_TOP],
+            # Left face
+            [Corners3DIndex.FRONT_LEFT_BOTTOM, Corners3DIndex.BACK_LEFT_BOTTOM, Corners3DIndex.BACK_LEFT_TOP],
+            [Corners3DIndex.FRONT_LEFT_BOTTOM, Corners3DIndex.BACK_LEFT_TOP, Corners3DIndex.FRONT_LEFT_TOP],
+            # Right face
+            [Corners3DIndex.BACK_RIGHT_TOP, Corners3DIndex.BACK_RIGHT_BOTTOM, Corners3DIndex.FRONT_RIGHT_BOTTOM],
+            [Corners3DIndex.FRONT_RIGHT_TOP, Corners3DIndex.BACK_RIGHT_TOP, Corners3DIndex.FRONT_RIGHT_BOTTOM],
+            # Front face
+            [Corners3DIndex.FRONT_RIGHT_TOP, Corners3DIndex.FRONT_RIGHT_BOTTOM, Corners3DIndex.FRONT_LEFT_BOTTOM],
+            [Corners3DIndex.FRONT_LEFT_TOP, Corners3DIndex.FRONT_RIGHT_TOP, Corners3DIndex.FRONT_LEFT_BOTTOM],
+            # Back face
+            [Corners3DIndex.BACK_LEFT_TOP, Corners3DIndex.BACK_LEFT_BOTTOM, Corners3DIndex.BACK_RIGHT_BOTTOM],
+            [Corners3DIndex.BACK_RIGHT_TOP, Corners3DIndex.BACK_LEFT_TOP, Corners3DIndex.BACK_RIGHT_BOTTOM],
+        ],
+        dtype=np.int32,
+    )
+
+    # Offset the faces for each box
+    faces = np.vstack([faces_single + i * len(Corners3DIndex) for i in range(num_boxes)])
+
+    return vertices, faces
+
+
+def corners_array_to_edge_lines(corners_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    assert corners_array.shape[-1] == len(Point3DIndex)
+    assert corners_array.shape[-2] == len(Corners3DIndex)
+    assert corners_array.ndim >= 2
+
+    index_pairs = [
+        (Corners3DIndex.FRONT_LEFT_BOTTOM, Corners3DIndex.FRONT_RIGHT_BOTTOM),
+        (Corners3DIndex.FRONT_RIGHT_BOTTOM, Corners3DIndex.BACK_RIGHT_BOTTOM),
+        (Corners3DIndex.BACK_RIGHT_BOTTOM, Corners3DIndex.BACK_LEFT_BOTTOM),
+        (Corners3DIndex.BACK_LEFT_BOTTOM, Corners3DIndex.FRONT_LEFT_BOTTOM),
+        (Corners3DIndex.FRONT_LEFT_TOP, Corners3DIndex.FRONT_RIGHT_TOP),
+        (Corners3DIndex.FRONT_RIGHT_TOP, Corners3DIndex.BACK_RIGHT_TOP),
+        (Corners3DIndex.BACK_RIGHT_TOP, Corners3DIndex.BACK_LEFT_TOP),
+        (Corners3DIndex.BACK_LEFT_TOP, Corners3DIndex.FRONT_LEFT_TOP),
+        (Corners3DIndex.FRONT_LEFT_BOTTOM, Corners3DIndex.FRONT_LEFT_TOP),
+        (Corners3DIndex.FRONT_RIGHT_BOTTOM, Corners3DIndex.FRONT_RIGHT_TOP),
+        (Corners3DIndex.BACK_RIGHT_BOTTOM, Corners3DIndex.BACK_RIGHT_TOP),
+        (Corners3DIndex.BACK_LEFT_BOTTOM, Corners3DIndex.BACK_LEFT_TOP),
+    ]
+
+    if corners_array.ndim == 2:
+        # Single box case: (8, 3)
+        edge_lines = np.zeros((len(index_pairs), 2, len(Point3DIndex)), dtype=np.float64)
+        for edge_idx, (start_idx, end_idx) in enumerate(index_pairs):
+            edge_lines[edge_idx, 0] = corners_array[start_idx]
+            edge_lines[edge_idx, 1] = corners_array[end_idx]
+    else:
+        # Batched case: (..., 8, 3)
+        batch_shape = corners_array.shape[:-2]
+        edge_lines = np.zeros(batch_shape + (len(index_pairs), 2, len(Point3DIndex)), dtype=np.float64)
+        for edge_idx, (start_idx, end_idx) in enumerate(index_pairs):
+            edge_lines[..., edge_idx, 0, :] = corners_array[..., start_idx, :]
+            edge_lines[..., edge_idx, 1, :] = corners_array[..., end_idx, :]
+
+    return edge_lines

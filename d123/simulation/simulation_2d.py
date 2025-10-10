@@ -82,7 +82,7 @@ class Simulation2D:
         # 5. Fill planner input and initialization
         planner_initialization = PlannerInitialization(
             route_lane_group_ids=self._scene.get_route_lane_group_ids(simulation_iteration.index),
-            map_api=self._scene.map_api,
+            map_api=self._scene.get_map_api(),
         )
         planner_input = PlannerInput(
             iteration=simulation_iteration,

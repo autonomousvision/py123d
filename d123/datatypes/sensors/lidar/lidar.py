@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
-from typing import Dict, Optional, Type
+from typing import Optional, Type
 
 import numpy as np
 import numpy.typing as npt
 
 from d123.common.utils.enums import SerialIntEnum
-from d123.datatypes.sensors.lidar_index import LIDAR_INDEX_REGISTRY, LiDARIndex
+from d123.datasets.utils.sensor.lidar_index_registry import LIDAR_INDEX_REGISTRY, LiDARIndex
+from d123.geometry import StateSE3
 
 
 class LiDARType(SerialIntEnum):
@@ -27,8 +27,7 @@ class LiDARMetadata:
 
     lidar_type: LiDARType
     lidar_index: Type[LiDARIndex]
-    extrinsic: Optional[npt.NDArray[np.float64]] = None  # 4x4 matrix
-
+    extrinsic: Optional[StateSE3] = None
     # TODO: add identifier if point cloud is returned in lidar or ego frame.
 
     def to_dict(self) -> dict:
@@ -39,38 +38,13 @@ class LiDARMetadata:
         }
 
     @classmethod
-    def from_dict(cls, json_dict: dict) -> LiDARMetadata:
-        lidar_type = LiDARType[json_dict["lidar_type"]]
-        if json_dict["lidar_index"] not in LIDAR_INDEX_REGISTRY:
-            raise ValueError(f"Unknown lidar index: {json_dict['lidar_index']}")
-        lidar_index_class = LIDAR_INDEX_REGISTRY[json_dict["lidar_index"]]
-        extrinsic = np.array(json_dict["extrinsic"]) if json_dict["extrinsic"] is not None else None
+    def from_dict(cls, data_dict: dict) -> LiDARMetadata:
+        lidar_type = LiDARType[data_dict["lidar_type"]]
+        if data_dict["lidar_index"] not in LIDAR_INDEX_REGISTRY:
+            raise ValueError(f"Unknown lidar index: {data_dict['lidar_index']}")
+        lidar_index_class = LIDAR_INDEX_REGISTRY[data_dict["lidar_index"]]
+        extrinsic = StateSE3.from_list(data_dict["extrinsic"]) if data_dict["extrinsic"] is not None else None
         return cls(lidar_type=lidar_type, lidar_index=lidar_index_class, extrinsic=extrinsic)
-
-
-def lidar_metadata_dict_to_json(lidar_metadata: Dict[LiDARType, LiDARMetadata]) -> str:
-    """
-    Converts a dictionary of LiDARMetadata to a JSON-serializable format.
-    :param lidar_metadata: Dictionary of LiDARMetadata.
-    :return: JSON string.
-    """
-    lidar_metadata_dict = {
-        lidar_type.serialize(): metadata.to_dict() for lidar_type, metadata in lidar_metadata.items()
-    }
-    return json.dumps(lidar_metadata_dict)
-
-
-def lidar_metadata_dict_from_json(json_str: str) -> Dict[LiDARType, LiDARMetadata]:
-    """
-    Converts a JSON string back to a dictionary of LiDARMetadata.
-    :param json_str: JSON string.
-    :return: Dictionary of LiDARMetadata.
-    """
-    lidar_metadata_dict = json.loads(json_str)
-    return {
-        LiDARType.deserialize(lidar_type): LiDARMetadata.from_dict(metadata)
-        for lidar_type, metadata in lidar_metadata_dict.items()
-    }
 
 
 @dataclass

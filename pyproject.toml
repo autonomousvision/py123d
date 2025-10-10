@@ -86,7 +86,7 @@ nuplan = [
     "retry",
 ]
 waymo = [
-    "tensorflow==2.11.0",
+    "tensorflow==2.16.1",
     "waymo-open-dataset-tf-2-11-0",
     "intervaltree",
 ]

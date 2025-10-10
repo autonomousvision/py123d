@@ -147,6 +147,52 @@ def get_quaternion_array_from_rotation_matrix(rotation_matrix: npt.NDArray[np.fl
     return get_quaternion_array_from_rotation_matrices(rotation_matrix[None, ...])[0]
 
 
+def get_quaternion_array_from_euler_array(euler_angles: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    assert euler_angles.ndim >= 1 and euler_angles.shape[-1] == len(EulerAnglesIndex)
+
+    # Store original shape for reshaping later
+    original_shape = euler_angles.shape[:-1]
+
+    # Flatten to 2D if needed
+    if euler_angles.ndim > 2:
+        euler_angles_ = euler_angles.reshape(-1, len(EulerAnglesIndex))
+    else:
+        euler_angles_ = euler_angles
+
+    # Extract roll, pitch, yaw
+    roll = euler_angles_[..., EulerAnglesIndex.ROLL]
+    pitch = euler_angles_[..., EulerAnglesIndex.PITCH]
+    yaw = euler_angles_[..., EulerAnglesIndex.YAW]
+
+    # Half angles
+    roll_half = roll / 2.0
+    pitch_half = pitch / 2.0
+    yaw_half = yaw / 2.0
+
+    # Compute sin/cos for half angles
+    cos_roll_half = np.cos(roll_half)
+    sin_roll_half = np.sin(roll_half)
+    cos_pitch_half = np.cos(pitch_half)
+    sin_pitch_half = np.sin(pitch_half)
+    cos_yaw_half = np.cos(yaw_half)
+    sin_yaw_half = np.sin(yaw_half)
+
+    # Compute quaternion components (ZYX intrinsic rotation order)
+    qw = cos_roll_half * cos_pitch_half * cos_yaw_half + sin_roll_half * sin_pitch_half * sin_yaw_half
+    qx = sin_roll_half * cos_pitch_half * cos_yaw_half - cos_roll_half * sin_pitch_half * sin_yaw_half
+    qy = cos_roll_half * sin_pitch_half * cos_yaw_half + sin_roll_half * cos_pitch_half * sin_yaw_half
+    qz = cos_roll_half * cos_pitch_half * sin_yaw_half - sin_roll_half * sin_pitch_half * cos_yaw_half
+
+    # Stack into quaternion array
+    quaternions = np.stack([qw, qx, qy, qz], axis=-1)
+
+    # Reshape back to original batch dimensions + (4,)
+    if len(original_shape) > 1:
+        quaternions = quaternions.reshape(original_shape + (len(QuaternionIndex),))
+
+    return normalize_quaternion_array(quaternions)
+
+
 def get_rotation_matrix_from_euler_array(euler_angles: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     assert euler_angles.ndim == 1 and euler_angles.shape[0] == len(EulerAnglesIndex)
     return get_rotation_matrices_from_euler_array(euler_angles[None, ...])[0]

@@ -48,7 +48,12 @@ class GymEnvironment:
         ).ego_state_se2
         detection_observation = self._observation.reset(self._current_scene)
 
-        return self._current_scene.map_api, self._current_ego_state_se2, detection_observation, self._current_scene
+        return (
+            self._current_scene.get_map_api(),
+            self._current_ego_state_se2,
+            detection_observation,
+            self._current_scene,
+        )
 
     def step(self, action: npt.NDArray[np.float64]) -> Tuple[EgoStateSE2, DetectionRecording, bool]:
         self._current_scene_index += 1
@@ -64,7 +69,7 @@ class GymEnvironment:
             )
 
         detection_observation = self._observation.step()
-        is_done = self._current_scene_index == self._current_scene.get_number_of_iterations() - 1
+        is_done = self._current_scene_index == self._current_scene.number_of_iterations - 1
 
         return self._current_ego_state_se2, detection_observation, is_done
 

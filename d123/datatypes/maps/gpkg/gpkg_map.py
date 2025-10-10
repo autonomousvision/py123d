@@ -5,7 +5,7 @@ import warnings
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Callable, Dict, Final, Iterable, List, Optional, Tuple, Union
 
 import geopandas as gpd
 import shapely
@@ -29,6 +29,7 @@ from d123.datatypes.maps.map_datatypes import MapLayer
 from d123.geometry import Point2D
 
 USE_ARROW: bool = True
+MAX_LRU_CACHED_TABLES: Final[int] = 128  # TODO: add to some configs
 
 
 class GPKGMap(AbstractMap):
@@ -370,8 +371,8 @@ class GPKGMap(AbstractMap):
     #         return list(map_object_ids)
 
 
-@lru_cache(maxsize=32)
-def get_map_api_from_names(dataset: str, location: str) -> GPKGMap:
+@lru_cache(maxsize=MAX_LRU_CACHED_TABLES)
+def get_global_map_api(dataset: str, location: str) -> GPKGMap:
     D123_MAPS_ROOT = Path(os.environ.get("D123_MAPS_ROOT"))
     gpkg_path = D123_MAPS_ROOT / f"{dataset}_{location}.gpkg"
     assert gpkg_path.is_file(), f"{dataset}_{location}.gpkg not found in {str(D123_MAPS_ROOT)}."
@@ -381,7 +382,6 @@ def get_map_api_from_names(dataset: str, location: str) -> GPKGMap:
 
 
 def get_local_map_api(split_name: str, log_name: str) -> GPKGMap:
-    print(split_name, log_name)
     D123_MAPS_ROOT = Path(os.environ.get("D123_MAPS_ROOT"))
     gpkg_path = D123_MAPS_ROOT / split_name / f"{log_name}.gpkg"
     assert gpkg_path.is_file(), f"{log_name}.gpkg not found in {str(D123_MAPS_ROOT)}."

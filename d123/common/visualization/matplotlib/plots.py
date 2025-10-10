@@ -20,7 +20,7 @@ def _plot_scene_on_ax(ax: plt.Axes, scene: AbstractScene, iteration: int = 0, ra
     box_detections = scene.get_box_detections_at_iteration(iteration)
     traffic_light_detections = scene.get_traffic_light_detections_at_iteration(iteration)
     route_lane_group_ids = scene.get_route_lane_group_ids(iteration)
-    map_api = scene.map_api
+    map_api = scene.get_map_api()
 
     point_2d = ego_vehicle_state.bounding_box.center.state_se2.point_2d
     add_default_map_on_ax(ax, map_api, point_2d, radius=radius, route_lane_group_ids=route_lane_group_ids)
@@ -63,8 +63,8 @@ def render_scene_animation(
     scene.open()
 
     if end_idx is None:
-        end_idx = scene.get_number_of_iterations()
-    end_idx = min(end_idx, scene.get_number_of_iterations())
+        end_idx = scene.number_of_iterations
+    end_idx = min(end_idx, scene.number_of_iterations)
 
     fig, ax = plt.subplots(figsize=(10, 10))
 
