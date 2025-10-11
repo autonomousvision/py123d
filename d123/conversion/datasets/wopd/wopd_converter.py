@@ -47,9 +47,14 @@ import tensorflow as tf
 from waymo_open_dataset import dataset_pb2
 from waymo_open_dataset.utils import frame_utils
 
-logger = logging.getLogger(__name__)
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 D123_MAPS_ROOT: Path = Path(os.getenv("D123_MAPS_ROOT", "$HOME/maps"))  # TODO: remove
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+tf.config.set_visible_devices(tf.config.list_physical_devices("CPU"))
+
+logger = logging.getLogger(__name__)
 
 
 class WOPDConverter(AbstractDatasetConverter):
