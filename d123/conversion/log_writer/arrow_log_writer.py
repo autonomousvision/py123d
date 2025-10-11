@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import pyarrow as pa
 
+from d123.common.utils.uuid import create_deterministic_uuid
 from d123.conversion.abstract_dataset_converter import AbstractLogWriter, DatasetConverterConfig
 from d123.datatypes.detections.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from d123.datatypes.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
@@ -69,7 +70,6 @@ class ArrowLogWriter(AbstractLogWriter):
 
     def write(
         self,
-        token: str,
         timestamp: TimePoint,
         ego_state: Optional[EgoStateSE3] = None,
         box_detections: Optional[BoxDetectionWrapper] = None,
@@ -87,7 +87,13 @@ class ArrowLogWriter(AbstractLogWriter):
         assert self._source is not None, "Log writer is not initialized."
 
         record_batch_data = {
-            "token": [token],
+            "uuid": [
+                create_deterministic_uuid(
+                    split=self._log_metadata.split,
+                    log_name=self._log_metadata.log_name,
+                    timestamp_us=timestamp.time_us,
+                ).bytes
+            ],
             "timestamp": [timestamp.time_us],
         }
 
@@ -210,7 +216,7 @@ class ArrowLogWriter(AbstractLogWriter):
     def _build_schema(dataset_converter_config: DatasetConverterConfig, log_metadata: LogMetadata) -> pa.Schema:
 
         schema_list: List[Tuple[str, pa.DataType]] = [
-            ("token", pa.string()),
+            ("uuid", pa.uuid()),
             ("timestamp", pa.int64()),
         ]
 

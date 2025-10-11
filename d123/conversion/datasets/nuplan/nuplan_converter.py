@@ -11,14 +11,14 @@ import d123.conversion.datasets.nuplan.utils as nuplan_utils
 from d123.common.utils.dependencies import check_dependencies
 from d123.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from d123.conversion.dataset_converter_config import DatasetConverterConfig
-from d123.conversion.datasets.nuplan.nuplan_constants import (
+from d123.conversion.datasets.nuplan.nuplan_map_conversion import NuPlanMapConverter
+from d123.conversion.datasets.nuplan.utils.nuplan_constants import (
     NUPLAN_DATA_SPLITS,
     NUPLAN_DEFAULT_DT,
     NUPLAN_MAP_LOCATIONS,
     NUPLAN_ROLLING_SHUTTER_S,
     NUPLAN_TRAFFIC_STATUS_DICT,
 )
-from d123.conversion.datasets.nuplan.nuplan_map_conversion import NuPlanMapConverter
 from d123.conversion.datasets.nuplan.utils.nuplan_sql_helper import (
     get_box_detections_for_lidarpc_token_from_db,
     get_nearest_ego_pose_for_timestamp_from_db,
@@ -193,7 +193,6 @@ class NuPlanConverter(AbstractDatasetConverter):
 
                 lidar_pc_token: str = nuplan_lidar_pc.token
                 log_writer.write(
-                    token=lidar_pc_token,
                     timestamp=TimePoint.from_us(nuplan_lidar_pc.timestamp),
                     ego_state=_extract_nuplan_ego_state(nuplan_lidar_pc),
                     box_detections=_extract_nuplan_box_detections(nuplan_lidar_pc, source_log_path),

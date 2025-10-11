@@ -38,6 +38,8 @@ class CameraConvention(Enum):
     order: forward, up, right
 
     Example: pZmYpX means +Z forward, -Y up, +X right
+
+    TODO: Figure out a more intuitive naming scheme.
     """
 
     pZmYpX = "pZmYpX"  # Default in 123D (OpenCV/COLMAP)

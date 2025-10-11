@@ -8,7 +8,7 @@ from typing import Literal, Union
 @dataclass
 class DatasetConverterConfig:
 
-    output_path: Union[str, Path]
+    output_path: Union[str, Path]  # TODO: Remove. The directory of writing should be handled by the log/map writer.
     force_log_conversion: bool = False
     force_map_conversion: bool = False
 

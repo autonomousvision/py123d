@@ -36,23 +36,16 @@ def main(cfg: DictConfig) -> None:
     for dataset_converter in dataset_converters:
 
         worker = build_worker(cfg)
-
         logger.info(f"Processing dataset: {dataset_converter.__class__.__name__}")
 
-        # map_args = [{"map_index": i} for i in range(dataset_converter.get_number_of_maps())]
-        # worker_map(worker, partial(_convert_maps, cfg=cfg, dataset_converter=dataset_converter), map_args)
-        # logger.info(f"Finished maps: {dataset_converter.__class__.__name__}")
-
-        # worker.shutdown()
-
-        # del worker
-
-        # worker = build_worker(cfg)
+        map_args = [{"map_index": i} for i in range(dataset_converter.get_number_of_maps())]
+        worker_map(worker, partial(_convert_maps, cfg=cfg, dataset_converter=dataset_converter), map_args)
+        logger.info(f"Finished maps: {dataset_converter.__class__.__name__}")
 
         log_args = [{"log_index": i} for i in range(dataset_converter.get_number_of_logs())]
         worker_map(worker, partial(_convert_logs, cfg=cfg, dataset_converter=dataset_converter), log_args)
-
         logger.info(f"Finished logs: {dataset_converter.__class__.__name__}")
+
         logger.info(f"Finished processing dataset: {dataset_converter.__class__.__name__}")
 
 

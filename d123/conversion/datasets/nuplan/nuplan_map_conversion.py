@@ -13,7 +13,7 @@ from shapely.geometry import LineString
 # Suppress numpy runtime warnings for casting operations
 np.seterr(invalid="ignore")
 
-from d123.conversion.datasets.nuplan.nuplan_constants import NUPLAN_MAP_GPKG_LAYERS, NUPLAN_MAP_LOCATION_FILES
+from d123.conversion.datasets.nuplan.utils.nuplan_constants import NUPLAN_MAP_GPKG_LAYERS, NUPLAN_MAP_LOCATION_FILES
 from d123.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     get_road_edge_linear_rings,
     split_line_geometry_by_max_length,

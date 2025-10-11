@@ -7,7 +7,7 @@ log_names: null
 
 
 map_names: null
-scene_tokens: null
+scene_uuids: null
 timestamp_threshold_s: null
 ego_displacement_minimum_m: null
 

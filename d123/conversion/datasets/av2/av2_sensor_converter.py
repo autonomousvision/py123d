@@ -1,15 +1,11 @@
-import hashlib
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
-from d123.conversion.abstract_dataset_converter import (
-    AbstractDatasetConverter,
-    AbstractLogWriter,
-    DatasetConverterConfig,
-)
+from d123.conversion.abstract_dataset_converter import AbstractDatasetConverter
+from d123.conversion.dataset_converter_config import DatasetConverterConfig
 from d123.conversion.datasets.av2.av2_constants import (
     AV2_CAMERA_TYPE_MAPPING,
     AV2_SENSOR_SPLITS,
@@ -23,6 +19,7 @@ from d123.conversion.datasets.av2.av2_helper import (
     get_slice_with_timestamp_ns,
 )
 from d123.conversion.datasets.av2.av2_map_conversion import convert_av2_map
+from d123.conversion.log_writer.abstract_log_writer import AbstractLogWriter
 from d123.datatypes.detections.detection import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from d123.datatypes.detections.detection_types import DetectionType
 from d123.datatypes.scene.scene_metadata import LogMetadata
@@ -42,16 +39,6 @@ from d123.datatypes.vehicle_state.vehicle_parameters import (
 from d123.geometry import BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
 from d123.geometry.bounding_box import BoundingBoxSE3
 from d123.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array
-
-
-def create_token(input_data: str) -> str:
-    # TODO: Refactor this function.
-    # TODO: Add a general function to create tokens from arbitrary data.
-    if isinstance(input_data, str):
-        input_data = input_data.encode("utf-8")
-
-    hash_obj = hashlib.sha256(input_data)
-    return hash_obj.hexdigest()[:16]
 
 
 class AV2SensorConverter(AbstractDatasetConverter):
@@ -133,9 +120,9 @@ class AV2SensorConverter(AbstractDatasetConverter):
         # 2. Prepare log writer
         overwrite_log = log_writer.reset(self.dataset_converter_config, log_metadata)
 
+        # 3. Process source log data
         if overwrite_log:
 
-            # 3. Process source log data
             sensor_df = build_sensor_dataframe(source_log_path)
             synchronization_df = build_synchronization_dataframe(sensor_df)
 
@@ -157,7 +144,6 @@ class AV2SensorConverter(AbstractDatasetConverter):
             for lidar_timestamp_ns in lidar_timestamps_ns:
                 ego_state = _extract_av2_sensor_ego_state(city_se3_egovehicle_df, lidar_timestamp_ns)
                 log_writer.write(
-                    token=create_token(str(lidar_timestamp_ns)),
                     timestamp=TimePoint.from_ns(int(lidar_timestamp_ns)),
                     ego_state=ego_state,
                     box_detections=_extract_av2_sensor_box_detections(annotations_df, lidar_timestamp_ns, ego_state),

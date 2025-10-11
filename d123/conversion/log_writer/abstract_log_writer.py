@@ -30,7 +30,6 @@ class AbstractLogWriter(abc.ABC):
     @abc.abstractmethod
     def write(
         self,
-        token: str,
         timestamp: TimePoint,
         ego_state: Optional[EgoStateSE3] = None,
         box_detections: Optional[BoxDetectionWrapper] = None,

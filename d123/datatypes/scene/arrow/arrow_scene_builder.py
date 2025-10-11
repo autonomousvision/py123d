@@ -104,7 +104,7 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
     if filter.duration_s is None:
         return [
             SceneExtractionMetadata(
-                initial_token=str(recording_table["token"][start_idx].as_py()),
+                initial_uuid=str(recording_table["uuid"][start_idx].as_py()),
                 initial_idx=start_idx,
                 duration_s=(end_idx - start_idx) * log_metadata.timestep_seconds,
                 history_s=filter.history_s if filter.history_s is not None else 0.0,
@@ -112,22 +112,22 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
             )
         ]
 
-    scene_token_set = set(filter.scene_tokens) if filter.scene_tokens is not None else None
+    scene_uuid_set = set(filter.scene_uuids) if filter.scene_uuids is not None else None
 
     for idx in range(start_idx, end_idx):
         scene_extraction_metadata: Optional[SceneExtractionMetadata] = None
 
-        if scene_token_set is None:
+        if scene_uuid_set is None:
             scene_extraction_metadata = SceneExtractionMetadata(
-                initial_token=str(recording_table["token"][idx].as_py()),
+                initial_uuid=str(recording_table["uuid"][idx].as_py()),
                 initial_idx=idx,
                 duration_s=filter.duration_s,
                 history_s=filter.history_s,
                 iteration_duration_s=log_metadata.timestep_seconds,
             )
-        elif str(recording_table["token"][idx]) in scene_token_set:
+        elif str(recording_table["uuid"][idx]) in scene_uuid_set:
             scene_extraction_metadata = SceneExtractionMetadata(
-                initial_token=str(recording_table["token"][idx].as_py()),
+                initial_uuid=str(recording_table["uuid"][idx].as_py()),
                 initial_idx=idx,
                 duration_s=filter.duration_s,
                 history_s=filter.history_s,

@@ -51,7 +51,7 @@ class LogMetadata:
 @dataclass(frozen=True)
 class SceneExtractionMetadata:
 
-    initial_token: str
+    initial_uuid: str
     initial_idx: int
     duration_s: float
     history_s: float

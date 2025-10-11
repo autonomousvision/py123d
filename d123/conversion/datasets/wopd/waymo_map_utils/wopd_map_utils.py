@@ -9,7 +9,7 @@ import pandas as pd
 import shapely.geometry as geom
 
 from d123.common.utils.dependencies import check_dependencies
-from d123.conversion.wopd.waymo_map_utils.womp_boundary_utils import extract_lane_boundaries
+from d123.conversion.datasets.wopd.waymo_map_utils.womp_boundary_utils import extract_lane_boundaries
 from d123.datatypes.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
 from d123.geometry import Point3DIndex, Polyline3D
 from d123.geometry.utils.units import mph_to_mps

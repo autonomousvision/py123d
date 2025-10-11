@@ -31,11 +31,11 @@ def build_scene_filter(cfg: DictConfig) -> SceneFilter:
     :return: Instance of SceneFilter.
     """
     logger.info("Building SceneFilter...")
-    if cfg.scene_tokens and not all(map(is_valid_token, cfg.scene_tokens)):
+    if cfg.scene_uuids and not all(map(is_valid_token, cfg.scene_uuids)):
         raise RuntimeError(
             "Expected all scene tokens to be 16-character strings. Your shell may strip quotes "
             "causing hydra to parse a token as a float, so consider passing them like "
-            "scene_filter.scene_tokens='[\"595322e649225137\", ...]'"
+            "scene_filter.scene_uuids='[\"595322e649225137\", ...]'"
         )
     scene_filter: SceneFilter = instantiate(cfg)
     assert isinstance(scene_filter, SceneFilter)

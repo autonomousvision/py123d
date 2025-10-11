@@ -1,7 +1,7 @@
 from typing import List
 
 from d123.common.utils.dependencies import check_dependencies
-from d123.conversion.datasets.nuplan.nuplan_constants import NUPLAN_DETECTION_NAME_DICT
+from d123.conversion.datasets.nuplan.utils.nuplan_constants import NUPLAN_DETECTION_NAME_DICT
 from d123.datatypes.detections.detection import BoxDetectionMetadata, BoxDetectionSE3
 from d123.geometry import BoundingBoxSE3, EulerAngles, StateSE3, Vector3D
 from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
