@@ -25,11 +25,11 @@ nuplan_mini_dataset:
     include_traffic_lights: true
 
     # Cameras
-    include_cameras: true
+    include_cameras: false
     camera_store_option: "path" # "path", "binary", "mp4"
 
     # LiDARs
-    include_lidars: true
+    include_lidars: false
     lidar_store_option: "path" # "path", "binary"
 
     # Scenario tag / Route

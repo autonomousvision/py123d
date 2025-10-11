@@ -15,7 +15,7 @@ from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.common.utils.arrow_helper import open_arrow_table, write_arrow_table
 from d123.conversion.abstract_dataset_converter import AbstractDataConverter, DatasetConverterConfig
 from d123.conversion.utils.map_utils.opendrive.opendrive_map_conversion import convert_from_xodr
-from d123.conversion.utils.sensor.lidar_index_registry import CarlaLidarIndex
+from d123.conversion.utils.sensor.lidar_index_registry import CARLALidarIndex
 from d123.datatypes.maps.abstract_map import AbstractMap, MapLayer
 from d123.datatypes.maps.abstract_map_objects import AbstractLane
 from d123.datatypes.maps.gpkg.gpkg_map import get_global_map_api
@@ -279,7 +279,7 @@ def get_carla_lidar_metadata(first_log_dict: Dict[str, Any]) -> Dict[LiDARType, 
     lidar_metadata = {
         LiDARType.LIDAR_TOP: LiDARMetadata(
             lidar_type=LiDARType.LIDAR_TOP,
-            lidar_index=CarlaLidarIndex,
+            lidar_index=CARLALidarIndex,
             extrinsic=None,
         )
     }

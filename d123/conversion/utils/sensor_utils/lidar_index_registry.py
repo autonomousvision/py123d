@@ -45,7 +45,7 @@ class NuPlanLidarIndex(LiDARIndex):
 
 
 @register_lidar_index
-class CarlaLidarIndex(LiDARIndex):
+class CARLALidarIndex(LiDARIndex):
     X = 0
     Y = 1
     Z = 2
@@ -53,7 +53,7 @@ class CarlaLidarIndex(LiDARIndex):
 
 
 @register_lidar_index
-class WopdLidarIndex(LiDARIndex):
+class WOPDLidarIndex(LiDARIndex):
     RANGE = 0
     INTENSITY = 1
     ELONGATION = 2
