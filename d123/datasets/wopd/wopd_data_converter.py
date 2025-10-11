@@ -7,11 +7,6 @@ from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
-<<<<<<< HEAD
-import pyarrow as pa
-from d123.datatypes.detections.detection_types import DetectionType
-=======
->>>>>>> dev_v0.0.7
 
 from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 from d123.common.utils.dependencies import check_dependencies
@@ -24,12 +19,6 @@ from d123.datasets.wopd.wopd_utils import parse_range_image_and_camera_projectio
 from d123.datatypes.detections.detection import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from d123.datatypes.detections.detection_types import DetectionType
 from d123.datatypes.scene.scene_metadata import LogMetadata
-<<<<<<< HEAD
-from d123.datatypes.sensors.camera import PinholeCameraMetadata, CameraType, camera_metadata_dict_to_json
-from d123.datatypes.sensors.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
-from d123.datatypes.sensors.lidar_index import WopdLidarIndex
-from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
-=======
 from d123.datatypes.sensors.camera.pinhole_camera import (
     PinholeCameraMetadata,
     PinholeCameraType,
@@ -39,7 +28,6 @@ from d123.datatypes.sensors.camera.pinhole_camera import (
 from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
->>>>>>> dev_v0.0.7
 from d123.datatypes.vehicle_state.vehicle_parameters import get_wopd_chrysler_pacifica_parameters
 from d123.geometry import BoundingBoxSE3Index, EulerAngles, StateSE3, Vector3D, Vector3DIndex
 from d123.geometry.bounding_box import BoundingBoxSE3
@@ -264,15 +252,9 @@ def convert_wopd_tfrecord_log_to_arrow(
 
 def get_wopd_camera_metadata(
     initial_frame: dataset_pb2.Frame, data_converter_config: DataConverterConfig
-<<<<<<< HEAD
-) -> Dict[CameraType, PinholeCameraMetadata]:
-
-    cam_metadatas: Dict[CameraType, PinholeCameraMetadata] = {}
-=======
 ) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
 
     cam_metadatas: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
->>>>>>> dev_v0.0.7
     if data_converter_config.camera_store_option is not None:
         for calibration in initial_frame.context.camera_calibrations:
             camera_type = WOPD_CAMERA_TYPES[calibration.name]

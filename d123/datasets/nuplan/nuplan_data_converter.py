@@ -25,11 +25,6 @@ from d123.datatypes.detections.detection import (
 )
 from d123.datatypes.detections.detection_types import DetectionType
 from d123.datatypes.scene.scene_metadata import LogMetadata
-<<<<<<< HEAD
-from d123.datatypes.sensors.camera import PinholeCameraMetadata, CameraType, camera_metadata_dict_to_json
-from d123.datatypes.sensors.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
-from d123.datatypes.sensors.lidar_index import NuplanLidarIndex
-=======
 from d123.datatypes.sensors.camera.pinhole_camera import (
     PinholeCameraMetadata,
     PinholeCameraType,
@@ -37,7 +32,6 @@ from d123.datatypes.sensors.camera.pinhole_camera import (
     PinholeIntrinsics,
 )
 from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
->>>>>>> dev_v0.0.7
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from d123.datatypes.vehicle_state.vehicle_parameters import (
@@ -240,29 +234,15 @@ def convert_nuplan_log_to_arrow(
     return []
 
 
-<<<<<<< HEAD
-def get_nuplan_camera_metadata(log_path: Path) -> Dict[CameraType, PinholeCameraMetadata]:
+def get_nuplan_camera_metadata(log_path: Path) -> Dict[CameraType, CameraMetadata]:
 
-    def _get_camera_metadata(camera_type: CameraType) -> PinholeCameraMetadata:
+    def _get_camera_metadata(camera_type: CameraType) -> CameraMetadata:
         cam = list(get_cameras(log_path, [str(NUPLAN_CAMERA_TYPES[camera_type].value)]))[0]
         intrinsic = np.array(pickle.loads(cam.intrinsic))
         rotation = np.array(pickle.loads(cam.rotation))
         rotation = Quaternion(rotation).rotation_matrix
         distortion = np.array(pickle.loads(cam.distortion))
-=======
-def get_nuplan_camera_metadata(log_path: Path) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
-
-    def _get_camera_metadata(camera_type: PinholeCameraType) -> PinholeCameraMetadata:
-        cam = list(get_cameras(log_path, [str(NUPLAN_CAMERA_TYPES[camera_type].value)]))[0]
-
-        intrinsics_camera_matrix = np.array(pickle.loads(cam.intrinsic), dtype=np.float64)  # array of shape (3, 3)
-        intrinsic = PinholeIntrinsics.from_camera_matrix(intrinsics_camera_matrix)
-
-        distortion_array = np.array(pickle.loads(cam.distortion), dtype=np.float64)  # array of shape (5,)
-        distortion = PinholeDistortion.from_array(distortion_array, copy=False)
-
->>>>>>> dev_v0.0.7
-        return PinholeCameraMetadata(
+        return CameraMetadata(
             camera_type=camera_type,
             width=cam.width,
             height=cam.height,
