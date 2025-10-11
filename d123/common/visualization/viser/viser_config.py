@@ -44,7 +44,7 @@ class ViserConfig:
 
     # Map
     map_visible: bool = True
-    map_radius: float = 1000.0  # [m]
+    map_radius: float = 200.0  # [m]
     map_non_road_z_offset: float = 0.1  # small z-translation to place crosswalks, parking, etc. on top of the road
 
     # Bounding boxes

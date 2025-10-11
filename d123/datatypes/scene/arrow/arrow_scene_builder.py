@@ -145,7 +145,7 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
             # NOTE: We only check camera availability at the initial index of the scene.
             if filter.camera_types is not None:
                 cameras_available = [
-                    recording_table[camera_type.serialize()][start_idx].as_py() is not None
+                    recording_table[f"{camera_type.serialize()}_data"][start_idx].as_py() is not None
                     for camera_type in filter.camera_types
                 ]
                 if not all(cameras_available):

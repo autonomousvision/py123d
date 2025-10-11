@@ -4,6 +4,7 @@ from d123.common.multithreading.worker_sequential import Sequential
 from d123.common.visualization.viser.viser_viewer import ViserViewer
 from d123.datatypes.scene.arrow.arrow_scene_builder import ArrowSceneBuilder
 from d123.datatypes.scene.scene_filter import SceneFilter
+from d123.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
 
 if __name__ == "__main__":
 
@@ -23,8 +24,7 @@ if __name__ == "__main__":
         history_s=0.0,
         timestamp_threshold_s=10.0,
         shuffle=True,
-        # camera_types=[PinholeCameraType.CAM_F0],
-        camera_types=None,
+        camera_types=[PinholeCameraType.CAM_F0],
     )
     scene_builder = ArrowSceneBuilder(os.environ["D123_DATA_ROOT"])
     worker = Sequential()
