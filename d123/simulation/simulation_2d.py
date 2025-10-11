@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional, Tuple, Type
 
-from d123.datasets.scene.abstract_scene import AbstractScene
+from d123.conversion.scene.abstract_scene import AbstractScene
 from d123.simulation.callback.abstract_callback import AbstractCallback
 from d123.simulation.callback.multi_callback import MultiCallback
 from d123.simulation.history.simulation_history import Simulation2DHistory, Simulation2DHistorySample

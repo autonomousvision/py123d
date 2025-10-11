@@ -9,8 +9,8 @@ from nuplan.common.geometry.compute import get_pacifica_parameters
 from nuplan.planning.simulation.controller.motion_model.kinematic_bicycle import KinematicBicycleModel
 
 from d123.common.datatypes.recording.detection_recording import DetectionRecording
-from d123.datasets.maps.abstract_map import AbstractMap
-from d123.datasets.scene.abstract_scene import AbstractScene
+from d123.conversion.maps.abstract_map import AbstractMap
+from d123.conversion.scene.abstract_scene import AbstractScene
 from d123.datatypes.scene.arrow.utils.arrow_getters import EgoStateSE3
 from d123.simulation.observation.abstract_observation import AbstractObservation
 from d123.simulation.observation.agents_observation import AgentsObservation

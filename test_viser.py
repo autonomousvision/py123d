@@ -4,14 +4,14 @@ from d123.common.multithreading.worker_sequential import Sequential
 from d123.common.visualization.viser.viser_viewer import ViserViewer
 from d123.datatypes.scene.arrow.arrow_scene_builder import ArrowSceneBuilder
 from d123.datatypes.scene.scene_filter import SceneFilter
-from d123.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
 
 if __name__ == "__main__":
 
+    splits = ["nuplan_mini_test", "nuplan_mini_train", "nuplan_mini_val"]
     # splits = ["nuplan_private_test"]
     # splits = ["carla"]
     # splits = ["wopd_train"]
-    splits = ["av2-sensor-mini_train"]
+    # splits = ["av2-sensor-mini_train"]
     log_names = None
     scene_tokens = None
 
@@ -19,11 +19,12 @@ if __name__ == "__main__":
         split_names=splits,
         log_names=log_names,
         scene_tokens=scene_tokens,
-        duration_s=None,
-        history_s=None,
-        timestamp_threshold_s=None,
+        duration_s=10.0,
+        history_s=0.0,
+        timestamp_threshold_s=10.0,
         shuffle=True,
-        camera_types=[PinholeCameraType.CAM_F0],
+        # camera_types=[PinholeCameraType.CAM_F0],
+        camera_types=None,
     )
     scene_builder = ArrowSceneBuilder(os.environ["D123_DATA_ROOT"])
     worker = Sequential()

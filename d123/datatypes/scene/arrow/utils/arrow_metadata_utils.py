@@ -1,4 +1,5 @@
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Union
 
@@ -8,6 +9,7 @@ from d123.common.utils.arrow_helper import get_lru_cached_arrow_table
 from d123.datatypes.scene.scene_metadata import LogMetadata
 
 
+@lru_cache(maxsize=10000)
 def get_log_metadata_from_arrow(arrow_file_path: Union[Path, str]) -> LogMetadata:
     table = get_lru_cached_arrow_table(arrow_file_path)
     log_metadata = LogMetadata.from_dict(json.loads(table.schema.metadata[b"log_metadata"].decode()))

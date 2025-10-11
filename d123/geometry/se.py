@@ -106,10 +106,7 @@ class StateSE2(ArrayMixin):
 
 
 class StateSE3(ArrayMixin):
-    """Class representing a quaternion in SE3 space.
-
-    TODO: Implement and replace StateSE3.
-    """
+    """Class representing a quaternion in SE3 space."""
 
     _array: npt.NDArray[np.float64]
 

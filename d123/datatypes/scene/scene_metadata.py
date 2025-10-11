@@ -29,7 +29,7 @@ class LogMetadata:
     @classmethod
     def from_dict(cls, data_dict: Dict) -> LogMetadata:
 
-        data_dict["vehicle_parameters"] = VehicleParameters(**data_dict["vehicle_parameters"])
+        data_dict["vehicle_parameters"] = VehicleParameters.from_dict(data_dict["vehicle_parameters"])
         data_dict["camera_metadata"] = {
             PinholeCameraType.deserialize(key): PinholeCameraMetadata.from_dict(value)
             for key, value in data_dict.get("camera_metadata", {}).items()

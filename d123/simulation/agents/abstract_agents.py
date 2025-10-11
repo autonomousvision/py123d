@@ -2,8 +2,8 @@ from abc import abstractmethod
 from typing import List, Optional
 
 from d123.common.datatypes.detection.detection import BoxDetection
-from d123.datasets.maps.abstract_map import AbstractMap
-from d123.datasets.scene.abstract_scene import AbstractScene
+from d123.conversion.maps.abstract_map import AbstractMap
+from d123.conversion.scene.abstract_scene import AbstractScene
 
 
 class AbstractAgents:

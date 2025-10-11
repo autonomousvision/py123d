@@ -1,6 +1,6 @@
 from typing import Optional, Tuple
 
-from d123.datasets.scene.abstract_scene import AbstractScene
+from d123.conversion.scene.abstract_scene import AbstractScene
 from d123.simulation.time_controller.abstract_time_controller import (
     AbstractTimeController,
 )

@@ -3,8 +3,8 @@ from abc import abstractmethod
 from typing import Dict, List, Optional
 
 from d123.common.datatypes.detection.detection import BoxDetection, BoxDetectionSE2
-from d123.datasets.maps.abstract_map import AbstractMap
-from d123.datasets.scene.abstract_scene import AbstractScene
+from d123.conversion.maps.abstract_map import AbstractMap
+from d123.conversion.scene.abstract_scene import AbstractScene
 from d123.geometry.bounding_box import BoundingBoxSE2
 from d123.geometry.point import Point2D
 from d123.geometry.polyline import PolylineSE2

@@ -1,7 +1,7 @@
 from typing import Optional
 
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE2
-from d123.datasets.scene.abstract_scene import AbstractScene
+from d123.conversion.scene.abstract_scene import AbstractScene
 from d123.simulation.controller.abstract_controller import AbstractEgoController
 from d123.simulation.controller.motion_model.abstract_motion_model import AbstractMotionModel
 from d123.simulation.planning.planner_output.abstract_planner_output import AbstractPlannerOutput

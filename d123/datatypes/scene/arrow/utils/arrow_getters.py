@@ -145,11 +145,11 @@ def get_lidar_from_arrow_table(
 
         # NOTE: We move data specific import into if-else block, to avoid data specific import errors
         if log_metadata.dataset == "nuplan":
-            from d123.datasets.nuplan.nuplan_load_sensor import load_nuplan_lidar_from_path
+            from d123.conversion.nuplan.nuplan_load_sensor import load_nuplan_lidar_from_path
 
             lidar = load_nuplan_lidar_from_path(full_lidar_path, lidar_metadata)
         elif log_metadata.dataset == "carla":
-            from d123.datasets.carla.load_sensor import load_carla_lidar_from_path
+            from d123.conversion.carla.load_sensor import load_carla_lidar_from_path
 
             lidar = load_carla_lidar_from_path(full_lidar_path, lidar_metadata)
         elif log_metadata.dataset == "wopd":

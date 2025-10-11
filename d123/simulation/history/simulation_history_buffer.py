@@ -6,7 +6,7 @@ from typing import Deque, List, Optional, Tuple, Type
 from d123.common.datatypes.recording.abstract_recording import Recording
 from d123.common.datatypes.recording.detection_recording import DetectionRecording
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE2
-from d123.datasets.scene.abstract_scene import AbstractScene
+from d123.conversion.scene.abstract_scene import AbstractScene
 
 
 class Simulation2DHistoryBuffer:

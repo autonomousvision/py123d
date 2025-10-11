@@ -1,0 +1,85 @@
+from enum import IntEnum
+from typing import Dict, Final, List, Set
+
+from d123.datatypes.detections.detection import TrafficLightStatus
+from d123.datatypes.detections.detection_types import DetectionType
+from d123.datatypes.time.time_point import TimePoint
+
+
+class NuPlanBoxDetectionType(IntEnum):
+
+    VEHICLE = 0
+    BICYCLE = 1
+    PEDESTRIAN = 2
+    TRAFFIC_CONE = 3
+    BARRIER = 4
+    CZONE_SIGN = 5
+    GENERIC_OBJECT = 6
+
+
+NUPLAN_DEFAULT_DT: Final[float] = 0.05
+
+NUPLAN_TRAFFIC_STATUS_DICT: Final[Dict[str, TrafficLightStatus]] = {
+    "green": TrafficLightStatus.GREEN,
+    "red": TrafficLightStatus.RED,
+    "unknown": TrafficLightStatus.UNKNOWN,
+}
+
+
+NUPLAN_DETECTION_NAME_DICT = {
+    "vehicle": DetectionType.VEHICLE,
+    "bicycle": DetectionType.BICYCLE,
+    "pedestrian": DetectionType.PEDESTRIAN,
+    "traffic_cone": DetectionType.TRAFFIC_CONE,
+    "barrier": DetectionType.BARRIER,
+    "czone_sign": DetectionType.CZONE_SIGN,
+    "generic_object": DetectionType.GENERIC_OBJECT,
+}
+
+
+NUPLAN_DATA_SPLITS: Set[str] = {
+    "nuplan_train",
+    "nuplan_val",
+    "nuplan_test",
+    "nuplan_mini_train",
+    "nuplan_mini_val",
+    "nuplan_mini_test",
+    "nuplan_private_test",  # TODO: remove, not publicly available
+}
+
+NUPLAN_MAP_LOCATIONS: List[str] = [
+    "sg-one-north",
+    "us-ma-boston",
+    "us-nv-las-vegas-strip",
+    "us-pa-pittsburgh-hazelwood",
+]
+
+NUPLAN_MAP_LOCATION_FILES: Dict[str, str] = {
+    "sg-one-north": "sg-one-north/9.17.1964/map.gpkg",
+    "us-ma-boston": "us-ma-boston/9.12.1817/map.gpkg",
+    "us-nv-las-vegas-strip": "us-nv-las-vegas-strip/9.15.1915/map.gpkg",
+    "us-pa-pittsburgh-hazelwood": "us-pa-pittsburgh-hazelwood/9.17.1937/map.gpkg",
+}
+
+
+NUPLAN_MAP_GPKG_LAYERS: Set[str] = {
+    "baseline_paths",
+    "carpark_areas",
+    "generic_drivable_areas",
+    "dubins_nodes",
+    "lane_connectors",
+    "intersections",
+    "boundaries",
+    "crosswalks",
+    "lanes_polygons",
+    "lane_group_connectors",
+    "lane_groups_polygons",
+    "road_segments",
+    "stop_polygons",
+    "traffic_lights",
+    "walkways",
+    "gen_lane_connectors_scaled_width_polygons",
+}
+
+
+NUPLAN_ROLLING_SHUTTER_S: Final[TimePoint] = TimePoint.from_s(1 / 60)

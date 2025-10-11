@@ -8,14 +8,14 @@ import shapely
 from d123.common.datatypes.detection.detection import BoxDetection, BoxDetectionWrapper
 from d123.common.datatypes.detection.detection_types import DetectionType
 from d123.common.visualization.color.default import TrafficLightStatus
-from d123.datasets.maps.abstract_map import MapLayer
-from d123.datasets.maps.abstract_map_objects import (
+from d123.conversion.maps.abstract_map import MapLayer
+from d123.conversion.maps.abstract_map_objects import (
     AbstractCarpark,
     AbstractCrosswalk,
     AbstractGenericDrivable,
     AbstractLaneGroup,
 )
-from d123.datasets.scene.abstract_scene import AbstractScene
+from d123.conversion.scene.abstract_scene import AbstractScene
 from d123.geometry import BoundingBoxSE2, PolylineSE2, StateSE2
 from d123.geometry.geometry_index import StateSE2Index
 from d123.geometry.transform.transform_se2 import convert_absolute_to_relative_se2_array

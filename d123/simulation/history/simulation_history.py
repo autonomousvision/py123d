@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from d123.common.datatypes.recording.detection_recording import DetectionRecording
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE2
-from d123.datasets.scene.abstract_scene import AbstractScene
+from d123.conversion.scene.abstract_scene import AbstractScene
 from d123.simulation.planning.planner_output.abstract_planner_output import AbstractPlannerOutput
 from d123.simulation.time_controller.simulation_iteration import SimulationIteration
 

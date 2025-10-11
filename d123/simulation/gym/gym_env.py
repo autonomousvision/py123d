@@ -5,8 +5,8 @@ import numpy.typing as npt
 
 from d123.common.datatypes.recording.detection_recording import DetectionRecording
 from d123.common.datatypes.vehicle_state.ego_state import DynamicStateSE2, EgoStateSE2
-from d123.datasets.maps.abstract_map import AbstractMap
-from d123.datasets.scene.abstract_scene import AbstractScene
+from d123.conversion.maps.abstract_map import AbstractMap
+from d123.conversion.scene.abstract_scene import AbstractScene
 from d123.geometry.vector import Vector2D
 from d123.simulation.controller.motion_model.kinematic_bicycle_model import KinematicBicycleModel
 from d123.simulation.observation.abstract_observation import AbstractObservation

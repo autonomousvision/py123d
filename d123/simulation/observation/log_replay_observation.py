@@ -3,7 +3,7 @@ from typing import Optional, Type
 from d123.common.datatypes.recording.abstract_recording import Recording
 from d123.common.datatypes.recording.detection_recording import DetectionRecording
 from d123.common.datatypes.vehicle_state.ego_state import EgoStateSE2
-from d123.datasets.scene.abstract_scene import AbstractScene
+from d123.conversion.scene.abstract_scene import AbstractScene
 from d123.simulation.observation.abstract_observation import AbstractObservation
 from d123.simulation.time_controller.simulation_iteration import SimulationIteration
 

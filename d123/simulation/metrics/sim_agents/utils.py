@@ -4,7 +4,7 @@ import numpy as np
 import numpy.typing as npt
 
 from d123.common.datatypes.detection.detection import BoxDetectionWrapper
-from d123.datasets.scene.abstract_scene import AbstractScene
+from d123.conversion.scene.abstract_scene import AbstractScene
 from d123.geometry.geometry_index import BoundingBoxSE2Index
 
 

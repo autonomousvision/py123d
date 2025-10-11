@@ -1,11 +1,11 @@
 
-# D123
+# 123D Defaults
 d123_devkit_root: ${oc.env:D123_DEVKIT_ROOT}
-d123_maps_root: ${oc.env:D123_MAPS_ROOT}
 d123_data_root: ${oc.env:D123_DATA_ROOT}
+d123_maps_root: ${oc.env:D123_MAPS_ROOT}
 
 
-# nuplan
-nuplan_devkit_root: ${oc.env:NUPLAN_DEVKIT_ROOT}
-nuplan_maps_root: ${oc.env:NUPLAN_MAPS_ROOT}
+# nuPlan defaults
 nuplan_data_root: ${oc.env:NUPLAN_DATA_ROOT}
+nuplan_maps_root: ${oc.env:NUPLAN_MAPS_ROOT}
+nuplan_sensor_root: ${oc.env:NUPLAN_DATA_ROOT}/nuplan-v1.1/sensor_blobs
