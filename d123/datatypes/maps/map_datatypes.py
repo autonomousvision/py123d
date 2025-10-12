@@ -49,8 +49,7 @@ class RoadEdgeType(SerialIntEnum):
 class RoadLineType(SerialIntEnum):
     """
     Enum for RoadLineType.
-    NOTE: We use the road line types from Waymo.
-    TODO: Use the Argoverse 2 road line types instead.
+    TODO: Use the Argoverse 2 road line types.
     https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/protos/map.proto#L208
     """
 

@@ -12,6 +12,9 @@ class DatasetConverterConfig:
     force_log_conversion: bool = False
     force_map_conversion: bool = False
 
+    # Map
+    include_map: bool = False
+
     # Ego
     include_ego: bool = False
 

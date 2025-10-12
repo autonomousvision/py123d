@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import pyarrow as pa
 
@@ -19,10 +19,12 @@ class ArrowLogWriter(AbstractLogWriter):
 
     def __init__(
         self,
+        logs_root: Union[str, Path],
         compression: Optional[Literal["lz4", "zstd"]] = None,
         compression_level: Optional[int] = None,
     ) -> None:
 
+        self._logs_root = Path(logs_root)
         self._compression = compression
         self._compression_level = compression_level
 
@@ -35,14 +37,12 @@ class ArrowLogWriter(AbstractLogWriter):
 
     def reset(self, dataset_converter_config: DatasetConverterConfig, log_metadata: LogMetadata) -> bool:
 
-        overwrite_log: bool = False
-        sink_log_path: Path = (
-            dataset_converter_config.output_path / log_metadata.split / f"{log_metadata.log_name}.arrow"
-        )
+        log_needs_writing: bool = False
+        sink_log_path: Path = self._logs_root / log_metadata.split / f"{log_metadata.log_name}.arrow"
 
         # Check if the log file already exists or needs to be overwritten
         if not sink_log_path.exists() or dataset_converter_config.force_log_conversion:
-            overwrite_log = True
+            log_needs_writing = True
 
             # Delete the file if it exists (no error if it doesn't)
             sink_log_path.unlink(missing_ok=True)
@@ -66,7 +66,7 @@ class ArrowLogWriter(AbstractLogWriter):
             self._source = pa.OSFile(str(sink_log_path), "wb")
             self._record_batch_writer = pa.ipc.new_file(self._source, schema=self._schema, options=options)
 
-        return overwrite_log
+        return log_needs_writing
 
     def write(
         self,

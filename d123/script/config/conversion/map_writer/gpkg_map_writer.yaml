@@ -1,0 +1,4 @@
+_target_: d123.conversion.map_writer.gpkg_map_writer.GPKGMapWriter
+_convert_: 'all'
+
+maps_root: ${d123_maps_root}

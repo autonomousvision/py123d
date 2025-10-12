@@ -149,10 +149,10 @@ class WOPDConverter(AbstractDatasetConverter):
         )
 
         # 2. Prepare log writer
-        overwrite_log = log_writer.reset(self.dataset_converter_config, log_metadata)
+        log_needs_writing = log_writer.reset(self.dataset_converter_config, log_metadata)
 
         # 3. Process source log data
-        if overwrite_log:
+        if log_needs_writing:
             try:
                 for frame_idx, data in enumerate(dataset):
                     frame = dataset_pb2.Frame()

@@ -382,7 +382,7 @@ def _extract_traffic_light_data(
                 lane_start_point = lane.centerline.array[0]
                 distance_to_lane_start = np.linalg.norm(lane_start_point - point_3d.array)
                 if distance_to_lane_start < TRAFFIC_LIGHT_ASSIGNMENT_DISTANCE:
-                    traffic_light_ids.append(int(lane.id))
+                    traffic_light_ids.append(int(lane.object_id))
                     traffic_light_types.append(traffic_light_state)
     return traffic_light_ids, traffic_light_types
 
@@ -404,19 +404,19 @@ def _extract_route_lane_group_ids(route: List[List[float]], map_api: AbstractMap
         if len(nearby_lane_groups) == 0:
             continue
         elif len(nearby_lane_groups) > 1:
-            possible_lane_group_ids = [lane_group.id for lane_group in nearby_lane_groups]
+            possible_lane_group_ids = [lane_group.object_id for lane_group in nearby_lane_groups]
             if len(route_lane_group_ids) > 0:
                 prev_lane_group_id = route_lane_group_ids[-1]
                 if prev_lane_group_id in possible_lane_group_ids:
                     continue
                 else:
                     # TODO: Choose with least heading difference?
-                    route_lane_group_ids.append(int(nearby_lane_groups[0].id))
+                    route_lane_group_ids.append(int(nearby_lane_groups[0].object_id))
             else:
                 # TODO: Choose with least heading difference?
-                route_lane_group_ids.append(int(nearby_lane_groups[0].id))
+                route_lane_group_ids.append(int(nearby_lane_groups[0].object_id))
         elif len(nearby_lane_groups) == 1:
-            route_lane_group_ids.append(int(nearby_lane_groups[0].id))
+            route_lane_group_ids.append(int(nearby_lane_groups[0].object_id))
 
     return list(dict.fromkeys(route_lane_group_ids))  # Remove duplicates while preserving order
 

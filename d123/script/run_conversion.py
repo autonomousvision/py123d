@@ -9,8 +9,8 @@ from omegaconf import DictConfig
 from d123 import ascii_banner
 from d123.common.multithreading.worker_utils import worker_map
 from d123.script.builders.dataset_converter_builder import AbstractDatasetConverter, build_dataset_converters
-from d123.script.builders.log_writer_builder import build_log_writer
 from d123.script.builders.worker_pool_builder import build_worker
+from d123.script.builders.writer_builder import build_log_writer, build_map_writer
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -50,8 +50,10 @@ def main(cfg: DictConfig) -> None:
 
 
 def _convert_maps(args: List[Dict[str, int]], cfg: DictConfig, dataset_converter: AbstractDatasetConverter) -> List:
+
+    map_writer = build_map_writer(cfg.map_writer)
     for arg in args:
-        dataset_converter.convert_map(arg["map_index"])
+        dataset_converter.convert_map(arg["map_index"], map_writer)
     return []
 
 

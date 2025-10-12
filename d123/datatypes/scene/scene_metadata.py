@@ -9,7 +9,7 @@ from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
 from d123.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 
 
-@dataclass(frozen=True)
+@dataclass
 class LogMetadata:
 
     dataset: str

@@ -22,8 +22,9 @@ from d123.datatypes.maps.abstract_map_objects import (
     AbstractRoadLine,
     AbstractSurfaceMapObject,
     AbstractWalkway,
+    MapObjectIDType,
 )
-from d123.datatypes.maps.gpkg.utils import get_row_with_value, get_trimesh_from_boundaries
+from d123.datatypes.maps.gpkg.gpkg_utils import get_row_with_value, get_trimesh_from_boundaries
 from d123.datatypes.maps.map_datatypes import RoadEdgeType, RoadLineType
 from d123.geometry import Point3DIndex, Polyline3D
 
@@ -33,7 +34,7 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
     Base interface representation of all map objects.
     """
 
-    def __init__(self, object_id: str, surface_df: gpd.GeoDataFrame) -> None:
+    def __init__(self, object_id: MapObjectIDType, surface_df: gpd.GeoDataFrame) -> None:
         """
         Constructor of the base surface map object type.
         :param object_id: unique identifier of a surface map object.
@@ -49,7 +50,7 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
 
     @cached_property
     def _object_row(self) -> gpd.GeoSeries:
-        return get_row_with_value(self._object_df, "id", self.id)
+        return get_row_with_value(self._object_df, "id", self.object_id)
 
     @cached_property
     def outline_3d(self) -> Polyline3D:
@@ -90,7 +91,7 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
 
 class GPKGLineObject(AbstractLineMapObject):
 
-    def __init__(self, object_id: str, line_df: gpd.GeoDataFrame) -> None:
+    def __init__(self, object_id: MapObjectIDType, line_df: gpd.GeoDataFrame) -> None:
         """
         Constructor of the base line map object type.
         :param object_id: unique identifier of a line map object.
@@ -101,7 +102,7 @@ class GPKGLineObject(AbstractLineMapObject):
 
     @cached_property
     def _object_row(self) -> gpd.GeoSeries:
-        return get_row_with_value(self._object_df, "id", self.id)
+        return get_row_with_value(self._object_df, "id", self.object_id)
 
     @property
     def polyline_3d(self) -> Polyline3D:
@@ -112,7 +113,7 @@ class GPKGLineObject(AbstractLineMapObject):
 class GPKGLane(GPKGSurfaceObject, AbstractLane):
     def __init__(
         self,
-        object_id: str,
+        object_id: MapObjectIDType,
         object_df: gpd.GeoDataFrame,
         lane_group_df: gpd.GeoDataFrame,
         intersection_df: gpd.GeoDataFrame,
@@ -127,16 +128,24 @@ class GPKGLane(GPKGSurfaceObject, AbstractLane):
         return self._object_row.speed_limit_mps
 
     @property
+    def successor_ids(self) -> List[MapObjectIDType]:
+        """Inherited, see superclass."""
+        return ast.literal_eval(self._object_row.successor_ids)
+
+    @property
     def successors(self) -> List[GPKGLane]:
         """Inherited, see superclass."""
-        successor_ids = ast.literal_eval(self._object_row.successor_ids)
-        return [GPKGLane(lane_id, self._object_df) for lane_id in successor_ids]
+        return [GPKGLane(lane_id, self._object_df) for lane_id in self.successor_ids]
+
+    @property
+    def predecessor_ids(self) -> List[MapObjectIDType]:
+        """Inherited, see superclass."""
+        return ast.literal_eval(self._object_row.predecessor_ids)
 
     @property
     def predecessors(self) -> List[GPKGLane]:
         """Inherited, see superclass."""
-        predecessor_ids = ast.literal_eval(self._object_row.predecessor_ids)
-        return [GPKGLane(lane_id, self._object_df) for lane_id in predecessor_ids]
+        return [GPKGLane(lane_id, self._object_df) for lane_id in self.predecessor_ids]
 
     @property
     def left_boundary(self) -> Polyline3D:
@@ -149,22 +158,30 @@ class GPKGLane(GPKGSurfaceObject, AbstractLane):
         return Polyline3D.from_linestring(self._object_row.right_boundary)
 
     @property
+    def left_lane_id(self) -> Optional[MapObjectIDType]:
+        """ "Inherited, see superclass."""
+        return self._object_row.left_lane_id
+
+    @property
     def left_lane(self) -> Optional[GPKGLane]:
         """Inherited, see superclass."""
-        left_lane_id = self._object_row.left_lane_id
         return (
-            GPKGLane(left_lane_id, self._object_df, self._lane_group_df, self._intersection_df)
-            if left_lane_id is not None and not pd.isna(left_lane_id)
+            GPKGLane(self.left_lane_id, self._object_df, self._lane_group_df, self._intersection_df)
+            if self.left_lane_id is not None and not pd.isna(self.left_lane_id)
             else None
         )
 
     @property
+    def right_lane_id(self) -> Optional[MapObjectIDType]:
+        """Inherited, see superclass."""
+        return self._object_row.right_lane_id
+
+    @property
     def right_lane(self) -> Optional[GPKGLane]:
         """Inherited, see superclass."""
-        right_lane_id = self._object_row.right_lane_id
         return (
-            GPKGLane(right_lane_id, self._object_df, self._lane_group_df, self._intersection_df)
-            if right_lane_id is not None and not pd.isna(right_lane_id)
+            GPKGLane(self.right_lane_id, self._object_df, self._lane_group_df, self._intersection_df)
+            if self.right_lane_id is not None and not pd.isna(self.right_lane_id)
             else None
         )
 
@@ -181,11 +198,15 @@ class GPKGLane(GPKGSurfaceObject, AbstractLane):
         return Polyline3D.from_linestring(geom.LineString(outline_array))
 
     @property
+    def lane_group_id(self) -> MapObjectIDType:
+        """Inherited, see superclass."""
+        return self._object_row.lane_group_id
+
+    @property
     def lane_group(self) -> GPKGLaneGroup:
         """Inherited, see superclass."""
-        lane_group_id = self._object_row.lane_group_id
         return GPKGLaneGroup(
-            lane_group_id,
+            self.lane_group_id,
             self._lane_group_df,
             self._object_df,
             self._intersection_df,
@@ -195,7 +216,7 @@ class GPKGLane(GPKGSurfaceObject, AbstractLane):
 class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
     def __init__(
         self,
-        object_id: str,
+        object_id: MapObjectIDType,
         object_df: gpd.GeoDataFrame,
         lane_df: gpd.GeoDataFrame,
         intersection_df: gpd.GeoDataFrame,
@@ -205,21 +226,29 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
         self._intersection_df = intersection_df
 
     @property
+    def successor_ids(self) -> List[MapObjectIDType]:
+        """Inherited, see superclass."""
+        return ast.literal_eval(self._object_row.successor_ids)
+
+    @property
     def successors(self) -> List[GPKGLaneGroup]:
         """Inherited, see superclass."""
-        successor_ids = ast.literal_eval(self._object_row.successor_ids)
         return [
             GPKGLaneGroup(lane_group_id, self._object_df, self._lane_df, self._intersection_df)
-            for lane_group_id in successor_ids
+            for lane_group_id in self.successor_ids
         ]
+
+    @property
+    def predecessor_ids(self) -> List[MapObjectIDType]:
+        """Inherited, see superclass."""
+        return ast.literal_eval(self._object_row.predecessor_ids)
 
     @property
     def predecessors(self) -> List[GPKGLaneGroup]:
         """Inherited, see superclass."""
-        predecessor_ids = ast.literal_eval(self._object_row.predecessor_ids)
         return [
             GPKGLaneGroup(lane_group_id, self._object_df, self._lane_df, self._intersection_df)
-            for lane_group_id in predecessor_ids
+            for lane_group_id in self.predecessor_ids
         ]
 
     @property
@@ -239,9 +268,13 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
         return Polyline3D.from_linestring(geom.LineString(outline_array))
 
     @property
+    def lane_ids(self) -> List[MapObjectIDType]:
+        """Inherited, see superclass."""
+        return ast.literal_eval(self._object_row.lane_ids)
+
+    @property
     def lanes(self) -> List[GPKGLane]:
         """Inherited, see superclass."""
-        lane_ids = ast.literal_eval(self._object_row.lane_ids)
         return [
             GPKGLane(
                 lane_id,
@@ -249,21 +282,25 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
                 self._object_df,
                 self._intersection_df,
             )
-            for lane_id in lane_ids
+            for lane_id in self.lane_ids
         ]
+
+    @property
+    def intersection_id(self) -> Optional[MapObjectIDType]:
+        """Inherited, see superclass."""
+        return self._object_row.intersection_id
 
     @property
     def intersection(self) -> Optional[GPKGIntersection]:
         """Inherited, see superclass."""
-        intersection_id = self._object_row.intersection_id
         return (
             GPKGIntersection(
-                intersection_id,
+                self.intersection_id,
                 self._intersection_df,
                 self._lane_df,
                 self._object_df,
             )
-            if intersection_id is not None and not pd.isna(intersection_id)
+            if self.intersection_id is not None and not pd.isna(self.intersection_id)
             else None
         )
 
@@ -271,7 +308,7 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
 class GPKGIntersection(GPKGSurfaceObject, AbstractIntersection):
     def __init__(
         self,
-        object_id: str,
+        object_id: MapObjectIDType,
         object_df: gpd.GeoDataFrame,
         lane_df: gpd.GeoDataFrame,
         lane_group_df: gpd.GeoDataFrame,
@@ -281,9 +318,13 @@ class GPKGIntersection(GPKGSurfaceObject, AbstractIntersection):
         self._lane_group_df = lane_group_df
 
     @property
+    def lane_group_ids(self) -> List[MapObjectIDType]:
+        """Inherited, see superclass."""
+        return ast.literal_eval(self._object_row.lane_group_ids)
+
+    @property
     def lane_groups(self) -> List[GPKGLaneGroup]:
         """Inherited, see superclass."""
-        lane_group_ids = ast.literal_eval(self._object_row.lane_group_ids)
         return [
             GPKGLaneGroup(
                 lane_group_id,
@@ -291,37 +332,37 @@ class GPKGIntersection(GPKGSurfaceObject, AbstractIntersection):
                 self._lane_df,
                 self._object_df,
             )
-            for lane_group_id in lane_group_ids
+            for lane_group_id in self.lane_group_ids
         ]
 
 
 class GPKGCrosswalk(GPKGSurfaceObject, AbstractCrosswalk):
-    def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
+    def __init__(self, object_id: MapObjectIDType, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)
 
 
 class GPKGCarpark(GPKGSurfaceObject, AbstractCarpark):
-    def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
+    def __init__(self, object_id: MapObjectIDType, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)
 
 
 class GPKGWalkway(GPKGSurfaceObject, AbstractWalkway):
-    def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
+    def __init__(self, object_id: MapObjectIDType, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)
 
 
 class GPKGGenericDrivable(GPKGSurfaceObject, AbstractGenericDrivable):
-    def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
+    def __init__(self, object_id: MapObjectIDType, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)
 
 
 class GPKGRoadEdge(GPKGLineObject, AbstractRoadEdge):
-    def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
+    def __init__(self, object_id: MapObjectIDType, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)
 
     @cached_property
     def _object_row(self) -> gpd.GeoSeries:
-        return get_row_with_value(self._object_df, "id", self.id)
+        return get_row_with_value(self._object_df, "id", self.object_id)
 
     @property
     def road_edge_type(self) -> RoadEdgeType:
@@ -330,12 +371,12 @@ class GPKGRoadEdge(GPKGLineObject, AbstractRoadEdge):
 
 
 class GPKGRoadLine(GPKGLineObject, AbstractRoadLine):
-    def __init__(self, object_id: str, object_df: gpd.GeoDataFrame):
+    def __init__(self, object_id: MapObjectIDType, object_df: gpd.GeoDataFrame):
         super().__init__(object_id, object_df)
 
     @cached_property
     def _object_row(self) -> gpd.GeoSeries:
-        return get_row_with_value(self._object_df, "id", self.id)
+        return get_row_with_value(self._object_df, "id", self.object_id)
 
     @property
     def road_line_type(self) -> RoadLineType:

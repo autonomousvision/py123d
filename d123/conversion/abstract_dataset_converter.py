@@ -2,6 +2,7 @@ import abc
 
 from d123.conversion.dataset_converter_config import DatasetConverterConfig
 from d123.conversion.log_writer.abstract_log_writer import AbstractLogWriter
+from d123.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 
 
 class AbstractDatasetConverter(abc.ABC):
@@ -23,10 +24,11 @@ class AbstractDatasetConverter(abc.ABC):
         """Returns the number of available raw data logs for conversion."""
 
     @abc.abstractmethod
-    def convert_map(self, map_index: int) -> None:
+    def convert_map(self, map_index: int, map_writer: AbstractMapWriter) -> None:
         """
         Convert a single map in raw data format to the uniform 123D format.
         :param map_index: The index of the map to convert.
+        :param map_writer: The map writer to use for writing the converted map.
         """
 
     @abc.abstractmethod

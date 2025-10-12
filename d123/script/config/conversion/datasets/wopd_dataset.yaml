@@ -2,9 +2,9 @@ wopd_dataset:
   _target_: d123.conversion.datasets.wopd.wopd_converter.WOPDConverter
   _convert_: 'all'
 
-  splits: ["wopd_val"]
+  splits: ["wopd_train", "wopd_val", "wopd_test"] # Which splits to convert. Options: ["wopd_train", "wopd_val", "wopd_test"]
   wopd_data_root: "/media/nvme1/waymo_perception" # ${wopd_data_root}
-  zero_roll_pitch: true # Whether to zero the roll and pitch of the box detections.
+  zero_roll_pitch: true # Whether to zero the roll and pitch of the box detections in global frame.
   keep_polar_features: false # Add lidar polar features (range, azimuth, elevation) in addition to XYZ. (slow if true)
   add_map_pose_offset: true # Whether to add the map pose offset to the ego state and box detections.
 
@@ -16,6 +16,9 @@ wopd_dataset:
     output_path: ${d123_data_root}
     force_log_conversion: ${force_log_conversion}
     force_map_conversion: ${force_map_conversion}
+
+    # Map
+    include_map: true
 
     # Ego
     include_ego: true

@@ -1,6 +1,4 @@
-import os
 import pickle
-import uuid
 from pathlib import Path
 from typing import Dict, Final, List, Optional, Tuple, Union
 
@@ -11,7 +9,7 @@ import d123.conversion.datasets.nuplan.utils as nuplan_utils
 from d123.common.utils.dependencies import check_dependencies
 from d123.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from d123.conversion.dataset_converter_config import DatasetConverterConfig
-from d123.conversion.datasets.nuplan.nuplan_map_conversion import NuPlanMapConverter
+from d123.conversion.datasets.nuplan.nuplan_map_conversion import write_nuplan_map
 from d123.conversion.datasets.nuplan.utils.nuplan_constants import (
     NUPLAN_DATA_SPLITS,
     NUPLAN_DEFAULT_DT,
@@ -24,6 +22,7 @@ from d123.conversion.datasets.nuplan.utils.nuplan_sql_helper import (
     get_nearest_ego_pose_for_timestamp_from_db,
 )
 from d123.conversion.log_writer.abstract_log_writer import AbstractLogWriter
+from d123.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from d123.conversion.utils.sensor_utils.lidar_index_registry import NuPlanLidarIndex
 from d123.datatypes.detections.detection import (
     BoxDetectionSE3,
@@ -82,7 +81,7 @@ class NuPlanConverter(AbstractDatasetConverter):
         self,
         splits: List[str],
         nuplan_data_root: Union[Path, str],
-        nuplan_map_root: Union[Path, str],
+        nuplan_maps_root: Union[Path, str],
         nuplan_sensor_root: Union[Path, str],
         dataset_converter_config: DatasetConverterConfig,
     ) -> None:
@@ -95,7 +94,7 @@ class NuPlanConverter(AbstractDatasetConverter):
 
         self._splits: List[str] = splits
         self._nuplan_data_root: Path = Path(nuplan_data_root)
-        self._nuplan_map_root: Path = Path(nuplan_map_root)
+        self._nuplan_maps_root: Path = Path(nuplan_maps_root)
         self._nuplan_sensor_root: Path = Path(nuplan_sensor_root)
 
         self._split_log_path_pairs: List[Tuple[str, List[Path]]] = self._collect_split_log_path_pairs()
@@ -115,16 +114,16 @@ class NuPlanConverter(AbstractDatasetConverter):
                 nuplan_split_folder = self._nuplan_data_root / "nuplan-v1.1" / "splits" / "trainval"
             elif split in ["nuplan_test"]:
                 nuplan_split_folder = self._nuplan_data_root / "nuplan-v1.1" / "splits" / "test"
-            elif split in ["nuplan_mini_train", "nuplan_mini_val", "nuplan_mini_test"]:
+            elif split in ["nuplan-mini_train", "nuplan-mini_val", "nuplan-mini_test"]:
                 nuplan_split_folder = self._nuplan_data_root / "nuplan-v1.1" / "splits" / "mini"
-            elif split == "nuplan_private_test":
+            elif split == "nuplan-private_test":
                 # TODO: Remove private split
                 nuplan_split_folder = self._nuplan_data_root / "nuplan-v1.1" / "splits" / "private_test"
 
             all_log_files_in_path = [log_file for log_file in nuplan_split_folder.glob("*.db")]
 
-            if split == "nuplan_private_test":
-                # TODO: Remove private split
+            # TODO: Remove private split
+            if split == "nuplan-private_test":
                 valid_log_names = [str(log_file.stem) for log_file in all_log_files_in_path]
             else:
                 all_log_files_in_path = [log_file for log_file in nuplan_split_folder.glob("*.db")]
@@ -146,21 +145,35 @@ class NuPlanConverter(AbstractDatasetConverter):
         """Inherited, see superclass."""
         return len(self._split_log_path_pairs)
 
-    def convert_map(self, map_index: int) -> None:
+    def convert_map(self, map_index: int, map_writer: AbstractMapWriter) -> None:
         """Inherited, see superclass."""
         map_name = NUPLAN_MAP_LOCATIONS[map_index]
-        map_path = self.dataset_converter_config.output_path / "maps" / f"nuplan_{map_name}.gpkg"
-        if self.dataset_converter_config.force_map_conversion or not map_path.exists():
-            map_path.unlink(missing_ok=True)
-            NuPlanMapConverter(
-                nuplan_map_root=self._nuplan_map_root,
-                map_path=self.dataset_converter_config.output_path / "maps",
-            ).convert(map_name=map_name)
+
+        # Dummy log metadata for map writing, TODO: Consider using MapMetadata instead?
+        log_metadata = LogMetadata(
+            dataset="nuplan",
+            split=None,
+            log_name=None,
+            location=map_name,
+            timestep_seconds=TARGET_DT,
+            vehicle_parameters=get_nuplan_chrysler_pacifica_parameters(),
+            camera_metadata={},
+            lidar_metadata={},
+            map_has_z=False,
+            map_is_local=False,
+        )
+        map_needs_writing = map_writer.reset(self.dataset_converter_config, log_metadata)
+        if map_needs_writing:
+            write_nuplan_map(
+                map_name=map_name,
+                nuplan_maps_root=self._nuplan_maps_root,
+                map_writer=map_writer,
+            )
+
+        map_writer.close()
 
     def convert_log(self, log_index: int, log_writer: AbstractLogWriter) -> None:
         """Inherited, see superclass."""
-        int(os.environ.get("NODE_RANK", 0))
-        str(uuid.uuid4())
 
         split, source_log_path = self._split_log_path_pairs[log_index]
 
@@ -185,9 +198,9 @@ class NuPlanConverter(AbstractDatasetConverter):
         )
 
         # 2. Prepare log writer
-        overwrite_log = log_writer.reset(self.dataset_converter_config, log_metadata)
+        log_needs_writing = log_writer.reset(self.dataset_converter_config, log_metadata)
 
-        if overwrite_log:
+        if log_needs_writing:
             step_interval: float = int(TARGET_DT / NUPLAN_DEFAULT_DT)
             for nuplan_lidar_pc in nuplan_log_db.lidar_pc[::step_interval]:
 

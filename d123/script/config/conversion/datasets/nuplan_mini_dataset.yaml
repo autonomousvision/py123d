@@ -2,9 +2,9 @@ nuplan_mini_dataset:
   _target_: d123.conversion.datasets.nuplan.nuplan_converter.NuPlanConverter
   _convert_: 'all'
 
-  splits: ["nuplan_mini_train", "nuplan_mini_val", "nuplan_mini_test"]
+  splits: ["nuplan-mini_train", "nuplan-mini_val", "nuplan-mini_test"]
   nuplan_data_root: ${nuplan_data_root}
-  nuplan_map_root: ${nuplan_maps_root}
+  nuplan_maps_root: ${nuplan_maps_root}
   nuplan_sensor_root: ${nuplan_sensor_root}
 
   dataset_converter_config:
@@ -14,6 +14,9 @@ nuplan_mini_dataset:
     output_path: ${d123_data_root}
     force_log_conversion: ${force_log_conversion}
     force_map_conversion: ${force_map_conversion}
+
+    # Map
+    include_map: true
 
     # Ego
     include_ego: true

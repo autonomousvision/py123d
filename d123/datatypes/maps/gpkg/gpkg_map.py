@@ -24,7 +24,7 @@ from d123.datatypes.maps.gpkg.gpkg_map_objects import (
     GPKGRoadLine,
     GPKGWalkway,
 )
-from d123.datatypes.maps.gpkg.utils import load_gdf_with_geometry_columns
+from d123.datatypes.maps.gpkg.gpkg_utils import load_gdf_with_geometry_columns
 from d123.datatypes.maps.map_datatypes import MapLayer
 from d123.geometry import Point2D
 

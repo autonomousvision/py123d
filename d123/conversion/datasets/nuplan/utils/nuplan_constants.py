@@ -3,6 +3,7 @@ from typing import Dict, Final, List, Set
 
 from d123.datatypes.detections.detection import TrafficLightStatus
 from d123.datatypes.detections.detection_types import DetectionType
+from d123.datatypes.maps.map_datatypes import RoadLineType
 from d123.datatypes.time.time_point import TimePoint
 
 
@@ -41,10 +42,10 @@ NUPLAN_DATA_SPLITS: Set[str] = {
     "nuplan_train",
     "nuplan_val",
     "nuplan_test",
-    "nuplan_mini_train",
-    "nuplan_mini_val",
-    "nuplan_mini_test",
-    "nuplan_private_test",  # TODO: remove, not publicly available
+    "nuplan-mini_train",
+    "nuplan-mini_val",
+    "nuplan-mini_test",
+    "nuplan-private_test",  # TODO: remove, not publicly available
 }
 
 NUPLAN_MAP_LOCATIONS: List[str] = [
@@ -79,6 +80,12 @@ NUPLAN_MAP_GPKG_LAYERS: Set[str] = {
     "traffic_lights",
     "walkways",
     "gen_lane_connectors_scaled_width_polygons",
+}
+
+NUPLAN_ROAD_LINE_CONVERSION = {
+    0: RoadLineType.DASHED_WHITE,
+    2: RoadLineType.SOLID_WHITE,
+    3: RoadLineType.UNKNOWN,
 }
 
 

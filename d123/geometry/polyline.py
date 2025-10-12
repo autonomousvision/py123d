@@ -296,7 +296,7 @@ class Polyline3D(ArrayMixin):
         return PolylineSE2.from_linestring(self.linestring)
 
     @property
-    def array(self) -> Polyline2D:
+    def array(self) -> npt.NDArray[np.float64]:
         """Converts the 3D polyline to the discrete 3D points.
 
         :return: A numpy array of shape (N, 3), indexed by :class:`~d123.geometry.Point3DIndex`.

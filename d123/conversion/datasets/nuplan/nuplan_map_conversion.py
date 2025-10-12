@@ -1,443 +1,381 @@
-# TODO: Refactor this mess.
-
 import warnings
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, Final
 
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 import pyogrio
-from shapely.geometry import LineString
+from shapely import LineString
 
-# Suppress numpy runtime warnings for casting operations
-np.seterr(invalid="ignore")
-
-from d123.conversion.datasets.nuplan.utils.nuplan_constants import NUPLAN_MAP_GPKG_LAYERS, NUPLAN_MAP_LOCATION_FILES
+from d123.conversion.datasets.nuplan.utils.nuplan_constants import (
+    NUPLAN_MAP_GPKG_LAYERS,
+    NUPLAN_MAP_LOCATION_FILES,
+    NUPLAN_ROAD_LINE_CONVERSION,
+)
+from d123.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from d123.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     get_road_edge_linear_rings,
     split_line_geometry_by_max_length,
 )
-from d123.datatypes.maps.gpkg.utils import get_all_rows_with_value, get_row_with_value
-from d123.datatypes.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
+from d123.datatypes.maps.cache.cache_map_objects import (
+    CacheCarpark,
+    CacheCrosswalk,
+    CacheGenericDrivable,
+    CacheIntersection,
+    CacheLane,
+    CacheLaneGroup,
+    CacheRoadEdge,
+    CacheRoadLine,
+)
+from d123.datatypes.maps.gpkg.gpkg_utils import get_all_rows_with_value, get_row_with_value
+from d123.datatypes.maps.map_datatypes import RoadEdgeType
+from d123.geometry.polyline import Polyline2D, Polyline3D
 
-# 0: generic lane I guess.
-# 1: ending?
-# 3: bike lanes.
-
-MAX_ROAD_EDGE_LENGTH = 100.0  # meters, used to filter out very long road edges
-
-NUPLAN_ROAD_LINE_CONVERSION = {
-    0: RoadLineType.DASHED_WHITE,
-    2: RoadLineType.SOLID_WHITE,
-    3: RoadLineType.UNKNOWN,
-}
+MAX_ROAD_EDGE_LENGTH: Final[float] = 100.0  # meters, used to filter out very long road edges. TODO @add to config?
 
 
-class NuPlanMapConverter:
-    def __init__(self, nuplan_map_root: Union[str, Path], map_path: Path) -> None:
+def write_nuplan_map(nuplan_maps_root: Path, map_name: str, map_writer: AbstractMapWriter) -> None:
+    assert map_name in NUPLAN_MAP_LOCATION_FILES.keys(), f"Map name {map_name} is not supported."
+    source_map_path = nuplan_maps_root / NUPLAN_MAP_LOCATION_FILES[map_name]
+    assert source_map_path.exists(), f"Map file {source_map_path} does not exist."
+    nuplan_gdf = _load_nuplan_gdf(source_map_path)
+    _write_nuplan_lanes(nuplan_gdf, map_writer)
+    _write_nuplan_lane_connectors(nuplan_gdf, map_writer)
+    _write_nuplan_lane_groups(nuplan_gdf, map_writer)
+    _write_nuplan_lane_connector_groups(nuplan_gdf, map_writer)
+    _write_nuplan_intersections(nuplan_gdf, map_writer)
+    _write_nuplan_crosswalks(nuplan_gdf, map_writer)
+    _write_nuplan_walkways(nuplan_gdf, map_writer)
+    _write_nuplan_carparks(nuplan_gdf, map_writer)
+    _write_nuplan_generic_drivables(nuplan_gdf, map_writer)
+    _write_nuplan_road_edges(nuplan_gdf, map_writer)
+    _write_nuplan_road_lines(nuplan_gdf, map_writer)
+    del nuplan_gdf
 
-        self._map_path: Path = map_path
-        self._nuplan_maps_root: Path = Path(nuplan_map_root)
-        self._gdf: Optional[Dict[str, gpd.GeoDataFrame]] = None
 
-    def convert(self, map_name: str = "us-pa-pittsburgh-hazelwood") -> None:
-        assert map_name in NUPLAN_MAP_LOCATION_FILES.keys(), f"Map name {map_name} is not supported."
+def _write_nuplan_lanes(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
 
-        map_file_path = self._nuplan_maps_root / NUPLAN_MAP_LOCATION_FILES[map_name]
-        self._load_dataframes(map_file_path)
+    # NOTE: drops: lane_index (?), creator_id, name (?), road_type_fid (?), lane_type_fid (?), width (?),
+    # left_offset (?), right_offset (?), min_speed (?), max_speed (?), stops, left_has_reflectors (?),
+    # right_has_reflectors (?), from_edge_fid, to_edge_fid
 
-        dataframes: Dict[MapLayer, gpd.GeoDataFrame] = {}
-        dataframes[MapLayer.LANE] = self._extract_lane_dataframe()
-        dataframes[MapLayer.LANE_GROUP] = self._extract_lane_group_dataframe()
-        dataframes[MapLayer.INTERSECTION] = self._extract_intersection_dataframe()
-        dataframes[MapLayer.CROSSWALK] = self._extract_crosswalk_dataframe()
-        dataframes[MapLayer.WALKWAY] = self._extract_walkway_dataframe()
-        dataframes[MapLayer.CARPARK] = self._extract_carpark_dataframe()
-        dataframes[MapLayer.GENERIC_DRIVABLE] = self._extract_generic_drivable_dataframe()
-        dataframes[MapLayer.ROAD_EDGE] = self._extract_road_edge_dataframe()
-        dataframes[MapLayer.ROAD_LINE] = self._extract_road_line_dataframe()
+    all_ids = nuplan_gdf["lanes_polygons"].lane_fid.to_list()
+    all_lane_group_ids = nuplan_gdf["lanes_polygons"].lane_group_fid.to_list()
+    all_speed_limits_mps = nuplan_gdf["lanes_polygons"].speed_limit_mps.to_list()
+    all_geometries = nuplan_gdf["lanes_polygons"].geometry.to_list()
 
-        if not self._map_path.exists():
-            self._map_path.mkdir(parents=True, exist_ok=True)
+    for idx, lane_id in enumerate(all_ids):
 
-        try:
-            map_file_name = self._map_path / f"nuplan_{map_name}.gpkg"
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", message="'crs' was not provided")
-                for layer, gdf in dataframes.items():
-                    gdf.to_file(map_file_name, layer=layer.serialize(), driver="GPKG", mode="a")
-        except Exception as e:
-            print(f"Error occurred while converting map {map_name}: {e}")
-            print(map_file_name, map_file_path)
+        # 1. predecessor_ids, successor_ids
+        predecessor_ids = get_all_rows_with_value(
+            nuplan_gdf["lane_connectors"],
+            "entry_lane_fid",
+            lane_id,
+        )["fid"].tolist()
+        successor_ids = get_all_rows_with_value(
+            nuplan_gdf["lane_connectors"],
+            "exit_lane_fid",
+            lane_id,
+        )["fid"].tolist()
 
-    def _load_dataframes(self, map_file_path: Path) -> None:
+        # 2. left_boundary, right_boundary
+        lane_series = get_row_with_value(nuplan_gdf["lanes_polygons"], "fid", str(lane_id))
+        left_boundary_fid = lane_series["left_boundary_fid"]
+        left_boundary = get_row_with_value(nuplan_gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
 
-        # The projected coordinate system depends on which UTM zone the mapped location is in.
-        map_meta = gpd.read_file(map_file_path, layer="meta", engine="pyogrio")
-        projection_system = map_meta[map_meta["key"] == "projectedCoordSystem"]["value"].iloc[0]
+        right_boundary_fid = lane_series["right_boundary_fid"]
+        right_boundary = get_row_with_value(nuplan_gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
 
-        self._gdf = {}
-        for layer_name in NUPLAN_MAP_GPKG_LAYERS:
-            with warnings.catch_warnings():
-                # Suppress the warnings from the GPKG operations below so that they don't spam the training logs.
-                warnings.filterwarnings("ignore")
+        # 3. left_lane_id, right_lane_id
+        lane_index = lane_series["lane_index"]
+        all_group_lanes = get_all_rows_with_value(
+            nuplan_gdf["lanes_polygons"], "lane_group_fid", lane_series["lane_group_fid"]
+        )
+        left_lane_id = all_group_lanes[all_group_lanes["lane_index"] == int(lane_index) - 1]["fid"]
+        right_lane_id = all_group_lanes[all_group_lanes["lane_index"] == int(lane_index) + 1]["fid"]
+        left_lane_id = left_lane_id.item() if not left_lane_id.empty else None
+        right_lane_id = right_lane_id.item() if not right_lane_id.empty else None
 
-                gdf_in_pixel_coords = pyogrio.read_dataframe(map_file_path, layer=layer_name, fid_as_index=True)
-                gdf_in_utm_coords = gdf_in_pixel_coords.to_crs(projection_system)
-                # gdf_in_utm_coords = gdf_in_pixel_coords
+        # 3. centerline (aka. baseline_path)
+        centerline = get_row_with_value(nuplan_gdf["baseline_paths"], "lane_fid", float(lane_id))["geometry"]
 
-                # For backwards compatibility, cast the index to string datatype.
-                #   and mirror it to the "fid" column.
-                gdf_in_utm_coords.index = gdf_in_utm_coords.index.map(str)
-                gdf_in_utm_coords["fid"] = gdf_in_utm_coords.index
+        # Ensure the left/right boundaries are aligned with the baseline path direction.
+        left_boundary = align_boundary_direction(centerline, left_boundary)
+        right_boundary = align_boundary_direction(centerline, right_boundary)
 
-            self._gdf[layer_name] = gdf_in_utm_coords
-
-    def _extract_lane_dataframe(self) -> gpd.GeoDataFrame:
-        assert self._gdf is not None, "Call `.initialize()` before retrieving data!"
-        lane_df = self._extract_nuplan_lane_dataframe()
-        lane_connector_df = self._extract_nuplan_lane_connector_dataframe()
-        combined_df = pd.concat([lane_df, lane_connector_df], ignore_index=True)
-        return combined_df
-
-    def _extract_nuplan_lane_dataframe(self) -> gpd.GeoDataFrame:
-        # NOTE: drops: lane_index (?), creator_id, name (?), road_type_fid (?), lane_type_fid (?), width (?), left_offset (?), right_offset (?),
-        # min_speed (?), max_speed (?), stops, left_has_reflectors (?), right_has_reflectors (?), from_edge_fid, to_edge_fid
-
-        ids = self._gdf["lanes_polygons"].lane_fid.to_list()
-        lane_group_ids = self._gdf["lanes_polygons"].lane_group_fid.to_list()
-        speed_limits_mps = self._gdf["lanes_polygons"].speed_limit_mps.to_list()
-        predecessor_ids = []
-        successor_ids = []
-        left_boundaries = []
-        right_boundaries = []
-        left_lane_ids = []
-        right_lane_ids = []
-        baseline_paths = []
-        geometries = self._gdf["lanes_polygons"].geometry.to_list()
-
-        for lane_id in ids:
-
-            # 1. predecessor_ids, successor_ids
-            _predecessor_ids = get_all_rows_with_value(
-                self._gdf["lane_connectors"],
-                "entry_lane_fid",
-                lane_id,
-            )["fid"].tolist()
-            _successor_ids = get_all_rows_with_value(
-                self._gdf["lane_connectors"],
-                "exit_lane_fid",
-                lane_id,
-            )["fid"].tolist()
-            predecessor_ids.append(_predecessor_ids)
-            successor_ids.append(_successor_ids)
-
-            # 2. left_boundaries, right_boundaries
-            lane_series = get_row_with_value(self._gdf["lanes_polygons"], "fid", str(lane_id))
-            left_boundary_fid = lane_series["left_boundary_fid"]
-            left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
-
-            right_boundary_fid = lane_series["right_boundary_fid"]
-            right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
-
-            # 3. left_lane_ids, right_lane_ids
-            lane_index = lane_series["lane_index"]
-            all_group_lanes = get_all_rows_with_value(
-                self._gdf["lanes_polygons"], "lane_group_fid", lane_series["lane_group_fid"]
+        map_writer.write_lane(
+            CacheLane(
+                object_id=lane_id,
+                lane_group_id=all_lane_group_ids[idx],
+                left_boundary=Polyline3D.from_linestring(left_boundary),
+                right_boundary=Polyline3D.from_linestring(right_boundary),
+                centerline=Polyline3D.from_linestring(centerline),
+                left_lane_id=left_lane_id,
+                right_lane_id=right_lane_id,
+                predecessor_ids=predecessor_ids,
+                successor_ids=successor_ids,
+                speed_limit_mps=all_speed_limits_mps[idx],
+                outline=None,
+                geometry=all_geometries[idx],
             )
-            left_lane_id = all_group_lanes[all_group_lanes["lane_index"] == int(lane_index) - 1]["fid"]
-            right_lane_id = all_group_lanes[all_group_lanes["lane_index"] == int(lane_index) + 1]["fid"]
-            left_lane_ids.append(left_lane_id.item() if not left_lane_id.empty else None)
-            right_lane_ids.append(right_lane_id.item() if not right_lane_id.empty else None)
-
-            # 3. baseline_paths
-            baseline_path = get_row_with_value(self._gdf["baseline_paths"], "lane_fid", float(lane_id))["geometry"]
-
-            left_boundary = align_boundary_direction(baseline_path, left_boundary)
-            right_boundary = align_boundary_direction(baseline_path, right_boundary)
-
-            left_boundaries.append(left_boundary)
-            right_boundaries.append(right_boundary)
-            baseline_paths.append(baseline_path)
-
-        data = pd.DataFrame(
-            {
-                "id": ids,
-                "lane_group_id": lane_group_ids,
-                "speed_limit_mps": speed_limits_mps,
-                "predecessor_ids": predecessor_ids,
-                "successor_ids": successor_ids,
-                "left_boundary": left_boundaries,
-                "right_boundary": right_boundaries,
-                "left_lane_id": left_lane_ids,
-                "right_lane_id": right_lane_ids,
-                "baseline_path": baseline_paths,
-            }
         )
 
-        gdf = gpd.GeoDataFrame(data, geometry=geometries)
-        return gdf
 
-    def _extract_nuplan_lane_connector_dataframe(self) -> None:
-        # NOTE: drops: exit_lane_group_fid, entry_lane_group_fid, to_edge_fid,
-        # turn_type_fid (?), bulb_fids (?), traffic_light_stop_line_fids (?), overlap (?), creator_id
-        # left_has_reflectors (?), right_has_reflectors (?)
-        ids = self._gdf["lane_connectors"].fid.to_list()
-        lane_group_ids = self._gdf["lane_connectors"].lane_group_connector_fid.to_list()
-        speed_limits_mps = self._gdf["lane_connectors"].speed_limit_mps.to_list()
-        predecessor_ids = []
-        successor_ids = []
-        left_boundaries = []
-        right_boundaries = []
-        baseline_paths = []
-        geometries = []
+def _write_nuplan_lane_connectors(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
 
-        for lane_id in ids:
-            # 1. predecessor_ids, successor_ids
-            lane_connector_row = get_row_with_value(self._gdf["lane_connectors"], "fid", str(lane_id))
-            predecessor_ids.append([lane_connector_row["entry_lane_fid"]])
-            successor_ids.append([lane_connector_row["exit_lane_fid"]])
+    # NOTE: drops: exit_lane_group_fid, entry_lane_group_fid, to_edge_fid,
+    # turn_type_fid (?), bulb_fids (?), traffic_light_stop_line_fids (?), overlap (?), creator_id
+    # left_has_reflectors (?), right_has_reflectors (?)
+    all_ids = nuplan_gdf["lane_connectors"].fid.to_list()
+    all_lane_group_ids = nuplan_gdf["lane_connectors"].lane_group_connector_fid.to_list()
+    all_speed_limits_mps = nuplan_gdf["lane_connectors"].speed_limit_mps.to_list()
 
-            # 2. left_boundaries, right_boundaries
-            lane_connector_polygons_row = get_row_with_value(
-                self._gdf["gen_lane_connectors_scaled_width_polygons"], "lane_connector_fid", str(lane_id)
+    for idx, lane_id in enumerate(all_ids):
+
+        # 1. predecessor_ids, successor_ids
+        lane_connector_row = get_row_with_value(nuplan_gdf["lane_connectors"], "fid", str(lane_id))
+        predecessor_ids = lane_connector_row["entry_lane_fid"]
+        successor_ids = lane_connector_row["exit_lane_fid"]
+
+        # 2. left_boundaries, right_boundaries
+        lane_connector_polygons_row = get_row_with_value(
+            nuplan_gdf["gen_lane_connectors_scaled_width_polygons"], "lane_connector_fid", str(lane_id)
+        )
+        left_boundary_fid = lane_connector_polygons_row["left_boundary_fid"]
+        left_boundary = get_row_with_value(nuplan_gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
+
+        right_boundary_fid = lane_connector_polygons_row["right_boundary_fid"]
+        right_boundary = get_row_with_value(nuplan_gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
+
+        # 3. baseline_paths
+        centerline = get_row_with_value(nuplan_gdf["baseline_paths"], "lane_connector_fid", float(lane_id))["geometry"]
+
+        left_boundary = align_boundary_direction(centerline, left_boundary)
+        right_boundary = align_boundary_direction(centerline, right_boundary)
+
+        # # 4. geometries
+        # geometries.append(lane_connector_polygons_row.geometry)
+
+        map_writer.write_lane(
+            CacheLane(
+                object_id=lane_id,
+                lane_group_id=all_lane_group_ids[idx],
+                left_boundary=Polyline3D.from_linestring(left_boundary),
+                right_boundary=Polyline3D.from_linestring(right_boundary),
+                centerline=Polyline3D.from_linestring(centerline),
+                left_lane_id=None,
+                right_lane_id=None,
+                predecessor_ids=predecessor_ids,
+                successor_ids=successor_ids,
+                speed_limit_mps=all_speed_limits_mps[idx],
+                outline=None,
+                geometry=lane_connector_polygons_row.geometry,
             )
-            left_boundary_fid = lane_connector_polygons_row["left_boundary_fid"]
-            left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
-
-            right_boundary_fid = lane_connector_polygons_row["right_boundary_fid"]
-            right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
-
-            # 3. baseline_paths
-            baseline_path = get_row_with_value(self._gdf["baseline_paths"], "lane_connector_fid", float(lane_id))[
-                "geometry"
-            ]
-
-            left_boundary = align_boundary_direction(baseline_path, left_boundary)
-            right_boundary = align_boundary_direction(baseline_path, right_boundary)
-
-            left_boundaries.append(left_boundary)
-            right_boundaries.append(right_boundary)
-            baseline_paths.append(baseline_path)
-
-            # 4. geometries
-            geometries.append(lane_connector_polygons_row.geometry)
-
-        data = pd.DataFrame(
-            {
-                "id": ids,
-                "lane_group_id": lane_group_ids,
-                "speed_limit_mps": speed_limits_mps,
-                "predecessor_ids": predecessor_ids,
-                "successor_ids": successor_ids,
-                "left_boundary": left_boundaries,
-                "right_boundary": right_boundaries,
-                "left_lane_id": [None] * len(ids),
-                "right_lane_id": [None] * len(ids),
-                "baseline_path": baseline_paths,
-            }
         )
 
-        gdf = gpd.GeoDataFrame(data, geometry=geometries)
-        return gdf
 
-    def _extract_lane_group_dataframe(self) -> gpd.GeoDataFrame:
-        lane_group_df = self._extract_nuplan_lane_group_dataframe()
-        lane_connector_group_df = self._extract_nuplan_lane_connector_group_dataframe()
-        combined_df = pd.concat([lane_group_df, lane_connector_group_df], ignore_index=True)
-        return combined_df
+def _write_nuplan_lane_groups(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    # NOTE: drops: creator_id, from_edge_fid, to_edge_fid
+    ids = nuplan_gdf["lane_groups_polygons"].fid.to_list()
+    # all_geometries = nuplan_gdf["lane_groups_polygons"].geometry.to_list()
 
-    def _extract_nuplan_lane_group_dataframe(self) -> gpd.GeoDataFrame:
-        # NOTE: drops: creator_id, from_edge_fid, to_edge_fid
-        ids = self._gdf["lane_groups_polygons"].fid.to_list()
-        lane_ids = []
-        intersection_ids = [None] * len(ids)
-        predecessor_lane_group_ids = []
-        successor_lane_group_ids = []
-        left_boundaries = []
-        right_boundaries = []
-        geometries = self._gdf["lane_groups_polygons"].geometry.to_list()
+    for lane_group_id in ids:
 
-        for lane_group_id in ids:
-            # 1. lane_ids
-            lane_ids_ = get_all_rows_with_value(
-                self._gdf["lanes_polygons"],
-                "lane_group_fid",
-                lane_group_id,
-            )["fid"].tolist()
-            lane_ids.append(lane_ids_)
+        # 1. lane_ids
+        lane_ids = get_all_rows_with_value(
+            nuplan_gdf["lanes_polygons"],
+            "lane_group_fid",
+            lane_group_id,
+        )["fid"].tolist()
 
-            # 2. predecessor_lane_group_ids, successor_lane_group_ids
-            predecessor_lane_group_ids_ = get_all_rows_with_value(
-                self._gdf["lane_group_connectors"],
-                "to_lane_group_fid",
-                lane_group_id,
-            )["fid"].tolist()
-            successor_lane_group_ids_ = get_all_rows_with_value(
-                self._gdf["lane_group_connectors"],
-                "from_lane_group_fid",
-                lane_group_id,
-            )["fid"].tolist()
-            predecessor_lane_group_ids.append(predecessor_lane_group_ids_)
-            successor_lane_group_ids.append(successor_lane_group_ids_)
+        # 2. predecessor_lane_group_ids, successor_lane_group_ids
+        predecessor_lane_group_ids = get_all_rows_with_value(
+            nuplan_gdf["lane_group_connectors"],
+            "to_lane_group_fid",
+            lane_group_id,
+        )["fid"].tolist()
+        successor_lane_group_ids = get_all_rows_with_value(
+            nuplan_gdf["lane_group_connectors"],
+            "from_lane_group_fid",
+            lane_group_id,
+        )["fid"].tolist()
 
-            # 3. left_boundaries, right_boundaries
-            lane_group_row = get_row_with_value(self._gdf["lane_groups_polygons"], "fid", str(lane_group_id))
-            left_boundary_fid = lane_group_row["left_boundary_fid"]
-            left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
+        # 3. left_boundaries, right_boundaries
+        lane_group_row = get_row_with_value(nuplan_gdf["lane_groups_polygons"], "fid", str(lane_group_id))
+        left_boundary_fid = lane_group_row["left_boundary_fid"]
+        left_boundary = get_row_with_value(nuplan_gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
 
-            right_boundary_fid = lane_group_row["right_boundary_fid"]
-            right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
+        right_boundary_fid = lane_group_row["right_boundary_fid"]
+        right_boundary = get_row_with_value(nuplan_gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
 
-            repr_baseline_path = get_row_with_value(self._gdf["baseline_paths"], "lane_fid", float(lane_ids_[0]))[
-                "geometry"
-            ]
+        # Flip the boundaries to align with the first lane's baseline path direction.
+        repr_centerline = get_row_with_value(nuplan_gdf["baseline_paths"], "lane_fid", float(lane_ids[0]))["geometry"]
 
-            left_boundary = align_boundary_direction(repr_baseline_path, left_boundary)
-            right_boundary = align_boundary_direction(repr_baseline_path, right_boundary)
+        left_boundary = align_boundary_direction(repr_centerline, left_boundary)
+        right_boundary = align_boundary_direction(repr_centerline, right_boundary)
 
-            left_boundaries.append(left_boundary)
-            right_boundaries.append(right_boundary)
-
-        data = pd.DataFrame(
-            {
-                "id": ids,
-                "lane_ids": lane_ids,
-                "intersection_id": intersection_ids,
-                "predecessor_lane_group_ids": predecessor_lane_group_ids,
-                "successor_lane_group_ids": successor_lane_group_ids,
-                "left_boundary": left_boundaries,
-                "right_boundary": right_boundaries,
-            }
-        )
-        gdf = gpd.GeoDataFrame(data, geometry=geometries)
-        return gdf
-
-    def _extract_nuplan_lane_connector_group_dataframe(self) -> gpd.GeoDataFrame:
-        # NOTE: drops: creator_id, from_edge_fid, to_edge_fid, intersection_fid
-        ids = self._gdf["lane_group_connectors"].fid.to_list()
-        lane_ids = []
-        intersection_ids = self._gdf["lane_group_connectors"].intersection_fid.to_list()
-        predecessor_lane_group_ids = []
-        successor_lane_group_ids = []
-        left_boundaries = []
-        right_boundaries = []
-        geometries = self._gdf["lane_group_connectors"].geometry.to_list()
-
-        for lane_group_connector_id in ids:
-            # 1. lane_ids
-            lane_ids_ = get_all_rows_with_value(
-                self._gdf["lane_connectors"], "lane_group_connector_fid", lane_group_connector_id
-            )["fid"].tolist()
-            lane_ids.append(lane_ids_)
-
-            # 2. predecessor_lane_group_ids, successor_lane_group_ids
-            lane_group_connector_row = get_row_with_value(
-                self._gdf["lane_group_connectors"], "fid", lane_group_connector_id
+        map_writer.write_lane_group(
+            CacheLaneGroup(
+                object_id=lane_group_id,
+                lane_ids=lane_ids,
+                left_boundary=Polyline3D.from_linestring(left_boundary),
+                right_boundary=Polyline3D.from_linestring(right_boundary),
+                intersection_id=None,
+                predecessor_ids=predecessor_lane_group_ids,
+                successor_ids=successor_lane_group_ids,
+                outline=None,
+                geometry=lane_group_row.geometry,
             )
-            predecessor_lane_group_ids.append([str(lane_group_connector_row["from_lane_group_fid"])])
-            successor_lane_group_ids.append([str(lane_group_connector_row["to_lane_group_fid"])])
-
-            # 3. left_boundaries, right_boundaries
-            left_boundary_fid = lane_group_connector_row["left_boundary_fid"]
-            left_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
-            right_boundary_fid = lane_group_connector_row["right_boundary_fid"]
-            right_boundary = get_row_with_value(self._gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
-
-            left_boundaries.append(left_boundary)
-            right_boundaries.append(right_boundary)
-
-        data = pd.DataFrame(
-            {
-                "id": ids,
-                "lane_ids": lane_ids,
-                "intersection_id": intersection_ids,
-                "predecessor_lane_group_ids": predecessor_lane_group_ids,
-                "successor_lane_group_ids": successor_lane_group_ids,
-                "left_boundary": left_boundaries,
-                "right_boundary": right_boundaries,
-            }
         )
-        gdf = gpd.GeoDataFrame(data, geometry=geometries)
-        return gdf
 
-    def _extract_intersection_dataframe(self) -> gpd.GeoDataFrame:
-        # NOTE: drops: creator_id, intersection_type_fid (?), is_mini (?)
-        ids = self._gdf["intersections"].fid.to_list()
-        lane_group_ids = []
-        for intersection_id in ids:
-            lane_group_connector_ids = get_all_rows_with_value(
-                self._gdf["lane_group_connectors"], "intersection_fid", str(intersection_id)
-            )["fid"].tolist()
-            lane_group_ids.append(lane_group_connector_ids)
-        data = pd.DataFrame({"id": ids, "lane_group_ids": lane_group_ids})
-        return gpd.GeoDataFrame(data, geometry=self._gdf["intersections"].geometry.to_list())
 
-    def _extract_crosswalk_dataframe(self) -> gpd.GeoDataFrame:
-        # NOTE: drops: creator_id, intersection_fids, lane_fids, is_marked (?)
-        data = pd.DataFrame({"id": self._gdf["crosswalks"].fid.to_list()})
-        return gpd.GeoDataFrame(data, geometry=self._gdf["crosswalks"].geometry.to_list())
+def _write_nuplan_lane_connector_groups(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    # NOTE: drops: creator_id, from_edge_fid, to_edge_fid, intersection_fid
+    ids = nuplan_gdf["lane_group_connectors"].fid.to_list()
+    all_intersection_ids = nuplan_gdf["lane_group_connectors"].intersection_fid.to_list()
+    # all_geometries = nuplan_gdf["lane_group_connectors"].geometry.to_list()
 
-    def _extract_walkway_dataframe(self) -> gpd.GeoDataFrame:
-        # NOTE: drops: creator_id
-        data = pd.DataFrame({"id": self._gdf["walkways"].fid.to_list()})
-        return gpd.GeoDataFrame(data, geometry=self._gdf["walkways"].geometry.to_list())
+    for idx, lane_group_connector_id in enumerate(ids):
 
-    def _extract_carpark_dataframe(self) -> gpd.GeoDataFrame:
-        # NOTE: drops: heading, creator_id
-        data = pd.DataFrame({"id": self._gdf["carpark_areas"].fid.to_list()})
-        return gpd.GeoDataFrame(data, geometry=self._gdf["carpark_areas"].geometry.to_list())
+        # 1. lane_ids
+        lane_ids = get_all_rows_with_value(
+            nuplan_gdf["lane_connectors"], "lane_group_connector_fid", lane_group_connector_id
+        )["fid"].tolist()
 
-    def _extract_generic_drivable_dataframe(self) -> gpd.GeoDataFrame:
-        # NOTE: drops: creator_id
-        data = pd.DataFrame({"id": self._gdf["generic_drivable_areas"].fid.to_list()})
-        return gpd.GeoDataFrame(data, geometry=self._gdf["generic_drivable_areas"].geometry.to_list())
-
-    def _extract_road_edge_dataframe(self) -> gpd.GeoDataFrame:
-        drivable_polygons = (
-            self._gdf["intersections"].geometry.to_list()
-            + self._gdf["lane_groups_polygons"].geometry.to_list()
-            + self._gdf["carpark_areas"].geometry.to_list()
-            + self._gdf["generic_drivable_areas"].geometry.to_list()
+        # 2. predecessor_lane_group_ids, successor_lane_group_ids
+        lane_group_connector_row = get_row_with_value(
+            nuplan_gdf["lane_group_connectors"], "fid", lane_group_connector_id
         )
-        road_edge_linear_rings = get_road_edge_linear_rings(drivable_polygons)
-        road_edges = split_line_geometry_by_max_length(road_edge_linear_rings, MAX_ROAD_EDGE_LENGTH)
+        predecessor_lane_group_ids = [str(lane_group_connector_row["from_lane_group_fid"])]
+        successor_lane_group_ids = [str(lane_group_connector_row["to_lane_group_fid"])]
 
-        ids = []
-        road_edge_types = []
-        for idx in range(len(road_edges)):
-            ids.append(idx)
-            # TODO @DanielDauner: Figure out if other types should/could be assigned here.
-            road_edge_types.append(int(RoadEdgeType.ROAD_EDGE_BOUNDARY))
+        # 3. left_boundaries, right_boundaries
+        left_boundary_fid = lane_group_connector_row["left_boundary_fid"]
+        left_boundary = get_row_with_value(nuplan_gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
+        right_boundary_fid = lane_group_connector_row["right_boundary_fid"]
+        right_boundary = get_row_with_value(nuplan_gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
 
-        data = pd.DataFrame({"id": ids, "road_edge_type": road_edge_types})
-        return gpd.GeoDataFrame(data, geometry=road_edges)
-
-    def _extract_road_line_dataframe(self) -> gpd.GeoDataFrame:
-        boundaries = self._gdf["boundaries"].geometry.to_list()
-        fids = self._gdf["boundaries"].fid.to_list()
-        boundary_types = self._gdf["boundaries"].boundary_type_fid.to_list()
-
-        ids = []
-        road_line_types = []
-        geometries = []
-
-        for idx in range(len(boundary_types)):
-            ids.append(fids[idx])
-            road_line_types.append(int(NUPLAN_ROAD_LINE_CONVERSION[boundary_types[idx]]))
-            geometries.append(boundaries[idx])
-
-        data = pd.DataFrame(
-            {
-                "id": ids,
-                "road_line_type": road_line_types,
-            }
+        map_writer.write_lane_group(
+            CacheLaneGroup(
+                object_id=lane_group_connector_id,
+                lane_ids=lane_ids,
+                left_boundary=Polyline3D.from_linestring(left_boundary),
+                right_boundary=Polyline3D.from_linestring(right_boundary),
+                intersection_id=all_intersection_ids[idx],
+                predecessor_ids=predecessor_lane_group_ids,
+                successor_ids=successor_lane_group_ids,
+                outline=None,
+                geometry=lane_group_connector_row.geometry,
+            )
         )
-        return gpd.GeoDataFrame(data, geometry=geometries)
 
 
-def flip_linestring(linestring: LineString) -> LineString:
+def _write_nuplan_intersections(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    # NOTE: drops: creator_id, intersection_type_fid (?), is_mini (?)
+    all_ids = nuplan_gdf["intersections"].fid.to_list()
+    all_geometries = nuplan_gdf["intersections"].geometry.to_list()
+    for idx, intersection_id in enumerate(all_ids):
+        lane_group_connector_ids = get_all_rows_with_value(
+            nuplan_gdf["lane_group_connectors"], "intersection_fid", str(intersection_id)
+        )["fid"].tolist()
+
+        map_writer.write_intersection(
+            CacheIntersection(
+                object_id=intersection_id,
+                lane_group_ids=lane_group_connector_ids,
+                geometry=all_geometries[idx],
+            )
+        )
+
+
+def _write_nuplan_crosswalks(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    # NOTE: drops: creator_id, intersection_fids, lane_fids, is_marked (?)
+    for id, geometry in zip(nuplan_gdf["crosswalks"].fid.to_list(), nuplan_gdf["crosswalks"].geometry.to_list()):
+        map_writer.write_crosswalk(CacheCrosswalk(object_id=id, geometry=geometry))
+
+
+def _write_nuplan_walkways(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    # NOTE: drops: creator_id
+    for id, geometry in zip(nuplan_gdf["walkways"].fid.to_list(), nuplan_gdf["walkways"].geometry.to_list()):
+        map_writer.write_crosswalk(CacheCrosswalk(object_id=id, geometry=geometry))
+
+
+def _write_nuplan_carparks(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    # NOTE: drops: creator_id
+    for id, geometry in zip(nuplan_gdf["carpark_areas"].fid.to_list(), nuplan_gdf["carpark_areas"].geometry.to_list()):
+        map_writer.write_carpark(CacheCarpark(object_id=id, geometry=geometry))
+
+
+def _write_nuplan_generic_drivables(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    # NOTE: drops: creator_id
+    for id, geometry in zip(
+        nuplan_gdf["generic_drivable_areas"].fid.to_list(), nuplan_gdf["generic_drivable_areas"].geometry.to_list()
+    ):
+        map_writer.write_generic_drivable(CacheGenericDrivable(object_id=id, geometry=geometry))
+
+
+def _write_nuplan_road_edges(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    drivable_polygons = (
+        nuplan_gdf["intersections"].geometry.to_list()
+        + nuplan_gdf["lane_groups_polygons"].geometry.to_list()
+        + nuplan_gdf["carpark_areas"].geometry.to_list()
+        + nuplan_gdf["generic_drivable_areas"].geometry.to_list()
+    )
+    road_edge_linear_rings = get_road_edge_linear_rings(drivable_polygons)
+    road_edges = split_line_geometry_by_max_length(road_edge_linear_rings, MAX_ROAD_EDGE_LENGTH)
+
+    for idx in range(len(road_edges)):
+        map_writer.write_road_edge(
+            CacheRoadEdge(
+                object_id=idx,
+                road_edge_type=RoadEdgeType.ROAD_EDGE_BOUNDARY,
+                polyline=Polyline2D.from_linestring(road_edges[idx]),
+            )
+        )
+
+
+def _write_nuplan_road_lines(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    boundaries = nuplan_gdf["boundaries"].geometry.to_list()
+    fids = nuplan_gdf["boundaries"].fid.to_list()
+    boundary_types = nuplan_gdf["boundaries"].boundary_type_fid.to_list()
+
+    for idx in range(len(boundary_types)):
+        map_writer.write_road_line(
+            CacheRoadLine(
+                object_id=fids[idx],
+                road_line_type=NUPLAN_ROAD_LINE_CONVERSION[boundary_types[idx]],
+                polyline=Polyline2D.from_linestring(boundaries[idx]),
+            )
+        )
+
+
+def _load_nuplan_gdf(map_file_path: Path) -> Dict[str, gpd.GeoDataFrame]:
+
+    # The projected coordinate system depends on which UTM zone the mapped location is in.
+    map_meta = gpd.read_file(map_file_path, layer="meta", engine="pyogrio")
+    projection_system = map_meta[map_meta["key"] == "projectedCoordSystem"]["value"].iloc[0]
+
+    nuplan_gdf: Dict[str, gpd.GeoDataFrame] = {}
+    for layer_name in NUPLAN_MAP_GPKG_LAYERS:
+        with warnings.catch_warnings():
+            # Suppress the warnings from the GPKG operations below so that they don't spam the training logs.
+            warnings.filterwarnings("ignore")
+
+            gdf_in_pixel_coords = pyogrio.read_dataframe(map_file_path, layer=layer_name, fid_as_index=True)
+            gdf_in_utm_coords = gdf_in_pixel_coords.to_crs(projection_system)
+            # gdf_in_utm_coords = gdf_in_pixel_coords
+
+            # For backwards compatibility, cast the index to string datatype.
+            #   and mirror it to the "fid" column.
+            gdf_in_utm_coords.index = gdf_in_utm_coords.index.map(str)
+            gdf_in_utm_coords["fid"] = gdf_in_utm_coords.index
+
+        nuplan_gdf[layer_name] = gdf_in_utm_coords
+
+    return nuplan_gdf
+
+
+def _flip_linestring(linestring: LineString) -> LineString:
     # TODO: move somewhere more appropriate or implement in Polyline2D, PolylineSE2, etc.
     return LineString(linestring.coords[::-1])
 
@@ -459,5 +397,5 @@ def lines_same_direction(centerline: LineString, boundary: LineString) -> bool:
 def align_boundary_direction(centerline: LineString, boundary: LineString) -> LineString:
     # TODO: refactor helper function.
     if not lines_same_direction(centerline, boundary):
-        return flip_linestring(boundary)
+        return _flip_linestring(boundary)
     return boundary
