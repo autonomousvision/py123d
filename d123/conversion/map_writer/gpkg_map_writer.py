@@ -124,7 +124,6 @@ class GPKGMapWriter(AbstractMapWriter):
         """Inherited, see superclass."""
 
         if self._map_file is not None or self._map_data is not None:
-
             if not self._map_file.parent.exists():
                 self._map_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -132,7 +131,9 @@ class GPKGMapWriter(AbstractMapWriter):
                 if len(layer_data["id"]) > 0:
                     df = pd.DataFrame(layer_data)
                     gdf = gpd.GeoDataFrame(df, geometry="geometry", crs=self._crs)
-                    gdf.to_file(self._map_file, driver="GPKG", layer=map_layer.serialize())
+                else:
+                    gdf = gpd.GeoDataFrame({"id": [], "geometry": []}, geometry="geometry", crs=self._crs)
+                gdf.to_file(self._map_file, driver="GPKG", layer=map_layer.serialize())
 
         del self._map_file, self._map_data
         self._map_file = None
@@ -163,15 +164,3 @@ class GPKGMapWriter(AbstractMapWriter):
         self._assert_initialized()
         self._map_data[layer]["id"].append(line_object.object_id)
         self._map_data[layer]["geometry"].append(line_object.shapely_linestring)
-
-    def _get_gpd_dataframe(self, layer: MapLayer, layer_data: MAP_OBJECT_DATA):
-        """Helper to convert map data to a GeoPandas DataFrame.
-
-        :param layer: map layer of data
-        :param layer_data: map data to convert
-        :return: GeoPandas DataFrame of map data
-        """
-
-        df = pd.DataFrame(layer_data)
-        gdf = gpd.GeoDataFrame(df, geometry="geometry", crs=self._crs)
-        return gdf

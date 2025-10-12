@@ -24,4 +24,4 @@ defaults:
   - _self_
 
 force_map_conversion: True
-force_log_conversion: True
+force_log_conversion: False

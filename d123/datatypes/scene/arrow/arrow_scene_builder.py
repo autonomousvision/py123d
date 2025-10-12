@@ -60,7 +60,7 @@ def _discover_split_names(dataset_path: Path, split_types: Set[str]) -> Set[str]
 def _discover_log_paths(dataset_path: Path, split_names: Set[str], log_names: Optional[List[str]]) -> List[Path]:
     log_paths: List[Path] = []
     for split_name in split_names:
-        for log_path in (dataset_path / split_name).iterdir():
+        for log_path in (dataset_path / "logs" / split_name).iterdir():
             if log_path.is_file() and log_path.name.endswith(".arrow"):
                 if log_names is None or log_path.stem in log_names:
                     log_paths.append(log_path)

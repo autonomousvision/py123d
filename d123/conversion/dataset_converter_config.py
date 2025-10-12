@@ -41,7 +41,7 @@ class DatasetConverterConfig:
         if isinstance(self.output_path, str):
             self.output_path = Path(self.output_path)
 
-        assert self.camera_store_option != "mp4", "MP4 format is not yet supported."
+        assert self.camera_store_option != "mp4", "MP4 format is not yet supported, but planned for future releases."
         assert self.camera_store_option in [
             "path",
             "binary",

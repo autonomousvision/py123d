@@ -52,8 +52,8 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
     def _object_row(self) -> gpd.GeoSeries:
         return get_row_with_value(self._object_df, "id", self.object_id)
 
-    @cached_property
-    def outline_3d(self) -> Polyline3D:
+    @property
+    def outline(self) -> Polyline3D:
         """Inherited, see superclass."""
         outline_3d: Optional[Polyline3D] = None
         if "outline" in self._object_df.columns:
@@ -188,7 +188,7 @@ class GPKGLane(GPKGSurfaceObject, AbstractLane):
     @property
     def centerline(self) -> Polyline3D:
         """Inherited, see superclass."""
-        return Polyline3D.from_linestring(self._object_row.baseline_path)
+        return Polyline3D.from_linestring(self._object_row.centerline)
 
     @property
     def outline_3d(self) -> Polyline3D:

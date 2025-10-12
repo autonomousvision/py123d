@@ -30,7 +30,7 @@ from d123.geometry import BoundingBoxSE3, StateSE3, Vector3D
 DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "nuplan": Path(os.environ["NUPLAN_DATA_ROOT"]) / "nuplan-v1.1" / "sensor_blobs",
     "carla": Path(os.environ["CARLA_DATA_ROOT"]) / "sensor_blobs",
-    "av2-sensor": Path(os.environ["AV2_SENSOR_DATA_ROOT"]) / "sensor_mini",
+    # "av2-sensor": Path(os.environ["AV2_SENSOR_DATA_ROOT"]) / "sensor_mini",
 }
 
 

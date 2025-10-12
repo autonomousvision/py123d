@@ -26,6 +26,7 @@ from d123.datatypes.maps.cache.cache_map_objects import (
     CacheLaneGroup,
     CacheRoadEdge,
     CacheRoadLine,
+    CacheWalkway,
 )
 from d123.datatypes.maps.gpkg.gpkg_utils import get_all_rows_with_value, get_row_with_value
 from d123.datatypes.maps.map_datatypes import RoadEdgeType
@@ -297,7 +298,7 @@ def _write_nuplan_crosswalks(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer
 def _write_nuplan_walkways(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
     # NOTE: drops: creator_id
     for id, geometry in zip(nuplan_gdf["walkways"].fid.to_list(), nuplan_gdf["walkways"].geometry.to_list()):
-        map_writer.write_crosswalk(CacheCrosswalk(object_id=id, geometry=geometry))
+        map_writer.write_walkway(CacheWalkway(object_id=id, geometry=geometry))
 
 
 def _write_nuplan_carparks(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:

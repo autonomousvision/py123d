@@ -68,7 +68,7 @@ class GPKGMap(AbstractMap):
                     )
                     load_gdf_with_geometry_columns(
                         self._gpd_dataframes[map_layer],
-                        geometry_column_names=["baseline_path", "right_boundary", "left_boundary", "outline"],
+                        geometry_column_names=["centerline", "right_boundary", "left_boundary", "outline"],
                     )
                     # TODO: remove the temporary fix and enforce consistent id types in the GPKG files
                     if "id" in self._gpd_dataframes[map_layer].columns:
@@ -374,7 +374,7 @@ class GPKGMap(AbstractMap):
 @lru_cache(maxsize=MAX_LRU_CACHED_TABLES)
 def get_global_map_api(dataset: str, location: str) -> GPKGMap:
     D123_MAPS_ROOT = Path(os.environ.get("D123_MAPS_ROOT"))
-    gpkg_path = D123_MAPS_ROOT / f"{dataset}_{location}.gpkg"
+    gpkg_path = D123_MAPS_ROOT / dataset / f"{dataset}_{location}.gpkg"
     assert gpkg_path.is_file(), f"{dataset}_{location}.gpkg not found in {str(D123_MAPS_ROOT)}."
     map_api = GPKGMap(gpkg_path)
     map_api.initialize()
