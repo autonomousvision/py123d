@@ -10,11 +10,11 @@ from d123.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
 
 if __name__ == "__main__":
 
-    splits = ["nuplan-mini_test", "nuplan-mini_train", "nuplan-mini_val"]
+    # splits = ["nuplan-mini_test", "nuplan-mini_train", "nuplan-mini_val"]
     # splits = ["nuplan_private_test"]
     # splits = ["carla"]
     # splits = ["wopd_val"]
-    # splits = ["av2-sensor-mini_train"]
+    splits = ["av2-sensor-mini_train"]
     log_names = None
     scene_uuids = None
 

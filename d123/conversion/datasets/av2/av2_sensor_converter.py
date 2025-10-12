@@ -20,6 +20,7 @@ from d123.conversion.datasets.av2.av2_helper import (
 )
 from d123.conversion.datasets.av2.av2_map_conversion import convert_av2_map
 from d123.conversion.log_writer.abstract_log_writer import AbstractLogWriter
+from d123.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from d123.datatypes.detections.detection import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from d123.datatypes.detections.detection_types import DetectionType
 from d123.datatypes.scene.scene_metadata import LogMetadata
@@ -62,17 +63,16 @@ class AV2SensorConverter(AbstractDatasetConverter):
         log_paths_and_split: List[Tuple[Path, str]] = []
 
         for split in self._splits:
-            subsplit = split.split("_")[-1]
-            assert subsplit in ["train", "val", "test"]
+            dataset_name = split.split("_")[0]
+            split_type = split.split("_")[-1]
+            assert split_type in ["train", "val", "test"]
 
-            if "av2_sensor" in split:
-                log_folder = self._data_root / "sensor" / subsplit
-            elif "av2_lidar" in split:
-                log_folder = self._data_root / "lidar" / subsplit
-            elif "av2_motion" in split:
-                log_folder = self._data_root / "motion-forecasting" / subsplit
-            elif "av2-sensor-mini" in split:
-                log_folder = self._data_root / "sensor_mini" / subsplit
+            if "av2-sensor" == dataset_name:
+                log_folder = self._data_root / dataset_name / split_type
+            elif "av2-sensor-mini" == dataset_name:
+                log_folder = self._data_root / "sensor-mini" / split_type
+            else:
+                raise ValueError(f"Unknown dataset name {dataset_name} in split {split}.")
 
             log_paths_and_split.extend([(log_path, split) for log_path in log_folder.iterdir()])
 
@@ -86,17 +86,30 @@ class AV2SensorConverter(AbstractDatasetConverter):
         """Inherited, see superclass."""
         return len(self._log_paths_and_split)
 
-    def convert_map(self, map_index: int) -> None:
+    def convert_map(self, map_index: int, map_writer: AbstractMapWriter) -> None:
         """Inherited, see superclass."""
 
         source_log_path, split = self._log_paths_and_split[map_index]
-        log_name = source_log_path.name
-        map_path = self.dataset_converter_config.output_path / "maps" / split / f"{log_name}.gpkg"
-        if self.dataset_converter_config.force_map_conversion or not map_path.exists():
-            map_path.unlink(missing_ok=True)
-            if not map_path.parent.exists():
-                map_path.parent.mkdir(parents=True, exist_ok=True)
-            convert_av2_map(source_log_path, map_path)
+
+        # 1. Initialize Metadata, TODO: Use a MapMetadata class if needed in the future.
+        log_metadata = LogMetadata(
+            dataset="av2-sensor",
+            split=split,
+            log_name=source_log_path.name,
+            location=None,  # TODO: Add location information.
+            timestep_seconds=None,
+            vehicle_parameters=None,
+            camera_metadata=None,
+            lidar_metadata=None,
+            map_has_z=True,
+            map_is_local=True,
+        )
+
+        map_needs_writing = map_writer.reset(self.dataset_converter_config, log_metadata)
+        if map_needs_writing:
+            convert_av2_map(source_log_path, map_writer)
+
+        map_writer.close()
 
     def convert_log(self, log_index: int, log_writer: AbstractLogWriter) -> None:
         """Inherited, see superclass."""

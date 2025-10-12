@@ -16,18 +16,6 @@ from d123.geometry.occupancy_map import OccupancyMap2D
 logger = logging.getLogger(__name__)
 
 
-def get_road_edges_3d_from_generic_drivable_area_df(generic_drivable_area_df: gpd.GeoDataFrame) -> List[LineString]:
-    """
-    Extracts 3D road edges from the generic drivable area GeoDataFrame.
-    """
-    # NOTE: this is a simplified version that assumes the generic drivable area covers all areas.
-    # This is the case for argoverse 2.
-    road_edges_2d = get_road_edge_linear_rings(generic_drivable_area_df.geometry.tolist())
-    outlines = generic_drivable_area_df.outline.tolist()
-    non_conflicting_road_edges = lift_road_edges_to_3d(road_edges_2d, outlines)
-    return non_conflicting_road_edges
-
-
 def get_road_edges_3d_from_gdf(
     lane_df: gpd.GeoDataFrame,
     carpark_df: gpd.GeoDataFrame,

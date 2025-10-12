@@ -1,21 +1,30 @@
 import json
-import warnings
 from pathlib import Path
 from typing import Any, Dict, Final, List
 
 import geopandas as gpd
 import numpy as np
 import numpy.typing as npt
-import pandas as pd
 import shapely
 import shapely.geometry as geom
 
 from d123.conversion.datasets.av2.av2_constants import AV2_ROAD_LINE_TYPE_MAPPING
-from d123.conversion.utils.map_utils.road_edge.road_edge_2d_utils import split_line_geometry_by_max_length
-from d123.conversion.utils.map_utils.road_edge.road_edge_3d_utils import (
-    get_road_edges_3d_from_generic_drivable_area_df,
+from d123.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from d123.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
+    get_road_edge_linear_rings,
+    split_line_geometry_by_max_length,
 )
-from d123.datatypes.maps.map_datatypes import MapLayer, RoadEdgeType
+from d123.conversion.utils.map_utils.road_edge.road_edge_3d_utils import lift_road_edges_to_3d
+from d123.datatypes.maps.cache.cache_map_objects import (
+    CacheCrosswalk,
+    CacheGenericDrivable,
+    CacheIntersection,
+    CacheLane,
+    CacheLaneGroup,
+    CacheRoadEdge,
+    CacheRoadLine,
+)
+from d123.datatypes.maps.map_datatypes import RoadEdgeType
 from d123.geometry import OccupancyMap2D, Point3DIndex, Polyline2D, Polyline3D
 
 LANE_GROUP_MARK_TYPES: List[str] = [
@@ -28,7 +37,7 @@ LANE_GROUP_MARK_TYPES: List[str] = [
 MAX_ROAD_EDGE_LENGTH: Final[float] = 100.0  # TODO: Add to config
 
 
-def convert_av2_map(source_log_path: Path, map_file_path: Path) -> None:
+def convert_av2_map(source_log_path: Path, map_writer: AbstractMapWriter) -> None:
 
     def _extract_polyline(data: List[Dict[str, float]], close: bool = False) -> Polyline3D:
         polyline = np.array([[p["x"], p["y"], p["z"]] for p in data], dtype=np.float64)
@@ -44,7 +53,6 @@ def convert_av2_map(source_log_path: Path, map_file_path: Path) -> None:
         log_map_archive = json.load(f)
 
     drivable_areas: Dict[int, Polyline3D] = {}
-
     for drivable_area_id, drivable_area_dict in log_map_archive["drivable_areas"].items():
         # keys: ["area_boundary", "id"]
         drivable_areas[int(drivable_area_id)] = _extract_polyline(drivable_area_dict["area_boundary"], close=True)
@@ -77,52 +85,16 @@ def convert_av2_map(source_log_path: Path, map_file_path: Path) -> None:
     lane_group_dict = _extract_lane_group_dict(log_map_archive["lane_segments"])
     intersection_dict = _extract_intersection_dict(log_map_archive["lane_segments"], lane_group_dict)
 
-    dataframes: Dict[MapLayer, gpd.GeoDataFrame] = {}
-
-    dataframes[MapLayer.LANE] = get_lane_df(log_map_archive["lane_segments"])
-    dataframes[MapLayer.LANE_GROUP] = get_lane_group_df(lane_group_dict)
-    dataframes[MapLayer.INTERSECTION] = get_intersections_df(intersection_dict)
-    dataframes[MapLayer.CROSSWALK] = get_crosswalk_df(log_map_archive["pedestrian_crossings"])
-    dataframes[MapLayer.GENERIC_DRIVABLE] = get_generic_drivable_df(drivable_areas)
-    dataframes[MapLayer.ROAD_EDGE] = get_road_edge_df(dataframes[MapLayer.GENERIC_DRIVABLE])
-    dataframes[MapLayer.ROAD_LINE] = get_road_line_df(log_map_archive["lane_segments"])
-    # NOTE: AV2 does not provide walkways or carparks, so we create an empty DataFrame.
-    dataframes[MapLayer.WALKWAY] = get_empty_gdf()
-    dataframes[MapLayer.CARPARK] = get_empty_gdf()
-
-    map_file_path.unlink(missing_ok=True)
-    if not map_file_path.parent.exists():
-        map_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message="'crs' was not provided")
-        for layer, gdf in dataframes.items():
-            gdf.to_file(map_file_path, layer=layer.serialize(), driver="GPKG", mode="a")
+    _write_av2_lanes(log_map_archive["lane_segments"], map_writer)
+    _write_av2_lane_group(lane_group_dict, map_writer)
+    _write_av2_intersections(intersection_dict, map_writer)
+    _write_av2_crosswalks(log_map_archive["pedestrian_crossings"], map_writer)
+    _write_av2_generic_drivable(drivable_areas, map_writer)
+    _write_av2_road_edge(drivable_areas, map_writer)
+    _write_av2_road_lines(log_map_archive["lane_segments"], map_writer)
 
 
-def get_empty_gdf() -> gpd.GeoDataFrame:
-    ids = []
-    outlines = []
-    geometries = []
-    data = pd.DataFrame({"id": ids, "outline": outlines})
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
-
-
-def get_lane_df(lanes: Dict[int, Any]) -> gpd.GeoDataFrame:
-
-    ids = [int(lane_id) for lane_id in lanes.keys()]
-    lane_types = [0] * len(ids)  # TODO: Add lane types
-    lane_group_ids = []
-    speed_limits_mps = []
-    predecessor_ids = []
-    successor_ids = []
-    left_boundaries = []
-    right_boundaries = []
-    left_lane_ids = []
-    right_lane_ids = []
-    baseline_paths = []
-    geometries = []
+def _write_av2_lanes(lanes: Dict[int, Any], map_writer: AbstractMapWriter) -> None:
 
     def _get_centerline_from_boundaries(
         left_boundary: Polyline3D, right_boundary: Polyline3D, resolution: float = 0.1
@@ -136,206 +108,120 @@ def get_lane_df(lanes: Dict[int, Any]) -> gpd.GeoDataFrame:
         return Polyline3D.from_array(np.mean([right_array, left_array], axis=0))
 
     for lane_id, lane_dict in lanes.items():
-        # keys = [
-        #     "id",
-        #     "is_intersection",
-        #     "lane_type",
-        #     "left_lane_boundary",
-        #     "left_lane_mark_type",
-        #     "right_lane_boundary",
-        #     "right_lane_mark_type",
-        #     "successors",
-        #     "predecessors",
-        #     "right_neighbor_id",
-        #     "left_neighbor_id",
-        # ]
         lane_centerline = _get_centerline_from_boundaries(
             left_boundary=lane_dict["left_lane_boundary"],
             right_boundary=lane_dict["right_lane_boundary"],
         )
-        lane_speed_limit_mps = None  # TODO: Consider using geo reference to retrieve speed limits.
-        lane_group_ids.append(lane_id)
-        speed_limits_mps.append(lane_speed_limit_mps)
-        predecessor_ids.append(lane_dict["predecessors"])
-        successor_ids.append(lane_dict["successors"])
-        left_boundaries.append(lane_dict["left_lane_boundary"].linestring)
-        right_boundaries.append(lane_dict["right_lane_boundary"].linestring)
-        left_lane_ids.append(lane_dict["left_neighbor_id"])
-        right_lane_ids.append(lane_dict["right_neighbor_id"])
-        baseline_paths.append(lane_centerline.linestring)
 
-        geometry = geom.Polygon(
-            np.vstack(
-                [
-                    lane_dict["left_lane_boundary"].array[:, :2],
-                    lane_dict["right_lane_boundary"].array[:, :2][::-1],
-                ]
+        map_writer.write_lane(
+            CacheLane(
+                object_id=lane_id,
+                lane_group_id=lane_dict["lane_group_id"],
+                left_boundary=lane_dict["left_lane_boundary"],
+                right_boundary=lane_dict["right_lane_boundary"],
+                centerline=lane_centerline,
+                left_lane_id=lane_dict["left_neighbor_id"],
+                right_lane_id=lane_dict["right_neighbor_id"],
+                predecessor_ids=lane_dict["predecessors"],
+                successor_ids=lane_dict["successors"],
+                speed_limit_mps=None,
+                outline=None,  # Inferred from boundaries
+                geometry=None,
             )
         )
-        geometries.append(geometry)
-
-    data = pd.DataFrame(
-        {
-            "id": ids,
-            "lane_type": lane_types,
-            "lane_group_id": lane_group_ids,
-            "speed_limit_mps": speed_limits_mps,
-            "predecessor_ids": predecessor_ids,
-            "successor_ids": successor_ids,
-            "left_boundary": left_boundaries,
-            "right_boundary": right_boundaries,
-            "left_lane_id": left_lane_ids,
-            "right_lane_id": right_lane_ids,
-            "baseline_path": baseline_paths,
-        }
-    )
-
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
 
 
-def get_lane_group_df(lane_group_dict: Dict[int, Any]) -> gpd.GeoDataFrame:
-
-    ids = list(lane_group_dict.keys())
-    lane_ids = []
-    intersection_ids = []
-    predecessor_lane_group_ids = []
-    successor_lane_group_ids = []
-    left_boundaries = []
-    right_boundaries = []
-    geometries = []
+def _write_av2_lane_group(lane_group_dict: Dict[int, Any], map_writer: AbstractMapWriter) -> None:
 
     for lane_group_id, lane_group_values in lane_group_dict.items():
 
-        lane_ids.append(lane_group_values["lane_ids"])
-        intersection_ids.append(lane_group_values["intersection_id"])
-
-        predecessor_lane_group_ids.append(lane_group_values["predecessor_ids"])
-        successor_lane_group_ids.append(lane_group_values["successor_ids"])
-        left_boundaries.append(lane_group_values["left_boundary"].linestring)
-        right_boundaries.append(lane_group_values["right_boundary"].linestring)
-        geometry = geom.Polygon(
-            np.vstack(
-                [
-                    lane_group_values["left_boundary"].array[:, :2],
-                    lane_group_values["right_boundary"].array[:, :2][::-1],
-                    lane_group_values["left_boundary"].array[0, :2][None, ...],
-                ]
+        map_writer.write_lane_group(
+            CacheLaneGroup(
+                object_id=lane_group_id,
+                lane_ids=lane_group_values["lane_ids"],
+                left_boundary=lane_group_values["left_boundary"],
+                right_boundary=lane_group_values["right_boundary"],
+                intersection_id=lane_group_values["intersection_id"],
+                predecessor_ids=lane_group_values["predecessor_ids"],
+                successor_ids=lane_group_values["successor_ids"],
+                outline=None,
+                geometry=None,
             )
         )
-        geometries.append(geometry)
-
-    data = pd.DataFrame(
-        {
-            "id": ids,
-            "lane_ids": lane_ids,
-            "intersection_id": intersection_ids,
-            "predecessor_ids": predecessor_lane_group_ids,
-            "successor_ids": successor_lane_group_ids,
-            "left_boundary": left_boundaries,
-            "right_boundary": right_boundaries,
-        }
-    )
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
 
 
-def get_intersections_df(intersection_dict: Dict[int, Any]) -> gpd.GeoDataFrame:
-    ids = []
-    lane_group_ids = []
-    outlines = []
-    geometries = []
-
+def _write_av2_intersections(intersection_dict: Dict[int, Any], map_writer: AbstractMapWriter) -> None:
     for intersection_id, intersection_values in intersection_dict.items():
-        ids.append(intersection_id)
-        lane_group_ids.append(intersection_values["lane_group_ids"])
-        outlines.append(intersection_values["outline_3d"].linestring)
-        geometries.append(geom.Polygon(intersection_values["outline_3d"].array[:, Point3DIndex.XY]))
-
-    data = pd.DataFrame({"id": ids, "lane_group_ids": lane_group_ids, "outline": outlines})
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
-
-
-def get_carpark_df(carparks) -> gpd.GeoDataFrame:
-    ids = list(carparks.keys())
-    outlines = [geom.LineString(outline) for outline in carparks.values()]
-    geometries = [geom.Polygon(outline[..., Point3DIndex.XY]) for outline in carparks.values()]
-
-    data = pd.DataFrame({"id": ids, "outline": outlines})
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
+        map_writer.write_intersection(
+            CacheIntersection(
+                object_id=intersection_id,
+                lane_group_ids=intersection_values["lane_group_ids"],
+                outline=intersection_values["outline_3d"],
+            )
+        )
 
 
-def get_walkway_df() -> gpd.GeoDataFrame:
-    ids = []
-    geometries = []
-
-    # NOTE: WOPD does not provide walkways, so we create an empty DataFrame.
-    data = pd.DataFrame({"id": ids})
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
-
-
-def get_crosswalk_df(crosswalks: Dict[int, npt.NDArray[np.float64]]) -> gpd.GeoDataFrame:
-    ids = list(crosswalks.keys())
-    outlines = []
-    geometries = []
-    for crosswalk_dict in crosswalks.values():
-        outline = crosswalk_dict["outline"]
-        outlines.append(outline.linestring)
-        geometries.append(geom.Polygon(outline.array[:, Point3DIndex.XY]))
-
-    data = pd.DataFrame({"id": ids, "outline": outlines})
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
+def _write_av2_crosswalks(crosswalks: Dict[int, npt.NDArray[np.float64]], map_writer: AbstractMapWriter) -> None:
+    for cross_walk_id, crosswalk_dict in crosswalks.items():
+        map_writer.write_crosswalk(
+            CacheCrosswalk(
+                object_id=cross_walk_id,
+                outline=crosswalk_dict["outline"],
+            )
+        )
 
 
-def get_generic_drivable_df(drivable_areas: Dict[int, Polyline3D]) -> gpd.GeoDataFrame:
-    ids = list(drivable_areas.keys())
-    outlines = [drivable_area.linestring for drivable_area in drivable_areas.values()]
-    geometries = [geom.Polygon(drivable_area.array[:, Point3DIndex.XY]) for drivable_area in drivable_areas.values()]
-
-    data = pd.DataFrame({"id": ids, "outline": outlines})
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
-
-
-def get_road_edge_df(generic_drivable_area_df: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    road_edges = get_road_edges_3d_from_generic_drivable_area_df(generic_drivable_area_df)
-    road_edges = split_line_geometry_by_max_length(road_edges, MAX_ROAD_EDGE_LENGTH)
-
-    ids = np.arange(len(road_edges), dtype=np.int64).tolist()
-    # TODO @DanielDauner: Figure out if other types should/could be assigned here.
-    road_edge_types = [int(RoadEdgeType.ROAD_EDGE_BOUNDARY)] * len(road_edges)
-    geometries = road_edges
-    return gpd.GeoDataFrame(pd.DataFrame({"id": ids, "road_edge_type": road_edge_types}), geometry=geometries)
+def _write_av2_generic_drivable(drivable_areas: Dict[int, Polyline3D], map_writer: AbstractMapWriter) -> None:
+    for drivable_area_id, drivable_area_outline in drivable_areas.items():
+        map_writer.write_generic_drivable(
+            CacheGenericDrivable(
+                object_id=drivable_area_id,
+                outline=drivable_area_outline,
+            )
+        )
 
 
-def get_road_line_df(lanes: Dict[int, Any]) -> gpd.GeoDataFrame:
+def _write_av2_road_edge(drivable_areas: Dict[int, Polyline3D], map_writer: AbstractMapWriter) -> None:
 
-    # TODO @DanielDauner: Allow lanes to reference road line dataframe.
+    # NOTE @DanielDauner: We merge all drivable areas in 2D and lift the outlines to 3D.
+    # Currently the method assumes that the drivable areas do not overlap and all road surfaces are included.
 
-    ids = []
-    road_lines_type = []
-    geometries = []
+    drivable_polygons = [geom.Polygon(drivable_area.array[:, :2]) for drivable_area in drivable_areas.values()]
+    road_edges_2d = get_road_edge_linear_rings(drivable_polygons)
+    outlines_linestrings = [drivable_area.linestring for drivable_area in drivable_areas.values()]
+    non_conflicting_road_edges = lift_road_edges_to_3d(road_edges_2d, outlines_linestrings)
+    road_edges = split_line_geometry_by_max_length(non_conflicting_road_edges, MAX_ROAD_EDGE_LENGTH)
 
-    running_id = 0
+    for idx, road_edge in enumerate(road_edges):
+
+        # TODO @DanielDauner: Figure out if other road edge types should/could be assigned here.
+        map_writer.write_road_edge(
+            CacheRoadEdge(
+                object_id=idx,
+                road_edge_type=RoadEdgeType.ROAD_EDGE_BOUNDARY,
+                polyline=Polyline3D.from_linestring(road_edge),
+            )
+        )
+
+
+def _write_av2_road_lines(lanes: Dict[int, Any], map_writer: AbstractMapWriter) -> None:
+
+    running_road_line_id = 0
     for lane in lanes.values():
         for side in ["left", "right"]:
-            # NOTE: We currently ignore lane markings that are NONE in the AV2 dataset.
-            # TODO: Review if the road line system should be changed in the future.
+            # NOTE @DanielDauner: We currently ignore lane markings that are NONE in the AV2 dataset.
             if lane[f"{side}_lane_mark_type"] == "NONE":
                 continue
 
-            ids.append(running_id)
-            road_lines_type.append(AV2_ROAD_LINE_TYPE_MAPPING[lane[f"{side}_lane_mark_type"]])
-            geometries.append(lane[f"{side}_lane_boundary"].linestring)
-            running_id += 1
+            map_writer.write_road_line(
+                CacheRoadLine(
+                    object_id=running_road_line_id,
+                    road_line_type=AV2_ROAD_LINE_TYPE_MAPPING[lane[f"{side}_lane_mark_type"]],
+                    polyline=lane[f"{side}_lane_boundary"],
+                )
+            )
 
-    data = pd.DataFrame({"id": ids, "road_line_type": road_lines_type})
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
+            running_road_line_id += 1
 
 
 def _extract_lane_group_dict(lanes: Dict[int, Any]) -> gpd.GeoDataFrame:
@@ -363,6 +249,7 @@ def _extract_lane_group_dict(lanes: Dict[int, Any]) -> gpd.GeoDataFrame:
         predecessor_lanes = []
         for lane_id in lane_group_set:
             lane_dict = lanes[str(lane_id)]
+            lane_dict["lane_group_id"] = lane_group_id  # Assign lane to lane group.
             successor_lanes.extend(lane_dict["successors"])
             predecessor_lanes.extend(lane_dict["predecessors"])
 
