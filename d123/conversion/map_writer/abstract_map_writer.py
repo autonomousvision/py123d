@@ -14,14 +14,14 @@ from d123.datatypes.maps.abstract_map_objects import (
     AbstractStopLine,
     AbstractWalkway,
 )
-from d123.datatypes.scene.scene_metadata import LogMetadata
+from d123.datatypes.maps.map_metadata import MapMetadata
 
 
 class AbstractMapWriter(abc.ABC):
     """Abstract base class for map writers."""
 
     @abstractmethod
-    def reset(self, dataset_converter_config: DatasetConverterConfig, log_metadata: LogMetadata) -> bool:
+    def reset(self, dataset_converter_config: DatasetConverterConfig, map_metadata: MapMetadata) -> bool:
         """Reset the writer to its initial state."""
 
     @abstractmethod

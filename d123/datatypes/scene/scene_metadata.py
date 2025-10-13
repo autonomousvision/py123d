@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from typing import Dict
+from dataclasses import asdict, dataclass, field
+from typing import Dict, Optional
 
 import d123
+from d123.datatypes.maps.map_metadata import MapMetadata
 from d123.datatypes.sensors.camera.pinhole_camera import PinholeCameraMetadata, PinholeCameraType
 from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
 from d123.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
@@ -18,18 +19,19 @@ class LogMetadata:
     location: str
     timestep_seconds: float
 
-    vehicle_parameters: VehicleParameters
-    camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata]
-    lidar_metadata: Dict[LiDARType, LiDARMetadata]
+    vehicle_parameters: Optional[VehicleParameters] = None
+    camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = field(default_factory=dict)
+    lidar_metadata: Dict[LiDARType, LiDARMetadata] = field(default_factory=dict)
 
-    map_has_z: bool
-    map_is_local: bool
+    map_metadata: Optional[MapMetadata] = None
     version: str = str(d123.__version__)
 
     @classmethod
     def from_dict(cls, data_dict: Dict) -> LogMetadata:
 
-        data_dict["vehicle_parameters"] = VehicleParameters.from_dict(data_dict["vehicle_parameters"])
+        if data_dict["vehicle_parameters"] is not None:
+            data_dict["vehicle_parameters"] = VehicleParameters.from_dict(data_dict["vehicle_parameters"])
+
         data_dict["camera_metadata"] = {
             PinholeCameraType.deserialize(key): PinholeCameraMetadata.from_dict(value)
             for key, value in data_dict.get("camera_metadata", {}).items()
@@ -38,13 +40,17 @@ class LogMetadata:
             LiDARType.deserialize(key): LiDARMetadata.from_dict(value)
             for key, value in data_dict.get("lidar_metadata", {}).items()
         }
+        if data_dict["map_metadata"] is not None:
+            data_dict["map_metadata"] = MapMetadata.from_dict(data_dict["map_metadata"])
+
         return LogMetadata(**data_dict)
 
     def to_dict(self) -> Dict:
         data_dict = asdict(self)
-        data_dict["vehicle_parameters"] = self.vehicle_parameters.to_dict()
+        data_dict["vehicle_parameters"] = self.vehicle_parameters.to_dict() if self.vehicle_parameters else None
         data_dict["camera_metadata"] = {key.serialize(): value.to_dict() for key, value in self.camera_metadata.items()}
         data_dict["lidar_metadata"] = {key.serialize(): value.to_dict() for key, value in self.lidar_metadata.items()}
+        data_dict["map_metadata"] = self.map_metadata.to_dict() if self.map_metadata else None
         return data_dict
 
 

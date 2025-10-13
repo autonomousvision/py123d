@@ -1,17 +1,26 @@
-from collections import defaultdict
-from pathlib import Path
 from typing import Dict, List, Optional
 
-import geopandas as gpd
 import numpy as np
-import numpy.typing as npt
-import pandas as pd
-import shapely.geometry as geom
 
 from d123.common.utils.dependencies import check_dependencies
-from d123.conversion.datasets.wopd.waymo_map_utils.womp_boundary_utils import extract_lane_boundaries
-from d123.datatypes.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
-from d123.geometry import Point3DIndex, Polyline3D
+from d123.conversion.datasets.wopd.utils.wopd_constants import (
+    WAYMO_LANE_TYPE_CONVERSION,
+    WAYMO_ROAD_EDGE_TYPE_CONVERSION,
+    WAYMO_ROAD_LINE_TYPE_CONVERSION,
+)
+from d123.conversion.datasets.wopd.waymo_map_utils.womp_boundary_utils import WaymoLaneData, fill_lane_boundaries
+from d123.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from d123.datatypes.maps.abstract_map_objects import AbstractLane, AbstractRoadEdge, AbstractRoadLine
+from d123.datatypes.maps.cache.cache_map_objects import (
+    CacheCarpark,
+    CacheCrosswalk,
+    CacheLane,
+    CacheLaneGroup,
+    CacheRoadEdge,
+    CacheRoadLine,
+)
+from d123.datatypes.maps.map_datatypes import LaneType, RoadEdgeType, RoadLineType
+from d123.geometry import Polyline3D
 from d123.geometry.utils.units import mph_to_mps
 
 check_dependencies(modules=["waymo_open_dataset"], optional_name="waymo")
@@ -23,180 +32,101 @@ from waymo_open_dataset import dataset_pb2
 # - Implement driveways with a different semantic type if needed
 # - Implement intersections and lane group logic
 
-WAYMO_ROAD_LINE_CONVERSION = {
-    0: RoadLineType.UNKNOWN,  # aka. UNKNOWN
-    1: RoadLineType.DASHED_WHITE,  # aka. BROKEN_SINGLE_WHITE
-    2: RoadLineType.SOLID_WHITE,  # aka. SOLID_SINGLE_WHITE
-    3: RoadLineType.DOUBLE_SOLID_WHITE,  # aka. SOLID_DOUBLE_WHITE
-    4: RoadLineType.DASHED_YELLOW,  # aka. BROKEN_SINGLE_YELLOW
-    5: RoadLineType.DOUBLE_DASH_YELLOW,  # aka. BROKEN_DOUBLE_YELLOW
-    6: RoadLineType.SOLID_YELLOW,  # aka. SOLID_SINGLE_YELLOW
-    7: RoadLineType.DOUBLE_SOLID_YELLOW,  # aka. SOLID_DOUBLE_YELLOW
-    8: RoadLineType.DOUBLE_DASH_YELLOW,  # aka. PASSING_DOUBLE_YELLOW
-}
 
-WAYMO_ROAD_EDGE_CONVERSION = {
-    0: RoadEdgeType.UNKNOWN,
-    1: RoadEdgeType.ROAD_EDGE_BOUNDARY,
-    2: RoadEdgeType.ROAD_EDGE_MEDIAN,
-}
+def convert_wopd_map(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> None:
+
+    # We first extract all road lines, road edges, and lanes, and write them to the map writer.
+    # NOTE: road lines and edges are used needed to extract lane boundaries.
+    road_lines = _write_and_get_waymo_road_lines(frame, map_writer)
+    road_edges = _write_and_get_waymo_road_edges(frame, map_writer)
+    lanes = _write_and_get_waymo_lanes(frame, road_lines, road_edges, map_writer)
+
+    # Write lane groups based on the extracted lanes
+    _write_waymo_lane_groups(lanes, map_writer)
+
+    # Write miscellaneous surfaces (carparks, crosswalks, stop zones, etc.) directly from the Waymo frame proto
+    _write_waymo_misc_surfaces(frame, map_writer)
 
 
-def convert_wopd_map(frame: dataset_pb2.Frame, map_file_path: Path) -> None:
+def _write_and_get_waymo_road_lines(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> List[AbstractRoadLine]:
+    """Helper function to extract road lines from a Waymo frame proto."""
 
-    def _extract_polyline(data) -> npt.NDArray[np.float64]:
-        polyline = np.array([[p.x, p.y, p.z] for p in data.polyline], dtype=np.float64)
-        return polyline
+    road_lines: List[AbstractRoadLine] = []
+    for map_feature in frame.map_features:
+        if map_feature.HasField("road_line"):
+            polyline = _extract_polyline_waymo_proto(map_feature.road_line)
+            if polyline is not None:
+                road_line_type = WAYMO_ROAD_LINE_TYPE_CONVERSION.get(map_feature.road_line.type, RoadLineType.UNKNOWN)
+                road_lines.append(
+                    CacheRoadLine(
+                        object_id=map_feature.id,
+                        road_line_type=road_line_type,
+                        polyline=polyline,
+                    )
+                )
 
-    def _extract_polygon(data) -> npt.NDArray[np.float64]:
-        polygon = np.array([[p.x, p.y, p.z] for p in data.polygon], dtype=np.float64)
-        assert polygon.shape[0] >= 3, "Polygon must have at least 3 points"
-        assert polygon.shape[1] == 3, "Polygon must have 3 coordinates (x, y, z)"
-        return polygon
+    for road_line in road_lines:
+        map_writer.write_road_line(road_line)
 
-    def _extract_neighbors(data) -> List[Dict[str, int]]:
-        neighbors = []
-        for neighbor in data:
-            neighbors.append(
-                {
-                    "lane_id": neighbor.feature_id,
-                    "self_start_index": neighbor.self_start_index,
-                    "self_end_index": neighbor.self_end_index,
-                    "neighbor_start_index": neighbor.neighbor_start_index,
-                    "neighbor_end_index": neighbor.neighbor_end_index,
-                }
-            )
-        return neighbors
+    return road_lines
 
-    lanes: Dict[int, npt.NDArray[np.float64]] = {}
-    lanes_successors = defaultdict(list)
-    lanes_predecessors = defaultdict(list)
-    lanes_speed_limit_mps: Dict[int, float] = {}
-    lanes_type: Dict[int, int] = {}
-    lanes_left_neighbors: Dict[int, List[Dict[str, int]]] = {}
-    lanes_right_neighbors: Dict[int, List[Dict[str, int]]] = {}
 
-    road_lines: Dict[int, npt.NDArray[np.float64]] = {}
-    road_lines_type: Dict[int, RoadLineType] = {}
+def _write_and_get_waymo_road_edges(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> List[AbstractRoadEdge]:
+    """Helper function to extract road edges from a Waymo frame proto."""
 
-    road_edges: Dict[int, npt.NDArray[np.float64]] = {}
-    road_edges_type: Dict[int, int] = {}
+    road_edges: List[AbstractRoadEdge] = []
+    for map_feature in frame.map_features:
+        if map_feature.HasField("road_edge"):
+            polyline = _extract_polyline_waymo_proto(map_feature.road_edge)
+            if polyline is not None:
+                road_edge_type = WAYMO_ROAD_EDGE_TYPE_CONVERSION.get(map_feature.road_edge.type, RoadEdgeType.UNKNOWN)
+                road_edges.append(
+                    CacheRoadEdge(
+                        object_id=map_feature.id,
+                        road_edge_type=road_edge_type,
+                        polyline=polyline,
+                    )
+                )
 
-    crosswalks: Dict[int, npt.NDArray[np.float64]] = {}
-    carparks: Dict[int, npt.NDArray[np.float64]] = {}
+    for road_edge in road_edges:
+        map_writer.write_road_edge(road_edge)
 
+    return road_edges
+
+
+def _write_and_get_waymo_lanes(
+    frame: dataset_pb2.Frame,
+    road_lines: List[AbstractRoadLine],
+    road_edges: List[AbstractRoadEdge],
+    map_writer: AbstractMapWriter,
+) -> List[AbstractLane]:
+
+    # 1. Load lane data from Waymo frame proto
+    lane_data_dict: Dict[int, WaymoLaneData] = {}
     for map_feature in frame.map_features:
         if map_feature.HasField("lane"):
-            polyline = _extract_polyline(map_feature.lane)
-            # Ignore lanes with less than 2 points or not 2D
-            if polyline.ndim != 2 or polyline.shape[0] < 2:
+            centerline = _extract_polyline_waymo_proto(map_feature.lane)
+
+            # In case of a invalid lane, skip it
+            if centerline is None:
                 continue
-            lanes[map_feature.id] = polyline
-            for lane_id_ in map_feature.lane.exit_lanes:
-                lanes_successors[map_feature.id].append(lane_id_)
-            for lane_id_ in map_feature.lane.exit_lanes:
-                lanes_predecessors[map_feature.id].append(lane_id_)
-            lanes_speed_limit_mps[map_feature.id] = mph_to_mps(map_feature.lane.speed_limit_mph)
-            lanes_type[map_feature.id] = map_feature.lane.type
-            lanes_left_neighbors[map_feature.id] = _extract_neighbors(map_feature.lane.left_neighbors)
-            lanes_right_neighbors[map_feature.id] = _extract_neighbors(map_feature.lane.right_neighbors)
-        elif map_feature.HasField("road_line"):
-            polyline = _extract_polyline(map_feature.road_line)
-            if polyline.ndim != 2 or polyline.shape[0] < 2:
-                continue
-            road_lines[map_feature.id] = polyline
-            road_lines_type[map_feature.id] = WAYMO_ROAD_LINE_CONVERSION.get(
-                map_feature.road_line.type, RoadLineType.UNKNOWN
+
+            speed_limit_mps = mph_to_mps(map_feature.lane.speed_limit_mph)
+            speed_limit_mps = speed_limit_mps if speed_limit_mps > 0.0 else None
+
+            lane_data_dict[map_feature.id] = WaymoLaneData(
+                object_id=map_feature.id,
+                centerline=centerline,
+                predecessor_ids=[int(lane_id_) for lane_id_ in map_feature.lane.entry_lanes],
+                successor_ids=[int(lane_id_) for lane_id_ in map_feature.lane.exit_lanes],
+                speed_limit_mps=speed_limit_mps,
+                lane_type=WAYMO_LANE_TYPE_CONVERSION.get(map_feature.lane.type, LaneType.UNDEFINED),
+                left_neighbors=_extract_lane_neighbors(map_feature.lane.left_neighbors),
+                right_neighbors=_extract_lane_neighbors(map_feature.lane.right_neighbors),
             )
-        elif map_feature.HasField("road_edge"):
-            polyline = _extract_polyline(map_feature.road_edge)
-            if polyline.ndim != 2 or polyline.shape[0] < 2:
-                continue
-            road_edges[map_feature.id] = polyline
-            road_edges_type[map_feature.id] = WAYMO_ROAD_EDGE_CONVERSION.get(
-                map_feature.road_edge.type, RoadEdgeType.UNKNOWN
-            )
-        elif map_feature.HasField("stop_sign"):
-            # TODO: implement stop signs
-            pass
-        elif map_feature.HasField("crosswalk"):
-            crosswalks[map_feature.id] = _extract_polygon(map_feature.crosswalk)
-        elif map_feature.HasField("speed_bump"):
-            # TODO: implement speed bumps
-            pass
-        elif map_feature.HasField("driveway"):
-            # NOTE: Determine whether to use a different semantic type for driveways.
-            carparks[map_feature.id] = _extract_polygon(map_feature.driveway)
 
-    lane_left_boundaries_3d, lane_right_boundaries_3d = extract_lane_boundaries(
-        lanes, lanes_successors, lanes_predecessors, road_lines, road_edges
-    )
-
-    lane_df = get_lane_df(
-        lanes,
-        lanes_successors,
-        lanes_predecessors,
-        lanes_speed_limit_mps,
-        lane_left_boundaries_3d,
-        lane_right_boundaries_3d,
-        lanes_type,
-        lanes_left_neighbors,
-        lanes_right_neighbors,
-    )
-    lane_group_df = get_lane_group_df(
-        lanes,
-        lanes_successors,
-        lanes_predecessors,
-        lane_left_boundaries_3d,
-        lane_right_boundaries_3d,
-    )
-    intersection_df = get_intersections_df()
-    crosswalk_df = get_crosswalk_df(crosswalks)
-    walkway_df = get_walkway_df()
-    carpark_df = get_carpark_df(carparks)
-    generic_drivable_df = get_generic_drivable_df()
-    road_edge_df = get_road_edge_df(road_edges, road_edges_type)
-    road_line_df = get_road_line_df(road_lines, road_lines_type)
-
-    map_file_path.unlink(missing_ok=True)
-    if not map_file_path.parent.exists():
-        map_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-    lane_df.to_file(map_file_path, layer=MapLayer.LANE.serialize(), driver="GPKG")
-    lane_group_df.to_file(map_file_path, layer=MapLayer.LANE_GROUP.serialize(), driver="GPKG", mode="a")
-    intersection_df.to_file(map_file_path, layer=MapLayer.INTERSECTION.serialize(), driver="GPKG", mode="a")
-    crosswalk_df.to_file(map_file_path, layer=MapLayer.CROSSWALK.serialize(), driver="GPKG", mode="a")
-    walkway_df.to_file(map_file_path, layer=MapLayer.WALKWAY.serialize(), driver="GPKG", mode="a")
-    carpark_df.to_file(map_file_path, layer=MapLayer.CARPARK.serialize(), driver="GPKG", mode="a")
-    generic_drivable_df.to_file(map_file_path, layer=MapLayer.GENERIC_DRIVABLE.serialize(), driver="GPKG", mode="a")
-    road_edge_df.to_file(map_file_path, layer=MapLayer.ROAD_EDGE.serialize(), driver="GPKG", mode="a")
-    road_line_df.to_file(map_file_path, layer=MapLayer.ROAD_LINE.serialize(), driver="GPKG", mode="a")
-
-
-def get_lane_df(
-    lanes: Dict[int, npt.NDArray[np.float64]],
-    lanes_successors: Dict[int, List[int]],
-    lanes_predecessors: Dict[int, List[int]],
-    lanes_speed_limit_mps: Dict[int, float],
-    lanes_left_boundaries_3d: Dict[int, Polyline3D],
-    lanes_right_boundaries_3d: Dict[int, Polyline3D],
-    lanes_type: Dict[int, int],
-    lanes_left_neighbors: Dict[int, List[Dict[str, int]]],
-    lanes_right_neighbors: Dict[int, List[Dict[str, int]]],
-) -> gpd.GeoDataFrame:
-
-    ids = []
-    lane_types = []
-    lane_group_ids = []
-    speed_limits_mps = []
-    predecessor_ids = []
-    successor_ids = []
-    left_boundaries = []
-    right_boundaries = []
-    left_lane_ids = []
-    right_lane_ids = []
-    baseline_paths = []
-    geometries = []
+    # 2. Process lane data to fill in left/right boundaries
+    fill_lane_boundaries(lane_data_dict, road_lines, road_edges)
 
     def _get_majority_neighbor(neighbors: List[Dict[str, int]]) -> Optional[int]:
         if len(neighbors) == 0:
@@ -206,185 +136,99 @@ def get_lane_df(
         }
         return str(max(length, key=length.get))
 
-    for lane_id, lane_centerline_array in lanes.items():
-        if lane_id not in lanes_left_boundaries_3d or lane_id not in lanes_right_boundaries_3d:
+    lanes: List[AbstractLane] = []
+    for lane_data in lane_data_dict.values():
+
+        # Skip lanes without boundaries
+        if lane_data.left_boundary is None or lane_data.right_boundary is None:
             continue
-        lane_centerline = Polyline3D.from_array(lane_centerline_array)
-        lane_speed_limit_mps = lanes_speed_limit_mps[lane_id] if lanes_speed_limit_mps[lane_id] > 0.0 else None
 
-        ids.append(lane_id)
-        lane_types.append(lanes_type[lane_id])
-        lane_group_ids.append([lane_id])
-        speed_limits_mps.append(lane_speed_limit_mps)
-        predecessor_ids.append(lanes_predecessors[lane_id])
-        successor_ids.append(lanes_successors[lane_id])
-        left_boundaries.append(lanes_left_boundaries_3d[lane_id].linestring)
-        right_boundaries.append(lanes_right_boundaries_3d[lane_id].linestring)
-        left_lane_ids.append(_get_majority_neighbor(lanes_left_neighbors[lane_id]))
-        right_lane_ids.append(_get_majority_neighbor(lanes_right_neighbors[lane_id]))
-        baseline_paths.append(lane_centerline.linestring)
-
-        geometry = geom.Polygon(
-            np.vstack(
-                [
-                    lanes_left_boundaries_3d[lane_id].array[:, :2],
-                    lanes_right_boundaries_3d[lane_id].array[:, :2][::-1],
-                ]
+        lanes.append(
+            CacheLane(
+                object_id=lane_data.object_id,
+                lane_group_id=lane_data.object_id,
+                left_boundary=lane_data.left_boundary,
+                right_boundary=lane_data.right_boundary,
+                centerline=lane_data.centerline,
+                left_lane_id=_get_majority_neighbor(lane_data.left_neighbors),
+                right_lane_id=_get_majority_neighbor(lane_data.right_neighbors),
+                predecessor_ids=lane_data.predecessor_ids,
+                successor_ids=lane_data.successor_ids,
+                speed_limit_mps=lane_data.speed_limit_mps,
             )
         )
-        geometries.append(geometry)
 
-    data = pd.DataFrame(
-        {
-            "id": ids,
-            "lane_type": lane_types,
-            "lane_group_id": lane_group_ids,
-            "speed_limit_mps": speed_limits_mps,
-            "predecessor_ids": predecessor_ids,
-            "successor_ids": successor_ids,
-            "left_boundary": left_boundaries,
-            "right_boundary": right_boundaries,
-            "left_lane_id": left_lane_ids,
-            "right_lane_id": right_lane_ids,
-            "baseline_path": baseline_paths,
-        }
-    )
+    for lane in lanes:
+        map_writer.write_lane(lane)
 
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
+    return lanes
 
 
-def get_lane_group_df(
-    lanes: Dict[int, npt.NDArray[np.float64]],
-    lanes_successors: Dict[int, List[int]],
-    lanes_predecessors: Dict[int, List[int]],
-    lanes_left_boundaries_3d: Dict[int, Polyline3D],
-    lanes_right_boundaries_3d: Dict[int, Polyline3D],
-) -> gpd.GeoDataFrame:
-
-    ids = []
-    lane_ids = []
-    intersection_ids = []
-    predecessor_lane_group_ids = []
-    successor_lane_group_ids = []
-    left_boundaries = []
-    right_boundaries = []
-    geometries = []
+def _write_waymo_lane_groups(lanes: List[AbstractLane], map_writer: AbstractMapWriter) -> None:
 
     # NOTE: WOPD does not provide lane groups, so we create a lane group for each lane.
-    for lane_id in lanes.keys():
-        if lane_id not in lanes_left_boundaries_3d or lane_id not in lanes_right_boundaries_3d:
-            continue
-        ids.append(lane_id)
-        lane_ids.append([lane_id])
-        intersection_ids.append(None)  # WOPD does not provide intersections
-        predecessor_lane_group_ids.append(lanes_predecessors[lane_id])
-        successor_lane_group_ids.append(lanes_successors[lane_id])
-        left_boundaries.append(lanes_left_boundaries_3d[lane_id].linestring)
-        right_boundaries.append(lanes_right_boundaries_3d[lane_id].linestring)
-        geometry = geom.Polygon(
-            np.vstack(
-                [
-                    lanes_left_boundaries_3d[lane_id].array[:, :2],
-                    lanes_right_boundaries_3d[lane_id].array[:, :2][::-1],
-                ]
+    for lane in lanes:
+        map_writer.write_lane_group(
+            CacheLaneGroup(
+                object_id=lane.object_id,
+                lane_ids=[lane.object_id],
+                left_boundary=lane.left_boundary,
+                right_boundary=lane.right_boundary,
+                intersection_id=None,
+                predecessor_ids=lane.predecessor_ids,
+                successor_ids=lane.successor_ids,
+                outline=lane.outline_3d,
             )
         )
-        geometries.append(geometry)
-
-    data = pd.DataFrame(
-        {
-            "id": ids,
-            "lane_ids": lane_ids,
-            "intersection_id": intersection_ids,
-            "predecessor_lane_group_ids": predecessor_lane_group_ids,
-            "successor_lane_group_ids": successor_lane_group_ids,
-            "left_boundary": left_boundaries,
-            "right_boundary": right_boundaries,
-        }
-    )
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
 
 
-def get_intersections_df() -> gpd.GeoDataFrame:
-    ids = []
-    lane_group_ids = []
-    geometries = []
+def _write_waymo_misc_surfaces(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> None:
 
-    # NOTE: WOPD does not provide intersections, so we create an empty DataFrame.
-    data = pd.DataFrame({"id": ids, "lane_group_ids": lane_group_ids})
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
+    for map_feature in frame.map_features:
+        if map_feature.HasField("driveway"):
+            # NOTE: We currently only handle classify driveways as carparks.
+            outline = _extract_outline_from_waymo_proto(map_feature.driveway)
+            if outline is not None:
+                map_writer.write_carpark(CacheCarpark(object_id=map_feature.id, outline=outline))
+        elif map_feature.HasField("crosswalk"):
+            outline = _extract_outline_from_waymo_proto(map_feature.crosswalk)
+            if outline is not None:
+                map_writer.write_crosswalk(CacheCrosswalk(object_id=map_feature.id, outline=outline))
 
-
-def get_carpark_df(carparks) -> gpd.GeoDataFrame:
-    ids = list(carparks.keys())
-    outlines = [geom.LineString(outline) for outline in carparks.values()]
-    geometries = [geom.Polygon(outline[..., Point3DIndex.XY]) for outline in carparks.values()]
-
-    data = pd.DataFrame({"id": ids, "outline": outlines})
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
+        elif map_feature.HasField("stop_sign"):
+            pass  # TODO: Implement stop signs
+        elif map_feature.HasField("speed_bump"):
+            pass  # TODO: Implement speed bumps
 
 
-def get_walkway_df() -> gpd.GeoDataFrame:
-    ids = []
-    geometries = []
-
-    # NOTE: WOPD does not provide walkways, so we create an empty DataFrame.
-    data = pd.DataFrame({"id": ids})
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
-
-
-def get_crosswalk_df(crosswalks: Dict[int, npt.NDArray[np.float64]]) -> gpd.GeoDataFrame:
-    ids = list(crosswalks.keys())
-    outlines = [geom.LineString(outline) for outline in crosswalks.values()]
-    geometries = [geom.Polygon(outline[..., Point3DIndex.XY]) for outline in crosswalks.values()]
-
-    data = pd.DataFrame({"id": ids, "outline": outlines})
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
+def _extract_polyline_waymo_proto(data) -> Optional[Polyline3D]:
+    polyline: Optional[Polyline3D] = None
+    polyline_array = np.array([[p.x, p.y, p.z] for p in data.polyline], dtype=np.float64)
+    if polyline_array.ndim == 2 and polyline_array.shape[1] == 3 and len(polyline_array) >= 2:
+        # NOTE: A valid polyline must have at least 2 points, be 3D, and be non-empty
+        polyline = Polyline3D.from_array(polyline_array)
+    return polyline
 
 
-def get_generic_drivable_df() -> gpd.GeoDataFrame:
-    ids = []
-    geometries = []
-
-    # NOTE: WOPD does not provide generic drivable areas, so we create an empty DataFrame.
-    data = pd.DataFrame({"id": ids})
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
-
-
-def get_road_edge_df(
-    road_edges: Dict[int, npt.NDArray[np.float64]], road_edges_type: Dict[int, RoadEdgeType]
-) -> gpd.GeoDataFrame:
-    ids = list(road_edges.keys())
-    geometries = [Polyline3D.from_array(road_edge).linestring for road_edge in road_edges.values()]
-
-    data = pd.DataFrame(
-        {
-            "id": ids,
-            "road_edge_type": [int(road_edge_type) for road_edge_type in road_edges_type.values()],
-        }
-    )
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
+def _extract_outline_from_waymo_proto(data) -> Optional[Polyline3D]:
+    outline: Optional[Polyline3D] = None
+    outline_array = np.array([[p.x, p.y, p.z] for p in data.polygon], dtype=np.float64)
+    if outline_array.ndim == 2 and outline_array.shape[0] >= 3 and outline_array.shape[1] == 3:
+        # NOTE: A valid polygon outline must have at least 3 points, be 3D, and be non-empty
+        outline = Polyline3D.from_array(outline_array)
+    return outline
 
 
-def get_road_line_df(
-    road_lines: Dict[int, npt.NDArray[np.float64]], road_lines_type: Dict[int, RoadLineType]
-) -> gpd.GeoDataFrame:
-    ids = list(road_lines.keys())
-    geometries = [Polyline3D.from_array(road_edge).linestring for road_edge in road_lines.values()]
-
-    data = pd.DataFrame(
-        {
-            "id": ids,
-            "road_line_type": [int(road_line_type) for road_line_type in road_lines_type.values()],
-        }
-    )
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
+def _extract_lane_neighbors(data) -> List[Dict[str, int]]:
+    neighbors = []
+    for neighbor in data:
+        neighbors.append(
+            {
+                "lane_id": neighbor.feature_id,
+                "self_start_index": neighbor.self_start_index,
+                "self_end_index": neighbor.self_end_index,
+                "neighbor_start_index": neighbor.neighbor_start_index,
+                "neighbor_end_index": neighbor.neighbor_end_index,
+            }
+        )
+    return neighbors

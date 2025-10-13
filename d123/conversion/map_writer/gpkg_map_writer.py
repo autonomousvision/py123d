@@ -23,7 +23,7 @@ from d123.datatypes.maps.abstract_map_objects import (
     AbstractWalkway,
 )
 from d123.datatypes.maps.map_datatypes import MapLayer
-from d123.datatypes.scene.scene_metadata import LogMetadata
+from d123.datatypes.maps.map_metadata import MapMetadata
 from d123.geometry.polyline import Polyline3D
 
 MAP_OBJECT_DATA = Dict[str, List[Union[str, int, float, bool, geom.base.BaseGeometry]]]
@@ -39,25 +39,27 @@ class GPKGMapWriter(AbstractMapWriter):
         # Data to be written to the map for each object type
         self._map_data: Optional[Dict[MapLayer, MAP_OBJECT_DATA]] = None
         self._map_file: Optional[Path] = None
+        self._map_metadata: Optional[MapMetadata] = None
 
-    def reset(self, dataset_converter_config: DatasetConverterConfig, log_metadata: LogMetadata) -> bool:
+    def reset(self, dataset_converter_config: DatasetConverterConfig, map_metadata: MapMetadata) -> bool:
         """Inherited, see superclass."""
 
         map_needs_writing: bool = False
 
         if dataset_converter_config.include_map:
-            if log_metadata.map_is_local:
-                split, log_name = log_metadata.split, log_metadata.log_name
+            if map_metadata.map_is_local:
+                split, log_name = map_metadata.split, map_metadata.log_name
                 map_file = self._maps_root / split / f"{log_name}.gpkg"
             else:
-                dataset, location = log_metadata.dataset, log_metadata.location
+                dataset, location = map_metadata.dataset, map_metadata.location
                 map_file = self._maps_root / dataset / f"{dataset}_{location}.gpkg"
 
             map_needs_writing = dataset_converter_config.force_map_conversion or not map_file.exists()
             if map_needs_writing:
-                # Reset all map layers
-                self._map_file = map_file
+                # Reset all map layers and update map file / metadata
                 self._map_data = {map_layer: defaultdict(list) for map_layer in MapLayer}
+                self._map_file = map_file
+                self._map_metadata = map_metadata
 
         return map_needs_writing
 
@@ -135,12 +137,18 @@ class GPKGMapWriter(AbstractMapWriter):
                     gdf = gpd.GeoDataFrame({"id": [], "geometry": []}, geometry="geometry", crs=self._crs)
                 gdf.to_file(self._map_file, driver="GPKG", layer=map_layer.serialize())
 
-        del self._map_file, self._map_data
+            metadata_df = gpd.GeoDataFrame(pd.DataFrame([self._map_metadata.to_dict()]))
+            metadata_df.to_file(self._map_file, driver="GPKG", layer="map_metadata")
+
+        del self._map_file, self._map_data, self._map_metadata
         self._map_file = None
         self._map_data = None
+        self._map_metadata = None
 
     def _assert_initialized(self) -> None:
         assert self._map_data is not None, "Call reset() before writing data."
+        assert self._map_file is not None, "Call reset() before writing data."
+        assert self._map_metadata is not None, "Call reset() before writing data."
 
     def _write_surface_layer(self, layer: MapLayer, surface_object: AbstractSurfaceMapObject) -> None:
         """Helper to write surface map objects.

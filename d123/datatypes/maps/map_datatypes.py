@@ -3,6 +3,10 @@ from __future__ import annotations
 from d123.common.utils.enums import SerialIntEnum
 
 # TODO: Add stop pads or stop lines.
+# - Add type for stop zones.
+# - Add type for carparks, e.g. outline, driveway (Waymo), or other types.
+# - Check if intersections should have types.
+# - Use consistent naming conventions unknown, undefined, none, etc.
 
 
 class MapLayer(SerialIntEnum):
@@ -25,6 +29,7 @@ class MapLayer(SerialIntEnum):
 class LaneType(SerialIntEnum):
     """
     Enum for LaneType.
+    NOTE: We use the lane types from Waymo.
     https://github.com/waymo-research/waymo-open-dataset/blob/99a4cb3ff07e2fe06c2ce73da001f850f628e45a/src/waymo_open_dataset/protos/map.proto#L147
     """
 

@@ -2,9 +2,10 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-import numpy.typing as npt
 import shapely.geometry as geom
 
+from d123.datatypes.maps.abstract_map_objects import AbstractRoadEdge, AbstractRoadLine
+from d123.datatypes.maps.map_datatypes import LaneType
 from d123.geometry import OccupancyMap2D, Point3D, Polyline3D, PolylineSE2, StateSE2, Vector2D
 from d123.geometry.transform.transform_se2 import translate_se2_along_body_frame
 from d123.geometry.utils.rotation_utils import normalize_angle
@@ -35,7 +36,32 @@ def get_polyline_from_token(polyline_dict: Dict[str, Dict[int, Polyline3D]], tok
 
 
 @dataclass
+class WaymoLaneData:
+    """Helper class to store lane data."""
+
+    # Regular lane features
+    # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/protos/map.proto#L142
+    object_id: int
+    centerline: Polyline3D
+    predecessor_ids: List[int]
+    successor_ids: List[int]
+    speed_limit_mps: Optional[float]
+    lane_type: LaneType
+
+    # Waymo allows multiple left/right neighbors
+    # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/protos/map.proto#L111
+    left_neighbors: List[Dict[str, int]]
+    right_neighbors: List[Dict[str, int]]
+
+    # To be filled
+    left_boundary: Optional[Polyline3D] = None
+    right_boundary: Optional[Polyline3D] = None
+
+
+@dataclass
 class PerpendicularHit:
+    """Helper class to store perpendicular hit data."""
+
     distance_along_perp_2d: float
     hit_point_3d: Point3D
     hit_polyline_token: str
@@ -131,7 +157,7 @@ def _filter_perpendicular_hits(
             continue
 
         # 2. filter hits that are too close and not with the road edge (e.g. close lane lines)
-        if hit.distance_along_perp_2d < MIN_HIT_DISTANCE and hit.hit_polyline_type != "roadedge":
+        if hit.distance_along_perp_2d < MIN_HIT_DISTANCE and hit.hit_polyline_type != "road-edge":
             continue
 
         filtered_hits.append(hit)
@@ -142,28 +168,31 @@ def _filter_perpendicular_hits(
     return filtered_hits
 
 
-def extract_lane_boundaries(
-    lanes: Dict[int, npt.NDArray[np.float64]],
-    lanes_successors: Dict[int, List[int]],
-    lanes_predecessors: Dict[int, List[int]],
-    road_lines: Dict[int, npt.NDArray[np.float64]],
-    road_edges: Dict[int, npt.NDArray[np.float64]],
+def fill_lane_boundaries(
+    lane_data_dict: Dict[int, WaymoLaneData],
+    road_lines: List[AbstractRoadLine],
+    road_edges: List[AbstractRoadEdge],
 ) -> Tuple[Dict[str, Polyline3D], Dict[str, Polyline3D]]:
-    polyline_dict: Dict[str, Dict[int, Polyline3D]] = {"lane": {}, "roadline": {}, "roadedge": {}}
+    """Welcome to insanity.
+
+    :param lane_data: List of of WaymoLaneData helper class
+    :param road_lines: List of AbstractRoadLine objects
+    :param road_edges: List of AbstractRoadEdge objects
+    :return: Tuple of left and right lane boundaries as 3D polylines
+    """
+
+    polyline_dict: Dict[str, Dict[int, Polyline3D]] = {"lane": {}, "road-line": {}, "road-edge": {}}
     lane_polyline_se2_dict: Dict[int, PolylineSE2] = {}
 
-    for lane_id, lane_polyline in lanes.items():
-        if lane_polyline.ndim == 2 and lane_polyline.shape[1] == 3 and len(lane_polyline) > 0:
-            polyline_dict["lane"][lane_id] = Polyline3D.from_array(lane_polyline)
-            lane_polyline_se2_dict[f"lane_{lane_id}"] = polyline_dict["lane"][lane_id].polyline_se2
+    for lane_id, lane in lane_data_dict.items():
+        polyline_dict["lane"][lane_id] = lane.centerline
+        lane_polyline_se2_dict[f"lane_{lane_id}"] = lane.centerline.polyline_se2
 
-    # for road_line_id, road_line_polyline in road_lines.items():
-    #     if road_line_polyline.ndim == 2 and road_line_polyline.shape[1] == 3 and len(road_line_polyline) > 0:
-    #         polyline_dict["roadline"][road_line_id] = Polyline3D.from_array(road_line_polyline)
+    # for road_line in road_lines:
+    #     polyline_dict["road-line"][road_line.object_id] = road_line.polyline_3d
 
-    for road_edge_id, road_edge_polyline in road_edges.items():
-        if road_edge_polyline.ndim == 2 and road_edge_polyline.shape[1] == 3 and len(road_edge_polyline) > 0:
-            polyline_dict["roadedge"][road_edge_id] = Polyline3D.from_array(road_edge_polyline)
+    for road_edge in road_edges:
+        polyline_dict["road-edge"][road_edge.object_id] = road_edge.polyline_3d
 
     geometries = []
     tokens = []
@@ -218,23 +247,32 @@ def extract_lane_boundaries(
                     first_hit = perpendicular_hits[0]
 
                     # 1.1. If the first hit is a road edge, use it as the boundary point
-                    if first_hit.hit_polyline_type == "roadedge":
+                    if first_hit.hit_polyline_type == "road-edge":
                         boundary_point_3d = first_hit.hit_point_3d
-                    elif first_hit.hit_polyline_type == "roadline":
+                    elif first_hit.hit_polyline_type == "road-line":
                         boundary_point_3d = first_hit.hit_point_3d
                     elif first_hit.hit_polyline_type == "lane":
 
                         for hit in perpendicular_hits:
-                            if hit.hit_polyline_type == "roadedge":
+                            if hit.hit_polyline_type == "road-edge":
                                 continue
                             if hit.hit_polyline_type == "lane":
 
+                                lane_data_dict[lane_id].predecessor_ids
+
                                 has_same_predecessor = (
-                                    len(set(lanes_predecessors[hit.hit_polyline_id]) & set(lanes_predecessors[lane_id]))
+                                    len(
+                                        set(lane_data_dict[hit.hit_polyline_id].predecessor_ids)
+                                        & set(lane_data_dict[lane_id].predecessor_ids)
+                                    )
                                     > 0
                                 )
                                 has_same_successor = (
-                                    len(set(lanes_successors[hit.hit_polyline_id]) & set(lanes_successors[lane_id])) > 0
+                                    len(
+                                        set(lane_data_dict[hit.hit_polyline_id].successor_ids)
+                                        & set(lane_data_dict[lane_id].successor_ids)
+                                    )
+                                    > 0
                                 )
                                 heading_min = np.pi / 8.0
                                 invalid_heading_error = heading_min < abs(hit.heading_error) < (np.pi - heading_min)
@@ -284,11 +322,11 @@ def extract_lane_boundaries(
 
             if len(final_boundary_points_3d) > 1:
                 if sign == 1.0:
-                    left_boundaries[lane_id] = Polyline3D.from_array(
+                    lane_data_dict[lane_id].left_boundary = Polyline3D.from_array(
                         np.array(final_boundary_points_3d, dtype=np.float64)
                     )
                 else:
-                    right_boundaries[lane_id] = Polyline3D.from_array(
+                    lane_data_dict[lane_id].right_boundary = Polyline3D.from_array(
                         np.array(final_boundary_points_3d, dtype=np.float64)
                     )
 

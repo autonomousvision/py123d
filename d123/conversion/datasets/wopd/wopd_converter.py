@@ -18,9 +18,11 @@ from d123.conversion.datasets.wopd.utils.wopd_constants import (
 from d123.conversion.datasets.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
 from d123.conversion.datasets.wopd.wopd_utils import parse_range_image_and_camera_projection
 from d123.conversion.log_writer.abstract_log_writer import AbstractLogWriter
+from d123.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from d123.conversion.utils.sensor_utils.camera_conventions import CameraConvention, convert_camera_convention
 from d123.conversion.utils.sensor_utils.lidar_index_registry import DefaultLidarIndex, WOPDLidarIndex
 from d123.datatypes.detections.detection import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
+from d123.datatypes.maps.map_metadata import MapMetadata
 from d123.datatypes.scene.scene_metadata import LogMetadata
 from d123.datatypes.sensors.camera.pinhole_camera import (
     PinholeCameraMetadata,
@@ -32,9 +34,16 @@ from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from d123.datatypes.vehicle_state.vehicle_parameters import get_wopd_chrysler_pacifica_parameters
-from d123.geometry import BoundingBoxSE3Index, EulerAngles, StateSE3, Vector3D, Vector3DIndex
-from d123.geometry.bounding_box import BoundingBoxSE3
-from d123.geometry.geometry_index import EulerAnglesIndex, StateSE3Index
+from d123.geometry import (
+    BoundingBoxSE3,
+    BoundingBoxSE3Index,
+    EulerAngles,
+    EulerAnglesIndex,
+    StateSE3,
+    StateSE3Index,
+    Vector3D,
+    Vector3DIndex,
+)
 from d123.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array
 from d123.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from d123.geometry.utils.rotation_utils import (
@@ -47,7 +56,6 @@ import tensorflow as tf
 from waymo_open_dataset import dataset_pb2
 from waymo_open_dataset.utils import frame_utils
 
-D123_MAPS_ROOT: Path = Path(os.getenv("D123_MAPS_ROOT", "$HOME/maps"))  # TODO: remove
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -108,15 +116,17 @@ class WOPDConverter(AbstractDatasetConverter):
         """Inherited, see superclass."""
         return len(self._split_tf_record_pairs)
 
-    def convert_map(self, map_index: int) -> None:
+    def convert_map(self, map_index: int, map_writer: AbstractMapWriter) -> None:
         """Inherited, see superclass."""
         split, source_tf_record_path = self._split_tf_record_pairs[map_index]
         initial_frame = _get_initial_frame_from_tfrecord(source_tf_record_path)
-        log_name = str(initial_frame.context.name)
-        map_file_path = D123_MAPS_ROOT / split / f"{log_name}.gpkg"
-        if self.dataset_converter_config.force_map_conversion or not map_file_path.exists():
-            map_file_path.unlink(missing_ok=True)
-            convert_wopd_map(initial_frame, map_file_path)
+
+        map_metadata = _get_wopd_map_metadata(initial_frame, split)
+        map_needs_writing = map_writer.reset(self.dataset_converter_config, map_metadata)
+        if map_needs_writing:
+            convert_wopd_map(initial_frame, map_writer)
+
+        map_writer.close()
 
     def convert_log(self, log_index: int, log_writer: AbstractLogWriter) -> None:
         """Inherited, see superclass."""
@@ -144,8 +154,7 @@ class WOPDConverter(AbstractDatasetConverter):
                 self._keep_polar_features,
                 self.dataset_converter_config,
             ),
-            map_has_z=True,
-            map_is_local=True,
+            map_metadata=_get_wopd_map_metadata(initial_frame, split),
         )
 
         # 2. Prepare log writer
@@ -195,6 +204,20 @@ def _get_initial_frame_from_tfrecord(
 
     del dataset
     return initial_frame
+
+
+def _get_wopd_map_metadata(initial_frame: dataset_pb2.Frame, split: str) -> MapMetadata:
+
+    map_metadata = MapMetadata(
+        dataset="wopd",
+        split=split,
+        log_name=str(initial_frame.context.name),
+        location=None,  # TODO: Add location information.
+        map_has_z=True,
+        map_is_local=True,  # True, if map is per log
+    )
+
+    return map_metadata
 
 
 def _get_wopd_camera_metadata(

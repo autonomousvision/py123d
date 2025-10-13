@@ -83,7 +83,7 @@ class ArrowScene(AbstractScene):
 
     def get_map_api(self) -> Optional[AbstractMap]:
         map_api: Optional[AbstractMap] = None
-        if self.log_metadata.map_is_local:
+        if self.log_metadata.map_metadata.map_is_local:
             if self._local_map_api is None:
                 map_api = get_local_map_api(self.log_metadata.split, self.log_name)
                 self._local_map_api = map_api

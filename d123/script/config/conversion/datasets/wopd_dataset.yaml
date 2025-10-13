@@ -2,7 +2,7 @@ wopd_dataset:
   _target_: d123.conversion.datasets.wopd.wopd_converter.WOPDConverter
   _convert_: 'all'
 
-  splits: ["wopd_train", "wopd_val", "wopd_test"] # Which splits to convert. Options: ["wopd_train", "wopd_val", "wopd_test"]
+  splits: ["wopd_val"] # Which splits to convert. Options: ["wopd_train", "wopd_val", "wopd_test"]
   wopd_data_root: "/media/nvme1/waymo_perception" # ${wopd_data_root}
   zero_roll_pitch: true # Whether to zero the roll and pitch of the box detections in global frame.
   keep_polar_features: false # Add lidar polar features (range, azimuth, elevation) in addition to XYZ. (slow if true)

@@ -76,7 +76,7 @@ def add_default_map_on_ax(
                 print(f"Error adding map object of type {layer.name} and id {map_object.object_id}")
                 traceback.print_exc()
 
-    ax.set_title(f"Map: {map_api.map_name}")
+    # ax.set_title(f"Map: {map_api.map_name}")
 
 
 def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionWrapper) -> None:
