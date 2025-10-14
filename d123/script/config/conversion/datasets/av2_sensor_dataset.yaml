@@ -3,7 +3,7 @@ av2_sensor_dataset:
   _convert_: 'all'
 
   splits: ["av2-sensor-mini_train"]
-  log_path: "/media/nvme1/argoverse"
+  av2_data_root: "/media/nvme1/argoverse"
 
   dataset_converter_config:
     _target_: d123.conversion.dataset_converter_config.DatasetConverterConfig

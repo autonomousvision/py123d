@@ -91,8 +91,12 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
     recording_table = get_lru_cached_arrow_table(log_path)
     log_metadata = get_log_metadata_from_arrow(log_path)
 
-    # 1. Filter map name
-    if filter.map_names is not None and log_metadata.map_name not in filter.map_names:
+    # 1. Filter location
+    if (
+        filter.locations is not None
+        and log_metadata.map_metadata is not None
+        and log_metadata.map_metadata.location not in filter.locations
+    ):
         return scene_extraction_metadatas
 
     start_idx = int(filter.history_s / log_metadata.timestep_seconds) if filter.history_s is not None else 0

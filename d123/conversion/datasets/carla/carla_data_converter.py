@@ -132,29 +132,29 @@ class CarlaDataConverter(AbstractDataConverter):
         )
 
 
-def convert_carla_map_to_gpkg(map_names: List[str], dataset_converter_config: DatasetConverterConfig) -> List[Any]:
+def convert_carla_map_to_gpkg(locations: List[str], dataset_converter_config: DatasetConverterConfig) -> List[Any]:
 
     # TODO: add to config
     _interpolation_step_size = 0.5  # [m]
     _connection_distance_threshold = 0.1  # [m]
-    for map_name in map_names:
-        map_path = dataset_converter_config.output_path / "maps" / f"carla_{map_name.lower()}.gpkg"
+    for location in locations:
+        map_path = dataset_converter_config.output_path / "maps" / f"carla_{location.lower()}.gpkg"
         if dataset_converter_config.force_map_conversion or not map_path.exists():
             map_path.unlink(missing_ok=True)
             assert os.environ["CARLA_ROOT"] is not None
             CARLA_ROOT = Path(os.environ["CARLA_ROOT"])
 
-            if map_name not in ["Town11", "Town12", "Town13", "Town15"]:
+            if location not in ["Town11", "Town12", "Town13", "Town15"]:
                 carla_maps_root = CARLA_ROOT / "CarlaUE4" / "Content" / "Carla" / "Maps" / "OpenDrive"
-                carla_map_path = carla_maps_root / f"{map_name}.xodr"
+                carla_map_path = carla_maps_root / f"{location}.xodr"
             else:
                 carla_map_path = (
-                    CARLA_ROOT / "CarlaUE4" / "Content" / "Carla" / "Maps" / map_name / "OpenDrive" / f"{map_name}.xodr"
+                    CARLA_ROOT / "CarlaUE4" / "Content" / "Carla" / "Maps" / location / "OpenDrive" / f"{location}.xodr"
                 )
 
             convert_from_xodr(
                 carla_map_path,
-                f"carla_{map_name.lower()}",
+                f"carla_{location.lower()}",
                 _interpolation_step_size,
                 _connection_distance_threshold,
             )
@@ -179,10 +179,10 @@ def convert_carla_log_to_arrow(
 
                 bounding_box_paths = sorted([bb_path for bb_path in (log_path / "boxes").iterdir()])
                 first_log_dict = _load_json_gz(bounding_box_paths[0])
-                map_name = first_log_dict["location"]
-                map_api = get_global_map_api("carla", map_name)
+                location = first_log_dict["location"]
+                map_api = get_global_map_api("carla", location)
 
-                metadata = _get_metadata(map_name, str(log_path.stem))
+                metadata = _get_metadata(location, str(log_path.stem))
                 vehicle_parameters = get_carla_lincoln_mkz_2020_parameters()
                 camera_metadata = get_carla_camera_metadata(first_log_dict)
                 lidar_metadata = get_carla_lidar_metadata(first_log_dict)

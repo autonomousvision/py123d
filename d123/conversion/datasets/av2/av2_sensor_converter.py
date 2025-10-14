@@ -23,6 +23,7 @@ from d123.conversion.log_writer.abstract_log_writer import AbstractLogWriter
 from d123.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from d123.datatypes.detections.detection import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from d123.datatypes.detections.detection_types import DetectionType
+from d123.datatypes.maps.map_metadata import MapMetadata
 from d123.datatypes.scene.scene_metadata import LogMetadata
 from d123.datatypes.sensors.camera.pinhole_camera import (
     PinholeCameraMetadata,
@@ -46,7 +47,7 @@ class AV2SensorConverter(AbstractDatasetConverter):
     def __init__(
         self,
         splits: List[str],
-        log_path: Union[Path, str],
+        av2_data_root: Union[Path, str],
         dataset_converter_config: DatasetConverterConfig,
     ) -> None:
         super().__init__(dataset_converter_config)
@@ -56,7 +57,7 @@ class AV2SensorConverter(AbstractDatasetConverter):
             ), f"Split {split} is not available. Available splits: {self.available_splits}"
 
         self._splits: List[str] = splits
-        self._data_root: Path = Path(log_path)
+        self._av2_data_root: Path = Path(av2_data_root)
         self._log_paths_and_split: Dict[str, List[Path]] = self._collect_log_paths()
 
     def _collect_log_paths(self) -> Dict[str, List[Path]]:
@@ -68,9 +69,9 @@ class AV2SensorConverter(AbstractDatasetConverter):
             assert split_type in ["train", "val", "test"]
 
             if "av2-sensor" == dataset_name:
-                log_folder = self._data_root / dataset_name / split_type
+                log_folder = self._av2_data_root / dataset_name / split_type
             elif "av2-sensor-mini" == dataset_name:
-                log_folder = self._data_root / "sensor-mini" / split_type
+                log_folder = self._av2_data_root / "sensor-mini" / split_type
             else:
                 raise ValueError(f"Unknown dataset name {dataset_name} in split {split}.")
 
@@ -91,24 +92,17 @@ class AV2SensorConverter(AbstractDatasetConverter):
 
         source_log_path, split = self._log_paths_and_split[map_index]
 
-        # 1. Initialize Metadata, TODO: Use a MapMetadata class if needed in the future.
-        log_metadata = LogMetadata(
-            dataset="av2-sensor",
-            split=split,
-            log_name=source_log_path.name,
-            location=None,  # TODO: Add location information.
-            timestep_seconds=None,
-            vehicle_parameters=None,
-            camera_metadata=None,
-            lidar_metadata=None,
-            map_has_z=True,
-            map_is_local=True,
-        )
+        # 1. Initialize map metadata
+        map_metadata = _get_av2_sensor_map_metadata(split, source_log_path.name)
 
-        map_needs_writing = map_writer.reset(self.dataset_converter_config, log_metadata)
+        # 2. Prepare map writer
+        map_needs_writing = map_writer.reset(self.dataset_converter_config, map_metadata)
+
+        # 3. Process source map data
         if map_needs_writing:
             convert_av2_map(source_log_path, map_writer)
 
+        # 4. Finalize map writing
         map_writer.close()
 
     def convert_log(self, log_index: int, log_writer: AbstractLogWriter) -> None:
@@ -126,8 +120,7 @@ class AV2SensorConverter(AbstractDatasetConverter):
             vehicle_parameters=get_av2_ford_fusion_hybrid_parameters(),
             camera_metadata=get_av2_camera_metadata(source_log_path),
             lidar_metadata=get_av2_lidar_metadata(source_log_path),
-            map_has_z=True,
-            map_is_local=True,
+            map_metadata=_get_av2_sensor_map_metadata(split, source_log_path.name),
         )
 
         # 2. Prepare log writer
@@ -169,7 +162,19 @@ class AV2SensorConverter(AbstractDatasetConverter):
                     ),
                 )
 
+        # 4. Finalize log writing
         log_writer.close()
+
+
+def _get_av2_sensor_map_metadata(split: str, log_name: str) -> MapMetadata:
+    return MapMetadata(
+        dataset="av2-sensor",
+        split=split,
+        log_name=log_name,
+        location=None,  # TODO: Add location information, e.g. city name.
+        map_has_z=True,
+        map_is_local=True,
+    )
 
 
 def get_av2_camera_metadata(source_log_path: Path) -> Dict[PinholeCameraType, PinholeCameraMetadata]:

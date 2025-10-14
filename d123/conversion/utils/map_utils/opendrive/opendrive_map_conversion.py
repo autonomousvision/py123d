@@ -32,7 +32,7 @@ MAX_ROAD_EDGE_LENGTH: Final[float] = 100.0  # [m]
 
 def convert_from_xodr(
     xordr_file: Path,
-    map_name: str,
+    location: str,
     interpolation_step_size: float,
     connection_distance_threshold: float,
 ) -> None:
@@ -72,7 +72,7 @@ def convert_from_xodr(
         dataframes[MapLayer.LANE],
         dataframes[MapLayer.LANE_GROUP],
     )
-    map_file_name = D123_MAPS_ROOT / f"{map_name}.gpkg"
+    map_file_name = D123_MAPS_ROOT / f"{location}.gpkg"
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message="'crs' was not provided")
         for layer, gdf in dataframes.items():

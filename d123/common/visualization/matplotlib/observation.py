@@ -76,7 +76,7 @@ def add_default_map_on_ax(
                 print(f"Error adding map object of type {layer.name} and id {map_object.object_id}")
                 traceback.print_exc()
 
-    # ax.set_title(f"Map: {map_api.map_name}")
+    ax.set_title(f"Map: {map_api.location}")
 
 
 def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionWrapper) -> None:
@@ -137,7 +137,7 @@ def add_traffic_lights_to_ax(
                 TRAFFIC_LIGHT_CONFIG[traffic_light_detection.status],
             )
         else:
-            raise ValueError(f"Lane with id {traffic_light_detection.lane_id} not found in map {map_api.map_name}.")
+            raise ValueError(f"Lane with id {traffic_light_detection.lane_id} not found in map {map_api.location}.")
 
 
 def add_bounding_box_to_ax(

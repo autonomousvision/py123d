@@ -30,6 +30,7 @@ from d123.datatypes.detections.detection import (
     TrafficLightDetection,
     TrafficLightDetectionWrapper,
 )
+from d123.datatypes.maps.map_metadata import MapMetadata
 from d123.datatypes.scene.scene_metadata import LogMetadata
 from d123.datatypes.sensors.camera.pinhole_camera import (
     PinholeCameraMetadata,
@@ -147,25 +148,14 @@ class NuPlanConverter(AbstractDatasetConverter):
 
     def convert_map(self, map_index: int, map_writer: AbstractMapWriter) -> None:
         """Inherited, see superclass."""
-        map_name = NUPLAN_MAP_LOCATIONS[map_index]
+        location = NUPLAN_MAP_LOCATIONS[map_index]
 
         # Dummy log metadata for map writing, TODO: Consider using MapMetadata instead?
-        log_metadata = LogMetadata(
-            dataset="nuplan",
-            split=None,
-            log_name=None,
-            location=map_name,
-            timestep_seconds=TARGET_DT,
-            vehicle_parameters=get_nuplan_chrysler_pacifica_parameters(),
-            camera_metadata={},
-            lidar_metadata={},
-            map_has_z=False,
-            map_is_local=False,
-        )
-        map_needs_writing = map_writer.reset(self.dataset_converter_config, log_metadata)
+        map_metadata = _get_nuplan_map_metadata(location)
+        map_needs_writing = map_writer.reset(self.dataset_converter_config, map_metadata)
         if map_needs_writing:
             write_nuplan_map(
-                map_name=map_name,
+                location=location,
                 nuplan_maps_root=self._nuplan_maps_root,
                 map_writer=map_writer,
             )
@@ -193,8 +183,7 @@ class NuPlanConverter(AbstractDatasetConverter):
             lidar_metadata=_get_nuplan_lidar_metadata(
                 self._nuplan_sensor_root, log_name, self.dataset_converter_config
             ),
-            map_has_z=False,
-            map_is_local=False,
+            map_metadata=_get_nuplan_map_metadata(nuplan_log_db.log.map_version),
         )
 
         # 2. Prepare log writer
@@ -234,6 +223,17 @@ class NuPlanConverter(AbstractDatasetConverter):
         nuplan_log_db.detach_tables()
         nuplan_log_db.remove_ref()
         del nuplan_log_db
+
+
+def _get_nuplan_map_metadata(location: str) -> MapMetadata:
+    return MapMetadata(
+        dataset="nuplan",
+        split=None,
+        log_name=None,
+        location=location,
+        map_has_z=False,
+        map_is_local=False,
+    )
 
 
 def _get_nuplan_camera_metadata(

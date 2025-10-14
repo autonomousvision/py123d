@@ -35,9 +35,9 @@ from d123.geometry.polyline import Polyline2D, Polyline3D
 MAX_ROAD_EDGE_LENGTH: Final[float] = 100.0  # meters, used to filter out very long road edges. TODO @add to config?
 
 
-def write_nuplan_map(nuplan_maps_root: Path, map_name: str, map_writer: AbstractMapWriter) -> None:
-    assert map_name in NUPLAN_MAP_LOCATION_FILES.keys(), f"Map name {map_name} is not supported."
-    source_map_path = nuplan_maps_root / NUPLAN_MAP_LOCATION_FILES[map_name]
+def write_nuplan_map(nuplan_maps_root: Path, location: str, map_writer: AbstractMapWriter) -> None:
+    assert location in NUPLAN_MAP_LOCATION_FILES.keys(), f"Map name {location} is not supported."
+    source_map_path = nuplan_maps_root / NUPLAN_MAP_LOCATION_FILES[location]
     assert source_map_path.exists(), f"Map file {source_map_path} does not exist."
     nuplan_gdf = _load_nuplan_gdf(source_map_path)
     _write_nuplan_lanes(nuplan_gdf, map_writer)

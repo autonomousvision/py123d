@@ -84,5 +84,5 @@ class AbstractMap(abc.ABC):
         pass
 
     @property
-    def map_name(self) -> str:
-        raise NotImplementedError
+    def location(self) -> str:
+        return self.get_map_metadata().location
