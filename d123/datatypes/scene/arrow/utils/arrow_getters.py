@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import cv2
 import numpy as np
@@ -21,6 +21,7 @@ from d123.datatypes.detections.detection import (
 from d123.datatypes.detections.detection_types import DetectionType
 from d123.datatypes.scene.scene_metadata import LogMetadata
 from d123.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
+from d123.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
 from d123.datatypes.sensors.lidar.lidar import LiDAR, LiDARType
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import EgoStateSE3
@@ -95,9 +96,9 @@ def get_traffic_light_detections_from_arrow_table(arrow_table: pa.Table, index: 
 def get_camera_from_arrow_table(
     arrow_table: pa.Table,
     index: int,
-    camera_type: PinholeCameraType,
+    camera_type: Union[PinholeCameraType, FisheyeMEICameraType],
     log_metadata: LogMetadata,
-) -> PinholeCamera:
+) -> Union[PinholeCamera, FisheyeMEICamera]:
 
     camera_name = camera_type.serialize()
     table_data = arrow_table[f"{camera_name}_data"][index].as_py()
@@ -121,11 +122,19 @@ def get_camera_from_arrow_table(
     else:
         raise NotImplementedError("Only string file paths for camera data are supported.")
 
-    return PinholeCamera(
-        metadata=log_metadata.camera_metadata[camera_type],
-        image=image,
-        extrinsic=extrinsic,
-    )
+    camera_metadata = log_metadata.camera_metadata[camera_type]
+    if hasattr(camera_metadata, 'mirror_parameter') and camera_metadata.mirror_parameter is not None:
+        return FisheyeMEICamera(
+            metadata=camera_metadata,
+            image=image,
+            extrinsic=extrinsic,
+        )
+    else:
+        return PinholeCamera(
+            metadata=camera_metadata,
+            image=image,
+            extrinsic=extrinsic,
+        )
 
 
 def get_lidar_from_arrow_table(

@@ -1,7 +1,9 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from d123.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
+from d123.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICameraType
+from d123.datatypes.sensors.camera.utils import get_camera_type_by_value, deserialize_camera_type
 
 # TODO: Add more filter options (e.g. scene tags, ego movement, or whatever appropriate)
 
@@ -23,7 +25,7 @@ class SceneFilter:
     duration_s: Optional[float] = 10.0
     history_s: Optional[float] = 3.0
 
-    camera_types: Optional[List[PinholeCameraType]] = None
+    camera_types: Optional[List[Union[PinholeCameraType, FisheyeMEICameraType]]] = None
 
     max_num_scenes: Optional[int] = None
     shuffle: bool = False
@@ -34,10 +36,12 @@ class SceneFilter:
             camera_types = []
             for camera_type in self.camera_types:
                 if isinstance(camera_type, str):
-                    camera_type = PinholeCameraType.deserialize[camera_type]
+                    camera_type = deserialize_camera_type(camera_type)
                     camera_types.append(camera_type)
                 elif isinstance(camera_type, int):
-                    camera_type = PinholeCameraType(camera_type)
+                    camera_type = get_camera_type_by_value(camera_type)
+                    camera_types.append(camera_type)
+                elif isinstance(camera_type, (PinholeCameraType, FisheyeMEICameraType)):
                     camera_types.append(camera_type)
                 else:
                     raise ValueError(f"Invalid camera type: {camera_type}")

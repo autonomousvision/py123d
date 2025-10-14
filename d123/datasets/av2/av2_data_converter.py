@@ -23,10 +23,6 @@ from d123.datasets.utils.arrow_ipc_writer import ArrowLogWriter
 from d123.datatypes.detections.detection import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from d123.datatypes.detections.detection_types import DetectionType
 from d123.datatypes.scene.scene_metadata import LogMetadata
-<<<<<<< HEAD
-from d123.datatypes.sensors.camera import PinholeCameraMetadata, CameraType, camera_metadata_dict_to_json
-from d123.datatypes.sensors.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
-=======
 from d123.datatypes.sensors.camera.pinhole_camera import (
     PinholeCameraMetadata,
     PinholeCameraType,
@@ -34,7 +30,6 @@ from d123.datatypes.sensors.camera.pinhole_camera import (
     PinholeIntrinsics,
 )
 from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
->>>>>>> dev_v0.0.7
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from d123.datatypes.vehicle_state.vehicle_parameters import (
@@ -216,20 +211,12 @@ def convert_av2_log_to_arrow(
     return []
 
 
-<<<<<<< HEAD
-def get_av2_camera_metadata(log_path: Path) -> Dict[CameraType, PinholeCameraMetadata]:
-=======
 def get_av2_camera_metadata(log_path: Path) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
->>>>>>> dev_v0.0.7
 
     intrinsics_file = log_path / "calibration" / "intrinsics.feather"
     intrinsics_df = pd.read_feather(intrinsics_file)
 
-<<<<<<< HEAD
-    camera_metadata: Dict[CameraType, PinholeCameraMetadata] = {}
-=======
     camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
->>>>>>> dev_v0.0.7
     for _, row in intrinsics_df.iterrows():
         row = row.to_dict()
         camera_type = AV2_CAMERA_TYPE_MAPPING[row["sensor_name"]]

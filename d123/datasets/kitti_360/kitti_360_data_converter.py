@@ -20,17 +20,33 @@ from PIL import Image
 import logging
 from pyquaternion import Quaternion
 
-from nuplan.planning.utils.multithreading.worker_utils import WorkerPool, worker_map
+from d123.common.multithreading.worker_utils import WorkerPool, worker_map
 
-from d123.datatypes.detections.detection_types import DetectionType
-from d123.datatypes.sensors.camera import PinholeCameraMetadata, FisheyeMEICameraMetadata, CameraType, camera_metadata_dict_to_json
-from d123.datatypes.sensors.lidar import LiDARMetadata, LiDARType, lidar_metadata_dict_to_json
-from d123.datatypes.sensors.lidar_index import Kitti360LidarIndex
+from d123.datatypes.detections.detection import (
+    BoxDetectionMetadata,
+    BoxDetectionSE3,
+    BoxDetectionWrapper,
+)
+from d123.datatypes.sensors.camera.pinhole_camera import (
+    PinholeCameraMetadata,
+    PinholeCameraType,
+    PinholeDistortion,
+    PinholeIntrinsics,
+)
+from d123.datatypes.sensors.camera.fisheye_mei_camera import (
+    FisheyeMEICameraMetadata,
+    FisheyeMEICameraType,
+    FisheyeMEIDistortion,
+    FisheyeMEIProjection,
+)
+from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
+from d123.datasets.utils.sensor.lidar_index_registry import Kitti360LidarIndex
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.datatypes.vehicle_state.vehicle_parameters import get_kitti360_station_wagon_parameters,rear_axle_se3_to_center_se3
 from d123.common.utils.arrow_helper import open_arrow_table, write_arrow_table
 from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConverter
+from d123.datasets.utils.arrow_ipc_writer import ArrowLogWriter
 from d123.datatypes.scene.scene_metadata import LogMetadata
 from d123.datasets.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic
 from d123.datasets.kitti_360.labels import KIITI360_DETECTION_NAME_DICT,kittiId2label,BBOX_LABLES_TO_DETECTION_NAME_DICT
@@ -44,10 +60,10 @@ SORT_BY_TIMESTAMP: Final[bool] = True
 KITTI360_DATA_ROOT = Path(os.environ["KITTI360_DATA_ROOT"])
 
 KITTI360_CAMERA_TYPES = {
-    CameraType.CAM_STEREO_L: "image_00",  
-    CameraType.CAM_STEREO_R: "image_01",   
-    CameraType.CAM_L1: "image_02", 
-    CameraType.CAM_R1: "image_03", 
+    PinholeCameraType.CAM_STEREO_L: "image_00",  
+    PinholeCameraType.CAM_STEREO_R: "image_01",   
+    FisheyeMEICameraType.CAM_L: "image_02", 
+    FisheyeMEICameraType.CAM_R: "image_03", 
 }
 
 DIR_2D_RAW = "data_2d_raw"
@@ -192,7 +208,10 @@ def convert_kitti360_map_to_gpkg(
         split: str = log_info["split"]
         log_name = log_path.stem
 
-        map_path = data_converter_config.output_path / "maps" / split / f"kitti360_{log_name}.gpkg"
+        D123_MAPS_ROOT = Path(os.environ.get("D123_MAPS_ROOT"))
+        map_path = D123_MAPS_ROOT / split / f"{log_name}.gpkg"
+        #map_path = data_converter_config.output_path / "maps" / split / f"{log_name}.gpkg"
+        map_path.parent.mkdir(parents=True, exist_ok=True)
         if data_converter_config.force_map_conversion or not map_path.exists():
             map_path.unlink(missing_ok=True)
             convert_kitti360_map(log_name, map_path)
@@ -216,65 +235,32 @@ def convert_kitti360_log_to_arrow(
             if not log_file_path.parent.exists():
                 log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-            metadata = LogMetadata(
+            log_metadata = LogMetadata(
                 dataset="kitti360",
+                split=split,
                 log_name=log_name,
                 location=log_name,
                 timestep_seconds=KITTI360_DT,
+                vehicle_parameters=get_kitti360_station_wagon_parameters(),
+                camera_metadata=get_kitti360_camera_metadata(),
+                lidar_metadata=get_kitti360_lidar_metadata(),
                 map_has_z=True,
+                map_is_local=True,
             )
 
-            vehicle_parameters = get_kitti360_station_wagon_parameters()
-            camera_metadata = get_kitti360_camera_metadata()
-            lidar_metadata = get_kitti360_lidar_metadata()
-
-            schema_column_list = [
-                ("token", pa.string()),
-                ("timestamp", pa.int64()),
-                ("detections_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
-                ("detections_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
-                ("detections_token", pa.list_(pa.string())),
-                ("detections_type", pa.list_(pa.int16())),
-                ("ego_states", pa.list_(pa.float64(), len(EgoStateSE3Index))),
-                ("traffic_light_ids", pa.list_(pa.int64())),
-                ("traffic_light_types", pa.list_(pa.int16())),
-                ("scenario_tag", pa.list_(pa.string())),
-                ("route_lane_group_ids", pa.list_(pa.int64())),
-            ]
-            if data_converter_config.lidar_store_option is not None:
-                for lidar_type in lidar_metadata.keys():
-                    if data_converter_config.lidar_store_option == "path":
-                        schema_column_list.append((lidar_type.serialize(), pa.string()))
-                    elif data_converter_config.lidar_store_option == "binary":
-                        raise NotImplementedError("Binary lidar storage is not implemented.")
-
-            if data_converter_config.camera_store_option is not None:
-                for camera_type in camera_metadata.keys():
-                    if data_converter_config.camera_store_option == "path":
-                        schema_column_list.append((camera_type.serialize(), pa.string()))
-                        schema_column_list.append(
-                            (f"{camera_type.serialize()}_extrinsic", pa.list_(pa.float64(), 4 * 4))
-                        )
-                    elif data_converter_config.camera_store_option == "binary":
-                        raise NotImplementedError("Binary camera storage is not implemented.")
-
-            recording_schema = pa.schema(schema_column_list)
-            recording_schema = recording_schema.with_metadata(
-                {
-                    "log_metadata": json.dumps(asdict(metadata)),
-                    "vehicle_parameters": json.dumps(asdict(vehicle_parameters)),
-                    "camera_metadata": camera_metadata_dict_to_json(camera_metadata),
-                    "lidar_metadata": lidar_metadata_dict_to_json(lidar_metadata),
-                }
+            log_writer = ArrowLogWriter(
+                log_path=log_file_path,
+                data_converter_config=data_converter_config,
+                log_metadata=log_metadata,
             )
 
-            _write_recording_table(log_name, recording_schema, log_file_path, data_converter_config)
+            _write_recording_table(log_name, log_writer, log_file_path, data_converter_config)
 
         gc.collect()
     return []
 
 
-def get_kitti360_camera_metadata() -> Dict[CameraType, Union[PinholeCameraMetadata, FisheyeMEICameraMetadata]]:
+def get_kitti360_camera_metadata() -> Dict[Union[PinholeCameraType, FisheyeMEICameraType], Union[PinholeCameraMetadata, FisheyeMEICameraMetadata]]:
     
     persp = PATH_CALIB_ROOT / "perspective.txt"
 
@@ -300,24 +286,40 @@ def get_kitti360_camera_metadata() -> Dict[CameraType, Union[PinholeCameraMetada
     fisheye03 = _readYAMLFile(fisheye_camera03_path)
     fisheye_result = {"image_02": fisheye02, "image_03": fisheye03}
     
-    log_cam_infos: Dict[str, Union[PinholeCameraMetadata, FisheyeMEICameraMetadata]] = {}
+    log_cam_infos: Dict[Union[PinholeCameraType, FisheyeMEICameraType], Union[PinholeCameraMetadata, FisheyeMEICameraMetadata]] = {}
     for cam_type, cam_name in KITTI360_CAMERA_TYPES.items():
         if cam_name in ["image_00", "image_01"]:
             log_cam_infos[cam_type] = PinholeCameraMetadata(
                 camera_type=cam_type,
                 width=persp_result[cam_name]["wh"][0],
                 height=persp_result[cam_name]["wh"][1],
-                intrinsic=np.array(persp_result[cam_name]["intrinsic"]),
-                distortion=np.array(persp_result[cam_name]["distortion"]),
+                intrinsics=PinholeIntrinsics.from_camera_matrix(np.array(persp_result[cam_name]["intrinsic"])),
+                distortion=PinholeDistortion.from_array(np.array(persp_result[cam_name]["distortion"])),
             )
         elif cam_name in ["image_02","image_03"]:
+            distortion_params = fisheye_result[cam_name]["distortion_parameters"]
+            distortion = FisheyeMEIDistortion(
+                k1=distortion_params['k1'],
+                k2=distortion_params['k2'],
+                p1=distortion_params['p1'],
+                p2=distortion_params['p2'],
+            )
+            
+            projection_params = fisheye_result[cam_name]["projection_parameters"]
+            projection = FisheyeMEIProjection(
+                gamma1=projection_params['gamma1'],
+                gamma2=projection_params['gamma2'],
+                u0=projection_params['u0'],
+                v0=projection_params['v0'],
+            )
+            
             log_cam_infos[cam_type] = FisheyeMEICameraMetadata(
                 camera_type=cam_type,
                 width=fisheye_result[cam_name]["image_width"],
                 height=fisheye_result[cam_name]["image_height"],
-                mirror_parameters=fisheye_result[cam_name]["mirror_parameters"],
-                distortion=np.array(fisheye_result[cam_name]["distortion_parameters"]),
-                projection_parameters= np.array(fisheye_result[cam_name]["projection_parameters"]),
+                mirror_parameter=fisheye_result[cam_name]["mirror_parameters"],
+                distortion=distortion,
+                projection=projection,
             )
 
     return log_cam_infos
@@ -347,65 +349,45 @@ def _readYAMLFile(fileName:Path) -> Dict[str, Any]:
 def get_kitti360_lidar_metadata() -> Dict[LiDARType, LiDARMetadata]:
     metadata: Dict[LiDARType, LiDARMetadata] = {}
     extrinsic = get_lidar_extrinsic()
+    extrinsic_state_se3 = StateSE3.from_transformation_matrix(extrinsic)
     metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
         lidar_type=LiDARType.LIDAR_TOP,
         lidar_index=Kitti360LidarIndex,
-        extrinsic=extrinsic, 
+        extrinsic=extrinsic_state_se3, 
     )
     return metadata
 
 def _write_recording_table(
     log_name: str,
-    recording_schema: pa.Schema,
+    log_writer: ArrowLogWriter,
     log_file_path: Path,
     data_converter_config: DataConverterConfig
 ) -> None:
     
     ts_list: List[TimePoint] = _read_timestamps(log_name)
     ego_state_all, valid_timestamp = _extract_ego_state_all(log_name)
-    ego_states_xyz = np.array([ego_state[:3] for ego_state in ego_state_all],dtype=np.float64)
-    detections_states,detections_velocity,detections_tokens,detections_types = _extract_detections(log_name,len(ts_list),ego_states_xyz,valid_timestamp)
+    ego_states_xyz = np.array([ego_state.center.array[:3] for ego_state in ego_state_all],dtype=np.float64)
+    box_detection_wrapper_all = _extract_detections(log_name,len(ts_list),ego_states_xyz,valid_timestamp)
+    logging.info(f"Number of valid timestamps with ego states: {len(valid_timestamp)}")
+    for idx in range(len(valid_timestamp)):
+        valid_idx = valid_timestamp[idx]
+         
+        cameras = _extract_cameras(log_name, valid_idx, data_converter_config)
+        lidars = _extract_lidar(log_name, valid_idx, data_converter_config)
 
-    with pa.OSFile(str(log_file_path), "wb") as sink:
-        with pa.ipc.new_file(sink, recording_schema) as writer:
-            for idx in range(len(valid_timestamp)):
-                valid_idx = valid_timestamp[idx]
-                row_data = {
-                    "token": [create_token(f"{log_name}_{idx}")],
-                    "timestamp": [ts_list[valid_idx].time_us],
-                    "detections_state": [detections_states[valid_idx]],
-                    "detections_velocity": [detections_velocity[valid_idx]],
-                    "detections_token": [detections_tokens[valid_idx]],
-                    "detections_type": [detections_types[valid_idx]],
-                    "ego_states": [ego_state_all[idx]],
-                    "traffic_light_ids": [[]],
-                    "traffic_light_types": [[]],
-                    "scenario_tag": [['unknown']],
-                    "route_lane_group_ids": [[]],
-                }
+        log_writer.add_row(
+            token=create_token(f"{log_name}_{idx}"),
+            timestamp=ts_list[valid_idx],
+            ego_state=ego_state_all[idx],
+            box_detections=box_detection_wrapper_all[valid_idx],
+            traffic_lights=None,
+            cameras=cameras,
+            lidars=lidars,
+            scenario_tags=None,
+            route_lane_group_ids=None,
+        )
 
-                if data_converter_config.lidar_store_option is not None:
-                    lidar_data_dict = _extract_lidar(log_name, valid_idx, data_converter_config)
-                    for lidar_type, lidar_data in lidar_data_dict.items():
-                        if lidar_data is not None:
-                            row_data[lidar_type.serialize()] = [lidar_data]
-                        else:
-                            row_data[lidar_type.serialize()] = [None]
-
-                if data_converter_config.camera_store_option is not None:
-                    camera_data_dict = _extract_cameras(log_name, valid_idx, data_converter_config)
-                    for camera_type, camera_data in camera_data_dict.items():
-                        if camera_data is not None:
-                            row_data[camera_type.serialize()] = [camera_data[0]]
-                            row_data[f"{camera_type.serialize()}_extrinsic"] = [camera_data[1]]
-                        else:
-                            row_data[camera_type.serialize()] = [None]
-                            row_data[f"{camera_type.serialize()}_extrinsic"] = [None]
-
-                batch = pa.record_batch(row_data, schema=recording_schema)
-                writer.write_batch(batch)
-
-                del batch
+    log_writer.close()
 
     if SORT_BY_TIMESTAMP:
         recording_table = open_arrow_table(log_file_path)
@@ -449,7 +431,7 @@ def _read_timestamps(log_name: str) -> Optional[List[TimePoint]]:
             return tps
     return None
 
-def _extract_ego_state_all(log_name: str) -> Tuple[List[List[float]], List[int]]:
+def _extract_ego_state_all(log_name: str) -> Tuple[List[EgoStateSE3], List[int]]:
 
     ego_state_all: List[List[float]] = []
 
@@ -518,7 +500,7 @@ def _extract_ego_state_all(log_name: str) -> Tuple[List[List[float]], List[int]]
                 dynamic_state_se3=dynamic_state,
                 vehicle_parameters=vehicle_parameters,
                 timepoint=None,
-            ).array.tolist()
+            )
         )
     return ego_state_all, valid_timestamp
 
@@ -527,7 +509,7 @@ def _extract_detections(
     ts_len: int,
     ego_states_xyz: np.ndarray,
     valid_timestamp: List[int],
-) -> Tuple[List[List[float]], List[List[float]], List[str], List[int]]:
+) -> List[BoxDetectionWrapper]:
    
     detections_states: List[List[List[float]]] = [[] for _ in range(ts_len)]
     detections_velocity: List[List[List[float]]] = [[] for _ in range(ts_len)]
@@ -549,6 +531,7 @@ def _extract_detections(
         with open(detection_preprocess_path, "rb") as f:
             detection_preprocess_result = pickle.load(f)
             static_records_dict = {record_item["global_id"]: record_item for record_item in detection_preprocess_result["static"]}
+            logging.info(f"Loaded detection preprocess data from {detection_preprocess_path}")
     else:
         detection_preprocess_result = None
 
@@ -575,9 +558,9 @@ def _extract_detections(
             for record in obj.valid_frames["records"]:
                 frame = record["timestamp"]
                 detections_states[frame].append(obj.get_state_array())
-                detections_velocity[frame].append([0.0, 0.0, 0.0])
+                detections_velocity[frame].append(np.array([0.0, 0.0, 0.0]))
                 detections_tokens[frame].append(str(obj.globalID))
-                detections_types[frame].append(int(KIITI360_DETECTION_NAME_DICT[obj.name]))
+                detections_types[frame].append(KIITI360_DETECTION_NAME_DICT[obj.name])
         else:
             global_ID = obj.globalID
             dynamic_objs[global_ID].append(obj)
@@ -614,9 +597,35 @@ def _extract_detections(
             detections_states[frame].append(obj.get_state_array())
             detections_velocity[frame].append(vel)
             detections_tokens[frame].append(str(obj.globalID))
-            detections_types[frame].append(int(KIITI360_DETECTION_NAME_DICT[obj.name]))
+            detections_types[frame].append(KIITI360_DETECTION_NAME_DICT[obj.name])
 
-    return detections_states, detections_velocity, detections_tokens, detections_types
+    box_detection_wrapper_all: List[BoxDetectionWrapper] = []
+    for frame in range(ts_len):
+        box_detections: List[BoxDetectionSE3] = []
+        for state, velocity, token, detection_type in zip(
+            detections_states[frame],
+            detections_velocity[frame],
+            detections_tokens[frame],
+            detections_types[frame],
+        ):
+            if state is None:
+                break
+            detection_metadata = BoxDetectionMetadata(
+                detection_type=detection_type,
+                timepoint=None,
+                track_token=token,
+                confidence=None,
+            )
+            bounding_box_se3 = BoundingBoxSE3.from_array(state)
+            velocity_vector = Vector3D.from_array(velocity)
+            box_detection = BoxDetectionSE3(
+                metadata=detection_metadata,
+                bounding_box_se3=bounding_box_se3,
+                velocity=velocity_vector,
+            )
+            box_detections.append(box_detection)
+        box_detection_wrapper_all.append(BoxDetectionWrapper(box_detections=box_detections))
+    return box_detection_wrapper_all
 
 def _extract_lidar(log_name: str, idx: int, data_converter_config: DataConverterConfig) -> Dict[LiDARType, Optional[str]]:
     
@@ -637,9 +646,9 @@ def _extract_lidar(log_name: str, idx: int, data_converter_config: DataConverter
 
 def _extract_cameras(
     log_name: str, idx: int, data_converter_config: DataConverterConfig
-) -> Dict[CameraType, Optional[str]]:
+) -> Dict[Union[PinholeCameraType, FisheyeMEICameraType], Optional[Tuple[Union[str, bytes], StateSE3]]]:
     
-    camera_dict: Dict[str, Union[str, bytes]] = {}
+    camera_dict: Dict[Union[PinholeCameraType, FisheyeMEICameraType], Optional[Tuple[Union[str, bytes], StateSE3]]] = {}
     for camera_type, cam_dir_name in KITTI360_CAMERA_TYPES.items():
         if cam_dir_name in ["image_00", "image_01"]:
             img_path_png = PATH_2D_RAW_ROOT / log_name / cam_dir_name / "data_rect" / f"{idx:010d}.png"
@@ -663,11 +672,13 @@ def _extract_cameras(
 
         if img_path_png.exists():
             if data_converter_config.camera_store_option == "path":
-                camera_data = str(img_path_png), cam2pose.flatten().tolist()
+                camera_data = str(img_path_png)
             elif data_converter_config.camera_store_option == "binary":
                 with open(img_path_png, "rb") as f:
-                    camera_data = f.read(), cam2pose
+                    camera_data = f.read()
         else:
-            camera_data = None, cam2pose.flatten().tolist()
-        camera_dict[camera_type] = camera_data
+            camera_data = None
+        
+        camera_extrinsic = StateSE3.from_transformation_matrix(cam2pose)
+        camera_dict[camera_type] = camera_data, camera_extrinsic
     return camera_dict

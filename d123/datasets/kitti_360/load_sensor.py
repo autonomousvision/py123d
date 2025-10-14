@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import logging
 
-from d123.datatypes.sensors.lidar import LiDAR, LiDARMetadata
+from d123.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata
 
 
 def load_kitti360_lidar_from_path(filepath: Path, lidar_metadata: LiDARMetadata) -> LiDAR:
@@ -20,7 +20,7 @@ def load_kitti360_lidar_from_path(filepath: Path, lidar_metadata: LiDARMetadata)
     ones = np.ones((xyz.shape[0], 1), dtype=pcd.dtype)
     points_h = np.concatenate([xyz, ones], axis=1)  #[N,4]
 
-    transformed_h = lidar_metadata.extrinsic @ points_h.T   #[4,N]
+    transformed_h = lidar_metadata.extrinsic.transformation_matrix @ points_h.T   #[4,N]
 
     transformed_xyz = transformed_h[:3, :]      # (3,N)
 

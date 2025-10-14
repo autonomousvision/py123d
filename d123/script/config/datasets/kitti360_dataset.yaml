@@ -12,5 +12,24 @@ kitti360_dataset:
     output_path: ${d123_data_root}
     force_log_conversion: ${force_log_conversion}
     force_map_conversion: ${force_map_conversion}
+    
+    # Ego
+    include_ego: true
+
+    # Box Detections
+    include_box_detections: true
+
+    # Traffic Lights
+    include_traffic_lights: false
+
+    # Cameras
+    include_cameras: true
     camera_store_option: "path"
+
+    # LiDARs
+    include_lidars: true
     lidar_store_option: "path"
+
+    # Scenario tag / Route
+    include_scenario_tags: false
+    include_route: false

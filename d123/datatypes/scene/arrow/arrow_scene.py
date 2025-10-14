@@ -19,6 +19,7 @@ from d123.datatypes.scene.arrow.utils.arrow_getters import (
 from d123.datatypes.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow
 from d123.datatypes.scene.scene_metadata import LogMetadata, SceneExtractionMetadata
 from d123.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
+from d123.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
 from d123.datatypes.sensors.lidar.lidar import LiDAR, LiDARType
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import EgoStateSE3
@@ -124,8 +125,8 @@ class ArrowScene(AbstractScene):
             route_lane_group_ids = table["route_lane_group_ids"][self._get_table_index(iteration)].as_py()
         return route_lane_group_ids
 
-    def get_camera_at_iteration(self, iteration: int, camera_type: PinholeCameraType) -> Optional[PinholeCamera]:
-        camera: Optional[PinholeCamera] = None
+    def get_camera_at_iteration(self, iteration: int, camera_type: Union[PinholeCameraType, FisheyeMEICameraType]) -> Optional[Union[PinholeCamera, FisheyeMEICamera]]:
+        camera: Optional[Union[PinholeCamera, FisheyeMEICamera]] = None
         if camera_type in self.available_camera_types:
             camera = get_camera_from_arrow_table(
                 self._get_recording_table(),

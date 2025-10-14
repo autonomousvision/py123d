@@ -234,15 +234,18 @@ def convert_nuplan_log_to_arrow(
     return []
 
 
-def get_nuplan_camera_metadata(log_path: Path) -> Dict[CameraType, CameraMetadata]:
+def get_nuplan_camera_metadata(log_path: Path) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
 
-    def _get_camera_metadata(camera_type: CameraType) -> CameraMetadata:
+    def _get_camera_metadata(camera_type: PinholeCameraType) -> PinholeCameraMetadata:
         cam = list(get_cameras(log_path, [str(NUPLAN_CAMERA_TYPES[camera_type].value)]))[0]
-        intrinsic = np.array(pickle.loads(cam.intrinsic))
-        rotation = np.array(pickle.loads(cam.rotation))
-        rotation = Quaternion(rotation).rotation_matrix
-        distortion = np.array(pickle.loads(cam.distortion))
-        return CameraMetadata(
+
+        intrinsics_camera_matrix = np.array(pickle.loads(cam.intrinsic), dtype=np.float64)  # array of shape (3, 3)
+        intrinsic = PinholeIntrinsics.from_camera_matrix(intrinsics_camera_matrix)
+
+        distortion_array = np.array(pickle.loads(cam.distortion), dtype=np.float64)  # array of shape (5,)
+        distortion = PinholeDistortion.from_array(distortion_array, copy=False)
+
+        return PinholeCameraMetadata(
             camera_type=camera_type,
             width=cam.width,
             height=cam.height,

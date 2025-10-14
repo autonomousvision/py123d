@@ -21,13 +21,8 @@ def main(cfg: DictConfig) -> None:
     scene_filter = build_scene_filter(cfg.scene_filter)
     scene_builder = build_scene_builder(cfg.scene_builder)
     scenes = scene_builder.get_scenes(scene_filter, worker=worker)
-<<<<<<< HEAD
-    
-    ViserVisualizationServer(scenes=scenes)
-=======
 
     ViserViewer(scenes=scenes)
->>>>>>> dev_v0.0.7
 
 
 if __name__ == "__main__":

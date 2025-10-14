@@ -8,6 +8,7 @@ from d123.datatypes.detections.detection import BoxDetectionWrapper, TrafficLigh
 from d123.datatypes.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
 from d123.datatypes.scene.scene_metadata import LogMetadata
 from d123.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
+from d123.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICameraType
 from d123.datatypes.sensors.lidar.lidar import LiDARType
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import EgoStateSE3, EgoStateSE3Index
@@ -119,7 +120,7 @@ class ArrowLogWriter:
         ego_state: Optional[EgoStateSE3] = None,
         box_detections: Optional[BoxDetectionWrapper] = None,
         traffic_lights: Optional[TrafficLightDetectionWrapper] = None,
-        cameras: Optional[Dict[PinholeCameraType, Tuple[Any, ...]]] = None,
+        cameras: Optional[Dict[Union[PinholeCameraType, FisheyeMEICameraType], Tuple[Any, ...]]] = None,
         lidars: Optional[Dict[LiDARType, Any]] = None,
         scenario_tags: Optional[List[str]] = None,
         route_lane_group_ids: Optional[List[int]] = None,
