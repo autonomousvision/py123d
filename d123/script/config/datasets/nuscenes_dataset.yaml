@@ -1,0 +1,16 @@
+nuscenes_dataset:
+  _target_: d123.dataset.dataset_specific.nuscenes.nuscenes_data_converter.NuScenesDataConverter
+  _convert_: 'all'
+
+  splits: ["train", "val", "test", "mini"]
+  nuscenes_data_root: ${oc.env:NUSCENES_DATA_ROOT}
+
+  data_converter_config:
+    _target_: d123.dataset.dataset_specific.raw_data_converter.DataConverterConfig
+    _convert_: 'all'
+
+    output_path: ${d123_data_root}
+    force_log_conversion: ${force_log_conversion}
+    force_map_conversion: ${force_map_conversion}
+    camera_store_option: "path"
+    lidar_store_option: "path"

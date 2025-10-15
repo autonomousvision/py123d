@@ -29,9 +29,8 @@ rtree
 scipy
 selenium
 setuptools
-shapely==2.1.1
-SQLAlchemy==1.4.27
-sympy
+shapely
+SQLAlchemy
 tornado
 tqdm
 ujson
@@ -57,3 +56,10 @@ lightning
 tensorboard
 protobuf==4.25.3
 pre-commit
+
+
+#new
+descartes
+scikit-learn
+hydra-core
+lanelet2

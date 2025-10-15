@@ -23,7 +23,7 @@ from d123.dataset.scene.abstract_scene import AbstractScene
 # TODO: Refactor this file.
 # TODO: Add general utilities for 3D primitives and mesh support.
 
-MAP_RADIUS: Final[float] = 500
+MAP_RADIUS: Final[float] = 1000
 BRIGHTNESS_FACTOR: Final[float] = 1.0
 
 
@@ -51,9 +51,9 @@ def bounding_box_to_trimesh(bbox: BoundingBoxSE3, plot_config: PlotConfig) -> tr
     box_mesh = trimesh.creation.box(extents=[bbox.length, bbox.width, bbox.height])
 
     # Apply rotations in order: roll, pitch, yaw
-    box_mesh = box_mesh.apply_transform(trimesh.transformations.rotation_matrix(bbox.center.roll, [1, 0, 0]))
-    box_mesh = box_mesh.apply_transform(trimesh.transformations.rotation_matrix(bbox.center.pitch, [0, 1, 0]))
     box_mesh = box_mesh.apply_transform(trimesh.transformations.rotation_matrix(bbox.center.yaw, [0, 0, 1]))
+    box_mesh = box_mesh.apply_transform(trimesh.transformations.rotation_matrix(bbox.center.pitch, [0, 1, 0]))
+    box_mesh = box_mesh.apply_transform(trimesh.transformations.rotation_matrix(bbox.center.roll, [1, 0, 0]))
 
     # Apply translation
     box_mesh = box_mesh.apply_translation([bbox.center.x, bbox.center.y, bbox.center.z])
@@ -97,7 +97,7 @@ def get_map_meshes(scene: AbstractScene):
     center = initial_ego_vehicle_state.center_se3
     map_layers = [
         MapLayer.LANE_GROUP,
-        # MapLayer.LANE,
+        MapLayer.LANE,
         MapLayer.WALKWAY,
         MapLayer.CROSSWALK,
         MapLayer.CARPARK,
@@ -105,20 +105,34 @@ def get_map_meshes(scene: AbstractScene):
     ]
 
     map_objects_dict = scene.map_api.get_proximal_map_objects(center.point_2d, radius=MAP_RADIUS, layers=map_layers)
+    print(map_objects_dict.keys())
     output = {}
+
+    map_api = scene.map_api
+    map_path = getattr(map_api, "_file_path", None)
+    map_name = map_path.stem
+    map_prefix = map_name.split("_")[0]
+    
+    # a=b=c=2
 
     for map_layer in map_objects_dict.keys():
         surface_meshes = []
         for map_surface in map_objects_dict[map_layer]:
             map_surface: AbstractSurfaceMapObject
-            trimesh_mesh = map_surface.trimesh_mesh
+
+            #  NuScenes
+            if map_prefix == "nuscenes":
+                trimesh_mesh = map_surface.trimesh_mesh_nuscenes()
+            else:
+                # other
+                trimesh_mesh = map_surface.trimesh_mesh
+
             if map_layer in [
                 MapLayer.WALKWAY,
                 MapLayer.CROSSWALK,
                 MapLayer.GENERIC_DRIVABLE,
                 MapLayer.CARPARK,
             ]:
-                # Push meshes up by a few centimeters to avoid overlap with the ground in the visualization.
                 trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z - 0.1).array
             else:
                 trimesh_mesh.vertices -= Point3D(x=center.x, y=center.y, z=center.z).array
@@ -231,7 +245,6 @@ def get_camera_values(
     rear_axle = StateSE3.from_array(rear_axle_array)
 
     camera_to_ego = camera.extrinsic  # 4x4 transformation from camera to ego frame
-    camera.image
 
     # Get the rotation matrix of the rear axle pose
     from d123.common.geometry.transform.se3 import get_rotation_matrix

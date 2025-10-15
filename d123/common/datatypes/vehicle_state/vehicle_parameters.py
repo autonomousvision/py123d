@@ -24,9 +24,9 @@ def get_nuplan_pacifica_parameters() -> VehicleParameters:
     # NOTE: use parameters from nuPlan dataset
     return VehicleParameters(
         vehicle_name="nuplan_pacifica",
-        width=2.297,
-        length=5.176,
-        height=1.777,
+        width=1.73,
+        length=4.38,
+        height=1.56,
         wheel_base=3.089,
         rear_axle_to_center_vertical=0.45,  # NOTE: missing in nuPlan, TODO: find more accurate value
         rear_axle_to_center_longitudinal=1.461,

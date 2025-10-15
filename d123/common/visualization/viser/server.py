@@ -33,7 +33,7 @@ all_camera_types: List[CameraType] = [
 LINE_WIDTH: float = 4.0
 
 # Bounding box config:
-BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "mesh"
+BOUNDING_BOX_TYPE: Literal["mesh", "lines"] = "lines"
 
 # Map config:
 MAP_AVAILABLE: bool = True
@@ -43,9 +43,10 @@ MAP_AVAILABLE: bool = True
 
 VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_F0, CameraType.CAM_L0, CameraType.CAM_R0]
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = all_camera_types
+# VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = [CameraType.CAM_STEREO_L, CameraType.CAM_STEREO_R]
 # VISUALIZE_CAMERA_FRUSTUM: List[CameraType] = []
-VISUALIZE_CAMERA_GUI: List[CameraType] = []
-CAMERA_SCALE: float = 2.0
+VISUALIZE_CAMERA_GUI: List[CameraType] = [CameraType.CAM_F0]
+CAMERA_SCALE: float = 1.0
 
 # Lidar config:
 LIDAR_AVAILABLE: bool = False
@@ -181,6 +182,9 @@ class ViserVisualizationServer:
                 else:
                     raise ValueError(f"Unknown bounding box type: {BOUNDING_BOX_TYPE}")
 
+                current_frame_handle.remove()
+                current_frame_handle = mew_frame_handle
+
                 for camera_type in VISUALIZE_CAMERA_GUI:
                     if camera_type in scene.available_camera_types:
                         camera_gui_handles[camera_type].image = scene.get_camera_at_iteration(
@@ -207,8 +211,6 @@ class ViserVisualizationServer:
                 rendering_time = time.time() - start
                 sleep_time = 1.0 / gui_framerate.value - rendering_time
                 time.sleep(max(sleep_time, 0.0))
-                current_frame_handle.remove()
-                current_frame_handle = mew_frame_handle
                 self.server.flush()  # Optional!
 
             # Load in frames.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import trimesh
 from functools import cached_property
 from typing import List, Optional
 
@@ -68,7 +69,7 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
         """Inherited, see superclass."""
 
         trimesh_mesh: Optional[trimesh.Trimesh] = None
-        if "right_boundary" in self._object_df.columns and "left_boundary" in self._object_df.columns:
+        if "right_boundary" in self._object_df.columns and "left_boundary" not in self._object_df.columns:
             left_boundary = Polyline3D.from_linestring(self._object_row.left_boundary)
             right_boundary = Polyline3D.from_linestring(self._object_row.right_boundary)
             trimesh_mesh = get_trimesh_from_boundaries(left_boundary, right_boundary)
@@ -78,6 +79,14 @@ class GPKGSurfaceObject(AbstractSurfaceMapObject):
             _, faces = trimesh.creation.triangulate_polygon(geom.Polygon(outline_3d_array[:, Point3DIndex.XY]))
             trimesh_mesh = trimesh.Trimesh(vertices=outline_3d_array, faces=faces)
         return trimesh_mesh
+
+    def trimesh_mesh_nuscenes(self) -> trimesh.Trimesh:
+        outline_3d_array = self.outline_3d.array
+        poly_2d = geom.Polygon(outline_3d_array[:, Point3DIndex.XY])
+        vertices_2d, faces = trimesh.creation.triangulate_polygon(poly_2d)
+        z_val = outline_3d_array[0, Point3DIndex.Z] if outline_3d_array.shape[1] > 2 else 0.0
+        vertices_3d = np.column_stack([vertices_2d, np.full(len(vertices_2d), z_val)])
+        return trimesh.Trimesh(vertices=vertices_3d, faces=faces)
 
 
 class GPKGLineObject(AbstractLineMapObject):
@@ -167,10 +176,25 @@ class GPKGLane(GPKGSurfaceObject, AbstractLane):
 
     @property
     def outline_3d(self) -> Polyline3D:
-        """Inherited, see superclass."""
-        outline_array = np.vstack((self.left_boundary.array, self.right_boundary.array[::-1]))
-        outline_array = np.vstack((outline_array, outline_array[0]))
+        left_array = self.left_boundary.array if getattr(self, "left_boundary", None) is not None else np.zeros((0, 3))
+        right_array = self.right_boundary.array[::-1] if getattr(self, "right_boundary", None) is not None else np.zeros((0, 3))
+        
+        outline_array = np.vstack((left_array, right_array)) if left_array.size + right_array.size > 0 else np.zeros((0, 3))
+        
+        if outline_array.shape[0] == 0:
+            # fallback: use shapely polygon generate Polyline3D
+            poly = getattr(self, "shapely_polygon", None)
+            if poly is not None:
+                outline_array = np.array(poly.exterior.coords)
+            else:
+                return Polyline3D(np.zeros((0, 3)))
+        
+        # close
+        if outline_array.shape[0] > 0:
+            outline_array = np.vstack((outline_array, outline_array[0]))
+        
         return Polyline3D.from_linestring(geom.LineString(outline_array))
+
 
     @property
     def lane_group(self) -> GPKGLaneGroup:
@@ -220,9 +244,23 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
 
     @property
     def outline_3d(self) -> Polyline3D:
-        """Inherited, see superclass."""
-        outline_array = np.vstack((self.left_boundary.array, self.right_boundary.array[::-1]))
+        # get left_array and right_array
+        left_array = self.left_boundary.array if getattr(self, "left_boundary", None) is not None else np.zeros((0, 3))
+        right_array = self.right_boundary.array[::-1] if getattr(self, "right_boundary", None) is not None else np.zeros((0, 3))
+
+        if left_array.size + right_array.size == 0:
+            # fallback: use geometry polygon generate
+            poly = getattr(self, "shapely_polygon", None)
+            if poly is not None:
+                outline_array = np.array(poly.exterior.coords)
+            else:
+                return Polyline3D(np.zeros((0, 3)))
+        else:
+            outline_array = np.vstack((left_array, right_array))
+            outline_array = np.vstack((outline_array, outline_array[0])) 
+
         return Polyline3D.from_linestring(geom.LineString(outline_array))
+
 
     @property
     def lanes(self) -> List[GPKGLane]:

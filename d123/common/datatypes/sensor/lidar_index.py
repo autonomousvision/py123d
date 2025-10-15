@@ -60,3 +60,11 @@ class WopdLidarIndex(LiDARIndex):
     X = 3
     Y = 4
     Z = 5
+
+@register_lidar_index
+class NuscenesLidarIndex(LiDARIndex):
+    X = 0        
+    Y = 1       
+    Z = 2       
+    INTENSITY = 3  
+    RING = 4      

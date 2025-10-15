@@ -9,3 +9,8 @@ d123_data_root: ${oc.env:D123_DATA_ROOT}
 nuplan_devkit_root: ${oc.env:NUPLAN_DEVKIT_ROOT}
 nuplan_maps_root: ${oc.env:NUPLAN_MAPS_ROOT}
 nuplan_data_root: ${oc.env:NUPLAN_DATA_ROOT}
+
+# nuscenes
+nuscenes_devkit_root: ${oc.env:NUSCENES_DEVKIT_ROOT}
+nuscenes_data_root: ${oc.env:NUSCENES_DATA_ROOT}
+nuscenes_maps_root: ${oc.env:NUSCENES_MAPS_ROOT}

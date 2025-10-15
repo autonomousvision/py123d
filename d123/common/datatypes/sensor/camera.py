@@ -33,7 +33,9 @@ class CameraMetadata:
     height: int
     intrinsic: npt.NDArray[np.float64]  # 3x3 matrix
     distortion: npt.NDArray[np.float64]  # 5x1 vector
-
+    translation: npt.NDArray[np.float64]  # 3x1 vector 
+    rotation: npt.NDArray[np.float64]  # 3x3 matrix 
+    
     def to_dict(self) -> Dict[str, Any]:
         # TODO: remove None types. Only a placeholder for now.
         return {
@@ -42,6 +44,8 @@ class CameraMetadata:
             "height": self.height,
             "intrinsic": self.intrinsic.tolist() if self.intrinsic is not None else None,
             "distortion": self.distortion.tolist() if self.distortion is not None else None,
+            "translation": self.translation.tolist() if self.translation is not None else None,
+            "rotation": self.rotation.tolist() if self.rotation is not None else None, 
         }
 
     @classmethod
@@ -53,6 +57,8 @@ class CameraMetadata:
             height=json_dict["height"],
             intrinsic=np.array(json_dict["intrinsic"]) if json_dict["intrinsic"] is not None else None,
             distortion=np.array(json_dict["distortion"]) if json_dict["distortion"] is not None else None,
+            translation=np.array(json_dict["translation"]) if json_dict.get("translation") is not None else None, 
+            rotation=np.array(json_dict["rotation"]) if json_dict.get("rotation") is not None else None, 
         )
 
     @property

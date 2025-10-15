@@ -30,9 +30,13 @@ from d123.common.geometry.vector import Vector3D
 from d123.dataset.logs.log_metadata import LogMetadata
 from d123.dataset.maps.abstract_map import List
 
+
+
+# TODO: remove this? people may not have carla or nuplan on their machine.
 DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "nuplan": Path(os.environ["NUPLAN_DATA_ROOT"]) / "nuplan-v1.1" / "sensor_blobs",
     "carla": Path(os.environ["CARLA_DATA_ROOT"]) / "sensor_blobs",
+    "nuscenes": Path(os.environ["NUSCENES_DATA_ROOT"]) ,
 }
 
 
