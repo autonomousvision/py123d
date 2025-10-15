@@ -9,7 +9,7 @@ from scipy.spatial.transform import Rotation as R
 from d123.geometry import BoundingBoxSE3, StateSE3
 from d123.geometry.polyline import Polyline3D
 from d123.geometry.rotation import EulerAngles
-from d123.datasets.kitti_360.labels import kittiId2label,BBOX_LABLES_TO_DETECTION_NAME_DICT
+from d123.conversion.datasets.kitti_360.labels import kittiId2label,BBOX_LABLES_TO_DETECTION_NAME_DICT
 
 import os
 from pathlib import Path

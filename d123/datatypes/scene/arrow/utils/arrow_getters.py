@@ -167,7 +167,7 @@ def get_lidar_from_arrow_table(
         elif log_metadata.dataset == "wopd":
             raise NotImplementedError
         elif log_metadata.dataset == "kitti360":
-            from d123.datasets.kitti_360.load_sensor import load_kitti360_lidar_from_path
+            from d123.conversion.datasets.kitti_360.kitti360_load_sensor import load_kitti360_lidar_from_path
 
             lidar = load_kitti360_lidar_from_path(full_lidar_path, lidar_metadata)
         else:

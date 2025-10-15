@@ -13,7 +13,6 @@ import pickle
 import copy
 from collections import defaultdict
 import datetime
-import hashlib
 import xml.etree.ElementTree as ET
 import pyarrow as pa
 from PIL import Image
@@ -40,17 +39,24 @@ from d123.datatypes.sensors.camera.fisheye_mei_camera import (
     FisheyeMEIProjection,
 )
 from d123.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
-from d123.datasets.utils.sensor.lidar_index_registry import Kitti360LidarIndex
+from d123.conversion.utils.sensor_utils.lidar_index_registry import Kitti360LidarIndex
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.datatypes.vehicle_state.vehicle_parameters import get_kitti360_station_wagon_parameters,rear_axle_se3_to_center_se3
 from d123.common.utils.arrow_helper import open_arrow_table, write_arrow_table
-from d123.datasets.raw_data_converter import DataConverterConfig, RawDataConverter
-from d123.datasets.utils.arrow_ipc_writer import ArrowLogWriter
+from d123.common.utils.uuid import create_deterministic_uuid
+from d123.conversion.abstract_dataset_converter import AbstractDatasetConverter
+from d123.conversion.dataset_converter_config import DatasetConverterConfig
+from d123.conversion.log_writer.abstract_log_writer import AbstractLogWriter
+from d123.conversion.log_writer.arrow_log_writer import ArrowLogWriter
+from d123.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from d123.datatypes.maps.map_metadata import MapMetadata
 from d123.datatypes.scene.scene_metadata import LogMetadata
-from d123.datasets.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic
-from d123.datasets.kitti_360.labels import KIITI360_DETECTION_NAME_DICT,kittiId2label,BBOX_LABLES_TO_DETECTION_NAME_DICT
-from d123.datasets.kitti_360.kitti_360_map_conversion import convert_kitti360_map
+from d123.conversion.datasets.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic
+from d123.conversion.datasets.kitti_360.labels import KIITI360_DETECTION_NAME_DICT,kittiId2label,BBOX_LABLES_TO_DETECTION_NAME_DICT
+from d123.conversion.datasets.kitti_360.kitti_360_map_conversion import (
+    convert_kitti360_map_with_writer
+)
 from d123.geometry import BoundingBoxSE3, BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
 from d123.geometry.rotation import EulerAngles
 
@@ -91,26 +97,38 @@ KITTI360_REQUIRED_MODALITY_ROOTS: Dict[str, Path] = {
 }
 
 D123_DEVKIT_ROOT = Path(os.environ["D123_DEVKIT_ROOT"])
-PREPOCESS_DETECTION_DIR = D123_DEVKIT_ROOT / "d123" / "dataset" / "dataset_specific" / "kitti_360" / "detection_preprocess"
+PREPOCESS_DETECTION_DIR = D123_DEVKIT_ROOT / "d123" / "conversion" / "datasets" / "kitti_360" / "detection_preprocess"
 
-def create_token(input_data: str) -> str:
-    # TODO: Refactor this function.
-    # TODO: Add a general function to create tokens from arbitrary data.
-    if isinstance(input_data, str):
-        input_data = input_data.encode("utf-8")
+def create_token(split: str, log_name: str, timestamp_us: int, misc: str = None) -> str:
+    """Create a deterministic UUID-based token for KITTI-360 data.
+    
+    :param split: The data split (e.g., "kitti360")
+    :param log_name: The name of the log without file extension
+    :param timestamp_us: The timestamp in microseconds
+    :param misc: Any additional information to include in the UUID, defaults to None
+    :return: The generated deterministic UUID as hex string
+    """
+    uuid_obj = create_deterministic_uuid(split=split, log_name=log_name, timestamp_us=timestamp_us, misc=misc)
+    return uuid_obj.hex
 
-    hash_obj = hashlib.sha256(input_data)
-    return hash_obj.hexdigest()[:16]
+def get_kitti360_map_metadata(split: str, log_name: str) -> MapMetadata:
+    return MapMetadata(
+        dataset="kitti360",
+        split=split,
+        log_name=log_name,
+        location=log_name,
+        map_has_z=True,
+        map_is_local=True,
+    )
 
-
-class Kitti360DataConverter(RawDataConverter):
+class Kitti360DataConverter(AbstractDatasetConverter):
     def __init__(
         self,
         splits: List[str],
         log_path: Union[Path, str],
-        data_converter_config: DataConverterConfig,
+        dataset_converter_config: DatasetConverterConfig,
     ) -> None:
-        super().__init__(data_converter_config)
+        super().__init__(dataset_converter_config)
         for split in splits:
             assert (
                 split in self.get_available_splits()
@@ -118,13 +136,17 @@ class Kitti360DataConverter(RawDataConverter):
 
         self._splits: List[str] = splits
         self._log_path: Path = Path(log_path)
-        self._log_paths_per_split: Dict[str, List[Path]] = self._collect_log_paths()
+        self._log_paths_and_split: List[Tuple[Path, str]] = self._collect_log_paths()
+        
+        self._total_maps = len(self._log_paths_and_split)  # Each log has its own map
+        self._total_logs = len(self._log_paths_and_split)
 
-    def _collect_log_paths(self) -> Dict[str, List[Path]]:
+    def _collect_log_paths(self) -> List[Tuple[Path, str]]:
         """
-            Collect candidate sequence folders under data_2d_raw that end with '_sync',
-            and keep only those sequences that are present in ALL required modality roots
-            (e.g., data_2d_semantics, data_3d_raw, etc.).
+        Collect candidate sequence folders under data_2d_raw that end with '_sync',
+        and keep only those sequences that are present in ALL required modality roots
+        (e.g., data_2d_semantics, data_3d_raw, etc.).
+        Returns a list of (log_path, split) tuples.
         """
         missing_roots = [str(p) for p in KITTI360_REQUIRED_MODALITY_ROOTS.values() if not p.exists()]
         if missing_roots:
@@ -141,7 +163,7 @@ class Kitti360DataConverter(RawDataConverter):
             else:
                 return (root / seq_name).exists()
 
-        valid_seqs: List[Path] = []
+        log_paths_and_split: List[Tuple[Path, str]] = []
         for seq_dir in candidates:
             seq_name = seq_dir.name
             missing_modalities = [
@@ -150,115 +172,72 @@ class Kitti360DataConverter(RawDataConverter):
                 if not _has_modality(seq_name, modality_name, root)
             ]
             if not missing_modalities:
-                valid_seqs.append(seq_dir) #KITTI360_DATA_ROOT / DIR_2D_RAW /seq_name
+                log_paths_and_split.append((seq_dir, "kitti360"))
             else:
                 logging.info(
                     f"Sequence '{seq_name}' skipped: missing modalities {missing_modalities}. "
                     f"Root: {KITTI360_DATA_ROOT}"
                 )
-        logging.info(f"vadid sequences found: {valid_seqs}")
-        return {"kitti360": valid_seqs}
+        
+        logging.info(f"Valid sequences found: {len(log_paths_and_split)}")
+        return log_paths_and_split
     
     def get_available_splits(self) -> List[str]:
         """Returns a list of available raw data types."""
         return ["kitti360"]
-
-    def convert_maps(self, worker: WorkerPool) -> None:
-        log_args = [
-            {
-                "log_path": log_path,
-                "split": split,
-            }
-            for split, log_paths in self._log_paths_per_split.items()
-            for log_path in log_paths
-        ]
-        worker_map(
-            worker,
-            partial(
-                convert_kitti360_map_to_gpkg,
-                data_converter_config=self.data_converter_config
-            ),
-            log_args,
-        )
-
-    def convert_logs(self, worker: WorkerPool) -> None:
-        log_args = [
-            {
-                "log_path": log_path,
-                "split": split,
-            }
-            for split, log_paths in self._log_paths_per_split.items()
-            for log_path in log_paths
-        ]
-
-        worker_map(
-            worker,
-            partial(
-                convert_kitti360_log_to_arrow,
-                data_converter_config=self.data_converter_config,
-            ),
-            log_args,
-        )
-
-def convert_kitti360_map_to_gpkg(
-    args: List[Dict[str, Union[List[str], List[Path]]]], data_converter_config: DataConverterConfig
-) -> List[Any]:
-    for log_info in args:
-        log_path: Path = log_info["log_path"]
-        split: str = log_info["split"]
-        log_name = log_path.stem
-
-        D123_MAPS_ROOT = Path(os.environ.get("D123_MAPS_ROOT"))
-        map_path = D123_MAPS_ROOT / split / f"{log_name}.gpkg"
-        #map_path = data_converter_config.output_path / "maps" / split / f"{log_name}.gpkg"
-        map_path.parent.mkdir(parents=True, exist_ok=True)
-        if data_converter_config.force_map_conversion or not map_path.exists():
-            map_path.unlink(missing_ok=True)
-            convert_kitti360_map(log_name, map_path)
-    return []
-
-def convert_kitti360_log_to_arrow(
-    args: List[Dict[str, Union[List[str], List[Path]]]], data_converter_config: DataConverterConfig
-) -> List[Any]:
     
-    for log_info in args:
-        log_path: Path = log_info["log_path"]
-        split: str = log_info["split"]
-        log_name = log_path.stem
-
-        if not log_path.exists():
-            raise FileNotFoundError(f"Log path {log_path} does not exist.")
-        log_file_path = data_converter_config.output_path / split / f"{log_name}.arrow"
-       
-        if data_converter_config.force_log_conversion or not log_file_path.exists():
-            log_file_path.unlink(missing_ok=True)
-            if not log_file_path.parent.exists():
-                log_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-            log_metadata = LogMetadata(
-                dataset="kitti360",
-                split=split,
-                log_name=log_name,
-                location=log_name,
-                timestep_seconds=KITTI360_DT,
-                vehicle_parameters=get_kitti360_station_wagon_parameters(),
-                camera_metadata=get_kitti360_camera_metadata(),
-                lidar_metadata=get_kitti360_lidar_metadata(),
-                map_has_z=True,
-                map_is_local=True,
-            )
-
-            log_writer = ArrowLogWriter(
-                log_path=log_file_path,
-                data_converter_config=data_converter_config,
-                log_metadata=log_metadata,
-            )
-
-            _write_recording_table(log_name, log_writer, log_file_path, data_converter_config)
-
-        gc.collect()
-    return []
-
+    def get_number_of_maps(self) -> int:
+        """Returns the number of available raw data maps for conversion."""
+        return self._total_maps
+    
+    def get_number_of_logs(self) -> int:
+        """Returns the number of available raw data logs for conversion."""
+        return self._total_logs
+    
+    def convert_map(self, map_index: int, map_writer: AbstractMapWriter) -> None:
+        """
+        Convert a single map in raw data format to the uniform 123D format.
+        :param map_index: The index of the map to convert.
+        :param map_writer: The map writer to use for writing the converted map.
+        """
+        source_log_path, split = self._log_paths_and_split[map_index]
+        log_name = source_log_path.stem
+        
+        map_metadata = get_kitti360_map_metadata(split, log_name)
+        
+        map_needs_writing = map_writer.reset(self.dataset_converter_config, map_metadata)
+        if map_needs_writing:
+            convert_kitti360_map_with_writer(log_name, map_writer)
+        
+        map_writer.close()
+    
+    def convert_log(self, log_index: int, log_writer: AbstractLogWriter) -> None:
+        """
+        Convert a single log in raw data format to the uniform 123D format.
+        :param log_index: The index of the log to convert.
+        :param log_writer: The log writer to use for writing the converted log.
+        """
+        source_log_path, split = self._log_paths_and_split[log_index]
+        log_name = source_log_path.stem
+        
+        # Create log metadata
+        log_metadata = LogMetadata(
+            dataset="kitti360",
+            split=split,
+            log_name=log_name,
+            location=log_name,
+            timestep_seconds=KITTI360_DT,
+            vehicle_parameters=get_kitti360_station_wagon_parameters(),
+            camera_metadata=get_kitti360_camera_metadata(),
+            lidar_metadata=get_kitti360_lidar_metadata(),
+            map_metadata=get_kitti360_map_metadata(split, log_name)
+        )
+        
+        log_needs_writing = log_writer.reset(self.dataset_converter_config, log_metadata)
+        if log_needs_writing:
+            _write_recording_table(log_name, log_writer, self.dataset_converter_config)
+        
+        log_writer.close()
 
 def get_kitti360_camera_metadata() -> Dict[Union[PinholeCameraType, FisheyeMEICameraType], Union[PinholeCameraMetadata, FisheyeMEICameraMetadata]]:
     
@@ -359,9 +338,8 @@ def get_kitti360_lidar_metadata() -> Dict[LiDARType, LiDARMetadata]:
 
 def _write_recording_table(
     log_name: str,
-    log_writer: ArrowLogWriter,
-    log_file_path: Path,
-    data_converter_config: DataConverterConfig
+    log_writer: AbstractLogWriter,
+    data_converter_config: DatasetConverterConfig
 ) -> None:
     
     ts_list: List[TimePoint] = _read_timestamps(log_name)
@@ -375,8 +353,7 @@ def _write_recording_table(
         cameras = _extract_cameras(log_name, valid_idx, data_converter_config)
         lidars = _extract_lidar(log_name, valid_idx, data_converter_config)
 
-        log_writer.add_row(
-            token=create_token(f"{log_name}_{idx}"),
+        log_writer.write(
             timestamp=ts_list[valid_idx],
             ego_state=ego_state_all[idx],
             box_detections=box_detection_wrapper_all[valid_idx],
@@ -387,12 +364,10 @@ def _write_recording_table(
             route_lane_group_ids=None,
         )
 
-    log_writer.close()
-
-    if SORT_BY_TIMESTAMP:
-        recording_table = open_arrow_table(log_file_path)
-        recording_table = recording_table.sort_by([("timestamp", "ascending")])
-        write_arrow_table(recording_table, log_file_path)
+    # if SORT_BY_TIMESTAMP:
+    #     recording_table = open_arrow_table(log_file_path)
+    #     recording_table = recording_table.sort_by([("timestamp", "ascending")])
+    #     write_arrow_table(recording_table, log_file_path)
 
 def _read_timestamps(log_name: str) -> Optional[List[TimePoint]]:
     """
@@ -627,7 +602,7 @@ def _extract_detections(
         box_detection_wrapper_all.append(BoxDetectionWrapper(box_detections=box_detections))
     return box_detection_wrapper_all
 
-def _extract_lidar(log_name: str, idx: int, data_converter_config: DataConverterConfig) -> Dict[LiDARType, Optional[str]]:
+def _extract_lidar(log_name: str, idx: int, data_converter_config: DatasetConverterConfig) -> Dict[LiDARType, Optional[str]]:
     
     #NOTE special case for sequence 2013_05_28_drive_0002_sync which has no lidar data before frame 4391
     if log_name == "2013_05_28_drive_0002_sync" and idx <= 4390:
@@ -645,7 +620,7 @@ def _extract_lidar(log_name: str, idx: int, data_converter_config: DataConverter
     return {LiDARType.LIDAR_TOP: lidar}
 
 def _extract_cameras(
-    log_name: str, idx: int, data_converter_config: DataConverterConfig
+    log_name: str, idx: int, data_converter_config: DatasetConverterConfig
 ) -> Dict[Union[PinholeCameraType, FisheyeMEICameraType], Optional[Tuple[Union[str, bytes], StateSE3]]]:
     
     camera_dict: Dict[Union[PinholeCameraType, FisheyeMEICameraType], Optional[Tuple[Union[str, bytes], StateSE3]]] = {}
