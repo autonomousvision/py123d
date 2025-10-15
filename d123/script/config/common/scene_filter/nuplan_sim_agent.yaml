@@ -7,8 +7,8 @@ split_names:
 log_names: null
 
 
-map_names: null
-scene_tokens:
+locations: null
+scene_uuids:
 - "796266a84fd65c71"
 - "1ef8b2f08cd65f9a"
 - "8922138735b45195"

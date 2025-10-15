@@ -60,7 +60,7 @@ def _discover_split_names(dataset_path: Path, split_types: Set[str]) -> Set[str]
 def _discover_log_paths(dataset_path: Path, split_names: Set[str], log_names: Optional[List[str]]) -> List[Path]:
     log_paths: List[Path] = []
     for split_name in split_names:
-        for log_path in (dataset_path / split_name).iterdir():
+        for log_path in (dataset_path / "logs" / split_name).iterdir():
             if log_path.is_file() and log_path.name.endswith(".arrow"):
                 if log_names is None or log_path.stem in log_names:
                     log_paths.append(log_path)
@@ -91,8 +91,12 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
     recording_table = get_lru_cached_arrow_table(log_path)
     log_metadata = get_log_metadata_from_arrow(log_path)
 
-    # 1. Filter map name
-    if filter.map_names is not None and log_metadata.map_name not in filter.map_names:
+    # 1. Filter location
+    if (
+        filter.locations is not None
+        and log_metadata.map_metadata is not None
+        and log_metadata.map_metadata.location not in filter.locations
+    ):
         return scene_extraction_metadatas
 
     start_idx = int(filter.history_s / log_metadata.timestep_seconds) if filter.history_s is not None else 0
@@ -104,7 +108,7 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
     if filter.duration_s is None:
         return [
             SceneExtractionMetadata(
-                initial_token=str(recording_table["token"][start_idx].as_py()),
+                initial_uuid=str(recording_table["uuid"][start_idx].as_py()),
                 initial_idx=start_idx,
                 duration_s=(end_idx - start_idx) * log_metadata.timestep_seconds,
                 history_s=filter.history_s if filter.history_s is not None else 0.0,
@@ -112,22 +116,22 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
             )
         ]
 
-    scene_token_set = set(filter.scene_tokens) if filter.scene_tokens is not None else None
+    scene_uuid_set = set(filter.scene_uuids) if filter.scene_uuids is not None else None
 
     for idx in range(start_idx, end_idx):
         scene_extraction_metadata: Optional[SceneExtractionMetadata] = None
 
-        if scene_token_set is None:
+        if scene_uuid_set is None:
             scene_extraction_metadata = SceneExtractionMetadata(
-                initial_token=str(recording_table["token"][idx].as_py()),
+                initial_uuid=str(recording_table["uuid"][idx].as_py()),
                 initial_idx=idx,
                 duration_s=filter.duration_s,
                 history_s=filter.history_s,
                 iteration_duration_s=log_metadata.timestep_seconds,
             )
-        elif str(recording_table["token"][idx]) in scene_token_set:
+        elif str(recording_table["uuid"][idx]) in scene_uuid_set:
             scene_extraction_metadata = SceneExtractionMetadata(
-                initial_token=str(recording_table["token"][idx].as_py()),
+                initial_uuid=str(recording_table["uuid"][idx].as_py()),
                 initial_idx=idx,
                 duration_s=filter.duration_s,
                 history_s=filter.history_s,
@@ -145,7 +149,7 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
             # NOTE: We only check camera availability at the initial index of the scene.
             if filter.camera_types is not None:
                 cameras_available = [
-                    recording_table[camera_type.serialize()][start_idx].as_py() is not None
+                    recording_table[f"{camera_type.serialize()}_data"][start_idx].as_py() is not None
                     for camera_type in filter.camera_types
                 ]
                 if not all(cameras_available):

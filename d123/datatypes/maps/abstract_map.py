@@ -7,6 +7,7 @@ import shapely
 
 from d123.datatypes.maps.abstract_map_objects import AbstractMapObject
 from d123.datatypes.maps.map_datatypes import MapLayer
+from d123.datatypes.maps.map_metadata import MapMetadata
 from d123.geometry import Point2D
 
 # TODO:
@@ -18,9 +19,8 @@ from d123.geometry import Point2D
 
 class AbstractMap(abc.ABC):
 
-    @property
     @abc.abstractmethod
-    def map_name(self) -> str:
+    def get_map_metadata(self) -> MapMetadata:
         pass
 
     @abc.abstractmethod
@@ -82,3 +82,7 @@ class AbstractMap(abc.ABC):
         exclusive: bool = False,
     ) -> Dict[MapLayer, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]]:
         pass
+
+    @property
+    def location(self) -> str:
+        return self.get_map_metadata().location

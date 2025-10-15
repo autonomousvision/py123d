@@ -24,8 +24,9 @@ from d123.datatypes.maps.gpkg.gpkg_map_objects import (
     GPKGRoadLine,
     GPKGWalkway,
 )
-from d123.datatypes.maps.gpkg.utils import load_gdf_with_geometry_columns
+from d123.datatypes.maps.gpkg.gpkg_utils import load_gdf_with_geometry_columns
 from d123.datatypes.maps.map_datatypes import MapLayer
+from d123.datatypes.maps.map_metadata import MapMetadata
 from d123.geometry import Point2D
 
 USE_ARROW: bool = True
@@ -50,11 +51,7 @@ class GPKGMap(AbstractMap):
 
         # loaded during `.initialize()`
         self._gpd_dataframes: Dict[MapLayer, gpd.GeoDataFrame] = {}
-
-    @property
-    def map_name(self) -> str:
-        """Inherited, see superclass."""
-        return self._file_path.with_suffix("").name
+        self._map_metadata: Optional[MapMetadata] = None
 
     def initialize(self) -> None:
         """Inherited, see superclass."""
@@ -68,7 +65,7 @@ class GPKGMap(AbstractMap):
                     )
                     load_gdf_with_geometry_columns(
                         self._gpd_dataframes[map_layer],
-                        geometry_column_names=["baseline_path", "right_boundary", "left_boundary", "outline"],
+                        geometry_column_names=["centerline", "right_boundary", "left_boundary", "outline"],
                     )
                     # TODO: remove the temporary fix and enforce consistent id types in the GPKG files
                     if "id" in self._gpd_dataframes[map_layer].columns:
@@ -77,6 +74,10 @@ class GPKGMap(AbstractMap):
                     warnings.warn(f"GPKGMap: {map_layer_name} not available in {str(self._file_path)}")
                     self._gpd_dataframes[map_layer] = None
 
+            assert "map_metadata" in list(gpd.list_layers(self._file_path).name)
+            metadata_gdf = gpd.read_file(self._file_path, layer="map_metadata", use_arrow=USE_ARROW)
+            self._map_metadata = MapMetadata.from_dict(metadata_gdf.iloc[0].to_dict())
+
     def _assert_initialize(self) -> None:
         "Checks if `.initialize()` was called, before retrieving data."
         assert len(self._gpd_dataframes) > 0, "GPKGMap: Call `.initialize()` before retrieving data!"
@@ -84,6 +85,9 @@ class GPKGMap(AbstractMap):
     def _assert_layer_available(self, layer: MapLayer) -> None:
         "Checks if layer is available."
         assert layer in self.get_available_map_objects(), f"GPKGMap: MapLayer {layer.name} is unavailable."
+
+    def get_map_metadata(self):
+        return self._map_metadata
 
     def get_available_map_objects(self) -> List[MapLayer]:
         """Inherited, see superclass."""
@@ -374,7 +378,7 @@ class GPKGMap(AbstractMap):
 @lru_cache(maxsize=MAX_LRU_CACHED_TABLES)
 def get_global_map_api(dataset: str, location: str) -> GPKGMap:
     D123_MAPS_ROOT = Path(os.environ.get("D123_MAPS_ROOT"))
-    gpkg_path = D123_MAPS_ROOT / f"{dataset}_{location}.gpkg"
+    gpkg_path = D123_MAPS_ROOT / dataset / f"{dataset}_{location}.gpkg"
     assert gpkg_path.is_file(), f"{dataset}_{location}.gpkg not found in {str(D123_MAPS_ROOT)}."
     map_api = GPKGMap(gpkg_path)
     map_api.initialize()

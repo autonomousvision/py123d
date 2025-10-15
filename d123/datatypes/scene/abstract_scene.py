@@ -96,7 +96,7 @@ class AbstractScene(abc.ABC):
 
     @property
     def token(self) -> str:
-        return self.scene_extraction_metadata.initial_token
+        return self.scene_extraction_metadata.initial_uuid
 
     @property
     def number_of_iterations(self) -> int:

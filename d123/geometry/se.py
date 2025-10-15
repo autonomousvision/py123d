@@ -106,10 +106,7 @@ class StateSE2(ArrayMixin):
 
 
 class StateSE3(ArrayMixin):
-    """Class representing a quaternion in SE3 space.
-
-    TODO: Implement and replace StateSE3.
-    """
+    """Class representing a quaternion in SE3 space."""
 
     _array: npt.NDArray[np.float64]
 
@@ -151,7 +148,7 @@ class StateSE3(ArrayMixin):
         array = np.zeros(len(StateSE3Index), dtype=np.float64)
         array[StateSE3Index.XYZ] = transformation_matrix[:3, 3]
         array[StateSE3Index.QUATERNION] = Quaternion.from_rotation_matrix(transformation_matrix[:3, :3])
-        return StateSE3.from_array(array)
+        return StateSE3.from_array(array, copy=False)
 
     @property
     def x(self) -> float:

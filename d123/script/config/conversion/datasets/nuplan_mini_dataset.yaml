@@ -1,0 +1,41 @@
+nuplan_mini_dataset:
+  _target_: d123.conversion.datasets.nuplan.nuplan_converter.NuPlanConverter
+  _convert_: 'all'
+
+  splits: ["nuplan-mini_train", "nuplan-mini_val", "nuplan-mini_test"]
+  nuplan_data_root: ${nuplan_data_root}
+  nuplan_maps_root: ${nuplan_maps_root}
+  nuplan_sensor_root: ${nuplan_sensor_root}
+
+  dataset_converter_config:
+    _target_: d123.conversion.dataset_converter_config.DatasetConverterConfig
+    _convert_: 'all'
+
+    output_path: ${d123_data_root}
+    force_log_conversion: ${force_log_conversion}
+    force_map_conversion: ${force_map_conversion}
+
+    # Map
+    include_map: true
+
+    # Ego
+    include_ego: true
+
+    # Box Detections
+    include_box_detections: true
+
+    # Traffic Lights
+    include_traffic_lights: true
+
+    # Cameras
+    include_cameras: true
+    camera_store_option: "path" # "path", "binary", "mp4"
+
+    # LiDARs
+    include_lidars: true
+    lidar_store_option: "path" # "path", "binary"
+
+    # Scenario tag / Route
+    # NOTE: These are only supported for nuPlan. Consider removing or expanding support.
+    include_scenario_tags: true
+    include_route: true

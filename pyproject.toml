@@ -51,6 +51,7 @@ dependencies = [
 
 [project.scripts]
 d123-viser = "d123.script.run_viser:main"
+d123-conversion = "d123.script.run_conversion:main"
 
 
 [project.optional-dependencies]

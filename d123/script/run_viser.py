@@ -6,7 +6,7 @@ from omegaconf import DictConfig
 from d123.common.visualization.viser.viser_viewer import ViserViewer
 from d123.script.builders.scene_builder_builder import build_scene_builder
 from d123.script.builders.scene_filter_builder import build_scene_filter
-from d123.script.run_dataset_conversion import build_worker
+from d123.script.run_conversion import build_worker
 
 logger = logging.getLogger(__name__)
 

@@ -33,7 +33,7 @@ DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "carla": Path(os.environ["CARLA_DATA_ROOT"]) / "sensor_blobs",
     # "av2-sensor": Path(os.environ["AV2_SENSOR_DATA_ROOT"]) / "sensor",
     "kitti360": Path(os.environ["KITTI360_DATA_ROOT"]),
-    # "av2-sensor": Path(os.environ["AV2_SENSOR_DATA_ROOT"]) / "sensor_mini",
+    # # "av2-sensor": Path(os.environ["AV2_SENSOR_DATA_ROOT"]) / "sensor_mini",
 }
 
 
@@ -81,7 +81,8 @@ def get_traffic_light_detections_from_arrow_table(arrow_table: pa.Table, index: 
     traffic_light_detections: List[TrafficLightDetection] = []
 
     for lane_id, status in zip(
-        arrow_table["traffic_light_ids"][index].as_py(), arrow_table["traffic_light_types"][index].as_py()
+        arrow_table["traffic_light_ids"][index].as_py(),
+        arrow_table["traffic_light_types"][index].as_py(),
     ):
         traffic_light_detection = TrafficLightDetection(
             timepoint=timepoint,
@@ -156,11 +157,11 @@ def get_lidar_from_arrow_table(
 
         # NOTE: We move data specific import into if-else block, to avoid data specific import errors
         if log_metadata.dataset == "nuplan":
-            from d123.datasets.nuplan.nuplan_load_sensor import load_nuplan_lidar_from_path
+            from d123.conversion.datasets.nuplan.nuplan_load_sensor import load_nuplan_lidar_from_path
 
             lidar = load_nuplan_lidar_from_path(full_lidar_path, lidar_metadata)
         elif log_metadata.dataset == "carla":
-            from d123.datasets.carla.load_sensor import load_carla_lidar_from_path
+            from d123.conversion.datasets.carla.carla_load_sensor import load_carla_lidar_from_path
 
             lidar = load_carla_lidar_from_path(full_lidar_path, lidar_metadata)
         elif log_metadata.dataset == "wopd":
