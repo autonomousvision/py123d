@@ -65,7 +65,7 @@ def _collect_static_objects(log_name: str) -> List[KITTI360Bbox3D]:
             lable = child.find('label').text
             name = BBOX_LABLES_TO_DETECTION_NAME_DICT.get(lable, 'unknown')
         timestamp = int(child.find('timestamp').text)  # -1 for static objects
-        if child.find("transform") is None or name not in KIITI360_DETECTION_NAME_DICT or timestamp != -1:
+        if child.find("transform") is None or name not in KITTI360_DETECTION_NAME_DICT or timestamp != -1:
             continue
         obj = KITTI360Bbox3D()
         obj.parseBbox(child)
