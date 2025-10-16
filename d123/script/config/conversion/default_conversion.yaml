@@ -21,6 +21,7 @@ defaults:
     # - carla_dataset
     # - wopd_dataset
     # - av2_sensor_dataset
+    # - pandaset_dataset
     - kitti360_dataset
   - _self_
 

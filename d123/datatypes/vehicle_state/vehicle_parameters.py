@@ -95,6 +95,18 @@ def get_av2_ford_fusion_hybrid_parameters() -> VehicleParameters:
     )
 
 
+def get_pandaset_chrysler_pacifica_parameters() -> VehicleParameters:
+    return VehicleParameters(
+        vehicle_name="pandaset_chrysler_pacifica",
+        width=2.297,
+        length=5.176,
+        height=1.777,
+        wheel_base=3.089,
+        rear_axle_to_center_vertical=0.45,
+        rear_axle_to_center_longitudinal=1.461,
+    )
+
+
 def center_se3_to_rear_axle_se3(center_se3: StateSE3, vehicle_parameters: VehicleParameters) -> StateSE3:
     """
     Converts a center state to a rear axle state.
