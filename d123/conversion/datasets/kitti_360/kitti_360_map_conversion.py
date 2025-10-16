@@ -1,22 +1,18 @@
 import os
-import warnings
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import xml.etree.ElementTree as ET
-import pyogrio
-from shapely.geometry import LineString
 import shapely.geometry as geom
 
 from d123.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     get_road_edge_linear_rings,
     split_line_geometry_by_max_length,
 )
-from d123.datatypes.maps.gpkg.gpkg_utils import get_all_rows_with_value, get_row_with_value
-from d123.datatypes.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
+from d123.datatypes.maps.map_datatypes import RoadEdgeType
 from d123.geometry.polyline import Polyline3D
 from d123.conversion.datasets.kitti_360.kitti_360_helper import KITTI360_MAP_Bbox3D
 from d123.conversion.map_writer.abstract_map_writer import AbstractMapWriter
@@ -91,7 +87,6 @@ def _extract_road_edge_df(objs: list[KITTI360_MAP_Bbox3D]) -> gpd.GeoDataFrame:
     road_edge_types = []
     for idx in range(len(road_edges)):
         ids.append(idx)
-        # TODO @DanielDauner: Figure out if other types should/could be assigned here.
         road_edge_types.append(int(RoadEdgeType.ROAD_EDGE_BOUNDARY))
 
     data = pd.DataFrame({"id": ids, "road_edge_type": road_edge_types})

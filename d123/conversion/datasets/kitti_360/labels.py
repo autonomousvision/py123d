@@ -184,7 +184,7 @@ BBOX_LABLES_TO_DETECTION_NAME_DICT = {
     "caravan": "caravan",
 }
 
-KIITI360_DETECTION_NAME_DICT = {
+KITTI360_DETECTION_NAME_DICT = {
     "traffic light": DetectionType.SIGN,
     "traffic sign": DetectionType.SIGN,
     "person": DetectionType.PEDESTRIAN,

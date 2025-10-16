@@ -1,21 +1,15 @@
-import gc
-import json
 import os
 import re
 import yaml
 from dataclasses import asdict
-from functools import partial
 from pathlib import Path
 from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
 import numpy as np
 import pickle
-import copy
 from collections import defaultdict
 import datetime
 import xml.etree.ElementTree as ET
-import pyarrow as pa
-from PIL import Image
 import logging
 from pyquaternion import Quaternion
 
@@ -43,7 +37,6 @@ from d123.conversion.utils.sensor_utils.lidar_index_registry import Kitti360Lida
 from d123.datatypes.time.time_point import TimePoint
 from d123.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from d123.datatypes.vehicle_state.vehicle_parameters import get_kitti360_station_wagon_parameters,rear_axle_se3_to_center_se3
-from d123.common.utils.arrow_helper import open_arrow_table, write_arrow_table
 from d123.common.utils.uuid import create_deterministic_uuid
 from d123.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from d123.conversion.dataset_converter_config import DatasetConverterConfig
@@ -53,7 +46,7 @@ from d123.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from d123.datatypes.maps.map_metadata import MapMetadata
 from d123.datatypes.scene.scene_metadata import LogMetadata
 from d123.conversion.datasets.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic
-from d123.conversion.datasets.kitti_360.labels import KIITI360_DETECTION_NAME_DICT,kittiId2label,BBOX_LABLES_TO_DETECTION_NAME_DICT
+from d123.conversion.datasets.kitti_360.labels import KITTI360_DETECTION_NAME_DICT, kittiId2label, BBOX_LABLES_TO_DETECTION_NAME_DICT
 from d123.conversion.datasets.kitti_360.kitti_360_map_conversion import (
     convert_kitti360_map_with_writer
 )
@@ -61,7 +54,6 @@ from d123.geometry import BoundingBoxSE3, BoundingBoxSE3Index, StateSE3, Vector3
 from d123.geometry.rotation import EulerAngles
 
 KITTI360_DT: Final[float] = 0.1
-SORT_BY_TIMESTAMP: Final[bool] = True
 
 KITTI360_DATA_ROOT = Path(os.environ["KITTI360_DATA_ROOT"])
 
@@ -519,7 +511,7 @@ def _extract_detections(
         else:
             lable = child.find('label').text
             name = BBOX_LABLES_TO_DETECTION_NAME_DICT.get(lable, 'unknown')
-        if child.find('transform') is None or name not in KIITI360_DETECTION_NAME_DICT.keys():
+        if child.find('transform') is None or name not in KITTI360_DETECTION_NAME_DICT.keys():
             continue
         obj = KITTI360Bbox3D()
         obj.parseBbox(child)
@@ -535,7 +527,7 @@ def _extract_detections(
                 detections_states[frame].append(obj.get_state_array())
                 detections_velocity[frame].append(np.array([0.0, 0.0, 0.0]))
                 detections_tokens[frame].append(str(obj.globalID))
-                detections_types[frame].append(KIITI360_DETECTION_NAME_DICT[obj.name])
+                detections_types[frame].append(KITTI360_DETECTION_NAME_DICT[obj.name])  
         else:
             global_ID = obj.globalID
             dynamic_objs[global_ID].append(obj)
@@ -572,7 +564,7 @@ def _extract_detections(
             detections_states[frame].append(obj.get_state_array())
             detections_velocity[frame].append(vel)
             detections_tokens[frame].append(str(obj.globalID))
-            detections_types[frame].append(KIITI360_DETECTION_NAME_DICT[obj.name])
+            detections_types[frame].append(KITTI360_DETECTION_NAME_DICT[obj.name])
 
     box_detection_wrapper_all: List[BoxDetectionWrapper] = []
     for frame in range(ts_len):
