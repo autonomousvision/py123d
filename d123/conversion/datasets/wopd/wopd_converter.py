@@ -142,7 +142,7 @@ class WOPDConverter(AbstractDatasetConverter):
             dataset="wopd",
             split=split,
             log_name=log_name,
-            location=None,  # TODO: Add location information.
+            location=str(initial_frame.context.stats.location),
             timestep_seconds=0.1,
             vehicle_parameters=get_wopd_chrysler_pacifica_parameters(),
             camera_metadata=_get_wopd_camera_metadata(
