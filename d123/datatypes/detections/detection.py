@@ -14,9 +14,10 @@ from d123.geometry import BoundingBoxSE2, BoundingBoxSE3, OccupancyMap2D, StateS
 class BoxDetectionMetadata:
 
     detection_type: DetectionType
-    timepoint: TimePoint  # TODO: Consider removing or making optional
     track_token: str
-    confidence: Optional[float] = None
+    timepoint: Optional[TimePoint] = None  # TimePoint when the detection was made, if available
+    confidence: Optional[float] = None  # Confidence score of the detection, if available
+    num_lidar_points: Optional[int] = None  # Number of LiDAR points within the bounding box
 
 
 @dataclass

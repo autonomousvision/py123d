@@ -119,7 +119,7 @@ class ArrowLogWriter(AbstractLogWriter):
 
             for box_detection in box_detections:
                 box_detection_state.append(box_detection.bounding_box.array)
-                box_detection_velocity.append(box_detection.velocity.array)
+                box_detection_velocity.append(box_detection.velocity.array)  # TODO: make optional
                 box_detection_token.append(box_detection.metadata.track_token)
                 box_detection_type.append(int(box_detection.metadata.detection_type))
 

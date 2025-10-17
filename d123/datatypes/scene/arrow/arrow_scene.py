@@ -83,14 +83,15 @@ class ArrowScene(AbstractScene):
 
     def get_map_api(self) -> Optional[AbstractMap]:
         map_api: Optional[AbstractMap] = None
-        if self.log_metadata.map_metadata.map_is_local:
-            if self._local_map_api is None:
-                map_api = get_local_map_api(self.log_metadata.split, self.log_name)
-                self._local_map_api = map_api
+        if self.log_metadata.map_metadata is not None:
+            if self.log_metadata.map_metadata.map_is_local:
+                if self._local_map_api is None:
+                    map_api = get_local_map_api(self.log_metadata.split, self.log_name)
+                    self._local_map_api = map_api
+                else:
+                    map_api = self._local_map_api
             else:
-                map_api = self._local_map_api
-        else:
-            map_api = get_global_map_api(self.log_metadata.dataset, self.log_metadata.location)
+                map_api = get_global_map_api(self.log_metadata.dataset, self.log_metadata.location)
         return map_api
 
     def get_timepoint_at_iteration(self, iteration: int) -> TimePoint:

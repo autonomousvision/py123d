@@ -3,7 +3,7 @@ pandaset_dataset:
   _convert_: 'all'
 
   splits: ["pandaset_train", "pandaset_val", "pandaset_test"]
-  pandaset_data_root: "/media/nvme1/argoverse"
+  pandaset_data_root: "/media/nvme1/pandaset"
 
   dataset_converter_config:
     _target_: d123.conversion.dataset_converter_config.DatasetConverterConfig
