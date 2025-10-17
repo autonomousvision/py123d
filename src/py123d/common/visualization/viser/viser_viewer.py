@@ -94,7 +94,7 @@ class ViserViewer:
         self,
         scenes: List[AbstractScene],
         viser_config: ViserConfig = ViserConfig(),
-        scene_index: int = 0.0,
+        scene_index: int = 0,
     ) -> None:
         assert len(scenes) > 0, "At least one scene must be provided."
 

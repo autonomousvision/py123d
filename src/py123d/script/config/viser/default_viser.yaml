@@ -2,10 +2,9 @@ hydra:
   run:
     dir: .
   output_subdir: null
-  searchpath:                                       # Only <exp_dir> in these paths are discoverable
+  searchpath:                                    
     - pkg://py123d.script.config
     - pkg://py123d.script.config.common
-    - pkg://py123d.script.config.preprocessing
   job:
     chdir: False
 #
@@ -13,5 +12,6 @@ defaults:
   - default_common
   - default_dataset_paths
   - override scene_filter: viser_scenes
+  - self
 
 port_number: 8080

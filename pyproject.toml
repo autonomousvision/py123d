@@ -93,9 +93,7 @@ waymo = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["py123d*"]  # Only include py123d package
-exclude = ["notebooks*", "docs*"]  # Explicitly exclude notebooks
+where = ["src"]
 
 [project.urls]
 "Homepage" = "https://github.com/DanielDauner/py123d"

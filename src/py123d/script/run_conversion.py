@@ -6,7 +6,6 @@ from typing import Dict, List
 import hydra
 from omegaconf import DictConfig
 
-from py123d import ascii_banner
 from py123d.common.multithreading.worker_utils import worker_map
 from py123d.script.builders.dataset_converter_builder import AbstractDatasetConverter, build_dataset_converters
 from py123d.script.builders.worker_pool_builder import build_worker
@@ -25,9 +24,6 @@ def main(cfg: DictConfig) -> None:
     Main entrypoint for metric caching.
     :param cfg: omegaconf dictionary
     """
-    logger.info(ascii_banner)
-
-    # Build worker
 
     # Precompute and cache all features
     logger.info("Starting Dataset Caching...")
