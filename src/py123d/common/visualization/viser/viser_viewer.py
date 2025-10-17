@@ -13,6 +13,7 @@ from py123d.common.visualization.viser.elements import (
     add_map_to_viser_server,
 )
 from py123d.common.visualization.viser.viser_config import ViserConfig
+from py123d.datatypes.maps.map_datatypes import MapLayer
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
 from py123d.datatypes.sensors.lidar.lidar import LiDARType
@@ -195,6 +196,14 @@ class ViserViewer:
                 self._viser_config,
                 lidar_pc_handle,
             )
+            add_map_to_viser_server(
+                scene,
+                gui_timestep.value,
+                initial_ego_state,
+                self._viser_server,
+                self._viser_config,
+                map_handles,
+            )
             rendering_time = time.perf_counter() - start
             sleep_time = 1.0 / gui_framerate.value - rendering_time
             if sleep_time > 0:
@@ -203,6 +212,7 @@ class ViserViewer:
         camera_frustum_handles: Dict[PinholeCameraType, viser.CameraFrustumHandle] = {}
         camera_gui_handles: Dict[PinholeCameraType, viser.GuiImageHandle] = {}
         lidar_pc_handle: Optional[viser.PointCloudHandle] = None
+        map_handles: Dict[MapLayer, viser.MeshHandle] = {}
 
         add_box_detections_to_viser_server(
             scene,
@@ -234,7 +244,14 @@ class ViserViewer:
             self._viser_config,
             lidar_pc_handle,
         )
-        add_map_to_viser_server(scene, initial_ego_state, self._viser_server, self._viser_config)
+        add_map_to_viser_server(
+            scene,
+            gui_timestep.value,
+            initial_ego_state,
+            self._viser_server,
+            self._viser_config,
+            map_handles,
+        )
 
         # Playback update loop.
         while server_playing:
