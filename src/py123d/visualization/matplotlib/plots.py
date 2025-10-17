@@ -5,7 +5,7 @@ import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from py123d.common.visualization.matplotlib.observation import (
+from py123d.visualization.matplotlib.observation import (
     add_box_detections_to_ax,
     add_default_map_on_ax,
     add_ego_vehicle_to_ax,

@@ -1,5 +1,5 @@
 from py123d.common.multithreading.worker_sequential import Sequential
-from py123d.common.visualization.viser.viser_viewer import ViserViewer
+from py123d.visualization.viser.viser_viewer import ViserViewer
 from py123d.datatypes.scene.arrow.arrow_scene_builder import ArrowSceneBuilder
 from py123d.datatypes.scene.scene_filter import SceneFilter
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType

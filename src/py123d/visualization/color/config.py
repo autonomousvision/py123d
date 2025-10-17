@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-from py123d.common.visualization.color.color import BLACK, Color
+from py123d.visualization.color.color import BLACK, Color
 
 
 @dataclass

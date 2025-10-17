@@ -10,7 +10,7 @@ import numpy.typing as npt
 # from PIL import ImageColor
 from pyquaternion import Quaternion
 
-from py123d.common.visualization.color.default import BOX_DETECTION_CONFIG
+from py123d.visualization.color.default import BOX_DETECTION_CONFIG
 from py123d.datatypes.detections.detection import BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.detections.detection_types import DetectionType
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera

@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 import viser
 
-from py123d.common.visualization.viser.viser_config import ViserConfig
+from py123d.visualization.viser.viser_config import ViserConfig
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
 from py123d.datatypes.sensors.lidar.lidar import LiDARType

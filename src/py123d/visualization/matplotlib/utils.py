@@ -7,7 +7,7 @@ import shapely.affinity as affinity
 import shapely.geometry as geom
 from matplotlib.path import Path
 
-from py123d.common.visualization.color.config import PlotConfig
+from py123d.visualization.color.config import PlotConfig
 from py123d.geometry import StateSE2, StateSE3
 
 

@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import shapely.geometry as geom
 
-from py123d.common.visualization.color.config import PlotConfig
-from py123d.common.visualization.color.default import (
+from py123d.visualization.color.config import PlotConfig
+from py123d.visualization.color.default import (
     BOX_DETECTION_CONFIG,
     CENTERLINE_CONFIG,
     EGO_VEHICLE_CONFIG,
@@ -13,7 +13,7 @@ from py123d.common.visualization.color.default import (
     ROUTE_CONFIG,
     TRAFFIC_LIGHT_CONFIG,
 )
-from py123d.common.visualization.matplotlib.utils import (
+from py123d.visualization.matplotlib.utils import (
     add_shapely_linestring_to_ax,
     add_shapely_polygon_to_ax,
     get_pose_triangle,

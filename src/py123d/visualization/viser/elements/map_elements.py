@@ -4,8 +4,8 @@ import numpy as np
 import trimesh
 import viser
 
-from py123d.common.visualization.color.default import MAP_SURFACE_CONFIG
-from py123d.common.visualization.viser.viser_config import ViserConfig
+from py123d.visualization.color.default import MAP_SURFACE_CONFIG
+from py123d.visualization.viser.viser_config import ViserConfig
 from py123d.datatypes.maps.abstract_map import MapLayer
 from py123d.datatypes.maps.abstract_map_objects import AbstractSurfaceMapObject
 from py123d.datatypes.scene.abstract_scene import AbstractScene

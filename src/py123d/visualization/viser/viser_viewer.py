@@ -5,14 +5,14 @@ from typing import Dict, List, Optional
 import viser
 from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
 
-from py123d.common.visualization.viser.elements import (
+from py123d.visualization.viser.elements import (
     add_box_detections_to_viser_server,
     add_camera_frustums_to_viser_server,
     add_camera_gui_to_viser_server,
     add_lidar_pc_to_viser_server,
     add_map_to_viser_server,
 )
-from py123d.common.visualization.viser.viser_config import ViserConfig
+from py123d.visualization.viser.viser_config import ViserConfig
 from py123d.datatypes.maps.map_datatypes import MapLayer
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
