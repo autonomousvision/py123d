@@ -10,6 +10,7 @@ from py123d.common.multithreading.worker_utils import worker_map
 from py123d.script.builders.dataset_converter_builder import AbstractDatasetConverter, build_dataset_converters
 from py123d.script.builders.worker_pool_builder import build_worker
 from py123d.script.builders.writer_builder import build_log_writer, build_map_writer
+from py123d.script.utils.dataset_path_utils import setup_dataset_paths
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,11 +22,12 @@ CONFIG_NAME = "default_conversion"
 @hydra.main(config_path=CONFIG_PATH, config_name=CONFIG_NAME, version_base=None)
 def main(cfg: DictConfig) -> None:
     """
-    Main entrypoint for metric caching.
+    Main entrypoint for dataset conversion.
     :param cfg: omegaconf dictionary
     """
 
-    # Precompute and cache all features
+    setup_dataset_paths(cfg.dataset_paths)
+
     logger.info("Starting Dataset Caching...")
     dataset_converters: List[AbstractDatasetConverter] = build_dataset_converters(cfg.datasets)
 

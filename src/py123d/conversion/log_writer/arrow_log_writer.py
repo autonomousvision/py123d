@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import pyarrow as pa
 
-from py123d.common.utils.uuid import create_deterministic_uuid
+from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.conversion.abstract_dataset_converter import AbstractLogWriter, DatasetConverterConfig
 from py123d.datatypes.detections.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from py123d.datatypes.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema

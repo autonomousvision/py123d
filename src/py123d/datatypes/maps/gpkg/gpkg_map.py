@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import warnings
 from collections import defaultdict
 from functools import lru_cache
@@ -28,6 +27,7 @@ from py123d.datatypes.maps.gpkg.gpkg_utils import load_gdf_with_geometry_columns
 from py123d.datatypes.maps.map_datatypes import MapLayer
 from py123d.datatypes.maps.map_metadata import MapMetadata
 from py123d.geometry import Point2D
+from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
 USE_ARROW: bool = True
 MAX_LRU_CACHED_TABLES: Final[int] = 128  # TODO: add to some configs
@@ -377,8 +377,8 @@ class GPKGMap(AbstractMap):
 
 @lru_cache(maxsize=MAX_LRU_CACHED_TABLES)
 def get_global_map_api(dataset: str, location: str) -> GPKGMap:
-    PY123D_MAPS_ROOT = Path(os.environ.get("PY123D_DATA_ROOT"))  # TODO: Remove env variable
-    gpkg_path = PY123D_MAPS_ROOT / "maps" / dataset / f"{dataset}_{location}.gpkg"
+    PY123D_MAPS_ROOT: Path = Path(get_dataset_paths().py123d_maps_root)
+    gpkg_path = PY123D_MAPS_ROOT / dataset / f"{dataset}_{location}.gpkg"
     assert gpkg_path.is_file(), f"{dataset}_{location}.gpkg not found in {str(PY123D_MAPS_ROOT)}."
     map_api = GPKGMap(gpkg_path)
     map_api.initialize()
@@ -386,8 +386,8 @@ def get_global_map_api(dataset: str, location: str) -> GPKGMap:
 
 
 def get_local_map_api(split_name: str, log_name: str) -> GPKGMap:
-    PY123D_MAPS_ROOT = Path(os.environ.get("PY123D_DATA_ROOT"))  # TODO: Remove env variable
-    gpkg_path = PY123D_MAPS_ROOT / "maps" / split_name / f"{log_name}.gpkg"
+    PY123D_MAPS_ROOT: Path = Path(get_dataset_paths().py123d_maps_root)
+    gpkg_path = PY123D_MAPS_ROOT / split_name / f"{log_name}.gpkg"
     assert gpkg_path.is_file(), f"{log_name}.gpkg not found in {str(PY123D_MAPS_ROOT)}."
     map_api = GPKGMap(gpkg_path)
     map_api.initialize()

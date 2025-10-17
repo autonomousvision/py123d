@@ -11,7 +11,7 @@ nuplan_dataset:
     _target_: py123d.conversion.dataset_converter_config.DatasetConverterConfig
     _convert_: 'all'
 
-    output_path: ${py123d_data_root}
+    output_path: ${dataset_paths.py123d_data_root}
     force_log_conversion: ${force_log_conversion}
     force_map_conversion: ${force_map_conversion}
 

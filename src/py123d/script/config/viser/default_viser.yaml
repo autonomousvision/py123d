@@ -12,6 +12,6 @@ defaults:
   - default_common
   - default_dataset_paths
   - override scene_filter: viser_scenes
-  - self
+  - _self_
 
 port_number: 8080

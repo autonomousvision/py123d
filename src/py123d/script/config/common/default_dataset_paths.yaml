@@ -1,11 +1,13 @@
-# 123D Defaults
-py123d_data_root: ${oc.env:PY123D_DATA_ROOT}
-py123d_logs_root: ${oc.env:PY123D_DATA_ROOT}/logs
-py123d_maps_root: ${oc.env:PY123D_DATA_ROOT}/maps
-py123d_sensors_root: ${oc.env:PY123D_DATA_ROOT}/sensors
+dataset_paths:
+
+  # 123D Defaults
+  py123d_data_root: ${oc.env:PY123D_DATA_ROOT}
+  py123d_logs_root: ${oc.env:PY123D_DATA_ROOT}/logs
+  py123d_maps_root: ${oc.env:PY123D_DATA_ROOT}/maps
+  py123d_sensors_root: ${oc.env:PY123D_DATA_ROOT}/sensors
 
 
-# nuPlan defaults
-nuplan_data_root: ${oc.env:NUPLAN_DATA_ROOT}
-nuplan_maps_root: ${oc.env:NUPLAN_MAPS_ROOT}
-nuplan_sensor_root: ${oc.env:NUPLAN_DATA_ROOT}/nuplan-v1.1/sensor_blobs
+  # nuPlan defaults
+  nuplan_data_root: ${oc.env:NUPLAN_DATA_ROOT}
+  nuplan_maps_root: ${oc.env:NUPLAN_MAPS_ROOT}
+  nuplan_sensor_root: ${oc.env:NUPLAN_DATA_ROOT}/nuplan-v1.1/sensor_blobs

@@ -11,6 +11,7 @@ from py123d.datatypes.scene.arrow.arrow_scene import ArrowScene
 from py123d.datatypes.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow
 from py123d.datatypes.scene.scene_filter import SceneFilter
 from py123d.datatypes.scene.scene_metadata import SceneExtractionMetadata
+from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
 
 class ArrowSceneBuilder(SceneBuilder):
@@ -18,18 +19,28 @@ class ArrowSceneBuilder(SceneBuilder):
     A class to build a scene from a dataset.
     """
 
-    def __init__(self, dataset_path: Union[str, Path]):
-        self._dataset_path = Path(dataset_path)
+    def __init__(
+        self,
+        py123d_logs_root: Optional[Union[str, Path]] = None,
+        py123d_maps_root: Optional[Union[str, Path]] = None,
+    ):
+        if py123d_logs_root is None:
+            py123d_logs_root = get_dataset_paths().py123d_logs_root
+        if py123d_maps_root is None:
+            py123d_maps_root = get_dataset_paths().py123d_maps_root
+
+        self._logs_root = Path(py123d_logs_root)
+        self._maps_root = Path(py123d_maps_root)
 
     def get_scenes(self, filter: SceneFilter, worker: WorkerPool) -> Iterator[AbstractScene]:
         """See superclass."""
 
         split_types = set(filter.split_types) if filter.split_types else {"train", "val", "test"}
         split_names = (
-            set(filter.split_names) if filter.split_names else _discover_split_names(self._dataset_path, split_types)
+            set(filter.split_names) if filter.split_names else _discover_split_names(self._logs_root, split_types)
         )
         filter_log_names = set(filter.log_names) if filter.log_names else None
-        log_paths = _discover_log_paths(self._dataset_path, split_names, filter_log_names)
+        log_paths = _discover_log_paths(self._logs_root, split_names, filter_log_names)
         if len(log_paths) == 0:
             return []
         scenes = worker_map(worker, partial(_extract_scenes_from_logs, filter=filter), log_paths)
@@ -43,12 +54,12 @@ class ArrowSceneBuilder(SceneBuilder):
         return scenes
 
 
-def _discover_split_names(dataset_path: Path, split_types: Set[str]) -> Set[str]:
+def _discover_split_names(logs_root: Path, split_types: Set[str]) -> Set[str]:
     assert set(split_types).issubset(
         {"train", "val", "test"}
     ), f"Invalid split types: {split_types}. Valid split types are 'train', 'val', 'test'."
     split_names: List[str] = []
-    for split in dataset_path.iterdir():
+    for split in logs_root.iterdir():
         split_name = split.name
         if split.is_dir() and split.name != "maps":
             if any(split_type in split_name for split_type in split_types):
@@ -57,10 +68,10 @@ def _discover_split_names(dataset_path: Path, split_types: Set[str]) -> Set[str]
     return split_names
 
 
-def _discover_log_paths(dataset_path: Path, split_names: Set[str], log_names: Optional[List[str]]) -> List[Path]:
+def _discover_log_paths(logs_root: Path, split_names: Set[str], log_names: Optional[List[str]]) -> List[Path]:
     log_paths: List[Path] = []
     for split_name in split_names:
-        for log_path in (dataset_path / "logs" / split_name).iterdir():
+        for log_path in (logs_root / split_name).iterdir():
             if log_path.is_file() and log_path.name.endswith(".arrow"):
                 if log_names is None or log_path.stem in log_names:
                     log_paths.append(log_path)

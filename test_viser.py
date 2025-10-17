@@ -1,6 +1,3 @@
-import os
-from pathlib import Path
-
 from py123d.common.multithreading.worker_sequential import Sequential
 from py123d.common.visualization.viser.viser_viewer import ViserViewer
 from py123d.datatypes.scene.arrow.arrow_scene_builder import ArrowSceneBuilder
@@ -28,7 +25,7 @@ if __name__ == "__main__":
         shuffle=True,
         camera_types=[PinholeCameraType.CAM_F0],
     )
-    scene_builder = ArrowSceneBuilder(Path(os.environ["PY123D_DATA_ROOT"]))
+    scene_builder = ArrowSceneBuilder()
     worker = Sequential()
     scenes = scene_builder.get_scenes(scene_filter, worker)
     print(f"Found {len(scenes)} scenes")

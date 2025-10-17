@@ -51,6 +51,7 @@ SORT_BY_TIMESTAMP: Final[bool] = True
 
 CARLA_CAMERA_TYPES = {PinholeCameraType.CAM_F0}
 
+# TODO: remove envinronment variable dependency
 CARLA_DATA_ROOT: Final[Path] = Path(os.environ["CARLA_DATA_ROOT"])
 
 

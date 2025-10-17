@@ -7,6 +7,7 @@ from py123d.common.visualization.viser.viser_viewer import ViserViewer
 from py123d.script.builders.scene_builder_builder import build_scene_builder
 from py123d.script.builders.scene_filter_builder import build_scene_filter
 from py123d.script.run_conversion import build_worker
+from py123d.script.utils.dataset_path_utils import setup_dataset_paths
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,8 @@ CONFIG_NAME = "default_viser"
 
 @hydra.main(config_path=CONFIG_PATH, config_name=CONFIG_NAME, version_base=None)
 def main(cfg: DictConfig) -> None:
+
+    setup_dataset_paths(cfg.dataset_paths)
 
     worker = build_worker(cfg)
 

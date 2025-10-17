@@ -1,4 +1,4 @@
 _target_: py123d.conversion.map_writer.gpkg_map_writer.GPKGMapWriter
 _convert_: 'all'
 
-maps_root: ${py123d_maps_root}
+maps_root: ${dataset_paths.py123d_maps_root}
