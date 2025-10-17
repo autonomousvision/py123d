@@ -3,7 +3,7 @@ from typing import List, Literal, Optional
 
 import pandas as pd
 
-from py123d.conversion.datasets.av2.av2_constants import (
+from py123d.conversion.datasets.av2.utils.av2_constants import (
     AV2_CAMERA_TYPE_MAPPING,
     AV2_SENSOR_CAM_SHUTTER_INTERVAL_MS,
     AV2_SENSOR_LIDAR_SWEEP_INTERVAL_W_BUFFER_NS,

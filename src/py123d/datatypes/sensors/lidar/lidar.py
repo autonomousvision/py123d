@@ -20,6 +20,7 @@ class LiDARType(SerialIntEnum):
     LIDAR_SIDE_LEFT = 4
     LIDAR_SIDE_RIGHT = 5
     LIDAR_BACK = 6
+    LIDAR_DOWN = 7
 
 
 @dataclass
@@ -58,14 +59,14 @@ class LiDAR:
         """
         Returns the point cloud as an Nx3 array of x, y, z coordinates.
         """
-        return self.point_cloud[self.metadata.lidar_index.XYZ].T
+        return self.point_cloud[:, self.metadata.lidar_index.XYZ]
 
     @property
     def xy(self) -> npt.NDArray[np.float32]:
         """
         Returns the point cloud as an Nx2 array of x, y coordinates.
         """
-        return self.point_cloud[self.metadata.lidar_index.XY].T
+        return self.point_cloud[:, self.metadata.lidar_index.XY]
 
     @property
     def intensity(self) -> Optional[npt.NDArray[np.float32]]:
@@ -74,7 +75,7 @@ class LiDAR:
         Returns None if intensity is not part of the point cloud.
         """
         if hasattr(self.metadata.lidar_index, "INTENSITY"):
-            return self.point_cloud[self.metadata.lidar_index.INTENSITY]
+            return self.point_cloud[:, self.metadata.lidar_index.INTENSITY]
         return None
 
     @property
@@ -84,7 +85,7 @@ class LiDAR:
         Returns None if range is not part of the point cloud.
         """
         if hasattr(self.metadata.lidar_index, "RANGE"):
-            return self.point_cloud[self.metadata.lidar_index.RANGE]
+            return self.point_cloud[:, self.metadata.lidar_index.RANGE]
         return None
 
     @property
@@ -94,5 +95,5 @@ class LiDAR:
         Returns None if elongation is not part of the point cloud.
         """
         if hasattr(self.metadata.lidar_index, "ELONGATION"):
-            return self.point_cloud[self.metadata.lidar_index.ELONGATION]
+            return self.point_cloud[:, self.metadata.lidar_index.ELONGATION]
         return None

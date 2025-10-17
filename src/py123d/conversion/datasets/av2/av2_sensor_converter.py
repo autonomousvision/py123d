@@ -2,25 +2,28 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
-from py123d.conversion.datasets.av2.av2_constants import (
+from py123d.conversion.datasets.av2.utils.av2_constants import (
     AV2_CAMERA_TYPE_MAPPING,
     AV2_SENSOR_SPLITS,
     AV2_TO_DETECTION_TYPE,
     AV2SensorBoxDetectionType,
 )
-from py123d.conversion.datasets.av2.av2_helper import (
+from py123d.conversion.datasets.av2.utils.av2_helper import (
     build_sensor_dataframe,
     build_synchronization_dataframe,
     find_closest_target_fpath,
     get_slice_with_timestamp_ns,
 )
-from py123d.conversion.datasets.av2.av2_map_conversion import convert_av2_map
+from py123d.conversion.datasets.av2.utils.av2_map_conversion import convert_av2_map
+from py123d.conversion.datasets.av2.utils.av2_sensor_loading import load_av2_sensor_lidar_pc_from_path
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.conversion.utils.sensor_utils.lidar_index_registry import AVSensorLidarIndex
 from py123d.datatypes.detections.detection import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.detections.detection_types import DetectionType
 from py123d.datatypes.maps.map_metadata import MapMetadata
@@ -69,9 +72,7 @@ class AV2SensorConverter(AbstractDatasetConverter):
             assert split_type in ["train", "val", "test"]
 
             if "av2-sensor" == dataset_name:
-                log_folder = self._av2_data_root / dataset_name / split_type
-            elif "av2-sensor-mini" == dataset_name:
-                log_folder = self._av2_data_root / "sensor-mini" / split_type
+                log_folder = self._av2_data_root / "sensor" / split_type
             else:
                 raise ValueError(f"Unknown dataset name {dataset_name} in split {split}.")
 
@@ -93,7 +94,7 @@ class AV2SensorConverter(AbstractDatasetConverter):
         source_log_path, split = self._log_paths_and_split[map_index]
 
         # 1. Initialize map metadata
-        map_metadata = _get_av2_sensor_map_metadata(split, source_log_path.name)
+        map_metadata = _get_av2_sensor_map_metadata(split, source_log_path)
 
         # 2. Prepare map writer
         map_needs_writing = map_writer.reset(self.dataset_converter_config, map_metadata)
@@ -111,16 +112,17 @@ class AV2SensorConverter(AbstractDatasetConverter):
         source_log_path, split = self._log_paths_and_split[log_index]
 
         # 1. Initialize Metadata
+        map_metadata = _get_av2_sensor_map_metadata(split, source_log_path)
         log_metadata = LogMetadata(
             dataset="av2-sensor",
             split=split,
             log_name=source_log_path.name,
-            location=None,  # TODO: Add location information.
+            location=map_metadata.location,
             timestep_seconds=0.1,
             vehicle_parameters=get_av2_ford_fusion_hybrid_parameters(),
-            camera_metadata=get_av2_camera_metadata(source_log_path),
-            lidar_metadata=get_av2_lidar_metadata(source_log_path),
-            map_metadata=_get_av2_sensor_map_metadata(split, source_log_path.name),
+            camera_metadata=_get_av2_camera_metadata(source_log_path, self.dataset_converter_config),
+            lidar_metadata=_get_av2_lidar_metadata(source_log_path, self.dataset_converter_config),
+            map_metadata=map_metadata,
         )
 
         # 2. Prepare log writer
@@ -141,10 +143,8 @@ class AV2SensorConverter(AbstractDatasetConverter):
                 else None
             )
             city_se3_egovehicle_df = pd.read_feather(source_log_path / "city_SE3_egovehicle.feather")
-            egovehicle_se3_sensor_df = (
-                pd.read_feather(source_log_path / "calibration" / "egovehicle_SE3_sensor.feather")
-                if self.dataset_converter_config.camera_store_option is not None
-                else None
+            egovehicle_se3_sensor_df = pd.read_feather(
+                source_log_path / "calibration" / "egovehicle_SE3_sensor.feather"
             )
 
             for lidar_timestamp_ns in lidar_timestamps_ns:
@@ -160,63 +160,99 @@ class AV2SensorConverter(AbstractDatasetConverter):
                         source_log_path,
                         self.dataset_converter_config,
                     ),
+                    lidars=_extract_av2_sensor_lidars(
+                        source_log_path,
+                        lidar_timestamp_ns,
+                        self.dataset_converter_config,
+                    ),
                 )
 
         # 4. Finalize log writing
         log_writer.close()
 
 
-def _get_av2_sensor_map_metadata(split: str, log_name: str) -> MapMetadata:
+def _get_av2_sensor_map_metadata(split: str, source_log_path: Path) -> MapMetadata:
+    # NOTE: We need to get the city name from the map folder.
+    # see: https://github.com/argoverse/av2-api/blob/main/src/av2/datasets/sensor/av2_sensor_dataloader.py#L163
+    map_folder = source_log_path / "map"
+    log_map_archive_path = next(map_folder.glob("log_map_archive_*.json"))
+    location = log_map_archive_path.name.split("____")[1].split("_")[0]
     return MapMetadata(
         dataset="av2-sensor",
         split=split,
-        log_name=log_name,
-        location=None,  # TODO: Add location information, e.g. city name.
+        log_name=source_log_path.name,
+        location=location,  # TODO: Add location information, e.g. city name.
         map_has_z=True,
         map_is_local=True,
     )
 
 
-def get_av2_camera_metadata(source_log_path: Path) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
-
-    intrinsics_file = source_log_path / "calibration" / "intrinsics.feather"
-    intrinsics_df = pd.read_feather(intrinsics_file)
+def _get_av2_camera_metadata(
+    source_log_path: Path, dataset_converter_config: DatasetConverterConfig
+) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
 
     camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
-    for _, row in intrinsics_df.iterrows():
-        row = row.to_dict()
-        camera_type = AV2_CAMERA_TYPE_MAPPING[row["sensor_name"]]
-        camera_metadata[camera_type] = PinholeCameraMetadata(
-            camera_type=camera_type,
-            width=row["width_px"],
-            height=row["height_px"],
-            intrinsics=PinholeIntrinsics(
-                fx=row["fx_px"],
-                fy=row["fy_px"],
-                cx=row["cx_px"],
-                cy=row["cy_px"],
-            ),
-            distortion=PinholeDistortion(
-                k1=row["k1"],
-                k2=row["k2"],
-                p1=0.0,
-                p2=0.0,
-                k3=row["k3"],
-            ),
-        )
+
+    if dataset_converter_config.include_cameras:
+        intrinsics_file = source_log_path / "calibration" / "intrinsics.feather"
+        intrinsics_df = pd.read_feather(intrinsics_file)
+        for _, row in intrinsics_df.iterrows():
+            row = row.to_dict()
+            camera_type = AV2_CAMERA_TYPE_MAPPING[row["sensor_name"]]
+            camera_metadata[camera_type] = PinholeCameraMetadata(
+                camera_type=camera_type,
+                width=row["width_px"],
+                height=row["height_px"],
+                intrinsics=PinholeIntrinsics(
+                    fx=row["fx_px"],
+                    fy=row["fy_px"],
+                    cx=row["cx_px"],
+                    cy=row["cy_px"],
+                ),
+                distortion=PinholeDistortion(
+                    k1=row["k1"],
+                    k2=row["k2"],
+                    p1=0.0,
+                    p2=0.0,
+                    k3=row["k3"],
+                ),
+            )
 
     return camera_metadata
 
 
-def get_av2_lidar_metadata(log_path: Path) -> Dict[LiDARType, LiDARMetadata]:
-    # metadata: Dict[LiDARType, LiDARMetadata] = {}
-    # metadata[LiDARType.LIDAR_MERGED] = LiDARMetadata(
-    #     lidar_type=LiDARType.LIDAR_MERGED,
-    #     lidar_index=NuplanLidarIndex,
-    #     extrinsic=None,  # NOTE: LiDAR extrinsic are unknown
-    # )
-    # return metadata
-    return {}
+def _get_av2_lidar_metadata(
+    source_log_path: Path, dataset_converter_config: DatasetConverterConfig
+) -> Dict[LiDARType, LiDARMetadata]:
+
+    metadata: Dict[LiDARType, LiDARMetadata] = {}
+
+    if dataset_converter_config.include_lidars:
+
+        # Load calibration feather file
+        calibration_file = source_log_path / "calibration" / "egovehicle_SE3_sensor.feather"
+        calibration_df = pd.read_feather(calibration_file)
+
+        # NOTE: AV2 has two two stacked lidars: up_lidar and down_lidar.
+        # We store these as separate LiDARType entries.
+
+        # top lidar:
+        metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
+            lidar_type=LiDARType.LIDAR_TOP,
+            lidar_index=AVSensorLidarIndex,
+            extrinsic=_row_dict_to_state_se3(
+                calibration_df[calibration_df["sensor_name"] == "up_lidar"].iloc[0].to_dict()
+            ),
+        )
+        # down lidar:
+        metadata[LiDARType.LIDAR_DOWN] = LiDARMetadata(
+            lidar_type=LiDARType.LIDAR_DOWN,
+            lidar_index=AVSensorLidarIndex,
+            extrinsic=_row_dict_to_state_se3(
+                calibration_df[calibration_df["sensor_name"] == "down_lidar"].iloc[0].to_dict()
+            ),
+        )
+    return metadata
 
 
 def _extract_av2_sensor_box_detections(
@@ -278,15 +314,7 @@ def _extract_av2_sensor_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_ti
     ), f"Expected exactly one ego state for timestamp {lidar_timestamp_ns}, got {len(ego_state_slice)}."
 
     ego_pose_dict = ego_state_slice.iloc[0].to_dict()
-    rear_axle_pose = StateSE3(
-        x=ego_pose_dict["tx_m"],
-        y=ego_pose_dict["ty_m"],
-        z=ego_pose_dict["tz_m"],
-        qw=ego_pose_dict["qw"],
-        qx=ego_pose_dict["qx"],
-        qy=ego_pose_dict["qy"],
-        qz=ego_pose_dict["qz"],
-    )
+    rear_axle_pose = _row_dict_to_state_se3(ego_pose_dict)
 
     vehicle_parameters = get_av2_ford_fusion_hybrid_parameters()
     center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
@@ -318,49 +346,78 @@ def _extract_av2_sensor_camera(
     split = source_log_path.parent.name
     log_id = source_log_path.name
 
-    source_dataset_dir = source_log_path.parent.parent
+    if dataset_converter_config.include_cameras:
+        av2_sensor_data_root = source_log_path.parent.parent
 
-    for _, row in egovehicle_se3_sensor_df.iterrows():
-        row = row.to_dict()
-        if row["sensor_name"] not in AV2_CAMERA_TYPE_MAPPING:
-            continue
+        for _, row in egovehicle_se3_sensor_df.iterrows():
+            row = row.to_dict()
+            if row["sensor_name"] not in AV2_CAMERA_TYPE_MAPPING:
+                continue
 
-        camera_name = row["sensor_name"]
-        camera_type = AV2_CAMERA_TYPE_MAPPING[camera_name]
+            camera_name = row["sensor_name"]
+            camera_type = AV2_CAMERA_TYPE_MAPPING[camera_name]
 
-        relative_image_path = find_closest_target_fpath(
-            split=split,
-            log_id=log_id,
-            src_sensor_name="lidar",
-            src_timestamp_ns=lidar_timestamp_ns,
-            target_sensor_name=camera_name,
-            synchronization_df=synchronization_df,
-        )
-        if relative_image_path is not None:
-            absolute_image_path = source_dataset_dir / relative_image_path
-            assert absolute_image_path.exists()
-
-            # TODO: Adjust for finer IMU timestamps to correct the camera extrinsic.
-            camera_extrinsic = StateSE3(
-                x=row["tx_m"],
-                y=row["ty_m"],
-                z=row["tz_m"],
-                qw=row["qw"],
-                qx=row["qx"],
-                qy=row["qy"],
-                qz=row["qz"],
+            relative_image_path = find_closest_target_fpath(
+                split=split,
+                log_id=log_id,
+                src_sensor_name="lidar",
+                src_timestamp_ns=lidar_timestamp_ns,
+                target_sensor_name=camera_name,
+                synchronization_df=synchronization_df,
             )
-            camera_data = None
-            if dataset_converter_config.camera_store_option == "path":
-                camera_data = str(relative_image_path)
-            elif dataset_converter_config.camera_store_option == "binary":
-                with open(absolute_image_path, "rb") as f:
-                    camera_data = f.read()
-            camera_dict[camera_type] = camera_data, camera_extrinsic
+            if relative_image_path is not None:
+                absolute_image_path = av2_sensor_data_root / relative_image_path
+                assert absolute_image_path.exists()
+
+                # TODO: Adjust for finer IMU timestamps to correct the camera extrinsic.
+                camera_extrinsic = _row_dict_to_state_se3(row)
+                camera_data = None
+                if dataset_converter_config.camera_store_option == "path":
+                    camera_data = str(relative_image_path)
+                elif dataset_converter_config.camera_store_option == "binary":
+                    with open(absolute_image_path, "rb") as f:
+                        camera_data = f.read()
+                camera_dict[camera_type] = camera_data, camera_extrinsic
 
     return camera_dict
 
 
-def _extract_lidar(lidar_pc, dataset_converter_config: DatasetConverterConfig) -> Dict[LiDARType, Optional[str]]:
-    # TODO: Implement this function to extract lidar data.
-    return {}
+def _extract_av2_sensor_lidars(
+    source_log_path: Path, lidar_timestamp_ns: int, dataset_converter_config: DatasetConverterConfig
+) -> Optional[Dict[LiDARType, Union[str, npt.NDArray[np.float32]]]]:
+    lidar_dict: Dict[LiDARType, Union[str, npt.NDArray[np.float32]]] = {}
+    if dataset_converter_config.include_lidars:
+        av2_sensor_data_root = source_log_path.parent.parent
+        split_type = source_log_path.parent.name
+        log_name = source_log_path.name
+
+        relative_feather_path = f"{split_type}/{log_name}/sensors/lidar/{lidar_timestamp_ns}.feather"
+        lidar_feather_path = av2_sensor_data_root / relative_feather_path
+        # if lidar_feather_path.exists():
+
+        assert lidar_feather_path.exists(), f"LiDAR feather file not found: {lidar_feather_path}"
+        if dataset_converter_config.lidar_store_option == "path":
+            # NOTE: It is somewhat inefficient to store the same path for both lidars,
+            # but this keeps the interface simple for now.
+            lidar_dict = {
+                LiDARType.LIDAR_TOP: str(relative_feather_path),
+                LiDARType.LIDAR_DOWN: str(relative_feather_path),
+            }
+        elif dataset_converter_config.lidar_store_option == "binary":
+            # NOTE: For binary storage, we pass the point cloud to the log writer.
+            # Compression is handled internally in the log writer.
+            lidar_dict: Dict[LiDARType, np.ndarray] = load_av2_sensor_lidar_pc_from_path(lidar_feather_path)
+    return lidar_dict
+
+
+def _row_dict_to_state_se3(row_dict: Dict[str, float]) -> StateSE3:
+    """Helper function to convert a row dictionary to a StateSE3 object."""
+    return StateSE3(
+        x=row_dict["tx_m"],
+        y=row_dict["ty_m"],
+        z=row_dict["tz_m"],
+        qw=row_dict["qw"],
+        qx=row_dict["qx"],
+        qy=row_dict["qy"],
+        qz=row_dict["qz"],
+    )

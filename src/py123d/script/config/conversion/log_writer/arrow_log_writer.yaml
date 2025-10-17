@@ -2,6 +2,6 @@ _target_: py123d.conversion.log_writer.arrow_log_writer.ArrowLogWriter
 _convert_: 'all'
 
 
-logs_root: ${py123d_logs_root}
-compression: null # Compression method for ipc files. Options: None, 'lz4', 'zstd'
-compression_level: null # Compression level for ipc files. Options: None, or depending on compression method
+logs_root: ${dataset_paths.py123d_logs_root}
+ipc_compression: null # Compression method for ipc files. Options: None, 'lz4', 'zstd'
+ipc_compression_level: null # Compression level for ipc files. Options: None, or depending on compression method

@@ -1,12 +1,10 @@
-# TODO: rename this file and potentially move somewhere more appropriate.
-
-import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
 import numpy.typing as npt
+from omegaconf import DictConfig
 import pyarrow as pa
 
 from py123d.datatypes.detections.detection import (
@@ -26,11 +24,14 @@ from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 from py123d.geometry import BoundingBoxSE3, StateSE3, Vector3D
+from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
+
+DATASET_PATHS: DictConfig = get_dataset_paths()
 DATASET_SENSOR_ROOT: Dict[str, Path] = {
-    "nuplan": Path(os.environ["NUPLAN_DATA_ROOT"]) / "nuplan-v1.1" / "sensor_blobs",
-    "carla": Path(os.environ["CARLA_DATA_ROOT"]) / "sensor_blobs",
-    # "av2-sensor": Path(os.environ["AV2_SENSOR_DATA_ROOT"]) / "sensor_mini",
+    "nuplan": DATASET_PATHS.nuplan_sensor_root,
+    "av2-sensor": DATASET_PATHS.av2_sensor_data_root,
+    "wopd": DATASET_PATHS.wopd_data_root,
 }
 
 
@@ -110,10 +111,13 @@ def get_camera_from_arrow_table(
 
     if isinstance(table_data, str):
         sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
-        full_image_path = sensor_root / table_data
+        assert sensor_root is not None, f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}"
+        full_image_path = Path(sensor_root) / table_data
         assert full_image_path.exists(), f"Camera file not found: {full_image_path}"
+
         image = cv2.imread(str(full_image_path), cv2.IMREAD_COLOR)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
     elif isinstance(table_data, bytes):
         image = cv2.imdecode(np.frombuffer(table_data, np.uint8), cv2.IMREAD_UNCHANGED)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -133,38 +137,58 @@ def get_lidar_from_arrow_table(
     lidar_type: LiDARType,
     log_metadata: LogMetadata,
 ) -> LiDAR:
-    assert (
-        lidar_type.serialize() in arrow_table.schema.names
-    ), f'"{lidar_type.serialize()}" field not found in Arrow table schema.'
-    lidar_data = arrow_table[lidar_type.serialize()][index].as_py()
-    lidar_metadata = log_metadata.lidar_metadata[lidar_type]
+    lidar: Optional[LiDAR] = None
 
-    if isinstance(lidar_data, str):
-        sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
-        full_lidar_path = sensor_root / lidar_data
-        assert full_lidar_path.exists(), f"LiDAR file not found: {full_lidar_path}"
+    # assert (
+    #     f"{lidar_type.serialize()}_data" in arrow_table.schema.names
+    # ), f'"{lidar_type.serialize()}" field not found in Arrow table schema.'
 
-        # NOTE: We move data specific import into if-else block, to avoid data specific import errors
-        if log_metadata.dataset == "nuplan":
-            from py123d.conversion.datasets.nuplan.nuplan_load_sensor import load_nuplan_lidar_from_path
+    lidar_column_name = f"{lidar_type.serialize()}_data"
+    if lidar_column_name in arrow_table.schema.names:
 
-            lidar = load_nuplan_lidar_from_path(full_lidar_path, lidar_metadata)
-        elif log_metadata.dataset == "carla":
-            from py123d.conversion.datasets.carla.carla_load_sensor import load_carla_lidar_from_path
+        lidar_data = arrow_table[lidar_column_name][index].as_py()
+        lidar_metadata = log_metadata.lidar_metadata[lidar_type]
 
-            lidar = load_carla_lidar_from_path(full_lidar_path, lidar_metadata)
-        elif log_metadata.dataset == "wopd":
-            raise NotImplementedError
+        if isinstance(lidar_data, str):
+            sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
+            assert (
+                sensor_root is not None
+            ), f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}"
+            full_lidar_path = Path(sensor_root) / lidar_data
+            assert full_lidar_path.exists(), f"LiDAR file not found: {full_lidar_path}"
+
+            # NOTE: We move data specific import into if-else block, to avoid data specific import errors
+            if log_metadata.dataset == "nuplan":
+                from py123d.conversion.datasets.nuplan.nuplan_load_sensor import load_nuplan_lidar_from_path
+
+                lidar = load_nuplan_lidar_from_path(full_lidar_path, lidar_metadata)
+            elif log_metadata.dataset == "carla":
+                from py123d.conversion.datasets.carla.carla_load_sensor import load_carla_lidar_from_path
+
+                lidar = load_carla_lidar_from_path(full_lidar_path, lidar_metadata)
+            elif log_metadata.dataset == "av2-sensor":
+                from py123d.conversion.datasets.av2.utils.av2_sensor_loading import load_av2_sensor_lidar_pc_from_path
+
+                lidar_pc_dict = load_av2_sensor_lidar_pc_from_path(full_lidar_path)
+                assert (
+                    lidar_type in lidar_pc_dict
+                ), f"LiDAR type {lidar_type} not found in AV2 sensor data at {full_lidar_path}."
+                lidar = LiDAR(metadata=lidar_metadata, point_cloud=lidar_pc_dict[lidar_type])
+            elif log_metadata.dataset == "wopd":
+
+                raise NotImplementedError
+            else:
+                raise NotImplementedError(f"Loading LiDAR data for dataset {log_metadata.dataset} is not implemented.")
+
+        elif isinstance(lidar_data, bytes):
+            from py123d.conversion.log_writer.utils.lidar_compression import decompress_lidar_from_laz
+
+            lidar = decompress_lidar_from_laz(lidar_data, lidar_metadata)
+        elif lidar_data is None:
+            lidar = None
         else:
-            raise NotImplementedError(f"Loading LiDAR data for dataset {log_metadata.dataset} is not implemented.")
+            raise NotImplementedError(
+                f"Only string file paths or bytes for LiDAR data are supported, got {type(lidar_data)}"
+            )
 
-    else:
-        # FIXME: This is a temporary fix for WOPD dataset. The lidar data is stored as a flattened array of float32.
-        # Ideally the lidar index should handle the dimension. But for now we hardcode it here.
-        lidar_data = np.array(lidar_data, dtype=np.float32).reshape(-1, 3)
-        lidar_data = np.concatenate([np.zeros_like(lidar_data), lidar_data], axis=-1)
-        if log_metadata.dataset == "wopd":
-            lidar = LiDAR(metadata=lidar_metadata, point_cloud=lidar_data.T)
-        else:
-            raise NotImplementedError("Only string file paths for lidar data are supported.")
     return lidar

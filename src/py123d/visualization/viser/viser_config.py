@@ -22,6 +22,7 @@ all_lidar_types: List[LiDARType] = [
     LiDARType.LIDAR_SIDE_LEFT,
     LiDARType.LIDAR_SIDE_RIGHT,
     LiDARType.LIDAR_BACK,
+    LiDARType.LIDAR_DOWN,
 ]
 
 
@@ -66,7 +67,7 @@ class ViserConfig:
     camera_gui_image_scale: float = 0.25  # Resize factor for the camera image shown in the GUI (<1.0 for speed)
 
     # LiDAR
-    lidar_visible: bool = False
+    lidar_visible: bool = True
     lidar_types: List[LiDARType] = field(default_factory=lambda: all_lidar_types.copy())
     lidar_point_size: float = 0.05
     lidar_point_shape: Literal["square", "diamond", "circle", "rounded", "sparkle"] = "circle"

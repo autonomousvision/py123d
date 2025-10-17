@@ -47,6 +47,7 @@ dependencies = [
     "lxml",
     "trimesh",
     "viser",
+    "laspy[laszip]",
 ]
 
 [project.scripts]

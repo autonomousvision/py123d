@@ -52,7 +52,6 @@ def add_map_to_viser_server(
                     current_ego_state,
                     viser_config,
                 )
-                print("Requeried map objects for visualization.")
 
         if map_trimesh_dict is not None:
             for map_layer, mesh in map_trimesh_dict.items():

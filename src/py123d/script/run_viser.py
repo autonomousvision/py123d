@@ -18,16 +18,20 @@ CONFIG_NAME = "default_viser"
 @hydra.main(config_path=CONFIG_PATH, config_name=CONFIG_NAME, version_base=None)
 def main(cfg: DictConfig) -> None:
 
+    # Initialize dataset paths
     setup_dataset_paths(cfg.dataset_paths)
 
+    # Build worker
     worker = build_worker(cfg)
 
+    # Build scene filter and scene builder
     scene_filter = build_scene_filter(cfg.scene_filter)
-
     scene_builder = build_scene_builder(cfg.scene_builder)
 
+    # Get scenes from scene builder
     scenes = scene_builder.get_scenes(scene_filter, worker=worker)
 
+    # Launch Viser viewer with the scenes
     ViserViewer(scenes=scenes)
 
 

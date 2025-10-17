@@ -5,6 +5,7 @@ import pyarrow as pa
 
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.conversion.abstract_dataset_converter import AbstractLogWriter, DatasetConverterConfig
+from py123d.conversion.log_writer.utils.lidar_compression import compress_lidar_with_laz
 from py123d.datatypes.detections.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from py123d.datatypes.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
 from py123d.datatypes.scene.scene_metadata import LogMetadata
@@ -20,13 +21,13 @@ class ArrowLogWriter(AbstractLogWriter):
     def __init__(
         self,
         logs_root: Union[str, Path],
-        compression: Optional[Literal["lz4", "zstd"]] = None,
-        compression_level: Optional[int] = None,
+        ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
+        ipc_compression_level: Optional[int] = None,
     ) -> None:
 
         self._logs_root = Path(logs_root)
-        self._compression = compression
-        self._compression_level = compression_level
+        self._ipc_compression = ipc_compression
+        self._ipc_compression_level = ipc_compression_level
 
         # Loaded during .reset() and cleared during .close()
         self._dataset_converter_config: Optional[DatasetConverterConfig] = None
@@ -57,8 +58,8 @@ class ArrowLogWriter(AbstractLogWriter):
             # Initialize Arrow IPC writer, optionally with compression
             # NOTE @DanielDauner: I tried some compression settings, which did not lead to significant reductions.
             compression = (
-                pa.Codec(self._compression, compression_level=self._compression_level)
-                if self._compression is not None
+                pa.Codec(self._ipc_compression, compression_level=self._ipc_compression_level)
+                if self._ipc_compression is not None
                 else None
             )
 
@@ -183,6 +184,12 @@ class ArrowLogWriter(AbstractLogWriter):
                 lidar_data: Optional[Any] = None
                 if lidar_type in provided_lidars:
                     lidar_data = lidars[lidar_type]
+
+                    # Possible compression step
+                    if self._dataset_converter_config.lidar_store_option == "binary":
+                        lidar_metadata = self._log_metadata.lidar_metadata[lidar_type]
+                        lidar_data = compress_lidar_with_laz(lidar_data, lidar_metadata)
+
                 record_batch_data[f"{lidar_name}_data"] = [lidar_data]
 
         # --------------------------------------------------------------------------------------------------------------

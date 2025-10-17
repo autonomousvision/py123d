@@ -21,16 +21,16 @@ class ArrowSceneBuilder(SceneBuilder):
 
     def __init__(
         self,
-        py123d_logs_root: Optional[Union[str, Path]] = None,
-        py123d_maps_root: Optional[Union[str, Path]] = None,
+        logs_root: Optional[Union[str, Path]] = None,
+        maps_root: Optional[Union[str, Path]] = None,
     ):
-        if py123d_logs_root is None:
-            py123d_logs_root = get_dataset_paths().py123d_logs_root
-        if py123d_maps_root is None:
-            py123d_maps_root = get_dataset_paths().py123d_maps_root
+        if logs_root is None:
+            logs_root = get_dataset_paths().py123d_logs_root
+        if maps_root is None:
+            maps_root = get_dataset_paths().py123d_maps_root
 
-        self._logs_root = Path(py123d_logs_root)
-        self._maps_root = Path(py123d_maps_root)
+        self._logs_root = Path(logs_root)
+        self._maps_root = Path(maps_root)
 
     def get_scenes(self, filter: SceneFilter, worker: WorkerPool) -> Iterator[AbstractScene]:
         """See superclass."""

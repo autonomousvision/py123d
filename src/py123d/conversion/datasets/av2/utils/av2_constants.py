@@ -5,14 +5,7 @@ from py123d.datatypes.detections.detection_types import DetectionType
 from py123d.datatypes.maps.map_datatypes import RoadLineType
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
 
-AV2_SENSOR_SPLITS: Set[str] = {
-    "av2-sensor_train",
-    "av2-sensor_val",
-    "av2-sensor_test",
-    "av2-sensor-mini_train",
-    "av2-sensor-mini_val",
-    "av2-sensor-mini_test",
-}
+AV2_SENSOR_SPLITS: Set[str] = {"av2-sensor_train", "av2-sensor_val", "av2-sensor_test"}
 
 
 class AV2SensorBoxDetectionType(SerialIntEnum):
@@ -97,6 +90,8 @@ AV2_CAMERA_TYPE_MAPPING: Dict[str, PinholeCameraType] = {
     "stereo_front_left": PinholeCameraType.CAM_STEREO_L,
     "stereo_front_right": PinholeCameraType.CAM_STEREO_R,
 }
+
+# AV2_LIDAR_TYPES: Dict[str, str] = {
 
 
 AV2_ROAD_LINE_TYPE_MAPPING: Dict[str, RoadLineType] = {
