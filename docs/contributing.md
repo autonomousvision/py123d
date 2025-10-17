@@ -1,7 +1,7 @@
 
 # Contributing to 123D
 
-Thank you for your interest in contributing to 123D! This guide will help you get started with the development process.
+Contributions to 123D are highly encouraged! This guide will help you get started with the development process.
 
 ## Getting Started
 
@@ -27,7 +27,7 @@ pre-commit install
 
 ### 3. Managing dependencies
 
-One principal of 123D is to keep *minimal dependencies*. However, various datasets require problematic (or even outdated) dependencies in order to load or preprocess the dataset. In this case, you can add optional dependencies to the `pyproject.toml` install file. You can follow examples of Waymo or nuPlan. These optional dependencies can be install with
+One principal of 123D is to keep *minimal dependencies*. However, various datasets require dependencies in order to load or preprocess the dataset. In this case, you can add optional dependencies to the `pyproject.toml` install file. You can follow examples of Waymo/nuPlan. These optional dependencies can be install with
 
 ```sh
 pip install -e .[dev,waymo,nuplan]
@@ -42,7 +42,7 @@ import numpy.typing as npt
 
 def load_camera_from_outdated_dataset(file_path: str) -> npt.NDArray[np.uint8]:
     try:
-        from outdated_dataset import load_camera_image
+        from optional_dataset import load_camera_image
     except ImportError:
         raise ImportError(
             "Optional dependency 'outdated_dataset' is required to load camera images from this dataset. "
