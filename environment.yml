@@ -1,4 +1,4 @@
-name: d123
+name: py123d
 channels:
   - conda-forge
 dependencies:

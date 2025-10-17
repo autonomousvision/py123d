@@ -8,15 +8,15 @@ Thank you for your interest in contributing to 123D! This guide will help you ge
 ### 1. Clone the Repository
 
 ```sh
-git clone git@github.com:DanielDauner/d123.git
-cd d123
+git clone git@github.com:DanielDauner/py123d.git
+cd py123d
 ```
 
 ### 2. Install the pip-package
 
 ```sh
-conda env create -f environment.yml --name d123_dev # Optional
-conda activate d123_dev
+conda env create -f environment.yml --name py123d_dev # Optional
+conda activate py123d_dev
 pip install -e .[dev]
 pre-commit install
 ```

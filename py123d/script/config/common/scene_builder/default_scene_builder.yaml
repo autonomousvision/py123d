@@ -1,0 +1,4 @@
+_target_: py123d.datatypes.scene.arrow.arrow_scene_builder.ArrowSceneBuilder
+_convert_: 'all'
+
+dataset_path: ${py123d_data_root}

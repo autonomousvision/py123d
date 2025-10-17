@@ -1,0 +1,2 @@
+_target_: py123d.common.multithreading.worker_sequential.Sequential
+_convert_: 'all'

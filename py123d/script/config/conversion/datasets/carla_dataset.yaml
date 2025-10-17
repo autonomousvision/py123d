@@ -1,0 +1,36 @@
+carla_dataset:
+  _target_: py123d.conversion.datasets.carla.carla_data_converter.CarlaDataConverter
+  _convert_: 'all'
+
+  splits: ["carla"]
+  log_path: "${oc.env:HOME}/carla_workspace/data"
+
+  dataset_converter_config:
+    _target_: py123d.conversion.dataset_converter_config.DatasetConverterConfig
+    _convert_: 'all'
+
+    output_path: ${py123d_data_root}
+    force_log_conversion: ${force_log_conversion}
+    force_map_conversion: ${force_map_conversion}
+
+    # Ego
+    include_ego: true
+
+    # Box Detections
+    include_box_detections: true
+
+    # Traffic Lights
+    include_traffic_lights: true
+
+    # Cameras
+    include_cameras: true
+    camera_store_option: "path" # "path", "binary", "mp4"
+
+    # LiDARs
+    include_lidars: true
+    lidar_store_option: "path" # "path", "binary"
+
+    # Scenario tag / Route
+    # NOTE: These are only supported for nuPlan. Consider removing or expanding support.
+    include_scenario_tags: true
+    include_route: true

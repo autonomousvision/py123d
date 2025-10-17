@@ -1,6 +1,6 @@
 
 
-python $D123_DEVKIT_ROOT/d123/script/run_viser.py \
+py123d-viser \
 scene_filter=log_scenes \
 scene_filter.shuffle=True \
 worker=sequential
