@@ -7,6 +7,7 @@ import numpy.typing as npt
 from omegaconf import DictConfig
 import pyarrow as pa
 
+from py123d.conversion.datasets.pandaset.pandaset_sensor_loading import load_pandaset_lidars_pc_from_path
 from py123d.datatypes.detections.detection import (
     BoxDetection,
     BoxDetectionMetadata,
@@ -32,6 +33,7 @@ DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "nuplan": DATASET_PATHS.nuplan_sensor_root,
     "av2-sensor": DATASET_PATHS.av2_sensor_data_root,
     "wopd": DATASET_PATHS.wopd_data_root,
+    "pandaset": DATASET_PATHS.pandaset_data_root,
 }
 
 
@@ -137,12 +139,8 @@ def get_lidar_from_arrow_table(
     lidar_type: LiDARType,
     log_metadata: LogMetadata,
 ) -> LiDAR:
+
     lidar: Optional[LiDAR] = None
-
-    # assert (
-    #     f"{lidar_type.serialize()}_data" in arrow_table.schema.names
-    # ), f'"{lidar_type.serialize()}" field not found in Arrow table schema.'
-
     lidar_column_name = f"{lidar_type.serialize()}_data"
     if lidar_column_name in arrow_table.schema.names:
 
@@ -162,21 +160,36 @@ def get_lidar_from_arrow_table(
                 from py123d.conversion.datasets.nuplan.nuplan_load_sensor import load_nuplan_lidar_from_path
 
                 lidar = load_nuplan_lidar_from_path(full_lidar_path, lidar_metadata)
+
             elif log_metadata.dataset == "carla":
                 from py123d.conversion.datasets.carla.carla_load_sensor import load_carla_lidar_from_path
 
                 lidar = load_carla_lidar_from_path(full_lidar_path, lidar_metadata)
+
             elif log_metadata.dataset == "av2-sensor":
                 from py123d.conversion.datasets.av2.utils.av2_sensor_loading import load_av2_sensor_lidar_pc_from_path
 
                 lidar_pc_dict = load_av2_sensor_lidar_pc_from_path(full_lidar_path)
+
                 assert (
                     lidar_type in lidar_pc_dict
                 ), f"LiDAR type {lidar_type} not found in AV2 sensor data at {full_lidar_path}."
                 lidar = LiDAR(metadata=lidar_metadata, point_cloud=lidar_pc_dict[lidar_type])
+
             elif log_metadata.dataset == "wopd":
 
                 raise NotImplementedError
+            elif log_metadata.dataset == "pandaset":
+
+                ego_state_se3 = get_ego_vehicle_state_from_arrow_table(
+                    arrow_table, index, log_metadata.vehicle_parameters
+                )
+
+                lidar_pc_dict = load_pandaset_lidars_pc_from_path(full_lidar_path, ego_state_se3)
+                assert (
+                    lidar_type in lidar_pc_dict
+                ), f"LiDAR type {lidar_type} not found in Pandaset data at {full_lidar_path}."
+                lidar = LiDAR(metadata=lidar_metadata, point_cloud=lidar_pc_dict[lidar_type])
             else:
                 raise NotImplementedError(f"Loading LiDAR data for dataset {log_metadata.dataset} is not implemented.")
 
