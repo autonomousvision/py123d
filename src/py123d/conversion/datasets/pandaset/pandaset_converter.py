@@ -1,28 +1,37 @@
-import gzip
-import json
-import pickle
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.conversion.datasets.pandaset.pandaset_constants import (
     PANDASET_BOX_DETECTION_FROM_STR,
     PANDASET_BOX_DETECTION_TO_DEFAULT,
+    PANDASET_CAMERA_DISTORTIONS,
     PANDASET_CAMERA_MAPPING,
+    PANDASET_LIDAR_EXTRINSICS,
+    PANDASET_LIDAR_MAPPING,
     PANDASET_LOG_NAMES,
     PANDASET_SPLITS,
 )
+from py123d.conversion.datasets.pandaset.pandaset_sensor_loading import load_pandaset_lidars_pc_from_path
+from py123d.conversion.datasets.pandaset.pandaset_utlis import (
+    main_lidar_to_rear_axle,
+    pandaset_pose_dict_to_state_se3,
+    read_json,
+    read_pkl_gz,
+    rotate_pandaset_pose_to_iso_coordinates,
+)
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.conversion.utils.sensor_utils.lidar_index_registry import PandasetLidarIndex
 from py123d.datatypes.detections.detection import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.camera.pinhole_camera import (
     PinholeCameraMetadata,
     PinholeCameraType,
-    PinholeDistortion,
     PinholeIntrinsics,
 )
 from py123d.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
@@ -36,7 +45,6 @@ from py123d.geometry import BoundingBoxSE3, StateSE3, Vector3D
 from py123d.geometry.geometry_index import BoundingBoxSE3Index, EulerAnglesIndex
 from py123d.geometry.transform.transform_se3 import (
     convert_absolute_to_relative_se3_array,
-    translate_se3_along_body_frame,
 )
 from py123d.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from py123d.geometry.utils.rotation_utils import get_quaternion_array_from_euler_array
@@ -107,8 +115,8 @@ class PandasetConverter(AbstractDatasetConverter):
             location=None,  # TODO: Add location information.
             timestep_seconds=0.1,
             vehicle_parameters=get_pandaset_chrysler_pacifica_parameters(),
-            camera_metadata=_get_pandaset_camera_metadata(source_log_path),
-            lidar_metadata=_get_pandaset_lidar_metadata(source_log_path),
+            camera_metadata=_get_pandaset_camera_metadata(source_log_path, self.dataset_converter_config),
+            lidar_metadata=_get_pandaset_lidar_metadata(source_log_path, self.dataset_converter_config),
             map_metadata=None,  # NOTE: Pandaset does not have maps.
         )
 
@@ -119,11 +127,11 @@ class PandasetConverter(AbstractDatasetConverter):
         if log_needs_writing:
 
             # Read files from pandaset
-            timesteps = _read_json(source_log_path / "meta" / "timestamps.json")
-            gps: List[Dict[str, float]] = _read_json(source_log_path / "meta" / "gps.json")
-            lidar_poses: List[Dict[str, Dict[str, float]]] = _read_json(source_log_path / "lidar" / "poses.json")
+            timesteps = read_json(source_log_path / "meta" / "timestamps.json")
+            gps: List[Dict[str, float]] = read_json(source_log_path / "meta" / "gps.json")
+            lidar_poses: List[Dict[str, Dict[str, float]]] = read_json(source_log_path / "lidar" / "poses.json")
             camera_poses: Dict[str, List[Dict[str, Dict[str, float]]]] = {
-                camera_name: _read_json(source_log_path / "camera" / camera_name / "poses.json")
+                camera_name: read_json(source_log_path / "camera" / camera_name / "poses.json")
                 for camera_name in PANDASET_CAMERA_MAPPING.keys()
             }
 
@@ -142,65 +150,73 @@ class PandasetConverter(AbstractDatasetConverter):
                         camera_poses,
                         self.dataset_converter_config,
                     ),
+                    lidars=_extract_pandaset_lidar(
+                        source_log_path,
+                        iteration,
+                        ego_state,
+                        self.dataset_converter_config,
+                    ),
                 )
 
         # 4. Finalize log writing
         log_writer.close()
 
 
-def _get_pandaset_camera_metadata(source_log_path: Path) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
+def _get_pandaset_camera_metadata(
+    source_log_path: Path, dataset_config: DatasetConverterConfig
+) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
 
-    all_cameras_folder = source_log_path / "camera"
     camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
 
-    for camera_folder in all_cameras_folder.iterdir():
-        camera_name = camera_folder.name
+    if dataset_config.include_cameras:
+        all_cameras_folder = source_log_path / "camera"
+        for camera_folder in all_cameras_folder.iterdir():
+            camera_name = camera_folder.name
 
-        assert camera_name in PANDASET_CAMERA_MAPPING.keys(), f"Camera name {camera_name} is not recognized."
-        camera_type = PANDASET_CAMERA_MAPPING[camera_name]
+            assert camera_name in PANDASET_CAMERA_MAPPING.keys(), f"Camera name {camera_name} is not recognized."
+            camera_type = PANDASET_CAMERA_MAPPING[camera_name]
 
-        intrinsics_file = camera_folder / "intrinsics.json"
-        assert intrinsics_file.exists(), f"Camera intrinsics file {intrinsics_file} does not exist."
-        intrinsics_data = _read_json(intrinsics_file)
+            intrinsics_file = camera_folder / "intrinsics.json"
+            assert intrinsics_file.exists(), f"Camera intrinsics file {intrinsics_file} does not exist."
+            intrinsics_data = read_json(intrinsics_file)
 
-        camera_metadata[camera_type] = PinholeCameraMetadata(
-            camera_type=camera_type,
-            width=1920,
-            height=1080,
-            intrinsics=PinholeIntrinsics(
-                fx=intrinsics_data["fx"],
-                fy=intrinsics_data["fy"],
-                cx=intrinsics_data["cx"],
-                cy=intrinsics_data["cy"],
-            ),
-            distortion=PinholeDistortion(k1=0.0, k2=0.0, p1=0.0, p2=0.0, k3=0.0),
-        )
+            camera_metadata[camera_type] = PinholeCameraMetadata(
+                camera_type=camera_type,
+                width=1920,
+                height=1080,
+                intrinsics=PinholeIntrinsics(
+                    fx=intrinsics_data["fx"],
+                    fy=intrinsics_data["fy"],
+                    cx=intrinsics_data["cx"],
+                    cy=intrinsics_data["cy"],
+                ),
+                distortion=PANDASET_CAMERA_DISTORTIONS[camera_name],
+            )
 
     return camera_metadata
 
 
-def _get_pandaset_lidar_metadata(log_path: Path) -> Dict[LiDARType, LiDARMetadata]:
-    # TODO: Implement
-    return {}
+def _get_pandaset_lidar_metadata(
+    log_path: Path, dataset_config: DatasetConverterConfig
+) -> Dict[LiDARType, LiDARMetadata]:
+    lidar_metadata: Dict[LiDARType, LiDARMetadata] = {}
+
+    if dataset_config.include_lidars:
+        for lidar_name, lidar_type in PANDASET_LIDAR_MAPPING.items():
+            lidar_metadata[lidar_type] = LiDARMetadata(
+                lidar_type=lidar_type,
+                lidar_index=PandasetLidarIndex,
+                extrinsic=PANDASET_LIDAR_EXTRINSICS[
+                    lidar_name
+                ],  # TODO: These extrinsics are incorrect, and need to be transformed correctly.
+            )
+
+    return lidar_metadata
 
 
 def _extract_pandaset_sensor_ego_state(gps: Dict[str, float], lidar_pose: Dict[str, Dict[str, float]]) -> EgoStateSE3:
 
-    rear_axle_pose = _main_lidar_to_rear_axle(
-        StateSE3(
-            x=lidar_pose["position"]["x"],
-            y=lidar_pose["position"]["y"],
-            z=lidar_pose["position"]["z"],
-            qw=lidar_pose["heading"]["w"],
-            qx=lidar_pose["heading"]["x"],
-            qy=lidar_pose["heading"]["y"],
-            qz=lidar_pose["heading"]["z"],
-        )
-    )
-    # rear_axle_pose = translate_se3_along_body_frame(
-    #     main_lidar_pose,
-    #     vector_3d=Vector3D(x=-0.83, y=0.0, z=0.0),
-    # )
+    rear_axle_pose = main_lidar_to_rear_axle(pandaset_pose_dict_to_state_se3(lidar_pose))
 
     vehicle_parameters = get_pandaset_chrysler_pacifica_parameters()
     center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
@@ -234,7 +250,7 @@ def _extract_pandaset_box_detections(
     # - attributes.pedestrian_behavior
     # - attributes.pedestrian_age
     # - attributes.rider_status
-    # https://github.com/scaleapi/pandaset-devkit/blob/59be180e2a3f3e37f6d66af9e67bf944ccbf6ec0/README.md?plain=1#L288
+    # https://github.com/scaleapi/pandaset-devkit/blob/master/README.md?plain=1#L288
 
     iteration_str = f"{iteration:02d}"
     cuboids_file = source_log_path / "annotations" / "cuboids" / f"{iteration_str}.pkl.gz"
@@ -242,7 +258,7 @@ def _extract_pandaset_box_detections(
     if not cuboids_file.exists():
         return BoxDetectionWrapper(box_detections=[])
 
-    cuboid_df = _read_pkl_gz(cuboids_file)
+    cuboid_df: pd.DataFrame = read_pkl_gz(cuboids_file)
 
     # Read cuboid data
     box_label_names = list(cuboid_df["label"])
@@ -271,15 +287,36 @@ def _extract_pandaset_box_detections(
     box_se3_array[:, BoundingBoxSE3Index.QUATERNION] = get_quaternion_array_from_euler_array(box_euler_angles_array)
     box_se3_array[:, BoundingBoxSE3Index.EXTENT] = np.stack([box_lengths, box_widths, box_heights], axis=-1)
 
+    # NOTE: Pandaset annotates moving bounding boxes twice (for synchronization reasons),
+    # if they are in the overlap area between the top 360° lidar and the front-facing lidar (and moving).
+    # The value in `cuboids.sensor_id` is either
+    # - `0` (mechanical 360° LiDAR)
+    # - `1` (front-facing LiDAR).
+    # - All other cuboids have value `-1`.
+
+    # To avoid duplicate bounding boxes, we only keep boxes from the front lidar (sensor_id == 1), if they do not
+    # have a sibling box in the top lidar (sensor_id == 0). Otherwise, all boxes with sensor_id == {-1, 0} are kept.
+    # https://github.com/scaleapi/pandaset-devkit/blob/master/python/pandaset/annotations.py#L166
+    # https://github.com/scaleapi/pandaset-devkit/issues/26
+
+    top_lidar_uuids = set(cuboid_df[cuboid_df["cuboids.sensor_id"] == 0]["uuid"])
+    sensor_ids = cuboid_df["cuboids.sensor_id"].to_list()
+    sibling_ids = cuboid_df["cuboids.sibling_id"].to_list()
+
     # Fill bounding box detections and return
     box_detections: List[BoxDetectionSE3] = []
     for box_idx in range(num_boxes):
+
+        # Skip duplicate box detections from front lidar if sibling exists in top lidar
+        if sensor_ids[box_idx] == 1 and sibling_ids[box_idx] in top_lidar_uuids:
+            continue
+
         pandaset_box_detection_type = PANDASET_BOX_DETECTION_FROM_STR[box_label_names[box_idx]]
         box_detection_type = PANDASET_BOX_DETECTION_TO_DEFAULT[pandaset_box_detection_type]
 
         # Convert coordinates to ISO 8855
         # NOTE: This would be faster over a batch operation.
-        box_se3_array[box_idx, BoundingBoxSE3Index.STATE_SE3] = _rotate_pose_to_iso_coordinates(
+        box_se3_array[box_idx, BoundingBoxSE3Index.STATE_SE3] = rotate_pandaset_pose_to_iso_coordinates(
             StateSE3.from_array(box_se3_array[box_idx, BoundingBoxSE3Index.STATE_SE3], copy=False)
         ).array
 
@@ -310,39 +347,22 @@ def _extract_pandaset_sensor_camera(
     if dataset_converter_config.include_cameras:
 
         for camera_name, camera_type in PANDASET_CAMERA_MAPPING.items():
-            image_rel_path = f"camera/{camera_name}/{iteration_str}.jpg"
 
-            image_abs_path = source_log_path / image_rel_path
+            image_abs_path = source_log_path / f"camera/{camera_name}/{iteration_str}.jpg"
             assert image_abs_path.exists(), f"Camera image file {str(image_abs_path)} does not exist."
 
             camera_pose_dict = camera_poses[camera_name][iteration]
-            camera_extrinsic = _rotate_pose_to_iso_coordinates(
-                StateSE3(
-                    x=camera_pose_dict["position"]["x"],
-                    y=camera_pose_dict["position"]["y"],
-                    z=camera_pose_dict["position"]["z"],
-                    qw=camera_pose_dict["heading"]["w"],
-                    qx=camera_pose_dict["heading"]["x"],
-                    qy=camera_pose_dict["heading"]["y"],
-                    qz=camera_pose_dict["heading"]["z"],
-                )
-            )
-            # camera_extrinsic = StateSE3(
-            #     x=camera_pose_dict["position"]["x"],
-            #     y=camera_pose_dict["position"]["y"],
-            #     z=camera_pose_dict["position"]["z"],
-            #     qw=camera_pose_dict["heading"]["w"],
-            #     qx=camera_pose_dict["heading"]["x"],
-            #     qy=camera_pose_dict["heading"]["y"],
-            #     qz=camera_pose_dict["heading"]["z"],
-            # )
+            camera_extrinsic = pandaset_pose_dict_to_state_se3(camera_pose_dict)
+            # camera_extrinsic = rotate_pandaset_pose_to_iso_coordinates(camera_extrinsic)
+
             camera_extrinsic = StateSE3.from_array(
                 convert_absolute_to_relative_se3_array(ego_state_se3.rear_axle_se3, camera_extrinsic.array), copy=True
             )
 
             camera_data = None
             if dataset_converter_config.camera_store_option == "path":
-                camera_data = str(image_rel_path)
+                pandaset_data_root = source_log_path.parent
+                camera_data = str(image_abs_path.relative_to(pandaset_data_root))
             elif dataset_converter_config.camera_store_option == "binary":
                 with open(image_abs_path, "rb") as f:
                     camera_data = f.read()
@@ -351,76 +371,22 @@ def _extract_pandaset_sensor_camera(
     return camera_dict
 
 
-def _extract_lidar(lidar_pc, dataset_converter_config: DatasetConverterConfig) -> Dict[LiDARType, Optional[str]]:
-    # TODO: Implement this function to extract lidar data.
-    return {}
+def _extract_pandaset_lidar(
+    source_log_path: Path, iteration: int, ego_state_se3: EgoStateSE3, dataset_converter_config: DatasetConverterConfig
+) -> Dict[LiDARType, Optional[Union[str, np.ndarray]]]:
 
+    lidar_dict: Dict[LiDARType, Optional[Union[str, np.ndarray]]] = {}
+    if dataset_converter_config.include_lidars:
+        iteration_str = f"{iteration:02d}"
+        lidar_absolute_path = source_log_path / "lidar" / f"{iteration_str}.pkl.gz"
+        assert lidar_absolute_path.exists(), f"LiDAR file {str(lidar_absolute_path)} does not exist."
 
-def _read_json(json_file: Path):
-    """Helper function to read a json file as dict."""
-    with open(json_file, "r") as f:
-        json_data = json.load(f)
-    return json_data
+        if dataset_converter_config.lidar_store_option == "path":
+            pandaset_data_root = source_log_path.parent
+            lidar_relative_path = str(lidar_absolute_path.relative_to(pandaset_data_root))
+            lidar_dict[LiDARType.LIDAR_FRONT] = lidar_relative_path
+            lidar_dict[LiDARType.LIDAR_TOP] = lidar_relative_path
+        elif dataset_converter_config.lidar_store_option == "binary":
+            lidar_dict = load_pandaset_lidars_pc_from_path(lidar_absolute_path, ego_state_se3)
 
-
-def _read_pkl_gz(pkl_gz_file: Path):
-    """Helper function to read a pkl.gz file as dict."""
-    with gzip.open(pkl_gz_file, "rb") as f:
-        pkl_data = pickle.load(f)
-    return pkl_data
-
-
-def _rotate_pose_to_iso_coordinates(pose: StateSE3) -> StateSE3:
-    """Helper function for pandaset to rotate a pose to ISO coordinate system (x: forward, y: left, z: up).
-
-    NOTE: Pandaset uses a different coordinate system (x: right, y: forward, z: up).
-    [1] https://arxiv.org/pdf/2112.12610.pdf
-
-    :param pose: The input pose.
-    :return: The rotated pose.
-    """
-    F = np.array(
-        [
-            [0.0, 1.0, 0.0],  # new X = old Y (forward)
-            [-1.0, 0.0, 0.0],  # new Y = old -X (left)
-            [0.0, 0.0, 1.0],  # new Z = old Z (up)
-        ],
-        dtype=np.float64,
-    ).T
-    # F = np.eye(3, dtype=np.float64)
-    transformation_matrix = pose.transformation_matrix.copy()
-    transformation_matrix[0:3, 0:3] = transformation_matrix[0:3, 0:3] @ F
-
-    # transformation_matrix[0, 3] = pose.y
-    # transformation_matrix[1, 3] = -pose.x
-    # transformation_matrix[2, 3] = pose.z
-
-    return StateSE3.from_transformation_matrix(transformation_matrix)
-
-
-def _main_lidar_to_rear_axle(pose: StateSE3) -> StateSE3:
-
-    F = np.array(
-        [
-            [0.0, 1.0, 0.0],  # new X = old Y (forward)
-            [-1.0, 0.0, 0.0],  # new Y = old X (left)
-            [0.0, 0.0, 1.0],  # new Z = old Z (up)
-        ],
-        dtype=np.float64,
-    ).T
-    # F = np.eye(3, dtype=np.float64)
-    transformation_matrix = pose.transformation_matrix.copy()
-    transformation_matrix[0:3, 0:3] = transformation_matrix[0:3, 0:3] @ F
-
-    rotated_pose = StateSE3.from_transformation_matrix(transformation_matrix)
-
-    imu_pose = translate_se3_along_body_frame(
-        rotated_pose,
-        vector_3d=Vector3D(x=-0.840, y=0.0, z=0.0),
-    )
-
-    # transformation_matrix[0, 3] = pose.y
-    # transformation_matrix[1, 3] = -pose.x
-    # transformation_matrix[2, 3] = pose.z
-
-    return imu_pose
+    return lidar_dict

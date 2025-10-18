@@ -32,13 +32,26 @@ def add_box_detections_to_viser_server(
                 visible=True,
             )
         elif viser_config.bounding_box_type == "lines":
-            lines, colors = _get_bounding_box_outlines(scene, scene_interation, initial_ego_state)
+            lines, colors, se3_array = _get_bounding_box_outlines(scene, scene_interation, initial_ego_state)
             viser_server.scene.add_line_segments(
                 "box_detections",
                 points=lines,
                 colors=colors,
                 line_width=viser_config.bounding_box_line_width,
             )
+            viser_server.scene.add_batched_axes(
+                "frames",
+                batched_wxyzs=se3_array[:-1, StateSE3Index.QUATERNION],
+                batched_positions=se3_array[:-1, StateSE3Index.XYZ],
+            )
+            ego_rear_axle_se3 = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
+            ego_rear_axle_se3[StateSE3Index.XYZ] -= initial_ego_state.center_se3.array[StateSE3Index.XYZ]
+            viser_server.scene.add_frame(
+                "ego_rear_axle",
+                position=ego_rear_axle_se3[StateSE3Index.XYZ],
+                wxyz=ego_rear_axle_se3[StateSE3Index.QUATERNION],
+            )
+
         else:
             raise ValueError(f"Unknown bounding box type: {viser_config.bounding_box_type}")
 
@@ -74,6 +87,34 @@ def _get_bounding_box_meshes(scene: AbstractScene, iteration: int, initial_ego_s
     return mesh
 
 
+# def _get_bounding_box_outlines(
+#     scene: AbstractScene, iteration: int, initial_ego_state: EgoStateSE3
+# ) -> npt.NDArray[np.float64]:
+
+#     ego_vehicle_state = scene.get_ego_state_at_iteration(iteration)
+#     box_detections = scene.get_box_detections_at_iteration(iteration)
+
+#     # Load boxes to visualize, including ego vehicle at the last position
+#     boxes = [bd.bounding_box_se3 for bd in box_detections.box_detections] + [ego_vehicle_state.bounding_box_se3]
+#     boxes_type = [bd.metadata.detection_type for bd in box_detections.box_detections] + [DetectionType.EGO]
+
+#     # Create lines for all boxes
+#     box_se3_array = np.array([box.array for box in boxes])
+#     box_se3_array[..., BoundingBoxSE3Index.XYZ] -= initial_ego_state.center_se3.array[StateSE3Index.XYZ]
+#     box_corners_array = bbse3_array_to_corners_array(box_se3_array)
+#     box_outlines = corners_array_to_edge_lines(box_corners_array)
+
+#     # Create colors for all boxes
+#     box_colors = np.zeros(box_outlines.shape, dtype=np.float32)
+#     for i, box_type in enumerate(boxes_type):
+#         box_colors[i, ...] = BOX_DETECTION_CONFIG[box_type].fill_color.rgb_norm
+
+#     box_outlines = box_outlines.reshape(-1, *box_outlines.shape[2:])
+#     box_colors = box_colors.reshape(-1, *box_colors.shape[2:])
+
+#     return box_outlines, box_colors
+
+
 def _get_bounding_box_outlines(
     scene: AbstractScene, iteration: int, initial_ego_state: EgoStateSE3
 ) -> npt.NDArray[np.float64]:
@@ -99,4 +140,4 @@ def _get_bounding_box_outlines(
     box_outlines = box_outlines.reshape(-1, *box_outlines.shape[2:])
     box_colors = box_colors.reshape(-1, *box_colors.shape[2:])
 
-    return box_outlines, box_colors
+    return box_outlines, box_colors, box_se3_array

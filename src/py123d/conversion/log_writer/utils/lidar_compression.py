@@ -54,9 +54,11 @@ def decompress_lidar_from_laz(laz_binary: bytes, lidar_metadata: LiDARMetadata) 
     las = laspy.read(buffer)
 
     # Extract the point cloud data
-    num_points = len(las.x)
+    xyz = las.xyz
+
+    num_points = len(xyz)
     point_cloud = np.zeros((num_points, len(lidar_metadata.lidar_index)), dtype=np.float32)
-    point_cloud[:, lidar_index.XYZ] = np.vstack((las.x, las.y, las.z)).T
+    point_cloud[:, lidar_index.XYZ] = xyz
 
     for feature in lidar_index:
         if feature.name in ["X", "Y", "Z"]:

@@ -3,7 +3,7 @@ pandaset_dataset:
   _convert_: 'all'
 
   splits: ["pandaset_train", "pandaset_val", "pandaset_test"]
-  pandaset_data_root: "/media/nvme1/pandaset"
+  pandaset_data_root: ${dataset_paths.pandaset_data_root}
 
   dataset_converter_config:
     _target_: py123d.conversion.dataset_converter_config.DatasetConverterConfig
@@ -30,8 +30,8 @@ pandaset_dataset:
     camera_store_option: "binary" # "path", "binary", "mp4"
 
     # LiDARs
-    include_lidars: false
-    lidar_store_option: "path" # "path", "binary"
+    include_lidars: true
+    lidar_store_option: "binary" # "path", "binary"
 
     # Scenario tag / Route
     # NOTE: These are only supported for nuPlan. Consider removing or expanding support.

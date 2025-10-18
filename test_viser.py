@@ -11,8 +11,9 @@ if __name__ == "__main__":
     # splits = ["nuplan_private_test"]
     # splits = ["carla"]
     # splits = ["wopd_val"]
-    splits = ["av2-sensor_train"]
+    # splits = ["av2-sensor_train"]
     # splits = ["pandaset_test", "pandaset_val", "pandaset_train"]
+    splits = ["pandaset_test"]
     log_names = None
     scene_uuids = None
 

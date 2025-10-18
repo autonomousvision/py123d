@@ -66,8 +66,18 @@ class WOPDLidarIndex(LiDARIndex):
 class AVSensorLidarIndex(LiDARIndex):
     """Argoverse Sensor LiDAR Indexing Scheme.
 
-    NOTE: The LiDAR files also include 'laser_number', 'offset_ns', which we do not currently include.
+    NOTE: The LiDAR files also include, 'offset_ns', which we do not currently include.
     """
+
+    X = 0
+    Y = 1
+    Z = 2
+    INTENSITY = 3
+
+
+@register_lidar_index
+class PandasetLidarIndex(LiDARIndex):
+    """Pandaset LiDAR Indexing Scheme."""
 
     X = 0
     Y = 1
