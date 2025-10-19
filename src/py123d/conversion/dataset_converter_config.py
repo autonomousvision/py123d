@@ -1,14 +1,12 @@
 from __future__ import annotations
 
+from typing import Literal
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Literal, Union
 
 
 @dataclass
 class DatasetConverterConfig:
 
-    output_path: Union[str, Path]  # TODO: Remove. The directory of writing should be handled by the log/map writer.
     force_log_conversion: bool = False
     force_map_conversion: bool = False
 
@@ -38,9 +36,6 @@ class DatasetConverterConfig:
     include_route: bool = False
 
     def __post_init__(self):
-        if isinstance(self.output_path, str):
-            self.output_path = Path(self.output_path)
-
         assert self.camera_store_option != "mp4", "MP4 format is not yet supported, but planned for future releases."
         assert self.camera_store_option in [
             "path",
