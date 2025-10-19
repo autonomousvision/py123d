@@ -203,19 +203,8 @@ def _get_av2_camera_metadata(
                 camera_type=camera_type,
                 width=row["width_px"],
                 height=row["height_px"],
-                intrinsics=PinholeIntrinsics(
-                    fx=row["fx_px"],
-                    fy=row["fy_px"],
-                    cx=row["cx_px"],
-                    cy=row["cy_px"],
-                ),
-                distortion=PinholeDistortion(
-                    k1=row["k1"],
-                    k2=row["k2"],
-                    p1=0.0,
-                    p2=0.0,
-                    k3=row["k3"],
-                ),
+                intrinsics=PinholeIntrinsics(fx=row["fx_px"], fy=row["fy_px"], cx=row["cx_px"], cy=row["cy_px"]),
+                distortion=PinholeDistortion(k1=row["k1"], k2=row["k2"], p1=0.0, p2=0.0, k3=row["k3"]),
             )
 
     return camera_metadata

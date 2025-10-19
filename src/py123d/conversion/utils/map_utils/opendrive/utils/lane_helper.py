@@ -15,6 +15,7 @@ from py123d.conversion.utils.map_utils.opendrive.utils.id_system import (
     lane_group_id_from_lane_id,
 )
 from py123d.geometry import StateSE2Index
+from py123d.geometry.polyline import Polyline3D, PolylineSE2
 from py123d.geometry.utils.units import kmph_to_mps, mph_to_mps
 
 
@@ -66,7 +67,7 @@ class OpenDriveLaneHelper:
         return lane_section_end_mask
 
     @cached_property
-    def inner_polyline_se2(self) -> npt.NDArray[np.float64]:
+    def inner_polyline_se2(self) -> PolylineSE2:
         inner_polyline = np.array(
             [
                 self.inner_boundary.interpolate_se2(self.s_inner_offset + s - self.s_range[0], lane_section_end=end)
@@ -74,10 +75,11 @@ class OpenDriveLaneHelper:
             ],
             dtype=np.float64,
         )
-        return np.flip(inner_polyline, axis=0) if self.id > 0 else inner_polyline
+        polyline_array = np.flip(inner_polyline, axis=0) if self.id > 0 else inner_polyline
+        return PolylineSE2.from_array(polyline_array)
 
     @cached_property
-    def inner_polyline_3d(self) -> npt.NDArray[np.float64]:
+    def inner_polyline_3d(self) -> Polyline3D:
         inner_polyline = np.array(
             [
                 self.inner_boundary.interpolate_3d(self.s_inner_offset + s - self.s_range[0], lane_section_end=end)
@@ -85,10 +87,11 @@ class OpenDriveLaneHelper:
             ],
             dtype=np.float64,
         )
-        return np.flip(inner_polyline, axis=0) if self.id > 0 else inner_polyline
+        polyline_array = np.flip(inner_polyline, axis=0) if self.id > 0 else inner_polyline
+        return Polyline3D.from_array(polyline_array)
 
     @cached_property
-    def outer_polyline_se2(self) -> npt.NDArray[np.float64]:
+    def outer_polyline_se2(self) -> PolylineSE2:
         outer_polyline = np.array(
             [
                 self.outer_boundary.interpolate_se2(s - self.s_range[0], lane_section_end=end)
@@ -96,10 +99,11 @@ class OpenDriveLaneHelper:
             ],
             dtype=np.float64,
         )
-        return np.flip(outer_polyline, axis=0) if self.id > 0 else outer_polyline
+        polyline_array = np.flip(outer_polyline, axis=0) if self.id > 0 else outer_polyline
+        return PolylineSE2.from_array(polyline_array)
 
     @cached_property
-    def outer_polyline_3d(self) -> npt.NDArray[np.float64]:
+    def outer_polyline_3d(self) -> Polyline3D:
         outer_polyline = np.array(
             [
                 self.outer_boundary.interpolate_3d(s - self.s_range[0], lane_section_end=end)
@@ -107,32 +111,54 @@ class OpenDriveLaneHelper:
             ],
             dtype=np.float64,
         )
-        return np.flip(outer_polyline, axis=0) if self.id > 0 else outer_polyline
+        polyline_array = np.flip(outer_polyline, axis=0) if self.id > 0 else outer_polyline
+        return Polyline3D.from_array(polyline_array)
 
     @property
-    def center_polyline_se2(self) -> npt.NDArray[np.float64]:
-        return np.concatenate([self.inner_polyline_se2[None, ...], self.outer_polyline_se2[None, ...]], axis=0).mean(
-            axis=0
+    def center_polyline_se2(self) -> PolylineSE2:
+        return PolylineSE2.from_array(
+            np.concatenate(
+                [
+                    self.inner_polyline_se2.array[None, ...],
+                    self.outer_polyline_se2.array[None, ...],
+                ],
+                axis=0,
+            ).mean(axis=0)
         )
 
     @property
-    def center_polyline_3d(self) -> npt.NDArray[np.float64]:
-        return np.concatenate([self.outer_polyline_3d[None, ...], self.inner_polyline_3d[None, ...]], axis=0).mean(
-            axis=0
+    def center_polyline_3d(self) -> Polyline3D:
+        return Polyline3D.from_array(
+            np.concatenate(
+                [
+                    self.outer_polyline_3d.array[None, ...],
+                    self.inner_polyline_3d.array[None, ...],
+                ],
+                axis=0,
+            ).mean(axis=0)
         )
 
     @property
-    def outline_polyline_3d(self) -> npt.NDArray[np.float64]:
-        inner_polyline = self.inner_polyline_3d[::-1]
-        outer_polyline = self.outer_polyline_3d
-        return np.concatenate([inner_polyline, outer_polyline, inner_polyline[None, 0]], axis=0, dtype=np.float64)
+    def outline_polyline_3d(self) -> Polyline3D:
+        inner_polyline = self.inner_polyline_3d.array[::-1]
+        outer_polyline = self.outer_polyline_3d.array
+        return Polyline3D.from_array(
+            np.concatenate(
+                [
+                    inner_polyline,
+                    outer_polyline,
+                    inner_polyline[None, 0],
+                ],
+                axis=0,
+                dtype=np.float64,
+            )
+        )
 
     @property
     def shapely_polygon(self) -> shapely.Polygon:
         inner_polyline = self.inner_polyline_se2[..., StateSE2Index.XY][::-1]
         outer_polyline = self.outer_polyline_se2[..., StateSE2Index.XY]
         polygon_exterior = np.concatenate([inner_polyline, outer_polyline], axis=0, dtype=np.float64)
-
         return shapely.Polygon(polygon_exterior)
 
 
@@ -172,20 +198,36 @@ class OpenDriveLaneGroupHelper:
         return self.lane_helpers[outer_lane_helper_idx]
 
     @cached_property
-    def inner_polyline_se2(self):
+    def inner_polyline_se2(self) -> PolylineSE2:
         return self._get_inner_lane_helper().inner_polyline_se2
 
     @cached_property
-    def outer_polyline_se2(self):
+    def outer_polyline_se2(self) -> PolylineSE2:
         return self._get_outer_lane_helper().outer_polyline_se2
 
     @cached_property
-    def inner_polyline_3d(self):
+    def inner_polyline_3d(self) -> Polyline3D:
         return self._get_inner_lane_helper().inner_polyline_3d
 
     @cached_property
-    def outer_polyline_3d(self):
+    def outer_polyline_3d(self) -> Polyline3D:
         return self._get_outer_lane_helper().outer_polyline_3d
+
+    @property
+    def outline_polyline_3d(self) -> Polyline3D:
+        inner_polyline = self.inner_polyline_3d.array[::-1]
+        outer_polyline = self.outer_polyline_3d.array
+        return Polyline3D.from_array(
+            np.concatenate(
+                [
+                    inner_polyline,
+                    outer_polyline,
+                    inner_polyline[None, 0],
+                ],
+                axis=0,
+                dtype=np.float64,
+            )
+        )
 
     @property
     def shapely_polygon(self) -> shapely.Polygon:

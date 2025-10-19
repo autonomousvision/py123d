@@ -4,6 +4,7 @@ import numpy as np
 import shapely
 from shapely import LinearRing, LineString, Polygon, union_all
 
+
 ROAD_EDGE_BUFFER: Final[float] = 0.05
 
 
@@ -34,7 +35,7 @@ def get_road_edge_linear_rings(drivable_polygons: List[Polygon]) -> List[LinearR
 
 
 def split_line_geometry_by_max_length(
-    geometries: List[Union[LineString, LinearRing]],
+    geometries: Union[LineString, LinearRing, List[Union[LineString, LinearRing]]],
     max_length_meters: float,
 ) -> List[LineString]:
     # TODO: move somewhere more appropriate or implement in Polyline2D, PolylineSE2, etc.

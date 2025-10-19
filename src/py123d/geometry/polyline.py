@@ -138,21 +138,21 @@ class Polyline2D(ArrayMixin):
 class PolylineSE2(ArrayMixin):
     """Represents a interpolatable SE2 polyline."""
 
-    se2_array: npt.NDArray[np.float64]
+    _array: npt.NDArray[np.float64]
     linestring: Optional[geom.LineString] = None
 
     _progress: Optional[npt.NDArray[np.float64]] = None
     _interpolator: Optional[interp1d] = None
 
     def __post_init__(self):
-        assert self.se2_array is not None
+        assert self._array is not None
 
         if self.linestring is None:
-            self.linestring = geom_creation.linestrings(self.se2_array[..., StateSE2Index.XY])
+            self.linestring = geom_creation.linestrings(self._array[..., StateSE2Index.XY])
 
-        self.se2_array[:, StateSE2Index.YAW] = np.unwrap(self.se2_array[:, StateSE2Index.YAW], axis=0)
-        self._progress = get_path_progress(self.se2_array)
-        self._interpolator = interp1d(self._progress, self.se2_array, axis=0, bounds_error=False, fill_value=0.0)
+        self._array[:, StateSE2Index.YAW] = np.unwrap(self._array[:, StateSE2Index.YAW], axis=0)
+        self._progress = get_path_progress(self._array)
+        self._interpolator = interp1d(self._progress, self._array, axis=0, bounds_error=False, fill_value=0.0)
 
     @classmethod
     def from_linestring(cls, linestring: geom.LineString) -> PolylineSE2:
@@ -195,6 +195,14 @@ class PolylineSE2(ArrayMixin):
         :return: A PolylineSE2 representing the same path as the discrete SE2 states.
         """
         return PolylineSE2.from_array(np.array(discrete_se2, dtype=np.float64))
+
+    @property
+    def array(self) -> npt.NDArray[np.float64]:
+        """Converts the polyline to a numpy array, indexed by :class:`~py123d.geometry.StateSE2Index`.
+
+        :return: A numpy array of shape (N, 3) representing the polyline.
+        """
+        return self._array
 
     @property
     def length(self) -> float:
@@ -275,7 +283,7 @@ class Polyline3D(ArrayMixin):
             :class:`~py123d.geometry.Point3DIndex`.
         :return: A Polyline3D instance.
         """
-        assert array.ndim == 2 and array.shape[1] == 3, "Array must be 3D with shape (N, 3)"
+        assert array.ndim == 2 and array.shape[1] == len(Point3DIndex), "Array must be 3D with shape (N, 3)"
         linestring = geom_creation.linestrings(*array.T)
         return Polyline3D(linestring)
 

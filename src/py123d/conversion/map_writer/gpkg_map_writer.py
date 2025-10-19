@@ -8,6 +8,7 @@ import shapely.geometry as geom
 
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.conversion.map_writer.utils.gpkg_utils import IntIDMapping
 from py123d.datatypes.maps.abstract_map_objects import (
     AbstractCarpark,
     AbstractCrosswalk,
@@ -32,9 +33,10 @@ MAP_OBJECT_DATA = Dict[str, List[Union[str, int, float, bool, geom.base.BaseGeom
 class GPKGMapWriter(AbstractMapWriter):
     """Abstract base class for map writers."""
 
-    def __init__(self, maps_root: Union[str, Path]) -> None:
+    def __init__(self, maps_root: Union[str, Path], remap_ids: bool = False) -> None:
         self._maps_root = Path(maps_root)
         self._crs: str = "EPSG:4326"  # WGS84
+        self._remap_ids = remap_ids
 
         # Data to be written to the map for each object type
         self._map_data: Optional[Dict[MapLayer, MAP_OBJECT_DATA]] = None
@@ -129,14 +131,26 @@ class GPKGMapWriter(AbstractMapWriter):
             if not self._map_file.parent.exists():
                 self._map_file.parent.mkdir(parents=True, exist_ok=True)
 
+            # Accumulate GeoDataFrames for each map layer
+            map_gdf: Dict[MapLayer, gpd.GeoDataFrame] = {}
             for map_layer, layer_data in self._map_data.items():
                 if len(layer_data["id"]) > 0:
                     df = pd.DataFrame(layer_data)
-                    gdf = gpd.GeoDataFrame(df, geometry="geometry", crs=self._crs)
+                    map_gdf[map_layer] = gpd.GeoDataFrame(df, geometry="geometry", crs=self._crs)
                 else:
-                    gdf = gpd.GeoDataFrame({"id": [], "geometry": []}, geometry="geometry", crs=self._crs)
+                    map_gdf[map_layer] = gpd.GeoDataFrame(
+                        {"id": [], "geometry": []}, geometry="geometry", crs=self._crs
+                    )
+
+            # Optionally remap string IDs to integers
+            if self._remap_ids:
+                _map_ids_to_integer(map_gdf)
+
+            # Write each map layer to the GPKG file
+            for map_layer, gdf in map_gdf.items():
                 gdf.to_file(self._map_file, driver="GPKG", layer=map_layer.serialize())
 
+            # Write map metadata as a separate layer
             metadata_df = gpd.GeoDataFrame(pd.DataFrame([self._map_metadata.to_dict()]))
             metadata_df.to_file(self._map_file, driver="GPKG", layer="map_metadata")
 
@@ -158,7 +172,7 @@ class GPKGMapWriter(AbstractMapWriter):
         """
         self._assert_initialized()
         self._map_data[layer]["id"].append(surface_object.object_id)
-        # NOTE: if outline outline has a z-coordinate, we store it, an otherwise infer from the geometry
+        # NOTE: if the outline has a z-coordinate, we store it, otherwise we infer from the outline from the polygon
         if isinstance(surface_object.outline, Polyline3D):
             self._map_data[layer]["outline"].append(surface_object.outline.linestring)
         self._map_data[layer]["geometry"].append(surface_object.shapely_polygon)
@@ -172,3 +186,47 @@ class GPKGMapWriter(AbstractMapWriter):
         self._assert_initialized()
         self._map_data[layer]["id"].append(line_object.object_id)
         self._map_data[layer]["geometry"].append(line_object.shapely_linestring)
+
+
+def _map_ids_to_integer(
+    map_dfs: Dict[MapLayer, gpd.GeoDataFrame],
+) -> None:
+
+    # initialize id mappings
+    lane_id_mapping = IntIDMapping.from_series(map_dfs[MapLayer.LANE]["id"])
+    walkway_id_mapping = IntIDMapping.from_series(map_dfs[MapLayer.WALKWAY]["id"])
+    carpark_id_mapping = IntIDMapping.from_series(map_dfs[MapLayer.CARPARK]["id"])
+    generic_drivable_id_mapping = IntIDMapping.from_series(map_dfs[MapLayer.GENERIC_DRIVABLE]["id"])
+    lane_group_id_mapping = IntIDMapping.from_series(map_dfs[MapLayer.LANE_GROUP]["id"])
+
+    # Adjust cross reference in map_dfs[MapLayer.LANE] and map_dfs[MapLayer.LANE_GROUP]
+    map_dfs[MapLayer.LANE]["lane_group_id"] = map_dfs[MapLayer.LANE]["lane_group_id"].map(
+        lane_group_id_mapping.str_to_int
+    )
+    map_dfs[MapLayer.LANE_GROUP]["lane_ids"] = map_dfs[MapLayer.LANE_GROUP]["lane_ids"].apply(
+        lambda x: lane_id_mapping.map_list(x)
+    )
+
+    # Adjust predecessor/successor in map_dfs[MapLayer.LANE] and map_dfs[MapLayer.LANE_GROUP]
+    for column in ["predecessor_ids", "successor_ids"]:
+        map_dfs[MapLayer.LANE][column] = map_dfs[MapLayer.LANE][column].apply(lambda x: lane_id_mapping.map_list(x))
+        map_dfs[MapLayer.LANE_GROUP][column] = map_dfs[MapLayer.LANE_GROUP][column].apply(
+            lambda x: lane_group_id_mapping.map_list(x)
+        )
+
+    for column in ["left_lane_id", "right_lane_id"]:
+        map_dfs[MapLayer.LANE][column] = map_dfs[MapLayer.LANE][column].apply(
+            lambda x: str(lane_id_mapping.str_to_int[x]) if pd.notna(x) and x is not None else x
+        )
+
+    map_dfs[MapLayer.LANE]["id"] = map_dfs[MapLayer.LANE]["id"].map(lane_id_mapping.str_to_int)
+    map_dfs[MapLayer.WALKWAY]["id"] = map_dfs[MapLayer.WALKWAY]["id"].map(walkway_id_mapping.str_to_int)
+    map_dfs[MapLayer.CARPARK]["id"] = map_dfs[MapLayer.CARPARK]["id"].map(carpark_id_mapping.str_to_int)
+    map_dfs[MapLayer.GENERIC_DRIVABLE]["id"] = map_dfs[MapLayer.GENERIC_DRIVABLE]["id"].map(
+        generic_drivable_id_mapping.str_to_int
+    )
+    map_dfs[MapLayer.LANE_GROUP]["id"] = map_dfs[MapLayer.LANE_GROUP]["id"].map(lane_group_id_mapping.str_to_int)
+
+    map_dfs[MapLayer.INTERSECTION]["lane_group_ids"] = map_dfs[MapLayer.INTERSECTION]["lane_group_ids"].apply(
+        lambda x: lane_group_id_mapping.map_list(x)
+    )

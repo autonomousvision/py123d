@@ -130,21 +130,21 @@ class TestPolylineSE2(unittest.TestCase):
         linestring = geom.LineString(coords)
         polyline = PolylineSE2.from_linestring(linestring)
         self.assertIsInstance(polyline, PolylineSE2)
-        self.assertEqual(polyline.se2_array.shape, (3, 3))
+        self.assertEqual(polyline.array.shape, (3, 3))
 
     def test_from_array_2d(self):
         """Test creating PolylineSE2 from 2D array."""
         array = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]], dtype=np.float32)
         polyline = PolylineSE2.from_array(array)
         self.assertIsInstance(polyline, PolylineSE2)
-        self.assertEqual(polyline.se2_array.shape, (3, 3))
+        self.assertEqual(polyline.array.shape, (3, 3))
 
     def test_from_array_se2(self):
         """Test creating PolylineSE2 from SE2 array."""
         array = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]], dtype=np.float32)
         polyline = PolylineSE2.from_array(array)
         self.assertIsInstance(polyline, PolylineSE2)
-        np.testing.assert_array_almost_equal(polyline.se2_array, array)
+        np.testing.assert_array_almost_equal(polyline.array, array)
 
     def test_from_array_invalid_shape(self):
         """Test creating PolylineSE2 from invalid array shape."""
@@ -157,7 +157,7 @@ class TestPolylineSE2(unittest.TestCase):
         states = [StateSE2(0.0, 0.0, 0.0), StateSE2(1.0, 0.0, 0.0), StateSE2(2.0, 0.0, 0.0)]
         polyline = PolylineSE2.from_discrete_se2(states)
         self.assertIsInstance(polyline, PolylineSE2)
-        self.assertEqual(polyline.se2_array.shape, (3, 3))
+        self.assertEqual(polyline.array.shape, (3, 3))
 
     def test_length_property(self):
         """Test length property."""

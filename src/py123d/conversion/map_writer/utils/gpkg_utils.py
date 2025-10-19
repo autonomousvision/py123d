@@ -24,3 +24,18 @@ class IntIDMapping:
         if id_list is None:
             return []
         return [self.str_to_int.get(id_str, -1) for id_str in id_list]
+
+
+class IncrementalIntIDMapping:
+
+    def __init__(self):
+        self.str_to_int: Dict[str, int] = {}
+        self.int_to_str: Dict[int, str] = {}
+        self.next_id: int = 0
+
+    def get_int_id(self, str_id: str) -> int:
+        if str_id not in self.str_to_int:
+            self.str_to_int[str_id] = self.next_id
+            self.int_to_str[self.next_id] = str_id
+            self.next_id += 1
+        return self.str_to_int[str_id]
