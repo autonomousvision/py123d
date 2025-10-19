@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -12,6 +12,30 @@ from py123d.geometry.utils.rotation_utils import (
 )
 
 
+def _extract_rotation_translation_pose_arrays(
+    pose: Union[StateSE3, npt.NDArray[np.float64]],
+) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Helper function to extract rotation matrix and translation vector from a StateSE3 or np.ndarray.
+
+    :param pose: A StateSE3 pose or np.ndarray, indexed by :class:`~py123d.geometry.StateSE3Index`.
+    :raises TypeError: If the pose is not a StateSE3 or np.ndarray.
+    :return: A tuple containing the rotation matrix, translation vector, and pose array.
+    """
+    if isinstance(pose, StateSE3):
+        translation = pose.point_3d.array
+        rotation = pose.rotation_matrix
+        pose_array = pose.array
+    elif isinstance(pose, np.ndarray):
+        assert pose.ndim == 1 and pose.shape[-1] == len(StateSE3Index)
+        translation = pose[StateSE3Index.XYZ]
+        rotation = get_rotation_matrix_from_quaternion_array(pose[StateSE3Index.QUATERNION])
+        pose_array = pose
+    else:
+        raise TypeError(f"Expected StateSE3 or np.ndarray, got {type(pose)}")
+
+    return rotation, translation, pose_array
+
+
 def convert_absolute_to_relative_points_3d_array(
     origin: Union[StateSE3, npt.NDArray[np.float64]], points_3d_array: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:
@@ -23,15 +47,7 @@ def convert_absolute_to_relative_points_3d_array(
     :return: The 3D points in the relative frame, indexed by :class:`~py123d.geometry.Point3DIndex`.
     """
 
-    if isinstance(origin, StateSE3):
-        t_origin = origin.point_3d.array
-        R_origin = origin.rotation_matrix
-    elif isinstance(origin, np.ndarray):
-        assert origin.ndim == 1 and origin.shape[-1] == len(StateSE3Index)
-        t_origin = origin[StateSE3Index.XYZ]
-        R_origin = get_rotation_matrix_from_quaternion_array(origin[StateSE3Index.QUATERNION])
-    else:
-        raise TypeError(f"Expected StateSE3 or np.ndarray, got {type(origin)}")
+    R_origin, t_origin, _ = _extract_rotation_translation_pose_arrays(origin)
 
     assert points_3d_array.ndim >= 1
     assert points_3d_array.shape[-1] == len(Point3DIndex)
@@ -51,17 +67,7 @@ def convert_absolute_to_relative_se3_array(
     :raises TypeError: If the origin is not a StateSE3 or np.ndarray.
     :return: The SE3 array in the relative frame, indexed by :class:`~py123d.geometry.StateSE3Index`.
     """
-    if isinstance(origin, StateSE3):
-        origin_array = origin.array
-        t_origin = origin.point_3d.array
-        R_origin = origin.rotation_matrix
-    elif isinstance(origin, np.ndarray):
-        assert origin.ndim == 1 and origin.shape[-1] == len(StateSE3Index)
-        origin_array = origin
-        t_origin = origin_array[StateSE3Index.XYZ]
-        R_origin = get_rotation_matrix_from_quaternion_array(origin_array[StateSE3Index.QUATERNION])
-    else:
-        raise TypeError(f"Expected StateSE3 or np.ndarray, got {type(origin)}")
+    R_origin, t_origin, origin_array = _extract_rotation_translation_pose_arrays(origin)
 
     assert se3_array.ndim >= 1
     assert se3_array.shape[-1] == len(StateSE3Index)
@@ -94,15 +100,7 @@ def convert_relative_to_absolute_points_3d_array(
     :raises TypeError: If the origin is not a StateSE3 or np.ndarray.
     :return: The 3D points in the absolute frame, indexed by :class:`~py123d.geometry.Point3DIndex`.
     """
-    if isinstance(origin, StateSE3):
-        t_origin = origin.point_3d.array
-        R_origin = origin.rotation_matrix
-    elif isinstance(origin, np.ndarray):
-        assert origin.ndim == 1 and origin.shape[-1] == len(StateSE3Index)
-        t_origin = origin[StateSE3Index.XYZ]
-        R_origin = get_rotation_matrix_from_quaternion_array(origin[StateSE3Index.QUATERNION])
-    else:
-        raise TypeError(f"Expected QuaternionSE3 or np.ndarray, got {type(origin)}")
+    R_origin, t_origin, _ = _extract_rotation_translation_pose_arrays(origin)
 
     assert points_3d_array.shape[-1] == len(Point3DIndex)
 
@@ -121,17 +119,7 @@ def convert_relative_to_absolute_se3_array(
     :return: The SE3 array in the absolute frame, indexed by :class:`~py123d.geometry.StateSE3Index`.
     """
 
-    if isinstance(origin, StateSE3):
-        origin_array = origin.array
-        t_origin = origin.point_3d.array
-        R_origin = origin.rotation_matrix
-    elif isinstance(origin, np.ndarray):
-        assert origin.ndim == 1 and origin.shape[-1] == len(StateSE3Index)
-        origin_array = origin
-        t_origin = origin_array[StateSE3Index.XYZ]
-        R_origin = get_rotation_matrix_from_quaternion_array(origin_array[StateSE3Index.QUATERNION])
-    else:
-        raise TypeError(f"Expected QuaternionSE3 or np.ndarray, got {type(origin)}")
+    R_origin, t_origin, origin_array = _extract_rotation_translation_pose_arrays(origin)
 
     assert se3_array.ndim >= 1
     assert se3_array.shape[-1] == len(StateSE3Index)
@@ -150,6 +138,78 @@ def convert_relative_to_absolute_se3_array(
     abs_se3_array[..., StateSE3Index.QUATERNION] = abs_quaternions
 
     return abs_se3_array
+
+
+def convert_se3_array_between_origins(
+    from_origin: Union[StateSE3, npt.NDArray[np.float64]],
+    to_origin: Union[StateSE3, npt.NDArray[np.float64]],
+    se3_array: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """Converts an SE3 array from one origin frame to another origin frame.
+
+    :param from_origin: The source origin state in the absolute frame, as a StateSE3 or np.ndarray.
+    :param to_origin: The target origin state in the absolute frame, as a StateSE3 or np.ndarray.
+    :param se3_array: The SE3 array in the source origin frame.
+    :raises TypeError: If the origins are not StateSE3 or np.ndarray.
+    :return: The SE3 array in the target origin frame, indexed by :class:`~py123d.geometry.StateSE3Index`.
+    """
+    # Parse from_origin & to_origin
+    R_from, t_from, from_origin_array = _extract_rotation_translation_pose_arrays(from_origin)
+    R_to, t_to, to_origin_array = _extract_rotation_translation_pose_arrays(to_origin)
+
+    assert se3_array.ndim >= 1
+    assert se3_array.shape[-1] == len(StateSE3Index)
+
+    rel_positions = se3_array[..., StateSE3Index.XYZ]
+    rel_quaternions = se3_array[..., StateSE3Index.QUATERNION]
+
+    # Compute relative transformation: T_to^-1 * T_from
+    R_rel = R_to.T @ R_from  # Relative rotation matrix
+    t_rel = R_to.T @ (t_from - t_to)  # Relative translation
+
+    q_rel = multiply_quaternion_arrays(
+        conjugate_quaternion_array(to_origin_array[StateSE3Index.QUATERNION]),
+        from_origin_array[StateSE3Index.QUATERNION],
+    )
+
+    # Transform positions: rotate and translate
+    new_rel_positions = (R_rel @ rel_positions.T).T + t_rel
+
+    # Transform orientations: quaternion multiplication
+    new_rel_quaternions = multiply_quaternion_arrays(q_rel, rel_quaternions)
+
+    # Prepare output array
+    result_se3_array = np.zeros_like(se3_array)
+    result_se3_array[..., StateSE3Index.XYZ] = new_rel_positions
+    result_se3_array[..., StateSE3Index.QUATERNION] = new_rel_quaternions
+
+    return result_se3_array
+
+
+def convert_points_3d_array_between_origins(
+    from_origin: Union[StateSE3, npt.NDArray[np.float64]],
+    to_origin: Union[StateSE3, npt.NDArray[np.float64]],
+    points_3d_array: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """Converts 3D points from one origin frame to another origin frame.
+
+    :param from_origin: The source origin state in the absolute frame, as a StateSE3 or np.ndarray.
+    :param to_origin: The target origin state in the absolute frame, as a StateSE3 or np.ndarray.
+    :param points_3d_array: The 3D points in the source origin frame.
+    :raises TypeError: If the origins are not StateSE3 or np.ndarray.
+    :return: The 3D points in the target origin frame, indexed by :class:`~py123d.geometry.Point3DIndex`.
+    """
+    # Parse from_origin & to_origin
+    R_from, t_from, _ = _extract_rotation_translation_pose_arrays(from_origin)
+    R_to, t_to, _ = _extract_rotation_translation_pose_arrays(to_origin)
+
+    assert points_3d_array.ndim >= 1
+    assert points_3d_array.shape[-1] == len(Point3DIndex)
+
+    abs_points = points_3d_array @ R_from.T + t_from
+    new_rel_points = (abs_points - t_to) @ R_to
+
+    return new_rel_points
 
 
 def translate_se3_along_z(state_se3: StateSE3, distance: float) -> StateSE3:

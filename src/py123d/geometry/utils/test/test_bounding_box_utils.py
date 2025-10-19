@@ -198,7 +198,7 @@ class TestBoundingBoxUtils(unittest.TestCase):
 
     def test_bbse3_array_to_corners_array_one_dim_rotation(self):
         for _ in range(self._num_consistency_checks):
-            se3_state = EulerStateSE3.from_array(self._get_random_euler_se3_array(1)[0]).quaternion_se3
+            se3_state = EulerStateSE3.from_array(self._get_random_euler_se3_array(1)[0]).state_se3
             se3_array = se3_state.array
 
             # construct a bounding box
@@ -227,7 +227,7 @@ class TestBoundingBoxUtils(unittest.TestCase):
         for _ in range(self._num_consistency_checks):
             N = np.random.randint(1, 20)
             se3_array = self._get_random_euler_se3_array(N)
-            se3_state_array = np.array([EulerStateSE3.from_array(arr).quaternion_se3.array for arr in se3_array])
+            se3_state_array = np.array([EulerStateSE3.from_array(arr).state_se3.array for arr in se3_array])
 
             # construct a bounding box
             bounding_box_se3_array = np.zeros((N, len(BoundingBoxSE3Index)), dtype=np.float64)

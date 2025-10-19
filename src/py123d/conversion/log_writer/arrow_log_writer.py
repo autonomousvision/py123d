@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
+import cv2
+import numpy as np
 import pyarrow as pa
 
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
@@ -159,12 +161,22 @@ class ArrowLogWriter(AbstractLogWriter):
             for camera_type in expected_cameras:
                 camera_name = camera_type.serialize()
 
-                # NOTE: Missing cameras are allowed, e.g., for synchronization mismatches.
+                # NOTE @DanielDauner: Missing cameras are allowed, e.g., for synchronization mismatches.
                 # In this case, we write None/null to the arrow table.
                 camera_data: Optional[Any] = None
                 camera_pose: Optional[StateSE3] = None
                 if camera_type in provided_cameras:
                     camera_data, camera_pose = cameras[camera_type]
+
+                # TODO: Refactor how camera data handed to the writer.
+                # This should be combined with configurations to write to log, sensor_root, or sensor_root as mp4.
+                if isinstance(camera_data, Path) or isinstance(camera_data, str):
+                    camera_data = str(camera_data)
+                elif isinstance(camera_data, bytes):
+                    camera_data = camera_data
+                elif isinstance(camera_data, np.ndarray):
+                    _, encoded_img = cv2.imencode('.jpg', camera_data)
+                    camera_data = encoded_img.tobytes()
 
                 record_batch_data[f"{camera_name}_data"] = [camera_data]
                 record_batch_data[f"{camera_name}_extrinsic"] = [camera_pose.array if camera_pose else None]

@@ -477,12 +477,11 @@ class EulerStateSE3(ArrayMixin):
         return EulerAngles.from_array(self.array[EulerStateSE3Index.EULER_ANGLES])
 
     @property
-    def quaternion_se3(self) -> StateSE3:
+    def state_se3(self) -> StateSE3:
         quaternion_se3_array = np.zeros(len(StateSE3Index), dtype=np.float64)
         quaternion_se3_array[StateSE3Index.XYZ] = self.array[EulerStateSE3Index.XYZ]
         quaternion_se3_array[StateSE3Index.QUATERNION] = Quaternion.from_euler_angles(self.euler_angles)
-
-        return StateSE3.from_array(quaternion_se3_array)
+        return StateSE3.from_array(quaternion_se3_array, copy=False)
 
     @property
     def quaternion(self) -> Quaternion:

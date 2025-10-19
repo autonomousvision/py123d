@@ -27,6 +27,18 @@ class VehicleParameters:
     def to_dict(self) -> dict:
         return asdict(self)
 
+    @property
+    def half_width(self) -> float:
+        return self.width / 2.0
+
+    @property
+    def half_length(self) -> float:
+        return self.length / 2.0
+
+    @property
+    def half_height(self) -> float:
+        return self.height / 2.0
+
 
 def get_nuplan_chrysler_pacifica_parameters() -> VehicleParameters:
     # NOTE: use parameters from nuPlan dataset

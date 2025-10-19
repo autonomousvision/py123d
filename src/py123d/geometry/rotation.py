@@ -10,6 +10,7 @@ from py123d.common.utils.mixin import ArrayMixin
 from py123d.geometry.geometry_index import EulerAnglesIndex, QuaternionIndex
 from py123d.geometry.utils.rotation_utils import (
     get_euler_array_from_quaternion_array,
+    get_euler_array_from_rotation_matrix,
     get_quaternion_array_from_rotation_matrix,
     get_rotation_matrix_from_euler_array,
     get_rotation_matrix_from_quaternion_array,
@@ -57,9 +58,7 @@ class EulerAngles(ArrayMixin):
         """
         assert rotation_matrix.ndim == 2
         assert rotation_matrix.shape == (3, 3)
-        quaternion = pyquaternion.Quaternion(matrix=rotation_matrix)
-        yaw, pitch, roll = quaternion.yaw_pitch_roll
-        return EulerAngles(roll=roll, pitch=pitch, yaw=yaw)
+        return EulerAngles.from_array(get_euler_array_from_rotation_matrix(rotation_matrix), copy=False)
 
     @property
     def roll(self) -> float:
