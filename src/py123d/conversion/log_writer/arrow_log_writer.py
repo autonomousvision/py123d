@@ -175,7 +175,7 @@ class ArrowLogWriter(AbstractLogWriter):
                 elif isinstance(camera_data, bytes):
                     camera_data = camera_data
                 elif isinstance(camera_data, np.ndarray):
-                    _, encoded_img = cv2.imencode('.jpg', camera_data)
+                    _, encoded_img = cv2.imencode(".jpg", camera_data)
                     camera_data = encoded_img.tobytes()
 
                 record_batch_data[f"{camera_name}_data"] = [camera_data]

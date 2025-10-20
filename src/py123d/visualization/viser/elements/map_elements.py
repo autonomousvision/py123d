@@ -4,14 +4,13 @@ import numpy as np
 import trimesh
 import viser
 
-from py123d.visualization.color.default import MAP_SURFACE_CONFIG
-from py123d.visualization.viser.viser_config import ViserConfig
 from py123d.datatypes.maps.abstract_map import MapLayer
 from py123d.datatypes.maps.abstract_map_objects import AbstractSurfaceMapObject
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import Point3D, Point3DIndex
-
+from py123d.visualization.color.default import MAP_SURFACE_CONFIG
+from py123d.visualization.viser.viser_config import ViserConfig
 
 last_query_position: Optional[Point3D] = None
 

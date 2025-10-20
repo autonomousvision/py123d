@@ -1,8 +1,9 @@
-from typing import Tuple
 import unittest
+from typing import Tuple
 
 import numpy as np
 import numpy.typing as npt
+from pyquaternion import Quaternion as PyQuaternion
 
 from py123d.geometry.geometry_index import EulerAnglesIndex, QuaternionIndex
 from py123d.geometry.utils.rotation_utils import (
@@ -24,9 +25,6 @@ from py123d.geometry.utils.rotation_utils import (
     normalize_angle,
     normalize_quaternion_array,
 )
-
-
-from pyquaternion import Quaternion as PyQuaternion
 
 
 def _get_rotation_matrix_helper(euler_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:

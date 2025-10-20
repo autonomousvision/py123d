@@ -1,8 +1,8 @@
 import io
 
+import laspy
 import numpy as np
 import numpy.typing as npt
-import laspy
 
 from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata
 

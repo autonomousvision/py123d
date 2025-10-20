@@ -10,13 +10,13 @@ import numpy.typing as npt
 # from PIL import ImageColor
 from pyquaternion import Quaternion
 
-from py123d.visualization.color.default import BOX_DETECTION_CONFIG
 from py123d.datatypes.detections.detection import BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.detections.detection_types import DetectionType
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import BoundingBoxSE3Index, Corners3DIndex
 from py123d.geometry.transform.transform_euler_se3 import convert_absolute_to_relative_euler_se3_array
+from py123d.visualization.color.default import BOX_DETECTION_CONFIG
 
 # from navsim.common.dataclasses import Annotations, Camera, Lidar
 # from navsim.common.enums import BoundingBoxIndex, LidarIndex

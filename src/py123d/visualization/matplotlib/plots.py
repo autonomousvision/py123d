@@ -5,13 +5,13 @@ import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.visualization.matplotlib.observation import (
     add_box_detections_to_ax,
     add_default_map_on_ax,
     add_ego_vehicle_to_ax,
     add_traffic_lights_to_ax,
 )
-from py123d.datatypes.scene.abstract_scene import AbstractScene
 
 
 def _plot_scene_on_ax(ax: plt.Axes, scene: AbstractScene, iteration: int = 0, radius: float = 80) -> plt.Axes:

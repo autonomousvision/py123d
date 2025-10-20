@@ -5,6 +5,11 @@ from typing import Dict, List, Optional
 import viser
 from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
 
+from py123d.datatypes.maps.map_datatypes import MapLayer
+from py123d.datatypes.scene.abstract_scene import AbstractScene
+from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
+from py123d.datatypes.sensors.lidar.lidar import LiDARType
+from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.visualization.viser.elements import (
     add_box_detections_to_viser_server,
     add_camera_frustums_to_viser_server,
@@ -13,11 +18,6 @@ from py123d.visualization.viser.elements import (
     add_map_to_viser_server,
 )
 from py123d.visualization.viser.viser_config import ViserConfig
-from py123d.datatypes.maps.map_datatypes import MapLayer
-from py123d.datatypes.scene.abstract_scene import AbstractScene
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
-from py123d.datatypes.sensors.lidar.lidar import LiDARType
-from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 
 logger = logging.getLogger(__name__)
 

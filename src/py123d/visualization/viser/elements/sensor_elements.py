@@ -6,7 +6,6 @@ import numpy as np
 import numpy.typing as npt
 import viser
 
-from py123d.visualization.viser.viser_config import ViserConfig
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
 from py123d.datatypes.sensors.lidar.lidar import LiDARType
@@ -16,6 +15,7 @@ from py123d.geometry.transform.transform_se3 import (
     convert_relative_to_absolute_points_3d_array,
     convert_relative_to_absolute_se3_array,
 )
+from py123d.visualization.viser.viser_config import ViserConfig
 
 
 def add_camera_frustums_to_viser_server(

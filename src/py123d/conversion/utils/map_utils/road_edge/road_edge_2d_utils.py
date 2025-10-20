@@ -4,7 +4,6 @@ import numpy as np
 import shapely
 from shapely import LinearRing, LineString, Polygon, union_all
 
-
 ROAD_EDGE_BUFFER: Final[float] = 0.05
 
 

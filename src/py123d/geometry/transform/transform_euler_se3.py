@@ -8,7 +8,6 @@ from py123d.geometry.utils.rotation_utils import (
     get_euler_array_from_rotation_matrices,
     get_rotation_matrices_from_euler_array,
     get_rotation_matrix_from_euler_array,
-    normalize_angle,
 )
 
 

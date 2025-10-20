@@ -15,7 +15,6 @@ from py123d.conversion.utils.map_utils.opendrive.utils.lane_helper import (
 from py123d.conversion.utils.map_utils.opendrive.utils.objects_helper import OpenDriveObjectHelper
 from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import split_line_geometry_by_max_length
 from py123d.conversion.utils.map_utils.road_edge.road_edge_3d_utils import get_road_edges_3d_from_drivable_surfaces
-
 from py123d.datatypes.maps.cache.cache_map_objects import (
     CacheCarpark,
     CacheCrosswalk,

@@ -2,11 +2,11 @@ import logging
 from collections import defaultdict
 from typing import Dict, List, Set
 
+import networkx as nx
 import numpy as np
 import numpy.typing as npt
 import shapely
 import shapely.geometry as geom
-import networkx as nx
 
 from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import get_road_edge_linear_rings
 from py123d.datatypes.maps.abstract_map_objects import (

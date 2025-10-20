@@ -2,7 +2,7 @@ hydra:
   run:
     dir: .
   output_subdir: null
-  searchpath:                                    
+  searchpath:
     - pkg://py123d.script.config
     - pkg://py123d.script.config.common
   job:

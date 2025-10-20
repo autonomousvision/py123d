@@ -3,8 +3,6 @@ import numpy.typing as npt
 import trimesh
 import viser
 
-from py123d.visualization.color.default import BOX_DETECTION_CONFIG
-from py123d.visualization.viser.viser_config import ViserConfig
 from py123d.datatypes.detections.detection_types import DetectionType
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
@@ -14,6 +12,8 @@ from py123d.geometry.utils.bounding_box_utils import (
     corners_array_to_3d_mesh,
     corners_array_to_edge_lines,
 )
+from py123d.visualization.color.default import BOX_DETECTION_CONFIG
+from py123d.visualization.viser.viser_config import ViserConfig
 
 
 def add_box_detections_to_viser_server(

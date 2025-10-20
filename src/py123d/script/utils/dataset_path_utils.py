@@ -4,7 +4,6 @@ from typing import Optional
 
 from omegaconf import DictConfig, OmegaConf
 
-
 logger = logging.getLogger(__name__)
 _global_dataset_paths: Optional[DictConfig] = None
 
@@ -32,8 +31,6 @@ def get_dataset_paths() -> DictConfig:
 
     :return: global dataset paths configuration
     """
-    global _global_dataset_paths
-
     if _global_dataset_paths is None:
         dataset_paths_config_yaml = Path(__file__).parent.parent / "config" / "common" / "default_dataset_paths.yaml"
         logger.warning(f"Dataset paths not set. Using default config: {dataset_paths_config_yaml}")

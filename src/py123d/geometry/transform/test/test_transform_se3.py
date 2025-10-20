@@ -2,24 +2,21 @@ import unittest
 
 import numpy as np
 import numpy.typing as npt
-from pyquaternion import Quaternion as PyQuaternion
-
 
 import py123d.geometry.transform.transform_euler_se3 as euler_transform_se3
-from py123d.geometry import EulerStateSE3, EulerStateSE3Index, Point3D, Quaternion, StateSE3, StateSE3Index
+from py123d.geometry import EulerStateSE3, EulerStateSE3Index, Point3D, StateSE3, StateSE3Index
 from py123d.geometry.transform.transform_se3 import (
     convert_absolute_to_relative_points_3d_array,
     convert_absolute_to_relative_se3_array,
+    convert_points_3d_array_between_origins,
     convert_relative_to_absolute_points_3d_array,
     convert_relative_to_absolute_se3_array,
     convert_se3_array_between_origins,
-    convert_points_3d_array_between_origins,
     translate_se3_along_body_frame,
     translate_se3_along_x,
     translate_se3_along_y,
     translate_se3_along_z,
 )
-
 from py123d.geometry.utils.rotation_utils import (
     get_quaternion_array_from_euler_array,
     get_rotation_matrices_from_euler_array,
@@ -180,10 +177,6 @@ class TestTransformSE3(unittest.TestCase):
             np.testing.assert_allclose(
                 abs_se3_euler[..., EulerStateSE3Index.XYZ], abs_se3_quat[..., StateSE3Index.XYZ], atol=1e-6
             )
-
-            # pyquat_rotation_matrices = [
-            #     PyQuaternion(array=q).rotation_matrix for q in abs_se3_quat[..., StateSE3Index.QUATERNION]
-            # ]
 
             # We compare rotation matrices to avoid issues with quaternion sign ambiguity
             quat_rotation_matrices = get_rotation_matrices_from_quaternion_array(

@@ -4,6 +4,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import shapely.geometry as geom
 
+from py123d.datatypes.detections.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from py123d.datatypes.detections.detection_types import DetectionType
+from py123d.datatypes.maps.abstract_map import AbstractMap
+from py123d.datatypes.maps.abstract_map_objects import AbstractLane
+from py123d.datatypes.maps.map_datatypes import MapLayer
+from py123d.datatypes.scene.abstract_scene import AbstractScene
+from py123d.datatypes.vehicle_state.ego_state import EgoStateSE2, EgoStateSE3
+from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D, StateSE2Index, Vector2D
+from py123d.geometry.transform.transform_se2 import translate_se2_along_body_frame
 from py123d.visualization.color.config import PlotConfig
 from py123d.visualization.color.default import (
     BOX_DETECTION_CONFIG,
@@ -19,15 +28,6 @@ from py123d.visualization.matplotlib.utils import (
     get_pose_triangle,
     shapely_geometry_local_coords,
 )
-from py123d.datatypes.detections.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
-from py123d.datatypes.detections.detection_types import DetectionType
-from py123d.datatypes.maps.abstract_map import AbstractMap
-from py123d.datatypes.maps.abstract_map_objects import AbstractLane
-from py123d.datatypes.maps.map_datatypes import MapLayer
-from py123d.datatypes.scene.abstract_scene import AbstractScene
-from py123d.datatypes.vehicle_state.ego_state import EgoStateSE2, EgoStateSE3
-from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D, StateSE2Index, Vector2D
-from py123d.geometry.transform.transform_se2 import translate_se2_along_body_frame
 
 
 def add_default_map_on_ax(

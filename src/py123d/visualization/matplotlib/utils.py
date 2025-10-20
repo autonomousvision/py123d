@@ -7,8 +7,8 @@ import shapely.affinity as affinity
 import shapely.geometry as geom
 from matplotlib.path import Path
 
-from py123d.visualization.color.config import PlotConfig
 from py123d.geometry import StateSE2, StateSE3
+from py123d.visualization.color.config import PlotConfig
 
 
 def add_shapely_polygon_to_ax(

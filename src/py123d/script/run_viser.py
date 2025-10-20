@@ -3,11 +3,11 @@ import logging
 import hydra
 from omegaconf import DictConfig
 
-from py123d.visualization.viser.viser_viewer import ViserViewer
 from py123d.script.builders.scene_builder_builder import build_scene_builder
 from py123d.script.builders.scene_filter_builder import build_scene_filter
 from py123d.script.run_conversion import build_worker
 from py123d.script.utils.dataset_path_utils import setup_dataset_paths
+from py123d.visualization.viser.viser_viewer import ViserViewer
 
 logger = logging.getLogger(__name__)
 

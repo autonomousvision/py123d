@@ -4,8 +4,8 @@ from typing import Dict, List, Optional
 import cv2
 import numpy as np
 import numpy.typing as npt
-from omegaconf import DictConfig
 import pyarrow as pa
+from omegaconf import DictConfig
 
 from py123d.conversion.datasets.pandaset.pandaset_sensor_loading import load_pandaset_lidars_pc_from_path
 from py123d.datatypes.detections.detection import (
@@ -26,7 +26,6 @@ from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 from py123d.geometry import BoundingBoxSE3, StateSE3, Vector3D
 from py123d.script.utils.dataset_path_utils import get_dataset_paths
-
 
 DATASET_PATHS: DictConfig = get_dataset_paths()
 DATASET_SENSOR_ROOT: Dict[str, Path] = {
