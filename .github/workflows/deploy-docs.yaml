@@ -3,7 +3,7 @@ name: Deploy Sphinx Documentation
 on:
   push:
     branches:
-      - main  # Change this to your default branch name if different
+      - dev_v0.0.7  # Change this to your branch name (e.g., docs, dev, etc.)
   workflow_dispatch:  # Allows manual triggering
 
 permissions:
