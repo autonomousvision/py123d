@@ -1,0 +1,5 @@
+sphinx
+sphinx-copybutton
+sphinx-rtd-theme
+sphinx-autobuild
+myst-parser
