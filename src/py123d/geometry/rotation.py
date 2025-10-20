@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from functools import cached_property
-
 import numpy as np
 import numpy.typing as npt
 import pyquaternion
@@ -11,6 +9,7 @@ from py123d.geometry.geometry_index import EulerAnglesIndex, QuaternionIndex
 from py123d.geometry.utils.rotation_utils import (
     get_euler_array_from_quaternion_array,
     get_euler_array_from_rotation_matrix,
+    get_quaternion_array_from_euler_array,
     get_quaternion_array_from_rotation_matrix,
     get_rotation_matrix_from_euler_array,
     get_rotation_matrix_from_quaternion_array,
@@ -97,7 +96,7 @@ class EulerAngles(ArrayMixin):
     def quaternion(self) -> Quaternion:
         return Quaternion.from_euler_angles(self)
 
-    @cached_property
+    @property
     def rotation_matrix(self) -> npt.NDArray[np.float64]:
         """Returns the 3x3 rotation matrix representation of the Euler angles.
         NOTE: The rotation order is intrinsic Z-Y'-X'' (yaw-pitch-roll).
@@ -164,8 +163,7 @@ class Quaternion(ArrayMixin):
         :param euler_angles: An EulerAngles instance representing the Euler angles.
         :return: A Quaternion instance.
         """
-        rotation_matrix = euler_angles.rotation_matrix
-        return Quaternion.from_rotation_matrix(rotation_matrix)
+        return Quaternion.from_array(get_quaternion_array_from_euler_array(euler_angles.array), copy=False)
 
     @property
     def qw(self) -> float:
@@ -208,7 +206,7 @@ class Quaternion(ArrayMixin):
         """
         return self._array
 
-    @cached_property
+    @property
     def pyquaternion(self) -> pyquaternion.Quaternion:
         """Returns the pyquaternion.Quaternion representation of the quaternion.
 
@@ -216,7 +214,7 @@ class Quaternion(ArrayMixin):
         """
         return pyquaternion.Quaternion(array=self.array)
 
-    @cached_property
+    @property
     def euler_angles(self) -> EulerAngles:
         """Returns the Euler angles (roll, pitch, yaw) representation of the quaternion.
         NOTE: The rotation order is intrinsic Z-Y'-X'' (yaw-pitch-roll).
@@ -225,7 +223,7 @@ class Quaternion(ArrayMixin):
         """
         return EulerAngles.from_array(get_euler_array_from_quaternion_array(self.array), copy=False)
 
-    @cached_property
+    @property
     def rotation_matrix(self) -> npt.NDArray[np.float64]:
         """Returns the 3x3 rotation matrix representation of the quaternion.
 

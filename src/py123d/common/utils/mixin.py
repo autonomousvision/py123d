@@ -54,3 +54,7 @@ class ArrayMixin:
     def copy(self) -> ArrayMixin:
         """Return a copy of the object with a copied array."""
         return self.__class__.from_array(self.array, copy=True)
+
+    def __repr__(self) -> str:
+        """String representation of the ArrayMixin instance."""
+        return f"{self.__class__.__name__}(array={self.array})"

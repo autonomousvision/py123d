@@ -37,7 +37,7 @@ def get_rotation_matrices_from_euler_array(euler_angles_array: npt.NDArray[np.fl
     Convert Euler angles to rotation matrices using Tait-Bryan ZYX convention (yaw-pitch-roll).
 
     Convention: Intrinsic rotations in order Z-Y-X (yaw, pitch, roll)
-    Equivalent to: R = R_x(roll) @ R_y(pitch) @ R_z(yaw)
+    Equivalent to: R = R_z(yaw) @ R_y(pitch) @ R_x(roll)
     """
     assert euler_angles_array.ndim >= 1 and euler_angles_array.shape[-1] == len(EulerAnglesIndex)
 
@@ -56,26 +56,32 @@ def get_rotation_matrices_from_euler_array(euler_angles_array: npt.NDArray[np.fl
     yaw = euler_angles_array_[:, EulerAnglesIndex.YAW]
 
     # Compute sin/cos for all angles at once
-    cos_roll, sin_roll = np.cos(roll), np.sin(roll)
-    cos_pitch, sin_pitch = np.cos(pitch), np.sin(pitch)
-    cos_yaw, sin_yaw = np.cos(yaw), np.sin(yaw)
+    # NOTE: (c/s = cos/sin, r/p/y = roll/pitch/yaw)
+    cr, sr = np.cos(roll), np.sin(roll)
+    cp, sp = np.cos(pitch), np.sin(pitch)
+    cy, sy = np.cos(yaw), np.sin(yaw)
 
     # Build rotation matrices for entire batch
     batch_size = euler_angles_array_.shape[0]
     rotation_matrices = np.zeros((batch_size, 3, 3), dtype=np.float64)
 
+    # Formula for ZYX Tait-Bryan rotation matrix:
+    # R = | cy*cp   cy*sp*sr - sy*cr   cy*sp*cr + sy*sr |
+    #     | sy*cp   sy*sp*sr + cy*cr   sy*sp*cr - cy*sr |
+    #     | -sp     cp*sr              cp*cr            |
+
     # ZYX Tait-Bryan rotation matrix elements
-    rotation_matrices[:, 0, 0] = cos_pitch * cos_yaw
-    rotation_matrices[:, 0, 1] = -cos_pitch * sin_yaw
-    rotation_matrices[:, 0, 2] = sin_pitch
+    rotation_matrices[:, 0, 0] = cy * cp
+    rotation_matrices[:, 1, 0] = sy * cp
+    rotation_matrices[:, 2, 0] = -sp
 
-    rotation_matrices[:, 1, 0] = sin_roll * sin_pitch * cos_yaw + cos_roll * sin_yaw
-    rotation_matrices[:, 1, 1] = -sin_roll * sin_pitch * sin_yaw + cos_roll * cos_yaw
-    rotation_matrices[:, 1, 2] = -sin_roll * cos_pitch
+    rotation_matrices[:, 0, 1] = cy * sp * sr - sy * cr
+    rotation_matrices[:, 1, 1] = sy * sp * sr + cy * cr
+    rotation_matrices[:, 2, 1] = cp * sr
 
-    rotation_matrices[:, 2, 0] = -cos_roll * sin_pitch * cos_yaw + sin_roll * sin_yaw
-    rotation_matrices[:, 2, 1] = cos_roll * sin_pitch * sin_yaw + sin_roll * cos_yaw
-    rotation_matrices[:, 2, 2] = cos_roll * cos_pitch
+    rotation_matrices[:, 0, 2] = cy * sp * cr + sy * sr
+    rotation_matrices[:, 1, 2] = sy * sp * cr - cy * sr
+    rotation_matrices[:, 2, 2] = cp * cr
 
     # Reshape back to original batch dimensions + (3, 3)
     if len(original_shape) > 1:
@@ -90,7 +96,7 @@ def get_euler_array_from_rotation_matrices(rotation_matrices: npt.NDArray[np.flo
     :param rotation_matrices: Rotation matrices of shape (..., 3, 3)
     :return: Euler angles of shape (..., 3), indexed by EulerAnglesIndex
     """
-    assert rotation_matrices.ndim == 3 and rotation_matrices.shape[-2:] == (3, 3)
+    assert rotation_matrices.ndim >= 2 and rotation_matrices.shape[-2:] == (3, 3)
 
     original_shape = rotation_matrices.shape[:-2]
 
@@ -104,15 +110,15 @@ def get_euler_array_from_rotation_matrices(rotation_matrices: npt.NDArray[np.flo
     euler_angles = np.zeros((batch_size, len(EulerAnglesIndex)), dtype=np.float64)
 
     # Calculate yaw (rotation around Z-axis)
-    euler_angles[:, EulerAnglesIndex.YAW] = np.arctan2(-R[:, 0, 1], R[:, 0, 0])
+    euler_angles[:, EulerAnglesIndex.YAW] = np.arctan2(R[:, 1, 0], R[:, 0, 0])
 
     # Calculate pitch (rotation around Y-axis)
     # NOTE: Clip to avoid numerical issues with arcsin
-    sin_pitch = np.clip(R[:, 0, 2], -1.0, 1.0)
+    sin_pitch = np.clip(-R[:, 2, 0], -1.0, 1.0)
     euler_angles[:, EulerAnglesIndex.PITCH] = np.arcsin(sin_pitch)
 
     # Calculate roll (rotation around X-axis)
-    euler_angles[:, EulerAnglesIndex.ROLL] = np.arctan2(-R[:, 1, 2], R[:, 2, 2])
+    euler_angles[:, EulerAnglesIndex.ROLL] = np.arctan2(R[:, 2, 1], R[:, 2, 2])
 
     # Reshape back to original batch dimensions + (3,)
     if len(original_shape) > 1:
@@ -127,18 +133,23 @@ def get_euler_array_from_rotation_matrix(rotation_matrix: npt.NDArray[np.float64
 
 
 def get_quaternion_array_from_rotation_matrices(rotation_matrices: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    assert rotation_matrices.ndim == 3
+    assert rotation_matrices.ndim >= 2
     assert rotation_matrices.shape[-1] == rotation_matrices.shape[-2] == 3
     # http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
 
     # TODO: Update with:
     # https://d3cw3dd2w32x2b.cloudfront.net/wp-content/uploads/2015/01/matrix-to-quat.pdf
 
-    N = rotation_matrices.shape[0]
-    quaternions = np.zeros((N, 4), dtype=np.float64)
+    original_shape = rotation_matrices.shape[:-2]
 
     # Extract rotation matrix elements for vectorized operations
-    R = rotation_matrices
+    if rotation_matrices.ndim > 3:
+        R = rotation_matrices.reshape(-1, 3, 3)
+    else:
+        R = rotation_matrices
+
+    N = R.shape[0]
+    quaternions = np.zeros((N, 4), dtype=np.float64)
 
     # Compute trace for each matrix
     trace = np.trace(R, axis1=1, axis2=2)
@@ -176,7 +187,14 @@ def get_quaternion_array_from_rotation_matrices(rotation_matrices: npt.NDArray[n
     quaternions[mask4, QuaternionIndex.QZ] = 0.25 * s4  # z
 
     assert np.all(mask1 | mask2 | mask3 | mask4), "All matrices should fall into one of the four cases."
-    return normalize_quaternion_array(quaternions)
+
+    quaternions = normalize_quaternion_array(quaternions)
+
+    # Reshape back to original batch dimensions + (4,)
+    if len(original_shape) > 1:
+        quaternions = quaternions.reshape(original_shape + (len(QuaternionIndex),))
+
+    return quaternions
 
 
 def get_quaternion_array_from_rotation_matrix(rotation_matrix: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:

@@ -24,6 +24,7 @@ from py123d.geometry.transform.transform_se2 import (
     translate_se2_along_y,
     translate_se2_array_along_body_frame,
 )
+from py123d.geometry.utils.rotation_utils import get_rotation_matrices_from_euler_array
 
 
 class TestTransformConsistency(unittest.TestCase):
@@ -151,7 +152,24 @@ class TestTransformConsistency(unittest.TestCase):
             relative_poses = convert_absolute_to_relative_euler_se3_array(reference, absolute_poses)
             recovered_absolute = convert_relative_to_absolute_euler_se3_array(reference, relative_poses)
 
-            np.testing.assert_array_almost_equal(absolute_poses, recovered_absolute, decimal=self.decimal)
+            np.testing.assert_array_almost_equal(
+                absolute_poses[..., EulerStateSE3Index.XYZ],
+                recovered_absolute[..., EulerStateSE3Index.XYZ],
+                decimal=self.decimal,
+            )
+
+            absolute_rotation_matrices = get_rotation_matrices_from_euler_array(
+                absolute_poses[..., EulerStateSE3Index.EULER_ANGLES]
+            )
+            recovered_rotation_matrices = get_rotation_matrices_from_euler_array(
+                recovered_absolute[..., EulerStateSE3Index.EULER_ANGLES]
+            )
+
+            np.testing.assert_array_almost_equal(
+                absolute_rotation_matrices,
+                recovered_rotation_matrices,
+                decimal=self.decimal,
+            )
 
     def test_se3_points_absolute_relative_conversion_consistency(self) -> None:
         """Test that converting absolute->relative->absolute returns original points"""

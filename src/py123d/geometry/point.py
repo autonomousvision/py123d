@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from functools import cached_property
 from typing import Iterable
 
 import numpy as np
@@ -108,7 +107,7 @@ class Point3D(ArrayMixin):
         object.__setattr__(instance, "_array", array.copy() if copy else array)
         return instance
 
-    @cached_property
+    @property
     def array(self) -> npt.NDArray[np.float64]:
         """The array representation of the point.
 

@@ -6,7 +6,6 @@ import numpy as np
 import numpy.typing as npt
 import viser
 
-from py123d.common.utils.timer import Timer
 from py123d.visualization.viser.viser_config import ViserConfig
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
@@ -107,12 +106,9 @@ def add_lidar_pc_to_viser_server(
 ) -> None:
     if viser_config.lidar_visible:
 
-        timer = Timer()
-        timer.start()
         scene_center_array = initial_ego_state.center.point_3d.array
         ego_pose = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
         ego_pose[StateSE3Index.XYZ] -= scene_center_array
-        timer.log("1. prepare ego pose")
 
         def _load_lidar_points(lidar_type: LiDARType) -> npt.NDArray[np.float32]:
             lidar = scene.get_lidar_at_iteration(scene_interation, lidar_type)
@@ -129,13 +125,23 @@ def add_lidar_pc_to_viser_server(
             for future in concurrent.futures.as_completed(future_to_lidar):
                 lidar_points_3d_list.append(future.result())
 
-        timer.log("2. load lidar points")
         points_3d_local = (
             np.concatenate(lidar_points_3d_list, axis=0) if lidar_points_3d_list else np.zeros((0, 3), dtype=np.float32)
         )
         points = convert_relative_to_absolute_points_3d_array(ego_pose, points_3d_local)
         colors = np.zeros_like(points)
-        timer.log("3. convert lidar points")
+
+        # # TODO: remove:
+        # lidar = scene.get_lidar_at_iteration(scene_interation, LiDARType.LIDAR_TOP)
+        # lidar_extrinsic = convert_relative_to_absolute_se3_array(
+        #     origin=ego_pose, se3_array=lidar.metadata.extrinsic.array
+        # )
+
+        # viser_server.scene.add_frame(
+        #     "lidar_frame",
+        #     position=lidar_extrinsic[StateSE3Index.XYZ],
+        #     wxyz=lidar_extrinsic[StateSE3Index.QUATERNION],
+        # )
 
         if lidar_pc_handle is not None:
             lidar_pc_handle.points = points
@@ -148,8 +154,6 @@ def add_lidar_pc_to_viser_server(
                 point_size=viser_config.lidar_point_size,
                 point_shape=viser_config.lidar_point_shape,
             )
-        timer.log("4. add lidar to viser server")
-        timer.end()
 
 
 def _get_camera_values(

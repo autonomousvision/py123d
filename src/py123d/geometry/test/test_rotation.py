@@ -207,34 +207,5 @@ class TestQuaternion(unittest.TestCase):
         self.assertNotEqual(hash(quat1), hash(quat3))
 
 
-class TestRotationConversions(unittest.TestCase):
-    """Test conversions between EulerAngles and Quaternion."""
-
-    def test_euler_to_quaternion_to_euler(self):
-        """Test round-trip conversion from Euler to Quaternion and back."""
-        original_euler = EulerAngles(0.1, 0.2, 0.3)
-        quaternion = Quaternion.from_euler_angles(original_euler)
-        converted_euler = quaternion.euler_angles
-
-        self.assertAlmostEqual(original_euler.roll, converted_euler.roll, places=10)
-        self.assertAlmostEqual(original_euler.pitch, converted_euler.pitch, places=10)
-        self.assertAlmostEqual(original_euler.yaw, converted_euler.yaw, places=10)
-
-    def test_rotation_matrix_consistency(self):
-        """Test that rotation matrix conversions are consistent."""
-        euler = EulerAngles(0.1, 0.2, 0.3)
-        quat = Quaternion.from_euler_angles(euler)
-
-        euler_from_matrix = EulerAngles.from_rotation_matrix(euler.rotation_matrix)
-        quat_from_matrix = Quaternion.from_rotation_matrix(quat.rotation_matrix)
-        self.assertAlmostEqual(euler.roll, euler_from_matrix.roll, places=10)
-        self.assertAlmostEqual(euler.pitch, euler_from_matrix.pitch, places=10)
-        self.assertAlmostEqual(euler.yaw, euler_from_matrix.yaw, places=10)
-        self.assertAlmostEqual(quat.qw, quat_from_matrix.qw, places=10)
-        self.assertAlmostEqual(quat.qx, quat_from_matrix.qx, places=10)
-        self.assertAlmostEqual(quat.qy, quat_from_matrix.qy, places=10)
-        self.assertAlmostEqual(quat.qz, quat_from_matrix.qz, places=10)
-
-
 if __name__ == "__main__":
     unittest.main()

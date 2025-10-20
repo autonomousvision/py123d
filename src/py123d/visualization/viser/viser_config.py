@@ -51,7 +51,7 @@ class ViserConfig:
 
     # Bounding boxes
     bounding_box_visible: bool = True
-    bounding_box_type: Literal["mesh", "lines"] = "mesh"
+    bounding_box_type: Literal["mesh", "lines"] = "lines"
     bounding_box_line_width: float = 4.0
 
     # Cameras

@@ -5,7 +5,6 @@ from typing import Iterable
 import numpy as np
 import numpy.typing as npt
 import shapely.geometry as geom
-from pyparsing import cached_property
 
 from py123d.common.utils.mixin import ArrayMixin
 from py123d.geometry.geometry_index import EulerStateSE3Index, Point3DIndex, StateSE2Index, StateSE3Index
@@ -248,7 +247,7 @@ class StateSE3(ArrayMixin):
         """
         return self.point_3d.shapely_point
 
-    @cached_property
+    @property
     def quaternion(self) -> Quaternion:
         """Returns the quaternion (w, x, y, z) representation of the state's orientation.
 
@@ -472,7 +471,7 @@ class EulerStateSE3(ArrayMixin):
         transformation_matrix[:3, 3] = self.array[EulerStateSE3Index.XYZ]
         return transformation_matrix
 
-    @cached_property
+    @property
     def euler_angles(self) -> EulerAngles:
         return EulerAngles.from_array(self.array[EulerStateSE3Index.EULER_ANGLES])
 

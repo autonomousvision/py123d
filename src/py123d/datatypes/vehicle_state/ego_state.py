@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
-from functools import cached_property
 from typing import Final, Optional
 
 import numpy as np
@@ -128,7 +127,7 @@ class EgoStateSE3:
     def rear_axle(self) -> StateSE3:
         return self.rear_axle_se3
 
-    @cached_property
+    @property
     def bounding_box(self) -> BoundingBoxSE3:
         return BoundingBoxSE3(
             center=self.center_se3,
@@ -216,7 +215,7 @@ class EgoStateSE2:
     def rear_axle(self) -> StateSE2:
         return self.rear_axle_se2
 
-    @cached_property
+    @property
     def bounding_box(self) -> BoundingBoxSE2:
         return BoundingBoxSE2(
             center=self.center_se2,

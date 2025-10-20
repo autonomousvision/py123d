@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from ast import Dict
-from functools import cached_property
 from typing import Union
 
 import numpy as np
@@ -92,7 +91,7 @@ class BoundingBoxSE2(ArrayMixin):
         """
         return self._array[BoundingBoxSE2Index.WIDTH]
 
-    @cached_property
+    @property
     def array(self) -> npt.NDArray[np.float64]:
         """Converts the BoundingBoxSE2 instance to a numpy array, indexed by :class:`~py123d.geometry.BoundingBoxSE2Index`.
 
@@ -100,7 +99,7 @@ class BoundingBoxSE2(ArrayMixin):
         """
         return self._array
 
-    @cached_property
+    @property
     def shapely_polygon(self) -> geom.Polygon:
         """Return a Shapely polygon representation of the bounding box.
 
@@ -116,7 +115,7 @@ class BoundingBoxSE2(ArrayMixin):
         """
         return self
 
-    @cached_property
+    @property
     def corners_array(self) -> npt.NDArray[np.float64]:
         """Returns the corner points of the bounding box as a numpy array.
 
@@ -259,7 +258,7 @@ class BoundingBoxSE3(ArrayMixin):
         """
         return self.bounding_box_se2.shapely_polygon
 
-    @cached_property
+    @property
     def corners_array(self) -> npt.NDArray[np.float64]:
         """Returns the corner points of the bounding box as a numpy array, shape (8, 3).
 
@@ -268,7 +267,7 @@ class BoundingBoxSE3(ArrayMixin):
         """
         return bbse3_array_to_corners_array(self.array)
 
-    @cached_property
+    @property
     def corners_dict(self) -> Dict[Corners3DIndex, Point3D]:
         """Returns the corner points of the bounding box as a dictionary.
 

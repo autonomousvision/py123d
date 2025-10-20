@@ -2,6 +2,8 @@ import unittest
 
 import numpy as np
 import numpy.typing as npt
+from pyquaternion import Quaternion as PyQuaternion
+
 
 import py123d.geometry.transform.transform_euler_se3 as euler_transform_se3
 from py123d.geometry import EulerStateSE3, EulerStateSE3Index, Point3D, Quaternion, StateSE3, StateSE3Index
@@ -19,6 +21,7 @@ from py123d.geometry.transform.transform_se3 import (
 )
 
 from py123d.geometry.utils.rotation_utils import (
+    get_quaternion_array_from_euler_array,
     get_rotation_matrices_from_euler_array,
     get_rotation_matrices_from_quaternion_array,
 )
@@ -79,10 +82,9 @@ class TestTransformSE3(unittest.TestCase):
         """Convert an array of SE3 poses from Euler angles to Quaternion representation"""
         quat_se3_array = np.zeros((euler_se3_array.shape[0], len(StateSE3Index)), dtype=np.float64)
         quat_se3_array[:, StateSE3Index.XYZ] = euler_se3_array[:, EulerStateSE3Index.XYZ]
-        rotation_matrices = get_rotation_matrices_from_euler_array(euler_se3_array[:, EulerStateSE3Index.EULER_ANGLES])
-        for idx, rotation_matrix in enumerate(rotation_matrices):
-            quat = Quaternion.from_rotation_matrix(rotation_matrix)
-            quat_se3_array[idx, StateSE3Index.QUATERNION] = quat.array
+        quat_se3_array[:, StateSE3Index.QUATERNION] = get_quaternion_array_from_euler_array(
+            euler_se3_array[:, EulerStateSE3Index.EULER_ANGLES]
+        )
         return quat_se3_array
 
     def _get_random_quat_se3_array(self, size: int) -> npt.NDArray[np.float64]:
@@ -178,6 +180,11 @@ class TestTransformSE3(unittest.TestCase):
             np.testing.assert_allclose(
                 abs_se3_euler[..., EulerStateSE3Index.XYZ], abs_se3_quat[..., StateSE3Index.XYZ], atol=1e-6
             )
+
+            # pyquat_rotation_matrices = [
+            #     PyQuaternion(array=q).rotation_matrix for q in abs_se3_quat[..., StateSE3Index.QUATERNION]
+            # ]
+
             # We compare rotation matrices to avoid issues with quaternion sign ambiguity
             quat_rotation_matrices = get_rotation_matrices_from_quaternion_array(
                 abs_se3_quat[..., StateSE3Index.QUATERNION]

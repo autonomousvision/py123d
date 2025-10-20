@@ -5,6 +5,7 @@ import numpy.typing as npt
 
 from py123d.geometry import EulerAngles, EulerStateSE3, EulerStateSE3Index, Point3DIndex, Vector3D, Vector3DIndex
 from py123d.geometry.utils.rotation_utils import (
+    get_euler_array_from_rotation_matrices,
     get_rotation_matrices_from_euler_array,
     get_rotation_matrix_from_euler_array,
     normalize_angle,
@@ -81,9 +82,13 @@ def convert_absolute_to_relative_euler_se3_array(
     # Convert absolute rotation matrices to relative rotation matrices
     abs_rotation_matrices = get_rotation_matrices_from_euler_array(se3_array[..., EulerStateSE3Index.EULER_ANGLES])
     rel_rotation_matrices = np.einsum("ij,...jk->...ik", R_origin.T, abs_rotation_matrices)
+
     if se3_array.shape[0] != 0:
-        rel_euler_angles = np.array([EulerAngles.from_rotation_matrix(R).array for R in rel_rotation_matrices])
-        rel_se3_array[..., EulerStateSE3Index.EULER_ANGLES] = normalize_angle(rel_euler_angles)
+        # rel_euler_angles = np.array([EulerAngles.from_rotation_matrix(R).array for R in rel_rotation_matrices])
+        # rel_se3_array[..., EulerStateSE3Index.EULER_ANGLES] = normalize_angle(rel_euler_angles)
+        rel_se3_array[..., EulerStateSE3Index.EULER_ANGLES] = get_euler_array_from_rotation_matrices(
+            rel_rotation_matrices
+        )
 
     return rel_se3_array
 
@@ -118,11 +123,10 @@ def convert_relative_to_absolute_euler_se3_array(
     # Convert relative rotation matrices to absolute rotation matrices
     rel_rotation_matrices = get_rotation_matrices_from_euler_array(se3_array[..., EulerStateSE3Index.EULER_ANGLES])
     abs_rotation_matrices = np.einsum("ij,...jk->...ik", R_origin, rel_rotation_matrices)
-
     if se3_array.shape[0] != 0:
-        abs_euler_angles = np.array([EulerAngles.from_rotation_matrix(R).array for R in abs_rotation_matrices])
-        abs_se3_array[..., EulerStateSE3Index.EULER_ANGLES] = normalize_angle(abs_euler_angles)
-
+        abs_se3_array[..., EulerStateSE3Index.EULER_ANGLES] = get_euler_array_from_rotation_matrices(
+            abs_rotation_matrices
+        )
     return abs_se3_array
 
 
