@@ -2,8 +2,8 @@ import logging
 from pathlib import Path
 from typing import Dict, Final, List
 
+import numpy as np
 import shapely
-from shapely.ops import polygonize, unary_union
 
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.utils.map_utils.opendrive.parser.opendrive import Junction, OpenDrive
@@ -13,8 +13,14 @@ from py123d.conversion.utils.map_utils.opendrive.utils.lane_helper import (
     OpenDriveLaneHelper,
 )
 from py123d.conversion.utils.map_utils.opendrive.utils.objects_helper import OpenDriveObjectHelper
-from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import split_line_geometry_by_max_length
-from py123d.conversion.utils.map_utils.road_edge.road_edge_3d_utils import get_road_edges_3d_from_drivable_surfaces
+from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
+    get_road_edge_linear_rings,
+    split_line_geometry_by_max_length,
+)
+from py123d.conversion.utils.map_utils.road_edge.road_edge_3d_utils import (
+    get_road_edges_3d_from_drivable_surfaces,
+    lift_outlines_to_3d,
+)
 from py123d.datatypes.maps.cache.cache_map_objects import (
     CacheCarpark,
     CacheCrosswalk,
@@ -27,6 +33,7 @@ from py123d.datatypes.maps.cache.cache_map_objects import (
     CacheWalkway,
 )
 from py123d.datatypes.maps.map_datatypes import RoadEdgeType, RoadLineType
+from py123d.geometry.geometry_index import Point3DIndex
 from py123d.geometry.polyline import Polyline3D
 
 logger = logging.getLogger(__name__)
@@ -37,7 +44,7 @@ MAX_ROAD_EDGE_LENGTH: Final[float] = 100.0  # [m]
 def convert_xodr_map(
     xordr_file: Path,
     map_writer: AbstractMapWriter,
-    interpolation_step_size: float = 0.5,
+    interpolation_step_size: float = 1.0,
     connection_distance_threshold: float = 0.1,
 ) -> None:
 
@@ -195,13 +202,13 @@ def _write_intersections(
             continue
 
         # TODO @DanielDauner: Create a method that extracts 3D outlines of intersections.
-        polygon = extract_exteriors_polygon(lane_group_helpers)
+        outline = _extract_intersection_outline(lane_group_helpers, junction.id)
         map_writer.write_intersection(
             CacheIntersection(
                 object_id=junction.id,
                 lane_group_ids=lane_group_ids_,
-                outline=None,
-                geometry=polygon,
+                outline=outline,
+                geometry=None,
             )
         )
 
@@ -299,27 +306,40 @@ def _write_road_edges(
         running_id += 1
 
 
-def extract_exteriors_polygon(lane_group_helpers: List[OpenDriveLaneGroupHelper]) -> shapely.Polygon:
+def _extract_intersection_outline(lane_group_helpers: List[OpenDriveLaneGroupHelper], junction_id: str) -> Polyline3D:
+    """Helper method to extract intersection outline in 3D from lane group helpers."""
 
-    # TODO @DanielDauner: Needs improvement !!!
-    # Fails if the intersection has several non overlapping parts.
-    # Does not provide 3D outline, just 2D shapely polygon.
+    # 1. Extract the intersection outlines in 2D
+    intersection_polygons: List[shapely.Polygon] = [
+        lane_group_helper.shapely_polygon for lane_group_helper in lane_group_helpers
+    ]
+    intersection_edges = get_road_edge_linear_rings(
+        intersection_polygons,
+        buffer_distance=0.25,
+        add_interiors=False,
+    )
 
-    # Step 1: Extract all boundary line segments
-    all_polygons = []
-    for lane_group_helper in lane_group_helpers:
-        all_polygons.append(lane_group_helper.shapely_polygon)
+    # 2. Lift the 2D outlines to 3D
+    lane_group_outlines: List[Polyline3D] = [
+        lane_group_helper.outline_polyline_3d for lane_group_helper in lane_group_helpers
+    ]
+    intersection_outlines = lift_outlines_to_3d(intersection_edges, lane_group_outlines)
 
-    # Step 2: Merge all boundaries and extract the enclosed polygons
-    merged_boundaries = unary_union(all_polygons)
+    # NOTE: When the intersection has multiple non-overlapping outlines, we cannot return a single outline in 3D.
+    # For now, we return the longest outline.
+    valid_outlines = [outline for outline in intersection_outlines if outline.array.shape[0] > 2]
+    if len(valid_outlines) == 0:
+        logging.warning(
+            f"Could not extract valid outline for intersection {junction_id} with {len(intersection_edges)} edges!"
+        )
+        longest_outline_2d = max(intersection_edges, key=lambda outline: outline.length)
+        average_z = sum(outline.array[:, 2].mean() for outline in intersection_outlines) / len(intersection_outlines)
 
-    # Step 3: Generate polygons from the merged lines
-    polygons = list(polygonize(merged_boundaries))
-
-    # Step 4: Select the polygon that represents the intersection
-    # Usually it's the largest polygon
-    if len(polygons) == 1:
-        return polygons[0]
+        outline_3d_array = np.zeros((len(longest_outline_2d.coords), 3))
+        outline_3d_array[:, Point3DIndex.XY] = np.array(longest_outline_2d.coords)
+        outline_3d_array[:, Point3DIndex.Z] = average_z
+        longest_outline = Polyline3D.from_array(outline_3d_array)
     else:
-        # Take the largest polygon if there are multiple
-        return max(polygons, key=lambda p: p.area)
+        longest_outline = max(valid_outlines, key=lambda outline: outline.length)
+
+    return longest_outline

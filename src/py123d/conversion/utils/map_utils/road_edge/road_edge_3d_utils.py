@@ -191,7 +191,7 @@ def lift_road_edges_to_3d(
                 query_point = query_points[query_idx]
                 segment_coords = boundary_segments[geometry_idx]
                 best_z = _interpolate_z_on_segment(query_point, segment_coords)
-                points_3d[query_idx, 2] = best_z
+                points_3d[query_idx, Point3DIndex.Z] = best_z
 
             continuous_segments = _split_continuous_segments(np.array(results[0]))
             for segment_indices in continuous_segments:
@@ -200,6 +200,57 @@ def lift_road_edges_to_3d(
                     road_edges_3d.append(Polyline3D.from_array(segment_points))
 
     return road_edges_3d
+
+
+def lift_outlines_to_3d(
+    outlines_2d: List[shapely.LinearRing],
+    boundaries: List[Polyline3D],
+    max_distance: float = 10.0,
+) -> List[Polyline3D]:
+    """Lift 2D outlines to 3D by querying elevation from boundary segments.
+
+    :param outlines_2d: List of 2D outline geometries.
+    :param boundaries: List of 3D boundary geometries.
+    :param max_distance: Maximum 2D distance for outline-boundary association.
+    :return: List of lifted 3D outline geometries.
+    """
+
+    outlines_3d: List[Polyline3D] = []
+    if len(outlines_2d) >= 1 and len(boundaries) >= 1:
+        boundary_segments = []
+        for boundary in boundaries:
+            coords = boundary.array.reshape(-1, 1, 3)
+            segment_coords_boundary = np.concatenate([coords[:-1], coords[1:]], axis=1)
+            boundary_segments.append(segment_coords_boundary)
+
+        boundary_segments = np.concatenate(boundary_segments, axis=0)
+        boundary_segment_linestrings = shapely.creation.linestrings(boundary_segments)
+        occupancy_map = OccupancyMap2D(boundary_segment_linestrings)
+
+        for linear_ring in outlines_2d:
+            points_2d = np.array(linear_ring.coords, dtype=np.float64)
+            points_3d = np.zeros((len(points_2d), len(Point3DIndex)), dtype=np.float64)
+            points_3d[..., Point3DIndex.XY] = points_2d
+
+            # 3. Batch query for all points
+            query_points = shapely.creation.points(points_2d)
+            results = occupancy_map.query_nearest(query_points, max_distance=max_distance, exclusive=True)
+
+            found_nearest = np.zeros(len(points_2d), dtype=bool)
+            for query_idx, geometry_idx in zip(*results):
+                query_point = query_points[query_idx]
+                segment_coords = boundary_segments[geometry_idx]
+                best_z = _interpolate_z_on_segment(query_point, segment_coords)
+                points_3d[query_idx, Point3DIndex.Z] = best_z
+                found_nearest[query_idx] = True
+
+            if not np.all(found_nearest):
+                logger.warning("Some outline points could not find a nearest boundary segment for Z-lifting.")
+                points_3d[~found_nearest, Point3DIndex.Z] = np.mean(points_3d[found_nearest, Point3DIndex.Z])
+
+            outlines_3d.append(Polyline3D.from_array(points_3d))
+
+    return outlines_3d
 
 
 def _resolve_conflicting_lane_groups(

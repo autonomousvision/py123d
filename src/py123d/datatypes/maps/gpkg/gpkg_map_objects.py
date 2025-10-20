@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 from functools import cached_property
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import geopandas as gpd
 import numpy as np
@@ -27,6 +27,7 @@ from py123d.datatypes.maps.abstract_map_objects import (
 from py123d.datatypes.maps.gpkg.gpkg_utils import get_row_with_value, get_trimesh_from_boundaries
 from py123d.datatypes.maps.map_datatypes import RoadEdgeType, RoadLineType
 from py123d.geometry import Point3DIndex, Polyline3D
+from py123d.geometry.polyline import Polyline2D
 
 
 class GPKGSurfaceObject(AbstractSurfaceMapObject):
@@ -105,7 +106,7 @@ class GPKGLineObject(AbstractLineMapObject):
         return get_row_with_value(self._object_df, "id", self.object_id)
 
     @property
-    def polyline_3d(self) -> Polyline3D:
+    def polyline(self) -> Union[Polyline2D, Polyline3D]:
         """Inherited, see superclass."""
         return Polyline3D.from_linestring(self._object_row.geometry)
 

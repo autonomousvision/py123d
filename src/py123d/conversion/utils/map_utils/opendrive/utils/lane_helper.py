@@ -140,8 +140,8 @@ class OpenDriveLaneHelper:
 
     @property
     def outline_polyline_3d(self) -> Polyline3D:
-        inner_polyline = self.inner_polyline_3d.array[::-1]
-        outer_polyline = self.outer_polyline_3d.array
+        inner_polyline = self.inner_polyline_3d.array
+        outer_polyline = self.outer_polyline_3d.array[::-1]
         return Polyline3D.from_array(
             np.concatenate(
                 [
@@ -156,9 +156,17 @@ class OpenDriveLaneHelper:
 
     @property
     def shapely_polygon(self) -> shapely.Polygon:
-        inner_polyline = self.inner_polyline_se2[..., StateSE2Index.XY][::-1]
-        outer_polyline = self.outer_polyline_se2[..., StateSE2Index.XY]
-        polygon_exterior = np.concatenate([inner_polyline, outer_polyline], axis=0, dtype=np.float64)
+        inner_polyline = self.inner_polyline_se2[..., StateSE2Index.XY]
+        outer_polyline = self.outer_polyline_se2[..., StateSE2Index.XY][::-1]
+        polygon_exterior = np.concatenate(
+            [
+                inner_polyline,
+                outer_polyline,
+                inner_polyline[None, 0],
+            ],
+            axis=0,
+            dtype=np.float64,
+        )
         return shapely.Polygon(polygon_exterior)
 
 
@@ -215,8 +223,8 @@ class OpenDriveLaneGroupHelper:
 
     @property
     def outline_polyline_3d(self) -> Polyline3D:
-        inner_polyline = self.inner_polyline_3d.array[::-1]
-        outer_polyline = self.outer_polyline_3d.array
+        inner_polyline = self.inner_polyline_3d.array
+        outer_polyline = self.outer_polyline_3d.array[::-1]
         return Polyline3D.from_array(
             np.concatenate(
                 [
@@ -231,9 +239,17 @@ class OpenDriveLaneGroupHelper:
 
     @property
     def shapely_polygon(self) -> shapely.Polygon:
-        inner_polyline = self.inner_polyline_se2[..., StateSE2Index.XY][::-1]
-        outer_polyline = self.outer_polyline_se2[..., StateSE2Index.XY]
-        polygon_exterior = np.concatenate([inner_polyline, outer_polyline], axis=0, dtype=np.float64)
+        inner_polyline = self.inner_polyline_se2[..., StateSE2Index.XY]
+        outer_polyline = self.outer_polyline_se2[..., StateSE2Index.XY][::-1]
+        polygon_exterior = np.concatenate(
+            [
+                inner_polyline,
+                outer_polyline,
+                inner_polyline[None, 0],
+            ],
+            axis=0,
+            dtype=np.float64,
+        )
         return shapely.Polygon(polygon_exterior)
 
 

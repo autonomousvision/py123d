@@ -3,7 +3,6 @@ import time
 from typing import Dict, List, Optional
 
 import viser
-from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
 
 from py123d.datatypes.maps.map_datatypes import MapLayer
 from py123d.datatypes.scene.abstract_scene import AbstractScene
@@ -18,6 +17,9 @@ from py123d.visualization.viser.elements import (
     add_map_to_viser_server,
 )
 from py123d.visualization.viser.viser_config import ViserConfig
+
+# from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
+
 
 logger = logging.getLogger(__name__)
 
@@ -51,34 +53,34 @@ def _build_viser_server(viser_config: ViserConfig) -> viser.ViserServer:
         verbose=viser_config.server_verbose,
     )
 
-    # TODO: Fix links and logo.
-    buttons = (
-        TitlebarButton(
-            text="Getting Started",
-            icon=None,
-            href="https://nerf.studio",
-        ),
-        TitlebarButton(
-            text="Github",
-            icon="GitHub",
-            href="https://github.com/nerfstudio-project/nerfstudio",
-        ),
-        TitlebarButton(
-            text="Documentation",
-            icon="Description",
-            href="https://docs.nerf.studio",
-        ),
-    )
-    image = TitlebarImage(
-        image_url_light="https://docs.nerf.studio/_static/imgs/logo.png",
-        image_url_dark="https://docs.nerf.studio/_static/imgs/logo-dark.png",
-        image_alt="NerfStudio Logo",
-        href="https://docs.nerf.studio/",
-    )
-    titlebar_theme = TitlebarConfig(buttons=buttons, image=image)
+    # TODO: Add logos, once we are public
+    # buttons = (
+    #     TitlebarButton(
+    #         text="Getting Started",
+    #         icon=None,
+    #         href="https://nerf.studio",
+    #     ),
+    #     TitlebarButton(
+    #         text="Github",
+    #         icon="GitHub",
+    #         href="https://github.com/nerfstudio-project/nerfstudio",
+    #     ),
+    #     TitlebarButton(
+    #         text="Documentation",
+    #         icon="Description",
+    #         href="https://docs.nerf.studio",
+    #     ),
+    # )
+    # image = TitlebarImage(
+    #     image_url_light="https://docs.nerf.studio/_static/imgs/logo.png",
+    #     image_url_dark="https://docs.nerf.studio/_static/imgs/logo-dark.png",
+    #     image_alt="NerfStudio Logo",
+    #     href="https://docs.nerf.studio/",
+    # )
+    # titlebar_theme = TitlebarConfig(buttons=buttons, image=image)
 
     server.gui.configure_theme(
-        titlebar_content=titlebar_theme,
+        # titlebar_content=titlebar_theme,
         control_layout=viser_config.theme_control_layout,
         control_width=viser_config.theme_control_width,
         dark_mode=viser_config.theme_dark_mode,

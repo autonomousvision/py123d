@@ -1,24 +1,27 @@
-from typing import Final, List, Union
+from typing import List, Union
 
 import numpy as np
 import shapely
 from shapely import LinearRing, LineString, Polygon, union_all
 
-ROAD_EDGE_BUFFER: Final[float] = 0.05
 
-
-def get_road_edge_linear_rings(drivable_polygons: List[Polygon]) -> List[LinearRing]:
+def get_road_edge_linear_rings(
+    drivable_polygons: List[Polygon],
+    buffer_distance: float = 0.05,
+    add_interiors: bool = True,
+) -> List[LinearRing]:
 
     def _polygon_to_linear_rings(polygon: Polygon) -> List[LinearRing]:
         assert polygon.geom_type == "Polygon"
         linear_ring_list = []
         linear_ring_list.append(polygon.exterior)
-        for interior in polygon.interiors:
-            linear_ring_list.append(interior)
+        if add_interiors:
+            for interior in polygon.interiors:
+                linear_ring_list.append(interior)
         return linear_ring_list
 
-    union_polygon = union_all([polygon.buffer(ROAD_EDGE_BUFFER, join_style=2) for polygon in drivable_polygons]).buffer(
-        -ROAD_EDGE_BUFFER, join_style=2
+    union_polygon = union_all([polygon.buffer(buffer_distance, join_style=2) for polygon in drivable_polygons]).buffer(
+        -buffer_distance, join_style=2
     )
 
     linear_ring_list = []
