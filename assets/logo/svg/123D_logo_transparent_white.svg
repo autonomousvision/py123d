@@ -10,7 +10,7 @@
    xml:space="preserve"
    sodipodi:docname="123D_logo_transparent_white.svg"
    inkscape:version="1.4.2 (1:1.4.2+202505120738+ebf0e940d0)"
-   inkscape:export-filename="123D_logo_transparent_white.png"
+   inkscape:export-filename="../123D_logo_transparent_white.png"
    inkscape:export-xdpi="200"
    inkscape:export-ydpi="200"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
@@ -28,14 +28,14 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      inkscape:zoom="1"
-     inkscape:cx="-3.5"
-     inkscape:cy="388.5"
+     inkscape:cx="168"
+     inkscape:cy="175.5"
      inkscape:window-width="2560"
      inkscape:window-height="1340"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
-     inkscape:current-layer="svg1"
+     inkscape:current-layer="layer4"
      showguides="false" /><defs
      id="defs1" /><image
      width="307.48264"
@@ -45,7 +45,8 @@
      id="image1"
      x="-49.61945"
      y="-50.225605"
-     style="display:none" /><g
+     style="display:none"
+     inkscape:label="GitHub background" /><g
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
      id="layer1"><path
@@ -97,7 +98,7 @@
      id="layer4"
      inkscape:label="lane"
      transform="translate(0.46772167,4.3965837)"><path
-       style="stroke-width:1.5;stroke-dasharray:3.525, 3;fill:none;fill-opacity:1;stroke:#ffffff;stroke-linecap:round;stroke-linejoin:bevel;stroke-dashoffset:0;stroke-opacity:1;paint-order:markers fill stroke"
+       style="stroke-width:1.25;stroke-dasharray:3.4375, 3.125;fill:none;fill-opacity:1;stroke:#ffffff;stroke-linecap:round;stroke-linejoin:round;stroke-dashoffset:0;stroke-opacity:1;paint-order:markers fill stroke"
        d="M 30.426141,3.7785402 22.33592,19.844083 30.84709,36.611209"
        id="path4-1"
        sodipodi:nodetypes="ccc" /></g><g
