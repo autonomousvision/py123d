@@ -56,8 +56,7 @@ html_static_path = ["_static"]
 
 html_theme_options = {
     "analytics_anonymize_ip": False,
-    "logo_only": False,
-    "display_version": True,
+    "logo_only": True,
     "prev_next_buttons_location": "bottom",
     "style_external_links": False,
     "vcs_pageview_mode": "",
@@ -79,3 +78,17 @@ autodoc_default_options = {
     "exclude-members": "__init__, __post_init__, __new__",
     "imported-members": True,
 }
+
+# Logo configuration
+html_logo = "_static/logo_white.png"  # or whatever your logo file is named
+# Custom CSS for color theming
+html_css_files = [
+    "custom.css",
+]
+
+# Additional theme options for color customization
+html_theme_options.update(
+    {
+        "style_nav_header_background": "#565656",  # Navigation header background
+    }
+)
