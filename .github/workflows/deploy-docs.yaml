@@ -33,12 +33,12 @@ jobs:
 
       - name: Build Sphinx documentation
         run: |
-            sphinx-build docs docs/build -b dirhtml
+            sphinx-build docs docs/_build -b dirhtml
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: 'docs/_build/html'
+          path: 'docs/_build'
 
   deploy:
     environment:
