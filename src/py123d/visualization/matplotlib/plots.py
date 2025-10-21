@@ -23,8 +23,9 @@ def _plot_scene_on_ax(ax: plt.Axes, scene: AbstractScene, iteration: int = 0, ra
     map_api = scene.get_map_api()
 
     point_2d = ego_vehicle_state.bounding_box.center.state_se2.point_2d
-    add_default_map_on_ax(ax, map_api, point_2d, radius=radius, route_lane_group_ids=route_lane_group_ids)
-    add_traffic_lights_to_ax(ax, traffic_light_detections, map_api)
+    if map_api is not None:
+        add_default_map_on_ax(ax, map_api, point_2d, radius=radius, route_lane_group_ids=route_lane_group_ids)
+        add_traffic_lights_to_ax(ax, traffic_light_detections, map_api)
 
     add_box_detections_to_ax(ax, box_detections)
     add_ego_vehicle_to_ax(ax, ego_vehicle_state)
@@ -60,8 +61,6 @@ def render_scene_animation(
     output_path = Path(output_path)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    scene.open()
-
     if end_idx is None:
         end_idx = scene.number_of_iterations
     end_idx = min(end_idx, scene.number_of_iterations)
@@ -78,6 +77,5 @@ def render_scene_animation(
     pbar = tqdm(total=len(frames), desc=f"Rendering {scene.log_name} as {format}")
     ani = animation.FuncAnimation(fig, update, frames=frames, repeat=False)
 
-    ani.save(output_path / f"{scene.log_name}_{scene.token}.{format}", writer="ffmpeg", fps=fps, dpi=dpi)
+    ani.save(output_path / f"{scene.log_name}_{scene.uuid}.{format}", writer="ffmpeg", fps=fps, dpi=dpi)
     plt.close(fig)
-    scene.close()

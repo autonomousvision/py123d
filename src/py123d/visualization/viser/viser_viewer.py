@@ -78,9 +78,10 @@ def _build_viser_server(viser_config: ViserConfig) -> viser.ViserServer:
     #     href="https://docs.nerf.studio/",
     # )
     # titlebar_theme = TitlebarConfig(buttons=buttons, image=image)
+    titlebar_theme = None
 
     server.gui.configure_theme(
-        # titlebar_content=titlebar_theme,
+        titlebar_content=titlebar_theme,
         control_layout=viser_config.theme_control_layout,
         control_width=viser_config.theme_control_width,
         dark_mode=viser_config.theme_dark_mode,
@@ -88,7 +89,6 @@ def _build_viser_server(viser_config: ViserConfig) -> viser.ViserServer:
         show_share_button=viser_config.theme_show_share_button,
         brand_color=viser_config.theme_brand_color,
     )
-
     return server
 
 

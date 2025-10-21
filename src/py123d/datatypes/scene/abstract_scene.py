@@ -94,7 +94,7 @@ class AbstractScene(abc.ABC):
         return self.get_scene_extraction_metadata()
 
     @property
-    def token(self) -> str:
+    def uuid(self) -> str:
         return self.scene_extraction_metadata.initial_uuid
 
     @property

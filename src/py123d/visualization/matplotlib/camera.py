@@ -12,10 +12,10 @@ from pyquaternion import Quaternion
 
 from py123d.datatypes.detections.detection import BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.detections.detection_types import DetectionType
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera
+from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeIntrinsics
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import BoundingBoxSE3Index, Corners3DIndex
-from py123d.geometry.transform.transform_euler_se3 import convert_absolute_to_relative_euler_se3_array
+from py123d.geometry.transform.transform_se3 import convert_absolute_to_relative_se3_array
 from py123d.visualization.color.default import BOX_DETECTION_CONFIG
 
 # from navsim.common.dataclasses import Annotations, Camera, Lidar
@@ -98,12 +98,12 @@ def add_box_detections_to_camera_ax(
         box_detection_array[idx] = box_detection.bounding_box_se3.array
 
     # FIXME
-    box_detection_array[..., BoundingBoxSE3Index.STATE_SE3] = convert_absolute_to_relative_euler_se3_array(
+    box_detection_array[..., BoundingBoxSE3Index.STATE_SE3] = convert_absolute_to_relative_se3_array(
         ego_state_se3.rear_axle_se3, box_detection_array[..., BoundingBoxSE3Index.STATE_SE3]
     )
     # box_detection_array[..., BoundingBoxSE3Index.XYZ] -= ego_state_se3.rear_axle_se3.point_3d.array
     detection_positions, detection_extents, detection_yaws = _transform_annotations_to_camera(
-        box_detection_array, camera.extrinsic
+        box_detection_array, camera.extrinsic.transformation_matrix
     )
 
     corners_norm = np.stack(np.unravel_index(np.arange(len(Corners3DIndex)), [2] * 3), axis=1)
@@ -131,7 +131,7 @@ def _transform_annotations_to_camera(
     boxes: npt.NDArray[np.float32],
     # sensor2lidar_rotation: npt.NDArray[np.float32],
     # sensor2lidar_translation: npt.NDArray[np.float32],
-    extrinsic: npt.NDArray[np.float64],
+    extrinsic: npt.NDArray[np.float32],
 ) -> npt.NDArray[np.float32]:
     """
     Helper function to transform bounding boxes into camera frame
@@ -144,17 +144,17 @@ def _transform_annotations_to_camera(
     sensor2lidar_rotation = extrinsic[:3, :3]
     sensor2lidar_translation = extrinsic[:3, 3]
 
-    locs, rots = (
+    locs, quaternions = (
         boxes[:, BoundingBoxSE3Index.XYZ],
-        boxes[:, BoundingBoxSE3Index.YAW],
+        boxes[:, BoundingBoxSE3Index.QUATERNION],
     )
     dims_cam = boxes[
         :, [BoundingBoxSE3Index.LENGTH, BoundingBoxSE3Index.HEIGHT, BoundingBoxSE3Index.WIDTH]
     ]  # l, w, h -> l, h, w
 
-    rots_cam = np.zeros_like(rots)
-    for idx, rot in enumerate(rots):
-        rot = Quaternion(axis=[0, 0, 1], radians=rot)
+    rots_cam = np.zeros_like(quaternions[..., 0])
+    for idx, quaternion in enumerate(quaternions):
+        rot = Quaternion(array=quaternion)
         rot = Quaternion(matrix=sensor2lidar_rotation).inverse * rot
         rots_cam[idx] = -rot.yaw_pitch_roll[0]
 
@@ -261,7 +261,7 @@ def _plot_rect_3d_on_img(
 
 def _transform_points_to_image(
     points: npt.NDArray[np.float32],
-    intrinsic: npt.NDArray[np.float32],
+    intrinsics: PinholeIntrinsics,
     image_shape: Optional[Tuple[int, int]] = None,
     eps: float = 1e-3,
 ) -> Tuple[npt.NDArray[np.float32], npt.NDArray[np.bool_]]:
@@ -276,8 +276,10 @@ def _transform_points_to_image(
     """
     points = points[:, :3]
 
+    K = intrinsics.camera_matrix
+
     viewpad = np.eye(4)
-    viewpad[: intrinsic.shape[0], : intrinsic.shape[1]] = intrinsic
+    viewpad[: K.shape[0], : K.shape[1]] = K
 
     pc_img = np.concatenate([points, np.ones_like(points)[:, :1]], -1)
     pc_img = viewpad @ pc_img.T

@@ -77,20 +77,24 @@ def get_box_detections_from_arrow_table(arrow_table: pa.Table, index: int) -> Bo
 
 def get_traffic_light_detections_from_arrow_table(arrow_table: pa.Table, index: int) -> TrafficLightDetectionWrapper:
     timepoint = get_timepoint_from_arrow_table(arrow_table, index)
-    traffic_light_detections: List[TrafficLightDetection] = []
+    traffic_light_detections: Optional[List[TrafficLightDetection]] = None
 
-    for lane_id, status in zip(
-        arrow_table["traffic_light_ids"][index].as_py(),
-        arrow_table["traffic_light_types"][index].as_py(),
-    ):
-        traffic_light_detection = TrafficLightDetection(
-            timepoint=timepoint,
-            lane_id=lane_id,
-            status=TrafficLightStatus(status),
-        )
-        traffic_light_detections.append(traffic_light_detection)
+    if "traffic_light_ids" in arrow_table.schema.names and "traffic_light_types" in arrow_table.schema.names:
+        traffic_light_detections: List[TrafficLightDetection] = []
+        for lane_id, status in zip(
+            arrow_table["traffic_light_ids"][index].as_py(),
+            arrow_table["traffic_light_types"][index].as_py(),
+        ):
+            traffic_light_detection = TrafficLightDetection(
+                timepoint=timepoint,
+                lane_id=lane_id,
+                status=TrafficLightStatus(status),
+            )
+            traffic_light_detections.append(traffic_light_detection)
 
-    return TrafficLightDetectionWrapper(traffic_light_detections=traffic_light_detections)
+        traffic_light_detections = TrafficLightDetectionWrapper(traffic_light_detections=traffic_light_detections)
+
+    return traffic_light_detections
 
 
 def get_camera_from_arrow_table(
@@ -161,10 +165,7 @@ def get_lidar_from_arrow_table(
                 lidar = load_nuplan_lidar_from_path(full_lidar_path, lidar_metadata)
 
             elif log_metadata.dataset == "carla":
-                from py123d.conversion.datasets.carla.carla_load_sensor import load_carla_lidar_from_path
-
-                lidar = load_carla_lidar_from_path(full_lidar_path, lidar_metadata)
-
+                raise NotImplementedError("Loading LiDAR data for Carla dataset is not implemented.")
             elif log_metadata.dataset == "av2-sensor":
                 from py123d.conversion.datasets.av2.utils.av2_sensor_loading import load_av2_sensor_lidar_pc_from_path
 

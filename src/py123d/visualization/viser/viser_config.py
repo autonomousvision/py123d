@@ -3,6 +3,7 @@ from typing import List, Literal, Optional, Tuple
 
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
 from py123d.datatypes.sensors.lidar.lidar import LiDARType
+from py123d.visualization.color.color import ELLIS_5
 
 all_camera_types: List[PinholeCameraType] = [
     PinholeCameraType.CAM_F0,
@@ -41,7 +42,7 @@ class ViserConfig:
     theme_dark_mode: bool = False
     theme_show_logo: bool = True
     theme_show_share_button: bool = True
-    theme_brand_color: Optional[Tuple[int, int, int]] = None
+    theme_brand_color: Optional[Tuple[int, int, int]] = ELLIS_5[0].rgb
 
     # Map
     map_visible: bool = True
