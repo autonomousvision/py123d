@@ -50,5 +50,5 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v3
         with:
-          branch: gh-pages
+          branch: dev_v0.0.7
           folder: docs/_build
