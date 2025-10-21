@@ -41,14 +41,14 @@ jobs:
           path: 'docs/_build'
 
   deploy:
-    needs: build
+    environment:
+      name: github-pages
+      url: ${{steps.deployment.outputs.page_url}}
     runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
+    needs: build
     steps:
       - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v3
+        id: deployment
+        uses: actions/deploy-pages@v4
         with:
-          branch: dev_v0.0.7
-          folder: docs/_build
+          publish_dir: './docs/_build'
