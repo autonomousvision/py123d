@@ -48,6 +48,7 @@ dependencies = [
     "trimesh",
     "viser",
     "laspy[lazrs]",
+    "DracoPy",
 ]
 
 [project.scripts]

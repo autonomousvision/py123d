@@ -8,9 +8,9 @@ if __name__ == "__main__":
 
     # splits = ["nuplan-mini_test", "nuplan-mini_train", "nuplan-mini_val"]
     # splits = ["nuplan_private_test"]
-    splits = ["carla_test"]
+    # splits = ["carla_test"]
     # splits = ["wopd_val"]
-    # splits = ["av2-sensor_train"]
+    splits = ["av2-sensor_train"]
     # splits = ["pandaset_test", "pandaset_val", "pandaset_train"]
     log_names = None
     scene_uuids = None

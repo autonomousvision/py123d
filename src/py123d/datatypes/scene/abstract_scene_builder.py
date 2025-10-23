@@ -5,8 +5,6 @@ from py123d.common.multithreading.worker_utils import WorkerPool
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.scene.scene_filter import SceneFilter
 
-# TODO: Expand lazy implementation for scene builder.
-
 
 class SceneBuilder(abc.ABC):
     """

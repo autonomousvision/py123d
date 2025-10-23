@@ -7,7 +7,6 @@ import numpy.typing as npt
 import pyarrow as pa
 from omegaconf import DictConfig
 
-from py123d.conversion.datasets.pandaset.pandaset_sensor_loading import load_pandaset_lidars_pc_from_path
 from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.detections.box_detections import (
     BoxDetection,
@@ -23,6 +22,7 @@ from py123d.datatypes.detections.traffic_light_detections import (
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
 from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARType
+from py123d.datatypes.sensors.lidar.lidar_index import DefaultLidarIndex
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
@@ -182,6 +182,9 @@ def get_lidar_from_arrow_table(
 
                 raise NotImplementedError
             elif log_metadata.dataset == "pandaset":
+                from py123d.conversion.datasets.pandaset.pandaset_sensor_loading import (
+                    load_pandaset_lidars_pc_from_path,
+                )
 
                 ego_state_se3 = get_ego_vehicle_state_from_arrow_table(
                     arrow_table, index, log_metadata.vehicle_parameters
@@ -196,9 +199,19 @@ def get_lidar_from_arrow_table(
                 raise NotImplementedError(f"Loading LiDAR data for dataset {log_metadata.dataset} is not implemented.")
 
         elif isinstance(lidar_data, bytes):
-            from py123d.conversion.log_writer.utils.lidar_compression import decompress_lidar_from_laz
 
-            lidar = decompress_lidar_from_laz(lidar_data, lidar_metadata)
+            if lidar_data.startswith(b"DRACO"):
+                from py123d.conversion.log_writer.utils.draco_lidar_compression import decompress_lidar_from_draco
+
+                # NOTE: DRACO only allows XYZ compression, so we need to override the lidar index here.
+                lidar_metadata.lidar_index = DefaultLidarIndex
+
+                lidar = decompress_lidar_from_draco(lidar_data, lidar_metadata)
+            elif lidar_data.startswith(b"LASF"):
+
+                from py123d.conversion.log_writer.utils.laz_lidar_compression import decompress_lidar_from_laz
+
+                lidar = decompress_lidar_from_laz(lidar_data, lidar_metadata)
         elif lidar_data is None:
             lidar = None
         else:

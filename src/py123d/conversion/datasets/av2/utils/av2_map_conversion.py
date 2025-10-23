@@ -189,7 +189,8 @@ def _write_av2_road_edge(drivable_areas: Dict[int, Polyline3D], map_writer: Abst
     drivable_polygons = [geom.Polygon(drivable_area.array[:, :2]) for drivable_area in drivable_areas.values()]
     road_edges_2d = get_road_edge_linear_rings(drivable_polygons)
     non_conflicting_road_edges = lift_road_edges_to_3d(road_edges_2d, list(drivable_areas.values()))
-    road_edges = split_line_geometry_by_max_length(non_conflicting_road_edges, MAX_ROAD_EDGE_LENGTH)
+    non_conflicting_road_edges_linestrings = [polyline.linestring for polyline in non_conflicting_road_edges]
+    road_edges = split_line_geometry_by_max_length(non_conflicting_road_edges_linestrings, MAX_ROAD_EDGE_LENGTH)
 
     for idx, road_edge in enumerate(road_edges):
 

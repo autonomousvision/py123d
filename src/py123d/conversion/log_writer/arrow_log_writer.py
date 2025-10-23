@@ -7,7 +7,8 @@ import pyarrow as pa
 
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.conversion.abstract_dataset_converter import AbstractLogWriter, DatasetConverterConfig
-from py123d.conversion.log_writer.utils.lidar_compression import compress_lidar_with_laz
+from py123d.conversion.log_writer.utils.draco_lidar_compression import compress_lidar_with_draco
+from py123d.conversion.log_writer.utils.laz_lidar_compression import compress_lidar_with_laz
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
@@ -26,11 +27,13 @@ class ArrowLogWriter(AbstractLogWriter):
         logs_root: Union[str, Path],
         ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
         ipc_compression_level: Optional[int] = None,
+        lidar_compression: Optional[Literal["draco", "laz"]] = "laz",
     ) -> None:
 
         self._logs_root = Path(logs_root)
         self._ipc_compression = ipc_compression
         self._ipc_compression_level = ipc_compression_level
+        self._lidar_compression = lidar_compression
 
         # Loaded during .reset() and cleared during .close()
         self._dataset_converter_config: Optional[DatasetConverterConfig] = None
@@ -201,7 +204,10 @@ class ArrowLogWriter(AbstractLogWriter):
                     # Possible compression step
                     if self._dataset_converter_config.lidar_store_option == "binary":
                         lidar_metadata = self._log_metadata.lidar_metadata[lidar_type]
-                        lidar_data = compress_lidar_with_laz(lidar_data, lidar_metadata)
+                        if self._lidar_compression == "draco":
+                            lidar_data = compress_lidar_with_draco(lidar_data, lidar_metadata)
+                        elif self._lidar_compression == "laz":
+                            lidar_data = compress_lidar_with_laz(lidar_data, lidar_metadata)
 
                 record_batch_data[f"{lidar_name}_data"] = [lidar_data]
 
