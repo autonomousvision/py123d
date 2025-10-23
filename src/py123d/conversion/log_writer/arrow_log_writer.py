@@ -8,7 +8,8 @@ import pyarrow as pa
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.conversion.abstract_dataset_converter import AbstractLogWriter, DatasetConverterConfig
 from py123d.conversion.log_writer.utils.lidar_compression import compress_lidar_with_laz
-from py123d.datatypes.detections.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
+from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
@@ -124,7 +125,7 @@ class ArrowLogWriter(AbstractLogWriter):
                 box_detection_state.append(box_detection.bounding_box.array)
                 box_detection_velocity.append(box_detection.velocity.array)  # TODO: make optional
                 box_detection_token.append(box_detection.metadata.track_token)
-                box_detection_type.append(int(box_detection.metadata.detection_type))
+                box_detection_type.append(int(box_detection.metadata.box_detection_type))
 
             # Add to record batch data
             record_batch_data["box_detection_state"] = [box_detection_state]

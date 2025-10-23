@@ -8,16 +8,18 @@ import pyarrow as pa
 from omegaconf import DictConfig
 
 from py123d.conversion.datasets.pandaset.pandaset_sensor_loading import load_pandaset_lidars_pc_from_path
-from py123d.datatypes.detections.detection import (
+from py123d.datatypes.detections.box_detection_types import BoxDetectionType
+from py123d.datatypes.detections.box_detections import (
     BoxDetection,
     BoxDetectionMetadata,
     BoxDetectionSE3,
     BoxDetectionWrapper,
+)
+from py123d.datatypes.detections.traffic_light_detections import (
     TrafficLightDetection,
     TrafficLightDetectionWrapper,
     TrafficLightStatus,
 )
-from py123d.datatypes.detections.detection_types import DetectionType
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
 from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARType
@@ -63,7 +65,7 @@ def get_box_detections_from_arrow_table(arrow_table: pa.Table, index: int) -> Bo
     ):
         box_detection = BoxDetectionSE3(
             metadata=BoxDetectionMetadata(
-                detection_type=DetectionType(detection_type),
+                box_detection_type=BoxDetectionType(detection_type),
                 timepoint=timepoint,
                 track_token=detection_token,
                 confidence=None,

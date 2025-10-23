@@ -24,12 +24,8 @@ from py123d.conversion.datasets.nuplan.utils.nuplan_sql_helper import (
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.utils.sensor_utils.lidar_index_registry import NuPlanLidarIndex
-from py123d.datatypes.detections.detection import (
-    BoxDetectionSE3,
-    BoxDetectionWrapper,
-    TrafficLightDetection,
-    TrafficLightDetectionWrapper,
-)
+from py123d.datatypes.detections.box_detections import BoxDetectionSE3, BoxDetectionWrapper
+from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetection, TrafficLightDetectionWrapper
 from py123d.datatypes.maps.map_metadata import MapMetadata
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.camera.pinhole_camera import (

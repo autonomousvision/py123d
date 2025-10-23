@@ -27,7 +27,7 @@ from py123d.conversion.datasets.pandaset.pandaset_utlis import (
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.utils.sensor_utils.lidar_index_registry import PandasetLidarIndex
-from py123d.datatypes.detections.detection import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
+from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.camera.pinhole_camera import (
     PinholeCameraMetadata,
@@ -322,7 +322,7 @@ def _extract_pandaset_box_detections(
 
         box_detection_se3 = BoxDetectionSE3(
             metadata=BoxDetectionMetadata(
-                detection_type=box_detection_type,
+                box_detection_type=box_detection_type,
                 track_token=box_uuids[box_idx],
             ),
             bounding_box_se3=BoundingBoxSE3.from_array(box_se3_array[box_idx]),

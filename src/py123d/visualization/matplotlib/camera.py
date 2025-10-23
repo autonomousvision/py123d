@@ -10,8 +10,8 @@ import numpy.typing as npt
 # from PIL import ImageColor
 from pyquaternion import Quaternion
 
-from py123d.datatypes.detections.detection import BoxDetectionSE3, BoxDetectionWrapper
-from py123d.datatypes.detections.detection_types import DetectionType
+from py123d.datatypes.detections.box_detection_types import BoxDetectionType
+from py123d.datatypes.detections.box_detections import BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeIntrinsics
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import BoundingBoxSE3Index, Corners3DIndex
@@ -89,7 +89,7 @@ def add_box_detections_to_camera_ax(
 
     box_detection_array = np.zeros((len(box_detections.box_detections), len(BoundingBoxSE3Index)), dtype=np.float64)
     detection_types = np.array(
-        [detection.metadata.detection_type for detection in box_detections.box_detections], dtype=object
+        [detection.metadata.box_detection_type for detection in box_detections.box_detections], dtype=object
     )
     for idx, box_detection in enumerate(box_detections.box_detections):
         assert isinstance(
@@ -218,7 +218,7 @@ def _rotation_3d_in_axis(points: npt.NDArray[np.float32], angles: npt.NDArray[np
 def _plot_rect_3d_on_img(
     image: npt.NDArray[np.float32],
     box_corners: npt.NDArray[np.float32],
-    detection_types: List[DetectionType],
+    detection_types: List[BoxDetectionType],
     thickness: int = 3,
 ) -> npt.NDArray[np.uint8]:
     """

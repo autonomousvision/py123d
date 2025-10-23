@@ -4,7 +4,8 @@ from typing import List, Optional, Union
 import pyarrow as pa
 
 from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
-from py123d.datatypes.detections.detection import BoxDetectionWrapper, DetectionRecording, TrafficLightDetectionWrapper
+from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
+from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.maps.abstract_map import AbstractMap
 from py123d.datatypes.maps.gpkg.gpkg_map import get_global_map_api, get_local_map_api
 from py123d.datatypes.scene.abstract_scene import AbstractScene
@@ -110,12 +111,6 @@ class ArrowScene(AbstractScene):
     def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetectionWrapper]:
         return get_traffic_light_detections_from_arrow_table(
             self._get_recording_table(), self._get_table_index(iteration)
-        )
-
-    def get_detection_recording_at_iteration(self, iteration: int) -> Optional[DetectionRecording]:
-        return DetectionRecording(
-            box_detections=self.get_box_detections_at_iteration(iteration),
-            traffic_light_detections=self.get_traffic_light_detections_at_iteration(iteration),
         )
 
     def get_route_lane_group_ids(self, iteration: int) -> Optional[List[int]]:

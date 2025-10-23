@@ -4,8 +4,7 @@ from typing import Iterable, List, Optional, Union
 
 import shapely
 
-from py123d.common.utils.enums import SerialIntEnum
-from py123d.datatypes.detections.detection_types import DetectionType
+from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, OccupancyMap2D, StateSE2, StateSE3, Vector2D, Vector3D
 
@@ -13,11 +12,11 @@ from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, OccupancyMap2D, Stat
 @dataclass
 class BoxDetectionMetadata:
 
-    detection_type: DetectionType
+    box_detection_type: BoxDetectionType
     track_token: str
-    timepoint: Optional[TimePoint] = None  # TimePoint when the detection was made, if available
     confidence: Optional[float] = None  # Confidence score of the detection, if available
     num_lidar_points: Optional[int] = None  # Number of LiDAR points within the bounding box
+    timepoint: Optional[TimePoint] = None  # TimePoint when the detection was made, if available
 
 
 @dataclass
@@ -93,8 +92,10 @@ class BoxDetectionWrapper:
     def __iter__(self):
         return iter(self.box_detections)
 
-    def get_box_detections_by_types(self, detection_types: Iterable[DetectionType]) -> List[BoxDetection]:
-        return [detection for detection in self.box_detections if detection.metadata.detection_type in detection_types]
+    def get_box_detections_by_types(self, detection_types: Iterable[BoxDetectionType]) -> List[BoxDetection]:
+        return [
+            detection for detection in self.box_detections if detection.metadata.box_detection_type in detection_types
+        ]
 
     def get_detection_by_track_token(self, track_token: str) -> BoxDetection | None:
         box_detection: BoxDetection | None = None
@@ -109,53 +110,3 @@ class BoxDetectionWrapper:
         ids = [detection.metadata.track_token for detection in self.box_detections]
         geometries = [detection.bounding_box.shapely_polygon for detection in self.box_detections]
         return OccupancyMap2D(geometries=geometries, ids=ids)
-
-
-class TrafficLightStatus(SerialIntEnum):
-    """
-    Enum for TrafficLightStatus.
-    """
-
-    GREEN = 0
-    YELLOW = 1
-    RED = 2
-    OFF = 3
-    UNKNOWN = 4
-
-
-@dataclass
-class TrafficLightDetection:
-
-    timepoint: TimePoint  # TODO: Consider removing or making optional
-    lane_id: int
-    status: TrafficLightStatus
-
-
-@dataclass
-class TrafficLightDetectionWrapper:
-
-    traffic_light_detections: List[TrafficLightDetection]
-
-    def __getitem__(self, index: int) -> TrafficLightDetection:
-        return self.traffic_light_detections[index]
-
-    def __len__(self) -> int:
-        return len(self.traffic_light_detections)
-
-    def __iter__(self):
-        return iter(self.traffic_light_detections)
-
-    def get_detection_by_lane_id(self, lane_id: int) -> Optional[TrafficLightDetection]:
-        traffic_light_detection: Optional[TrafficLightDetection] = None
-        for detection in self.traffic_light_detections:
-            if int(detection.lane_id) == int(lane_id):
-                traffic_light_detection = detection
-                break
-        return traffic_light_detection
-
-
-@dataclass
-class DetectionRecording:
-
-    box_detections: BoxDetectionWrapper
-    traffic_light_detections: TrafficLightDetectionWrapper

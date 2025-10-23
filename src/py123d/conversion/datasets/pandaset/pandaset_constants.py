@@ -1,7 +1,7 @@
 from typing import Dict, List
 
 from py123d.common.utils.enums import SerialIntEnum
-from py123d.datatypes.detections.detection_types import DetectionType
+from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType, PinholeDistortion, PinholeIntrinsics
 from py123d.datatypes.sensors.lidar.lidar import LiDARType
 from py123d.geometry import StateSE3
@@ -82,34 +82,34 @@ PANDASET_BOX_DETECTION_FROM_STR: Dict[str, PandasetBoxDetectionType] = {
 }
 
 
-PANDASET_BOX_DETECTION_TO_DEFAULT: Dict[PandasetBoxDetectionType, DetectionType] = {
-    PandasetBoxDetectionType.ANIMALS_BIRD: DetectionType.GENERIC_OBJECT,  # TODO: Adjust default types
-    PandasetBoxDetectionType.ANIMALS_OTHER: DetectionType.GENERIC_OBJECT,  # TODO: Adjust default types
-    PandasetBoxDetectionType.BICYCLE: DetectionType.BICYCLE,
-    PandasetBoxDetectionType.BUS: DetectionType.VEHICLE,
-    PandasetBoxDetectionType.CAR: DetectionType.VEHICLE,
-    PandasetBoxDetectionType.CONES: DetectionType.TRAFFIC_CONE,
-    PandasetBoxDetectionType.CONSTRUCTION_SIGNS: DetectionType.CZONE_SIGN,
-    PandasetBoxDetectionType.EMERGENCY_VEHICLE: DetectionType.VEHICLE,
-    PandasetBoxDetectionType.MEDIUM_SIZED_TRUCK: DetectionType.VEHICLE,
-    PandasetBoxDetectionType.MOTORCYCLE: DetectionType.BICYCLE,
-    PandasetBoxDetectionType.MOTORIZED_SCOOTER: DetectionType.BICYCLE,
-    PandasetBoxDetectionType.OTHER_VEHICLE_CONSTRUCTION_VEHICLE: DetectionType.VEHICLE,
-    PandasetBoxDetectionType.OTHER_VEHICLE_PEDICAB: DetectionType.BICYCLE,
-    PandasetBoxDetectionType.OTHER_VEHICLE_UNCOMMON: DetectionType.VEHICLE,
-    PandasetBoxDetectionType.PEDESTRIAN: DetectionType.PEDESTRIAN,
-    PandasetBoxDetectionType.PEDESTRIAN_WITH_OBJECT: DetectionType.PEDESTRIAN,
-    PandasetBoxDetectionType.PERSONAL_MOBILITY_DEVICE: DetectionType.BICYCLE,
-    PandasetBoxDetectionType.PICKUP_TRUCK: DetectionType.VEHICLE,
-    PandasetBoxDetectionType.PYLONS: DetectionType.TRAFFIC_CONE,
-    PandasetBoxDetectionType.ROAD_BARRIERS: DetectionType.BARRIER,
-    PandasetBoxDetectionType.ROLLING_CONTAINERS: DetectionType.GENERIC_OBJECT,
-    PandasetBoxDetectionType.SEMI_TRUCK: DetectionType.VEHICLE,
-    PandasetBoxDetectionType.SIGNS: DetectionType.SIGN,
-    PandasetBoxDetectionType.TEMPORARY_CONSTRUCTION_BARRIERS: DetectionType.BARRIER,
-    PandasetBoxDetectionType.TOWED_OBJECT: DetectionType.VEHICLE,
-    PandasetBoxDetectionType.TRAIN: DetectionType.GENERIC_OBJECT,  # TODO: Adjust default types
-    PandasetBoxDetectionType.TRAM_SUBWAY: DetectionType.GENERIC_OBJECT,  # TODO: Adjust default types
+PANDASET_BOX_DETECTION_TO_DEFAULT: Dict[PandasetBoxDetectionType, BoxDetectionType] = {
+    PandasetBoxDetectionType.ANIMALS_BIRD: BoxDetectionType.GENERIC_OBJECT,  # TODO: Adjust default types
+    PandasetBoxDetectionType.ANIMALS_OTHER: BoxDetectionType.GENERIC_OBJECT,  # TODO: Adjust default types
+    PandasetBoxDetectionType.BICYCLE: BoxDetectionType.BICYCLE,
+    PandasetBoxDetectionType.BUS: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.CAR: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.CONES: BoxDetectionType.TRAFFIC_CONE,
+    PandasetBoxDetectionType.CONSTRUCTION_SIGNS: BoxDetectionType.CZONE_SIGN,
+    PandasetBoxDetectionType.EMERGENCY_VEHICLE: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.MEDIUM_SIZED_TRUCK: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.MOTORCYCLE: BoxDetectionType.BICYCLE,
+    PandasetBoxDetectionType.MOTORIZED_SCOOTER: BoxDetectionType.BICYCLE,
+    PandasetBoxDetectionType.OTHER_VEHICLE_CONSTRUCTION_VEHICLE: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.OTHER_VEHICLE_PEDICAB: BoxDetectionType.BICYCLE,
+    PandasetBoxDetectionType.OTHER_VEHICLE_UNCOMMON: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.PEDESTRIAN: BoxDetectionType.PEDESTRIAN,
+    PandasetBoxDetectionType.PEDESTRIAN_WITH_OBJECT: BoxDetectionType.PEDESTRIAN,
+    PandasetBoxDetectionType.PERSONAL_MOBILITY_DEVICE: BoxDetectionType.BICYCLE,
+    PandasetBoxDetectionType.PICKUP_TRUCK: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.PYLONS: BoxDetectionType.TRAFFIC_CONE,
+    PandasetBoxDetectionType.ROAD_BARRIERS: BoxDetectionType.BARRIER,
+    PandasetBoxDetectionType.ROLLING_CONTAINERS: BoxDetectionType.GENERIC_OBJECT,
+    PandasetBoxDetectionType.SEMI_TRUCK: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.SIGNS: BoxDetectionType.SIGN,
+    PandasetBoxDetectionType.TEMPORARY_CONSTRUCTION_BARRIERS: BoxDetectionType.BARRIER,
+    PandasetBoxDetectionType.TOWED_OBJECT: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.TRAIN: BoxDetectionType.GENERIC_OBJECT,  # TODO: Adjust default types
+    PandasetBoxDetectionType.TRAM_SUBWAY: BoxDetectionType.GENERIC_OBJECT,  # TODO: Adjust default types
 }
 
 # https://github.com/scaleapi/pandaset-devkit/blob/master/docs/static_extrinsic_calibration.yaml

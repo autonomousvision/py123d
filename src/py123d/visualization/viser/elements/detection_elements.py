@@ -3,7 +3,7 @@ import numpy.typing as npt
 import trimesh
 import viser
 
-from py123d.datatypes.detections.detection_types import DetectionType
+from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry.geometry_index import BoundingBoxSE3Index, Corners3DIndex, StateSE3Index
@@ -63,7 +63,7 @@ def _get_bounding_box_meshes(scene: AbstractScene, iteration: int, initial_ego_s
 
     # Load boxes to visualize, including ego vehicle at the last position
     boxes = [bd.bounding_box_se3 for bd in box_detections.box_detections] + [ego_vehicle_state.bounding_box_se3]
-    boxes_type = [bd.metadata.detection_type for bd in box_detections.box_detections] + [DetectionType.EGO]
+    boxes_type = [bd.metadata.box_detection_type for bd in box_detections.box_detections] + [BoxDetectionType.EGO]
 
     # create meshes for all boxes
     box_se3_array = np.array([box.array for box in boxes])
@@ -124,7 +124,7 @@ def _get_bounding_box_outlines(
 
     # Load boxes to visualize, including ego vehicle at the last position
     boxes = [bd.bounding_box_se3 for bd in box_detections.box_detections] + [ego_vehicle_state.bounding_box_se3]
-    boxes_type = [bd.metadata.detection_type for bd in box_detections.box_detections] + [DetectionType.EGO]
+    boxes_type = [bd.metadata.box_detection_type for bd in box_detections.box_detections] + [BoxDetectionType.EGO]
 
     # Create lines for all boxes
     box_se3_array = np.array([box.array for box in boxes])

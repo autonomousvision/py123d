@@ -2,7 +2,7 @@ from typing import List
 
 from py123d.common.utils.dependencies import check_dependencies
 from py123d.conversion.datasets.nuplan.utils.nuplan_constants import NUPLAN_DETECTION_NAME_DICT
-from py123d.datatypes.detections.detection import BoxDetectionMetadata, BoxDetectionSE3
+from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3
 from py123d.geometry import BoundingBoxSE3, EulerAngles, StateSE3, Vector3D
 from py123d.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 
@@ -57,10 +57,8 @@ def get_box_detections_for_lidarpc_token_from_db(log_file: str, token: str) -> L
         )
         box_detection = BoxDetectionSE3(
             metadata=BoxDetectionMetadata(
-                detection_type=NUPLAN_DETECTION_NAME_DICT[row["category_name"]],
-                timepoint=None,  # NOTE: Timepoint is not needed during writing, set to None
+                box_detection_type=NUPLAN_DETECTION_NAME_DICT[row["category_name"]],
                 track_token=row["track_token"].hex(),
-                confidence=None,  # NOTE: Not currently written, requires refactoring
             ),
             bounding_box_se3=bounding_box,
             velocity=Vector3D(x=row["vx"], y=row["vy"], z=row["vz"]),

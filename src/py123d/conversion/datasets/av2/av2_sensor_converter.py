@@ -24,8 +24,8 @@ from py123d.conversion.datasets.av2.utils.av2_sensor_loading import load_av2_sen
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.utils.sensor_utils.lidar_index_registry import AVSensorLidarIndex
-from py123d.datatypes.detections.detection import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
-from py123d.datatypes.detections.detection_types import DetectionType
+from py123d.datatypes.detections.box_detection_types import BoxDetectionType
+from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.maps.map_metadata import MapMetadata
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.camera.pinhole_camera import (
@@ -261,7 +261,7 @@ def _extract_av2_sensor_box_detections(
     detections_state = np.zeros((num_detections, len(BoundingBoxSE3Index)), dtype=np.float64)
     detections_velocity = np.zeros((num_detections, len(Vector3DIndex)), dtype=np.float64)
     detections_token: List[str] = annotations_slice["track_uuid"].tolist()
-    detections_types: List[DetectionType] = []
+    detections_types: List[BoxDetectionType] = []
 
     for detection_idx, (_, row) in enumerate(annotations_slice.iterrows()):
         row = row.to_dict()
@@ -283,7 +283,7 @@ def _extract_av2_sensor_box_detections(
         box_detections.append(
             BoxDetectionSE3(
                 metadata=BoxDetectionMetadata(
-                    detection_type=detections_types[detection_idx],
+                    box_detection_type=detections_types[detection_idx],
                     timepoint=None,
                     track_token=detections_token[detection_idx],
                     confidence=None,

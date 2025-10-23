@@ -1,7 +1,7 @@
 from typing import Dict
 
-from py123d.datatypes.detections.detection import TrafficLightStatus
-from py123d.datatypes.detections.detection_types import DetectionType
+from py123d.datatypes.detections.box_detection_types import BoxDetectionType
+from py123d.datatypes.detections.traffic_light_detections import TrafficLightStatus
 from py123d.datatypes.maps.map_datatypes import MapLayer
 from py123d.visualization.color.color import (
     BLACK,
@@ -83,8 +83,8 @@ MAP_SURFACE_CONFIG: Dict[MapLayer, PlotConfig] = {
     ),
 }
 
-BOX_DETECTION_CONFIG: Dict[DetectionType, PlotConfig] = {
-    DetectionType.VEHICLE: PlotConfig(
+BOX_DETECTION_CONFIG: Dict[BoxDetectionType, PlotConfig] = {
+    BoxDetectionType.VEHICLE: PlotConfig(
         fill_color=ELLIS_5[4],
         fill_color_alpha=1.0,
         line_color=BLACK,
@@ -95,7 +95,7 @@ BOX_DETECTION_CONFIG: Dict[DetectionType, PlotConfig] = {
         marker_size=1.0,
         zorder=3,
     ),
-    DetectionType.PEDESTRIAN: PlotConfig(
+    BoxDetectionType.PEDESTRIAN: PlotConfig(
         fill_color=NEW_TAB_10[6],
         fill_color_alpha=1.0,
         line_color=BLACK,
@@ -106,7 +106,7 @@ BOX_DETECTION_CONFIG: Dict[DetectionType, PlotConfig] = {
         marker_size=1.0,
         zorder=2,
     ),
-    DetectionType.BICYCLE: PlotConfig(
+    BoxDetectionType.BICYCLE: PlotConfig(
         fill_color=ELLIS_5[3],
         fill_color_alpha=1.0,
         line_color=BLACK,
@@ -117,7 +117,7 @@ BOX_DETECTION_CONFIG: Dict[DetectionType, PlotConfig] = {
         marker_size=1.0,
         zorder=2,
     ),
-    DetectionType.TRAFFIC_CONE: PlotConfig(
+    BoxDetectionType.TRAFFIC_CONE: PlotConfig(
         fill_color=NEW_TAB_10[5],
         fill_color_alpha=1.0,
         line_color=BLACK,
@@ -127,7 +127,7 @@ BOX_DETECTION_CONFIG: Dict[DetectionType, PlotConfig] = {
         marker_style=None,
         zorder=2,
     ),
-    DetectionType.BARRIER: PlotConfig(
+    BoxDetectionType.BARRIER: PlotConfig(
         fill_color=NEW_TAB_10[5],
         fill_color_alpha=1.0,
         line_color=BLACK,
@@ -137,7 +137,7 @@ BOX_DETECTION_CONFIG: Dict[DetectionType, PlotConfig] = {
         marker_style=None,
         zorder=2,
     ),
-    DetectionType.CZONE_SIGN: PlotConfig(
+    BoxDetectionType.CZONE_SIGN: PlotConfig(
         fill_color=NEW_TAB_10[5],
         fill_color_alpha=1.0,
         line_color=BLACK,
@@ -147,7 +147,7 @@ BOX_DETECTION_CONFIG: Dict[DetectionType, PlotConfig] = {
         marker_style=None,
         zorder=2,
     ),
-    DetectionType.GENERIC_OBJECT: PlotConfig(
+    BoxDetectionType.GENERIC_OBJECT: PlotConfig(
         fill_color=NEW_TAB_10[5],
         fill_color_alpha=1.0,
         line_color=BLACK,
@@ -157,7 +157,7 @@ BOX_DETECTION_CONFIG: Dict[DetectionType, PlotConfig] = {
         marker_style=None,
         zorder=2,
     ),
-    DetectionType.SIGN: PlotConfig(
+    BoxDetectionType.SIGN: PlotConfig(
         fill_color=NEW_TAB_10[8],
         fill_color_alpha=1.0,
         line_color=BLACK,
@@ -167,7 +167,7 @@ BOX_DETECTION_CONFIG: Dict[DetectionType, PlotConfig] = {
         marker_style=None,
         zorder=2,
     ),
-    DetectionType.EGO: PlotConfig(
+    BoxDetectionType.EGO: PlotConfig(
         fill_color=ELLIS_5[0],
         fill_color_alpha=1.0,
         line_color=BLACK,

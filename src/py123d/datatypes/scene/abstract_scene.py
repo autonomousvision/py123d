@@ -3,7 +3,8 @@ from __future__ import annotations
 import abc
 from typing import List, Optional
 
-from py123d.datatypes.detections.detection import BoxDetectionWrapper, DetectionRecording, TrafficLightDetectionWrapper
+from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
+from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.maps.abstract_map import AbstractMap
 from py123d.datatypes.scene.scene_metadata import LogMetadata, SceneExtractionMetadata
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
@@ -45,10 +46,6 @@ class AbstractScene(abc.ABC):
 
     @abc.abstractmethod
     def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetectionWrapper]:
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def get_detection_recording_at_iteration(self, iteration: int) -> Optional[DetectionRecording]:
         raise NotImplementedError
 
     @abc.abstractmethod

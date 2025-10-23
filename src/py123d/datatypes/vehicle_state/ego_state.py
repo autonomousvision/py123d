@@ -8,8 +8,8 @@ import numpy as np
 import numpy.typing as npt
 
 from py123d.common.utils.enums import classproperty
-from py123d.datatypes.detections.detection import BoxDetectionMetadata, BoxDetectionSE2, BoxDetectionSE3
-from py123d.datatypes.detections.detection_types import DetectionType
+from py123d.datatypes.detections.box_detection_types import BoxDetectionType
+from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE2, BoxDetectionSE3
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.vehicle_parameters import (
     VehicleParameters,
@@ -148,7 +148,7 @@ class EgoStateSE3:
     def box_detection(self) -> BoxDetectionSE3:
         return BoxDetectionSE3(
             metadata=BoxDetectionMetadata(
-                detection_type=DetectionType.EGO,
+                box_detection_type=BoxDetectionType.EGO,
                 timepoint=self.timepoint,
                 track_token=EGO_TRACK_TOKEN,
                 confidence=1.0,
@@ -231,7 +231,7 @@ class EgoStateSE2:
     def box_detection(self) -> BoxDetectionSE2:
         return BoxDetectionSE2(
             metadata=BoxDetectionMetadata(
-                detection_type=DetectionType.EGO,
+                box_detection_type=BoxDetectionType.EGO,
                 timepoint=self.timepoint,
                 track_token=EGO_TRACK_TOKEN,
                 confidence=1.0,

@@ -1,7 +1,7 @@
 from typing import Dict, Final, Set
 
 from py123d.common.utils.enums import SerialIntEnum
-from py123d.datatypes.detections.detection_types import DetectionType
+from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.maps.map_datatypes import RoadLineType
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
 
@@ -46,36 +46,36 @@ class AV2SensorBoxDetectionType(SerialIntEnum):
 # Mapping from AV2SensorBoxDetectionType to general DetectionType
 # TODO: Change the detection types. Multiple mistakes, e.g. animals/dogs are not generic objects.
 AV2_TO_DETECTION_TYPE = {
-    AV2SensorBoxDetectionType.ANIMAL: DetectionType.GENERIC_OBJECT,
-    AV2SensorBoxDetectionType.ARTICULATED_BUS: DetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.BICYCLE: DetectionType.BICYCLE,
-    AV2SensorBoxDetectionType.BICYCLIST: DetectionType.PEDESTRIAN,
-    AV2SensorBoxDetectionType.BOLLARD: DetectionType.BARRIER,
-    AV2SensorBoxDetectionType.BOX_TRUCK: DetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.BUS: DetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.CONSTRUCTION_BARREL: DetectionType.BARRIER,
-    AV2SensorBoxDetectionType.CONSTRUCTION_CONE: DetectionType.TRAFFIC_CONE,
-    AV2SensorBoxDetectionType.DOG: DetectionType.GENERIC_OBJECT,
-    AV2SensorBoxDetectionType.LARGE_VEHICLE: DetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.MESSAGE_BOARD_TRAILER: DetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.MOBILE_PEDESTRIAN_CROSSING_SIGN: DetectionType.CZONE_SIGN,
-    AV2SensorBoxDetectionType.MOTORCYCLE: DetectionType.BICYCLE,
-    AV2SensorBoxDetectionType.MOTORCYCLIST: DetectionType.BICYCLE,
-    AV2SensorBoxDetectionType.OFFICIAL_SIGNALER: DetectionType.PEDESTRIAN,
-    AV2SensorBoxDetectionType.PEDESTRIAN: DetectionType.PEDESTRIAN,
-    AV2SensorBoxDetectionType.RAILED_VEHICLE: DetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.REGULAR_VEHICLE: DetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.SCHOOL_BUS: DetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.SIGN: DetectionType.SIGN,
-    AV2SensorBoxDetectionType.STOP_SIGN: DetectionType.SIGN,
-    AV2SensorBoxDetectionType.STROLLER: DetectionType.PEDESTRIAN,
-    AV2SensorBoxDetectionType.TRAFFIC_LIGHT_TRAILER: DetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.TRUCK: DetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.TRUCK_CAB: DetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.VEHICULAR_TRAILER: DetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.WHEELCHAIR: DetectionType.PEDESTRIAN,
-    AV2SensorBoxDetectionType.WHEELED_DEVICE: DetectionType.GENERIC_OBJECT,
-    AV2SensorBoxDetectionType.WHEELED_RIDER: DetectionType.BICYCLE,
+    AV2SensorBoxDetectionType.ANIMAL: BoxDetectionType.GENERIC_OBJECT,
+    AV2SensorBoxDetectionType.ARTICULATED_BUS: BoxDetectionType.VEHICLE,
+    AV2SensorBoxDetectionType.BICYCLE: BoxDetectionType.BICYCLE,
+    AV2SensorBoxDetectionType.BICYCLIST: BoxDetectionType.PEDESTRIAN,
+    AV2SensorBoxDetectionType.BOLLARD: BoxDetectionType.BARRIER,
+    AV2SensorBoxDetectionType.BOX_TRUCK: BoxDetectionType.VEHICLE,
+    AV2SensorBoxDetectionType.BUS: BoxDetectionType.VEHICLE,
+    AV2SensorBoxDetectionType.CONSTRUCTION_BARREL: BoxDetectionType.BARRIER,
+    AV2SensorBoxDetectionType.CONSTRUCTION_CONE: BoxDetectionType.TRAFFIC_CONE,
+    AV2SensorBoxDetectionType.DOG: BoxDetectionType.GENERIC_OBJECT,
+    AV2SensorBoxDetectionType.LARGE_VEHICLE: BoxDetectionType.VEHICLE,
+    AV2SensorBoxDetectionType.MESSAGE_BOARD_TRAILER: BoxDetectionType.VEHICLE,
+    AV2SensorBoxDetectionType.MOBILE_PEDESTRIAN_CROSSING_SIGN: BoxDetectionType.CZONE_SIGN,
+    AV2SensorBoxDetectionType.MOTORCYCLE: BoxDetectionType.BICYCLE,
+    AV2SensorBoxDetectionType.MOTORCYCLIST: BoxDetectionType.BICYCLE,
+    AV2SensorBoxDetectionType.OFFICIAL_SIGNALER: BoxDetectionType.PEDESTRIAN,
+    AV2SensorBoxDetectionType.PEDESTRIAN: BoxDetectionType.PEDESTRIAN,
+    AV2SensorBoxDetectionType.RAILED_VEHICLE: BoxDetectionType.VEHICLE,
+    AV2SensorBoxDetectionType.REGULAR_VEHICLE: BoxDetectionType.VEHICLE,
+    AV2SensorBoxDetectionType.SCHOOL_BUS: BoxDetectionType.VEHICLE,
+    AV2SensorBoxDetectionType.SIGN: BoxDetectionType.SIGN,
+    AV2SensorBoxDetectionType.STOP_SIGN: BoxDetectionType.SIGN,
+    AV2SensorBoxDetectionType.STROLLER: BoxDetectionType.PEDESTRIAN,
+    AV2SensorBoxDetectionType.TRAFFIC_LIGHT_TRAILER: BoxDetectionType.VEHICLE,
+    AV2SensorBoxDetectionType.TRUCK: BoxDetectionType.VEHICLE,
+    AV2SensorBoxDetectionType.TRUCK_CAB: BoxDetectionType.VEHICLE,
+    AV2SensorBoxDetectionType.VEHICULAR_TRAILER: BoxDetectionType.VEHICLE,
+    AV2SensorBoxDetectionType.WHEELCHAIR: BoxDetectionType.PEDESTRIAN,
+    AV2SensorBoxDetectionType.WHEELED_DEVICE: BoxDetectionType.GENERIC_OBJECT,
+    AV2SensorBoxDetectionType.WHEELED_RIDER: BoxDetectionType.BICYCLE,
 }
 
 

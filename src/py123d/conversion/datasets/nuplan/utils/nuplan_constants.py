@@ -1,8 +1,8 @@
 from enum import IntEnum
 from typing import Dict, Final, List, Set
 
-from py123d.datatypes.detections.detection import TrafficLightStatus
-from py123d.datatypes.detections.detection_types import DetectionType
+from py123d.datatypes.detections.box_detection_types import BoxDetectionType
+from py123d.datatypes.detections.traffic_light_detections import TrafficLightStatus
 from py123d.datatypes.maps.map_datatypes import RoadLineType
 from py123d.datatypes.time.time_point import TimePoint
 
@@ -28,13 +28,13 @@ NUPLAN_TRAFFIC_STATUS_DICT: Final[Dict[str, TrafficLightStatus]] = {
 
 
 NUPLAN_DETECTION_NAME_DICT = {
-    "vehicle": DetectionType.VEHICLE,
-    "bicycle": DetectionType.BICYCLE,
-    "pedestrian": DetectionType.PEDESTRIAN,
-    "traffic_cone": DetectionType.TRAFFIC_CONE,
-    "barrier": DetectionType.BARRIER,
-    "czone_sign": DetectionType.CZONE_SIGN,
-    "generic_object": DetectionType.GENERIC_OBJECT,
+    "vehicle": BoxDetectionType.VEHICLE,
+    "bicycle": BoxDetectionType.BICYCLE,
+    "pedestrian": BoxDetectionType.PEDESTRIAN,
+    "traffic_cone": BoxDetectionType.TRAFFIC_CONE,
+    "barrier": BoxDetectionType.BARRIER,
+    "czone_sign": BoxDetectionType.CZONE_SIGN,
+    "generic_object": BoxDetectionType.GENERIC_OBJECT,
 }
 
 

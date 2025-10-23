@@ -2,7 +2,8 @@ import abc
 from typing import Any, Dict, List, Optional, Tuple
 
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
-from py123d.datatypes.detections.detection import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
+from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
 from py123d.datatypes.sensors.lidar.lidar import LiDARType
