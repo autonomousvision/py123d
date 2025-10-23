@@ -6,6 +6,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+
 project = "py123d"
 copyright = "2025, 123D Contributors"
 author = "123D Contributors"
@@ -18,6 +19,7 @@ extensions = [
     "sphinx.ext.duration",
     "sphinx.ext.doctest",
     "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
@@ -47,26 +49,15 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+html_theme = "furo"
+html_title = ""
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
-html_theme_options = {
-    "analytics_anonymize_ip": False,
-    "logo_only": True,
-    "prev_next_buttons_location": "bottom",
-    "style_external_links": False,
-    "vcs_pageview_mode": "",
-    # Toc options
-    "collapse_navigation": True,
-    "sticky_navigation": True,
-    "navigation_depth": 3,
-    "includehidden": True,
-    "titles_only": False,
-}
+html_theme_options = {}
 
 autodoc_typehints = "both"
 autodoc_class_signature = "separated"
@@ -79,8 +70,7 @@ autodoc_default_options = {
     "imported-members": True,
 }
 
-# Logo configuration
-html_logo = "_static/logo_white.png"  # or whatever your logo file is named
+
 # Custom CSS for color theming
 html_css_files = [
     "custom.css",
@@ -89,6 +79,16 @@ html_css_files = [
 # Additional theme options for color customization
 html_theme_options.update(
     {
-        "style_nav_header_background": "#565656",  # Navigation header background
+        "light_logo": "logo_black.png",
+        "dark_logo": "logo_white.png",
+        "sidebar_hide_name": True,
     }
 )
+
+# This CSS should go in /home/daniel/py123d_workspace/py123d/docs/_static/custom.css
+# Your conf.py already references it in html_css_files = ["custom.css"]
+
+# If you want to add custom CSS via configuration, you can use:
+html_css_files = [
+    "custom.css",
+]
