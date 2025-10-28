@@ -1,10 +1,9 @@
-
 # Installation
 
-Note, the following installation assumes the following folder structure:
+Note, the following installation assumes the following folder structure: TODO UPDATE
 ```
-~/d123_workspace
-├── d123
+~/py123d_workspace
+├── py123d
 ├── exp
 │   └── ...
 └── data
@@ -25,24 +24,21 @@ Note, the following installation assumes the following folder structure:
 ```
 
 
-First you need to create a new conda environment and install `d123` as editable pip package.
+First you need to create a new conda environment and install `py123d` as editable pip package.
 ```bash
-conda env create -f environment.yml
-conda activate d123
+conda create -n py123d python=3.12
+conda activate py123d
 pip install -e .
 ```
 
 Next, you need add the following environment variables in your `.bashrc`:
 ```bash
-export D123_DEVKIT_ROOT="$HOME/d123_workspace/d123"
-export D123_MAPS_ROOT="$HOME/d123_workspace/data/maps"
-export D123_DATA_ROOT="$HOME/d123_workspace/data"
-export D123_EXP_ROOT="$HOME/d123_workspace/exp"
+export PY123D_DATA_ROOT="$HOME/py123d_workspace/data"
+```
 
-# CARLA
+<!-- # CARLA
 export CARLA_SIMULATOR_ROOT="$HOME/carla_workspace/carla_garage/carla"
 
 # nuPlan
 export NUPLAN_DATA_ROOT="/path/to/nuplan/dataset"
-export NUPLAN_MAPS_ROOT="/path/to/nuplan/dataset/maps"
-```
+export NUPLAN_MAPS_ROOT="/path/to/nuplan/dataset/maps" -->

@@ -1,0 +1,312 @@
+from typing import Dict, List
+
+from py123d.common.utils.enums import SerialIntEnum
+from py123d.datatypes.detections.box_detection_types import BoxDetectionType
+from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType, PinholeDistortion, PinholeIntrinsics
+from py123d.datatypes.sensors.lidar.lidar import LiDARType
+from py123d.geometry import StateSE3
+
+PANDASET_SPLITS: List[str] = ["pandaset_train", "pandaset_val", "pandaset_test"]
+
+PANDASET_CAMERA_MAPPING: Dict[str, PinholeCameraType] = {
+    "front_camera": PinholeCameraType.CAM_F0,
+    "back_camera": PinholeCameraType.CAM_B0,
+    "front_left_camera": PinholeCameraType.CAM_L0,
+    "front_right_camera": PinholeCameraType.CAM_R0,
+    "left_camera": PinholeCameraType.CAM_L1,
+    "right_camera": PinholeCameraType.CAM_R1,
+}
+
+PANDASET_LIDAR_MAPPING: Dict[str, LiDARType] = {"main_pandar64": LiDARType.LIDAR_TOP, "front_gt": LiDARType.LIDAR_FRONT}
+
+
+class PandasetBoxDetectionType(SerialIntEnum):
+
+    ANIMALS_BIRD = 0
+    ANIMALS_OTHER = 1
+    BICYCLE = 2
+    BUS = 3
+    CAR = 4
+    CONES = 5
+    CONSTRUCTION_SIGNS = 6
+    EMERGENCY_VEHICLE = 7
+    MEDIUM_SIZED_TRUCK = 8
+    MOTORCYCLE = 9
+    MOTORIZED_SCOOTER = 10
+    OTHER_VEHICLE_CONSTRUCTION_VEHICLE = 11
+    OTHER_VEHICLE_PEDICAB = 12
+    OTHER_VEHICLE_UNCOMMON = 13
+    PEDESTRIAN = 14
+    PEDESTRIAN_WITH_OBJECT = 15
+    PERSONAL_MOBILITY_DEVICE = 16
+    PICKUP_TRUCK = 17
+    PYLONS = 18
+    ROAD_BARRIERS = 19
+    ROLLING_CONTAINERS = 20
+    SEMI_TRUCK = 21
+    SIGNS = 22
+    TEMPORARY_CONSTRUCTION_BARRIERS = 23
+    TOWED_OBJECT = 24
+    TRAIN = 25
+    TRAM_SUBWAY = 26
+
+
+PANDASET_BOX_DETECTION_FROM_STR: Dict[str, PandasetBoxDetectionType] = {
+    "Animals - Bird": PandasetBoxDetectionType.ANIMALS_BIRD,
+    "Animals - Other": PandasetBoxDetectionType.ANIMALS_OTHER,
+    "Bicycle": PandasetBoxDetectionType.BICYCLE,
+    "Bus": PandasetBoxDetectionType.BUS,
+    "Car": PandasetBoxDetectionType.CAR,
+    "Cones": PandasetBoxDetectionType.CONES,
+    "Construction Signs": PandasetBoxDetectionType.CONSTRUCTION_SIGNS,
+    "Emergency Vehicle": PandasetBoxDetectionType.EMERGENCY_VEHICLE,
+    "Medium-sized Truck": PandasetBoxDetectionType.MEDIUM_SIZED_TRUCK,
+    "Motorcycle": PandasetBoxDetectionType.MOTORCYCLE,
+    "Motorized Scooter": PandasetBoxDetectionType.MOTORIZED_SCOOTER,
+    "Other Vehicle - Construction Vehicle": PandasetBoxDetectionType.OTHER_VEHICLE_CONSTRUCTION_VEHICLE,
+    "Other Vehicle - Pedicab": PandasetBoxDetectionType.OTHER_VEHICLE_PEDICAB,
+    "Other Vehicle - Uncommon": PandasetBoxDetectionType.OTHER_VEHICLE_UNCOMMON,
+    "Pedestrian": PandasetBoxDetectionType.PEDESTRIAN,
+    "Pedestrian with Object": PandasetBoxDetectionType.PEDESTRIAN_WITH_OBJECT,
+    "Personal Mobility Device": PandasetBoxDetectionType.PERSONAL_MOBILITY_DEVICE,
+    "Pickup Truck": PandasetBoxDetectionType.PICKUP_TRUCK,
+    "Pylons": PandasetBoxDetectionType.PYLONS,
+    "Road Barriers": PandasetBoxDetectionType.ROAD_BARRIERS,
+    "Rolling Containers": PandasetBoxDetectionType.ROLLING_CONTAINERS,
+    "Semi-truck": PandasetBoxDetectionType.SEMI_TRUCK,
+    "Signs": PandasetBoxDetectionType.SIGNS,
+    "Temporary Construction Barriers": PandasetBoxDetectionType.TEMPORARY_CONSTRUCTION_BARRIERS,
+    "Towed Object": PandasetBoxDetectionType.TOWED_OBJECT,
+    "Train": PandasetBoxDetectionType.TRAIN,
+    "Tram / Subway": PandasetBoxDetectionType.TRAM_SUBWAY,
+}
+
+
+PANDASET_BOX_DETECTION_TO_DEFAULT: Dict[PandasetBoxDetectionType, BoxDetectionType] = {
+    PandasetBoxDetectionType.ANIMALS_BIRD: BoxDetectionType.GENERIC_OBJECT,  # TODO: Adjust default types
+    PandasetBoxDetectionType.ANIMALS_OTHER: BoxDetectionType.GENERIC_OBJECT,  # TODO: Adjust default types
+    PandasetBoxDetectionType.BICYCLE: BoxDetectionType.BICYCLE,
+    PandasetBoxDetectionType.BUS: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.CAR: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.CONES: BoxDetectionType.TRAFFIC_CONE,
+    PandasetBoxDetectionType.CONSTRUCTION_SIGNS: BoxDetectionType.CZONE_SIGN,
+    PandasetBoxDetectionType.EMERGENCY_VEHICLE: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.MEDIUM_SIZED_TRUCK: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.MOTORCYCLE: BoxDetectionType.BICYCLE,
+    PandasetBoxDetectionType.MOTORIZED_SCOOTER: BoxDetectionType.BICYCLE,
+    PandasetBoxDetectionType.OTHER_VEHICLE_CONSTRUCTION_VEHICLE: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.OTHER_VEHICLE_PEDICAB: BoxDetectionType.BICYCLE,
+    PandasetBoxDetectionType.OTHER_VEHICLE_UNCOMMON: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.PEDESTRIAN: BoxDetectionType.PEDESTRIAN,
+    PandasetBoxDetectionType.PEDESTRIAN_WITH_OBJECT: BoxDetectionType.PEDESTRIAN,
+    PandasetBoxDetectionType.PERSONAL_MOBILITY_DEVICE: BoxDetectionType.BICYCLE,
+    PandasetBoxDetectionType.PICKUP_TRUCK: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.PYLONS: BoxDetectionType.TRAFFIC_CONE,
+    PandasetBoxDetectionType.ROAD_BARRIERS: BoxDetectionType.BARRIER,
+    PandasetBoxDetectionType.ROLLING_CONTAINERS: BoxDetectionType.GENERIC_OBJECT,
+    PandasetBoxDetectionType.SEMI_TRUCK: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.SIGNS: BoxDetectionType.SIGN,
+    PandasetBoxDetectionType.TEMPORARY_CONSTRUCTION_BARRIERS: BoxDetectionType.BARRIER,
+    PandasetBoxDetectionType.TOWED_OBJECT: BoxDetectionType.VEHICLE,
+    PandasetBoxDetectionType.TRAIN: BoxDetectionType.GENERIC_OBJECT,  # TODO: Adjust default types
+    PandasetBoxDetectionType.TRAM_SUBWAY: BoxDetectionType.GENERIC_OBJECT,  # TODO: Adjust default types
+}
+
+# https://github.com/scaleapi/pandaset-devkit/blob/master/docs/static_extrinsic_calibration.yaml
+PANDASET_LIDAR_EXTRINSICS: Dict[str, StateSE3] = {
+    "front_gt": StateSE3(
+        x=-0.000451117754,
+        y=-0.605646431446,
+        z=-0.301525235176,
+        qw=0.021475754959146356,
+        qx=-0.002060907279494794,
+        qy=0.01134678181520767,
+        qz=0.9997028534282365,
+    ),
+    "main_pandar64": StateSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
+}
+
+# https://github.com/scaleapi/pandaset-devkit/blob/master/docs/static_extrinsic_calibration.yaml
+PANDASET_CAMERA_EXTRINSICS: Dict[str, StateSE3] = {
+    "back_camera": StateSE3(
+        x=-0.0004217634029916384,
+        y=-0.21683144949675118,
+        z=-1.0553445472201475,
+        qw=0.713789231075861,
+        qx=0.7003585531940812,
+        qy=-0.001595758695393934,
+        qz=-0.0005330311533742299,
+    ),
+    "front_camera": StateSE3(
+        x=0.0002585796504896516,
+        y=-0.03907777167811011,
+        z=-0.0440125762408362,
+        qw=0.016213200031258722,
+        qx=0.0030578899383849464,
+        qy=0.7114721800418571,
+        qz=-0.7025205466606356,
+    ),
+    "front_left_camera": StateSE3(
+        x=-0.25842240863267835,
+        y=-0.3070654284505582,
+        z=-0.9244245686318884,
+        qw=0.33540022607039827,
+        qx=0.3277491469609924,
+        qy=-0.6283486651480494,
+        qz=0.6206973014480826,
+    ),
+    "front_right_camera": StateSE3(
+        x=0.2546935700219631,
+        y=-0.24929449717803095,
+        z=-0.8686597280810242,
+        qw=0.3537633879725252,
+        qx=0.34931795852655334,
+        qy=0.6120314641083645,
+        qz=-0.6150170047424814,
+    ),
+    "left_camera": StateSE3(
+        x=0.23864835336611942,
+        y=-0.2801448284013492,
+        z=-0.5376795959387791,
+        qw=0.5050391917998245,
+        qx=0.49253073152800625,
+        qy=-0.4989265501075421,
+        qz=0.503409565706149,
+    ),
+    "right_camera": StateSE3(
+        x=-0.23097163411257893,
+        y=-0.30843497058841024,
+        z=-0.6850441215571058,
+        qw=0.5087448402081216,
+        qx=0.4947520981649951,
+        qy=0.4977829953071897,
+        qz=-0.49860920419297333,
+    ),
+}
+
+# https://github.com/scaleapi/pandaset-devkit/blob/master/docs/static_extrinsic_calibration.yaml
+PANDASET_CAMERA_INTRINSICS: Dict[str, PinholeIntrinsics] = {
+    "back_camera": PinholeIntrinsics(fx=933.4667, fy=934.6754, cx=896.4692, cy=507.3557),
+    "front_camera": PinholeIntrinsics(fx=1970.0131, fy=1970.0091, cx=970.0002, cy=483.2988),
+    "front_left_camera": PinholeIntrinsics(fx=929.8429, fy=930.0592, cx=972.1794, cy=508.0057),
+    "front_right_camera": PinholeIntrinsics(fx=930.0407, fy=930.0324, cx=965.0525, cy=463.4161),
+    "left_camera": PinholeIntrinsics(fx=930.4514, fy=930.0891, cx=991.6883, cy=541.6057),
+    "right_camera": PinholeIntrinsics(fx=922.5465, fy=922.4229, cx=945.057, cy=517.575),
+}
+
+# https://github.com/scaleapi/pandaset-devkit/blob/master/docs/static_extrinsic_calibration.yaml
+PANDASET_CAMERA_DISTORTIONS: Dict[str, PinholeDistortion] = {
+    "back_camera": PinholeDistortion.from_list([-0.1619, 0.0113, -0.00028815, -7.9827e-05, 0.0067]),
+    "front_camera": PinholeDistortion.from_list([-0.5894, 0.66, 0.0011, -0.001, -1.0088]),
+    "front_left_camera": PinholeDistortion.from_list([-0.165, 0.0099, -0.00075376, 5.3699e-05, 0.01]),
+    "front_right_camera": PinholeDistortion.from_list([-0.1614, -0.0027, -0.00029662, -0.00028927, 0.0181]),
+    "left_camera": PinholeDistortion.from_list([-0.1582, -0.0266, -0.00015221, 0.00059011, 0.0449]),
+    "right_camera": PinholeDistortion.from_list([-0.1648, 0.0191, 0.0027, -8.5282e-07, -9.6983e-05]),
+}
+
+
+PANDASET_LOG_NAMES: List[str] = [
+    "001",
+    "002",
+    "003",
+    "004",
+    "005",
+    "006",
+    "008",
+    "011",
+    "012",
+    "013",
+    "014",
+    "015",
+    "016",
+    "017",
+    "018",
+    "019",
+    "020",
+    "021",
+    "023",
+    "024",
+    "027",
+    "028",
+    "029",
+    "030",
+    "032",
+    "033",
+    "034",
+    "035",
+    "037",
+    "038",
+    "039",
+    "040",
+    "041",
+    "042",
+    "043",
+    "044",
+    "045",
+    "046",
+    "047",
+    "048",
+    "050",
+    "051",
+    "052",
+    "053",
+    "054",
+    "055",
+    "056",
+    "057",
+    "058",
+    "059",
+    "062",
+    "063",
+    "064",
+    "065",
+    "066",
+    "067",
+    "068",
+    "069",
+    "070",
+    "071",
+    "072",
+    "073",
+    "074",
+    "077",
+    "078",
+    "079",
+    "080",
+    "084",
+    "085",
+    "086",
+    "088",
+    "089",
+    "090",
+    "091",
+    "092",
+    "093",
+    "094",
+    "095",
+    "097",
+    "098",
+    "099",
+    "100",
+    "101",
+    "102",
+    "103",
+    "104",
+    "105",
+    "106",
+    "109",
+    "110",
+    "112",
+    "113",
+    "115",
+    "116",
+    "117",
+    "119",
+    "120",
+    "122",
+    "123",
+    "124",
+    "139",
+    "149",
+    "158",
+]

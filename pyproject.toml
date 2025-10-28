@@ -12,7 +12,7 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "License :: OSI Approved :: Apache Software License",
 ]
-name = "d123"
+name = "py123d"
 version = "v0.0.7"
 authors = [{ name = "Daniel Dauner", email = "daniel.dauner@gmail.com" }]
 description = "TODO"
@@ -47,11 +47,13 @@ dependencies = [
     "lxml",
     "trimesh",
     "viser",
+    "laspy[lazrs]",
+    "DracoPy",
 ]
 
 [project.scripts]
-d123-viser = "d123.script.run_viser:main"
-d123-conversion = "d123.script.run_conversion:main"
+py123d-viser = "py123d.script.run_viser:main"
+py123d-conversion = "py123d.script.run_conversion:main"
 
 
 [project.optional-dependencies]
@@ -67,6 +69,7 @@ docs = [
     "sphinx-autobuild",
     "myst-parser",
     "sphinx-copybutton",
+    "furo",
 ]
 nuplan = [
     "nuplan-devkit @ git+https://github.com/motional/nuplan-devkit/@nuplan-devkit-v1.2",
@@ -93,10 +96,8 @@ waymo = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["d123*"]  # Only include d123 package
-exclude = ["notebooks*", "docs*"]  # Explicitly exclude notebooks
+where = ["src"]
 
 [project.urls]
-"Homepage" = "https://github.com/DanielDauner/d123"
-"Bug Tracker" = "https://github.com/DanielDauner/d123/issues"
+"Homepage" = "https://github.com/DanielDauner/py123d"
+"Bug Tracker" = "https://github.com/DanielDauner/py123d/issues"

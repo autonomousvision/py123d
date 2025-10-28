@@ -1,0 +1,17 @@
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+  searchpath:
+    - pkg://py123d.script.config
+    - pkg://py123d.script.config.common
+  job:
+    chdir: False
+#
+defaults:
+  - default_common
+  - default_dataset_paths
+  - override scene_filter: viser_scenes
+  - _self_
+
+port_number: 8080

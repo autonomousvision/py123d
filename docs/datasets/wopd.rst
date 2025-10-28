@@ -29,7 +29,7 @@ Installation
 .. code-block:: bash
 
    # Example installation commands
-   pip install d123[dataset_name]
+   pip install py123d[dataset_name]
    # or
    wget https://example.com/dataset.zip
 
