@@ -7,8 +7,10 @@ import pyarrow as pa
 
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.conversion.abstract_dataset_converter import AbstractLogWriter, DatasetConverterConfig
-from py123d.conversion.log_writer.utils.draco_lidar_compression import compress_lidar_with_draco
-from py123d.conversion.log_writer.utils.laz_lidar_compression import compress_lidar_with_laz
+from py123d.conversion.log_writer.abstract_log_writer import LiDARData
+from py123d.conversion.sensor_io.lidar.draco_lidar_io import encode_lidar_pc_as_draco_binary
+from py123d.conversion.sensor_io.lidar.file_lidar_io import load_lidar_pcs_from_file
+from py123d.conversion.sensor_io.lidar.laz_lidar_io import encode_lidar_pc_as_laz_binary
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
@@ -27,7 +29,7 @@ class ArrowLogWriter(AbstractLogWriter):
         logs_root: Union[str, Path],
         ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
         ipc_compression_level: Optional[int] = None,
-        lidar_compression: Optional[Literal["draco", "laz"]] = "laz",
+        lidar_compression: Optional[Literal["draco", "laz"]] = "draco",
     ) -> None:
 
         self._logs_root = Path(logs_root)
@@ -82,7 +84,7 @@ class ArrowLogWriter(AbstractLogWriter):
         box_detections: Optional[BoxDetectionWrapper] = None,
         traffic_lights: Optional[TrafficLightDetectionWrapper] = None,
         cameras: Optional[Dict[PinholeCameraType, Tuple[Any, ...]]] = None,
-        lidars: Optional[Dict[LiDARType, Any]] = None,
+        lidars: Optional[List[LiDARData]] = None,
         scenario_tags: Optional[List[str]] = None,
         route_lane_group_ids: Optional[List[int]] = None,
     ) -> None:
@@ -188,28 +190,30 @@ class ArrowLogWriter(AbstractLogWriter):
         # --------------------------------------------------------------------------------------------------------------
         # LiDARs
         # --------------------------------------------------------------------------------------------------------------
-        if self._dataset_converter_config.include_lidars:
+        if self._dataset_converter_config.include_lidars and len(self._log_metadata.lidar_metadata) > 0:
             assert lidars is not None, "LiDAR data is required but not provided."
-            provided_lidars = set(lidars.keys())
-            expected_lidars = set(self._log_metadata.lidar_metadata.keys())
-            for lidar_type in expected_lidars:
-                lidar_name = lidar_type.serialize()
 
-                # NOTE: Missing LiDARs are allowed, similar to cameras
-                # In this case, we write None/null to the arrow table.
-                lidar_data: Optional[Any] = None
-                if lidar_type in provided_lidars:
-                    lidar_data = lidars[lidar_type]
+            if self._dataset_converter_config.lidar_store_option == "path_merged":
+                # NOTE @DanielDauner: The path_merged option is necessary for dataset, that natively store multiple
+                # LiDAR point clouds in a single file. In this case, writing the file path several times is wasteful.
+                # Instead, we store the file path once, and divide the point clouds during reading.
+                assert len(lidars) == 1, "Exactly one LiDAR data must be provided for merged LiDAR storage."
+                merged_lidar_data: Optional[str] = str(lidars[0].relative_path)
 
-                    # Possible compression step
-                    if self._dataset_converter_config.lidar_store_option == "binary":
-                        lidar_metadata = self._log_metadata.lidar_metadata[lidar_type]
-                        if self._lidar_compression == "draco":
-                            lidar_data = compress_lidar_with_draco(lidar_data, lidar_metadata)
-                        elif self._lidar_compression == "laz":
-                            lidar_data = compress_lidar_with_laz(lidar_data, lidar_metadata)
+                record_batch_data[f"{LiDARType.LIDAR_MERGED.serialize()}_data"] = [merged_lidar_data]
 
-                record_batch_data[f"{lidar_name}_data"] = [lidar_data]
+            else:
+                # NOTE @DanielDauner: for "path" and "binary" options, we write each LiDAR in a separate column.
+                # We currently assume that all lidars are provided at the same time step.
+                # Theoretically, we could extend the store asynchronous LiDARs in the future by storing the lidar data
+                # list as a dictionary, list or struct-like object in the columns.
+                expected_lidars = set(self._log_metadata.lidar_metadata.keys())
+                lidar_data_dict = self._prepare_lidar_data_dict(lidars)
+
+                for lidar_type in expected_lidars:
+                    lidar_name = lidar_type.serialize()
+                    lidar_data: Optional[Union[str, bytes]] = lidar_data_dict.get(lidar_type, None)
+                    record_batch_data[f"{lidar_name}_data"] = [lidar_data]
 
         # --------------------------------------------------------------------------------------------------------------
         # Miscellaneous (Scenario Tags / Route)
@@ -300,16 +304,19 @@ class ArrowLogWriter(AbstractLogWriter):
         # --------------------------------------------------------------------------------------------------------------
         # LiDARs
         # --------------------------------------------------------------------------------------------------------------
-        if dataset_converter_config.include_lidars:
-            for lidar_type in log_metadata.lidar_metadata.keys():
-                lidar_name = lidar_type.serialize()
+        if dataset_converter_config.include_lidars and len(log_metadata.lidar_metadata) > 0:
+            if dataset_converter_config.lidar_store_option == "path_merged":
+                schema_list.append((f"{LiDARType.LIDAR_MERGED.serialize()}_data", pa.string()))
+            else:
+                for lidar_type in log_metadata.lidar_metadata.keys():
+                    lidar_name = lidar_type.serialize()
 
-                # Depending on the storage option, define the schema for LiDAR data
-                if dataset_converter_config.lidar_store_option == "path":
-                    schema_list.append((f"{lidar_name}_data", pa.string()))
+                    # Depending on the storage option, define the schema for LiDAR data
+                    if dataset_converter_config.lidar_store_option == "path":
+                        schema_list.append((f"{lidar_name}_data", pa.string()))
 
-                elif dataset_converter_config.lidar_store_option == "binary":
-                    schema_list.append((f"{lidar_name}_data", pa.binary()))
+                    elif dataset_converter_config.lidar_store_option == "binary":
+                        schema_list.append((f"{lidar_name}_data", pa.binary()))
 
         # --------------------------------------------------------------------------------------------------------------
         # Miscellaneous (Scenario Tags / Route)
@@ -321,3 +328,36 @@ class ArrowLogWriter(AbstractLogWriter):
             schema_list.append(("route_lane_group_ids", pa.list_(pa.int64())))
 
         return add_log_metadata_to_arrow_schema(pa.schema(schema_list), log_metadata)
+
+    def _prepare_lidar_data_dict(self, lidars: List[LiDARData]) -> Dict[LiDARType, Union[str, bytes]]:
+        lidar_data_dict: Dict[LiDARType, Union[str, bytes]] = {}
+
+        if self._dataset_converter_config.lidar_store_option == "path":
+            for lidar_data in lidars:
+                lidar_data_dict[lidar_data.lidar_type] = str(lidar_data.relative_path)
+
+        elif self._dataset_converter_config.lidar_store_option == "binary":
+            lidar_pcs_dict: Dict[LiDARType, np.ndarray] = {}
+
+            # 1. Load point clouds from files
+            for lidar_data in lidars:
+                lidar_pcs_dict.update(
+                    load_lidar_pcs_from_file(
+                        lidar_data.relative_path,
+                        self._log_metadata,
+                        lidar_data.iteration,
+                        lidar_data.dataset_root,
+                    )
+                )
+
+            # 2. Compress the point clouds to bytes
+            for lidar_type, point_cloud in lidar_pcs_dict.items():
+                lidar_metadata = self._log_metadata.lidar_metadata[lidar_type]
+                binary: Optional[bytes] = None
+                if self._lidar_compression == "draco":
+                    binary = encode_lidar_pc_as_draco_binary(point_cloud, lidar_metadata)
+                elif self._lidar_compression == "laz":
+                    binary = encode_lidar_pc_as_laz_binary(point_cloud, lidar_metadata)
+                lidar_data_dict[lidar_type] = binary
+
+        return lidar_data_dict

@@ -13,7 +13,7 @@ DRACO_QUANTIZATION_RANGE: Final[int] = -1  # Use default range
 DRACO_PRESERVE_ORDER: Final[bool] = False
 
 
-def compress_lidar_with_draco(point_cloud: npt.NDArray[np.float32], lidar_metadata: LiDARMetadata) -> bytes:
+def encode_lidar_pc_as_draco_binary(lidar_pc: npt.NDArray[np.float32], lidar_metadata: LiDARMetadata) -> bytes:
     """Compress LiDAR point cloud data using Draco format.
 
     :param point_cloud: The LiDAR point cloud data to compress, as numpy array.
@@ -23,7 +23,7 @@ def compress_lidar_with_draco(point_cloud: npt.NDArray[np.float32], lidar_metada
     lidar_index = lidar_metadata.lidar_index
 
     binary = DracoPy.encode(
-        point_cloud[:, lidar_index.XYZ],
+        lidar_pc[:, lidar_index.XYZ],
         quantization_bits=DRACO_QUANTIZATION_BITS,
         compression_level=DRACO_COMPRESSION_LEVEL,
         quantization_range=DRACO_QUANTIZATION_RANGE,
@@ -35,7 +35,7 @@ def compress_lidar_with_draco(point_cloud: npt.NDArray[np.float32], lidar_metada
     return binary
 
 
-def decompress_lidar_from_draco(draco_binary: bytes, lidar_metadata: LiDARMetadata) -> LiDAR:
+def load_lidar_from_draco_binary(draco_binary: bytes, lidar_metadata: LiDARMetadata) -> LiDAR:
     """Decompress LiDAR point cloud data from Draco format.
 
     :param draco_binary: The compressed Draco binary data.

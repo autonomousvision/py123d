@@ -7,7 +7,7 @@ import numpy as np
 import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
-from py123d.conversion.utils.sensor_utils.lidar_index_registry import LIDAR_INDEX_REGISTRY, LiDARIndex
+from py123d.conversion.registry.lidar_index_registry import LIDAR_INDEX_REGISTRY, LiDARIndex
 from py123d.geometry import StateSE3
 
 

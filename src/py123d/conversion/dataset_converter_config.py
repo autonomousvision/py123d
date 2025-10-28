@@ -18,6 +18,7 @@ class DatasetConverterConfig:
 
     # Box Detections
     include_box_detections: bool = False
+    include_box_lidar_points: bool = False
 
     # Traffic Lights
     include_traffic_lights: bool = False
@@ -28,7 +29,7 @@ class DatasetConverterConfig:
 
     # LiDARs
     include_lidars: bool = False
-    lidar_store_option: Literal["path", "binary"] = "path"
+    lidar_store_option: Literal["path", "path_merged", "binary"] = "path"
 
     # Scenario tag / Route
     # NOTE: These are only supported for nuPlan. Consider removing or expanding support.
@@ -44,5 +45,6 @@ class DatasetConverterConfig:
 
         assert self.lidar_store_option in [
             "path",
+            "path_merged",
             "binary",
         ], f"Invalid LiDAR store option, got {self.lidar_store_option}."

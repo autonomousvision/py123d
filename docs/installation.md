@@ -26,8 +26,8 @@ Note, the following installation assumes the following folder structure: TODO UP
 
 First you need to create a new conda environment and install `py123d` as editable pip package.
 ```bash
-conda create -n py123d python=3.12
-conda activate py123d
+conda create -n py123d_dev python=3.12
+conda activate py123d_dev
 pip install -e .
 ```
 
@@ -35,10 +35,3 @@ Next, you need add the following environment variables in your `.bashrc`:
 ```bash
 export PY123D_DATA_ROOT="$HOME/py123d_workspace/data"
 ```
-
-<!-- # CARLA
-export CARLA_SIMULATOR_ROOT="$HOME/carla_workspace/carla_garage/carla"
-
-# nuPlan
-export NUPLAN_DATA_ROOT="/path/to/nuplan/dataset"
-export NUPLAN_MAPS_ROOT="/path/to/nuplan/dataset/maps" -->

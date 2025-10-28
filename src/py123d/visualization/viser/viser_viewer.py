@@ -2,7 +2,9 @@ import logging
 import time
 from typing import Dict, List, Optional
 
+import imageio.v3 as iio
 import viser
+from tqdm import tqdm
 from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
 
 from py123d.datatypes.maps.map_datatypes import MapLayer
@@ -17,6 +19,7 @@ from py123d.visualization.viser.elements import (
     add_lidar_pc_to_viser_server,
     add_map_to_viser_server,
 )
+from py123d.visualization.viser.elements.render_elements import get_ego_3rd_person_view_position
 from py123d.visualization.viser.viser_config import ViserConfig
 
 logger = logging.getLogger(__name__)
@@ -114,9 +117,10 @@ class ViserViewer:
     def set_scene(self, scene: AbstractScene) -> None:
         num_frames = scene.number_of_iterations
         initial_ego_state: EgoStateSE3 = scene.get_ego_state_at_iteration(0)
+        server_playing = True
+        server_rendering = False
 
         with self._viser_server.gui.add_folder("Playback"):
-            server_playing = True
             gui_timestep = self._viser_server.gui.add_slider(
                 "Timestep",
                 min=0,
@@ -133,6 +137,8 @@ class ViserViewer:
             gui_framerate_options = self._viser_server.gui.add_button_group(
                 "FPS options", ("10", "25", "50", "75", "100")
             )
+
+        button = self._viser_server.gui.add_button("Render Scene")
 
         # Frame step buttons.
         @gui_next_frame.on_click
@@ -204,8 +210,28 @@ class ViserViewer:
             )
             rendering_time = time.perf_counter() - start
             sleep_time = 1.0 / gui_framerate.value - rendering_time
-            if sleep_time > 0:
+            if sleep_time > 0 and not server_rendering:
                 time.sleep(max(sleep_time, 0.0))
+
+        @button.on_click
+        def _(event: viser.GuiEvent) -> None:
+            client = event.client
+            assert client is not None
+
+            client.scene.reset()
+
+            server_rendering = True
+            images = []
+
+            for i in tqdm(range(scene.number_of_iterations)):
+                gui_timestep.value = i
+                ego_view = get_ego_3rd_person_view_position(scene, i, initial_ego_state)
+                client.camera.position = ego_view.point_3d.array
+                client.camera.wxyz = ego_view.quaternion.array
+                images.append(client.get_render(height=720, width=1280))
+
+            client.send_file_download("image.mp4", iio.imwrite("<bytes>", images, extension=".mp4", fps=30))
+            server_rendering = False
 
         camera_frustum_handles: Dict[PinholeCameraType, viser.CameraFrustumHandle] = {}
         camera_gui_handles: Dict[PinholeCameraType, viser.GuiImageHandle] = {}
@@ -253,7 +279,8 @@ class ViserViewer:
 
         # Playback update loop.
         while server_playing:
-            if gui_playing.value:
+
+            if gui_playing.value and not server_rendering:
                 gui_timestep.value = (gui_timestep.value + 1) % num_frames
 
         self._viser_server.flush()

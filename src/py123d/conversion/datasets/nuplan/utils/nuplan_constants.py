@@ -4,6 +4,7 @@ from typing import Dict, Final, List, Set
 from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightStatus
 from py123d.datatypes.maps.map_datatypes import RoadLineType
+from py123d.datatypes.sensors.lidar.lidar import LiDARType
 from py123d.datatypes.time.time_point import TimePoint
 
 
@@ -37,6 +38,14 @@ NUPLAN_DETECTION_NAME_DICT = {
     "generic_object": BoxDetectionType.GENERIC_OBJECT,
 }
 
+# https://github.com/motional/nuplan-devkit/blob/e9241677997dd86bfc0bcd44817ab04fe631405b/nuplan/database/nuplan_db_orm/utils.py#L1129-L1135
+NUPLAN_LIDAR_DICT = {
+    0: LiDARType.LIDAR_TOP,
+    1: LiDARType.LIDAR_SIDE_RIGHT,
+    2: LiDARType.LIDAR_SIDE_LEFT,
+    3: LiDARType.LIDAR_BACK,
+    4: LiDARType.LIDAR_FRONT,
+}
 
 NUPLAN_DATA_SPLITS: Set[str] = {
     "nuplan_train",

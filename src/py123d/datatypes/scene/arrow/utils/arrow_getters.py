@@ -7,6 +7,9 @@ import numpy.typing as npt
 import pyarrow as pa
 from omegaconf import DictConfig
 
+from py123d.conversion.sensor_io.lidar.draco_lidar_io import load_lidar_from_draco_binary
+from py123d.conversion.sensor_io.lidar.file_lidar_io import load_lidar_pcs_from_file
+from py123d.conversion.sensor_io.lidar.laz_lidar_io import load_lidar_from_laz_binary
 from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.detections.box_detections import (
     BoxDetection,
@@ -21,7 +24,7 @@ from py123d.datatypes.detections.traffic_light_detections import (
 )
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
-from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARType
+from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata, LiDARType
 from py123d.datatypes.sensors.lidar.lidar_index import DefaultLidarIndex
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
@@ -147,71 +150,43 @@ def get_lidar_from_arrow_table(
 
     lidar: Optional[LiDAR] = None
     lidar_column_name = f"{lidar_type.serialize()}_data"
+    lidar_column_name = (
+        f"{LiDARType.LIDAR_MERGED.serialize()}_data"
+        if lidar_column_name not in arrow_table.schema.names
+        else lidar_column_name
+    )
     if lidar_column_name in arrow_table.schema.names:
 
         lidar_data = arrow_table[lidar_column_name][index].as_py()
-        lidar_metadata = log_metadata.lidar_metadata[lidar_type]
 
         if isinstance(lidar_data, str):
-            sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
-            assert (
-                sensor_root is not None
-            ), f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}"
-            full_lidar_path = Path(sensor_root) / lidar_data
-            assert full_lidar_path.exists(), f"LiDAR file not found: {full_lidar_path}"
-
-            # NOTE: We move data specific import into if-else block, to avoid data specific import errors
-            if log_metadata.dataset == "nuplan":
-                from py123d.conversion.datasets.nuplan.nuplan_load_sensor import load_nuplan_lidar_from_path
-
-                lidar = load_nuplan_lidar_from_path(full_lidar_path, lidar_metadata)
-
-            elif log_metadata.dataset == "carla":
-                raise NotImplementedError("Loading LiDAR data for Carla dataset is not implemented.")
-            elif log_metadata.dataset == "av2-sensor":
-                from py123d.conversion.datasets.av2.utils.av2_sensor_loading import load_av2_sensor_lidar_pc_from_path
-
-                lidar_pc_dict = load_av2_sensor_lidar_pc_from_path(full_lidar_path)
-
-                assert (
-                    lidar_type in lidar_pc_dict
-                ), f"LiDAR type {lidar_type} not found in AV2 sensor data at {full_lidar_path}."
-                lidar = LiDAR(metadata=lidar_metadata, point_cloud=lidar_pc_dict[lidar_type])
-
-            elif log_metadata.dataset == "wopd":
-
-                raise NotImplementedError
-            elif log_metadata.dataset == "pandaset":
-                from py123d.conversion.datasets.pandaset.pandaset_sensor_loading import (
-                    load_pandaset_lidars_pc_from_path,
+            lidar_pc_dict = load_lidar_pcs_from_file(relative_path=lidar_data, log_metadata=log_metadata, index=index)
+            if lidar_type == LiDARType.LIDAR_MERGED:
+                # Merge all available LiDAR point clouds into one
+                merged_pc = np.vstack(list(lidar_pc_dict.values()))
+                lidar = LiDAR(
+                    metadata=LiDARMetadata(
+                        lidar_type=LiDARType.LIDAR_MERGED,
+                        lidar_index=DefaultLidarIndex,
+                        extrinsic=None,
+                    ),
+                    point_cloud=merged_pc,
                 )
-
-                ego_state_se3 = get_ego_vehicle_state_from_arrow_table(
-                    arrow_table, index, log_metadata.vehicle_parameters
+            elif lidar_type in lidar_pc_dict:
+                lidar = LiDAR(
+                    metadata=log_metadata.lidar_metadata[lidar_type],
+                    point_cloud=lidar_pc_dict[lidar_type],
                 )
-
-                lidar_pc_dict = load_pandaset_lidars_pc_from_path(full_lidar_path, ego_state_se3)
-                assert (
-                    lidar_type in lidar_pc_dict
-                ), f"LiDAR type {lidar_type} not found in Pandaset data at {full_lidar_path}."
-                lidar = LiDAR(metadata=lidar_metadata, point_cloud=lidar_pc_dict[lidar_type])
-            else:
-                raise NotImplementedError(f"Loading LiDAR data for dataset {log_metadata.dataset} is not implemented.")
-
         elif isinstance(lidar_data, bytes):
-
+            lidar_metadata = log_metadata.lidar_metadata[lidar_type]
             if lidar_data.startswith(b"DRACO"):
-                from py123d.conversion.log_writer.utils.draco_lidar_compression import decompress_lidar_from_draco
-
                 # NOTE: DRACO only allows XYZ compression, so we need to override the lidar index here.
                 lidar_metadata.lidar_index = DefaultLidarIndex
 
-                lidar = decompress_lidar_from_draco(lidar_data, lidar_metadata)
+                lidar = load_lidar_from_draco_binary(lidar_data, lidar_metadata)
             elif lidar_data.startswith(b"LASF"):
 
-                from py123d.conversion.log_writer.utils.laz_lidar_compression import decompress_lidar_from_laz
-
-                lidar = decompress_lidar_from_laz(lidar_data, lidar_metadata)
+                lidar = load_lidar_from_laz_binary(lidar_data, lidar_metadata)
         elif lidar_data is None:
             lidar = None
         else:

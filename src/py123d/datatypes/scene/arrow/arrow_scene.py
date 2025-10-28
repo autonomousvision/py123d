@@ -133,7 +133,7 @@ class ArrowScene(AbstractScene):
 
     def get_lidar_at_iteration(self, iteration: int, lidar_type: LiDARType) -> Optional[LiDAR]:
         lidar: Optional[LiDAR] = None
-        if lidar_type in self.available_lidar_types:
+        if lidar_type in self.available_lidar_types or lidar_type == LiDARType.LIDAR_MERGED:
             lidar = get_lidar_from_arrow_table(
                 self._get_recording_table(),
                 self._get_table_index(iteration),

@@ -15,6 +15,7 @@ from py123d.geometry.transform.transform_se3 import (
     convert_relative_to_absolute_points_3d_array,
     convert_relative_to_absolute_se3_array,
 )
+from py123d.visualization.color.color import TAB_10
 from py123d.visualization.viser.viser_config import ViserConfig
 
 
@@ -128,6 +129,13 @@ def add_lidar_pc_to_viser_server(
         points_3d_local = (
             np.concatenate(lidar_points_3d_list, axis=0) if lidar_points_3d_list else np.zeros((0, 3), dtype=np.float32)
         )
+
+        colors = []
+        for idx, points in enumerate(lidar_points_3d_list):
+            color = np.array(TAB_10[idx % len(TAB_10)].rgb, dtype=np.uint8)
+            colors.append(np.tile(color, (points.shape[0], 1)))
+        colors = np.vstack(colors) if colors else np.zeros((0, 3), dtype=np.uint8)
+
         points = convert_relative_to_absolute_points_3d_array(ego_pose, points_3d_local)
         colors = np.zeros_like(points)
 

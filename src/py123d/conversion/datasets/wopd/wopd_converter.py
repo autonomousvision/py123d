@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -16,11 +17,10 @@ from py123d.conversion.datasets.wopd.utils.wopd_constants import (
     WOPD_LIDAR_TYPES,
 )
 from py123d.conversion.datasets.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
-from py123d.conversion.datasets.wopd.wopd_utils import parse_range_image_and_camera_projection
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.conversion.registry.lidar_index_registry import DefaultLidarIndex, WOPDLidarIndex
 from py123d.conversion.utils.sensor_utils.camera_conventions import CameraConvention, convert_camera_convention
-from py123d.conversion.utils.sensor_utils.lidar_index_registry import DefaultLidarIndex, WOPDLidarIndex
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.maps.map_metadata import MapMetadata
 from py123d.datatypes.scene.scene_metadata import LogMetadata
@@ -54,10 +54,8 @@ from py123d.geometry.utils.rotation_utils import (
 check_dependencies(modules=["tensorflow", "waymo_open_dataset"], optional_name="waymo")
 import tensorflow as tf
 from waymo_open_dataset import dataset_pb2
-from waymo_open_dataset.utils import frame_utils
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 tf.config.set_visible_devices(tf.config.list_physical_devices("CPU"))
@@ -181,10 +179,18 @@ class WOPDConverter(AbstractDatasetConverter):
                         box_detections=_extract_wopd_box_detections(frame, map_pose_offset, self._zero_roll_pitch),
                         traffic_lights=None,  # TODO: Check if WOPD has traffic light information
                         cameras=_extract_wopd_cameras(frame, self.dataset_converter_config),
-                        lidars=_extract_wopd_lidars(frame, self._keep_polar_features, self.dataset_converter_config),
+                        lidars=_extract_wopd_lidars(
+                            frame,
+                            self._keep_polar_features,
+                            frame_idx,
+                            self.dataset_converter_config,
+                            source_tf_record_path,
+                            self._wopd_data_root,
+                        ),
                     )
             except Exception as e:
                 logger.error(f"Error processing log {log_name}: {e}")
+                traceback.print_exc()
 
         log_writer.close()
 
@@ -377,14 +383,9 @@ def _extract_wopd_cameras(
 
     if dataset_converter_config.include_cameras:
 
-        # TODO: Implement option to store images as paths
-        assert (
-            dataset_converter_config.camera_store_option == "binary"
-        ), "Camera store option must be 'binary' for WOPD."
-
-        # NOTE: The extrinsic matrix in frame.context.camera_calibration is fixed to model the ego to camera transformation.
+        # NOTE @DanielDauner: The extrinsic matrix in frame.context.camera_calibration is fixed to model the ego to camera transformation.
         # The poses in frame.images[idx] are the motion compensated ego poses when the camera triggers.
-
+        # TODO: Verify if this is correct.
         camera_extrinsic: Dict[str, StateSE3] = {}
         for calibration in frame.context.camera_calibrations:
             camera_type = WOPD_CAMERA_TYPES[calibration.name]
@@ -410,27 +411,24 @@ def _extract_wopd_cameras(
 def _extract_wopd_lidars(
     frame: dataset_pb2.Frame,
     keep_polar_features: bool,
+    frame_idx: int,
     dataset_converter_config: DatasetConverterConfig,
+    absolute_tf_record_path: Path,
+    wopd_data_root: Path,
 ) -> Dict[LiDARType, npt.NDArray[np.float32]]:
 
-    lidar_data: Dict[LiDARType, npt.NDArray[np.float32]] = {}
+    lidars: List[LiDARData] = []
 
     if dataset_converter_config.include_lidars:
 
-        # TODO: Implement option to store point clouds as paths
-        assert dataset_converter_config.lidar_store_option == "binary", "Lidar store option must be 'binary' for WOPD."
-        (range_images, camera_projections, _, range_image_top_pose) = parse_range_image_and_camera_projection(frame)
-
-        points, cp_points = frame_utils.convert_range_image_to_point_cloud(
-            frame=frame,
-            range_images=range_images,
-            camera_projections=camera_projections,
-            range_image_top_pose=range_image_top_pose,
-            keep_polar_features=keep_polar_features,
+        relative_path = absolute_tf_record_path.relative_to(wopd_data_root)
+        lidars.append(
+            LiDARData(
+                lidar_type=LiDARType.LIDAR_MERGED,
+                iteration=frame_idx,
+                dataset_root=wopd_data_root,
+                relative_path=relative_path,
+            )
         )
 
-        for lidar_idx, frame_lidar in enumerate(frame.lasers):
-            lidar_type = WOPD_LIDAR_TYPES[frame_lidar.name]
-            lidar_data[lidar_type] = np.array(points[lidar_idx], dtype=np.float32).flatten()
-
-    return lidar_data
+    return lidars
