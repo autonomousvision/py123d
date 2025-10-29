@@ -15,6 +15,7 @@ DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "av2-sensor": DATASET_PATHS.av2_sensor_data_root,
     "wopd": DATASET_PATHS.wopd_data_root,
     "pandaset": DATASET_PATHS.pandaset_data_root,
+    "kitti360": DATASET_PATHS.kitti360_data_root,
 }
 
 
@@ -56,6 +57,12 @@ def load_lidar_pcs_from_file(
         from py123d.conversion.datasets.pandaset.pandaset_sensor_io import load_pandaset_lidars_pcs_from_file
 
         lidar_pcs_dict = load_pandaset_lidars_pcs_from_file(full_lidar_path, index)
+    
+    elif log_metadata.dataset == "kitti360":
+        from py123d.conversion.datasets.kitti_360.kitti_360_sensor_io import load_kitti360_lidar_pcs_from_file
+        
+        lidar_pcs_dict = load_kitti360_lidar_pcs_from_file(full_lidar_path)
+    
     else:
         raise NotImplementedError(f"Loading LiDAR data for dataset {log_metadata.dataset} is not implemented.")
 

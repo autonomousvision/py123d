@@ -1,15 +1,15 @@
 from pathlib import Path
 
+from typing import Dict
 import numpy as np
 import logging
+from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata, LiDARType
+from py123d.conversion.datasets.kitti_360.kitti_360_helper import get_lidar_extrinsic
 
-from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata
-
-
-def load_kitti360_lidar_from_path(filepath: Path, lidar_metadata: LiDARMetadata) -> LiDAR:
+def load_kitti360_lidar_pcs_from_file(filepath: Path) -> Dict[LiDARType, np.ndarray]:
     if not filepath.exists():
         logging.warning(f"LiDAR file does not exist: {filepath}. Returning empty point cloud.")
-        return LiDAR(metadata=lidar_metadata, point_cloud=np.zeros((1, 4), dtype=np.float32))
+        return {LiDARType.LIDAR_TOP: np.zeros((1, 4), dtype=np.float32)}
     
     pcd = np.fromfile(filepath, dtype=np.float32)
     pcd = np.reshape(pcd,[-1,4]) # [N,4]
@@ -20,7 +20,8 @@ def load_kitti360_lidar_from_path(filepath: Path, lidar_metadata: LiDARMetadata)
     ones = np.ones((xyz.shape[0], 1), dtype=pcd.dtype)
     points_h = np.concatenate([xyz, ones], axis=1)  #[N,4]
 
-    transformed_h = lidar_metadata.extrinsic.transformation_matrix @ points_h.T   #[4,N]
+    transformed_h = get_lidar_extrinsic() @ points_h.T   #[4,N]
+    # transformed_h = lidar_metadata.extrinsic.transformation_matrix @ points_h.T   #[4,N]
 
     transformed_xyz = transformed_h[:3, :]      # (3,N)
 
@@ -30,4 +31,4 @@ def load_kitti360_lidar_from_path(filepath: Path, lidar_metadata: LiDARMetadata)
 
     point_cloud_Nx4 = point_cloud_4xN.T  # (N,4)
 
-    return LiDAR(metadata=lidar_metadata, point_cloud=point_cloud_Nx4)
+    return {LiDARType.LIDAR_TOP: point_cloud_Nx4}

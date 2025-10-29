@@ -29,14 +29,14 @@ from py123d.datatypes.sensors.camera.fisheye_mei_camera import (
     FisheyeMEIProjection,
 )
 from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata, LiDARType
-from py123d.conversion.utils.sensor_utils.lidar_index_registry import Kitti360LidarIndex
+from py123d.conversion.registry.lidar_index_registry import Kitti360LidarIndex
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_kitti360_station_wagon_parameters,rear_axle_se3_to_center_se3
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.datatypes.maps.map_metadata import MapMetadata
 from py123d.datatypes.scene.scene_metadata import LogMetadata
@@ -45,7 +45,6 @@ from py123d.conversion.datasets.kitti_360.kitti_360_labels import KITTI360_DETEC
 from py123d.conversion.datasets.kitti_360.kitti_360_map_conversion import (
     convert_kitti360_map_with_writer
 )
-from py123d.conversion.datasets.kitti_360.kitti_360_load_sensor import load_kitti360_lidar_from_path
 from py123d.geometry import BoundingBoxSE3, StateSE3, Vector3D
 from py123d.geometry.rotation import EulerAngles
 
@@ -589,28 +588,30 @@ def _extract_detections(
         box_detection_wrapper_all.append(BoxDetectionWrapper(box_detections=box_detections))
     return box_detection_wrapper_all
 
-def _extract_lidar(log_name: str, idx: int, data_converter_config: DatasetConverterConfig) -> Dict[LiDARType, Optional[str]]:
+def _extract_lidar(log_name: str, idx: int, data_converter_config: DatasetConverterConfig) -> List[LiDARData]:
     
-    #NOTE special case for sequence 2013_05_28_drive_0002_sync which has no lidar data before frame 4391
-    if log_name == "2013_05_28_drive_0002_sync" and idx <= 4390:
-        return {LiDARType.LIDAR_TOP: None}
-    
-    lidar: Optional[str] = None
-    lidar_full_path = PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "data" / f"{idx:010d}.bin"
-    if lidar_full_path.exists():
-        if data_converter_config.lidar_store_option == "path":
-            lidar = f"data_3d_raw/{log_name}/velodyne_points/data/{idx:010d}.bin"
-        elif data_converter_config.lidar_store_option == "binary":
-            temp_metadata = LiDARMetadata(
-                lidar_type=LiDARType.LIDAR_TOP,
-                lidar_index=Kitti360LidarIndex,
-                extrinsic=StateSE3.from_transformation_matrix(get_lidar_extrinsic()),
+    lidars: List[LiDARData] = []
+    if data_converter_config.include_lidars:
+        #NOTE special case for sequence 2013_05_28_drive_0002_sync which has no lidar data before frame 4391
+        if log_name == "2013_05_28_drive_0002_sync" and idx <= 4390:
+            return lidars
+        
+        lidar_full_path = PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "data" / f"{idx:010d}.bin"
+        if lidar_full_path.exists():
+            relative_path = f"data_3d_raw/{log_name}/velodyne_points/data/{idx:010d}.bin"
+            lidars.append(
+                LiDARData(
+                    lidar_type=LiDARType.LIDAR_TOP,
+                    timestamp=None,
+                    iteration=idx,
+                    dataset_root=PATH_3D_RAW_ROOT,
+                    relative_path=relative_path,
+                )
             )
-            lidar_pc: LiDAR = load_kitti360_lidar_from_path(lidar_full_path, temp_metadata)
-            lidar = lidar_pc.point_cloud
-    else:
-        raise FileNotFoundError(f"LiDAR file not found: {lidar_full_path}")
-    return {LiDARType.LIDAR_TOP: lidar}
+        else:
+            raise FileNotFoundError(f"LiDAR file not found: {lidar_full_path}")
+    
+    return lidars
 
 def _extract_cameras(
     log_name: str, idx: int, data_converter_config: DatasetConverterConfig
