@@ -14,6 +14,8 @@ all_camera_types: List[PinholeCameraType] = [
     PinholeCameraType.CAM_R0,
     PinholeCameraType.CAM_R1,
     PinholeCameraType.CAM_R2,
+    PinholeCameraType.CAM_STEREO_L,
+    PinholeCameraType.CAM_STEREO_R,
 ]
 
 all_lidar_types: List[LiDARType] = [

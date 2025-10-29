@@ -167,7 +167,7 @@ def assureSingleInstanceName( name ):
     # all good then
     return name
 
-from py123d.datatypes.detections.detection_types import DetectionType
+from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 
 BBOX_LABLES_TO_DETECTION_NAME_DICT = {
     'car': 'car',
@@ -185,19 +185,19 @@ BBOX_LABLES_TO_DETECTION_NAME_DICT = {
 }
 
 KITTI360_DETECTION_NAME_DICT = {
-    "traffic light": DetectionType.SIGN,
-    "traffic sign": DetectionType.SIGN,
-    "person": DetectionType.PEDESTRIAN,
-    "rider": DetectionType.BICYCLE,
-    "car": DetectionType.VEHICLE,
-    "truck": DetectionType.VEHICLE,
-    "bus": DetectionType.VEHICLE,
-    "caravan": DetectionType.VEHICLE,
-    "trailer": DetectionType.VEHICLE,
-    "train": DetectionType.VEHICLE,
-    "motorcycle": DetectionType.BICYCLE,
-    "bicycle": DetectionType.BICYCLE,
-    "stop": DetectionType.SIGN,
+    "traffic light": BoxDetectionType.SIGN,
+    "traffic sign": BoxDetectionType.SIGN,
+    "person": BoxDetectionType.PEDESTRIAN,
+    "rider": BoxDetectionType.BICYCLE,
+    "car": BoxDetectionType.VEHICLE,
+    "truck": BoxDetectionType.VEHICLE,
+    "bus": BoxDetectionType.VEHICLE,
+    "caravan": BoxDetectionType.VEHICLE,
+    "trailer": BoxDetectionType.VEHICLE,
+    "train": BoxDetectionType.VEHICLE,
+    "motorcycle": BoxDetectionType.BICYCLE,
+    "bicycle": BoxDetectionType.BICYCLE,
+    "stop": BoxDetectionType.SIGN,
 }
 
 # KIITI360_DETECTION_NAME_DICT = {

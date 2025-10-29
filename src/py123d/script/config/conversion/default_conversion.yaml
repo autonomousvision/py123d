@@ -16,7 +16,7 @@ defaults:
   - log_writer: arrow_log_writer
   - map_writer: gpkg_map_writer
   - datasets:
-      - ???
+      - kitti360_dataset
   - _self_
 
 

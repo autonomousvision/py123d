@@ -32,7 +32,7 @@ PATH_3D_BBOX_ROOT = KITTI360_DATA_ROOT / DIR_3D_BBOX
 PATH_POSES_ROOT = KITTI360_DATA_ROOT / DIR_POSES
 
 from py123d.conversion.datasets.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic
-from py123d.conversion.datasets.kitti_360.labels import KITTI360_DETECTION_NAME_DICT, kittiId2label, BBOX_LABLES_TO_DETECTION_NAME_DICT
+from py123d.conversion.datasets.kitti_360.kitti_360_labels import KITTI360_DETECTION_NAME_DICT, kittiId2label, BBOX_LABLES_TO_DETECTION_NAME_DICT
 
 def _bbox_xml_path(log_name: str) -> Path:
     if log_name == "2013_05_28_drive_0004_sync":

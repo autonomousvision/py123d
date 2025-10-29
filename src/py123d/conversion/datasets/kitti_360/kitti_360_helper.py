@@ -1,15 +1,14 @@
 import numpy as np
 
 from collections import defaultdict
-from typing import Dict, Optional, Any, List, Tuple
+from typing import Dict, Any, List, Tuple
 import copy
 from scipy.linalg import polar
-from scipy.spatial.transform import Rotation as R
 
 from py123d.geometry import BoundingBoxSE3, StateSE3
 from py123d.geometry.polyline import Polyline3D
 from py123d.geometry.rotation import EulerAngles
-from py123d.conversion.datasets.kitti_360.labels import kittiId2label,BBOX_LABLES_TO_DETECTION_NAME_DICT
+from py123d.conversion.datasets.kitti_360.kitti_360_labels import kittiId2label,BBOX_LABLES_TO_DETECTION_NAME_DICT
 
 import os
 from pathlib import Path
@@ -124,8 +123,11 @@ class KITTI360Bbox3D():
         if np.linalg.det(Rm) < 0:
             Rm[0] = -Rm[0]
         scale = np.diag(Sm)
-        yaw, pitch, roll = R.from_matrix(Rm).as_euler('zyx', degrees=False)
-        obj_quaternion = EulerAngles(roll=roll, pitch=pitch, yaw=yaw).quaternion
+        # yaw, pitch, roll = R.from_matrix(Rm).as_euler('zyx', degrees=False)
+        euler_angles = EulerAngles.from_rotation_matrix(Rm)
+        yaw,pitch,roll = euler_angles.yaw, euler_angles.pitch, euler_angles.roll
+        obj_quaternion = euler_angles.quaternion
+        # obj_quaternion = EulerAngles(roll=roll, pitch=pitch, yaw=yaw).quaternion
 
         self.Rm = np.array(Rm)
         self.Sm = np.array(Sm)

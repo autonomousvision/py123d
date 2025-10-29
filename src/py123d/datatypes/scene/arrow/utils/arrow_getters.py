@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import cv2
 import numpy as np
@@ -21,6 +21,7 @@ from py123d.datatypes.detections.traffic_light_detections import (
 )
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
+from py123d.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
 from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARType
 from py123d.datatypes.sensors.lidar.lidar_index import DefaultLidarIndex
 from py123d.datatypes.time.time_point import TimePoint
@@ -35,6 +36,7 @@ DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "av2-sensor": DATASET_PATHS.av2_sensor_data_root,
     "wopd": DATASET_PATHS.wopd_data_root,
     "pandaset": DATASET_PATHS.pandaset_data_root,
+    "kitti360": DATASET_PATHS.kitti360_data_root,
 }
 
 
@@ -102,9 +104,9 @@ def get_traffic_light_detections_from_arrow_table(arrow_table: pa.Table, index: 
 def get_camera_from_arrow_table(
     arrow_table: pa.Table,
     index: int,
-    camera_type: PinholeCameraType,
+    camera_type: Union[PinholeCameraType, FisheyeMEICameraType],
     log_metadata: LogMetadata,
-) -> PinholeCamera:
+) -> Union[PinholeCamera, FisheyeMEICamera]:
 
     camera_name = camera_type.serialize()
     table_data = arrow_table[f"{camera_name}_data"][index].as_py()
@@ -131,11 +133,19 @@ def get_camera_from_arrow_table(
     else:
         raise NotImplementedError("Only string file paths for camera data are supported.")
 
-    return PinholeCamera(
-        metadata=log_metadata.camera_metadata[camera_type],
-        image=image,
-        extrinsic=extrinsic,
-    )
+    camera_metadata = log_metadata.camera_metadata[camera_type]
+    if hasattr(camera_metadata, 'mirror_parameter') and camera_metadata.mirror_parameter is not None:
+        return FisheyeMEICamera(
+            metadata=camera_metadata,
+            image=image,
+            extrinsic=extrinsic,
+        )
+    else:
+        return PinholeCamera(
+            metadata=camera_metadata,
+            image=image,
+            extrinsic=extrinsic,
+        )
 
 
 def get_lidar_from_arrow_table(
@@ -195,6 +205,10 @@ def get_lidar_from_arrow_table(
                     lidar_type in lidar_pc_dict
                 ), f"LiDAR type {lidar_type} not found in Pandaset data at {full_lidar_path}."
                 lidar = LiDAR(metadata=lidar_metadata, point_cloud=lidar_pc_dict[lidar_type])
+            elif log_metadata.dataset == "kitti360":
+                from py123d.conversion.datasets.kitti_360.kitti_360_load_sensor import load_kitti360_lidar_from_path
+                
+                lidar = load_kitti360_lidar_from_path(full_lidar_path, lidar_metadata)
             else:
                 raise NotImplementedError(f"Loading LiDAR data for dataset {log_metadata.dataset} is not implemented.")
 

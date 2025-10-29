@@ -1,7 +1,6 @@
 import os
 import re
 import yaml
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
@@ -11,9 +10,6 @@ from collections import defaultdict
 import datetime
 import xml.etree.ElementTree as ET
 import logging
-from pyquaternion import Quaternion
-
-from py123d.common.multithreading.worker_utils import WorkerPool, worker_map
 
 from py123d.datatypes.detections.box_detections import (
     BoxDetectionMetadata,
@@ -32,25 +28,25 @@ from py123d.datatypes.sensors.camera.fisheye_mei_camera import (
     FisheyeMEIDistortion,
     FisheyeMEIProjection,
 )
-from py123d.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
+from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata, LiDARType
 from py123d.conversion.utils.sensor_utils.lidar_index_registry import Kitti360LidarIndex
 from py123d.datatypes.time.time_point import TimePoint
-from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
+from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_kitti360_station_wagon_parameters,rear_axle_se3_to_center_se3
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter
-from py123d.conversion.log_writer.arrow_log_writer import ArrowLogWriter
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.datatypes.maps.map_metadata import MapMetadata
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.conversion.datasets.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic
-from py123d.conversion.datasets.kitti_360.labels import KITTI360_DETECTION_NAME_DICT, kittiId2label, BBOX_LABLES_TO_DETECTION_NAME_DICT
+from py123d.conversion.datasets.kitti_360.kitti_360_labels import KITTI360_DETECTION_NAME_DICT, kittiId2label, BBOX_LABLES_TO_DETECTION_NAME_DICT
 from py123d.conversion.datasets.kitti_360.kitti_360_map_conversion import (
     convert_kitti360_map_with_writer
 )
-from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
+from py123d.conversion.datasets.kitti_360.kitti_360_load_sensor import load_kitti360_lidar_from_path
+from py123d.geometry import BoundingBoxSE3, StateSE3, Vector3D
 from py123d.geometry.rotation import EulerAngles
 
 KITTI360_DT: Final[float] = 0.1
@@ -88,8 +84,8 @@ KITTI360_REQUIRED_MODALITY_ROOTS: Dict[str, Path] = {
     DIR_3D_BBOX: PATH_3D_BBOX_ROOT / "train",
 }
 
-D123_DEVKIT_ROOT = Path(os.environ["D123_DEVKIT_ROOT"])
-PREPOCESS_DETECTION_DIR = D123_DEVKIT_ROOT / "d123" / "conversion" / "datasets" / "kitti_360" / "detection_preprocess"
+D123_DEVKIT_ROOT = Path(os.environ["PY123D_DEVKIT_ROOT"])
+PREPOCESS_DETECTION_DIR = D123_DEVKIT_ROOT / "src" / "py123d" / "conversion" / "datasets" / "kitti_360" / "detection_preprocess"
 
 def create_token(split: str, log_name: str, timestamp_us: int, misc: str = None) -> str:
     """Create a deterministic UUID-based token for KITTI-360 data.
@@ -117,7 +113,7 @@ class Kitti360DataConverter(AbstractDatasetConverter):
     def __init__(
         self,
         splits: List[str],
-        log_path: Union[Path, str],
+        kitti360_data_root: Union[Path, str],
         dataset_converter_config: DatasetConverterConfig,
     ) -> None:
         super().__init__(dataset_converter_config)
@@ -127,7 +123,7 @@ class Kitti360DataConverter(AbstractDatasetConverter):
             ), f"Split {split} is not available. Available splits: {self.available_splits}"
 
         self._splits: List[str] = splits
-        self._log_path: Path = Path(log_path)
+        self._log_path: Path = Path(kitti360_data_root)
         self._log_paths_and_split: List[Tuple[Path, str]] = self._collect_log_paths()
         
         self._total_maps = len(self._log_paths_and_split)  # Each log has its own map
@@ -430,9 +426,8 @@ def _extract_ego_state_all(log_name: str) -> Tuple[List[EgoStateSE3], List[int]]
                         [r10, r11, r12],
                         [r20, r21, r22]], dtype=np.float64)
         R_mat_cali = R_mat @ KITTI3602NUPLAN_IMU_CALIBRATION[:3,:3]
-        yaw, pitch, roll = Quaternion(matrix=R_mat_cali[:3, :3]).yaw_pitch_roll
 
-        ego_quaternion = EulerAngles(roll=roll, pitch=pitch, yaw=yaw).quaternion
+        ego_quaternion = EulerAngles.from_rotation_matrix(R_mat_cali).quaternion
         rear_axle_pose = StateSE3(
             x=poses[pos, 4],
             y=poses[pos, 8],
@@ -578,7 +573,7 @@ def _extract_detections(
             if state is None:
                 break
             detection_metadata = BoxDetectionMetadata(
-                detection_type=detection_type,
+                box_detection_type=detection_type,
                 timepoint=None,
                 track_token=token,
                 confidence=None,
@@ -606,7 +601,13 @@ def _extract_lidar(log_name: str, idx: int, data_converter_config: DatasetConver
         if data_converter_config.lidar_store_option == "path":
             lidar = f"data_3d_raw/{log_name}/velodyne_points/data/{idx:010d}.bin"
         elif data_converter_config.lidar_store_option == "binary":
-            raise NotImplementedError("Binary lidar storage is not implemented.")
+            temp_metadata = LiDARMetadata(
+                lidar_type=LiDARType.LIDAR_TOP,
+                lidar_index=Kitti360LidarIndex,
+                extrinsic=StateSE3.from_transformation_matrix(get_lidar_extrinsic()),
+            )
+            lidar_pc: LiDAR = load_kitti360_lidar_from_path(lidar_full_path, temp_metadata)
+            lidar = lidar_pc.point_cloud
     else:
         raise FileNotFoundError(f"LiDAR file not found: {lidar_full_path}")
     return {LiDARType.LIDAR_TOP: lidar}
