@@ -13,6 +13,7 @@ from py123d.conversion.datasets.nuplan.nuplan_map_conversion import write_nuplan
 from py123d.conversion.datasets.nuplan.utils.nuplan_constants import (
     NUPLAN_DATA_SPLITS,
     NUPLAN_DEFAULT_DT,
+    NUPLAN_LIDAR_DICT,
     NUPLAN_MAP_LOCATIONS,
     NUPLAN_ROLLING_SHUTTER_S,
     NUPLAN_TRAFFIC_STATUS_DICT,
@@ -21,9 +22,9 @@ from py123d.conversion.datasets.nuplan.utils.nuplan_sql_helper import (
     get_box_detections_for_lidarpc_token_from_db,
     get_nearest_ego_pose_for_timestamp_from_db,
 )
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.utils.sensor_utils.lidar_index_registry import NuPlanLidarIndex
+from py123d.conversion.registry.lidar_index_registry import NuPlanLidarIndex
 from py123d.datatypes.detections.box_detections import BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetection, TrafficLightDetectionWrapper
 from py123d.datatypes.maps.map_metadata import MapMetadata
@@ -273,11 +274,12 @@ def _get_nuplan_lidar_metadata(
 
     # NOTE: We first need to check if the LiDAR folder exists, as not all logs have LiDAR data
     if log_lidar_folder.exists() and log_lidar_folder.is_dir() and dataset_converter_config.include_lidars:
-        metadata[LiDARType.LIDAR_MERGED] = LiDARMetadata(
-            lidar_type=LiDARType.LIDAR_MERGED,
-            lidar_index=NuPlanLidarIndex,
-            extrinsic=None,  # NOTE: LiDAR extrinsic are unknown
-        )
+        for lidar_type in NUPLAN_LIDAR_DICT.values():
+            metadata[lidar_type] = LiDARMetadata(
+                lidar_type=lidar_type,
+                lidar_index=NuPlanLidarIndex,
+                extrinsic=None,  # NOTE: LiDAR extrinsic are unknown
+            )
     return metadata
 
 
@@ -401,14 +403,22 @@ def _extract_nuplan_lidars(
     nuplan_lidar_pc: LidarPc,
     nuplan_sensor_root: Path,
     dataset_converter_config: DatasetConverterConfig,
-) -> Dict[LiDARType, Optional[str]]:
+) -> List[LiDARData]:
 
-    lidar: Optional[str] = None
-    lidar_full_path = nuplan_sensor_root / nuplan_lidar_pc.filename
-    if lidar_full_path.exists() and lidar_full_path.is_file():
-        lidar = nuplan_lidar_pc.filename
+    lidars: List[LiDARData] = []
+    if dataset_converter_config.include_lidars:
 
-    return {LiDARType.LIDAR_MERGED: lidar}
+        lidar_full_path = nuplan_sensor_root / nuplan_lidar_pc.filename
+        if lidar_full_path.exists() and lidar_full_path.is_file():
+            lidars.append(
+                LiDARData(
+                    lidar_type=LiDARType.LIDAR_MERGED,
+                    dataset_root=nuplan_sensor_root,
+                    relative_path=nuplan_lidar_pc.filename,
+                )
+            )
+
+    return lidars
 
 
 def _extract_nuplan_scenario_tag(nuplan_log_db: NuPlanDB, lidar_pc_token: str) -> List[str]:

@@ -33,6 +33,17 @@ Installation
    # or
    wget https://example.com/dataset.zip
 
+
+.. code-block:: bash
+
+  conda create -n py123d_waymo python=3.10
+  conda activate py123d_waymo
+  pip install -e .[waymo]
+
+  # pip install protobuf==6.30.2
+  # pip install tensorflow==2.13.0
+  # pip install waymo-open-dataset-tf-2-12-0==1.6.6
+
 Available Data
 ~~~~~~~~~~~~~~
 

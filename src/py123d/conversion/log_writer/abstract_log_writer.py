@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import abc
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
@@ -36,7 +40,7 @@ class AbstractLogWriter(abc.ABC):
         box_detections: Optional[BoxDetectionWrapper] = None,
         traffic_lights: Optional[TrafficLightDetectionWrapper] = None,
         cameras: Optional[Dict[PinholeCameraType, Tuple[Any, ...]]] = None,
-        lidars: Optional[Dict[LiDARType, Any]] = None,
+        lidars: Optional[List[LiDARData]] = None,
         scenario_tags: Optional[List[str]] = None,
         route_lane_group_ids: Optional[List[int]] = None,
         **kwargs,
@@ -46,3 +50,38 @@ class AbstractLogWriter(abc.ABC):
     @abc.abstractmethod
     def close(self) -> None:
         pass
+
+
+@dataclass
+class LiDARData:
+
+    lidar_type: LiDARType
+
+    timestamp: Optional[TimePoint] = None
+    iteration: Optional[int] = None
+    dataset_root: Optional[Union[str, Path]] = None
+    relative_path: Optional[Union[str, Path]] = None
+
+    def __post_init__(self):
+        has_file_path = self.dataset_root is not None and self.relative_path is not None
+
+        assert has_file_path, "Either file path (dataset_root and relative_path) must be provided for LiDARData."
+
+
+@dataclass
+class CameraData:
+
+    camera_type: PinholeCameraType
+
+    timestamp: Optional[TimePoint] = None
+    jpeg_binary: Optional[bytes] = None
+    dataset_root: Optional[Union[str, Path]] = None
+    relative_path: Optional[Union[str, Path]] = None
+
+    def __post_init__(self):
+        has_file_path = self.dataset_root is not None and self.relative_path is not None
+        has_jpeg_binary = self.jpeg_binary is not None
+
+        assert (
+            has_file_path or has_jpeg_binary
+        ), "Either file path (dataset_root and relative_path) or jpeg_binary must be provided for CameraData."

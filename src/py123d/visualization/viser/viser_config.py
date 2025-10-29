@@ -48,9 +48,9 @@ class ViserConfig:
 
     # Map
     map_visible: bool = True
-    map_radius: float = 500.0  # [m]
+    map_radius: float = 100.0  # [m]
     map_non_road_z_offset: float = 0.1  # small z-translation to place crosswalks, parking, etc. on top of the road
-    map_requery: bool = False  # Re-query map when ego vehicle moves out of current map bounds
+    map_requery: bool = True  # Re-query map when ego vehicle moves out of current map bounds
 
     # Bounding boxes
     bounding_box_visible: bool = True

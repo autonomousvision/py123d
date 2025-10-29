@@ -57,6 +57,8 @@ def _convert_maps(args: List[Dict[str, int]], cfg: DictConfig, dataset_converter
 
 def _convert_logs(args: List[Dict[str, int]], cfg: DictConfig, dataset_converter: AbstractDatasetConverter) -> None:
 
+    setup_dataset_paths(cfg.dataset_paths)
+
     def _internal_convert_log(args: Dict[str, int], dataset_converter_: AbstractDatasetConverter) -> int:
         # for i2 in tqdm(range(300), leave=False)
         log_writer = build_log_writer(cfg.log_writer)

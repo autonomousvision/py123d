@@ -7,7 +7,7 @@ import numpy.typing as npt
 from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata
 
 
-def compress_lidar_with_laz(point_cloud: npt.NDArray[np.float32], lidar_metadata: LiDARMetadata) -> bytes:
+def encode_lidar_pc_as_laz_binary(point_cloud: npt.NDArray[np.float32], lidar_metadata: LiDARMetadata) -> bytes:
     """Compress LiDAR point cloud data using LAZ format.
 
     :param point_cloud: The LiDAR point cloud data to compress, as numpy array.
@@ -38,7 +38,7 @@ def compress_lidar_with_laz(point_cloud: npt.NDArray[np.float32], lidar_metadata
     return laz_binary
 
 
-def decompress_lidar_from_laz(laz_binary: bytes, lidar_metadata: LiDARMetadata) -> npt.NDArray[np.float32]:
+def load_lidar_from_laz_binary(laz_binary: bytes, lidar_metadata: LiDARMetadata) -> npt.NDArray[np.float32]:
     """Decompress LiDAR point cloud data from LAZ format.
 
     :param laz_binary: The compressed LAZ binary data.

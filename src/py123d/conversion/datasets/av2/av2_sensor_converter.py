@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
-import numpy.typing as npt
 import pandas as pd
 
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
@@ -20,10 +19,9 @@ from py123d.conversion.datasets.av2.utils.av2_helper import (
     get_slice_with_timestamp_ns,
 )
 from py123d.conversion.datasets.av2.utils.av2_map_conversion import convert_av2_map
-from py123d.conversion.datasets.av2.utils.av2_sensor_loading import load_av2_sensor_lidar_pc_from_path
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.utils.sensor_utils.lidar_index_registry import AVSensorLidarIndex
+from py123d.conversion.registry.lidar_index_registry import AVSensorLidarIndex
 from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.maps.map_metadata import MapMetadata
@@ -373,8 +371,8 @@ def _extract_av2_sensor_camera(
 
 def _extract_av2_sensor_lidars(
     source_log_path: Path, lidar_timestamp_ns: int, dataset_converter_config: DatasetConverterConfig
-) -> Optional[Dict[LiDARType, Union[str, npt.NDArray[np.float32]]]]:
-    lidar_dict: Dict[LiDARType, Union[str, npt.NDArray[np.float32]]] = {}
+) -> List[LiDARData]:
+    lidars: List[LiDARData] = []
     if dataset_converter_config.include_lidars:
         av2_sensor_data_root = source_log_path.parent.parent
         split_type = source_log_path.parent.name
@@ -382,21 +380,16 @@ def _extract_av2_sensor_lidars(
 
         relative_feather_path = f"{split_type}/{log_name}/sensors/lidar/{lidar_timestamp_ns}.feather"
         lidar_feather_path = av2_sensor_data_root / relative_feather_path
-        # if lidar_feather_path.exists():
-
         assert lidar_feather_path.exists(), f"LiDAR feather file not found: {lidar_feather_path}"
-        if dataset_converter_config.lidar_store_option == "path":
-            # NOTE: It is somewhat inefficient to store the same path for both lidars,
-            # but this keeps the interface simple for now.
-            lidar_dict = {
-                LiDARType.LIDAR_TOP: str(relative_feather_path),
-                LiDARType.LIDAR_DOWN: str(relative_feather_path),
-            }
-        elif dataset_converter_config.lidar_store_option == "binary":
-            # NOTE: For binary storage, we pass the point cloud to the log writer.
-            # Compression is handled internally in the log writer.
-            lidar_dict: Dict[LiDARType, np.ndarray] = load_av2_sensor_lidar_pc_from_path(lidar_feather_path)
-    return lidar_dict
+
+        lidar_data = LiDARData(
+            lidar_type=LiDARType.LIDAR_MERGED,
+            dataset_root=av2_sensor_data_root,
+            relative_path=relative_feather_path,
+        )
+        lidars.append(lidar_data)
+
+    return lidars
 
 
 def _row_dict_to_state_se3(row_dict: Dict[str, float]) -> StateSE3:

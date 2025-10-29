@@ -1,13 +1,17 @@
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
 
-from py123d.conversion.datasets.pandaset.pandaset_utlis import read_pkl_gz
-from py123d.conversion.utils.sensor_utils.lidar_index_registry import PandasetLidarIndex
+from py123d.conversion.datasets.pandaset.pandaset_utlis import (
+    main_lidar_to_rear_axle,
+    pandaset_pose_dict_to_state_se3,
+    read_json,
+    read_pkl_gz,
+)
+from py123d.conversion.registry.lidar_index_registry import PandasetLidarIndex
 from py123d.datatypes.sensors.lidar.lidar import LiDARType
-from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry.transform.transform_se3 import convert_absolute_to_relative_points_3d_array
 
 
@@ -27,19 +31,24 @@ def load_pandaset_global_lidar_pc_from_path(pkl_gz_path: Union[Path, str]) -> Di
     return {LiDARType.LIDAR_TOP: top_lidar_df.to_numpy(), LiDARType.LIDAR_FRONT: front_lidar_df.to_numpy()}
 
 
-def load_pandaset_lidars_pc_from_path(
-    pkl_gz_path: Union[Path, str], ego_state_se3: EgoStateSE3
-) -> Dict[LiDARType, np.ndarray]:
+def load_pandaset_lidars_pcs_from_file(
+    pkl_gz_path: Union[Path, str],
+    iteration: Optional[int],
+) -> np.ndarray:
+
+    pkl_gz_path = Path(pkl_gz_path)
+    assert pkl_gz_path.exists(), f"Pandaset LiDAR file not found: {pkl_gz_path}"
 
     lidar_pc_dict = load_pandaset_global_lidar_pc_from_path(pkl_gz_path)
 
+    ego_pose = main_lidar_to_rear_axle(
+        pandaset_pose_dict_to_state_se3(read_json(pkl_gz_path.parent / "poses.json")[iteration])
+    )
+
     for lidar_type in lidar_pc_dict.keys():
         lidar_pc_dict[lidar_type][..., PandasetLidarIndex.XYZ] = convert_absolute_to_relative_points_3d_array(
-            ego_state_se3.rear_axle_se3,
+            ego_pose,
             lidar_pc_dict[lidar_type][..., PandasetLidarIndex.XYZ],
         )
 
-        # relative_points = (points_3d_array - t_origin) @ R_origin
-
-    # Pass the loaded point clouds to the appropriate LiDAR types
     return lidar_pc_dict

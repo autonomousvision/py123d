@@ -2,13 +2,6 @@ from __future__ import annotations
 
 from py123d.common.utils.enums import SerialIntEnum
 
-BOX_DETECTION_TYPE_REGISTRY = {}
-
-
-def register_box_detection_type(enum_class):
-    BOX_DETECTION_TYPE_REGISTRY[enum_class.__name__] = enum_class
-    return enum_class
-
 
 class BoxDetectionType(SerialIntEnum):
     """
@@ -46,27 +39,3 @@ STATIC_DETECTION_TYPES: set[BoxDetectionType] = {
     BoxDetectionType.CZONE_SIGN,
     BoxDetectionType.GENERIC_OBJECT,
 }
-
-
-# @register_box_detection_type
-# class NuPlanBoxDetectionType(SerialIntEnum):
-
-#     VEHICLE = 0
-#     BICYCLE = 1
-#     PEDESTRIAN = 2
-#     TRAFFIC_CONE = 3
-#     BARRIER = 4
-#     CZONE_SIGN = 5
-#     GENERIC_OBJECT = 6
-
-#     def to_default_type() -> BoxDetectionType:
-#         mapping = {
-#             NuPlanBoxDetectionType.VEHICLE: BoxDetectionType.VEHICLE,
-#             NuPlanBoxDetectionType.BICYCLE: BoxDetectionType.BICYCLE,
-#             NuPlanBoxDetectionType.PEDESTRIAN: BoxDetectionType.PEDESTRIAN,
-#             NuPlanBoxDetectionType.TRAFFIC_CONE: BoxDetectionType.GENERIC_OBJECT,
-#             NuPlanBoxDetectionType.BARRIER: BoxDetectionType.GENERIC_OBJECT,
-#             NuPlanBoxDetectionType.CZONE_SIGN: BoxDetectionType.GENERIC_OBJECT,
-#             NuPlanBoxDetectionType.GENERIC_OBJECT: BoxDetectionType.GENERIC_OBJECT,
-#         }
-#         return mapping[self]

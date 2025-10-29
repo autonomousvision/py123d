@@ -41,7 +41,6 @@ class NuPlanLidarIndex(LiDARIndex):
     Z = 2
     INTENSITY = 3
     RING = 4
-    ID = 5
 
 
 @register_lidar_index

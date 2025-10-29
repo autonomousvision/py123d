@@ -30,7 +30,7 @@ av2_sensor_dataset:
 
     # LiDARs
     include_lidars: true
-    lidar_store_option: "binary" # "path", "binary"
+    lidar_store_option: "binary" # "path", "path_merged", "binary"
 
     # Scenario tag / Route
     # NOTE: These are only supported for nuPlan. Consider removing or expanding support.

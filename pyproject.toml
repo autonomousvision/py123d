@@ -90,9 +90,9 @@ nuplan = [
     "retry",
 ]
 waymo = [
-    "tensorflow==2.16.1",
-    "waymo-open-dataset-tf-2-11-0",
-    "intervaltree",
+    "protobuf==6.30.2",
+    "tensorflow==2.13.0",
+    "waymo-open-dataset-tf-2-12-0==1.6.6",
 ]
 
 [tool.setuptools.packages.find]

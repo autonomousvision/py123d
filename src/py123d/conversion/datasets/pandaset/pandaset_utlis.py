@@ -89,8 +89,4 @@ def main_lidar_to_rear_axle(pose: StateSE3) -> StateSE3:
         vector_3d=Vector3D(x=-0.840, y=0.0, z=0.0),
     )
 
-    # transformation_matrix[0, 3] = pose.y
-    # transformation_matrix[1, 3] = -pose.x
-    # transformation_matrix[2, 3] = pose.z
-
     return imu_pose

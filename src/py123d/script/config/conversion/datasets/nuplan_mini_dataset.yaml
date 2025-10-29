@@ -3,9 +3,9 @@ nuplan_mini_dataset:
   _convert_: 'all'
 
   splits: ["nuplan-mini_train", "nuplan-mini_val", "nuplan-mini_test"]
-  nuplan_data_root: ${nuplan_data_root}
-  nuplan_maps_root: ${nuplan_maps_root}
-  nuplan_sensor_root: ${nuplan_sensor_root}
+  nuplan_data_root: ${dataset_paths.nuplan_data_root}
+  nuplan_maps_root: ${dataset_paths.nuplan_maps_root}
+  nuplan_sensor_root: ${dataset_paths.nuplan_sensor_root}
 
   dataset_converter_config:
     _target_: py123d.conversion.dataset_converter_config.DatasetConverterConfig
@@ -32,7 +32,7 @@ nuplan_mini_dataset:
 
     # LiDARs
     include_lidars: true
-    lidar_store_option: "path" # "path", "binary"
+    lidar_store_option: "binary" # "path", "path_merged", "binary"
 
     # Scenario tag / Route
     # NOTE: These are only supported for nuPlan. Consider removing or expanding support.

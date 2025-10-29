@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,6 @@ from py123d.conversion.datasets.pandaset.pandaset_constants import (
     PANDASET_LOG_NAMES,
     PANDASET_SPLITS,
 )
-from py123d.conversion.datasets.pandaset.pandaset_sensor_loading import load_pandaset_lidars_pc_from_path
 from py123d.conversion.datasets.pandaset.pandaset_utlis import (
     main_lidar_to_rear_axle,
     pandaset_pose_dict_to_state_se3,
@@ -24,9 +23,9 @@ from py123d.conversion.datasets.pandaset.pandaset_utlis import (
     read_pkl_gz,
     rotate_pandaset_pose_to_iso_coordinates,
 )
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.utils.sensor_utils.lidar_index_registry import PandasetLidarIndex
+from py123d.conversion.registry.lidar_index_registry import PandasetLidarIndex
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.camera.pinhole_camera import (
@@ -373,20 +372,21 @@ def _extract_pandaset_sensor_camera(
 
 def _extract_pandaset_lidar(
     source_log_path: Path, iteration: int, ego_state_se3: EgoStateSE3, dataset_converter_config: DatasetConverterConfig
-) -> Dict[LiDARType, Optional[Union[str, np.ndarray]]]:
+) -> List[LiDARData]:
 
-    lidar_dict: Dict[LiDARType, Optional[Union[str, np.ndarray]]] = {}
+    lidars: List[LiDARData] = []
     if dataset_converter_config.include_lidars:
         iteration_str = f"{iteration:02d}"
         lidar_absolute_path = source_log_path / "lidar" / f"{iteration_str}.pkl.gz"
         assert lidar_absolute_path.exists(), f"LiDAR file {str(lidar_absolute_path)} does not exist."
+        lidars.append(
+            LiDARData(
+                lidar_type=LiDARType.LIDAR_MERGED,
+                timestamp=None,
+                iteration=iteration,
+                dataset_root=source_log_path.parent,
+                relative_path=str(lidar_absolute_path.relative_to(source_log_path.parent)),
+            )
+        )
 
-        if dataset_converter_config.lidar_store_option == "path":
-            pandaset_data_root = source_log_path.parent
-            lidar_relative_path = str(lidar_absolute_path.relative_to(pandaset_data_root))
-            lidar_dict[LiDARType.LIDAR_FRONT] = lidar_relative_path
-            lidar_dict[LiDARType.LIDAR_TOP] = lidar_relative_path
-        elif dataset_converter_config.lidar_store_option == "binary":
-            lidar_dict = load_pandaset_lidars_pc_from_path(lidar_absolute_path, ego_state_se3)
-
-    return lidar_dict
+    return lidars

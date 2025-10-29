@@ -7,7 +7,7 @@ import pandas as pd
 from py123d.datatypes.sensors.lidar.lidar import LiDARType
 
 
-def load_av2_sensor_lidar_pc_from_path(feather_path: Union[Path, str]) -> Dict[LiDARType, np.ndarray]:
+def load_av2_sensor_lidar_pcs_from_file(feather_path: Union[Path, str]) -> Dict[LiDARType, np.ndarray]:
     # NOTE: The AV2 dataset stores both top and down LiDAR data in the same feather file.
     # We need to separate them based on the laser_number field.
     # See here: https://github.com/argoverse/av2-api/issues/77#issuecomment-1178040867
