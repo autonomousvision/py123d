@@ -13,17 +13,17 @@ from nuscenes.utils.data_classes import Box
 from nuscenes.utils.splits import create_splits_scenes
 from pyquaternion import Quaternion
 
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.script.builders.worker_pool_builder import WorkerPool
-from py123d.datatypes.detections.detection import (
+from py123d.datatypes.detections.box_detections import (
     BoxDetectionSE3,
     BoxDetectionWrapper,
-    BoxDetectionMetadata,
-    TrafficLightDetection,
+    BoxDetectionMetadata,)
+from py123d.datatypes.detections.traffic_light_detections import (TrafficLightDetection,
     TrafficLightDetectionWrapper,
 )
-from py123d.datatypes.detections.detection_types import DetectionType
+from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.maps.map_metadata import MapMetadata
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.camera.pinhole_camera import (
@@ -33,7 +33,7 @@ from py123d.datatypes.sensors.camera.pinhole_camera import (
     PinholeIntrinsics,
 )
 from py123d.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
-from py123d.conversion.utils.sensor_utils.lidar_index_registry import NuscenesLidarIndex
+from py123d.datatypes.sensors.lidar.lidar_index import NuscenesLidarIndex
 
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3, EgoStateSE3Index
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_nuscenes_renauly_zoe_parameters
@@ -50,37 +50,37 @@ NUSCENES_DT: Final[float] = 0.5
 SORT_BY_TIMESTAMP: Final[bool] = True
 NUSCENES_DETECTION_NAME_DICT = {
     # Vehicles (4+ wheels)
-    "vehicle.car": DetectionType.VEHICLE,
-    "vehicle.truck": DetectionType.VEHICLE,
-    "vehicle.bus.bendy": DetectionType.VEHICLE,
-    "vehicle.bus.rigid": DetectionType.VEHICLE,
-    "vehicle.construction": DetectionType.VEHICLE,
-    "vehicle.emergency.ambulance": DetectionType.VEHICLE,
-    "vehicle.emergency.police": DetectionType.VEHICLE,
-    "vehicle.trailer": DetectionType.VEHICLE,
+    "vehicle.car": BoxDetectionType.VEHICLE,
+    "vehicle.truck": BoxDetectionType.VEHICLE,
+    "vehicle.bus.bendy": BoxDetectionType.VEHICLE,
+    "vehicle.bus.rigid": BoxDetectionType.VEHICLE,
+    "vehicle.construction": BoxDetectionType.VEHICLE,
+    "vehicle.emergency.ambulance": BoxDetectionType.VEHICLE,
+    "vehicle.emergency.police": BoxDetectionType.VEHICLE,
+    "vehicle.trailer": BoxDetectionType.VEHICLE,
 
     # Bicycles / Motorcycles
-    "vehicle.bicycle": DetectionType.BICYCLE,
-    "vehicle.motorcycle": DetectionType.BICYCLE,
+    "vehicle.bicycle": BoxDetectionType.BICYCLE,
+    "vehicle.motorcycle": BoxDetectionType.BICYCLE,
 
     # Pedestrians (all subtypes)
-    "human.pedestrian.adult": DetectionType.PEDESTRIAN,
-    "human.pedestrian.child": DetectionType.PEDESTRIAN,
-    "human.pedestrian.construction_worker": DetectionType.PEDESTRIAN,
-    "human.pedestrian.personal_mobility": DetectionType.PEDESTRIAN,
-    "human.pedestrian.police_officer": DetectionType.PEDESTRIAN,
-    "human.pedestrian.stroller": DetectionType.PEDESTRIAN,
-    "human.pedestrian.wheelchair": DetectionType.PEDESTRIAN,
+    "human.pedestrian.adult": BoxDetectionType.PEDESTRIAN,
+    "human.pedestrian.child": BoxDetectionType.PEDESTRIAN,
+    "human.pedestrian.construction_worker": BoxDetectionType.PEDESTRIAN,
+    "human.pedestrian.personal_mobility": BoxDetectionType.PEDESTRIAN,
+    "human.pedestrian.police_officer": BoxDetectionType.PEDESTRIAN,
+    "human.pedestrian.stroller": BoxDetectionType.PEDESTRIAN,
+    "human.pedestrian.wheelchair": BoxDetectionType.PEDESTRIAN,
 
     # Traffic cone / barrier
-    "movable_object.trafficcone": DetectionType.TRAFFIC_CONE,
-    "movable_object.barrier": DetectionType.BARRIER,
+    "movable_object.trafficcone": BoxDetectionType.TRAFFIC_CONE,
+    "movable_object.barrier": BoxDetectionType.BARRIER,
 
     # Generic objects
-    "movable_object.pushable_pullable": DetectionType.GENERIC_OBJECT,
-    "movable_object.debris": DetectionType.GENERIC_OBJECT,
-    "static_object.bicycle_rack": DetectionType.GENERIC_OBJECT,
-    "animal": DetectionType.GENERIC_OBJECT,
+    "movable_object.pushable_pullable": BoxDetectionType.GENERIC_OBJECT,
+    "movable_object.debris": BoxDetectionType.GENERIC_OBJECT,
+    "static_object.bicycle_rack": BoxDetectionType.GENERIC_OBJECT,
+    "animal": BoxDetectionType.GENERIC_OBJECT,
 }
 
 NUSCENES_CAMERA_TYPES = {
@@ -99,7 +99,6 @@ class NuScenesDataConverter(AbstractDatasetConverter):
             self,
             splits: List[str],
             nuscenes_data_root: Union[Path, str],
-            nuscenes_map_root: Union[Path, str],
             nuscenes_lanelet2_root: Union[Path, str],
             use_lanelet2: bool,
             dataset_converter_config: DatasetConverterConfig,
@@ -108,7 +107,6 @@ class NuScenesDataConverter(AbstractDatasetConverter):
         super().__init__(dataset_converter_config)
         self._splits: List[str] = splits
         self._nuscenes_data_root: Path = Path(nuscenes_data_root)
-        self._nuscenes_map_root: Path = Path(nuscenes_map_root)
         self._nuscenes_lanelet2_root: Path = Path(nuscenes_lanelet2_root)
         self._use_lanelet2 = use_lanelet2
         self._version = version
@@ -165,7 +163,7 @@ class NuScenesDataConverter(AbstractDatasetConverter):
 
         if map_needs_writing:
             write_nuscenes_map(
-                nuscenes_maps_root=self._nuscenes_map_root,
+                nuscenes_maps_root=self._nuscenes_data_root,
                 location=map_name,
                 map_writer=map_writer,
                 use_lanelet2=self._use_lanelet2,
@@ -423,7 +421,7 @@ def _extract_nuscenes_box_detections(
         velocity_3d = Vector3D(x=velocity[0], y=velocity[1], z=velocity[2] if len(velocity) > 2 else 0.0)
 
         metadata = BoxDetectionMetadata(
-            detection_type=det_type,
+            box_detection_type=det_type,
             track_token=ann["instance_token"],
             timepoint=TimePoint.from_us(sample["timestamp"]),
             confidence=1.0,  # nuScenes annotations are ground truth
@@ -446,9 +444,9 @@ def _extract_nuscenes_traffic_lights() -> TrafficLightDetectionWrapper:
 
 
 def _extract_nuscenes_cameras(
-        nusc: NuScenes,
-        sample: Dict[str, Any],
-        dataset_converter_config: DatasetConverterConfig,
+    nusc: NuScenes,
+    sample: Dict[str, Any],
+    dataset_converter_config: DatasetConverterConfig,
 ) -> Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]]:
     camera_dict: Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]] = {}
 
@@ -474,7 +472,8 @@ def _extract_nuscenes_cameras(
 
             if cam_path.exists() and cam_path.is_file():
                 if dataset_converter_config.camera_store_option == "path":
-                    camera_data = str(cam_path)
+                    # TODO: should be relative path
+                    camera_data = cam_data["filename"]
                 elif dataset_converter_config.camera_store_option == "binary":
                     with open(cam_path, "rb") as f:
                         camera_data = f.read()
@@ -490,8 +489,8 @@ def _extract_nuscenes_lidars(
         nusc: NuScenes,
         sample: Dict[str, Any],
         dataset_converter_config: DatasetConverterConfig,
-) -> Dict[LiDARType, Optional[str]]:
-    lidar_dict: Dict[LiDARType, Optional[str]] = {}
+) -> List[LiDARData]:
+    lidars: List[LiDARData] = []
 
     if dataset_converter_config.include_lidars:
         lidar_token = sample["data"]["LIDAR_TOP"]
@@ -499,12 +498,21 @@ def _extract_nuscenes_lidars(
         lidar_path = NUSCENES_DATA_ROOT / lidar_data["filename"]
 
         if lidar_path.exists() and lidar_path.is_file():
-            lidar_dict[LiDARType.LIDAR_MERGED] = str(lidar_path)
+            lidar = LiDARData(
+                lidar_type=LiDARType.LIDAR_TOP,
+                relative_path=str(lidar_path),
+                dataset_root=NUSCENES_DATA_ROOT, 
+                iteration=lidar_data.get("iteration"),
+            )
+            lidars.append(lidar)
         else:
-            lidar_dict[LiDARType.LIDAR_MERGED] = None
+            lidars.append(LiDARData(
+                lidar_type=LiDARType.LIDAR_TOP,
+                relative_path=None,
+                dataset_root=NUSCENES_DATA_ROOT,
+            ))
 
-    return lidar_dict
-
+    return lidars
 
 def _extract_nuscenes_scenario_tag() -> List[str]:
     """nuScenes doesn't have scenario tags."""
@@ -518,9 +526,9 @@ def _extract_nuscenes_route_lane_group_ids() -> List[int]:
 
 # Updated arrow conversion function using the new extraction functions
 def convert_nuscenes_log_to_arrow(
-        args: List[Dict[str, Union[str, List[str]]]],
-        dataset_converter_config: DatasetConverterConfig,
-        version: str
+    args: List[Dict[str, Union[str, List[str]]]],
+    dataset_converter_config: DatasetConverterConfig,
+    version: str
 ) -> List[Any]:
     for log_info in args:
         scene_token: str = log_info["scene_token"]
@@ -593,11 +601,11 @@ def convert_nuscenes_log_to_arrow(
 
 
 def _write_arrow_table_with_new_interface(
-        nusc: NuScenes,
-        scene: Dict[str, Any],
-        recording_schema: pa.schema,
-        log_file_path: Path,
-        dataset_converter_config: DatasetConverterConfig,
+    nusc: NuScenes,
+    scene: Dict[str, Any],
+    recording_schema: pa.schema,
+    log_file_path: Path,
+    dataset_converter_config: DatasetConverterConfig,
 ) -> None:
     can_bus = NuScenesCanBus(dataroot=str(NUSCENES_DATA_ROOT))
 
@@ -635,7 +643,7 @@ def _write_arrow_table_with_new_interface(
                         "detections_state": detections_state_list,
                         "detections_velocity": [det.velocity.array.tolist() for det in box_detections.box_detections],
                         "detections_token": [det.metadata.track_token for det in box_detections.box_detections],
-                        "detections_type": [det.metadata.detection_type.value for det in box_detections.box_detections],
+                        "detections_type": [det.metadata.box_detection_type.value for det in box_detections.box_detections],
                         "traffic_light_ids": [],
                         "traffic_light_types": [],
                         "scenario_tag": ["unknown"],

@@ -82,3 +82,11 @@ class PandasetLidarIndex(LiDARIndex):
     Y = 1
     Z = 2
     INTENSITY = 3
+    
+@register_lidar_index
+class NuscenesLidarIndex(LiDARIndex):
+    X = 0        
+    Y = 1       
+    Z = 2       
+    INTENSITY = 3  
+    RING = 4  

@@ -15,6 +15,7 @@ DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "av2-sensor": DATASET_PATHS.av2_sensor_data_root,
     "wopd": DATASET_PATHS.wopd_data_root,
     "pandaset": DATASET_PATHS.pandaset_data_root,
+    "nuscenes": DATASET_PATHS.nuscenes_sensor_root, 
 }
 
 
@@ -56,6 +57,10 @@ def load_lidar_pcs_from_file(
         from py123d.conversion.datasets.pandaset.pandaset_sensor_io import load_pandaset_lidars_pcs_from_file
 
         lidar_pcs_dict = load_pandaset_lidars_pcs_from_file(full_lidar_path, index)
+        
+    elif log_metadata.dataset == "nuscenes":
+        from py123d.conversion.datasets.nuscenes.nuscenes_sensor_io import load_nuscenes_lidar_pcs_from_file
+        lidar_pcs_dict = load_nuscenes_lidar_pcs_from_file(full_lidar_path)
     else:
         raise NotImplementedError(f"Loading LiDAR data for dataset {log_metadata.dataset} is not implemented.")
 

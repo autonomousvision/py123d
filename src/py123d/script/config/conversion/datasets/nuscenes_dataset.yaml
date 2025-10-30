@@ -4,7 +4,6 @@ nuscenes_dataset:
 
   splits: ["nuscenes_train", "nuscenes_val", "nuscenes_test"]
   nuscenes_data_root: ${dataset_paths.nuscenes_data_root}
-  nuscenes_map_root: ${dataset_paths.nuscenes_data_root}
   nuscenes_lanelet2_root: ${dataset_paths.nuscenes_data_root}/lanelet2
   use_lanelet2: False
 
