@@ -18,6 +18,10 @@ class BoxDetectionMetadata:
     num_lidar_points: Optional[int] = None  # Number of LiDAR points within the bounding box
     timepoint: Optional[TimePoint] = None  # TimePoint when the detection was made, if available
 
+    @property
+    def default_box_detection_type(self) -> BoxDetectionType:
+        return self.box_detection_type.to_default_type()
+
 
 @dataclass
 class BoxDetectionSE2:

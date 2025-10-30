@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+from importlib import abc
+
 from py123d.common.utils.enums import SerialIntEnum
 
 
-class BoxDetectionType(SerialIntEnum):
+class AbstractBoxDetectionType(SerialIntEnum):
+
+    @abc.abstractmethod
+    def to_default_type(self):
+        raise NotImplementedError("Subclasses must implement this method.")
+
+
+class BoxDetectionType(AbstractBoxDetectionType):
     """
     Enum for agents in py123d.
     """
@@ -25,6 +34,10 @@ class BoxDetectionType(SerialIntEnum):
 
     EGO = 7
     SIGN = 8  # TODO: Remove or extent
+
+    def to_default_type(self):
+        """Inherited, see superclass."""
+        return self
 
 
 DYNAMIC_DETECTION_TYPES: set[BoxDetectionType] = {
