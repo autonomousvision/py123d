@@ -2,7 +2,7 @@ nuscenes_dataset:
   _target_: py123d.conversion.datasets.nuscenes.nuscenes_converter.NuScenesConverter
   _convert_: 'all'
 
-  splits: ["nuscenes_train", "nuscenes_val", "nuscenes_test"]
+  splits: ["nuscenes-mini_train", "nuscenes-mini_val"]
   nuscenes_data_root: ${dataset_paths.nuscenes_data_root}
   nuscenes_map_root: ${dataset_paths.nuscenes_data_root}
   nuscenes_lanelet2_root: ${dataset_paths.nuscenes_data_root}/lanelet2
@@ -29,8 +29,8 @@ nuscenes_dataset:
 
     # Cameras
     include_cameras: true
-    camera_store_option: "path"
+    camera_store_option: "binary"
 
     #lidar
     include_lidars: true
-    lidar_store_option: "path"
+    lidar_store_option: "binary"

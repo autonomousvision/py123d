@@ -1,21 +1,16 @@
-import lanelet2
-import numpy as np
-
 from pathlib import Path
-from typing import List, Optional
-from lanelet2.io import load
-from lanelet2.projection import MercatorProjector
-from shapely.geometry import Polygon, MultiPolygon, LineString
-from shapely.validation import make_valid
-from nuscenes.map_expansion.map_api import NuScenesMap
-from nuscenes.map_expansion.arcline_path_utils import discretize_lane
+from typing import Optional
 
+import numpy as np
+from shapely.geometry import LineString, Polygon
+
+from py123d.common.utils.dependencies import check_dependencies
+from py123d.conversion.datasets.nuscenes.nuscenes_constants import NUSCENES_MAPS
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.datatypes.maps.cache.cache_map_objects import (
+from py123d.datatypes.maps.cache.cache_map_objects import (  # CacheIntersection,
     CacheCarpark,
     CacheCrosswalk,
     CacheGenericDrivable,
-    CacheIntersection,
     CacheLane,
     CacheLaneGroup,
     CacheRoadLine,
@@ -24,21 +19,29 @@ from py123d.datatypes.maps.cache.cache_map_objects import (
 from py123d.datatypes.maps.map_datatypes import RoadLineType
 from py123d.geometry import Polyline3D
 
-NUSCENES_MAPS: List[str] = [
-    "boston-seaport",
-    "singapore-hollandvillage",
-    "singapore-onenorth",
-    "singapore-queenstown"
-]
+check_dependencies(["lanelet2", "nuscenes"], optional_name="nuscenes")
+import traceback
+
+import lanelet2
+from lanelet2.io import load
+from lanelet2.projection import MercatorProjector
+from nuscenes.map_expansion.arcline_path_utils import discretize_lane
+from nuscenes.map_expansion.map_api import NuScenesMap
 
 
-def write_nuscenes_map(nuscenes_maps_root: Path, location: str, map_writer: AbstractMapWriter, use_lanelet2: bool, lanelet2_root: Optional[str] = None) -> None:
+def write_nuscenes_map(
+    nuscenes_maps_root: Path,
+    location: str,
+    map_writer: AbstractMapWriter,
+    use_lanelet2: bool,
+    lanelet2_root: Optional[str] = None,
+) -> None:
     """
     Main function to convert nuscenes map to unified format and write using map_writer.
     """
     assert location in NUSCENES_MAPS, f"Map name {location} is not supported."
     nusc_map = NuScenesMap(dataroot=str(nuscenes_maps_root), map_name=location)
-    
+
     # Write all layers
     if use_lanelet2:
         _write_nuscenes_lanes_lanelet2(nusc_map, map_writer, lanelet2_root)
@@ -46,6 +49,7 @@ def write_nuscenes_map(nuscenes_maps_root: Path, location: str, map_writer: Abst
     else:
         _write_nuscenes_lanes(nusc_map, map_writer)
         _write_nuscenes_lane_groups(nusc_map, map_writer)
+
     _write_nuscenes_intersections(nusc_map, map_writer)
     _write_nuscenes_crosswalks(nusc_map, map_writer)
     _write_nuscenes_walkways(nusc_map, map_writer)
@@ -58,16 +62,16 @@ def write_nuscenes_map(nuscenes_maps_root: Path, location: str, map_writer: Abst
 def _write_nuscenes_lanes_lanelet2(nusc_map: NuScenesMap, map_writer: AbstractMapWriter, lanelet2_root: str) -> None:
     map_name = nusc_map.map_name
     osm_map_file = str(Path(lanelet2_root) / f"{map_name}.osm")
-    
+
     if "boston" in map_name.lower():
         origin_lat, origin_lon = 42.3365, -71.0577
     elif "singapore" in map_name.lower():
         origin_lat, origin_lon = 1.3, 103.8
     else:
         origin_lat, origin_lon = 49.0, 8.4
-    
+
     origin = lanelet2.io.Origin(origin_lat, origin_lon)
-    
+
     try:
         lanelet_map = lanelet2.io.load(osm_map_file, origin)
     except Exception:
@@ -79,19 +83,19 @@ def _write_nuscenes_lanes_lanelet2(nusc_map: NuScenesMap, map_writer: AbstractMa
 
     for lanelet in lanelet_map.laneletLayer:
         token = lanelet.id
-        
+
         try:
             left_bound = [(p.x, p.y) for p in lanelet.leftBound]
             right_bound = [(p.x, p.y) for p in lanelet.rightBound]
             polygon_points = left_bound + right_bound[::-1]
             polygon = Polygon(polygon_points)
-            
+
             predecessor_ids = [int(pred.id) for pred in lanelet.previousLanelets]
             successor_ids = [int(succ.id) for succ in lanelet.followingLanelets]
-            
+
             left_lane_id = None
             right_lane_id = None
-            
+
             left_boundary = [(p.x, p.y) for p in lanelet.leftBound]
             right_boundary = [(p.x, p.y) for p in lanelet.rightBound]
             centerline = []
@@ -99,7 +103,7 @@ def _write_nuscenes_lanes_lanelet2(nusc_map: NuScenesMap, map_writer: AbstractMa
                 center_x = (left_pt.x + right_pt.x) / 2
                 center_y = (left_pt.y + right_pt.y) / 2
                 centerline.append((center_x, center_y))
-            
+
             speed_limit_mps = 0.0
             if "speed_limit" in lanelet.attributes:
                 try:
@@ -109,7 +113,7 @@ def _write_nuscenes_lanes_lanelet2(nusc_map: NuScenesMap, map_writer: AbstractMa
                         speed_limit_mps = speed_kmh / 3.6
                 except (ValueError, TypeError):
                     pass
-            
+
             map_writer.write_lane(
                 CacheLane(
                     object_id=token,
@@ -127,9 +131,13 @@ def _write_nuscenes_lanes_lanelet2(nusc_map: NuScenesMap, map_writer: AbstractMa
                 )
             )
         except Exception:
+            traceback.print_exc()
             continue
 
-def _write_nuscenes_lane_groups_lanelet2(nusc_map: NuScenesMap, map_writer: AbstractMapWriter, lanelet2_root: str) -> None:
+
+def _write_nuscenes_lane_groups_lanelet2(
+    nusc_map: NuScenesMap, map_writer: AbstractMapWriter, lanelet2_root: str
+) -> None:
     map_name = nusc_map.map_name
     osm_map_file = str(Path(lanelet2_root) / f"{map_name}.osm")
 
@@ -137,9 +145,9 @@ def _write_nuscenes_lane_groups_lanelet2(nusc_map: NuScenesMap, map_writer: Abst
         origin_lat, origin_lon = 42.3365, -71.0577
     else:
         origin_lat, origin_lon = 1.3, 103.8
-    
+
     origin = lanelet2.io.Origin(origin_lat, origin_lon)
-    
+
     try:
         projector = MercatorProjector(origin)
         lanelet_map = load(osm_map_file, projector)
@@ -156,10 +164,10 @@ def _write_nuscenes_lane_groups_lanelet2(nusc_map: NuScenesMap, map_writer: Abst
             predecessor_ids = []
             successor_ids = []
             try:
-                if hasattr(lanelet, 'left'):
+                if hasattr(lanelet, "left"):
                     for left_lane in lanelet.left:
                         predecessor_ids.append(int(left_lane.id))
-                if hasattr(lanelet, 'right'):
+                if hasattr(lanelet, "right"):
                     for right_lane in lanelet.right:
                         successor_ids.append(int(right_lane.id))
             except Exception:
@@ -171,6 +179,7 @@ def _write_nuscenes_lane_groups_lanelet2(nusc_map: NuScenesMap, map_writer: Abst
             polygon_points = left_bound + right_bound[::-1]
             polygon = Polygon(polygon_points)
         except Exception:
+            traceback.print_exc()
             continue
 
         try:
@@ -188,15 +197,8 @@ def _write_nuscenes_lane_groups_lanelet2(nusc_map: NuScenesMap, map_writer: Abst
                 )
             )
         except Exception:
+            traceback.print_exc()
             continue
-
-def _get_lanelet_connections(lanelet):
-    """
-    Helper function to extract incoming and outgoing lanelets.
-    """
-    incoming = lanelet.incomings
-    outgoing = lanelet.outgoings
-    return incoming, outgoing
 
 
 def _write_nuscenes_lanes(nusc_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
@@ -216,6 +218,7 @@ def _write_nuscenes_lanes(nusc_map: NuScenesMap, map_writer: AbstractMapWriter) 
             if not polygon.is_valid:
                 continue
         except Exception:
+            traceback.print_exc()
             continue
 
         # Get topology
@@ -261,19 +264,20 @@ def _write_nuscenes_lanes(nusc_map: NuScenesMap, map_writer: AbstractMapWriter) 
                 CacheLane(
                     object_id=token,
                     lane_group_id=lane_record.get("road_segment_token", None),
-                    left_boundary=left_boundary,
-                    right_boundary=right_boundary,
-                    centerline=baseline_path,
+                    left_boundary=Polyline3D.from_linestring(left_boundary),
+                    right_boundary=Polyline3D.from_linestring(right_boundary),
+                    centerline=Polyline3D.from_linestring(baseline_path),
                     left_lane_id=None,  # Not directly available in nuscenes
                     right_lane_id=None,  # Not directly available in nuscenes
                     predecessor_ids=incoming,
                     successor_ids=outgoing,
-                    speed_limit_mps=0.0,  # Default value
+                    speed_limit_mps=None,  # Default value
                     outline=None,
                     geometry=polygon,
                 )
             )
         except Exception:
+            traceback.print_exc()
             continue
 
 
@@ -348,6 +352,7 @@ def _write_nuscenes_lane_groups(nusc_map: NuScenesMap, map_writer: AbstractMapWr
                 )
             )
         except Exception:
+            traceback.print_exc()
             continue
 
 
@@ -355,29 +360,29 @@ def _write_nuscenes_intersections(nusc_map: NuScenesMap, map_writer: AbstractMap
     """
     Write intersection data to map_writer.
     """
-    road_blocks = nusc_map.road_block
-    for block in road_blocks:
-        token = block["token"]
-        try:
-            if "polygon_token" in block:
-                polygon = nusc_map.extract_polygon(block["polygon_token"])
-            else:
-                continue
-            if not polygon.is_valid:
-                continue
-        except Exception:
-            continue
+    # road_blocks = nusc_map.road_block
+    # for block in road_blocks:
+    #     token = block["token"]
+    #     try:
+    #         if "polygon_token" in block:
+    #             polygon = nusc_map.extract_polygon(block["polygon_token"])
+    #         else:
+    #             continue
+    #         if not polygon.is_valid:
+    #             continue
+    #     except Exception:
+    #         continue
 
-        # Lane group IDs are not directly available; use empty list
-        lane_group_ids = []
+    #     # Lane group IDs are not directly available; use empty list
+    #     lane_group_ids = []
 
-        map_writer.write_intersection(
-            CacheIntersection(
-                object_id=token,
-                lane_group_ids=lane_group_ids,
-                geometry=polygon,
-            )
-        )
+    #     map_writer.write_intersection(
+    #         CacheIntersection(
+    #             object_id=token,
+    #             lane_group_ids=lane_group_ids,
+    #             geometry=polygon,
+    #         )
+    #     )
 
 
 def _write_nuscenes_crosswalks(nusc_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
@@ -395,6 +400,7 @@ def _write_nuscenes_crosswalks(nusc_map: NuScenesMap, map_writer: AbstractMapWri
             if not polygon.is_valid:
                 continue
         except Exception:
+            traceback.print_exc()
             continue
 
         map_writer.write_crosswalk(
@@ -420,6 +426,7 @@ def _write_nuscenes_walkways(nusc_map: NuScenesMap, map_writer: AbstractMapWrite
             if not polygon.is_valid:
                 continue
         except Exception:
+            traceback.print_exc()
             continue
 
         map_writer.write_walkway(
@@ -470,6 +477,7 @@ def _write_nuscenes_generic_drivables(nusc_map: NuScenesMap, map_writer: Abstrac
                 if polygon.is_valid:
                     all_drivables.append((f"road_segment_{segment['token']}", polygon))
         except Exception:
+            traceback.print_exc()
             continue
 
     # Add lanes
@@ -480,6 +488,7 @@ def _write_nuscenes_generic_drivables(nusc_map: NuScenesMap, map_writer: Abstrac
                 if polygon.is_valid:
                     all_drivables.append((f"lane_{lane['token']}", polygon))
         except Exception:
+            traceback.print_exc()
             continue
 
     # Add drivable areas
@@ -490,6 +499,7 @@ def _write_nuscenes_generic_drivables(nusc_map: NuScenesMap, map_writer: Abstrac
                 if polygon.is_valid:
                     all_drivables.append((f"road_{road['token']}", polygon))
         except Exception:
+            traceback.print_exc()
             continue
 
     for obj_id, geometry in all_drivables:
@@ -516,6 +526,7 @@ def _write_nuscenes_stop_lines(nusc_map: NuScenesMap, map_writer: AbstractMapWri
             if not polygon.is_valid:
                 continue
         except Exception:
+            traceback.print_exc()
             continue
 
         # Note: Stop lines are written as generic drivable for compatibility
@@ -586,7 +597,7 @@ def _get_lane_boundary(lane_token: str, side: str, nusc_map: NuScenesMap) -> Opt
     divider_segment_nodes_key = f"{side}_lane_divider_segment_nodes"
     if divider_segment_nodes_key in lane_record and lane_record[divider_segment_nodes_key]:
         nodes = lane_record[divider_segment_nodes_key]
-        boundary = LineString([(node['x'], node['y']) for node in nodes])
+        boundary = LineString([(node["x"], node["y"]) for node in nodes])
         return boundary
 
     return None
@@ -611,7 +622,7 @@ def _get_lane_group_boundary(segment_token: str, side: str, nusc_map: NuScenesMa
 
     # Find nearest boundary of the specified type within a threshold
     nearest = None
-    min_dist = float('inf')
+    min_dist = float("inf")
 
     if boundary_type == "road_divider":
         records = nusc_map.road_divider
