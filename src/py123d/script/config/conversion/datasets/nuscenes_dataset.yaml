@@ -1,0 +1,35 @@
+nuscenes_dataset:
+  _target_: py123d.conversion.datasets.nuscenes.nuscenes_data_converter.NuScenesDataConverter
+  _convert_: 'all'
+
+  splits: ["nuscenes_train", "nuscenes_val", "nuscenes_test"]
+  nuscenes_data_root: ${dataset_paths.nuscenes_data_root}
+  nuscenes_map_root: ${dataset_paths.nuscenes_data_root}
+  nuscenes_lanelet2_root: ${dataset_paths.nuscenes_data_root}/lanelet2
+  use_lanelet2: False
+
+  dataset_converter_config:
+    _target_: py123d.conversion.dataset_converter_config.DatasetConverterConfig
+    _convert_: 'all'
+
+    force_log_conversion: ${force_log_conversion}
+    force_map_conversion: ${force_map_conversion}
+    # Map
+    include_map: true
+
+    # Ego
+    include_ego: true
+
+    # Box Detections
+    include_box_detections: true
+
+    # Traffic Lights
+    include_traffic_lights: false
+
+    #cameras
+    include_cameras: true
+    camera_store_option: "path"
+    
+    #lidar
+    include_lidars: true
+    lidar_store_option: "path"
