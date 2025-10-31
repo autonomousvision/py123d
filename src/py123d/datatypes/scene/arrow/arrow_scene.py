@@ -37,10 +37,17 @@ class ArrowScene(AbstractScene):
         self._arrow_file_path: Path = Path(arrow_file_path)
         self._log_metadata: LogMetadata = get_log_metadata_from_arrow(arrow_file_path)
 
+        with pa.memory_map(str(self._arrow_file_path), "r") as source:
+            reader = pa.ipc.open_file(source)     
+            table = reader.read_all()             
+            num_rows = table.num_rows
+            initial_uuid = table['uuid'][0].as_py()
+           
         if scene_extraction_metadata is None:
             scene_extraction_metadata = SceneExtractionMetadata(
+                initial_uuid=initial_uuid,
                 initial_idx=0,
-                duration_s=self._log_metadata.timestep_seconds * len(self._arrow_file_path),
+                duration_s=self._log_metadata.timestep_seconds * num_rows,
                 history_s=0.0,
                 iteration_duration_s=self._log_metadata.timestep_seconds,
             )

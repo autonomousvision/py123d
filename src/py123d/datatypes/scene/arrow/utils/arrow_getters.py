@@ -35,8 +35,9 @@ from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
 DATASET_PATHS: DictConfig = get_dataset_paths()
 DATASET_SENSOR_ROOT: Dict[str, Path] = {
-    "nuplan": DATASET_PATHS.nuplan_sensor_root,
     "av2-sensor": DATASET_PATHS.av2_sensor_data_root,
+    "nuplan": DATASET_PATHS.nuplan_sensor_root,
+    "nuscenes": DATASET_PATHS.nuscenes_data_root,
     "wopd": DATASET_PATHS.wopd_data_root,
     "pandaset": DATASET_PATHS.pandaset_data_root,
     "kitti360": DATASET_PATHS.kitti360_data_root,

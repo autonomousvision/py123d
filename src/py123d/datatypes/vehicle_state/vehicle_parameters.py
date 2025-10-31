@@ -53,6 +53,19 @@ def get_nuplan_chrysler_pacifica_parameters() -> VehicleParameters:
     )
 
 
+def get_nuscenes_renault_zoe_parameters() -> VehicleParameters:
+    # https://en.wikipedia.org/wiki/Renault_Zoe
+    return VehicleParameters(
+        vehicle_name="nuscenes_renault_zoe",
+        width=1.730,
+        length=4.084,
+        height=1.562,
+        wheel_base=2.588,
+        rear_axle_to_center_vertical=1.562 / 2,  # NOTE: missing in nuscenes, TODO: find more accurate value
+        rear_axle_to_center_longitudinal=1.385,
+    )
+
+
 def get_carla_lincoln_mkz_2020_parameters() -> VehicleParameters:
     # NOTE: values are extracted from CARLA
     return VehicleParameters(
