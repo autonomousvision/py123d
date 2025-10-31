@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import abc
-from typing import List, Optional, Tuple, TypeAlias, Union
+from typing import List, Optional, Tuple, Union
+from typing_extensions import TypeAlias
+
 
 import shapely.geometry as geom
 import trimesh

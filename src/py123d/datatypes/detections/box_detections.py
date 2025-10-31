@@ -97,8 +97,8 @@ class BoxDetectionWrapper:
             detection for detection in self.box_detections if detection.metadata.box_detection_type in detection_types
         ]
 
-    def get_detection_by_track_token(self, track_token: str) -> BoxDetection | None:
-        box_detection: BoxDetection | None = None
+    def get_detection_by_track_token(self, track_token: str) -> Optional[BoxDetection]:
+        box_detection: Optional[BoxDetection] = None
         for detection in self.box_detections:
             if detection.metadata.track_token == track_token:
                 box_detection = detection
