@@ -3,6 +3,7 @@ import numpy.typing as npt
 from shapely.geometry import LineString
 
 from py123d.geometry.geometry_index import Point2DIndex, StateSE2Index
+from py123d.geometry.transform.transform_se2 import translate_2d_along_body_frame
 
 
 def get_linestring_yaws(linestring: LineString) -> npt.NDArray[np.float64]:
@@ -41,3 +42,24 @@ def get_path_progress(points_array: npt.NDArray[np.float64]) -> list[float]:
     points_diff: npt.NDArray[np.float64] = np.concatenate(([x_diff], [y_diff]), axis=0, dtype=np.float64)
     progress_diff = np.append(0.0, np.linalg.norm(points_diff, axis=0))
     return np.cumsum(progress_diff, dtype=np.float64)  # type: ignore
+
+
+def offset_points_perpendicular(points_array: npt.NDArray[np.float64], offset: float) -> npt.NDArray[np.float64]:
+    if points_array.shape[-1] == len(Point2DIndex):
+        xy = points_array[..., Point2DIndex.XY]
+        yaws = get_points_2d_yaws(points_array[..., Point2DIndex.XY])
+    elif points_array.shape[-1] == len(StateSE2Index):
+        xy = points_array[..., StateSE2Index.XY]
+        yaws = points_array[..., StateSE2Index.YAW]
+    else:
+        raise ValueError(
+            f"Invalid points_array shape: {points_array.shape}. Expected last dimension to be {len(Point2DIndex)} or "
+            f"{len(StateSE2Index)}."
+        )
+
+    return translate_2d_along_body_frame(
+        points_2d=xy,
+        yaws=yaws,
+        y_translate=offset,
+        x_translate=0.0,
+    )

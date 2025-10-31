@@ -9,14 +9,14 @@ from py123d.common.utils.dependencies import check_dependencies
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.conversion.datasets.nuplan.nuplan_converter import TARGET_DT
-from py123d.conversion.datasets.nuscenes.nuscenes_constants import (
+from py123d.conversion.datasets.nuscenes.nuscenes_map_conversion import NUSCENES_MAPS, write_nuscenes_map
+from py123d.conversion.datasets.nuscenes.utils.nuscenes_constants import (
     NUSCENES_CAMERA_TYPES,
     NUSCENES_DATA_ROOT,
     NUSCENES_DATA_SPLITS,
     NUSCENES_DETECTION_NAME_DICT,
     NUSCENES_DT,
 )
-from py123d.conversion.datasets.nuscenes.nuscenes_map_conversion import NUSCENES_MAPS, write_nuscenes_map
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper

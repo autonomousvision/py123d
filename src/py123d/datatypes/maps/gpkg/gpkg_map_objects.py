@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import trimesh
 from functools import cached_property
 from typing import List, Optional, Union
 
@@ -194,23 +193,9 @@ class GPKGLane(GPKGSurfaceObject, AbstractLane):
 
     @property
     def outline_3d(self) -> Polyline3D:
-        left_array = self.left_boundary.array if getattr(self, "left_boundary", None) is not None else np.zeros((0, 3))
-        right_array = self.right_boundary.array[::-1] if getattr(self, "right_boundary", None) is not None else np.zeros((0, 3))
-        
-        outline_array = np.vstack((left_array, right_array)) if left_array.size + right_array.size > 0 else np.zeros((0, 3))
-        
-        if outline_array.shape[0] == 0:
-            # fallback: use shapely polygon generate Polyline3D
-            poly = getattr(self, "shapely_polygon", None)
-            if poly is not None:
-                outline_array = np.array(poly.exterior.coords)
-            else:
-                return Polyline3D(np.zeros((0, 3)))
-        
-        # close
-        if outline_array.shape[0] > 0:
-            outline_array = np.vstack((outline_array, outline_array[0]))
-        
+        """Inherited, see superclass."""
+        outline_array = np.vstack((self.left_boundary.array, self.right_boundary.array[::-1]))
+        outline_array = np.vstack((outline_array, outline_array[0]))
         return Polyline3D.from_linestring(geom.LineString(outline_array))
 
     @property
@@ -279,20 +264,8 @@ class GPKGLaneGroup(GPKGSurfaceObject, AbstractLaneGroup):
 
     @property
     def outline_3d(self) -> Polyline3D:
-        # get left_array and right_array
-        left_array = self.left_boundary.array if getattr(self, "left_boundary", None) is not None else np.zeros((0, 3))
-        right_array = self.right_boundary.array[::-1] if getattr(self, "right_boundary", None) is not None else np.zeros((0, 3))
-
-        if left_array.size + right_array.size == 0:
-            # fallback: use geometry polygon generate
-            poly = getattr(self, "shapely_polygon", None)
-            if poly is not None:
-                outline_array = np.array(poly.exterior.coords)
-            else:
-                return Polyline3D(np.zeros((0, 3)))
-        else:
-            outline_array = np.vstack((left_array, right_array))
-
+        """Inherited, see superclass."""
+        outline_array = np.vstack((self.left_boundary.array, self.right_boundary.array[::-1]))
         return Polyline3D.from_linestring(geom.LineString(outline_array))
 
     @property

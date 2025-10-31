@@ -11,16 +11,13 @@ from py123d.geometry.transform.transform_se3 import convert_points_3d_array_betw
 
 
 def load_nuscenes_lidar_pcs_from_file(pcd_path: Path, log_metadata: LogMetadata) -> Dict[LiDARType, np.ndarray]:
-    points = np.fromfile(pcd_path, dtype=np.float32).reshape(-1, 5)
+    lidar_pc = np.fromfile(pcd_path, dtype=np.float32).reshape(-1, len(NuScenesLidarIndex))
 
     # convert lidar to ego frame
     lidar_extrinsic = log_metadata.lidar_metadata[LiDARType.LIDAR_TOP].extrinsic
-
-    points[..., NuScenesLidarIndex.XYZ] = convert_points_3d_array_between_origins(
+    lidar_pc[..., NuScenesLidarIndex.XYZ] = convert_points_3d_array_between_origins(
         from_origin=lidar_extrinsic,
         to_origin=StateSE3(0, 0, 0, 1.0, 0, 0, 0),
-        points_3d_array=points[..., NuScenesLidarIndex.XYZ],
+        points_3d_array=lidar_pc[..., NuScenesLidarIndex.XYZ],
     )
-    lidar_pcs_dict: Dict[LiDARType, np.ndarray] = {LiDARType.LIDAR_TOP: points}
-
-    return lidar_pcs_dict
+    return {LiDARType.LIDAR_TOP: lidar_pc}

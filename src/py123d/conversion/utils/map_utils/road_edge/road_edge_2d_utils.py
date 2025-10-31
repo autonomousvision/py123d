@@ -2,7 +2,8 @@ from typing import List, Union
 
 import numpy as np
 import shapely
-from shapely import LinearRing, LineString, Polygon, union_all
+from shapely import LinearRing, LineString, Polygon, box, union_all
+from shapely.strtree import STRtree
 
 
 def get_road_edge_linear_rings(
@@ -10,6 +11,10 @@ def get_road_edge_linear_rings(
     buffer_distance: float = 0.05,
     add_interiors: bool = True,
 ) -> List[LinearRing]:
+    """
+    Helper function to extract road edges (i.e. linear rings) from drivable area polygons.
+    TODO: Move and rename for general use.
+    """
 
     def _polygon_to_linear_rings(polygon: Polygon) -> List[LinearRing]:
         assert polygon.geom_type == "Polygon"
@@ -40,7 +45,10 @@ def split_line_geometry_by_max_length(
     geometries: Union[LineString, LinearRing, List[Union[LineString, LinearRing]]],
     max_length_meters: float,
 ) -> List[LineString]:
-    # TODO: move somewhere more appropriate or implement in Polyline2D, PolylineSE2, etc.
+    """
+    Splits LineString or LinearRing geometries into smaller segments based on a maximum length.
+    TODO: Move and rename for general use.
+    """
 
     if not isinstance(geometries, list):
         geometries = [geometries]
@@ -61,3 +69,39 @@ def split_line_geometry_by_max_length(
             all_segments.append(segment)
 
     return all_segments
+
+
+def split_polygon_by_grid(polygon: Polygon, cell_size: float) -> List[Polygon]:
+    """
+    Split a polygon by grid-like cells of given size.
+    TODO: Move and rename for general use.
+    """
+
+    minx, miny, maxx, maxy = polygon.bounds
+
+    # Generate all grid cells
+    x_coords = np.arange(minx, maxx, cell_size)
+    y_coords = np.arange(miny, maxy, cell_size)
+
+    grid_cells = [box(x, y, x + cell_size, y + cell_size) for x in x_coords for y in y_coords]
+
+    # Build spatial index for fast queries
+    tree = STRtree(grid_cells)
+
+    # Query cells that potentially intersect
+    candidate_indices = tree.query(polygon, predicate="intersects")
+
+    cells = []
+    for idx in candidate_indices:
+        cell = grid_cells[idx]
+        intersection = polygon.intersection(cell)
+
+        if intersection.is_empty:
+            continue
+
+        if intersection.geom_type == "Polygon":
+            cells.append(intersection)
+        elif intersection.geom_type == "MultiPolygon":
+            cells.extend(intersection.geoms)
+
+    return cells

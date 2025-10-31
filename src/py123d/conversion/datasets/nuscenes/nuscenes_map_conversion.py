@@ -1,32 +1,44 @@
+from collections import defaultdict
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Final, List, Optional
 
 import numpy as np
 from shapely.geometry import LineString, Polygon
 
 from py123d.common.utils.dependencies import check_dependencies
-from py123d.conversion.datasets.nuscenes.nuscenes_constants import NUSCENES_MAPS
+from py123d.conversion.datasets.nuscenes.utils.nuscenes_constants import NUSCENES_MAPS
+from py123d.conversion.datasets.nuscenes.utils.nuscenes_map_utils import (
+    extract_lane_and_boundaries,
+    extract_nuscenes_centerline,
+    order_lanes_left_to_right,
+)
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.datatypes.maps.cache.cache_map_objects import (  # CacheIntersection,
+from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
+    get_road_edge_linear_rings,
+    split_line_geometry_by_max_length,
+    split_polygon_by_grid,
+)
+from py123d.datatypes.maps.cache.cache_map_objects import (
     CacheCarpark,
     CacheCrosswalk,
     CacheGenericDrivable,
+    CacheIntersection,
     CacheLane,
     CacheLaneGroup,
+    CacheRoadEdge,
     CacheRoadLine,
     CacheWalkway,
 )
-from py123d.datatypes.maps.map_datatypes import RoadLineType
-from py123d.geometry import Polyline3D
+from py123d.datatypes.maps.map_datatypes import RoadEdgeType, RoadLineType
+from py123d.geometry import OccupancyMap2D, Polyline2D, Polyline3D
+from py123d.geometry.utils.polyline_utils import offset_points_perpendicular
 
-check_dependencies(["lanelet2", "nuscenes"], optional_name="nuscenes")
-import traceback
-
-import lanelet2
-from lanelet2.io import load
-from lanelet2.projection import MercatorProjector
-from nuscenes.map_expansion.arcline_path_utils import discretize_lane
+check_dependencies(["nuscenes"], optional_name="nuscenes")
 from nuscenes.map_expansion.map_api import NuScenesMap
+
+MAX_ROAD_EDGE_LENGTH: Final[float] = 100.0  # [m]
+MAX_LANE_WIDTH: Final[float] = 4.0  # [m]
+MIN_LANE_WIDTH: Final[float] = 1.0  # [m]
 
 
 def write_nuscenes_map(
@@ -36,634 +48,432 @@ def write_nuscenes_map(
     use_lanelet2: bool,
     lanelet2_root: Optional[str] = None,
 ) -> None:
+    """Converts the nuScenes map types to the 123D format, and sends elements to the map writer.
+    FIXME @DanielDauner: Currently, Lanelet2 format is not supported for nuScenes.
+
+    :param nuscenes_maps_root: Path to the nuScenes maps root directory
+    :param location: Name of the specific map location to convert
+    :param map_writer: Map writer instance to write the converted elements
+    :param use_lanelet2: Flag indicating whether to use Lanelet2 format
+    :param lanelet2_root: Path to the Lanelet2 root directory, defaults to None
     """
-    Main function to convert nuscenes map to unified format and write using map_writer.
-    """
+
     assert location in NUSCENES_MAPS, f"Map name {location} is not supported."
-    nusc_map = NuScenesMap(dataroot=str(nuscenes_maps_root), map_name=location)
+    nuscenes_map = NuScenesMap(dataroot=str(nuscenes_maps_root), map_name=location)
 
-    # Write all layers
-    if use_lanelet2:
-        _write_nuscenes_lanes_lanelet2(nusc_map, map_writer, lanelet2_root)
-        _write_nuscenes_lane_groups_lanelet2(nusc_map, map_writer, lanelet2_root)
-    else:
-        _write_nuscenes_lanes(nusc_map, map_writer)
-        _write_nuscenes_lane_groups(nusc_map, map_writer)
+    # 1. extract road edges (used later to determine lane connector widths)
+    road_edges = _extract_nuscenes_road_edges(nuscenes_map)
 
-    _write_nuscenes_intersections(nusc_map, map_writer)
-    _write_nuscenes_crosswalks(nusc_map, map_writer)
-    _write_nuscenes_walkways(nusc_map, map_writer)
-    _write_nuscenes_carparks(nusc_map, map_writer)
-    _write_nuscenes_generic_drivables(nusc_map, map_writer)
-    _write_nuscenes_stop_lines(nusc_map, map_writer)
-    _write_nuscenes_road_lines(nusc_map, map_writer)
+    # 2. extract lanes
+    lanes = _extract_nuscenes_lanes(nuscenes_map)
 
+    # 3. extract lane connectors (i.e. lanes on intersections)
+    lane_connectors = _extract_nuscenes_lane_connectors(nuscenes_map, road_edges)
 
-def _write_nuscenes_lanes_lanelet2(nusc_map: NuScenesMap, map_writer: AbstractMapWriter, lanelet2_root: str) -> None:
-    map_name = nusc_map.map_name
-    osm_map_file = str(Path(lanelet2_root) / f"{map_name}.osm")
+    # 4. extract intersections (and store lane-connector to intersection assignment for lane groups)
+    intersection_assignment = _write_nuscenes_intersections(nuscenes_map, lane_connectors, map_writer)
 
-    if "boston" in map_name.lower():
-        origin_lat, origin_lon = 42.3365, -71.0577
-    elif "singapore" in map_name.lower():
-        origin_lat, origin_lon = 1.3, 103.8
-    else:
-        origin_lat, origin_lon = 49.0, 8.4
+    # 5. extract lane groups
+    lane_groups = _extract_nuscenes_lane_groups(nuscenes_map, lanes, lane_connectors, intersection_assignment)
 
-    origin = lanelet2.io.Origin(origin_lat, origin_lon)
+    # Write remaining map elements
+    _write_nuscenes_crosswalks(nuscenes_map, map_writer)
+    _write_nuscenes_walkways(nuscenes_map, map_writer)
+    _write_nuscenes_carparks(nuscenes_map, map_writer)
+    _write_nuscenes_generic_drivables(nuscenes_map, map_writer)
+    _write_nuscenes_stop_lines(nuscenes_map, map_writer)
+    _write_nuscenes_road_lines(nuscenes_map, map_writer)
 
-    try:
-        lanelet_map = lanelet2.io.load(osm_map_file, origin)
-    except Exception:
-        try:
-            projector = lanelet2.projection.MercatorProjector(origin)
-            lanelet_map = lanelet2.io.load(osm_map_file, projector)
-        except Exception:
-            return
+    for lane in lanes + lane_connectors:
+        map_writer.write_lane(lane)
 
-    for lanelet in lanelet_map.laneletLayer:
-        token = lanelet.id
+    for road_edge in road_edges:
+        map_writer.write_road_edge(road_edge)
 
-        try:
-            left_bound = [(p.x, p.y) for p in lanelet.leftBound]
-            right_bound = [(p.x, p.y) for p in lanelet.rightBound]
-            polygon_points = left_bound + right_bound[::-1]
-            polygon = Polygon(polygon_points)
-
-            predecessor_ids = [int(pred.id) for pred in lanelet.previousLanelets]
-            successor_ids = [int(succ.id) for succ in lanelet.followingLanelets]
-
-            left_lane_id = None
-            right_lane_id = None
-
-            left_boundary = [(p.x, p.y) for p in lanelet.leftBound]
-            right_boundary = [(p.x, p.y) for p in lanelet.rightBound]
-            centerline = []
-            for left_pt, right_pt in zip(lanelet.leftBound, lanelet.rightBound):
-                center_x = (left_pt.x + right_pt.x) / 2
-                center_y = (left_pt.y + right_pt.y) / 2
-                centerline.append((center_x, center_y))
-
-            speed_limit_mps = 0.0
-            if "speed_limit" in lanelet.attributes:
-                try:
-                    speed_limit_str = lanelet.attributes["speed_limit"]
-                    if "km/h" in speed_limit_str:
-                        speed_kmh = float(speed_limit_str.replace("km/h", "").strip())
-                        speed_limit_mps = speed_kmh / 3.6
-                except (ValueError, TypeError):
-                    pass
-
-            map_writer.write_lane(
-                CacheLane(
-                    object_id=token,
-                    lane_group_id=None,
-                    left_boundary=left_boundary,
-                    right_boundary=right_boundary,
-                    centerline=centerline,
-                    left_lane_id=left_lane_id,
-                    right_lane_id=right_lane_id,
-                    predecessor_ids=predecessor_ids,
-                    successor_ids=successor_ids,
-                    speed_limit_mps=speed_limit_mps,
-                    outline=None,
-                    geometry=polygon,
-                )
-            )
-        except Exception:
-            traceback.print_exc()
-            continue
+    for lane_group in lane_groups:
+        map_writer.write_lane_group(lane_group)
 
 
-def _write_nuscenes_lane_groups_lanelet2(
-    nusc_map: NuScenesMap, map_writer: AbstractMapWriter, lanelet2_root: str
-) -> None:
-    map_name = nusc_map.map_name
-    osm_map_file = str(Path(lanelet2_root) / f"{map_name}.osm")
+def _extract_nuscenes_lanes(nuscenes_map: NuScenesMap) -> List[CacheLane]:
+    """Helper function to extract lanes from a nuScenes map."""
 
-    if "boston" in map_name.lower():
-        origin_lat, origin_lon = 42.3365, -71.0577
-    else:
-        origin_lat, origin_lon = 1.3, 103.8
+    # NOTE: nuScenes does not provide explicitly provide lane groups and does not assign lanes to roadblocks.
+    # Therefore, we query the roadblocks given the middle-point of the centerline to assign lanes to a road block.
+    # Unlike road segments, road blocks outline a lane group going in the same direction.
+    # In case a roadblock cannot be assigned, e.g. because the lane is not located within any roadblock, or the
+    # roadblock data is invalid [1], we assign a new lane group with only this lane.
+    # [1] https://github.com/nutonomy/nuscenes-devkit/issues/862
 
-    origin = lanelet2.io.Origin(origin_lat, origin_lon)
+    road_blocks_invalid = nuscenes_map.map_name in ["singapore-queenstown", "singapore-hollandvillage"]
 
-    try:
-        projector = MercatorProjector(origin)
-        lanelet_map = load(osm_map_file, projector)
-    except Exception:
-        return
+    road_block_dict: Dict[str, Polygon] = {}
+    if not road_blocks_invalid:
+        road_block_dict: Dict[str, Polygon] = {
+            road_block["token"]: nuscenes_map.extract_polygon(road_block["polygon_token"])
+            for road_block in nuscenes_map.road_block
+        }
 
-    for lanelet in lanelet_map.laneletLayer:
-        token = lanelet.id
-        lane_ids = [lanelet.id]
-        try:
-            predecessor_ids = [int(lanelet.id) for lanelet in lanelet.previous]
-            successor_ids = [int(lanelet.id) for lanelet in lanelet.following]
-        except AttributeError:
-            predecessor_ids = []
-            successor_ids = []
-            try:
-                if hasattr(lanelet, "left"):
-                    for left_lane in lanelet.left:
-                        predecessor_ids.append(int(left_lane.id))
-                if hasattr(lanelet, "right"):
-                    for right_lane in lanelet.right:
-                        successor_ids.append(int(right_lane.id))
-            except Exception:
-                pass
-
-        try:
-            left_bound = [(p.x, p.y) for p in lanelet.leftBound]
-            right_bound = [(p.x, p.y) for p in lanelet.rightBound]
-            polygon_points = left_bound + right_bound[::-1]
-            polygon = Polygon(polygon_points)
-        except Exception:
-            traceback.print_exc()
-            continue
-
-        try:
-            map_writer.write_lane_group(
-                CacheLaneGroup(
-                    object_id=token,
-                    lane_ids=lane_ids,
-                    left_boundary=None,
-                    right_boundary=None,
-                    intersection_id=None,
-                    predecessor_ids=predecessor_ids,
-                    successor_ids=successor_ids,
-                    outline=None,
-                    geometry=polygon,
-                )
-            )
-        except Exception:
-            traceback.print_exc()
-            continue
-
-
-def _write_nuscenes_lanes(nusc_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
-    """
-    Write lane data to map_writer, including topology and boundaries.
-    """
-    lane_records = nusc_map.lane
-    for lane_record in lane_records:
+    road_block_map = OccupancyMap2D.from_dict(road_block_dict)
+    lanes: List[CacheLane] = []
+    for lane_record in nuscenes_map.lane:
         token = lane_record["token"]
 
-        # Extract geometry from lane record
-        try:
-            if "polygon_token" in lane_record:
-                polygon = nusc_map.extract_polygon(lane_record["polygon_token"])
-            else:
-                continue
-            if not polygon.is_valid:
-                continue
-        except Exception:
-            traceback.print_exc()
-            continue
+        # 1. Extract centerline and boundaries
+        centerline, left_boundary, right_boundary = extract_lane_and_boundaries(nuscenes_map, lane_record)
+
+        if left_boundary is None or right_boundary is None:
+            continue  # skip lanes without valid boundaries
+
+        # 2. Query road block for lane group assignment
+        lane_group_id: str = token  # default to self, override if road block found
+        if not road_blocks_invalid:
+            query_point = centerline.interpolate(0.5, normalized=True).shapely_point
+            intersecting_roadblock = road_block_map.query_nearest(query_point, max_distance=0.1, all_matches=False)
+
+            # NOTE: if a lane cannot be assigned to a road block, we assume a new lane group with only this lane.
+            # The lane group id is set to be the same as the lane id in this case.
+            if len(intersecting_roadblock) > 0:
+                lane_group_id = road_block_map.ids[intersecting_roadblock[0]]
 
         # Get topology
-        incoming = nusc_map.get_incoming_lane_ids(token)
-        outgoing = nusc_map.get_outgoing_lane_ids(token)
+        incoming = nuscenes_map.get_incoming_lane_ids(token)
+        outgoing = nuscenes_map.get_outgoing_lane_ids(token)
 
-        # Get lane connectors
-        lane_connectors = []
-        for connector in nusc_map.lane_connector:
-            if connector.get("incoming_lane") == token or connector.get("outgoing_lane") == token:
-                lane_connectors.append(connector["token"])
-
-        # Extract boundaries
-        left_boundary = _get_lane_boundary(token, "left", nusc_map)
-        right_boundary = _get_lane_boundary(token, "right", nusc_map)
-
-        # Skip lanes without valid boundaries
-        if left_boundary is None or right_boundary is None:
-            continue
-        if left_boundary.is_empty or right_boundary.is_empty:
-            continue
-
-        # Extract baseline path
-        baseline_path = None
-        if token in nusc_map.arcline_path_3:
-            arc_path = nusc_map.arcline_path_3[token]
-            try:
-                points = discretize_lane(arc_path, resolution_meters=0.1)
-                xy_points = [(p[0], p[1]) for p in points]
-                baseline_path = LineString(xy_points)
-            except Exception:
-                baseline_path = None
-
-        # Align boundaries with baseline path direction
-        if baseline_path and left_boundary:
-            left_boundary = align_boundary_direction(baseline_path, left_boundary)
-        if baseline_path and right_boundary:
-            right_boundary = align_boundary_direction(baseline_path, right_boundary)
-
-        # Write lane object safely
-        try:
-            map_writer.write_lane(
-                CacheLane(
-                    object_id=token,
-                    lane_group_id=lane_record.get("road_segment_token", None),
-                    left_boundary=Polyline3D.from_linestring(left_boundary),
-                    right_boundary=Polyline3D.from_linestring(right_boundary),
-                    centerline=Polyline3D.from_linestring(baseline_path),
-                    left_lane_id=None,  # Not directly available in nuscenes
-                    right_lane_id=None,  # Not directly available in nuscenes
-                    predecessor_ids=incoming,
-                    successor_ids=outgoing,
-                    speed_limit_mps=None,  # Default value
-                    outline=None,
-                    geometry=polygon,
-                )
+        lanes.append(
+            CacheLane(
+                object_id=token,
+                lane_group_id=lane_group_id,
+                left_boundary=left_boundary,
+                right_boundary=right_boundary,
+                centerline=centerline,
+                left_lane_id=None,
+                right_lane_id=None,
+                predecessor_ids=incoming,
+                successor_ids=outgoing,
+                speed_limit_mps=None,
+                outline=None,
+                geometry=None,
             )
-        except Exception:
-            traceback.print_exc()
-            continue
+        )
+
+    return lanes
 
 
-def _write_nuscenes_lane_groups(nusc_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
-    """
-    Write lane group data to map_writer.
-    """
-    road_segments = nusc_map.road_segment
-    for segment in road_segments:
-        token = segment["token"]
+def _extract_nuscenes_lane_connectors(nuscenes_map: NuScenesMap, road_edges: List[CacheRoadEdge]) -> List[CacheLane]:
+    """Helper function to extract lane connectors from a nuScenes map."""
 
-        # Extract geometry
-        try:
-            if "polygon_token" in segment:
-                polygon = nusc_map.extract_polygon(segment["polygon_token"])
-            else:
-                continue
-            if not polygon.is_valid:
-                continue
-        except Exception:
-            continue
+    # TODO @DanielDauner: consider using connected lanes to estimate the lane width
 
-        # Find lanes in this segment
-        lane_ids = []
-        for lane in nusc_map.lane:
-            if lane.get("road_segment_token") == token:
-                lane_ids.append(lane["token"])
+    road_edge_map = OccupancyMap2D(geometries=[road_edge.shapely_linestring for road_edge in road_edges])
 
-        # Get connected segments
-        incoming, outgoing = _get_connected_segments(token, nusc_map)
+    lane_connectors: List[CacheLane] = []
+    for lane_record in nuscenes_map.lane_connector:
+        lane_connector_token: str = lane_record["token"]
 
-        # Extract boundaries
-        left_boundary = _get_lane_group_boundary(token, "left", nusc_map)
-        right_boundary = _get_lane_group_boundary(token, "right", nusc_map)
+        centerline = extract_nuscenes_centerline(nuscenes_map, lane_record)
 
-        # Skip invalid boundaries
-        if left_boundary is None or right_boundary is None:
-            continue
-        if left_boundary.is_empty or right_boundary.is_empty:
-            continue
+        _, nearest_edge_distances = road_edge_map.query_nearest(
+            centerline.linestring, return_distance=True, all_matches=False
+        )
+        road_edge_distance = nearest_edge_distances[0] if nearest_edge_distances else float("inf")
 
-        # Use first lane's baseline path for direction alignment
-        baseline_path = None
-        if lane_ids:
-            first_lane_token = lane_ids[0]
-            if first_lane_token in nusc_map.arcline_path_3:
-                arc_path = nusc_map.arcline_path_3[first_lane_token]
-                try:
-                    points = discretize_lane(arc_path, resolution_meters=0.1)
-                    xy_points = [(p[0], p[1]) for p in points]
-                    baseline_path = LineString(xy_points)
-                except Exception:
-                    baseline_path = None
+        lane_half_width = np.clip(road_edge_distance, MIN_LANE_WIDTH / 2.0, MAX_LANE_WIDTH / 2.0)
 
-        if baseline_path and left_boundary:
-            left_boundary = align_boundary_direction(baseline_path, left_boundary)
-        if baseline_path and right_boundary:
-            right_boundary = align_boundary_direction(baseline_path, right_boundary)
+        left_pts = offset_points_perpendicular(centerline.array, offset=lane_half_width)
+        right_pts = offset_points_perpendicular(centerline.array, offset=-lane_half_width)
 
-        try:
-            map_writer.write_lane_group(
-                CacheLaneGroup(
-                    object_id=token,
-                    lane_ids=lane_ids,
-                    left_boundary=left_boundary,
-                    right_boundary=right_boundary,
-                    intersection_id=None,  # Handled in intersections
-                    predecessor_ids=incoming,
-                    successor_ids=outgoing,
-                    outline=None,
-                    geometry=polygon,
-                )
+        predecessor_ids = nuscenes_map.get_incoming_lane_ids(lane_connector_token)
+        successor_ids = nuscenes_map.get_outgoing_lane_ids(lane_connector_token)
+
+        lane_group_id = lane_connector_token
+
+        lane_connectors.append(
+            CacheLane(
+                object_id=lane_connector_token,
+                lane_group_id=lane_group_id,
+                left_boundary=Polyline2D.from_array(left_pts),
+                right_boundary=Polyline2D.from_array(right_pts),
+                centerline=centerline,
+                left_lane_id=None,  # Not directly available in nuscenes
+                right_lane_id=None,  # Not directly available in nuscenes
+                predecessor_ids=predecessor_ids,
+                successor_ids=successor_ids,
+                speed_limit_mps=None,  # Default value
+                outline=None,
+                geometry=None,
             )
-        except Exception:
-            traceback.print_exc()
-            continue
+        )
+
+    return lane_connectors
 
 
-def _write_nuscenes_intersections(nusc_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
-    """
-    Write intersection data to map_writer.
-    """
-    # road_blocks = nusc_map.road_block
-    # for block in road_blocks:
-    #     token = block["token"]
+def _extract_nuscenes_lane_groups(
+    nuscenes_map: NuScenesMap,
+    lanes: List[CacheLane],
+    lane_connectors: List[CacheLane],
+    intersection_assignment: Dict[str, int],
+) -> List[CacheLaneGroup]:
+    """Helper function to extract lane groups from a nuScenes map."""
+
+    lane_groups = []
+    lanes_dict = {lane.object_id: lane for lane in lanes + lane_connectors}
+
+    # 1. Gather all lane group ids that were previously assigned in the lanes (either roadblocks of lane themselves)
+    lane_group_lane_dict: Dict[str, List[str]] = defaultdict(list)
+    for lane in lanes + lane_connectors:
+        lane_group_lane_dict[lane.lane_group_id].append(lane.object_id)
+
+    for lane_group_id, lane_ids in lane_group_lane_dict.items():
+
+        if len(lane_ids) > 1:
+            lane_centerlines: List[Polyline2D] = [lanes_dict[lane_id].centerline for lane_id in lane_ids]
+            ordered_lane_indices = order_lanes_left_to_right(lane_centerlines)
+            left_boundary = lanes_dict[lane_ids[ordered_lane_indices[0]]].left_boundary
+            right_boundary = lanes_dict[lane_ids[ordered_lane_indices[-1]]].right_boundary
+
+        else:
+            lane_id = lane_ids[0]
+            lane = lanes_dict[lane_id]
+            left_boundary = lane.left_boundary
+            right_boundary = lane.right_boundary
+
+        # 2. For each lane group, gather predecessor and successor lane groups
+        predecessor_ids = set()
+        successor_ids = set()
+        for lane_id in lane_ids:
+            lane = lanes_dict[lane_id]
+            if lane is None:
+                continue
+            for pred_id in lane.predecessor_ids:
+                pred_lane = lanes_dict.get(pred_id)
+                if pred_lane is not None:
+                    predecessor_ids.add(pred_lane.lane_group_id)
+            for succ_id in lane.successor_ids:
+                succ_lane = lanes_dict.get(succ_id)
+                if succ_lane is not None:
+                    successor_ids.add(succ_lane.lane_group_id)
+
+        intersection_ids = set(
+            [int(intersection_assignment[lane_id]) for lane_id in lane_ids if lane_id in intersection_assignment]
+        )
+        assert len(intersection_ids) <= 1, "A lane group cannot belong to multiple intersections."
+        intersection_id = None if len(intersection_ids) == 0 else intersection_ids.pop()
+
+        lane_groups.append(
+            CacheLaneGroup(
+                object_id=lane_group_id,
+                lane_ids=lane_ids,
+                left_boundary=left_boundary,
+                right_boundary=right_boundary,
+                intersection_id=intersection_id,
+                predecessor_ids=list(predecessor_ids),
+                successor_ids=list(successor_ids),
+                outline=None,
+                geometry=None,
+            )
+        )
+
+    return lane_groups
+
+
+def _write_nuscenes_intersections(
+    nuscenes_map: NuScenesMap, lane_connectors: List[CacheLane], map_writer: AbstractMapWriter
+) -> None:
+    """Write intersection data to map_writer and return lane-connector to intersection assignment."""
+
+    intersection_assignment = {}
+
+    # 1. Extract intersections and corresponding polygons
+    intersection_polygons = []
+    for road_segment in nuscenes_map.road_segment:
+        if road_segment["is_intersection"]:
+            if "polygon_token" in road_segment:
+                polygon = nuscenes_map.extract_polygon(road_segment["polygon_token"])
+                intersection_polygons.append(polygon)
+
+    # 2. Find lane connectors within each intersection polygon
+    lane_connector_center_point_dict = {
+        lane_connector.object_id: lane_connector.centerline.interpolate(0.5, normalized=True).shapely_point
+        for lane_connector in lane_connectors
+    }
+    centerpoint_map = OccupancyMap2D.from_dict(lane_connector_center_point_dict)
+    for idx, intersection_polygon in enumerate(intersection_polygons):
+        intersecting_lane_connector_ids = centerpoint_map.intersects(intersection_polygon)
+        for lane_connector_id in intersecting_lane_connector_ids:
+            intersection_assignment[lane_connector_id] = idx
+
+        map_writer.write_intersection(
+            CacheIntersection(
+                object_id=idx,
+                lane_group_ids=intersecting_lane_connector_ids,
+                outline=None,
+                geometry=intersection_polygon,
+            )
+        )
+
+    return intersection_assignment
+
+
+def _write_nuscenes_crosswalks(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
+    """Write crosswalk data to map_writer."""
+
+    crosswalk_polygons = []
+    for crossing in nuscenes_map.ped_crossing:
+        if "polygon_token" in crossing:
+            polygon = nuscenes_map.extract_polygon(crossing["polygon_token"])
+            crosswalk_polygons.append(polygon)
+
+    for idx, polygon in enumerate(crosswalk_polygons):
+        map_writer.write_crosswalk(
+            CacheCrosswalk(
+                object_id=idx,
+                geometry=polygon,
+            )
+        )
+
+
+def _write_nuscenes_walkways(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
+    """Write walkway data to map_writer."""
+    walkway_polygons = []
+    for walkway_record in nuscenes_map.walkway:
+        if "polygon_token" in walkway_record:
+            polygon = nuscenes_map.extract_polygon(walkway_record["polygon_token"])
+            walkway_polygons.append(polygon)
+
+    for idx, polygon in enumerate(walkway_polygons):
+        map_writer.write_walkway(
+            CacheWalkway(
+                object_id=idx,
+                geometry=polygon,
+            )
+        )
+
+
+def _write_nuscenes_carparks(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
+    """Write carpark data to map_writer."""
+    carpark_polygons = []
+    for carpark_record in nuscenes_map.carpark_area:
+        if "polygon_token" in carpark_record:
+            polygon = nuscenes_map.extract_polygon(carpark_record["polygon_token"])
+            carpark_polygons.append(polygon)
+
+    for idx, polygon in enumerate(carpark_polygons):
+        map_writer.write_carpark(
+            CacheCarpark(
+                object_id=idx,
+                geometry=polygon,
+            )
+        )
+
+
+def _write_nuscenes_generic_drivables(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
+    """Write generic drivable area data to map_writer."""
+    cell_size = 10.0
+    drivable_polygons = []
+    for drivable_area_record in nuscenes_map.drivable_area:
+        drivable_area = nuscenes_map.get("drivable_area", drivable_area_record["token"])
+        for polygon_token in drivable_area["polygon_tokens"]:
+            polygon = nuscenes_map.extract_polygon(polygon_token)
+
+            split_polygons = split_polygon_by_grid(polygon, cell_size=cell_size)
+            drivable_polygons.extend(split_polygons)
+            # drivable_polygons.append(polygon)
+
+    for idx, geometry in enumerate(drivable_polygons):
+        map_writer.write_generic_drivable(CacheGenericDrivable(object_id=idx, geometry=geometry))
+
+
+def _write_nuscenes_stop_lines(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
+    """Write stop line data to map_writer."""
+    # FIXME: Add stop lines.
+    # stop_lines = nuscenes_map.stop_line
+    # for stop_line in stop_lines:
+    #     token = stop_line["token"]
     #     try:
-    #         if "polygon_token" in block:
-    #             polygon = nusc_map.extract_polygon(block["polygon_token"])
+    #         if "polygon_token" in stop_line:
+    #             polygon = nuscenes_map.extract_polygon(stop_line["polygon_token"])
     #         else:
     #             continue
     #         if not polygon.is_valid:
     #             continue
     #     except Exception:
+    #         traceback.print_exc()
     #         continue
 
-    #     # Lane group IDs are not directly available; use empty list
-    #     lane_group_ids = []
-
-    #     map_writer.write_intersection(
-    #         CacheIntersection(
+    #     # Note: Stop lines are written as generic drivable for compatibility
+    #     map_writer.write_generic_drivable(
+    #         CacheGenericDrivable(
     #             object_id=token,
-    #             lane_group_ids=lane_group_ids,
     #             geometry=polygon,
     #         )
     #     )
 
 
-def _write_nuscenes_crosswalks(nusc_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
-    """
-    Write crosswalk data to map_writer.
-    """
-    ped_crossings = nusc_map.ped_crossing
-    for crossing in ped_crossings:
-        token = crossing["token"]
-        try:
-            if "polygon_token" in crossing:
-                polygon = nusc_map.extract_polygon(crossing["polygon_token"])
-            else:
-                continue
-            if not polygon.is_valid:
-                continue
-        except Exception:
-            traceback.print_exc()
-            continue
-
-        map_writer.write_crosswalk(
-            CacheCrosswalk(
-                object_id=token,
-                geometry=polygon,
-            )
-        )
-
-
-def _write_nuscenes_walkways(nusc_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
-    """
-    Write walkway data to map_writer.
-    """
-    walkways = nusc_map.walkway
-    for walkway in walkways:
-        token = walkway["token"]
-        try:
-            if "polygon_token" in walkway:
-                polygon = nusc_map.extract_polygon(walkway["polygon_token"])
-            else:
-                continue
-            if not polygon.is_valid:
-                continue
-        except Exception:
-            traceback.print_exc()
-            continue
-
-        map_writer.write_walkway(
-            CacheWalkway(
-                object_id=token,
-                geometry=polygon,
-            )
-        )
-
-
-def _write_nuscenes_carparks(nusc_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
-    """
-    Write carpark data to map_writer.
-    """
-    carpark_areas = nusc_map.carpark_area
-    for carpark in carpark_areas:
-        token = carpark["token"]
-        try:
-            if "polygon_token" in carpark:
-                polygon = nusc_map.extract_polygon(carpark["polygon_token"])
-            else:
-                continue
-            if not polygon.is_valid:
-                continue
-        except Exception:
-            continue
-
-        map_writer.write_carpark(
-            CacheCarpark(
-                object_id=token,
-                geometry=polygon,
-            )
-        )
-
-
-def _write_nuscenes_generic_drivables(nusc_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
-    """
-    Write generic drivable areas to map_writer.
-    """
-    # Combine road segments, lanes, and drivable areas
-    all_drivables = []
-
-    # Add road segments
-    for segment in nusc_map.road_segment:
-        try:
-            if "polygon_token" in segment:
-                polygon = nusc_map.extract_polygon(segment["polygon_token"])
-                if polygon.is_valid:
-                    all_drivables.append((f"road_segment_{segment['token']}", polygon))
-        except Exception:
-            traceback.print_exc()
-            continue
-
-    # Add lanes
-    for lane in nusc_map.lane:
-        try:
-            if "polygon_token" in lane:
-                polygon = nusc_map.extract_polygon(lane["polygon_token"])
-                if polygon.is_valid:
-                    all_drivables.append((f"lane_{lane['token']}", polygon))
-        except Exception:
-            traceback.print_exc()
-            continue
-
-    # Add drivable areas
-    for road in nusc_map.drivable_area:
-        try:
-            if "polygon_token" in road:
-                polygon = nusc_map.extract_polygon(road["polygon_token"])
-                if polygon.is_valid:
-                    all_drivables.append((f"road_{road['token']}", polygon))
-        except Exception:
-            traceback.print_exc()
-            continue
-
-    for obj_id, geometry in all_drivables:
-        map_writer.write_generic_drivable(
-            CacheGenericDrivable(
-                object_id=obj_id,
-                geometry=geometry,
-            )
-        )
-
-
-def _write_nuscenes_stop_lines(nusc_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
-    """
-    Write stop line data to map_writer.
-    """
-    stop_lines = nusc_map.stop_line
-    for stop_line in stop_lines:
-        token = stop_line["token"]
-        try:
-            if "polygon_token" in stop_line:
-                polygon = nusc_map.extract_polygon(stop_line["polygon_token"])
-            else:
-                continue
-            if not polygon.is_valid:
-                continue
-        except Exception:
-            traceback.print_exc()
-            continue
-
-        # Note: Stop lines are written as generic drivable for compatibility
-        map_writer.write_generic_drivable(
-            CacheGenericDrivable(
-                object_id=token,
-                geometry=polygon,
-            )
-        )
-
-
-def _write_nuscenes_road_lines(nusc_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
-    """
-    Write road line data (dividers) to map_writer.
-    """
+def _write_nuscenes_road_lines(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
+    """Write road line data (dividers) to map_writer."""
     # Process road dividers
-    road_dividers = nusc_map.road_divider
+    road_dividers = nuscenes_map.road_divider
+    running_idx = 0
     for divider in road_dividers:
-        token = divider["token"]
-        try:
-            line = nusc_map.extract_line(divider["line_token"])
-            if not line.is_valid:
-                continue
-        except Exception:
-            continue
+        line = nuscenes_map.extract_line(divider["line_token"])
 
         # Determine line type
-        line_type = _get_road_line_type(divider["line_token"], nusc_map)
+        line_type = _get_road_line_type(divider["line_token"], nuscenes_map)
 
         map_writer.write_road_line(
             CacheRoadLine(
-                object_id=token,
+                object_id=running_idx,
                 road_line_type=line_type,
                 polyline=Polyline3D(LineString(line.coords)),
             )
         )
+        running_idx += 1
 
     # Process lane dividers
-    lane_dividers = nusc_map.lane_divider
+    lane_dividers = nuscenes_map.lane_divider
     for divider in lane_dividers:
-        token = divider["token"]
-        try:
-            line = nusc_map.extract_line(divider["line_token"])
-            if not line.is_valid:
-                continue
-        except Exception:
-            continue
-
-        line_type = _get_road_line_type(divider["line_token"], nusc_map)
+        line = nuscenes_map.extract_line(divider["line_token"])
+        line_type = _get_road_line_type(divider["line_token"], nuscenes_map)
 
         map_writer.write_road_line(
             CacheRoadLine(
-                object_id=token,
+                object_id=running_idx,
                 road_line_type=line_type,
                 polyline=Polyline3D(LineString(line.coords)),
             )
         )
+        running_idx += 1
 
 
-def _get_lane_boundary(lane_token: str, side: str, nusc_map: NuScenesMap) -> Optional[LineString]:
-    """
-    Extract lane boundary geometry for a given side.
-    """
-    lane_record = next((lr for lr in nusc_map.lane if lr["token"] == lane_token), None)
-    if not lane_record:
-        return None
+def _extract_nuscenes_road_edges(nuscenes_map: NuScenesMap) -> List[CacheRoadEdge]:
+    """Helper function to extract road edges from a nuScenes map."""
+    drivable_polygons = []
+    for drivable_area_record in nuscenes_map.drivable_area:
+        drivable_area = nuscenes_map.get("drivable_area", drivable_area_record["token"])
+        for polygon_token in drivable_area["polygon_tokens"]:
+            polygon = nuscenes_map.extract_polygon(polygon_token)
+            drivable_polygons.append(polygon)
 
-    divider_segment_nodes_key = f"{side}_lane_divider_segment_nodes"
-    if divider_segment_nodes_key in lane_record and lane_record[divider_segment_nodes_key]:
-        nodes = lane_record[divider_segment_nodes_key]
-        boundary = LineString([(node["x"], node["y"]) for node in nodes])
-        return boundary
+    road_edge_linear_rings = get_road_edge_linear_rings(drivable_polygons)
+    road_edges_linestrings = split_line_geometry_by_max_length(road_edge_linear_rings, MAX_ROAD_EDGE_LENGTH)
 
-    return None
+    road_edges_cache: List[CacheRoadEdge] = []
+    for idx in range(len(road_edges_linestrings)):
+        road_edges_cache.append(
+            CacheRoadEdge(
+                object_id=idx,
+                road_edge_type=RoadEdgeType.ROAD_EDGE_BOUNDARY,
+                polyline=Polyline2D.from_linestring(road_edges_linestrings[idx]),
+            )
+        )
 
-
-def _get_lane_group_boundary(segment_token: str, side: str, nusc_map: NuScenesMap) -> Optional[LineString]:
-    """
-    Extract lane group boundary geometry (simplified).
-    """
-    # This is a simplified implementation; in practice, may need more robust geometry extraction
-    boundary_type = "road_divider" if side == "left" else "lane_divider"
-
-    # Find the segment geometry
-    segment = next((rs for rs in nusc_map.road_segment if rs["token"] == segment_token), None)
-    if not segment:
-        return None
-
-    try:
-        segment_geom = nusc_map.extract_polygon(segment["polygon_token"])
-    except Exception:
-        return None
-
-    # Find nearest boundary of the specified type within a threshold
-    nearest = None
-    min_dist = float("inf")
-
-    if boundary_type == "road_divider":
-        records = nusc_map.road_divider
-    else:
-        records = nusc_map.lane_divider
-
-    for record in records:
-        try:
-            line = nusc_map.extract_line(record["line_token"])
-            dist = segment_geom.distance(line)
-            if dist < 10.0 and dist < min_dist:
-                min_dist = dist
-                nearest = line
-        except Exception:
-            continue
-
-    return nearest
+    return road_edges_cache
 
 
-def _get_connected_segments(segment_token: str, nusc_map: NuScenesMap):
-    """
-    Get incoming and outgoing segment connections.
-    """
-    incoming, outgoing = [], []
+def _get_road_line_type(line_token: str, nuscenes_map: NuScenesMap) -> RoadLineType:
+    """Map nuscenes line type to RoadLineType."""
 
-    for connector in nusc_map.lane_connector:
-        if connector.get("outgoing_lane") == segment_token:
-            incoming.append(connector.get("incoming_lane"))
-        elif connector.get("incoming_lane") == segment_token:
-            outgoing.append(connector.get("outgoing_lane"))
-
-    incoming = [id for id in incoming if id is not None]
-    outgoing = [id for id in outgoing if id is not None]
-
-    return incoming, outgoing
-
-
-def _get_road_line_type(line_token: str, nusc_map: NuScenesMap) -> RoadLineType:
-    """
-    Map nuscenes line type to RoadLineType.
-    """
+    # FIXME @DanielDauner: Store token to type mapping. Creating mapping for every call is not ideal.
     nuscenes_to_road_line_type = {
         "SINGLE_SOLID_WHITE": RoadLineType.SOLID_WHITE,
         "DOUBLE_DASHED_WHITE": RoadLineType.DOUBLE_DASH_WHITE,
@@ -671,7 +481,7 @@ def _get_road_line_type(line_token: str, nusc_map: NuScenesMap) -> RoadLineType:
     }
 
     line_token_to_type = {}
-    for lane_record in nusc_map.lane:
+    for lane_record in nuscenes_map.lane:
         for seg in lane_record.get("left_lane_divider_segments", []):
             token = seg.get("line_token")
             seg_type = seg.get("segment_type")
@@ -686,34 +496,3 @@ def _get_road_line_type(line_token: str, nusc_map: NuScenesMap) -> RoadLineType:
 
     nuscenes_type = line_token_to_type.get(line_token, "UNKNOWN")
     return nuscenes_to_road_line_type.get(nuscenes_type, RoadLineType.UNKNOWN)
-
-
-def flip_linestring(linestring: LineString) -> LineString:
-    """
-    Flip the direction of a LineString.
-    """
-    return LineString(linestring.coords[::-1])
-
-
-def lines_same_direction(centerline: LineString, boundary: LineString) -> bool:
-    """
-    Check if centerline and boundary have the same direction.
-    """
-    center_start = np.array(centerline.coords[0])
-    center_end = np.array(centerline.coords[-1])
-    boundary_start = np.array(boundary.coords[0])
-    boundary_end = np.array(boundary.coords[-1])
-
-    same_dir_dist = np.linalg.norm(center_start - boundary_start) + np.linalg.norm(center_end - boundary_end)
-    opposite_dir_dist = np.linalg.norm(center_start - boundary_end) + np.linalg.norm(center_end - boundary_start)
-
-    return same_dir_dist <= opposite_dir_dist
-
-
-def align_boundary_direction(centerline: LineString, boundary: LineString) -> LineString:
-    """
-    Align boundary direction with centerline.
-    """
-    if not lines_same_direction(centerline, boundary):
-        return flip_linestring(boundary)
-    return boundary
