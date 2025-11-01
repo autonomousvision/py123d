@@ -33,6 +33,7 @@ DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "av2-sensor": DATASET_PATHS.av2_sensor_data_root,
     "wopd": DATASET_PATHS.wopd_data_root,
     "pandaset": DATASET_PATHS.pandaset_data_root,
+    "nurec": DATASET_PATHS.nurec_data_root,
 }
 
 
@@ -117,11 +118,34 @@ def get_camera_from_arrow_table(
     if isinstance(table_data, str):
         sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
         assert sensor_root is not None, f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}"
-        full_image_path = Path(sensor_root) / table_data
-        assert full_image_path.exists(), f"Camera file not found: {full_image_path}"
 
-        image = cv2.imread(str(full_image_path), cv2.IMREAD_COLOR)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # To avoid converting mp4 videos to images unnecessarily,
+        # for now I read in the string and check for '#'
+        # Handle video frame format: "video_path#frame_index"
+        if "#" in table_data:
+            video_path_str, frame_idx_str = table_data.split("#", 1)
+            full_video_path = Path(sensor_root) / video_path_str
+            frame_idx = int(frame_idx_str)
+
+            assert full_video_path.exists(), f"Camera video file not found: {full_video_path}"
+
+            # Extract frame from video
+            cap = cv2.VideoCapture(str(full_video_path))
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            ret, frame = cap.read()
+            cap.release()
+
+            if ret:
+                image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            else:
+                raise RuntimeError(f"Failed to extract frame {frame_idx} from {full_video_path}")
+        else:
+            # Handle regular image file path
+            full_image_path = Path(sensor_root) / table_data
+            assert full_image_path.exists(), f"Camera file not found: {full_image_path}"
+
+            image = cv2.imread(str(full_image_path), cv2.IMREAD_COLOR)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     elif isinstance(table_data, bytes):
         image = cv2.imdecode(np.frombuffer(table_data, np.uint8), cv2.IMREAD_UNCHANGED)
