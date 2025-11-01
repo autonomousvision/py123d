@@ -30,12 +30,12 @@ PATH_3D_RAW_ROOT = KITTI360_DATA_ROOT / DIR_3D_RAW
 PATH_3D_BBOX_ROOT = KITTI360_DATA_ROOT / DIR_3D_BBOX
 PATH_POSES_ROOT = KITTI360_DATA_ROOT / DIR_POSES
 
-from py123d.conversion.datasets.kitti_360.kitti_360_helper import (
+from py123d.conversion.datasets.kitti360.utils.kitti360_helper import (
     KITTI3602NUPLAN_IMU_CALIBRATION,
     KITTI360Bbox3D,
     get_lidar_extrinsic,
 )
-from py123d.conversion.datasets.kitti_360.kitti_360_labels import (
+from py123d.conversion.datasets.kitti360.utils.kitti360_labels import (
     BBOX_LABLES_TO_DETECTION_NAME_DICT,
     KITTI360_DETECTION_NAME_DICT,
     kittiId2label,

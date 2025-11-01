@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 from scipy.linalg import polar
 
-from py123d.conversion.datasets.kitti_360.kitti_360_labels import BBOX_LABLES_TO_DETECTION_NAME_DICT, kittiId2label
+from py123d.conversion.datasets.kitti360.utils.kitti360_labels import BBOX_LABLES_TO_DETECTION_NAME_DICT, kittiId2label
 from py123d.geometry import BoundingBoxSE3, StateSE3
 from py123d.geometry.polyline import Polyline3D
 from py123d.geometry.rotation import EulerAngles

@@ -13,18 +13,18 @@ import yaml
 
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
-from py123d.conversion.datasets.kitti_360.kitti_360_helper import (
+from py123d.conversion.datasets.kitti360.kitti360_map_conversion import convert_kitti360_map_with_writer
+from py123d.conversion.datasets.kitti360.utils.kitti360_helper import (
     KITTI3602NUPLAN_IMU_CALIBRATION,
     KITTI360Bbox3D,
     get_lidar_extrinsic,
 )
-from py123d.conversion.datasets.kitti_360.kitti_360_labels import (
+from py123d.conversion.datasets.kitti360.utils.kitti360_labels import (
     BBOX_LABLES_TO_DETECTION_NAME_DICT,
     KITTI360_DETECTION_NAME_DICT,
     kittiId2label,
 )
-from py123d.conversion.datasets.kitti_360.kitti_360_map_conversion import convert_kitti360_map_with_writer
-from py123d.conversion.datasets.kitti_360.preprocess_detection import process_detection
+from py123d.conversion.datasets.kitti360.utils.preprocess_detection import process_detection
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.lidar_index_registry import Kitti360LidarIndex
@@ -122,7 +122,7 @@ def get_kitti360_map_metadata(split: str, log_name: str) -> MapMetadata:
     )
 
 
-class Kitti360DataConverter(AbstractDatasetConverter):
+class Kitti360Converter(AbstractDatasetConverter):
     def __init__(
         self,
         splits: List[str],

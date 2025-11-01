@@ -60,7 +60,7 @@ def load_lidar_pcs_from_file(
         lidar_pcs_dict = load_pandaset_lidars_pcs_from_file(full_lidar_path, index)
 
     elif log_metadata.dataset == "kitti360":
-        from py123d.conversion.datasets.kitti_360.kitti_360_sensor_io import load_kitti360_lidar_pcs_from_file
+        from py123d.conversion.datasets.kitti360.kitti360_sensor_io import load_kitti360_lidar_pcs_from_file
 
         lidar_pcs_dict = load_kitti360_lidar_pcs_from_file(full_lidar_path, log_metadata)
 

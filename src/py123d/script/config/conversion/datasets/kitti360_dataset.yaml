@@ -1,5 +1,5 @@
 kitti360_dataset:
-  _target_: py123d.conversion.datasets.kitti_360.kitti_360_data_converter.Kitti360DataConverter
+  _target_: py123d.conversion.datasets.kitti360.kitti360_data_converter.Kitti360Converter
   _convert_: 'all'
 
   splits: ["kitti360"]
