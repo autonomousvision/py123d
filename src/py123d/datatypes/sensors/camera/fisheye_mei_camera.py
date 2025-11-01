@@ -11,12 +11,14 @@ from py123d.common.utils.enums import SerialIntEnum
 from py123d.common.utils.mixin import ArrayMixin
 from py123d.geometry.se import StateSE3
 
+
 class FisheyeMEICameraType(SerialIntEnum):
     """
     Enum for fisheye cameras in d123.
     """
-    #NOTE  Use higher values to avoid conflicts with PinholeCameraType
-    CAM_L = 10  
+
+    # NOTE  Use higher values to avoid conflicts with PinholeCameraType
+    CAM_L = 10
     CAM_R = 11
 
 
@@ -138,10 +140,14 @@ class FisheyeMEICameraMetadata:
     def from_dict(cls, data_dict: Dict[str, Any]) -> FisheyeMEICameraMetadata:
         data_dict["camera_type"] = FisheyeMEICameraType(data_dict["camera_type"])
         data_dict["distortion"] = (
-            FisheyeMEIDistortion.from_array(np.array(data_dict["distortion"])) if data_dict["distortion"] is not None else None
+            FisheyeMEIDistortion.from_array(np.array(data_dict["distortion"]))
+            if data_dict["distortion"] is not None
+            else None
         )
         data_dict["projection"] = (
-            FisheyeMEIProjection.from_array(np.array(data_dict["projection"])) if data_dict["projection"] is not None else None
+            FisheyeMEIProjection.from_array(np.array(data_dict["projection"]))
+            if data_dict["projection"] is not None
+            else None
         )
         return FisheyeMEICameraMetadata(**data_dict)
 
@@ -153,15 +159,15 @@ class FisheyeMEICameraMetadata:
         return data_dict
 
     def cam2image(self, points_3d: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        ''' camera coordinate to image plane '''
+        """camera coordinate to image plane"""
         norm = np.linalg.norm(points_3d, axis=1)
 
-        x = points_3d[:,0] / norm
-        y = points_3d[:,1] / norm
-        z = points_3d[:,2] / norm
+        x = points_3d[:, 0] / norm
+        y = points_3d[:, 1] / norm
+        z = points_3d[:, 2] / norm
 
-        x /= z+self.mirror_parameter
-        y /= z+self.mirror_parameter
+        x /= z + self.mirror_parameter
+        y /= z + self.mirror_parameter
 
         if self.distortion is not None:
             k1 = self.distortion.k1
@@ -178,11 +184,11 @@ class FisheyeMEICameraMetadata:
             gamma1 = gamma2 = 1.0
             u0 = v0 = 0.0
 
-        ro2 = x*x + y*y
-        x *= 1 + k1*ro2 + k2*ro2*ro2
-        y *= 1 + k1*ro2 + k2*ro2*ro2
+        ro2 = x * x + y * y
+        x *= 1 + k1 * ro2 + k2 * ro2 * ro2
+        y *= 1 + k1 * ro2 + k2 * ro2 * ro2
 
-        x = gamma1*x + u0
-        y = gamma2*y + v0
+        x = gamma1 * x + u0
+        y = gamma2 * y + v0
 
-        return x, y, norm * points_3d[:,2] / np.abs(points_3d[:,2])
+        return x, y, norm * points_3d[:, 2] / np.abs(points_3d[:, 2])

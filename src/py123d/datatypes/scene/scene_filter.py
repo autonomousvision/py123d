@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from typing import List, Optional, Union
 
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
 from py123d.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICameraType
-from py123d.datatypes.sensors.camera.utils import get_camera_type_by_value, deserialize_camera_type
+from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
+from py123d.datatypes.sensors.camera.utils import deserialize_camera_type, get_camera_type_by_value
 
 # TODO: Add more filter options (e.g. scene tags, ego movement, or whatever appropriate)
 

@@ -6,7 +6,8 @@ from py123d.visualization.viser.viser_viewer import ViserViewer
 # from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
 
 if __name__ == "__main__":
-    splits = ["nuscenes-mini_val", "nuscenes-mini_train"]
+    splits = ["kitti360"]
+    # splits = ["nuscenes-mini_val", "nuscenes-mini_train"]
     # splits = ["nuplan-mini_test", "nuplan-mini_train", "nuplan-mini_val"]
     # splits = ["nuplan_private_test"]
     # splits = ["carla_test"]
@@ -14,17 +15,16 @@ if __name__ == "__main__":
     # splits = ["av2-sensor_train"]
     # splits = ["pandaset_test", "pandaset_val", "pandaset_train"]
     # log_names = ["2021.08.24.13.12.55_veh-45_00386_00472"]
-    log_names = None
-
+    log_names = ["2013_05_28_drive_0000_sync"]
     scene_uuids = None
 
     scene_filter = SceneFilter(
         split_names=splits,
         log_names=log_names,
         scene_uuids=scene_uuids,
-        duration_s=None,
+        duration_s=10.0,
         history_s=0.0,
-        timestamp_threshold_s=10.0,
+        timestamp_threshold_s=30.0,
         shuffle=True,
         # camera_types=[PinholeCameraType.CAM_F0],
     )

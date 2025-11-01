@@ -60,12 +60,14 @@ class WOPDLidarIndex(LiDARIndex):
     Y = 4
     Z = 5
 
+
 @register_lidar_index
 class Kitti360LidarIndex(LiDARIndex):
     X = 0
     Y = 1
     Z = 2
     INTENSITY = 3
+
 
 @register_lidar_index
 class AVSensorLidarIndex(LiDARIndex):

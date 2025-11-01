@@ -92,18 +92,23 @@ def get_wopd_chrysler_pacifica_parameters() -> VehicleParameters:
         rear_axle_to_center_longitudinal=1.461,
     )
 
-def get_kitti360_station_wagon_parameters() -> VehicleParameters:
-    #NOTE: Parameters are estimated from the vehicle model.
-    #https://www.cvlibs.net/datasets/kitti-360/documentation.php
+
+def get_kitti360_vw_passat_parameters() -> VehicleParameters:
+    # The KITTI-360 dataset uses a 2006 VW Passat Variant B6.
+    # https://en.wikipedia.org/wiki/Volkswagen_Passat_(B6)
+    # [1] https://scispace.com/pdf/team-annieway-s-autonomous-system-18ql8b7kki.pdf
+    # NOTE: Parameters are estimated from the vehicle model.
+    # https://www.cvlibs.net/datasets/kitti-360/documentation.php
     return VehicleParameters(
-        vehicle_name="kitti360_station_wagon",
-        width=1.800,
-        length=3.500,
-        height=1.400,
-        wheel_base=2.710,
-        rear_axle_to_center_vertical=0.45,
-        rear_axle_to_center_longitudinal=2.71/2 + 0.05,
+        vehicle_name="kitti360_vw_passat",
+        width=1.820,
+        length=4.775,
+        height=1.516,
+        wheel_base=2.709,
+        rear_axle_to_center_vertical=1.516 / 2 - 0.9,
+        rear_axle_to_center_longitudinal=1.3369,
     )
+
 
 def get_av2_ford_fusion_hybrid_parameters() -> VehicleParameters:
     # NOTE: Parameters are estimated from the vehicle model.

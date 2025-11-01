@@ -188,45 +188,66 @@ class GPKGMapWriter(AbstractMapWriter):
         self._map_data[layer]["geometry"].append(line_object.shapely_linestring)
 
 
-def _map_ids_to_integer(
-    map_dfs: Dict[MapLayer, gpd.GeoDataFrame],
-) -> None:
+def _map_ids_to_integer(map_dfs: Dict[MapLayer, gpd.GeoDataFrame]) -> None:
+    """Helper function to remap string IDs to integers in the map dataframes."""
 
     # initialize id mappings
     lane_id_mapping = IntIDMapping.from_series(map_dfs[MapLayer.LANE]["id"])
+    lane_group_id_mapping = IntIDMapping.from_series(map_dfs[MapLayer.LANE_GROUP]["id"])
+    intersection_id_mapping = IntIDMapping.from_series(map_dfs[MapLayer.INTERSECTION]["id"])
+
     walkway_id_mapping = IntIDMapping.from_series(map_dfs[MapLayer.WALKWAY]["id"])
     carpark_id_mapping = IntIDMapping.from_series(map_dfs[MapLayer.CARPARK]["id"])
     generic_drivable_id_mapping = IntIDMapping.from_series(map_dfs[MapLayer.GENERIC_DRIVABLE]["id"])
-    lane_group_id_mapping = IntIDMapping.from_series(map_dfs[MapLayer.LANE_GROUP]["id"])
+    road_line_id_mapping = IntIDMapping.from_series(map_dfs[MapLayer.ROAD_LINE]["id"])
+    road_edge_id_mapping = IntIDMapping.from_series(map_dfs[MapLayer.ROAD_EDGE]["id"])
 
-    # Adjust cross reference in map_dfs[MapLayer.LANE] and map_dfs[MapLayer.LANE_GROUP]
-    map_dfs[MapLayer.LANE]["lane_group_id"] = map_dfs[MapLayer.LANE]["lane_group_id"].map(
-        lane_group_id_mapping.str_to_int
-    )
-    map_dfs[MapLayer.LANE_GROUP]["lane_ids"] = map_dfs[MapLayer.LANE_GROUP]["lane_ids"].apply(
-        lambda x: lane_id_mapping.map_list(x)
-    )
+    # 1. Remap lane ids in LANE layer
+    if len(map_dfs[MapLayer.LANE]) > 0:
+        map_dfs[MapLayer.LANE]["id"] = map_dfs[MapLayer.LANE]["id"].map(lane_id_mapping.str_to_int)
+        map_dfs[MapLayer.LANE]["lane_group_id"] = map_dfs[MapLayer.LANE]["lane_group_id"].map(
+            lane_group_id_mapping.str_to_int
+        )
+        for column in ["predecessor_ids", "successor_ids"]:
+            map_dfs[MapLayer.LANE][column] = map_dfs[MapLayer.LANE][column].apply(lambda x: lane_id_mapping.map_list(x))
+        for column in ["left_lane_id", "right_lane_id"]:
+            map_dfs[MapLayer.LANE][column] = map_dfs[MapLayer.LANE][column].apply(
+                lambda x: str(lane_id_mapping.str_to_int[x]) if pd.notna(x) and x is not None else x
+            )
 
-    # Adjust predecessor/successor in map_dfs[MapLayer.LANE] and map_dfs[MapLayer.LANE_GROUP]
-    for column in ["predecessor_ids", "successor_ids"]:
-        map_dfs[MapLayer.LANE][column] = map_dfs[MapLayer.LANE][column].apply(lambda x: lane_id_mapping.map_list(x))
-        map_dfs[MapLayer.LANE_GROUP][column] = map_dfs[MapLayer.LANE_GROUP][column].apply(
+    # 2. Remap lane group ids in LANE_GROUP
+    if len(map_dfs[MapLayer.LANE_GROUP]) > 0:
+        map_dfs[MapLayer.LANE_GROUP]["id"] = map_dfs[MapLayer.LANE_GROUP]["id"].map(lane_group_id_mapping.str_to_int)
+        map_dfs[MapLayer.LANE_GROUP]["lane_ids"] = map_dfs[MapLayer.LANE_GROUP]["lane_ids"].apply(
+            lambda x: lane_id_mapping.map_list(x)
+        )
+        map_dfs[MapLayer.LANE_GROUP]["intersection_id"] = map_dfs[MapLayer.LANE_GROUP]["intersection_id"].map(
+            intersection_id_mapping.str_to_int
+        )
+        for column in ["predecessor_ids", "successor_ids"]:
+            map_dfs[MapLayer.LANE_GROUP][column] = map_dfs[MapLayer.LANE_GROUP][column].apply(
+                lambda x: lane_group_id_mapping.map_list(x)
+            )
+
+    # 3. Remap lane group ids in INTERSECTION
+    if len(map_dfs[MapLayer.INTERSECTION]) > 0:
+        map_dfs[MapLayer.INTERSECTION]["id"] = map_dfs[MapLayer.INTERSECTION]["id"].map(
+            intersection_id_mapping.str_to_int
+        )
+        map_dfs[MapLayer.INTERSECTION]["lane_group_ids"] = map_dfs[MapLayer.INTERSECTION]["lane_group_ids"].apply(
             lambda x: lane_group_id_mapping.map_list(x)
         )
 
-    for column in ["left_lane_id", "right_lane_id"]:
-        map_dfs[MapLayer.LANE][column] = map_dfs[MapLayer.LANE][column].apply(
-            lambda x: str(lane_id_mapping.str_to_int[x]) if pd.notna(x) and x is not None else x
+    # 4. Remap ids in other layers
+    if len(map_dfs[MapLayer.WALKWAY]) > 0:
+        map_dfs[MapLayer.WALKWAY]["id"] = map_dfs[MapLayer.WALKWAY]["id"].map(walkway_id_mapping.str_to_int)
+    if len(map_dfs[MapLayer.CARPARK]) > 0:
+        map_dfs[MapLayer.CARPARK]["id"] = map_dfs[MapLayer.CARPARK]["id"].map(carpark_id_mapping.str_to_int)
+    if len(map_dfs[MapLayer.GENERIC_DRIVABLE]) > 0:
+        map_dfs[MapLayer.GENERIC_DRIVABLE]["id"] = map_dfs[MapLayer.GENERIC_DRIVABLE]["id"].map(
+            generic_drivable_id_mapping.str_to_int
         )
-
-    map_dfs[MapLayer.LANE]["id"] = map_dfs[MapLayer.LANE]["id"].map(lane_id_mapping.str_to_int)
-    map_dfs[MapLayer.WALKWAY]["id"] = map_dfs[MapLayer.WALKWAY]["id"].map(walkway_id_mapping.str_to_int)
-    map_dfs[MapLayer.CARPARK]["id"] = map_dfs[MapLayer.CARPARK]["id"].map(carpark_id_mapping.str_to_int)
-    map_dfs[MapLayer.GENERIC_DRIVABLE]["id"] = map_dfs[MapLayer.GENERIC_DRIVABLE]["id"].map(
-        generic_drivable_id_mapping.str_to_int
-    )
-    map_dfs[MapLayer.LANE_GROUP]["id"] = map_dfs[MapLayer.LANE_GROUP]["id"].map(lane_group_id_mapping.str_to_int)
-
-    map_dfs[MapLayer.INTERSECTION]["lane_group_ids"] = map_dfs[MapLayer.INTERSECTION]["lane_group_ids"].apply(
-        lambda x: lane_group_id_mapping.map_list(x)
-    )
+    if len(map_dfs[MapLayer.ROAD_LINE]) > 0:
+        map_dfs[MapLayer.ROAD_LINE]["id"] = map_dfs[MapLayer.ROAD_LINE]["id"].map(road_line_id_mapping.str_to_int)
+    if len(map_dfs[MapLayer.ROAD_EDGE]) > 0:
+        map_dfs[MapLayer.ROAD_EDGE]["id"] = map_dfs[MapLayer.ROAD_EDGE]["id"].map(road_edge_id_mapping.str_to_int)

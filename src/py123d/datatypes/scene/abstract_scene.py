@@ -7,8 +7,8 @@ from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.maps.abstract_map import AbstractMap
 from py123d.datatypes.scene.scene_metadata import LogMetadata, SceneExtractionMetadata
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
 from py123d.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
+from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
 from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
@@ -54,7 +54,9 @@ class AbstractScene(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_camera_at_iteration(self, iteration: int, camera_type: Union[PinholeCameraType, FisheyeMEICameraType]) -> Optional[Union[PinholeCamera, FisheyeMEICamera]]:
+    def get_camera_at_iteration(
+        self, iteration: int, camera_type: Union[PinholeCameraType, FisheyeMEICameraType]
+    ) -> Optional[Union[PinholeCamera, FisheyeMEICamera]]:
         raise NotImplementedError
 
     @abc.abstractmethod

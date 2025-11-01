@@ -1,26 +1,25 @@
 import os
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List
 
 import geopandas as gpd
-import numpy as np
 import pandas as pd
-import xml.etree.ElementTree as ET
 import shapely.geometry as geom
 
+from py123d.conversion.datasets.kitti_360.kitti_360_helper import KITTI360_MAP_Bbox3D
+from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     get_road_edge_linear_rings,
     split_line_geometry_by_max_length,
 )
-from py123d.datatypes.maps.map_datatypes import RoadEdgeType
-from py123d.geometry.polyline import Polyline3D
-from py123d.conversion.datasets.kitti_360.kitti_360_helper import KITTI360_MAP_Bbox3D
-from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.datatypes.maps.cache.cache_map_objects import (
     CacheGenericDrivable,
-    CacheWalkway,
     CacheRoadEdge,
+    CacheWalkway,
 )
+from py123d.datatypes.maps.map_datatypes import RoadEdgeType
+from py123d.geometry.polyline import Polyline3D
 
 MAX_ROAD_EDGE_LENGTH = 100.0  # meters, used to filter out very long road edges
 
@@ -38,12 +37,14 @@ KITTI360_MAP_BBOX = [
     # "driveway",
 ]
 
+
 def _get_none_data() -> gpd.GeoDataFrame:
     ids = []
     geometries = []
     data = pd.DataFrame({"id": ids})
     gdf = gpd.GeoDataFrame(data, geometry=geometries)
     return gdf
+
 
 def _extract_generic_drivable_df(objs: list[KITTI360_MAP_Bbox3D]) -> gpd.GeoDataFrame:
     ids: List[int] = []
@@ -59,6 +60,7 @@ def _extract_generic_drivable_df(objs: list[KITTI360_MAP_Bbox3D]) -> gpd.GeoData
     gdf = gpd.GeoDataFrame(data, geometry=geometries)
     return gdf
 
+
 def _extract_walkway_df(objs: list[KITTI360_MAP_Bbox3D]) -> gpd.GeoDataFrame:
     ids: List[int] = []
     outlines: List[geom.LineString] = []
@@ -73,6 +75,7 @@ def _extract_walkway_df(objs: list[KITTI360_MAP_Bbox3D]) -> gpd.GeoDataFrame:
     data = pd.DataFrame({"id": ids, "outline": outlines})
     gdf = gpd.GeoDataFrame(data, geometry=geometries)
     return gdf
+
 
 def _extract_road_edge_df(objs: list[KITTI360_MAP_Bbox3D]) -> gpd.GeoDataFrame:
     geometries: List[geom.Polygon] = []
@@ -97,63 +100,52 @@ def convert_kitti360_map_with_writer(log_name: str, map_writer: AbstractMapWrite
     """
     Convert KITTI-360 map data using the provided map writer.
     This function extracts map data from KITTI-360 XML files and writes them using the map writer interface.
-    
+
     :param log_name: The name of the log to convert
     :param map_writer: The map writer to use for writing the converted map
     """
     xml_path = PATH_3D_BBOX_ROOT / "train_full" / f"{log_name}.xml"
     if not xml_path.exists():
         xml_path = PATH_3D_BBOX_ROOT / "train" / f"{log_name}.xml"
-    
+
     if not xml_path.exists():
         raise FileNotFoundError(f"BBox 3D file not found: {xml_path}")
-    
+
     tree = ET.parse(xml_path)
     root = tree.getroot()
     objs: List[KITTI360_MAP_Bbox3D] = []
-    
+
     for child in root:
-        label = child.find('label').text
+        label = child.find("label").text
         if child.find("transform") is None or label not in KITTI360_MAP_BBOX:
             continue
         obj = KITTI360_MAP_Bbox3D()
         obj.parseBbox(child)
         objs.append(obj)
-    
 
     generic_drivable_gdf = _extract_generic_drivable_df(objs)
     walkway_gdf = _extract_walkway_df(objs)
     road_edge_gdf = _extract_road_edge_df(objs)
-    
+
     for idx, row in generic_drivable_gdf.iterrows():
         if not row.geometry.is_empty:
-            map_writer.write_generic_drivable(
-                CacheGenericDrivable(
-                    object_id=idx,
-                    geometry=row.geometry
-                )
-            )
-    
+            map_writer.write_generic_drivable(CacheGenericDrivable(object_id=idx, geometry=row.geometry))
+
     for idx, row in walkway_gdf.iterrows():
         if not row.geometry.is_empty:
-            map_writer.write_walkway(
-                CacheWalkway(
-                    object_id=idx,
-                    geometry=row.geometry
-                )
-            )
-    
+            map_writer.write_walkway(CacheWalkway(object_id=idx, geometry=row.geometry))
+
     for idx, row in road_edge_gdf.iterrows():
         if not row.geometry.is_empty:
-            if hasattr(row.geometry, 'exterior'):
+            if hasattr(row.geometry, "exterior"):
                 road_edge_line = row.geometry.exterior
             else:
                 road_edge_line = row.geometry
-            
+
             map_writer.write_road_edge(
                 CacheRoadEdge(
                     object_id=idx,
                     road_edge_type=RoadEdgeType.ROAD_EDGE_BOUNDARY,
-                    polyline=Polyline3D.from_linestring(road_edge_line)
+                    polyline=Polyline3D.from_linestring(road_edge_line),
                 )
             )

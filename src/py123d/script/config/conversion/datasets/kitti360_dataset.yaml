@@ -14,7 +14,7 @@ kitti360_dataset:
 
     # Map
     include_map: true
-    
+
     # Ego
     include_ego: true
 

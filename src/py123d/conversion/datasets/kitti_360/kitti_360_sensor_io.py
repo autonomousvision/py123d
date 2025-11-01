@@ -1,34 +1,29 @@
-from pathlib import Path
-
-from typing import Dict
-import numpy as np
 import logging
-from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata, LiDARType
-from py123d.conversion.datasets.kitti_360.kitti_360_helper import get_lidar_extrinsic
+from pathlib import Path
+from typing import Dict
 
-def load_kitti360_lidar_pcs_from_file(filepath: Path) -> Dict[LiDARType, np.ndarray]:
+import numpy as np
+
+from py123d.datatypes.scene.scene_metadata import LogMetadata
+from py123d.datatypes.sensors.lidar.lidar import LiDARType
+from py123d.datatypes.sensors.lidar.lidar_index import Kitti360LidarIndex
+from py123d.geometry.se import StateSE3
+from py123d.geometry.transform.transform_se3 import convert_points_3d_array_between_origins
+
+
+def load_kitti360_lidar_pcs_from_file(filepath: Path, log_metadata: LogMetadata) -> Dict[LiDARType, np.ndarray]:
     if not filepath.exists():
         logging.warning(f"LiDAR file does not exist: {filepath}. Returning empty point cloud.")
-        return {LiDARType.LIDAR_TOP: np.zeros((1, 4), dtype=np.float32)}
-    
-    pcd = np.fromfile(filepath, dtype=np.float32)
-    pcd = np.reshape(pcd,[-1,4]) # [N,4]
+        return {LiDARType.LIDAR_TOP: np.zeros((1, len(Kitti360LidarIndex)), dtype=np.float32)}
 
-    xyz = pcd[:, :3] 
-    intensity = pcd[:, 3]    
+    lidar_extrinsic = log_metadata.lidar_metadata[LiDARType.LIDAR_TOP].extrinsic
+    lidar_pc = np.fromfile(filepath, dtype=np.float32)
+    lidar_pc = np.reshape(lidar_pc, [-1, len(Kitti360LidarIndex)])
 
-    ones = np.ones((xyz.shape[0], 1), dtype=pcd.dtype)
-    points_h = np.concatenate([xyz, ones], axis=1)  #[N,4]
+    lidar_pc[..., Kitti360LidarIndex.XYZ] = convert_points_3d_array_between_origins(
+        from_origin=lidar_extrinsic,
+        to_origin=StateSE3(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0),
+        points_3d_array=lidar_pc[..., Kitti360LidarIndex.XYZ],
+    )
 
-    transformed_h = get_lidar_extrinsic() @ points_h.T   #[4,N]
-    # transformed_h = lidar_metadata.extrinsic.transformation_matrix @ points_h.T   #[4,N]
-
-    transformed_xyz = transformed_h[:3, :]      # (3,N)
-
-    intensity_row = intensity[np.newaxis, :]    # (1,N)
-
-    point_cloud_4xN = np.vstack([transformed_xyz, intensity_row]).astype(np.float32)  # (4,N)
-
-    point_cloud_Nx4 = point_cloud_4xN.T  # (N,4)
-
-    return {LiDARType.LIDAR_TOP: point_cloud_Nx4}
+    return {LiDARType.LIDAR_TOP: lidar_pc}

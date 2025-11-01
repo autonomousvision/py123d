@@ -19,8 +19,8 @@ from py123d.datatypes.scene.arrow.utils.arrow_getters import (
 )
 from py123d.datatypes.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow
 from py123d.datatypes.scene.scene_metadata import LogMetadata, SceneExtractionMetadata
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
 from py123d.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
+from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
 from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
@@ -38,11 +38,11 @@ class ArrowScene(AbstractScene):
         self._log_metadata: LogMetadata = get_log_metadata_from_arrow(arrow_file_path)
 
         with pa.memory_map(str(self._arrow_file_path), "r") as source:
-            reader = pa.ipc.open_file(source)     
-            table = reader.read_all()             
+            reader = pa.ipc.open_file(source)
+            table = reader.read_all()
             num_rows = table.num_rows
-            initial_uuid = table['uuid'][0].as_py()
-           
+            initial_uuid = table["uuid"][0].as_py()
+
         if scene_extraction_metadata is None:
             scene_extraction_metadata = SceneExtractionMetadata(
                 initial_uuid=initial_uuid,
@@ -128,7 +128,9 @@ class ArrowScene(AbstractScene):
             route_lane_group_ids = table["route_lane_group_ids"][self._get_table_index(iteration)].as_py()
         return route_lane_group_ids
 
-    def get_camera_at_iteration(self, iteration: int, camera_type: Union[PinholeCameraType, FisheyeMEICameraType]) -> Optional[Union[PinholeCamera, FisheyeMEICamera]]:
+    def get_camera_at_iteration(
+        self, iteration: int, camera_type: Union[PinholeCameraType, FisheyeMEICameraType]
+    ) -> Optional[Union[PinholeCamera, FisheyeMEICamera]]:
         camera: Optional[Union[PinholeCamera, FisheyeMEICamera]] = None
         if camera_type in self.available_camera_types:
             camera = get_camera_from_arrow_table(

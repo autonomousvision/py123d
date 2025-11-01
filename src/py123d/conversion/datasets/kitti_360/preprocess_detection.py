@@ -9,18 +9,17 @@ download them or run this script to generate
 """
 
 from __future__ import annotations
+
+import concurrent.futures
+import logging
 import os
 import pickle
-import logging
-import copy
+import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any
-from collections import defaultdict
-import concurrent.futures
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
-import xml.etree.ElementTree as ET
 
 KITTI360_DATA_ROOT = Path(os.environ["KITTI360_DATA_ROOT"])
 DIR_3D_RAW = "data_3d_raw"
@@ -31,21 +30,33 @@ PATH_3D_RAW_ROOT = KITTI360_DATA_ROOT / DIR_3D_RAW
 PATH_3D_BBOX_ROOT = KITTI360_DATA_ROOT / DIR_3D_BBOX
 PATH_POSES_ROOT = KITTI360_DATA_ROOT / DIR_POSES
 
-from py123d.conversion.datasets.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic
-from py123d.conversion.datasets.kitti_360.kitti_360_labels import KITTI360_DETECTION_NAME_DICT, kittiId2label, BBOX_LABLES_TO_DETECTION_NAME_DICT
+from py123d.conversion.datasets.kitti_360.kitti_360_helper import (
+    KITTI3602NUPLAN_IMU_CALIBRATION,
+    KITTI360Bbox3D,
+    get_lidar_extrinsic,
+)
+from py123d.conversion.datasets.kitti_360.kitti_360_labels import (
+    BBOX_LABLES_TO_DETECTION_NAME_DICT,
+    KITTI360_DETECTION_NAME_DICT,
+    kittiId2label,
+)
+
 
 def _bbox_xml_path(log_name: str) -> Path:
     if log_name == "2013_05_28_drive_0004_sync":
         return PATH_3D_BBOX_ROOT / "train_full" / f"{log_name}.xml"
     return PATH_3D_BBOX_ROOT / "train" / f"{log_name}.xml"
 
+
 def _lidar_frame_path(log_name: str, frame_idx: int) -> Path:
     return PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "data" / f"{frame_idx:010d}.bin"
+
 
 def _load_lidar_xyz(filepath: Path) -> np.ndarray:
     """Load one LiDAR frame and return Nx3 xyz."""
     arr = np.fromfile(filepath, dtype=np.float32)
     return arr.reshape(-1, 4)[:, :3]
+
 
 def _collect_static_objects(log_name: str) -> List[KITTI360Bbox3D]:
     """Parse XML and collect static objects with valid class names."""
@@ -58,13 +69,13 @@ def _collect_static_objects(log_name: str) -> List[KITTI360Bbox3D]:
     static_objs: List[KITTI360Bbox3D] = []
 
     for child in root:
-        if child.find('semanticId') is not None:
-            semanticIdKITTI = int(child.find('semanticId').text)
+        if child.find("semanticId") is not None:
+            semanticIdKITTI = int(child.find("semanticId").text)
             name = kittiId2label[semanticIdKITTI].name
         else:
-            lable = child.find('label').text
-            name = BBOX_LABLES_TO_DETECTION_NAME_DICT.get(lable, 'unknown')
-        timestamp = int(child.find('timestamp').text)  # -1 for static objects
+            lable = child.find("label").text
+            name = BBOX_LABLES_TO_DETECTION_NAME_DICT.get(lable, "unknown")
+        timestamp = int(child.find("timestamp").text)  # -1 for static objects
         if child.find("transform") is None or name not in KITTI360_DETECTION_NAME_DICT or timestamp != -1:
             continue
         obj = KITTI360Bbox3D()
@@ -72,17 +83,18 @@ def _collect_static_objects(log_name: str) -> List[KITTI360Bbox3D]:
         static_objs.append(obj)
     return static_objs
 
+
 def _collect_ego_states(log_name: str) -> Tuple[npt.NDArray[np.float64], list[int]]:
     """Load ego states from poses.txt."""
 
     pose_file = PATH_POSES_ROOT / log_name / "poses.txt"
     if not pose_file.exists():
         raise FileNotFoundError(f"Pose file not found: {pose_file}")
-    
+
     poses = np.loadtxt(pose_file)
     poses_time = poses[:, 0].astype(np.int32)
     valid_timestamp: List[int] = list(poses_time)
-    
+
     ego_states = []
     for time_idx in range(len(valid_timestamp)):
         pos = time_idx
@@ -90,15 +102,15 @@ def _collect_ego_states(log_name: str) -> Tuple[npt.NDArray[np.float64], list[in
         r00, r01, r02 = poses[pos, 1:4]
         r10, r11, r12 = poses[pos, 5:8]
         r20, r21, r22 = poses[pos, 9:12]
-        R_mat = np.array([[r00, r01, r02],
-                        [r10, r11, r12],
-                        [r20, r21, r22]], dtype=np.float64)
-        R_mat_cali = R_mat @ KITTI3602NUPLAN_IMU_CALIBRATION[:3,:3]
-        ego_state_xyz = np.array([
-            poses[pos, 4],
-            poses[pos, 8],
-            poses[pos, 12],
-        ])
+        R_mat = np.array([[r00, r01, r02], [r10, r11, r12], [r20, r21, r22]], dtype=np.float64)
+        R_mat_cali = R_mat @ KITTI3602NUPLAN_IMU_CALIBRATION[:3, :3]
+        ego_state_xyz = np.array(
+            [
+                poses[pos, 4],
+                poses[pos, 8],
+                poses[pos, 12],
+            ]
+        )
 
         state_item[:3, :3] = R_mat_cali
         state_item[:3, 3] = ego_state_xyz
@@ -147,23 +159,25 @@ def process_detection(
         if not lidar_path.exists():
             logging.warning(f"[preprocess] {log_name}: LiDAR frame not found: {lidar_path}")
             return
-        
+
         lidar_xyz = _load_lidar_xyz(lidar_path)
 
         # lidar to pose
         lidar_h = np.concatenate((lidar_xyz, np.ones((lidar_xyz.shape[0], 1), dtype=lidar_xyz.dtype)), axis=1)
         lidar_in_imu = lidar_h @ lidar_extrinsic.T
-        lidar_in_imu = lidar_in_imu[:,:3]
+        lidar_in_imu = lidar_in_imu[:, :3]
 
         # pose to world
-        lidar_in_world = lidar_in_imu @ ego_states[time_idx][:3,:3].T + ego_states[time_idx][:3,3]
+        lidar_in_world = lidar_in_imu @ ego_states[time_idx][:3, :3].T + ego_states[time_idx][:3, 3]
 
         for obj in static_objs:
             if not any(record["timestamp"] == valid_time_idx for record in obj.valid_frames["records"]):
                 continue
             visible, points_in_box = obj.box_visible_in_point_cloud(lidar_in_world)
             if not visible:
-                obj.valid_frames["records"] = [record for record in obj.valid_frames["records"] if record["timestamp"] != valid_time_idx]
+                obj.valid_frames["records"] = [
+                    record for record in obj.valid_frames["records"] if record["timestamp"] != valid_time_idx
+                ]
             else:
                 for record in obj.valid_frames["records"]:
                     if record["timestamp"] == valid_time_idx:
@@ -172,7 +186,7 @@ def process_detection(
 
     max_workers = os.cpu_count() * 2
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        results = list(executor.map(process_one_frame, range(len(valid_timestamp))))
+        list(executor.map(process_one_frame, range(len(valid_timestamp))))
 
     # 4) Save pickle
     static_records: List[Dict[str, Any]] = []
@@ -192,8 +206,10 @@ def process_detection(
         pickle.dump(payload, f)
     logging.info(f"[preprocess] saved: {out_path}")
 
+
 if __name__ == "__main__":
     import argparse
+
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(description="Precompute KITTI-360 detections filters")
     parser.add_argument("--log_name", default="2013_05_28_drive_0000_sync")

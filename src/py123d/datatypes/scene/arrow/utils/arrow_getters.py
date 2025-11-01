@@ -23,8 +23,8 @@ from py123d.datatypes.detections.traffic_light_detections import (
     TrafficLightStatus,
 )
 from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
 from py123d.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
+from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
 from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata, LiDARType
 from py123d.datatypes.sensors.lidar.lidar_index import DefaultLidarIndex
 from py123d.datatypes.time.time_point import TimePoint
@@ -138,7 +138,7 @@ def get_camera_from_arrow_table(
         raise NotImplementedError("Only string file paths for camera data are supported.")
 
     camera_metadata = log_metadata.camera_metadata[camera_type]
-    if hasattr(camera_metadata, 'mirror_parameter') and camera_metadata.mirror_parameter is not None:
+    if hasattr(camera_metadata, "mirror_parameter") and camera_metadata.mirror_parameter is not None:
         return FisheyeMEICamera(
             metadata=camera_metadata,
             image=image,

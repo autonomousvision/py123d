@@ -34,19 +34,20 @@ def add_shapely_polygon_to_ax(
         # Create path with exterior and interior rings
         def create_polygon_path(polygon):
             # Get exterior coordinates
-            exterior_coords = list(polygon.exterior.coords)
+            # NOTE: Only take first two dimensions in case of 3D coords
+            exterior_coords = np.array(polygon.exterior.coords)[:, :2].tolist()
 
             # Start with exterior ring
-            vertices = exterior_coords
+            vertices_2d = exterior_coords
             codes = [Path.MOVETO] + [Path.LINETO] * (len(exterior_coords) - 2) + [Path.CLOSEPOLY]
 
             # Add interior rings (holes)
             for interior in polygon.interiors:
                 interior_coords = list(interior.coords)
-                vertices.extend(interior_coords)
+                vertices_2d.extend(interior_coords)
                 codes.extend([Path.MOVETO] + [Path.LINETO] * (len(interior_coords) - 2) + [Path.CLOSEPOLY])
 
-            return Path(vertices, codes)
+            return Path(vertices_2d, codes)
 
         path = create_polygon_path(element)
 

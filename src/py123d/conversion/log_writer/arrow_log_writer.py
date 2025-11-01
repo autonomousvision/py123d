@@ -15,8 +15,8 @@ from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
 from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
 from py123d.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICameraType
+from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
 from py123d.datatypes.sensors.lidar.lidar import LiDARType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3, EgoStateSE3Index

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Dict, Union, Optional
+from typing import Dict, Optional, Union
 
 import py123d
 from py123d.datatypes.maps.map_metadata import MapMetadata
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraMetadata, PinholeCameraType
 from py123d.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICameraMetadata, FisheyeMEICameraType
+from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraMetadata, PinholeCameraType
 from py123d.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
 from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 
@@ -21,7 +21,9 @@ class LogMetadata:
     timestep_seconds: float
 
     vehicle_parameters: Optional[VehicleParameters] = None
-    camera_metadata: Union[Dict[PinholeCameraType, PinholeCameraMetadata], Dict[FisheyeMEICameraType, FisheyeMEICameraMetadata]] = field(default_factory=dict)
+    camera_metadata: Union[
+        Dict[PinholeCameraType, PinholeCameraMetadata], Dict[FisheyeMEICameraType, FisheyeMEICameraMetadata]
+    ] = field(default_factory=dict)
     lidar_metadata: Dict[LiDARType, LiDARMetadata] = field(default_factory=dict)
 
     map_metadata: Optional[MapMetadata] = None

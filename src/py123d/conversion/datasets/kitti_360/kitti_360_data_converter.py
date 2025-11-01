@@ -1,20 +1,45 @@
+import datetime
+import logging
 import os
+import pickle
 import re
-import yaml
+import xml.etree.ElementTree as ET
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
 import numpy as np
-import pickle
-from collections import defaultdict
-import datetime
-import xml.etree.ElementTree as ET
-import logging
+import yaml
 
+from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
+from py123d.conversion.dataset_converter_config import DatasetConverterConfig
+from py123d.conversion.datasets.kitti_360.kitti_360_helper import (
+    KITTI3602NUPLAN_IMU_CALIBRATION,
+    KITTI360Bbox3D,
+    get_lidar_extrinsic,
+)
+from py123d.conversion.datasets.kitti_360.kitti_360_labels import (
+    BBOX_LABLES_TO_DETECTION_NAME_DICT,
+    KITTI360_DETECTION_NAME_DICT,
+    kittiId2label,
+)
+from py123d.conversion.datasets.kitti_360.kitti_360_map_conversion import convert_kitti360_map_with_writer
+from py123d.conversion.datasets.kitti_360.preprocess_detection import process_detection
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
+from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.conversion.registry.lidar_index_registry import Kitti360LidarIndex
 from py123d.datatypes.detections.box_detections import (
     BoxDetectionMetadata,
     BoxDetectionSE3,
     BoxDetectionWrapper,
+)
+from py123d.datatypes.maps.map_metadata import MapMetadata
+from py123d.datatypes.scene.scene_metadata import LogMetadata
+from py123d.datatypes.sensors.camera.fisheye_mei_camera import (
+    FisheyeMEICameraMetadata,
+    FisheyeMEICameraType,
+    FisheyeMEIDistortion,
+    FisheyeMEIProjection,
 )
 from py123d.datatypes.sensors.camera.pinhole_camera import (
     PinholeCameraMetadata,
@@ -22,41 +47,25 @@ from py123d.datatypes.sensors.camera.pinhole_camera import (
     PinholeDistortion,
     PinholeIntrinsics,
 )
-from py123d.datatypes.sensors.camera.fisheye_mei_camera import (
-    FisheyeMEICameraMetadata,
-    FisheyeMEICameraType,
-    FisheyeMEIDistortion,
-    FisheyeMEIProjection,
-)
-from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata, LiDARType
-from py123d.conversion.registry.lidar_index_registry import Kitti360LidarIndex
+from py123d.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
-from py123d.datatypes.vehicle_state.vehicle_parameters import get_kitti360_station_wagon_parameters,rear_axle_se3_to_center_se3
-from py123d.common.utils.uuid_utils import create_deterministic_uuid
-from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
-from py123d.conversion.dataset_converter_config import DatasetConverterConfig
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
-from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.datatypes.maps.map_metadata import MapMetadata
-from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.conversion.datasets.kitti_360.kitti_360_helper import KITTI360Bbox3D, KITTI3602NUPLAN_IMU_CALIBRATION, get_lidar_extrinsic
-from py123d.conversion.datasets.kitti_360.kitti_360_labels import KITTI360_DETECTION_NAME_DICT, kittiId2label, BBOX_LABLES_TO_DETECTION_NAME_DICT
-from py123d.conversion.datasets.kitti_360.kitti_360_map_conversion import (
-    convert_kitti360_map_with_writer
+from py123d.datatypes.vehicle_state.vehicle_parameters import (
+    get_kitti360_vw_passat_parameters,
+    rear_axle_se3_to_center_se3,
 )
-from py123d.geometry import BoundingBoxSE3, StateSE3, Vector3D
-from py123d.geometry.rotation import EulerAngles
+from py123d.geometry import BoundingBoxSE3, Quaternion, StateSE3, Vector3D
+from py123d.geometry.transform.transform_se3 import convert_se3_array_between_origins, translate_se3_along_body_frame
 
 KITTI360_DT: Final[float] = 0.1
 
 KITTI360_DATA_ROOT = Path(os.environ["KITTI360_DATA_ROOT"])
 
 KITTI360_CAMERA_TYPES = {
-    PinholeCameraType.CAM_STEREO_L: "image_00",  
-    PinholeCameraType.CAM_STEREO_R: "image_01",   
-    FisheyeMEICameraType.CAM_L: "image_02", 
-    FisheyeMEICameraType.CAM_R: "image_03", 
+    PinholeCameraType.CAM_STEREO_L: "image_00",
+    PinholeCameraType.CAM_STEREO_R: "image_01",
+    FisheyeMEICameraType.CAM_L: "image_02",
+    FisheyeMEICameraType.CAM_R: "image_03",
 }
 
 DIR_2D_RAW = "data_2d_raw"
@@ -67,8 +76,7 @@ DIR_3D_BBOX = "data_3d_bboxes"
 DIR_POSES = "data_poses"
 DIR_CALIB = "calibration"
 
-# PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_RAW
-PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT
+PATH_2D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_RAW
 PATH_2D_SMT_ROOT: Path = KITTI360_DATA_ROOT / DIR_2D_SMT
 PATH_3D_RAW_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_RAW
 PATH_3D_SMT_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_SMT
@@ -83,20 +91,25 @@ KITTI360_REQUIRED_MODALITY_ROOTS: Dict[str, Path] = {
     DIR_3D_BBOX: PATH_3D_BBOX_ROOT / "train",
 }
 
-D123_DEVKIT_ROOT = Path(os.environ["PY123D_DEVKIT_ROOT"])
-PREPOCESS_DETECTION_DIR = D123_DEVKIT_ROOT / "src" / "py123d" / "conversion" / "datasets" / "kitti_360" / "detection_preprocess"
+KITTI360_ALL_SEQUENCES: Final[List[str]] = [
+    "2013_05_28_drive_0000_sync",
+    "2013_05_28_drive_0002_sync",
+    "2013_05_28_drive_0003_sync",
+    # "2013_05_28_drive_0004_sync",
+    # "2013_05_28_drive_0005_sync",
+    # "2013_05_28_drive_0006_sync",
+    # "2013_05_28_drive_0007_sync",
+    # "2013_05_28_drive_0008_sync",
+    # "2013_05_28_drive_0009_sync",
+    # "2013_05_28_drive_0010_sync",
+    # "2013_05_28_drive_0018_sync",
+]
 
-def create_token(split: str, log_name: str, timestamp_us: int, misc: str = None) -> str:
-    """Create a deterministic UUID-based token for KITTI-360 data.
-    
-    :param split: The data split (e.g., "kitti360")
-    :param log_name: The name of the log without file extension
-    :param timestamp_us: The timestamp in microseconds
-    :param misc: Any additional information to include in the UUID, defaults to None
-    :return: The generated deterministic UUID as hex string
-    """
-    uuid_obj = create_deterministic_uuid(split=split, log_name=log_name, timestamp_us=timestamp_us, misc=misc)
-    return uuid_obj.hex
+# Create a temporary directory for detection preprocessing
+# PREPROCESS_DETECTION_DIR = Path(tempfile.mkdtemp(prefix="kitti360_detection_"))
+
+PREPROCESS_DETECTION_DIR = Path("/home/daniel/kitti360_detection_temp")
+
 
 def get_kitti360_map_metadata(split: str, log_name: str) -> MapMetadata:
     return MapMetadata(
@@ -108,12 +121,14 @@ def get_kitti360_map_metadata(split: str, log_name: str) -> MapMetadata:
         map_is_local=True,
     )
 
+
 class Kitti360DataConverter(AbstractDatasetConverter):
     def __init__(
         self,
         splits: List[str],
         kitti360_data_root: Union[Path, str],
         dataset_converter_config: DatasetConverterConfig,
+        kitti36_sequences: List[str] = KITTI360_ALL_SEQUENCES,
     ) -> None:
         super().__init__(dataset_converter_config)
         for split in splits:
@@ -123,8 +138,9 @@ class Kitti360DataConverter(AbstractDatasetConverter):
 
         self._splits: List[str] = splits
         self._log_path: Path = Path(kitti360_data_root)
+        self._kitti36_sequences: List[str] = kitti36_sequences
         self._log_paths_and_split: List[Tuple[Path, str]] = self._collect_log_paths()
-        
+
         self._total_maps = len(self._log_paths_and_split)  # Each log has its own map
         self._total_logs = len(self._log_paths_and_split)
 
@@ -138,9 +154,13 @@ class Kitti360DataConverter(AbstractDatasetConverter):
         missing_roots = [str(p) for p in KITTI360_REQUIRED_MODALITY_ROOTS.values() if not p.exists()]
         if missing_roots:
             raise FileNotFoundError(f"KITTI-360 required roots missing: {missing_roots}")
-    
+
         # Enumerate candidate sequences from data_2d_raw
-        candidates = sorted(p for p in PATH_2D_RAW_ROOT.iterdir() if p.is_dir() and p.name.endswith("_sync"))
+        candidates = sorted(
+            p
+            for p in PATH_2D_RAW_ROOT.iterdir()
+            if p.is_dir() and p.name.endswith("_sync") and p.name in self._kitti36_sequences
+        )
 
         def _has_modality(seq_name: str, modality_name: str, root: Path) -> bool:
             if modality_name == DIR_3D_BBOX:
@@ -165,22 +185,22 @@ class Kitti360DataConverter(AbstractDatasetConverter):
                     f"Sequence '{seq_name}' skipped: missing modalities {missing_modalities}. "
                     f"Root: {KITTI360_DATA_ROOT}"
                 )
-        
+
         logging.info(f"Valid sequences found: {len(log_paths_and_split)}")
         return log_paths_and_split
-    
+
     def get_available_splits(self) -> List[str]:
         """Returns a list of available raw data types."""
         return ["kitti360"]
-    
+
     def get_number_of_maps(self) -> int:
         """Returns the number of available raw data maps for conversion."""
         return self._total_maps
-    
+
     def get_number_of_logs(self) -> int:
         """Returns the number of available raw data logs for conversion."""
         return self._total_logs
-    
+
     def convert_map(self, map_index: int, map_writer: AbstractMapWriter) -> None:
         """
         Convert a single map in raw data format to the uniform 123D format.
@@ -189,15 +209,15 @@ class Kitti360DataConverter(AbstractDatasetConverter):
         """
         source_log_path, split = self._log_paths_and_split[map_index]
         log_name = source_log_path.stem
-        
+
         map_metadata = get_kitti360_map_metadata(split, log_name)
-        
+
         map_needs_writing = map_writer.reset(self.dataset_converter_config, map_metadata)
         if map_needs_writing:
             convert_kitti360_map_with_writer(log_name, map_writer)
-        
+
         map_writer.close()
-    
+
     def convert_log(self, log_index: int, log_writer: AbstractLogWriter) -> None:
         """
         Convert a single log in raw data format to the uniform 123D format.
@@ -206,7 +226,7 @@ class Kitti360DataConverter(AbstractDatasetConverter):
         """
         source_log_path, split = self._log_paths_and_split[log_index]
         log_name = source_log_path.stem
-        
+
         # Create log metadata
         log_metadata = LogMetadata(
             dataset="kitti360",
@@ -214,20 +234,23 @@ class Kitti360DataConverter(AbstractDatasetConverter):
             log_name=log_name,
             location=log_name,
             timestep_seconds=KITTI360_DT,
-            vehicle_parameters=get_kitti360_station_wagon_parameters(),
+            vehicle_parameters=get_kitti360_vw_passat_parameters(),
             camera_metadata=get_kitti360_camera_metadata(),
             lidar_metadata=get_kitti360_lidar_metadata(),
-            map_metadata=get_kitti360_map_metadata(split, log_name)
+            map_metadata=get_kitti360_map_metadata(split, log_name),
         )
-        
+
         log_needs_writing = log_writer.reset(self.dataset_converter_config, log_metadata)
         if log_needs_writing:
             _write_recording_table(log_name, log_writer, self.dataset_converter_config)
-        
+
         log_writer.close()
 
-def get_kitti360_camera_metadata() -> Dict[Union[PinholeCameraType, FisheyeMEICameraType], Union[PinholeCameraMetadata, FisheyeMEICameraMetadata]]:
-    
+
+def get_kitti360_camera_metadata() -> (
+    Dict[Union[PinholeCameraType, FisheyeMEICameraType], Union[PinholeCameraMetadata, FisheyeMEICameraMetadata]]
+):
+
     persp = PATH_CALIB_ROOT / "perspective.txt"
 
     assert persp.exists()
@@ -244,15 +267,17 @@ def get_kitti360_camera_metadata() -> Dict[Union[PinholeCameraType, FisheyeMEICa
                 persp_result[f"image_{cam_id}"]["wh"] = [int(round(float(x))) for x in value.split()]
             elif key.startswith("D_"):
                 persp_result[f"image_{cam_id}"]["distortion"] = [float(x) for x in value.split()]
-    
+
     fisheye_camera02_path = PATH_CALIB_ROOT / "image_02.yaml"
     fisheye_camera03_path = PATH_CALIB_ROOT / "image_03.yaml"
     assert fisheye_camera02_path.exists() and fisheye_camera03_path.exists()
     fisheye02 = _readYAMLFile(fisheye_camera02_path)
     fisheye03 = _readYAMLFile(fisheye_camera03_path)
     fisheye_result = {"image_02": fisheye02, "image_03": fisheye03}
-    
-    log_cam_infos: Dict[Union[PinholeCameraType, FisheyeMEICameraType], Union[PinholeCameraMetadata, FisheyeMEICameraMetadata]] = {}
+
+    log_cam_infos: Dict[
+        Union[PinholeCameraType, FisheyeMEICameraType], Union[PinholeCameraMetadata, FisheyeMEICameraMetadata]
+    ] = {}
     for cam_type, cam_name in KITTI360_CAMERA_TYPES.items():
         if cam_name in ["image_00", "image_01"]:
             log_cam_infos[cam_type] = PinholeCameraMetadata(
@@ -262,23 +287,23 @@ def get_kitti360_camera_metadata() -> Dict[Union[PinholeCameraType, FisheyeMEICa
                 intrinsics=PinholeIntrinsics.from_camera_matrix(np.array(persp_result[cam_name]["intrinsic"])),
                 distortion=PinholeDistortion.from_array(np.array(persp_result[cam_name]["distortion"])),
             )
-        elif cam_name in ["image_02","image_03"]:
+        elif cam_name in ["image_02", "image_03"]:
             distortion_params = fisheye_result[cam_name]["distortion_parameters"]
             distortion = FisheyeMEIDistortion(
-                k1=distortion_params['k1'],
-                k2=distortion_params['k2'],
-                p1=distortion_params['p1'],
-                p2=distortion_params['p2'],
+                k1=distortion_params["k1"],
+                k2=distortion_params["k2"],
+                p1=distortion_params["p1"],
+                p2=distortion_params["p2"],
             )
-            
+
             projection_params = fisheye_result[cam_name]["projection_parameters"]
             projection = FisheyeMEIProjection(
-                gamma1=projection_params['gamma1'],
-                gamma2=projection_params['gamma2'],
-                u0=projection_params['u0'],
-                v0=projection_params['v0'],
+                gamma1=projection_params["gamma1"],
+                gamma2=projection_params["gamma2"],
+                u0=projection_params["u0"],
+                v0=projection_params["v0"],
             )
-            
+
             log_cam_infos[cam_type] = FisheyeMEICameraMetadata(
                 camera_type=cam_type,
                 width=fisheye_result[cam_name]["image_width"],
@@ -290,6 +315,7 @@ def get_kitti360_camera_metadata() -> Dict[Union[PinholeCameraType, FisheyeMEICa
 
     return log_cam_infos
 
+
 def _read_projection_matrix(p_line: str) -> np.ndarray:
     parts = p_line.split(" ", 1)
     if len(parts) != 2:
@@ -299,44 +325,47 @@ def _read_projection_matrix(p_line: str) -> np.ndarray:
     K = P[:, :3]
     return K
 
-def _readYAMLFile(fileName:Path) -> Dict[str, Any]:
-    '''make OpenCV YAML file compatible with python'''
+
+def _readYAMLFile(fileName: Path) -> Dict[str, Any]:
+    """make OpenCV YAML file compatible with python"""
     ret = {}
-    skip_lines=1    # Skip the first line which says "%YAML:1.0". Or replace it with "%YAML 1.0"
+    skip_lines = 1  # Skip the first line which says "%YAML:1.0". Or replace it with "%YAML 1.0"
     with open(fileName) as fin:
         for i in range(skip_lines):
             fin.readline()
         yamlFileOut = fin.read()
-        myRe = re.compile(r":([^ ])")   # Add space after ":", if it doesn't exist. Python yaml requirement
-        yamlFileOut = myRe.sub(r': \1', yamlFileOut)
+        myRe = re.compile(r":([^ ])")  # Add space after ":", if it doesn't exist. Python yaml requirement
+        yamlFileOut = myRe.sub(r": \1", yamlFileOut)
         ret = yaml.safe_load(yamlFileOut)
     return ret
+
 
 def get_kitti360_lidar_metadata() -> Dict[LiDARType, LiDARMetadata]:
     metadata: Dict[LiDARType, LiDARMetadata] = {}
     extrinsic = get_lidar_extrinsic()
     extrinsic_state_se3 = StateSE3.from_transformation_matrix(extrinsic)
+    extrinsic_state_se3 = _extrinsic_from_imu_to_rear_axle(extrinsic_state_se3)
     metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
         lidar_type=LiDARType.LIDAR_TOP,
         lidar_index=Kitti360LidarIndex,
-        extrinsic=extrinsic_state_se3, 
+        extrinsic=extrinsic_state_se3,
     )
     return metadata
 
+
 def _write_recording_table(
-    log_name: str,
-    log_writer: AbstractLogWriter,
-    data_converter_config: DatasetConverterConfig
+    log_name: str, log_writer: AbstractLogWriter, data_converter_config: DatasetConverterConfig
 ) -> None:
-    
+
     ts_list: List[TimePoint] = _read_timestamps(log_name)
     ego_state_all, valid_timestamp = _extract_ego_state_all(log_name)
-    ego_states_xyz = np.array([ego_state.center.array[:3] for ego_state in ego_state_all],dtype=np.float64)
-    box_detection_wrapper_all = _extract_detections(log_name,len(ts_list),ego_states_xyz,valid_timestamp)
+    ego_states_xyz = np.array([ego_state.center.array[:3] for ego_state in ego_state_all], dtype=np.float64)
+    box_detection_wrapper_all = _extract_detections(log_name, len(ts_list), ego_states_xyz, valid_timestamp)
     logging.info(f"Number of valid timestamps with ego states: {len(valid_timestamp)}")
+
     for idx in range(len(valid_timestamp)):
         valid_idx = valid_timestamp[idx]
-         
+
         cameras = _extract_cameras(log_name, valid_idx, data_converter_config)
         lidars = _extract_lidar(log_name, valid_idx, data_converter_config)
 
@@ -351,10 +380,6 @@ def _write_recording_table(
             route_lane_group_ids=None,
         )
 
-    # if SORT_BY_TIMESTAMP:
-    #     recording_table = open_arrow_table(log_file_path)
-    #     recording_table = recording_table.sort_by([("timestamp", "ascending")])
-    #     write_arrow_table(recording_table, log_file_path)
 
 def _read_timestamps(log_name: str) -> Optional[List[TimePoint]]:
     """
@@ -365,7 +390,7 @@ def _read_timestamps(log_name: str) -> Optional[List[TimePoint]]:
         PATH_2D_RAW_ROOT / log_name / "image_00" / "timestamps.txt",
         PATH_2D_RAW_ROOT / log_name / "image_01" / "timestamps.txt",
     ]
-    
+
     if log_name == "2013_05_28_drive_0002_sync":
         ts_files = ts_files[1:]
 
@@ -377,21 +402,22 @@ def _read_timestamps(log_name: str) -> Optional[List[TimePoint]]:
                     s = line.strip()
                     if not s:
                         continue
-                    dt_str, ns_str = s.split('.')
+                    dt_str, ns_str = s.split(".")
                     dt_obj = datetime.datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
                     dt_obj = dt_obj.replace(tzinfo=datetime.timezone.utc)
                     unix_epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
-                    
+
                     total_seconds = (dt_obj - unix_epoch).total_seconds()
-                    
+
                     ns_value = int(ns_str)
                     us_from_ns = ns_value // 1000
 
                     total_us = int(total_seconds * 1_000_000) + us_from_ns
-                    
+
                     tps.append(TimePoint.from_us(total_us))
             return tps
     return None
+
 
 def _extract_ego_state_all(log_name: str) -> Tuple[List[EgoStateSE3], List[int]]:
 
@@ -403,31 +429,29 @@ def _extract_ego_state_all(log_name: str) -> Tuple[List[EgoStateSE3], List[int]]
     poses = np.loadtxt(pose_file)
     poses_time = poses[:, 0].astype(np.int32)
     valid_timestamp: List[int] = list(poses_time)
-     
-    oxts_path =  PATH_POSES_ROOT / log_name / "oxts" / "data" 
-    
+
+    oxts_path = PATH_POSES_ROOT / log_name / "oxts" / "data"
+
     for idx in range(len(valid_timestamp)):
         oxts_path_file = oxts_path / f"{int(valid_timestamp[idx]):010d}.txt"
         oxts_data = np.loadtxt(oxts_path_file)
 
-        vehicle_parameters = get_kitti360_station_wagon_parameters()
+        vehicle_parameters = get_kitti360_vw_passat_parameters()
 
-        pos = idx 
-        if log_name=="2013_05_28_drive_0004_sync" and pos == 0:
+        pos = idx
+        if log_name == "2013_05_28_drive_0004_sync" and pos == 0:
             pos = 1
-        
+
         # NOTE you can use oxts_data[3:6] as roll, pitch, yaw for simplicity
-        #roll, pitch, yaw = oxts_data[3:6]
+        # roll, pitch, yaw = oxts_data[3:6]
         r00, r01, r02 = poses[pos, 1:4]
         r10, r11, r12 = poses[pos, 5:8]
         r20, r21, r22 = poses[pos, 9:12]
-        R_mat = np.array([[r00, r01, r02],
-                        [r10, r11, r12],
-                        [r20, r21, r22]], dtype=np.float64)
-        R_mat_cali = R_mat @ KITTI3602NUPLAN_IMU_CALIBRATION[:3,:3]
+        R_mat = np.array([[r00, r01, r02], [r10, r11, r12], [r20, r21, r22]], dtype=np.float64)
+        R_mat_cali = R_mat @ KITTI3602NUPLAN_IMU_CALIBRATION[:3, :3]
 
-        ego_quaternion = EulerAngles.from_rotation_matrix(R_mat_cali).quaternion
-        rear_axle_pose = StateSE3(
+        ego_quaternion = Quaternion.from_rotation_matrix(R_mat_cali)
+        imu_pose = StateSE3(
             x=poses[pos, 4],
             y=poses[pos, 8],
             z=poses[pos, 12],
@@ -435,6 +459,11 @@ def _extract_ego_state_all(log_name: str) -> Tuple[List[EgoStateSE3], List[int]]
             qx=ego_quaternion.qx,
             qy=ego_quaternion.qy,
             qz=ego_quaternion.qz,
+        )
+
+        rear_axle_pose = translate_se3_along_body_frame(
+            imu_pose,
+            Vector3D(0.05, -0.32, 0.0),
         )
 
         center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
@@ -449,14 +478,14 @@ def _extract_ego_state_all(log_name: str) -> Tuple[List[EgoStateSE3], List[int]]
                 y=oxts_data[15],
                 z=oxts_data[16],
             ),
-            angular_velocity=Vector3D( 
+            angular_velocity=Vector3D(
                 x=oxts_data[20],
                 y=oxts_data[21],
                 z=oxts_data[22],
             ),
         )
         ego_state_all.append(
-                EgoStateSE3(
+            EgoStateSE3(
                 center_se3=center,
                 dynamic_state_se3=dynamic_state,
                 vehicle_parameters=vehicle_parameters,
@@ -465,13 +494,14 @@ def _extract_ego_state_all(log_name: str) -> Tuple[List[EgoStateSE3], List[int]]
         )
     return ego_state_all, valid_timestamp
 
+
 def _extract_detections(
     log_name: str,
     ts_len: int,
     ego_states_xyz: np.ndarray,
     valid_timestamp: List[int],
 ) -> List[BoxDetectionWrapper]:
-   
+
     detections_states: List[List[List[float]]] = [[] for _ in range(ts_len)]
     detections_velocity: List[List[List[float]]] = [[] for _ in range(ts_len)]
     detections_tokens: List[List[str]] = [[] for _ in range(ts_len)]
@@ -483,37 +513,38 @@ def _extract_detections(
         bbox_3d_path = PATH_3D_BBOX_ROOT / "train" / f"{log_name}.xml"
     if not bbox_3d_path.exists():
         raise FileNotFoundError(f"BBox 3D file not found: {bbox_3d_path}")
-    
+
     tree = ET.parse(bbox_3d_path)
     root = tree.getroot()
 
-    detection_preprocess_path = PREPOCESS_DETECTION_DIR / f"{log_name}_detection_preprocessed.pkl"
-    if detection_preprocess_path.exists():
-        with open(detection_preprocess_path, "rb") as f:
-            detection_preprocess_result = pickle.load(f)
-            static_records_dict = {record_item["global_id"]: record_item for record_item in detection_preprocess_result["static"]}
-            logging.info(f"Loaded detection preprocess data from {detection_preprocess_path}")
-    else:
-        detection_preprocess_result = None
+    detection_preprocess_path = PREPROCESS_DETECTION_DIR / f"{log_name}_detection_preprocessed.pkl"
+    if not detection_preprocess_path.exists():
+        process_detection(log_name=log_name, radius_m=60.0, output_dir=PREPROCESS_DETECTION_DIR)
+    with open(detection_preprocess_path, "rb") as f:
+        detection_preprocess_result = pickle.load(f)
+        static_records_dict = {
+            record_item["global_id"]: record_item for record_item in detection_preprocess_result["static"]
+        }
+        logging.info(f"Loaded detection preprocess data from {detection_preprocess_path}")
 
     dynamic_objs: Dict[int, List[KITTI360Bbox3D]] = defaultdict(list)
 
     for child in root:
-        if child.find('semanticId') is not None:
-            semanticIdKITTI = int(child.find('semanticId').text)
+        if child.find("semanticId") is not None:
+            semanticIdKITTI = int(child.find("semanticId").text)
             name = kittiId2label[semanticIdKITTI].name
         else:
-            lable = child.find('label').text
-            name = BBOX_LABLES_TO_DETECTION_NAME_DICT.get(lable, 'unknown')
-        if child.find('transform') is None or name not in KITTI360_DETECTION_NAME_DICT.keys():
+            lable = child.find("label").text
+            name = BBOX_LABLES_TO_DETECTION_NAME_DICT.get(lable, "unknown")
+        if child.find("transform") is None or name not in KITTI360_DETECTION_NAME_DICT.keys():
             continue
         obj = KITTI360Bbox3D()
         obj.parseBbox(child)
-        
-        #static object
+
+        # static object
         if obj.timestamp == -1:
             if detection_preprocess_result is None:
-                obj.filter_by_radius(ego_states_xyz,valid_timestamp,radius=50.0)
+                obj.filter_by_radius(ego_states_xyz, valid_timestamp, radius=50.0)
             else:
                 obj.load_detection_preprocess(static_records_dict)
             for record in obj.valid_frames["records"]:
@@ -521,7 +552,7 @@ def _extract_detections(
                 detections_states[frame].append(obj.get_state_array())
                 detections_velocity[frame].append(np.array([0.0, 0.0, 0.0]))
                 detections_tokens[frame].append(str(obj.globalID))
-                detections_types[frame].append(KITTI360_DETECTION_NAME_DICT[obj.name])  
+                detections_types[frame].append(KITTI360_DETECTION_NAME_DICT[obj.name])
         else:
             global_ID = obj.globalID
             dynamic_objs[global_ID].append(obj)
@@ -530,22 +561,22 @@ def _extract_detections(
     for global_id, obj_list in dynamic_objs.items():
         obj_list.sort(key=lambda obj: obj.timestamp)
         num_frames = len(obj_list)
-        
+
         positions = [obj.get_state_array()[:3] for obj in obj_list]
         timestamps = [int(obj.timestamp) for obj in obj_list]
 
         velocities = []
 
         for i in range(1, num_frames - 1):
-            dt_frames = timestamps[i+1] - timestamps[i-1]
+            dt_frames = timestamps[i + 1] - timestamps[i - 1]
             if dt_frames > 0:
                 dt = dt_frames * KITTI360_DT
-                vel = (positions[i+1] - positions[i-1]) / dt
-                vel = KITTI3602NUPLAN_IMU_CALIBRATION[:3,:3] @ obj_list[i].Rm.T @ vel
+                vel = (positions[i + 1] - positions[i - 1]) / dt
+                vel = KITTI3602NUPLAN_IMU_CALIBRATION[:3, :3] @ obj_list[i].Rm.T @ vel
             else:
                 vel = np.zeros(3)
             velocities.append(vel)
-        
+
         if num_frames > 1:
             # first and last frame
             velocities.insert(0, velocities[0])
@@ -588,35 +619,38 @@ def _extract_detections(
         box_detection_wrapper_all.append(BoxDetectionWrapper(box_detections=box_detections))
     return box_detection_wrapper_all
 
+
 def _extract_lidar(log_name: str, idx: int, data_converter_config: DatasetConverterConfig) -> List[LiDARData]:
-    
+
     lidars: List[LiDARData] = []
     if data_converter_config.include_lidars:
-        #NOTE special case for sequence 2013_05_28_drive_0002_sync which has no lidar data before frame 4391
+        # NOTE special case for sequence 2013_05_28_drive_0002_sync which has no lidar data before frame 4391
         if log_name == "2013_05_28_drive_0002_sync" and idx <= 4390:
             return lidars
-        
+
         lidar_full_path = PATH_3D_RAW_ROOT / log_name / "velodyne_points" / "data" / f"{idx:010d}.bin"
+
         if lidar_full_path.exists():
-            relative_path = f"data_3d_raw/{log_name}/velodyne_points/data/{idx:010d}.bin"
+
             lidars.append(
                 LiDARData(
                     lidar_type=LiDARType.LIDAR_TOP,
                     timestamp=None,
                     iteration=idx,
-                    dataset_root=PATH_3D_RAW_ROOT,
-                    relative_path=relative_path,
+                    dataset_root=KITTI360_DATA_ROOT,
+                    relative_path=lidar_full_path.relative_to(KITTI360_DATA_ROOT),
                 )
             )
         else:
             raise FileNotFoundError(f"LiDAR file not found: {lidar_full_path}")
-    
+
     return lidars
+
 
 def _extract_cameras(
     log_name: str, idx: int, data_converter_config: DatasetConverterConfig
 ) -> Dict[Union[PinholeCameraType, FisheyeMEICameraType], Optional[Tuple[Union[str, bytes], StateSE3]]]:
-    
+
     camera_dict: Dict[Union[PinholeCameraType, FisheyeMEICameraType], Optional[Tuple[Union[str, bytes], StateSE3]]] = {}
     for camera_type, cam_dir_name in KITTI360_CAMERA_TYPES.items():
         if cam_dir_name in ["image_00", "image_01"]:
@@ -627,9 +661,9 @@ def _extract_cameras(
         cam2pose_txt = PATH_CALIB_ROOT / "calib_cam_to_pose.txt"
         if not cam2pose_txt.exists():
             raise FileNotFoundError(f"calib_cam_to_pose.txt file not found: {cam2pose_txt}")
-    
-        lastrow = np.array([0,0,0,1]).reshape(1,4)
-        with open(cam2pose_txt, 'r') as f:
+
+        lastrow = np.array([0, 0, 0, 1]).reshape(1, 4)
+        with open(cam2pose_txt, "r") as f:
             for line in f:
                 parts = line.strip().split()
                 key = parts[0][:-1]
@@ -639,6 +673,9 @@ def _extract_cameras(
                     cam2pose = np.concatenate((matrix, lastrow))
                     cam2pose = KITTI3602NUPLAN_IMU_CALIBRATION @ cam2pose
 
+        camera_extrinsic = StateSE3.from_transformation_matrix(cam2pose)
+        camera_extrinsic = _extrinsic_from_imu_to_rear_axle(camera_extrinsic)
+
         if img_path_png.exists():
             if data_converter_config.camera_store_option == "path":
                 camera_data = str(img_path_png)
@@ -647,7 +684,12 @@ def _extract_cameras(
                     camera_data = f.read()
         else:
             camera_data = None
-        
-        camera_extrinsic = StateSE3.from_transformation_matrix(cam2pose)
+
         camera_dict[camera_type] = camera_data, camera_extrinsic
     return camera_dict
+
+
+def _extrinsic_from_imu_to_rear_axle(extrinsic: StateSE3) -> StateSE3:
+    imu_se3 = StateSE3(x=-0.05, y=0.32, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
+    rear_axle_se3 = StateSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
+    return StateSE3.from_array(convert_se3_array_between_origins(imu_se3, rear_axle_se3, extrinsic.array))
