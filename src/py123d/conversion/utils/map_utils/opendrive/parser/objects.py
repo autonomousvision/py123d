@@ -40,8 +40,14 @@ class Object:
         args["t"] = float(object_element.get("t"))
         args["z_offset"] = float(object_element.get("zOffset"))
         args["hdg"] = float(object_element.get("hdg"))
-        args["roll"] = float(object_element.get("roll"))
-        args["pitch"] = float(object_element.get("pitch"))
+
+        # make roll and pitch optional, default to 0.0
+        roll = object_element.get("roll")
+        args["roll"] = float(roll) if roll is not None else 0.0
+
+        pitch = object_element.get("pitch")
+        args["pitch"] = float(pitch) if pitch is not None else 0.0
+
         args["orientation"] = object_element.get("orientation")
         args["type"] = object_element.get("type")
         args["width"] = float(object_element.get("width"))

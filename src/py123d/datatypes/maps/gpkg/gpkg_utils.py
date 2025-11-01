@@ -30,7 +30,8 @@ def get_all_rows_with_value(
     :param desired_value: key which is compared with the values of column_label entry.
     :return: a subset of the original GeoDataFrame containing the matching key.
     """
-    return elements.iloc[np.where(elements[column_label].to_numpy().astype(int) == int(desired_value))]
+    # Note: in nurec one referenced column can not be converted to int
+    return elements.iloc[np.where(elements[column_label].to_numpy() == desired_value)]
 
 
 def get_row_with_value(elements: gpd.geodataframe.GeoDataFrame, column_label: str, desired_value: str) -> gpd.GeoSeries:

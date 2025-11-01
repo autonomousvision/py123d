@@ -1,3 +1,6 @@
+# IMPORTANT
+# Until not all cases are handled, this SHOULD NOT be used for other dataset
+# conversions
 from __future__ import annotations
 
 import traceback
@@ -82,15 +85,33 @@ class Header:
         """
         args = {}
         if header_element is not None:
-            args["rev_major"] = header_element.get("rev_major")
-            args["rev_minor"] = header_element.get("rev_minor")
+            # OpenDRIVE for Nurec uses camelCase
+            # TODO : handle both camelCase and snake_case, since I guess
+            # other datasets might use snake cases
+            rev_major = header_element.get("revMajor")
+            if rev_major is not None:
+                args["rev_major"] = int(rev_major)
+            rev_minor = header_element.get("revMinor")
+            if rev_minor is not None:
+                args["rev_minor"] = int(rev_minor)
             args["name"] = header_element.get("name")
             args["version"] = header_element.get("version")
-            args["data"] = header_element.get("data")
-            args["north"] = float(header_element.get("north"))
-            args["south"] = float(header_element.get("south"))
-            args["east"] = float(header_element.get("east"))
-            args["west"] = float(header_element.get("west"))
+            args["data"] = header_element.get("date")
+            # A lot of the attributes are not included in nurec
+            # Note: Not sure if the misaligned map comes from missing geo info
+            # Bounding box attributes are in nurec optional
+            north = header_element.get("north")
+            if north is not None:
+                args["north"] = float(north)
+            south = header_element.get("south")
+            if south is not None:
+                args["south"] = float(south)
+            east = header_element.get("east")
+            if east is not None:
+                args["east"] = float(east)
+            west = header_element.get("west")
+            if west is not None:
+                args["west"] = float(west)
             args["vendor"] = header_element.get("vendor")
             if header_element.find("geoReference") is not None:
                 args["geo_reference"] = header_element.find("geoReference").text
@@ -115,7 +136,9 @@ class Controller:
         args = {}
         args["name"] = controller_element.get("name")
         args["id"] = float(controller_element.get("id"))
-        args["sequence"] = float(controller_element.get("sequence"))
+        args["sequence"] = (
+            float(controller_element.get("sequence")) if controller_element.get("sequence") is not None else None
+        )
 
         controls: List[Control] = []
         for control_element in controller_element.findall("control"):
@@ -180,7 +203,7 @@ class Connection:
     lane_links: List[LaneLink]
 
     def __post_init__(self):
-        assert self.contact_point in ["start", "end"]
+        pass
 
     @classmethod
     def parse(cls, connection_element: Optional[Element]) -> Connection:

@@ -176,6 +176,17 @@ def _update_connection_from_junctions(
 
     for junction_idx, junction in junction_dict.items():
         for connection in junction.connections:
+            # Skip connections with invalid/virtual road IDs (e.g., -1)
+            # TODO : this requires further investigation
+            # Is this the correct way to handle such cases or should a map be
+            # complete with all roads defined?
+            if connection.incoming_road not in road_dict or connection.connecting_road not in road_dict:
+                logger.debug(
+                    f"Skipping junction connection with incoming_road={connection.incoming_road}, "
+                    f"connecting_road={connection.connecting_road} - road(s) not found in road_dict"
+                )
+                continue
+
             incoming_road = road_dict[connection.incoming_road]
             connecting_road = road_dict[connection.connecting_road]
 
@@ -245,7 +256,6 @@ def _post_process_connections(
             successor_centerline = lane_helper_dict[successor_lane_id].center_polyline_se2
             distance = np.linalg.norm(centerline[-1, :2] - successor_centerline[0, :2])
             if distance > connection_distance_threshold:
-
                 logger.debug(
                     f"OpenDRIVE: Removing connection {lane_id} -> {successor_lane_id} with distance {distance}"
                 )
@@ -258,8 +268,9 @@ def _post_process_connections(
             predecessor_centerline = lane_helper_dict[predecessor_lane_id].center_polyline_se2
             distance = np.linalg.norm(centerline[0, :2] - predecessor_centerline[-1, :2])
             if distance > connection_distance_threshold:
+                # Note: this caused some issues, had to change it to lane_id
                 logger.debug(
-                    f"OpenDRIVE: Removing connection {predecessor_lane_id} -> {successor_lane_id} with distance {distance}"
+                    f"OpenDRIVE: Removing connection {predecessor_lane_id} -> {lane_id} with distance {distance}"
                 )
             else:
                 valid_predecessor_lane_ids.append(predecessor_lane_id)

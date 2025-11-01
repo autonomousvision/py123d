@@ -34,9 +34,10 @@ MAX_LRU_CACHED_TABLES: Final[int] = 128  # TODO: add to some configs
 
 
 class GPKGMap(AbstractMap):
-    def __init__(self, file_path: Path) -> None:
+    # TODO: Undo this and change rather conversion class to pass Path object
+    def __init__(self, file_path: Union[Path, str]) -> None:
 
-        self._file_path = file_path
+        self._file_path = Path(file_path) if isinstance(file_path, str) else file_path
         self._map_object_getter: Dict[MapLayer, Callable[[str], Optional[AbstractMapObject]]] = {
             MapLayer.LANE: self._get_lane,
             MapLayer.LANE_GROUP: self._get_lane_group,
