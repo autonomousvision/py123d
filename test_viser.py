@@ -3,8 +3,6 @@ from py123d.datatypes.scene.arrow.arrow_scene_builder import ArrowSceneBuilder
 from py123d.datatypes.scene.scene_filter import SceneFilter
 from py123d.visualization.viser.viser_viewer import ViserViewer
 
-# from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
-
 if __name__ == "__main__":
     splits = ["kitti360"]
     # splits = ["nuscenes-mini_val", "nuscenes-mini_train"]
@@ -15,16 +13,19 @@ if __name__ == "__main__":
     # splits = ["av2-sensor_train"]
     # splits = ["pandaset_test", "pandaset_val", "pandaset_train"]
     # log_names = ["2021.08.24.13.12.55_veh-45_00386_00472"]
-    log_names = ["2013_05_28_drive_0000_sync"]
+    # log_names = ["2013_05_28_drive_0000_sync"]
+    # log_names = ["2013_05_28_drive_0000_sync"]
+    log_names = None
+    # scene_uuids = ["60a37beb-6df4-5413-b753-9280125020cf"]
     scene_uuids = None
 
     scene_filter = SceneFilter(
         split_names=splits,
         log_names=log_names,
         scene_uuids=scene_uuids,
-        duration_s=10.0,
+        duration_s=None,
         history_s=0.0,
-        timestamp_threshold_s=30.0,
+        timestamp_threshold_s=None,
         shuffle=True,
         # camera_types=[PinholeCameraType.CAM_F0],
     )

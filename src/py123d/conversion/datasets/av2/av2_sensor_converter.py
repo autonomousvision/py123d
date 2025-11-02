@@ -6,6 +6,7 @@ import pandas as pd
 
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
+from py123d.conversion.datasets.av2.av2_map_conversion import convert_av2_map
 from py123d.conversion.datasets.av2.utils.av2_constants import (
     AV2_CAMERA_TYPE_MAPPING,
     AV2_SENSOR_SPLITS,
@@ -18,7 +19,6 @@ from py123d.conversion.datasets.av2.utils.av2_helper import (
     find_closest_target_fpath,
     get_slice_with_timestamp_ns,
 )
-from py123d.conversion.datasets.av2.utils.av2_map_conversion import convert_av2_map
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.lidar_index_registry import AVSensorLidarIndex

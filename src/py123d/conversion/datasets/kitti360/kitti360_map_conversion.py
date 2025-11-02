@@ -3,8 +3,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List
 
-import geopandas as gpd
-import pandas as pd
+import numpy as np
 import shapely.geometry as geom
 
 from py123d.conversion.datasets.kitti360.utils.kitti360_helper import KITTI360_MAP_Bbox3D
@@ -13,7 +12,9 @@ from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     get_road_edge_linear_rings,
     split_line_geometry_by_max_length,
 )
+from py123d.conversion.utils.map_utils.road_edge.road_edge_3d_utils import lift_road_edges_to_3d
 from py123d.datatypes.maps.cache.cache_map_objects import (
+    CacheCarpark,
     CacheGenericDrivable,
     CacheRoadEdge,
     CacheWalkway,
@@ -34,66 +35,8 @@ KITTI360_MAP_BBOX = [
     "sidewalk",
     # "railtrack",
     # "ground",
-    # "driveway",
+    "driveway",
 ]
-
-
-def _get_none_data() -> gpd.GeoDataFrame:
-    ids = []
-    geometries = []
-    data = pd.DataFrame({"id": ids})
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
-
-
-def _extract_generic_drivable_df(objs: list[KITTI360_MAP_Bbox3D]) -> gpd.GeoDataFrame:
-    ids: List[int] = []
-    outlines: List[geom.LineString] = []
-    geometries: List[geom.Polygon] = []
-    for obj in objs:
-        if obj.label != "road":
-            continue
-        ids.append(obj.id)
-        outlines.append(obj.vertices.linestring)
-        geometries.append(geom.Polygon(obj.vertices.array[:, :3]))
-    data = pd.DataFrame({"id": ids, "outline": outlines})
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
-
-
-def _extract_walkway_df(objs: list[KITTI360_MAP_Bbox3D]) -> gpd.GeoDataFrame:
-    ids: List[int] = []
-    outlines: List[geom.LineString] = []
-    geometries: List[geom.Polygon] = []
-    for obj in objs:
-        if obj.label != "sidewalk":
-            continue
-        ids.append(obj.id)
-        outlines.append(obj.vertices.linestring)
-        geometries.append(geom.Polygon(obj.vertices.array[:, :3]))
-
-    data = pd.DataFrame({"id": ids, "outline": outlines})
-    gdf = gpd.GeoDataFrame(data, geometry=geometries)
-    return gdf
-
-
-def _extract_road_edge_df(objs: list[KITTI360_MAP_Bbox3D]) -> gpd.GeoDataFrame:
-    geometries: List[geom.Polygon] = []
-    for obj in objs:
-        if obj.label != "road":
-            continue
-        geometries.append(geom.Polygon(obj.vertices.array[:, :3]))
-    road_edge_linear_rings = get_road_edge_linear_rings(geometries)
-    road_edges = split_line_geometry_by_max_length(road_edge_linear_rings, MAX_ROAD_EDGE_LENGTH)
-
-    ids = []
-    road_edge_types = []
-    for idx in range(len(road_edges)):
-        ids.append(idx)
-        road_edge_types.append(int(RoadEdgeType.ROAD_EDGE_BOUNDARY))
-
-    data = pd.DataFrame({"id": ids, "road_edge_type": road_edge_types})
-    return gpd.GeoDataFrame(data, geometry=road_edges)
 
 
 def convert_kitti360_map_with_writer(log_name: str, map_writer: AbstractMapWriter) -> None:
@@ -123,29 +66,51 @@ def convert_kitti360_map_with_writer(log_name: str, map_writer: AbstractMapWrite
         obj.parseBbox(child)
         objs.append(obj)
 
-    generic_drivable_gdf = _extract_generic_drivable_df(objs)
-    walkway_gdf = _extract_walkway_df(objs)
-    road_edge_gdf = _extract_road_edge_df(objs)
-
-    for idx, row in generic_drivable_gdf.iterrows():
-        if not row.geometry.is_empty:
-            map_writer.write_generic_drivable(CacheGenericDrivable(object_id=idx, geometry=row.geometry))
-
-    for idx, row in walkway_gdf.iterrows():
-        if not row.geometry.is_empty:
-            map_writer.write_walkway(CacheWalkway(object_id=idx, geometry=row.geometry))
-
-    for idx, row in road_edge_gdf.iterrows():
-        if not row.geometry.is_empty:
-            if hasattr(row.geometry, "exterior"):
-                road_edge_line = row.geometry.exterior
-            else:
-                road_edge_line = row.geometry
-
-            map_writer.write_road_edge(
-                CacheRoadEdge(
-                    object_id=idx,
-                    road_edge_type=RoadEdgeType.ROAD_EDGE_BOUNDARY,
-                    polyline=Polyline3D.from_linestring(road_edge_line),
+    # 1. Write roads, sidewalks, driveways, and collect road geometries
+    road_outlines_3d: List[Polyline3D] = []
+    for obj in objs:
+        if obj.label == "road":
+            map_writer.write_generic_drivable(
+                CacheGenericDrivable(
+                    object_id=obj.id,
+                    outline=obj.vertices,
+                    geometry=geom.Polygon(obj.vertices.array[:, :3]),
                 )
             )
+            road_outline_array = np.concatenate([obj.vertices.array[:, :3], obj.vertices.array[0:, :3]])
+            road_outlines_3d.append(Polyline3D.from_array(road_outline_array))
+        elif obj.label == "sidewalk":
+            map_writer.write_walkway(
+                CacheWalkway(
+                    object_id=obj.id,
+                    outline=obj.vertices,
+                    geometry=geom.Polygon(obj.vertices.array[:, :3]),
+                )
+            )
+        elif obj.label == "driveway":
+            map_writer.write_carpark(
+                CacheCarpark(
+                    object_id=obj.id,
+                    outline=obj.vertices,
+                    geometry=geom.Polygon(obj.vertices.array[:, :3]),
+                )
+            )
+
+    # 2. Use road geometries to create road edges
+
+    # NOTE @DanielDauner: We merge all drivable areas in 2D and lift the outlines to 3D.
+    # Currently the method assumes that the drivable areas do not overlap and all road surfaces are included.
+    road_polygons_2d = [geom.Polygon(road_outline.array[:, :2]) for road_outline in road_outlines_3d]
+    road_edges_2d = get_road_edge_linear_rings(road_polygons_2d)
+    road_edges_3d = lift_road_edges_to_3d(road_edges_2d, road_outlines_3d)
+    road_edges_linestrings_3d = [polyline.linestring for polyline in road_edges_3d]
+    road_edges_linestrings_3d = split_line_geometry_by_max_length(road_edges_linestrings_3d, MAX_ROAD_EDGE_LENGTH)
+
+    for idx in range(len(road_edges_linestrings_3d)):
+        map_writer.write_road_edge(
+            CacheRoadEdge(
+                object_id=idx,
+                road_edge_type=RoadEdgeType.ROAD_EDGE_BOUNDARY,
+                polyline=Polyline3D.from_linestring(road_edges_linestrings_3d[idx]),
+            )
+        )

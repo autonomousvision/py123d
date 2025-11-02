@@ -6,7 +6,7 @@ import pandas as pd
 
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
-from py123d.conversion.datasets.pandaset.pandaset_constants import (
+from py123d.conversion.datasets.pandaset.utils.pandaset_constants import (
     PANDASET_BOX_DETECTION_FROM_STR,
     PANDASET_BOX_DETECTION_TO_DEFAULT,
     PANDASET_CAMERA_DISTORTIONS,
@@ -16,7 +16,7 @@ from py123d.conversion.datasets.pandaset.pandaset_constants import (
     PANDASET_LOG_NAMES,
     PANDASET_SPLITS,
 )
-from py123d.conversion.datasets.pandaset.pandaset_utlis import (
+from py123d.conversion.datasets.pandaset.utils.pandaset_utlis import (
     main_lidar_to_rear_axle,
     pandaset_pose_dict_to_state_se3,
     read_json,

@@ -73,19 +73,8 @@ def add_box_detections_to_camera_ax(
     camera: PinholeCamera,
     box_detections: BoxDetectionWrapper,
     ego_state_se3: EgoStateSE3,
+    return_image: bool = False,
 ) -> plt.Axes:
-
-    # box_labels = annotations.names
-    # boxes = _transform_annotations_to_camera(
-    #     annotations.boxes,
-    #     camera.sensor2lidar_rotation,
-    #     camera.sensor2lidar_translation,
-    # )
-    # box_positions, box_dimensions, box_heading = (
-    #     boxes[:, BoundingBoxIndex.POSITION],
-    #     boxes[:, BoundingBoxIndex.DIMENSION],
-    #     boxes[:, BoundingBoxIndex.HEADING],
-    # )
 
     box_detection_array = np.zeros((len(box_detections.box_detections), len(BoundingBoxSE3Index)), dtype=np.float64)
     detection_types = np.array(
@@ -122,6 +111,10 @@ def add_box_detections_to_camera_ax(
 
     box_corners, detection_types = box_corners[valid_corners], detection_types[valid_corners]
     image = _plot_rect_3d_on_img(camera.image.copy(), box_corners, detection_types)
+
+    if return_image:
+        # ax.imshow(image)
+        return ax, image
 
     ax.imshow(image)
     return ax
