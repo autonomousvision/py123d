@@ -1,23 +1,10 @@
-from enum import IntEnum
 from typing import Dict, Final, List, Set
 
-from py123d.datatypes.detections.box_detection_types import BoxDetectionType
+from py123d.datatypes.detections.box_detection_types import AbstractBoxDetectionType
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightStatus
 from py123d.datatypes.maps.map_datatypes import RoadLineType
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.time.time_point import TimePoint
-
-
-class NuPlanBoxDetectionType(IntEnum):
-
-    VEHICLE = 0
-    BICYCLE = 1
-    PEDESTRIAN = 2
-    TRAFFIC_CONE = 3
-    BARRIER = 4
-    CZONE_SIGN = 5
-    GENERIC_OBJECT = 6
-
 
 NUPLAN_DEFAULT_DT: Final[float] = 0.05
 
@@ -29,13 +16,13 @@ NUPLAN_TRAFFIC_STATUS_DICT: Final[Dict[str, TrafficLightStatus]] = {
 
 
 NUPLAN_DETECTION_NAME_DICT = {
-    "vehicle": BoxDetectionType.VEHICLE,
-    "bicycle": BoxDetectionType.BICYCLE,
-    "pedestrian": BoxDetectionType.PEDESTRIAN,
-    "traffic_cone": BoxDetectionType.TRAFFIC_CONE,
-    "barrier": BoxDetectionType.BARRIER,
-    "czone_sign": BoxDetectionType.CZONE_SIGN,
-    "generic_object": BoxDetectionType.GENERIC_OBJECT,
+    "vehicle": AbstractBoxDetectionType.VEHICLE,
+    "bicycle": AbstractBoxDetectionType.BICYCLE,
+    "pedestrian": AbstractBoxDetectionType.PEDESTRIAN,
+    "traffic_cone": AbstractBoxDetectionType.TRAFFIC_CONE,
+    "barrier": AbstractBoxDetectionType.BARRIER,
+    "czone_sign": AbstractBoxDetectionType.CZONE_SIGN,
+    "generic_object": AbstractBoxDetectionType.GENERIC_OBJECT,
 }
 
 # https://github.com/motional/nuplan-devkit/blob/e9241677997dd86bfc0bcd44817ab04fe631405b/nuplan/database/nuplan_db_orm/utils.py#L1129-L1135

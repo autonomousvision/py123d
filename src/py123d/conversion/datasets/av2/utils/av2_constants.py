@@ -1,46 +1,11 @@
 from typing import Dict, Final, Set
 
-from py123d.common.utils.enums import SerialIntEnum
+from py123d.conversion.registry.box_detection_type_registry import AV2SensorBoxDetectionType
 from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.maps.map_datatypes import RoadLineType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 
 AV2_SENSOR_SPLITS: Set[str] = {"av2-sensor_train", "av2-sensor_val", "av2-sensor_test"}
-
-
-class AV2SensorBoxDetectionType(SerialIntEnum):
-    """Sensor dataset annotation categories."""
-
-    ANIMAL = 1
-    ARTICULATED_BUS = 2
-    BICYCLE = 3
-    BICYCLIST = 4
-    BOLLARD = 5
-    BOX_TRUCK = 6
-    BUS = 7
-    CONSTRUCTION_BARREL = 8
-    CONSTRUCTION_CONE = 9
-    DOG = 10
-    LARGE_VEHICLE = 11
-    MESSAGE_BOARD_TRAILER = 12
-    MOBILE_PEDESTRIAN_CROSSING_SIGN = 13
-    MOTORCYCLE = 14
-    MOTORCYCLIST = 15
-    OFFICIAL_SIGNALER = 16
-    PEDESTRIAN = 17
-    RAILED_VEHICLE = 18
-    REGULAR_VEHICLE = 19
-    SCHOOL_BUS = 20
-    SIGN = 21
-    STOP_SIGN = 22
-    STROLLER = 23
-    TRAFFIC_LIGHT_TRAILER = 24
-    TRUCK = 25
-    TRUCK_CAB = 26
-    VEHICULAR_TRAILER = 27
-    WHEELCHAIR = 28
-    WHEELED_DEVICE = 29
-    WHEELED_RIDER = 30
 
 
 # Mapping from AV2SensorBoxDetectionType to general DetectionType

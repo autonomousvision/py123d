@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from py123d.common.utils.enums import SerialIntEnum
+from py123d.conversion.registry.box_detection_type_registry import PandasetBoxDetectionType
 from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType, PinholeDistortion, PinholeIntrinsics
@@ -18,37 +18,6 @@ PANDASET_CAMERA_MAPPING: Dict[str, PinholeCameraType] = {
 }
 
 PANDASET_LIDAR_MAPPING: Dict[str, LiDARType] = {"main_pandar64": LiDARType.LIDAR_TOP, "front_gt": LiDARType.LIDAR_FRONT}
-
-
-class PandasetBoxDetectionType(SerialIntEnum):
-
-    ANIMALS_BIRD = 0
-    ANIMALS_OTHER = 1
-    BICYCLE = 2
-    BUS = 3
-    CAR = 4
-    CONES = 5
-    CONSTRUCTION_SIGNS = 6
-    EMERGENCY_VEHICLE = 7
-    MEDIUM_SIZED_TRUCK = 8
-    MOTORCYCLE = 9
-    MOTORIZED_SCOOTER = 10
-    OTHER_VEHICLE_CONSTRUCTION_VEHICLE = 11
-    OTHER_VEHICLE_PEDICAB = 12
-    OTHER_VEHICLE_UNCOMMON = 13
-    PEDESTRIAN = 14
-    PEDESTRIAN_WITH_OBJECT = 15
-    PERSONAL_MOBILITY_DEVICE = 16
-    PICKUP_TRUCK = 17
-    PYLONS = 18
-    ROAD_BARRIERS = 19
-    ROLLING_CONTAINERS = 20
-    SEMI_TRUCK = 21
-    SIGNS = 22
-    TEMPORARY_CONSTRUCTION_BARRIERS = 23
-    TOWED_OBJECT = 24
-    TRAIN = 25
-    TRAM_SUBWAY = 26
 
 
 PANDASET_BOX_DETECTION_FROM_STR: Dict[str, PandasetBoxDetectionType] = {
