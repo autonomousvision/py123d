@@ -7,8 +7,8 @@ import numpy.typing as npt
 import viser
 
 from py123d.datatypes.scene.abstract_scene import AbstractScene
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
-from py123d.datatypes.sensors.lidar.lidar import LiDARType
+from py123d.datatypes.sensors.lidar import LiDARType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraType
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import StateSE3Index
 from py123d.geometry.transform.transform_se3 import (
@@ -34,7 +34,7 @@ def add_camera_frustums_to_viser_server(
         ego_pose[StateSE3Index.XYZ] -= scene_center_array
 
         def _add_camera_frustums_to_viser_server(camera_type: PinholeCameraType) -> None:
-            camera = scene.get_camera_at_iteration(scene_interation, camera_type)
+            camera = scene.get_pinhole_camera_at_iteration(scene_interation, camera_type)
             if camera is not None:
                 camera_position, camera_quaternion, camera_image = _get_camera_values(
                     camera,
@@ -83,7 +83,7 @@ def add_camera_gui_to_viser_server(
 ) -> None:
     if viser_config.camera_gui_visible:
         for camera_type in viser_config.camera_gui_types:
-            camera = scene.get_camera_at_iteration(scene_interation, camera_type)
+            camera = scene.get_pinhole_camera_at_iteration(scene_interation, camera_type)
             if camera is not None:
                 if camera_type in camera_gui_handles:
                     camera_gui_handles[camera_type].image = _rescale_image(

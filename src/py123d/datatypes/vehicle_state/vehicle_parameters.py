@@ -53,6 +53,19 @@ def get_nuplan_chrysler_pacifica_parameters() -> VehicleParameters:
     )
 
 
+def get_nuscenes_renault_zoe_parameters() -> VehicleParameters:
+    # https://en.wikipedia.org/wiki/Renault_Zoe
+    return VehicleParameters(
+        vehicle_name="nuscenes_renault_zoe",
+        width=1.730,
+        length=4.084,
+        height=1.562,
+        wheel_base=2.588,
+        rear_axle_to_center_vertical=1.562 / 2,  # NOTE: missing in nuscenes, TODO: find more accurate value
+        rear_axle_to_center_longitudinal=1.385,
+    )
+
+
 def get_carla_lincoln_mkz_2020_parameters() -> VehicleParameters:
     # NOTE: values are extracted from CARLA
     return VehicleParameters(
@@ -77,6 +90,23 @@ def get_wopd_chrysler_pacifica_parameters() -> VehicleParameters:
         wheel_base=3.089,
         rear_axle_to_center_vertical=1.777 / 2,
         rear_axle_to_center_longitudinal=1.461,
+    )
+
+
+def get_kitti360_vw_passat_parameters() -> VehicleParameters:
+    # The KITTI-360 dataset uses a 2006 VW Passat Variant B6.
+    # https://en.wikipedia.org/wiki/Volkswagen_Passat_(B6)
+    # [1] https://scispace.com/pdf/team-annieway-s-autonomous-system-18ql8b7kki.pdf
+    # NOTE: Parameters are estimated from the vehicle model.
+    # https://www.cvlibs.net/datasets/kitti-360/documentation.php
+    return VehicleParameters(
+        vehicle_name="kitti360_vw_passat",
+        width=1.820,
+        length=4.775,
+        height=1.516,
+        wheel_base=2.709,
+        rear_axle_to_center_vertical=1.516 / 2 - 0.9,
+        rear_axle_to_center_longitudinal=1.3369,
     )
 
 

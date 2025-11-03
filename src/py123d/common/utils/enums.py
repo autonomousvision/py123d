@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from enum import IntEnum
 
+from pyparsing import Union
+
 
 class classproperty(object):
     def __init__(self, f):
@@ -27,3 +29,15 @@ class SerialIntEnum(IntEnum):
     def from_int(cls, value: int) -> SerialIntEnum:
         """Get the enum from an int."""
         return cls(value)
+
+    @classmethod
+    def from_arbitrary(cls, value: Union[int, str, SerialIntEnum]) -> SerialIntEnum:
+        """Get the enum from an int, string, or enum instance."""
+        if isinstance(value, cls):
+            return value
+        elif isinstance(value, int):
+            return cls.from_int(value)
+        elif isinstance(value, str):
+            return cls.deserialize(value)
+        else:
+            raise ValueError(f"Invalid value for {cls.__name__}: {value}")

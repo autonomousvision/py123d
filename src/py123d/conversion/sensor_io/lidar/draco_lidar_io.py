@@ -4,7 +4,7 @@ import DracoPy
 import numpy as np
 import numpy.typing as npt
 
-from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata
+from py123d.datatypes.sensors.lidar import LiDAR, LiDARMetadata
 
 # TODO: add to config
 DRACO_QUANTIZATION_BITS: Final[int] = 14

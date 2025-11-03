@@ -2,8 +2,8 @@ from typing import Dict, List
 
 from py123d.conversion.registry.box_detection_type_registry import WOPDBoxDetectionType
 from py123d.datatypes.maps.map_datatypes import LaneType, RoadEdgeType, RoadLineType
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
-from py123d.datatypes.sensors.lidar.lidar import LiDARType
+from py123d.datatypes.sensors.lidar import LiDARType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 
 WOPD_AVAILABLE_SPLITS: List[str] = [
     "wopd_train",
@@ -22,11 +22,11 @@ WOPD_DETECTION_NAME_DICT: Dict[int, WOPDBoxDetectionType] = {
 
 # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L50
 WOPD_CAMERA_TYPES: Dict[int, PinholeCameraType] = {
-    1: PinholeCameraType.CAM_F0,  # front_camera
-    2: PinholeCameraType.CAM_L0,  # front_left_camera
-    3: PinholeCameraType.CAM_R0,  # front_right_camera
-    4: PinholeCameraType.CAM_L1,  # left_camera
-    5: PinholeCameraType.CAM_R1,  # right_camera
+    1: PinholeCameraType.PCAM_F0,  # front_camera
+    2: PinholeCameraType.PCAM_L0,  # front_left_camera
+    3: PinholeCameraType.PCAM_R0,  # front_right_camera
+    4: PinholeCameraType.PCAM_L1,  # left_camera
+    5: PinholeCameraType.PCAM_R1,  # right_camera
 }
 
 # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L66

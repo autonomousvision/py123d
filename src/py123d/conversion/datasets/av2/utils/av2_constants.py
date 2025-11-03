@@ -3,7 +3,7 @@ from typing import Dict, Final, Set
 from py123d.conversion.registry.box_detection_type_registry import AV2SensorBoxDetectionType
 from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.maps.map_datatypes import RoadLineType
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 
 AV2_SENSOR_SPLITS: Set[str] = {"av2-sensor_train", "av2-sensor_val", "av2-sensor_test"}
 
@@ -45,15 +45,15 @@ AV2_TO_DETECTION_TYPE = {
 
 
 AV2_CAMERA_TYPE_MAPPING: Dict[str, PinholeCameraType] = {
-    "ring_front_center": PinholeCameraType.CAM_F0,
-    "ring_front_left": PinholeCameraType.CAM_L0,
-    "ring_front_right": PinholeCameraType.CAM_R0,
-    "ring_side_left": PinholeCameraType.CAM_L1,
-    "ring_side_right": PinholeCameraType.CAM_R1,
-    "ring_rear_left": PinholeCameraType.CAM_L2,
-    "ring_rear_right": PinholeCameraType.CAM_R2,
-    "stereo_front_left": PinholeCameraType.CAM_STEREO_L,
-    "stereo_front_right": PinholeCameraType.CAM_STEREO_R,
+    "ring_front_center": PinholeCameraType.PCAM_F0,
+    "ring_front_left": PinholeCameraType.PCAM_L0,
+    "ring_front_right": PinholeCameraType.PCAM_R0,
+    "ring_side_left": PinholeCameraType.PCAM_L1,
+    "ring_side_right": PinholeCameraType.PCAM_R1,
+    "ring_rear_left": PinholeCameraType.PCAM_L2,
+    "ring_rear_right": PinholeCameraType.PCAM_R2,
+    "stereo_front_left": PinholeCameraType.PCAM_STEREO_L,
+    "stereo_front_right": PinholeCameraType.PCAM_STEREO_R,
 }
 
 # AV2_LIDAR_TYPES: Dict[str, str] = {

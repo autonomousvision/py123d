@@ -206,10 +206,11 @@ def convert_points_3d_array_between_origins(
     assert points_3d_array.ndim >= 1
     assert points_3d_array.shape[-1] == len(Point3DIndex)
 
-    abs_points = points_3d_array @ R_from.T + t_from
-    new_rel_points = (abs_points - t_to) @ R_to
+    R_rel = R_to.T @ R_from  # Relative rotation matrix
+    t_rel = R_to.T @ (t_from - t_to)  # Relative translation
 
-    return new_rel_points
+    conv_points_3d_array = (R_rel @ points_3d_array.T).T + t_rel
+    return conv_points_3d_array
 
 
 def translate_se3_along_z(state_se3: StateSE3, distance: float) -> StateSE3:

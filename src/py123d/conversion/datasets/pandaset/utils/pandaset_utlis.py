@@ -61,10 +61,6 @@ def rotate_pandaset_pose_to_iso_coordinates(pose: StateSE3) -> StateSE3:
     transformation_matrix = pose.transformation_matrix.copy()
     transformation_matrix[0:3, 0:3] = transformation_matrix[0:3, 0:3] @ F
 
-    # transformation_matrix[0, 3] = pose.y
-    # transformation_matrix[1, 3] = -pose.x
-    # transformation_matrix[2, 3] = pose.z
-
     return StateSE3.from_transformation_matrix(transformation_matrix)
 
 
@@ -78,15 +74,11 @@ def main_lidar_to_rear_axle(pose: StateSE3) -> StateSE3:
         ],
         dtype=np.float64,
     ).T
-    # F = np.eye(3, dtype=np.float64)
     transformation_matrix = pose.transformation_matrix.copy()
     transformation_matrix[0:3, 0:3] = transformation_matrix[0:3, 0:3] @ F
 
     rotated_pose = StateSE3.from_transformation_matrix(transformation_matrix)
 
-    imu_pose = translate_se3_along_body_frame(
-        rotated_pose,
-        vector_3d=Vector3D(x=-0.840, y=0.0, z=0.0),
-    )
+    imu_pose = translate_se3_along_body_frame(rotated_pose, vector_3d=Vector3D(x=-0.840, y=0.0, z=0.0))
 
     return imu_pose

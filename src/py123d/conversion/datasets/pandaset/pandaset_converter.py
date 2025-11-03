@@ -6,7 +6,7 @@ import pandas as pd
 
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
-from py123d.conversion.datasets.pandaset.pandaset_constants import (
+from py123d.conversion.datasets.pandaset.utils.pandaset_constants import (
     PANDASET_BOX_DETECTION_FROM_STR,
     PANDASET_BOX_DETECTION_TO_DEFAULT,
     PANDASET_CAMERA_DISTORTIONS,
@@ -16,7 +16,7 @@ from py123d.conversion.datasets.pandaset.pandaset_constants import (
     PANDASET_LOG_NAMES,
     PANDASET_SPLITS,
 )
-from py123d.conversion.datasets.pandaset.pandaset_utlis import (
+from py123d.conversion.datasets.pandaset.utils.pandaset_utlis import (
     main_lidar_to_rear_axle,
     pandaset_pose_dict_to_state_se3,
     read_json,
@@ -25,15 +25,15 @@ from py123d.conversion.datasets.pandaset.pandaset_utlis import (
 )
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.registry.lidar_index_registry import PandasetLidarIndex
+from py123d.conversion.registry.lidar_index_registry import PandasetLiDARIndex
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.camera.pinhole_camera import (
+from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
+from py123d.datatypes.sensors.pinhole_camera import (
     PinholeCameraMetadata,
     PinholeCameraType,
     PinholeIntrinsics,
 )
-from py123d.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import (
@@ -62,6 +62,7 @@ class PandasetConverter(AbstractDatasetConverter):
         super().__init__(dataset_converter_config)
         for split in splits:
             assert split in PANDASET_SPLITS, f"Split {split} is not available. Available splits: {PANDASET_SPLITS}"
+        assert pandaset_data_root is not None, "The variable `pandaset_data_root` must be provided."
 
         self._splits: List[str] = splits
         self._pandaset_data_root: Path = Path(pandaset_data_root)
@@ -114,7 +115,7 @@ class PandasetConverter(AbstractDatasetConverter):
             location=None,  # TODO: Add location information.
             timestep_seconds=0.1,
             vehicle_parameters=get_pandaset_chrysler_pacifica_parameters(),
-            camera_metadata=_get_pandaset_camera_metadata(source_log_path, self.dataset_converter_config),
+            pinhole_camera_metadata=_get_pandaset_camera_metadata(source_log_path, self.dataset_converter_config),
             lidar_metadata=_get_pandaset_lidar_metadata(source_log_path, self.dataset_converter_config),
             map_metadata=None,  # NOTE: Pandaset does not have maps.
         )
@@ -142,7 +143,7 @@ class PandasetConverter(AbstractDatasetConverter):
                     timestamp=TimePoint.from_s(timestep_s),
                     ego_state=ego_state,
                     box_detections=_extract_pandaset_box_detections(source_log_path, iteration, ego_state),
-                    cameras=_extract_pandaset_sensor_camera(
+                    pinhole_cameras=_extract_pandaset_sensor_camera(
                         source_log_path,
                         iteration,
                         ego_state,
@@ -167,7 +168,7 @@ def _get_pandaset_camera_metadata(
 
     camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
 
-    if dataset_config.include_cameras:
+    if dataset_config.include_pinhole_cameras:
         all_cameras_folder = source_log_path / "camera"
         for camera_folder in all_cameras_folder.iterdir():
             camera_name = camera_folder.name
@@ -204,7 +205,7 @@ def _get_pandaset_lidar_metadata(
         for lidar_name, lidar_type in PANDASET_LIDAR_MAPPING.items():
             lidar_metadata[lidar_type] = LiDARMetadata(
                 lidar_type=lidar_type,
-                lidar_index=PandasetLidarIndex,
+                lidar_index=PandasetLiDARIndex,
                 extrinsic=PANDASET_LIDAR_EXTRINSICS[
                     lidar_name
                 ],  # TODO: These extrinsics are incorrect, and need to be transformed correctly.
@@ -343,7 +344,7 @@ def _extract_pandaset_sensor_camera(
     camera_dict: Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]] = {}
     iteration_str = f"{iteration:02d}"
 
-    if dataset_converter_config.include_cameras:
+    if dataset_converter_config.include_pinhole_cameras:
 
         for camera_name, camera_type in PANDASET_CAMERA_MAPPING.items():
 
@@ -359,10 +360,10 @@ def _extract_pandaset_sensor_camera(
             )
 
             camera_data = None
-            if dataset_converter_config.camera_store_option == "path":
+            if dataset_converter_config.pinhole_camera_store_option == "path":
                 pandaset_data_root = source_log_path.parent
                 camera_data = str(image_abs_path.relative_to(pandaset_data_root))
-            elif dataset_converter_config.camera_store_option == "binary":
+            elif dataset_converter_config.pinhole_camera_store_option == "binary":
                 with open(image_abs_path, "rb") as f:
                     camera_data = f.read()
             camera_dict[camera_type] = camera_data, camera_extrinsic

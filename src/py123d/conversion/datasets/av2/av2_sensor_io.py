@@ -4,7 +4,7 @@ from typing import Dict, Union
 import numpy as np
 import pandas as pd
 
-from py123d.datatypes.sensors.lidar.lidar import LiDARType
+from py123d.datatypes.sensors.lidar import LiDARType
 
 
 def load_av2_sensor_lidar_pcs_from_file(feather_path: Union[Path, str]) -> Dict[LiDARType, np.ndarray]:

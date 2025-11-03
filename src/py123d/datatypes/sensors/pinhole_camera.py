@@ -13,20 +13,17 @@ from py123d.geometry.se import StateSE3
 
 
 class PinholeCameraType(SerialIntEnum):
-    """
-    Enum for cameras in py123d.
-    """
 
-    CAM_F0 = 0
-    CAM_B0 = 1
-    CAM_L0 = 2
-    CAM_L1 = 3
-    CAM_L2 = 4
-    CAM_R0 = 5
-    CAM_R1 = 6
-    CAM_R2 = 7
-    CAM_STEREO_L = 8
-    CAM_STEREO_R = 9
+    PCAM_F0 = 0
+    PCAM_B0 = 1
+    PCAM_L0 = 2
+    PCAM_L1 = 3
+    PCAM_L2 = 4
+    PCAM_R0 = 5
+    PCAM_R1 = 6
+    PCAM_R2 = 7
+    PCAM_STEREO_L = 8
+    PCAM_STEREO_R = 9
 
 
 @dataclass

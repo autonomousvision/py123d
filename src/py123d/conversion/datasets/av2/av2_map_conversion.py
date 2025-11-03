@@ -113,6 +113,10 @@ def _write_av2_lanes(lanes: Dict[int, Any], map_writer: AbstractMapWriter) -> No
             right_boundary=lane_dict["right_lane_boundary"],
         )
 
+        # NOTE @DanielDauner: Some neighbor lane IDs might not be present in the dataset.
+        left_lane_id = lane_dict["left_neighbor_id"] if lane_dict["left_neighbor_id"] in lanes else None
+        right_lane_id = lane_dict["right_neighbor_id"] if lane_dict["right_neighbor_id"] in lanes else None
+
         map_writer.write_lane(
             CacheLane(
                 object_id=lane_id,
@@ -120,8 +124,8 @@ def _write_av2_lanes(lanes: Dict[int, Any], map_writer: AbstractMapWriter) -> No
                 left_boundary=lane_dict["left_lane_boundary"],
                 right_boundary=lane_dict["right_lane_boundary"],
                 centerline=lane_centerline,
-                left_lane_id=lane_dict["left_neighbor_id"],
-                right_lane_id=lane_dict["right_neighbor_id"],
+                left_lane_id=left_lane_id,
+                right_lane_id=right_lane_id,
                 predecessor_ids=lane_dict["predecessors"],
                 successor_ids=lane_dict["successors"],
                 speed_limit_mps=None,

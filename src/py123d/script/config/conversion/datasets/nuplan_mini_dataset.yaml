@@ -26,15 +26,17 @@ nuplan_mini_dataset:
     # Traffic Lights
     include_traffic_lights: true
 
-    # Cameras
-    include_cameras: true
-    camera_store_option: "path" # "path", "binary", "mp4"
+    # Pinhole Cameras
+    include_pinhole_cameras: true
+    pinhole_camera_store_option: "path" # "path", "binary", "mp4"
 
     # LiDARs
     include_lidars: true
-    lidar_store_option: "binary" # "path", "path_merged", "binary"
+    lidar_store_option: "path_merged" # "path", "path_merged", "binary"
 
     # Scenario tag / Route
-    # NOTE: These are only supported for nuPlan. Consider removing or expanding support.
     include_scenario_tags: true
     include_route: true
+
+    # Not available:
+    include_fisheye_mei_cameras: false
