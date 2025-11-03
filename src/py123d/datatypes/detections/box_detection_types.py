@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from importlib import abc
+import abc
 
 from py123d.common.utils.enums import SerialIntEnum
 
@@ -16,12 +16,6 @@ class BoxDetectionType(AbstractBoxDetectionType):
     """
     Enum for agents in py123d.
     """
-
-    # TODO:
-    # - Add detection types compatible with other datasets
-    # - Add finer detection types (e.g. bicycle, motorcycle) and add generic types (e.g. two-wheeled vehicle) for general use.
-
-    # NOTE: Current types strongly aligned with nuPlan.
 
     VEHICLE = 0  # Includes all four or more wheeled vehicles, as well as trailers.
     BICYCLE = 1  # Includes bicycles, motorcycles and tricycles.

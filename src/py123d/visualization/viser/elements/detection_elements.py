@@ -1,3 +1,5 @@
+from typing import Optional, Union
+
 import numpy as np
 import numpy.typing as npt
 import trimesh
@@ -22,38 +24,47 @@ def add_box_detections_to_viser_server(
     initial_ego_state: EgoStateSE3,
     viser_server: viser.ViserServer,
     viser_config: ViserConfig,
+    box_detection_handles: Optional[Union[viser.GlbHandle, viser.LineSegmentsHandle]],
 ) -> None:
+    visible_handle_keys = []
     if viser_config.bounding_box_visible:
         if viser_config.bounding_box_type == "mesh":
             mesh = _get_bounding_box_meshes(scene, scene_interation, initial_ego_state)
-            viser_server.scene.add_mesh_trimesh(
+            box_detection_handles["mesh"] = viser_server.scene.add_mesh_trimesh(
                 "box_detections",
                 mesh=mesh,
                 visible=True,
             )
+            visible_handle_keys.append("mesh")
         elif viser_config.bounding_box_type == "lines":
             lines, colors, se3_array = _get_bounding_box_outlines(scene, scene_interation, initial_ego_state)
-            viser_server.scene.add_line_segments(
+            box_detection_handles["lines"] = viser_server.scene.add_line_segments(
                 "box_detections",
                 points=lines,
                 colors=colors,
                 line_width=viser_config.bounding_box_line_width,
+                visible=True,
             )
-            viser_server.scene.add_batched_axes(
-                "frames",
-                batched_wxyzs=se3_array[:-1, StateSE3Index.QUATERNION],
-                batched_positions=se3_array[:-1, StateSE3Index.XYZ],
-            )
-            ego_rear_axle_se3 = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
-            ego_rear_axle_se3[StateSE3Index.XYZ] -= initial_ego_state.center_se3.array[StateSE3Index.XYZ]
-            viser_server.scene.add_frame(
-                "ego_rear_axle",
-                position=ego_rear_axle_se3[StateSE3Index.XYZ],
-                wxyz=ego_rear_axle_se3[StateSE3Index.QUATERNION],
-            )
+            # viser_server.scene.add_batched_axes(
+            #     "frames",
+            #     batched_wxyzs=se3_array[:-1, StateSE3Index.QUATERNION],
+            #     batched_positions=se3_array[:-1, StateSE3Index.XYZ],
+            # )
+            # ego_rear_axle_se3 = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
+            # ego_rear_axle_se3[StateSE3Index.XYZ] -= initial_ego_state.center_se3.array[StateSE3Index.XYZ]
+            # viser_server.scene.add_frame(
+            #     "ego_rear_axle",
+            #     position=ego_rear_axle_se3[StateSE3Index.XYZ],
+            #     wxyz=ego_rear_axle_se3[StateSE3Index.QUATERNION],
+            # )
+            visible_handle_keys.append("lines")
 
         else:
             raise ValueError(f"Unknown bounding box type: {viser_config.bounding_box_type}")
+
+    for key in box_detection_handles:
+        if key not in visible_handle_keys and box_detection_handles[key] is not None:
+            box_detection_handles[key].visible = False
 
 
 def _get_bounding_box_meshes(scene: AbstractScene, iteration: int, initial_ego_state: EgoStateSE3) -> trimesh.Trimesh:

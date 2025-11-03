@@ -8,7 +8,6 @@ from pyquaternion import Quaternion
 from py123d.common.utils.dependencies import check_dependencies
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
-from py123d.conversion.datasets.nuplan.nuplan_converter import TARGET_DT
 from py123d.conversion.datasets.nuscenes.nuscenes_map_conversion import NUSCENES_MAPS, write_nuscenes_map
 from py123d.conversion.datasets.nuscenes.utils.nuscenes_constants import (
     NUSCENES_CAMERA_TYPES,
@@ -77,7 +76,6 @@ class NuScenesConverter(AbstractDatasetConverter):
         self._use_lanelet2 = use_lanelet2
         self._version = version
         self._scene_tokens_per_split: Dict[str, List[str]] = self._collect_scene_tokens()
-        self._target_dt: float = TARGET_DT
 
     def _collect_scene_tokens(self) -> Dict[str, List[str]]:
 
@@ -153,7 +151,7 @@ class NuScenesConverter(AbstractDatasetConverter):
             split=split,
             log_name=scene["name"],
             location=log_record["location"],
-            timestep_seconds=TARGET_DT,
+            timestep_seconds=NUSCENES_DT,
             vehicle_parameters=get_nuscenes_renault_zoe_parameters(),
             pinhole_camera_metadata=_get_nuscenes_pinhole_camera_metadata(nusc, scene, self.dataset_converter_config),
             lidar_metadata=_get_nuscenes_lidar_metadata(nusc, scene, self.dataset_converter_config),
@@ -166,7 +164,7 @@ class NuScenesConverter(AbstractDatasetConverter):
         if log_needs_writing:
             can_bus = NuScenesCanBus(dataroot=str(self._nuscenes_data_root))
 
-            step_interval = max(1, int(TARGET_DT / NUSCENES_DT))
+            step_interval = max(1, int(NUSCENES_DT / NUSCENES_DT))
             sample_count = 0
 
             # Traverse all samples in the scene

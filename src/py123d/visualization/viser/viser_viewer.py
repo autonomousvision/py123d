@@ -1,7 +1,7 @@
 import io
 import logging
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import imageio.v3 as iio
 import viser
@@ -10,6 +10,7 @@ from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
 
 from py123d.datatypes.maps.map_datatypes import MapLayer
 from py123d.datatypes.scene.abstract_scene import AbstractScene
+from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.visualization.viser.elements import (
@@ -114,10 +115,33 @@ class ViserViewer:
             gui_next_frame = self._viser_server.gui.add_button("Next Frame", disabled=True)
             gui_prev_frame = self._viser_server.gui.add_button("Prev Frame", disabled=True)
             gui_next_scene = self._viser_server.gui.add_button("Next Scene", disabled=False)
-            gui_playing = self._viser_server.gui.add_checkbox("Playing", True)
-            gui_framerate = self._viser_server.gui.add_slider("FPS", min=1, max=100, step=1, initial_value=10)
-            gui_framerate_options = self._viser_server.gui.add_button_group(
-                "FPS options", ("10", "25", "50", "75", "100")
+            gui_playing = self._viser_server.gui.add_checkbox("Playing", self._viser_config.is_playing)
+            gui_speed = self._viser_server.gui.add_slider(
+                "Playback speed", min=0.1, max=10.0, step=0.1, initial_value=self._viser_config.playback_speed
+            )
+            gui_speed_options = self._viser_server.gui.add_button_group(
+                "Options.", ("0.5", "1.0", "2.0", "5.0", "10.0")
+            )
+
+        with self._viser_server.gui.add_folder("Modalities", expand_by_default=True):
+            modalities_map_visible = self._viser_server.gui.add_checkbox("Map", self._viser_config.map_visible)
+            modalities_bounding_box_visible = self._viser_server.gui.add_checkbox(
+                "Bounding Boxes", self._viser_config.bounding_box_visible
+            )
+            modalities_camera_frustum_visible = self._viser_server.gui.add_checkbox(
+                "Camera Frustums", self._viser_config.camera_frustum_visible
+            )
+            modalities_lidar_visible = self._viser_server.gui.add_checkbox("Lidar", self._viser_config.lidar_visible)
+
+        with self._viser_server.gui.add_folder("Options", expand_by_default=False):
+            option_bounding_box_type = self._viser_server.gui.add_dropdown(
+                "Bounding Box Type", ("mesh", "lines"), initial_value=self._viser_config.bounding_box_type
+            )
+            options_map_radius_slider = self._viser_server.gui.add_slider(
+                "Map Radius", min=10.0, max=1000.0, step=1.0, initial_value=self._viser_config.map_radius
+            )
+            options_map_radius_options = self._viser_server.gui.add_button_group(
+                "Map Radius Options.", ("25", "50", "100", "500")
             )
 
         with self._viser_server.gui.add_folder("Render", expand_by_default=False):
@@ -125,7 +149,49 @@ class ViserViewer:
             render_view = self._viser_server.gui.add_dropdown(
                 "View", ["3rd Person", "BEV", "Manual"], initial_value="3rd Person"
             )
-            button = self._viser_server.gui.add_button("Render Scene")
+            render_button = self._viser_server.gui.add_button("Render Scene")
+
+        # Options:
+        @modalities_map_visible.on_update
+        def _(_) -> None:
+            for map_handle in map_handles.values():
+                map_handle.visible = modalities_map_visible.value
+            self._viser_config.map_visible = modalities_map_visible.value
+
+        @modalities_bounding_box_visible.on_update
+        def _(_) -> None:
+            if box_detection_handles["lines"] is not None:
+                box_detection_handles["lines"].visible = modalities_bounding_box_visible.value
+            if box_detection_handles["mesh"] is not None:
+                box_detection_handles["mesh"].visible = modalities_bounding_box_visible.value
+            self._viser_config.bounding_box_visible = modalities_bounding_box_visible.value
+
+        @modalities_camera_frustum_visible.on_update
+        def _(_) -> None:
+            for frustum_handle in camera_frustum_handles.values():
+                frustum_handle.visible = modalities_camera_frustum_visible.value
+            self._viser_config.camera_frustum_visible = modalities_camera_frustum_visible.value
+
+        @modalities_lidar_visible.on_update
+        def _(_) -> None:
+            for lidar_pc_handle in lidar_pc_handles.values():
+                if lidar_pc_handle is not None:
+                    lidar_pc_handle.visible = modalities_lidar_visible.value
+            self._viser_config.lidar_visible = modalities_lidar_visible.value
+
+        @option_bounding_box_type.on_update
+        def _(_) -> None:
+            self._viser_config.bounding_box_type = option_bounding_box_type.value
+
+        @options_map_radius_slider.on_update
+        def _(_) -> None:
+            self._viser_config.map_radius = options_map_radius_slider.value
+            self._viser_config._force_map_update = True
+
+        @options_map_radius_options.on_click
+        def _(_) -> None:
+            options_map_radius_slider.value = float(options_map_radius_options.value)
+            self._viser_config._force_map_update = True
 
         # Frame step buttons.
         @gui_next_frame.on_click
@@ -147,11 +213,12 @@ class ViserViewer:
             gui_timestep.disabled = gui_playing.value
             gui_next_frame.disabled = gui_playing.value
             gui_prev_frame.disabled = gui_playing.value
+            self._viser_config.is_playing = gui_playing.value
 
         # Set the framerate when we click one of the options.
-        @gui_framerate_options.on_click
+        @gui_speed_options.on_click
         def _(_) -> None:
-            gui_framerate.value = int(gui_framerate_options.value)
+            gui_speed.value = float(gui_speed_options.value)
 
         # Toggle frame visibility when the timestep slider changes.
         @gui_timestep.on_update
@@ -163,6 +230,7 @@ class ViserViewer:
                 initial_ego_state,
                 self._viser_server,
                 self._viser_config,
+                box_detection_handles,
             )
             add_camera_frustums_to_viser_server(
                 scene,
@@ -185,7 +253,7 @@ class ViserViewer:
                 initial_ego_state,
                 self._viser_server,
                 self._viser_config,
-                lidar_pc_handle,
+                lidar_pc_handles,
             )
             add_map_to_viser_server(
                 scene,
@@ -196,11 +264,18 @@ class ViserViewer:
                 map_handles,
             )
             rendering_time = time.perf_counter() - start
-            sleep_time = 1.0 / gui_framerate.value - rendering_time
+
+            sleep_time = 1.0 / gui_speed.value - rendering_time
+
+            # Calculate sleep time based on speed factor
+            base_frame_time = scene.log_metadata.timestep_seconds
+            target_frame_time = base_frame_time / gui_speed.value
+            sleep_time = target_frame_time - rendering_time
+
             if sleep_time > 0 and not server_rendering:
                 time.sleep(max(sleep_time, 0.0))
 
-        @button.on_click
+        @render_button.on_click
         def _(event: viser.GuiEvent) -> None:
             nonlocal server_rendering
             client = event.client
@@ -233,9 +308,13 @@ class ViserViewer:
             client.send_file_download(f"{scene_name}.{format}", content, save_immediately=True)
             server_rendering = False
 
+        box_detection_handles: Dict[str, Union[viser.GlbHandle, viser.LineSegmentsHandle]] = {
+            "mesh": None,
+            "lines": None,
+        }
         camera_frustum_handles: Dict[PinholeCameraType, viser.CameraFrustumHandle] = {}
         camera_gui_handles: Dict[PinholeCameraType, viser.GuiImageHandle] = {}
-        lidar_pc_handle: Optional[viser.PointCloudHandle] = None
+        lidar_pc_handles: Dict[LiDARType, Optional[viser.PointCloudHandle]] = {LiDARType.LIDAR_MERGED: None}
         map_handles: Dict[MapLayer, viser.MeshHandle] = {}
 
         add_box_detections_to_viser_server(
@@ -244,6 +323,7 @@ class ViserViewer:
             initial_ego_state,
             self._viser_server,
             self._viser_config,
+            box_detection_handles,
         )
         add_camera_frustums_to_viser_server(
             scene,
@@ -266,7 +346,7 @@ class ViserViewer:
             initial_ego_state,
             self._viser_server,
             self._viser_config,
-            lidar_pc_handle,
+            lidar_pc_handles,
         )
         add_map_to_viser_server(
             scene,
@@ -279,11 +359,11 @@ class ViserViewer:
 
         # Playback update loop.
         while server_playing:
-
             if gui_playing.value and not server_rendering:
                 gui_timestep.value = (gui_timestep.value + 1) % num_frames
-            else:
-                time.sleep(0.1)
+
+            # update config
+            self._viser_config.playback_speed = gui_speed.value
 
         self._viser_server.flush()
         self.next()

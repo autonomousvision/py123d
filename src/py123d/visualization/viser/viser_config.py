@@ -46,6 +46,10 @@ class ViserConfig:
     theme_show_share_button: bool = True
     theme_brand_color: Optional[Tuple[int, int, int]] = ELLIS_5[0].rgb
 
+    # Play Controls
+    is_playing: bool = False
+    playback_speed: float = 1.0  # Multiplier for real-time speed
+
     # Map
     map_visible: bool = True
     map_radius: float = 100.0  # [m]
@@ -74,3 +78,6 @@ class ViserConfig:
     lidar_types: List[LiDARType] = field(default_factory=lambda: all_lidar_types.copy())
     lidar_point_size: float = 0.05
     lidar_point_shape: Literal["square", "diamond", "circle", "rounded", "sparkle"] = "circle"
+
+    # internal use
+    _force_map_update: bool = False
