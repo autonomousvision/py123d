@@ -127,6 +127,7 @@ class Kitti360Converter(AbstractDatasetConverter):
         val_sequences: List[str],
         test_sequences: List[str],
     ) -> None:
+        assert kitti360_data_root is not None, "The variable `kitti360_data_root` must be provided."
         super().__init__(dataset_converter_config)
         for split in splits:
             assert split in KITTI360_SPLITS, f"Split {split} is not available. Available splits: {KITTI360_SPLITS}"

@@ -31,13 +31,14 @@ class SceneFilter:
     shuffle: bool = False
 
     def __post_init__(self):
-        if self.pinhole_camera_types is not None:
-            assert isinstance(self.pinhole_camera_types, list), "camera_types must be a list of CameraType"
+        def _resolve_enum_arguments(
+            serial_enum_cls: SerialIntEnum, input: Optional[List[Union[int, str, SerialIntEnum]]]
+        ) -> List[SerialIntEnum]:
 
-            def _resolve_enum_arguments(
-                serial_enum_cls: SerialIntEnum, input: List[Union[int, str, SerialIntEnum]]
-            ) -> List[SerialIntEnum]:
-                return [serial_enum_cls.from_arbitrary(value) for value in input]
+            if input is None:
+                return None
+            assert isinstance(input, list), f"input must be a list of {serial_enum_cls.__name__}"
+            return [serial_enum_cls.from_arbitrary(value) for value in input]
 
-            self.pinhole_camera_types = _resolve_enum_arguments(PinholeCameraType, self.pinhole_camera_types)
-            self.fisheye_mei_camera_types = _resolve_enum_arguments(FisheyeMEICameraType, self.fisheye_mei_camera_types)
+        self.pinhole_camera_types = _resolve_enum_arguments(PinholeCameraType, self.pinhole_camera_types)
+        self.fisheye_mei_camera_types = _resolve_enum_arguments(FisheyeMEICameraType, self.fisheye_mei_camera_types)

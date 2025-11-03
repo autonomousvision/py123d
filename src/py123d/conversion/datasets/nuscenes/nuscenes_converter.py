@@ -12,7 +12,6 @@ from py123d.conversion.datasets.nuplan.nuplan_converter import TARGET_DT
 from py123d.conversion.datasets.nuscenes.nuscenes_map_conversion import NUSCENES_MAPS, write_nuscenes_map
 from py123d.conversion.datasets.nuscenes.utils.nuscenes_constants import (
     NUSCENES_CAMERA_TYPES,
-    NUSCENES_DATA_ROOT,
     NUSCENES_DATA_SPLITS,
     NUSCENES_DETECTION_NAME_DICT,
     NUSCENES_DT,
@@ -56,10 +55,18 @@ class NuScenesConverter(AbstractDatasetConverter):
     ) -> None:
         super().__init__(dataset_converter_config)
 
+        assert nuscenes_data_root is not None, "The variable `nuscenes_data_root` must be provided."
+        assert nuscenes_map_root is not None, "The variable `nuscenes_map_root` must be provided."
         for split in splits:
             assert (
                 split in NUSCENES_DATA_SPLITS
             ), f"Split {split} is not available. Available splits: {NUSCENES_DATA_SPLITS}"
+
+        if dataset_converter_config.include_lidars:
+            assert dataset_converter_config.lidar_store_option in ["path", "binary"], (
+                f"Invalid lidar_store_option: {dataset_converter_config.lidar_store_option}. "
+                f"Supported options are 'path' and 'binary'."
+            )
 
         self._splits: List[str] = splits
 
@@ -175,11 +182,13 @@ class NuScenesConverter(AbstractDatasetConverter):
                         pinhole_cameras=_extract_nuscenes_cameras(
                             nusc=nusc,
                             sample=sample,
+                            nuscenes_data_root=self._nuscenes_data_root,
                             dataset_converter_config=self.dataset_converter_config,
                         ),
                         lidars=_extract_nuscenes_lidars(
                             nusc=nusc,
                             sample=sample,
+                            nuscenes_data_root=self._nuscenes_data_root,
                             dataset_converter_config=self.dataset_converter_config,
                         ),
                     )
@@ -385,6 +394,7 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
 def _extract_nuscenes_cameras(
     nusc: NuScenes,
     sample: Dict[str, Any],
+    nuscenes_data_root: Path,
     dataset_converter_config: DatasetConverterConfig,
 ) -> Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]]:
     camera_dict: Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]] = {}
@@ -407,7 +417,7 @@ def _extract_nuscenes_cameras(
             extrinsic_matrix[:3, 3] = translation
             extrinsic = StateSE3.from_transformation_matrix(extrinsic_matrix)
 
-            cam_path = NUSCENES_DATA_ROOT / cam_data["filename"]
+            cam_path = nuscenes_data_root / cam_data["filename"]
 
             if cam_path.exists() and cam_path.is_file():
                 if dataset_converter_config.pinhole_camera_store_option == "path":
@@ -426,6 +436,7 @@ def _extract_nuscenes_cameras(
 def _extract_nuscenes_lidars(
     nusc: NuScenes,
     sample: Dict[str, Any],
+    nuscenes_data_root: Path,
     dataset_converter_config: DatasetConverterConfig,
 ) -> List[LiDARData]:
     lidars: List[LiDARData] = []
@@ -433,15 +444,14 @@ def _extract_nuscenes_lidars(
     if dataset_converter_config.include_lidars:
         lidar_token = sample["data"]["LIDAR_TOP"]
         lidar_data = nusc.get("sample_data", lidar_token)
-        absolute_lidar_path = NUSCENES_DATA_ROOT / lidar_data["filename"]
+        absolute_lidar_path = nuscenes_data_root / lidar_data["filename"]
 
         if absolute_lidar_path.exists() and absolute_lidar_path.is_file():
             lidar = LiDARData(
-                lidar_type=LiDARType.LIDAR_MERGED,
-                relative_path=absolute_lidar_path.relative_to(NUSCENES_DATA_ROOT),
-                dataset_root=NUSCENES_DATA_ROOT,
+                lidar_type=LiDARType.LIDAR_TOP,
+                relative_path=absolute_lidar_path.relative_to(nuscenes_data_root),
+                dataset_root=nuscenes_data_root,
                 iteration=lidar_data.get("iteration"),
             )
             lidars.append(lidar)
-
     return lidars

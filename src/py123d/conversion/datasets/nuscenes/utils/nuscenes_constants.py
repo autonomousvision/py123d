@@ -1,5 +1,3 @@
-import os
-from pathlib import Path
 from typing import Final, List
 
 from py123d.datatypes.detections.box_detection_types import BoxDetectionType
@@ -57,4 +55,3 @@ NUSCENES_CAMERA_TYPES = {
     PinholeCameraType.PCAM_R0: "CAM_FRONT_RIGHT",
     PinholeCameraType.PCAM_R1: "CAM_BACK_RIGHT",
 }
-NUSCENES_DATA_ROOT = Path(os.environ["NUSCENES_DATA_ROOT"])

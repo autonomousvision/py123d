@@ -102,22 +102,23 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
     recording_table = get_lru_cached_arrow_table(log_path)
     log_metadata = get_log_metadata_from_arrow(log_path)
 
-    # 1. Filter location
-    if (
-        filter.locations is not None
-        and log_metadata.map_metadata is not None
-        and log_metadata.map_metadata.location not in filter.locations
-    ):
-        return scene_extraction_metadatas
-
     start_idx = int(filter.history_s / log_metadata.timestep_seconds) if filter.history_s is not None else 0
     end_idx = (
         len(recording_table) - int(filter.duration_s / log_metadata.timestep_seconds)
         if filter.duration_s is not None
         else len(recording_table)
     )
-    if filter.duration_s is None:
-        return [
+
+    # 1. Filter location
+    if (
+        filter.locations is not None
+        and log_metadata.map_metadata is not None
+        and log_metadata.map_metadata.location not in filter.locations
+    ):
+        pass
+
+    elif filter.duration_s is None:
+        scene_extraction_metadatas.append(
             SceneExtractionMetadata(
                 initial_uuid=str(recording_table["uuid"][start_idx].as_py()),
                 initial_idx=start_idx,
@@ -125,48 +126,75 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
                 history_s=filter.history_s if filter.history_s is not None else 0.0,
                 iteration_duration_s=log_metadata.timestep_seconds,
             )
-        ]
+        )
+    else:
+        scene_uuid_set = set(filter.scene_uuids) if filter.scene_uuids is not None else None
+        for idx in range(start_idx, end_idx):
+            scene_extraction_metadata: Optional[SceneExtractionMetadata] = None
 
-    scene_uuid_set = set(filter.scene_uuids) if filter.scene_uuids is not None else None
+            if scene_uuid_set is None:
+                scene_extraction_metadata = SceneExtractionMetadata(
+                    initial_uuid=str(recording_table["uuid"][idx].as_py()),
+                    initial_idx=idx,
+                    duration_s=filter.duration_s,
+                    history_s=filter.history_s,
+                    iteration_duration_s=log_metadata.timestep_seconds,
+                )
+            elif str(recording_table["uuid"][idx]) in scene_uuid_set:
+                scene_extraction_metadata = SceneExtractionMetadata(
+                    initial_uuid=str(recording_table["uuid"][idx].as_py()),
+                    initial_idx=idx,
+                    duration_s=filter.duration_s,
+                    history_s=filter.history_s,
+                    iteration_duration_s=log_metadata.timestep_seconds,
+                )
 
-    for idx in range(start_idx, end_idx):
-        scene_extraction_metadata: Optional[SceneExtractionMetadata] = None
+            if scene_extraction_metadata is not None:
+                # Check of timestamp threshold exceeded between previous scene, if specified in filter
+                if filter.timestamp_threshold_s is not None and len(scene_extraction_metadatas) > 0:
+                    iteration_delta = idx - scene_extraction_metadatas[-1].initial_idx
+                    if (iteration_delta * log_metadata.timestep_seconds) < filter.timestamp_threshold_s:
+                        continue
 
-        if scene_uuid_set is None:
-            scene_extraction_metadata = SceneExtractionMetadata(
-                initial_uuid=str(recording_table["uuid"][idx].as_py()),
-                initial_idx=idx,
-                duration_s=filter.duration_s,
-                history_s=filter.history_s,
-                iteration_duration_s=log_metadata.timestep_seconds,
-            )
-        elif str(recording_table["uuid"][idx]) in scene_uuid_set:
-            scene_extraction_metadata = SceneExtractionMetadata(
-                initial_uuid=str(recording_table["uuid"][idx].as_py()),
-                initial_idx=idx,
-                duration_s=filter.duration_s,
-                history_s=filter.history_s,
-                iteration_duration_s=log_metadata.timestep_seconds,
-            )
+                scene_extraction_metadatas.append(scene_extraction_metadata)
 
-        if scene_extraction_metadata is not None:
-            # Check of timestamp threshold exceeded between previous scene, if specified in filter
-            if filter.timestamp_threshold_s is not None and len(scene_extraction_metadatas) > 0:
-                iteration_delta = idx - scene_extraction_metadatas[-1].initial_idx
-                if (iteration_delta * log_metadata.timestep_seconds) < filter.timestamp_threshold_s:
+    scene_extraction_metadatas_ = []
+    for scene_extraction_metadata in scene_extraction_metadatas:
+
+        add_scene = True
+        start_idx = scene_extraction_metadata.initial_idx
+        if filter.pinhole_camera_types is not None:
+            for pinhole_camera_type in filter.pinhole_camera_types:
+                column_name = f"{pinhole_camera_type.serialize()}_data"
+
+                if (
+                    pinhole_camera_type in log_metadata.pinhole_camera_metadata
+                    and column_name in recording_table.schema.names
+                    and recording_table[column_name][start_idx].as_py() is not None
+                ):
                     continue
+                else:
+                    add_scene = False
+                    break
 
-            # Check if camera data is available for the scene, if specified in filter
-            # NOTE: We only check camera availability at the initial index of the scene.
-            if filter.pinhole_camera_types is not None:
-                cameras_available = [
-                    recording_table[f"{camera_type.serialize()}_data"][start_idx].as_py() is not None
-                    for camera_type in filter.pinhole_camera_types
-                ]
-                if not all(cameras_available):
+        if filter.fisheye_mei_camera_types is not None:
+            for fisheye_mei_camera_type in filter.fisheye_mei_camera_types:
+                column_name = f"{fisheye_mei_camera_type.serialize()}_data"
+
+                if (
+                    fisheye_mei_camera_type in log_metadata.fisheye_mei_camera_metadata
+                    and column_name in recording_table.schema.names
+                    and recording_table[column_name][start_idx].as_py() is not None
+                ):
                     continue
+                else:
+                    add_scene = False
+                    break
 
-            scene_extraction_metadatas.append(scene_extraction_metadata)
+        if add_scene:
+            scene_extraction_metadatas_.append(scene_extraction_metadata)
+
+    scene_extraction_metadatas = scene_extraction_metadatas_
 
     del recording_table, log_metadata
     return scene_extraction_metadatas

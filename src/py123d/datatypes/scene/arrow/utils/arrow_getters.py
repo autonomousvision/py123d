@@ -169,7 +169,6 @@ def get_lidar_from_arrow_table(
     if lidar_column_name in arrow_table.schema.names:
 
         lidar_data = arrow_table[lidar_column_name][index].as_py()
-
         if isinstance(lidar_data, str):
             lidar_pc_dict = load_lidar_pcs_from_file(relative_path=lidar_data, log_metadata=log_metadata, index=index)
             if lidar_type == LiDARType.LIDAR_MERGED:

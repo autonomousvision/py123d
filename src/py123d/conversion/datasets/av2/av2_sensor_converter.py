@@ -52,6 +52,7 @@ class AV2SensorConverter(AbstractDatasetConverter):
         dataset_converter_config: DatasetConverterConfig,
     ) -> None:
         super().__init__(dataset_converter_config)
+        assert av2_data_root is not None, "The variable `av2_data_root` must be provided."
         for split in splits:
             assert (
                 split in AV2_SENSOR_SPLITS

@@ -84,7 +84,9 @@ class NuPlanConverter(AbstractDatasetConverter):
         dataset_converter_config: DatasetConverterConfig,
     ) -> None:
         super().__init__(dataset_converter_config)
-
+        assert nuplan_data_root is not None, "The variable `nuplan_data_root` must be provided."
+        assert nuplan_maps_root is not None, "The variable `nuplan_maps_root` must be provided."
+        assert nuplan_sensor_root is not None, "The variable `nuplan_sensor_root` must be provided."
         for split in splits:
             assert (
                 split in NUPLAN_DATA_SPLITS
@@ -176,7 +178,9 @@ class NuPlanConverter(AbstractDatasetConverter):
             location=nuplan_log_db.log.map_version,
             timestep_seconds=TARGET_DT,
             vehicle_parameters=get_nuplan_chrysler_pacifica_parameters(),
-            pinhole_camera_metadata=_get_nuplan_camera_metadata(source_log_path, self.dataset_converter_config),
+            pinhole_camera_metadata=_get_nuplan_camera_metadata(
+                source_log_path, self._nuplan_sensor_root, self.dataset_converter_config
+            ),
             lidar_metadata=_get_nuplan_lidar_metadata(
                 self._nuplan_sensor_root, log_name, self.dataset_converter_config
             ),
@@ -235,6 +239,7 @@ def _get_nuplan_map_metadata(location: str) -> MapMetadata:
 
 def _get_nuplan_camera_metadata(
     source_log_path: Path,
+    nuplan_sensor_root: Path,
     dataset_converter_config: DatasetConverterConfig,
 ) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
 
@@ -257,8 +262,11 @@ def _get_nuplan_camera_metadata(
 
     camera_metadata: Dict[str, PinholeCameraMetadata] = {}
     if dataset_converter_config.include_pinhole_cameras:
-        for camera_type in NUPLAN_CAMERA_MAPPING.keys():
-            camera_metadata[camera_type] = _get_camera_metadata(camera_type)
+        log_name = source_log_path.stem
+        for camera_type, nuplan_camera_type in NUPLAN_CAMERA_MAPPING.items():
+            camera_folder = nuplan_sensor_root / log_name / f"{nuplan_camera_type.value}"
+            if camera_folder.exists() and camera_folder.is_dir():
+                camera_metadata[camera_type] = _get_camera_metadata(camera_type)
 
     return camera_metadata
 

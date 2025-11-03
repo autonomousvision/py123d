@@ -204,25 +204,25 @@ def _map_ids_to_integer(map_dfs: Dict[MapLayer, gpd.GeoDataFrame]) -> None:
 
     # 1. Remap lane ids in LANE layer
     if len(map_dfs[MapLayer.LANE]) > 0:
-        map_dfs[MapLayer.LANE]["id"] = map_dfs[MapLayer.LANE]["id"].map(lane_id_mapping.str_to_int)
-        map_dfs[MapLayer.LANE]["lane_group_id"] = map_dfs[MapLayer.LANE]["lane_group_id"].map(
-            lane_group_id_mapping.str_to_int
+        map_dfs[MapLayer.LANE]["id"] = map_dfs[MapLayer.LANE]["id"].apply(lambda x: lane_id_mapping.map(x))
+        map_dfs[MapLayer.LANE]["lane_group_id"] = map_dfs[MapLayer.LANE]["lane_group_id"].apply(
+            lambda x: lane_group_id_mapping.map(x)
         )
         for column in ["predecessor_ids", "successor_ids"]:
             map_dfs[MapLayer.LANE][column] = map_dfs[MapLayer.LANE][column].apply(lambda x: lane_id_mapping.map_list(x))
         for column in ["left_lane_id", "right_lane_id"]:
-            map_dfs[MapLayer.LANE][column] = map_dfs[MapLayer.LANE][column].apply(
-                lambda x: str(lane_id_mapping.str_to_int[x]) if pd.notna(x) and x is not None else x
-            )
+            map_dfs[MapLayer.LANE][column] = map_dfs[MapLayer.LANE][column].apply(lambda x: lane_id_mapping.map(x))
 
     # 2. Remap lane group ids in LANE_GROUP
     if len(map_dfs[MapLayer.LANE_GROUP]) > 0:
-        map_dfs[MapLayer.LANE_GROUP]["id"] = map_dfs[MapLayer.LANE_GROUP]["id"].map(lane_group_id_mapping.str_to_int)
+        map_dfs[MapLayer.LANE_GROUP]["id"] = map_dfs[MapLayer.LANE_GROUP]["id"].apply(
+            lambda x: lane_group_id_mapping.map(x)
+        )
         map_dfs[MapLayer.LANE_GROUP]["lane_ids"] = map_dfs[MapLayer.LANE_GROUP]["lane_ids"].apply(
             lambda x: lane_id_mapping.map_list(x)
         )
-        map_dfs[MapLayer.LANE_GROUP]["intersection_id"] = map_dfs[MapLayer.LANE_GROUP]["intersection_id"].map(
-            intersection_id_mapping.str_to_int
+        map_dfs[MapLayer.LANE_GROUP]["intersection_id"] = map_dfs[MapLayer.LANE_GROUP]["intersection_id"].apply(
+            lambda x: intersection_id_mapping.map(x)
         )
         for column in ["predecessor_ids", "successor_ids"]:
             map_dfs[MapLayer.LANE_GROUP][column] = map_dfs[MapLayer.LANE_GROUP][column].apply(
@@ -231,8 +231,8 @@ def _map_ids_to_integer(map_dfs: Dict[MapLayer, gpd.GeoDataFrame]) -> None:
 
     # 3. Remap lane group ids in INTERSECTION
     if len(map_dfs[MapLayer.INTERSECTION]) > 0:
-        map_dfs[MapLayer.INTERSECTION]["id"] = map_dfs[MapLayer.INTERSECTION]["id"].map(
-            intersection_id_mapping.str_to_int
+        map_dfs[MapLayer.INTERSECTION]["id"] = map_dfs[MapLayer.INTERSECTION]["id"].apply(
+            lambda x: intersection_id_mapping.map(x)
         )
         map_dfs[MapLayer.INTERSECTION]["lane_group_ids"] = map_dfs[MapLayer.INTERSECTION]["lane_group_ids"].apply(
             lambda x: lane_group_id_mapping.map_list(x)
@@ -240,14 +240,18 @@ def _map_ids_to_integer(map_dfs: Dict[MapLayer, gpd.GeoDataFrame]) -> None:
 
     # 4. Remap ids in other layers
     if len(map_dfs[MapLayer.WALKWAY]) > 0:
-        map_dfs[MapLayer.WALKWAY]["id"] = map_dfs[MapLayer.WALKWAY]["id"].map(walkway_id_mapping.str_to_int)
+        map_dfs[MapLayer.WALKWAY]["id"] = map_dfs[MapLayer.WALKWAY]["id"].apply(lambda x: walkway_id_mapping.map(x))
     if len(map_dfs[MapLayer.CARPARK]) > 0:
-        map_dfs[MapLayer.CARPARK]["id"] = map_dfs[MapLayer.CARPARK]["id"].map(carpark_id_mapping.str_to_int)
+        map_dfs[MapLayer.CARPARK]["id"] = map_dfs[MapLayer.CARPARK]["id"].apply(lambda x: carpark_id_mapping.map(x))
     if len(map_dfs[MapLayer.GENERIC_DRIVABLE]) > 0:
-        map_dfs[MapLayer.GENERIC_DRIVABLE]["id"] = map_dfs[MapLayer.GENERIC_DRIVABLE]["id"].map(
-            generic_drivable_id_mapping.str_to_int
+        map_dfs[MapLayer.GENERIC_DRIVABLE]["id"] = map_dfs[MapLayer.GENERIC_DRIVABLE]["id"].apply(
+            lambda x: generic_drivable_id_mapping.map(x)
         )
     if len(map_dfs[MapLayer.ROAD_LINE]) > 0:
-        map_dfs[MapLayer.ROAD_LINE]["id"] = map_dfs[MapLayer.ROAD_LINE]["id"].map(road_line_id_mapping.str_to_int)
+        map_dfs[MapLayer.ROAD_LINE]["id"] = map_dfs[MapLayer.ROAD_LINE]["id"].apply(
+            lambda x: road_line_id_mapping.map(x)
+        )
     if len(map_dfs[MapLayer.ROAD_EDGE]) > 0:
-        map_dfs[MapLayer.ROAD_EDGE]["id"] = map_dfs[MapLayer.ROAD_EDGE]["id"].map(road_edge_id_mapping.str_to_int)
+        map_dfs[MapLayer.ROAD_EDGE]["id"] = map_dfs[MapLayer.ROAD_EDGE]["id"].apply(
+            lambda x: road_edge_id_mapping.map(x)
+        )

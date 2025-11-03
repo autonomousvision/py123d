@@ -25,9 +25,6 @@ wopd_dataset:
     # Box Detections
     include_box_detections: true
 
-    # Traffic Lights
-    include_traffic_lights: false
-
     # Pinhole Cameras
     include_pinhole_cameras: true
     pinhole_camera_store_option: "binary" # "path", "binary", "mp4"
@@ -37,5 +34,6 @@ wopd_dataset:
     lidar_store_option: "binary" # "path", "path_merged", "binary"
 
     # Not available:
+    include_traffic_lights: false
     include_scenario_tags: false
     include_route: false

@@ -62,6 +62,7 @@ class PandasetConverter(AbstractDatasetConverter):
         super().__init__(dataset_converter_config)
         for split in splits:
             assert split in PANDASET_SPLITS, f"Split {split} is not available. Available splits: {PANDASET_SPLITS}"
+        assert pandaset_data_root is not None, "The variable `pandaset_data_root` must be provided."
 
         self._splits: List[str] = splits
         self._pandaset_data_root: Path = Path(pandaset_data_root)

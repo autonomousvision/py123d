@@ -24,7 +24,7 @@ pandaset_dataset:
 
     # LiDARs
     include_lidars: true
-    lidar_store_option: "path"
+    lidar_store_option: "binary"
 
     # Not available:
     include_map: false

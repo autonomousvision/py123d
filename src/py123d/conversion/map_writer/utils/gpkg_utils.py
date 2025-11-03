@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
@@ -16,14 +16,29 @@ class IntIDMapping:
 
     @classmethod
     def from_series(cls, series: pd.Series) -> IntIDMapping:
-        unique_ids = series.unique()
+        # Drop NaN values and convert all to strings
+        unique_ids = series.dropna().astype(str).unique()
         str_to_int = {str_id: idx for idx, str_id in enumerate(unique_ids)}
         return IntIDMapping(str_to_int)
 
-    def map_list(self, id_list: Optional[List[str]]) -> pd.Series:
+    def map(self, str_like: Any) -> Optional[int]:
+        # Handle NaN and None values
+        if pd.isna(str_like) or str_like is None:
+            return None
+
+        # Convert to string for uniform handling
+        str_key = str(str_like)
+        return self.str_to_int.get(str_key, None)
+
+    def map_list(self, id_list: Optional[List[str]]) -> List[int]:
         if id_list is None:
             return []
-        return [self.str_to_int.get(id_str, -1) for id_str in id_list]
+        list_ = []
+        for id_str in id_list:
+            mapped_id = self.map(id_str)
+            if mapped_id is not None:
+                list_.append(mapped_id)
+        return list_
 
 
 class IncrementalIntIDMapping:

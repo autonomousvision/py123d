@@ -135,8 +135,8 @@ def _write_nuplan_lane_connectors(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_w
 
         # 1. predecessor_ids, successor_ids
         lane_connector_row = get_row_with_value(nuplan_gdf["lane_connectors"], "fid", str(lane_id))
-        predecessor_ids = lane_connector_row["entry_lane_fid"]
-        successor_ids = lane_connector_row["exit_lane_fid"]
+        predecessor_ids = [lane_connector_row["entry_lane_fid"]]
+        successor_ids = [lane_connector_row["exit_lane_fid"]]
 
         # 2. left_boundaries, right_boundaries
         lane_connector_polygons_row = get_row_with_value(
