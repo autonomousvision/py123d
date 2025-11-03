@@ -1,9 +1,7 @@
-import os
-from pathlib import Path
 from typing import Final, List
 
 from py123d.datatypes.detections.box_detection_types import BoxDetectionType
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 
 NUSCENES_MAPS: List[str] = ["boston-seaport", "singapore-hollandvillage", "singapore-onenorth", "singapore-queenstown"]
 
@@ -50,11 +48,10 @@ NUSCENES_DETECTION_NAME_DICT = {
 }
 
 NUSCENES_CAMERA_TYPES = {
-    PinholeCameraType.CAM_F0: "CAM_FRONT",
-    PinholeCameraType.CAM_B0: "CAM_BACK",
-    PinholeCameraType.CAM_L0: "CAM_FRONT_LEFT",
-    PinholeCameraType.CAM_L1: "CAM_BACK_LEFT",
-    PinholeCameraType.CAM_R0: "CAM_FRONT_RIGHT",
-    PinholeCameraType.CAM_R1: "CAM_BACK_RIGHT",
+    PinholeCameraType.PCAM_F0: "CAM_FRONT",
+    PinholeCameraType.PCAM_B0: "CAM_BACK",
+    PinholeCameraType.PCAM_L0: "CAM_FRONT_LEFT",
+    PinholeCameraType.PCAM_L1: "CAM_BACK_LEFT",
+    PinholeCameraType.PCAM_R0: "CAM_FRONT_RIGHT",
+    PinholeCameraType.PCAM_R1: "CAM_BACK_RIGHT",
 }
-NUSCENES_DATA_ROOT = Path(os.environ["NUSCENES_DATA_ROOT"])

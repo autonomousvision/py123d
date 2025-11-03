@@ -19,18 +19,18 @@ from py123d.conversion.datasets.wopd.utils.wopd_constants import (
 from py123d.conversion.datasets.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.registry.lidar_index_registry import DefaultLidarIndex, WOPDLidarIndex
+from py123d.conversion.registry.lidar_index_registry import DefaultLiDARIndex, WOPDLiDARIndex
 from py123d.conversion.utils.sensor_utils.camera_conventions import CameraConvention, convert_camera_convention
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.maps.map_metadata import MapMetadata
 from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.camera.pinhole_camera import (
+from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
+from py123d.datatypes.sensors.pinhole_camera import (
     PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
 )
-from py123d.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_wopd_chrysler_pacifica_parameters
@@ -143,7 +143,7 @@ class WOPDConverter(AbstractDatasetConverter):
             location=str(initial_frame.context.stats.location),
             timestep_seconds=0.1,
             vehicle_parameters=get_wopd_chrysler_pacifica_parameters(),
-            camera_metadata=_get_wopd_camera_metadata(
+            pinhole_camera_metadata=_get_wopd_camera_metadata(
                 initial_frame,
                 self.dataset_converter_config,
             ),
@@ -178,7 +178,7 @@ class WOPDConverter(AbstractDatasetConverter):
                         ego_state=_extract_wopd_ego_state(frame, map_pose_offset),
                         box_detections=_extract_wopd_box_detections(frame, map_pose_offset, self._zero_roll_pitch),
                         traffic_lights=None,  # TODO: Check if WOPD has traffic light information
-                        cameras=_extract_wopd_cameras(frame, self.dataset_converter_config),
+                        pinhole_cameras=_extract_wopd_cameras(frame, self.dataset_converter_config),
                         lidars=_extract_wopd_lidars(
                             frame,
                             self._keep_polar_features,
@@ -232,7 +232,7 @@ def _get_wopd_camera_metadata(
 
     camera_metadata_dict: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
 
-    if dataset_converter_config.camera_store_option is not None:
+    if dataset_converter_config.pinhole_camera_store_option is not None:
         for calibration in initial_frame.context.camera_calibrations:
             camera_type = WOPD_CAMERA_TYPES[calibration.name]
             # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L96
@@ -261,7 +261,7 @@ def _get_wopd_lidar_metadata(
     laser_metadatas: Dict[LiDARType, LiDARMetadata] = {}
 
     # NOTE: Using
-    lidar_index = WOPDLidarIndex if keep_polar_features else DefaultLidarIndex
+    lidar_index = WOPDLiDARIndex if keep_polar_features else DefaultLiDARIndex
     if dataset_converter_config.lidar_store_option is not None:
         for laser_calibration in initial_frame.context.laser_calibrations:
 
@@ -381,7 +381,7 @@ def _extract_wopd_cameras(
 
     camera_dict: Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]] = {}
 
-    if dataset_converter_config.include_cameras:
+    if dataset_converter_config.include_pinhole_cameras:
 
         # NOTE @DanielDauner: The extrinsic matrix in frame.context.camera_calibration is fixed to model the ego to camera transformation.
         # The poses in frame.images[idx] are the motion compensated ego poses when the camera triggers.

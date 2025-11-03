@@ -37,10 +37,17 @@ def main(cfg: DictConfig) -> None:
         logger.info(f"Processing dataset: {dataset_converter.__class__.__name__}")
 
         map_args = [{"map_index": i} for i in range(dataset_converter.get_number_of_maps())]
+        logger.info(
+            f"Found maps: {dataset_converter.get_number_of_maps()} for dataset: {dataset_converter.__class__.__name__}"
+        )
+
         worker_map(worker, partial(_convert_maps, cfg=cfg, dataset_converter=dataset_converter), map_args)
         logger.info(f"Finished maps: {dataset_converter.__class__.__name__}")
 
         log_args = [{"log_index": i} for i in range(dataset_converter.get_number_of_logs())]
+        logger.info(
+            f"Found logs: {dataset_converter.get_number_of_logs()} for dataset: {dataset_converter.__class__.__name__}"
+        )
         worker_map(worker, partial(_convert_logs, cfg=cfg, dataset_converter=dataset_converter), log_args)
         logger.info(f"Finished logs: {dataset_converter.__class__.__name__}")
 

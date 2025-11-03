@@ -1,19 +1,21 @@
 from dataclasses import dataclass, field
 from typing import List, Literal, Optional, Tuple
 
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
-from py123d.datatypes.sensors.lidar.lidar import LiDARType
+from py123d.datatypes.sensors.lidar import LiDARType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 from py123d.visualization.color.color import ELLIS_5
 
 all_camera_types: List[PinholeCameraType] = [
-    PinholeCameraType.CAM_F0,
-    PinholeCameraType.CAM_B0,
-    PinholeCameraType.CAM_L0,
-    PinholeCameraType.CAM_L1,
-    PinholeCameraType.CAM_L2,
-    PinholeCameraType.CAM_R0,
-    PinholeCameraType.CAM_R1,
-    PinholeCameraType.CAM_R2,
+    PinholeCameraType.PCAM_F0,
+    PinholeCameraType.PCAM_B0,
+    PinholeCameraType.PCAM_L0,
+    PinholeCameraType.PCAM_L1,
+    PinholeCameraType.PCAM_L2,
+    PinholeCameraType.PCAM_R0,
+    PinholeCameraType.PCAM_R1,
+    PinholeCameraType.PCAM_R2,
+    PinholeCameraType.PCAM_STEREO_L,
+    PinholeCameraType.PCAM_STEREO_R,
 ]
 
 all_lidar_types: List[LiDARType] = [
@@ -64,7 +66,7 @@ class ViserConfig:
 
     # -> GUI
     camera_gui_visible: bool = True
-    camera_gui_types: List[PinholeCameraType] = field(default_factory=lambda: [PinholeCameraType.CAM_F0].copy())
+    camera_gui_types: List[PinholeCameraType] = field(default_factory=lambda: [PinholeCameraType.PCAM_F0].copy())
     camera_gui_image_scale: float = 0.25  # Resize factor for the camera image shown in the GUI (<1.0 for speed)
 
     # LiDAR

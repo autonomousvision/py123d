@@ -9,8 +9,9 @@ from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
-from py123d.datatypes.sensors.lidar.lidar import LiDARType
+from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraType
+from py123d.datatypes.sensors.lidar import LiDARType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 
@@ -39,7 +40,8 @@ class AbstractLogWriter(abc.ABC):
         ego_state: Optional[EgoStateSE3] = None,
         box_detections: Optional[BoxDetectionWrapper] = None,
         traffic_lights: Optional[TrafficLightDetectionWrapper] = None,
-        cameras: Optional[Dict[PinholeCameraType, Tuple[Any, ...]]] = None,
+        pinhole_cameras: Optional[Dict[PinholeCameraType, Tuple[Any, ...]]] = None,
+        fisheye_mei_cameras: Optional[Dict[FisheyeMEICameraType, Tuple[Any, ...]]] = None,
         lidars: Optional[List[LiDARData]] = None,
         scenario_tags: Optional[List[str]] = None,
         route_lane_group_ids: Optional[List[int]] = None,

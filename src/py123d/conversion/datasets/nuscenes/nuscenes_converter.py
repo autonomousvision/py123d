@@ -12,24 +12,23 @@ from py123d.conversion.datasets.nuplan.nuplan_converter import TARGET_DT
 from py123d.conversion.datasets.nuscenes.nuscenes_map_conversion import NUSCENES_MAPS, write_nuscenes_map
 from py123d.conversion.datasets.nuscenes.utils.nuscenes_constants import (
     NUSCENES_CAMERA_TYPES,
-    NUSCENES_DATA_ROOT,
     NUSCENES_DATA_SPLITS,
     NUSCENES_DETECTION_NAME_DICT,
     NUSCENES_DT,
 )
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.conversion.registry.lidar_index_registry import NuScenesLiDARIndex
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.maps.map_metadata import MapMetadata
 from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.camera.pinhole_camera import (
+from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
+from py123d.datatypes.sensors.pinhole_camera import (
     PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
 )
-from py123d.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
-from py123d.datatypes.sensors.lidar.lidar_index import NuScenesLidarIndex
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_nuscenes_renault_zoe_parameters
@@ -56,10 +55,18 @@ class NuScenesConverter(AbstractDatasetConverter):
     ) -> None:
         super().__init__(dataset_converter_config)
 
+        assert nuscenes_data_root is not None, "The variable `nuscenes_data_root` must be provided."
+        assert nuscenes_map_root is not None, "The variable `nuscenes_map_root` must be provided."
         for split in splits:
             assert (
                 split in NUSCENES_DATA_SPLITS
             ), f"Split {split} is not available. Available splits: {NUSCENES_DATA_SPLITS}"
+
+        if dataset_converter_config.include_lidars:
+            assert dataset_converter_config.lidar_store_option in ["path", "binary"], (
+                f"Invalid lidar_store_option: {dataset_converter_config.lidar_store_option}. "
+                f"Supported options are 'path' and 'binary'."
+            )
 
         self._splits: List[str] = splits
 
@@ -148,7 +155,7 @@ class NuScenesConverter(AbstractDatasetConverter):
             location=log_record["location"],
             timestep_seconds=TARGET_DT,
             vehicle_parameters=get_nuscenes_renault_zoe_parameters(),
-            camera_metadata=_get_nuscenes_camera_metadata(nusc, scene, self.dataset_converter_config),
+            pinhole_camera_metadata=_get_nuscenes_pinhole_camera_metadata(nusc, scene, self.dataset_converter_config),
             lidar_metadata=_get_nuscenes_lidar_metadata(nusc, scene, self.dataset_converter_config),
             map_metadata=_get_nuscenes_map_metadata(log_record["location"]),
         )
@@ -172,14 +179,16 @@ class NuScenesConverter(AbstractDatasetConverter):
                         timestamp=TimePoint.from_us(sample["timestamp"]),
                         ego_state=_extract_nuscenes_ego_state(nusc, sample, can_bus),
                         box_detections=_extract_nuscenes_box_detections(nusc, sample),
-                        cameras=_extract_nuscenes_cameras(
+                        pinhole_cameras=_extract_nuscenes_cameras(
                             nusc=nusc,
                             sample=sample,
+                            nuscenes_data_root=self._nuscenes_data_root,
                             dataset_converter_config=self.dataset_converter_config,
                         ),
                         lidars=_extract_nuscenes_lidars(
                             nusc=nusc,
                             sample=sample,
+                            nuscenes_data_root=self._nuscenes_data_root,
                             dataset_converter_config=self.dataset_converter_config,
                         ),
                     )
@@ -192,14 +201,14 @@ class NuScenesConverter(AbstractDatasetConverter):
         gc.collect()
 
 
-def _get_nuscenes_camera_metadata(
+def _get_nuscenes_pinhole_camera_metadata(
     nusc: NuScenes,
     scene: Dict[str, Any],
     dataset_converter_config: DatasetConverterConfig,
 ) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
     camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
 
-    if dataset_converter_config.include_cameras:
+    if dataset_converter_config.include_pinhole_cameras:
         first_sample_token = scene["first_sample_token"]
         first_sample = nusc.get("sample", first_sample_token)
 
@@ -246,7 +255,7 @@ def _get_nuscenes_lidar_metadata(
 
         metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
             lidar_type=LiDARType.LIDAR_TOP,
-            lidar_index=NuScenesLidarIndex,
+            lidar_index=NuScenesLiDARIndex,
             extrinsic=extrinsic,
         )
 
@@ -385,11 +394,12 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
 def _extract_nuscenes_cameras(
     nusc: NuScenes,
     sample: Dict[str, Any],
+    nuscenes_data_root: Path,
     dataset_converter_config: DatasetConverterConfig,
 ) -> Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]]:
     camera_dict: Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]] = {}
 
-    if dataset_converter_config.include_cameras:
+    if dataset_converter_config.include_pinhole_cameras:
         for camera_type, camera_channel in NUSCENES_CAMERA_TYPES.items():
             cam_token = sample["data"][camera_channel]
             cam_data = nusc.get("sample_data", cam_token)
@@ -407,12 +417,12 @@ def _extract_nuscenes_cameras(
             extrinsic_matrix[:3, 3] = translation
             extrinsic = StateSE3.from_transformation_matrix(extrinsic_matrix)
 
-            cam_path = NUSCENES_DATA_ROOT / cam_data["filename"]
+            cam_path = nuscenes_data_root / cam_data["filename"]
 
             if cam_path.exists() and cam_path.is_file():
-                if dataset_converter_config.camera_store_option == "path":
+                if dataset_converter_config.pinhole_camera_store_option == "path":
                     camera_data = str(cam_path)
-                elif dataset_converter_config.camera_store_option == "binary":
+                elif dataset_converter_config.pinhole_camera_store_option == "binary":
                     with open(cam_path, "rb") as f:
                         camera_data = f.read()
                 else:
@@ -426,6 +436,7 @@ def _extract_nuscenes_cameras(
 def _extract_nuscenes_lidars(
     nusc: NuScenes,
     sample: Dict[str, Any],
+    nuscenes_data_root: Path,
     dataset_converter_config: DatasetConverterConfig,
 ) -> List[LiDARData]:
     lidars: List[LiDARData] = []
@@ -433,15 +444,14 @@ def _extract_nuscenes_lidars(
     if dataset_converter_config.include_lidars:
         lidar_token = sample["data"]["LIDAR_TOP"]
         lidar_data = nusc.get("sample_data", lidar_token)
-        absolute_lidar_path = NUSCENES_DATA_ROOT / lidar_data["filename"]
+        absolute_lidar_path = nuscenes_data_root / lidar_data["filename"]
 
         if absolute_lidar_path.exists() and absolute_lidar_path.is_file():
             lidar = LiDARData(
-                lidar_type=LiDARType.LIDAR_MERGED,
-                relative_path=absolute_lidar_path.relative_to(NUSCENES_DATA_ROOT),
-                dataset_root=NUSCENES_DATA_ROOT,
+                lidar_type=LiDARType.LIDAR_TOP,
+                relative_path=absolute_lidar_path.relative_to(nuscenes_data_root),
+                dataset_root=nuscenes_data_root,
                 iteration=lidar_data.get("iteration"),
             )
             lidars.append(lidar)
-
     return lidars

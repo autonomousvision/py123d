@@ -1,3 +1,4 @@
+import io
 import logging
 import time
 from typing import Dict, List, Optional
@@ -9,8 +10,7 @@ from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
 
 from py123d.datatypes.maps.map_datatypes import MapLayer
 from py123d.datatypes.scene.abstract_scene import AbstractScene
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
-from py123d.datatypes.sensors.lidar.lidar import LiDARType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.visualization.viser.elements import (
     add_box_detections_to_viser_server,
@@ -19,31 +19,13 @@ from py123d.visualization.viser.elements import (
     add_lidar_pc_to_viser_server,
     add_map_to_viser_server,
 )
-from py123d.visualization.viser.elements.render_elements import get_ego_3rd_person_view_position
+from py123d.visualization.viser.elements.render_elements import (
+    get_ego_3rd_person_view_position,
+    get_ego_bev_view_position,
+)
 from py123d.visualization.viser.viser_config import ViserConfig
 
 logger = logging.getLogger(__name__)
-
-
-all_camera_types: List[PinholeCameraType] = [
-    PinholeCameraType.CAM_F0,
-    PinholeCameraType.CAM_B0,
-    PinholeCameraType.CAM_L0,
-    PinholeCameraType.CAM_L1,
-    PinholeCameraType.CAM_L2,
-    PinholeCameraType.CAM_R0,
-    PinholeCameraType.CAM_R1,
-    PinholeCameraType.CAM_R2,
-]
-
-all_lidar_types: List[LiDARType] = [
-    LiDARType.LIDAR_MERGED,
-    LiDARType.LIDAR_TOP,
-    LiDARType.LIDAR_FRONT,
-    LiDARType.LIDAR_SIDE_LEFT,
-    LiDARType.LIDAR_SIDE_RIGHT,
-    LiDARType.LIDAR_BACK,
-]
 
 
 def _build_viser_server(viser_config: ViserConfig) -> viser.ViserServer:
@@ -138,7 +120,12 @@ class ViserViewer:
                 "FPS options", ("10", "25", "50", "75", "100")
             )
 
-        button = self._viser_server.gui.add_button("Render Scene")
+        with self._viser_server.gui.add_folder("Render", expand_by_default=False):
+            render_format = self._viser_server.gui.add_dropdown("Format", ["gif", "mp4"], initial_value="mp4")
+            render_view = self._viser_server.gui.add_dropdown(
+                "View", ["3rd Person", "BEV", "Manual"], initial_value="3rd Person"
+            )
+            button = self._viser_server.gui.add_button("Render Scene")
 
         # Frame step buttons.
         @gui_next_frame.on_click
@@ -215,6 +202,7 @@ class ViserViewer:
 
         @button.on_click
         def _(event: viser.GuiEvent) -> None:
+            nonlocal server_rendering
             client = event.client
             assert client is not None
 
@@ -225,12 +213,24 @@ class ViserViewer:
 
             for i in tqdm(range(scene.number_of_iterations)):
                 gui_timestep.value = i
-                ego_view = get_ego_3rd_person_view_position(scene, i, initial_ego_state)
-                client.camera.position = ego_view.point_3d.array
-                client.camera.wxyz = ego_view.quaternion.array
-                images.append(client.get_render(height=720, width=1280))
-
-            client.send_file_download("image.mp4", iio.imwrite("<bytes>", images, extension=".mp4", fps=30))
+                if render_view.value == "BEV":
+                    ego_view = get_ego_bev_view_position(scene, i, initial_ego_state)
+                    client.camera.position = ego_view.point_3d.array
+                    client.camera.wxyz = ego_view.quaternion.array
+                elif render_view.value == "3rd Person":
+                    ego_view = get_ego_3rd_person_view_position(scene, i, initial_ego_state)
+                    client.camera.position = ego_view.point_3d.array
+                    client.camera.wxyz = ego_view.quaternion.array
+                images.append(client.get_render(height=1080, width=1920))
+            format = render_format.value
+            buffer = io.BytesIO()
+            if format == "gif":
+                iio.imwrite(buffer, images, extension=".gif", loop=False)
+            elif format == "mp4":
+                iio.imwrite(buffer, images, extension=".mp4", fps=20)
+            content = buffer.getvalue()
+            scene_name = f"{scene.log_metadata.split}_{scene.uuid}"
+            client.send_file_download(f"{scene_name}.{format}", content, save_immediately=True)
             server_rendering = False
 
         camera_frustum_handles: Dict[PinholeCameraType, viser.CameraFrustumHandle] = {}
@@ -282,6 +282,8 @@ class ViserViewer:
 
             if gui_playing.value and not server_rendering:
                 gui_timestep.value = (gui_timestep.value + 1) % num_frames
+            else:
+                time.sleep(0.1)
 
         self._viser_server.flush()
         self.next()

@@ -4,7 +4,7 @@ from typing import Dict, Optional
 from omegaconf import DictConfig
 from pyparsing import Union
 
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraMetadata
+from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraMetadata
 from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
 DATASET_PATHS: DictConfig = get_dataset_paths()

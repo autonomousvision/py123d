@@ -21,18 +21,16 @@ av2_sensor_dataset:
     # Box Detections
     include_box_detections: true
 
-    # Traffic Lights
-    include_traffic_lights: false
-
-    # Cameras
-    include_cameras: true
-    camera_store_option: "binary" # "path", "binary", "mp4"
+    # Pinhole Cameras
+    include_pinhole_cameras: true
+    pinhole_camera_store_option: "binary" # "path", "binary", "mp4"
 
     # LiDARs
     include_lidars: true
     lidar_store_option: "binary" # "path", "path_merged", "binary"
 
-    # Scenario tag / Route
-    # NOTE: These are only supported for nuPlan. Consider removing or expanding support.
+    # Not available:
+    include_traffic_lights: false
     include_scenario_tags: false
     include_route: false
+    include_fisheye_mei_cameras: false

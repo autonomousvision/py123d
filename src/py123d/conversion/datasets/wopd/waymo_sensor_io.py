@@ -6,8 +6,8 @@ import numpy as np
 from py123d.common.utils.dependencies import check_dependencies
 from py123d.conversion.datasets.wopd.utils.wopd_constants import WOPD_CAMERA_TYPES, WOPD_LIDAR_TYPES
 from py123d.conversion.datasets.wopd.utils.wopd_utils import parse_range_image_and_camera_projection
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
-from py123d.datatypes.sensors.lidar.lidar import LiDARType
+from py123d.datatypes.sensors.lidar import LiDARType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 
 check_dependencies(modules=["tensorflow", "waymo_open_dataset"], optional_name="waymo")
 import tensorflow as tf
