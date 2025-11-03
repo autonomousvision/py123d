@@ -24,18 +24,18 @@ from py123d.conversion.datasets.nuplan.utils.nuplan_sql_helper import (
 )
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.registry.lidar_index_registry import NuPlanLidarIndex
+from py123d.conversion.registry.lidar_index_registry import NuPlanLiDARIndex
 from py123d.datatypes.detections.box_detections import BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetection, TrafficLightDetectionWrapper
 from py123d.datatypes.maps.map_metadata import MapMetadata
 from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.camera.pinhole_camera import (
+from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
+from py123d.datatypes.sensors.pinhole_camera import (
     PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
 )
-from py123d.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import (
@@ -52,14 +52,14 @@ from nuplan.planning.simulation.observation.observation_type import CameraChanne
 
 # NOTE: Leaving this constant here, to avoid having a nuplan dependency in nuplan_constants.py
 NUPLAN_CAMERA_MAPPING = {
-    PinholeCameraType.CAM_F0: CameraChannel.CAM_F0,
-    PinholeCameraType.CAM_B0: CameraChannel.CAM_B0,
-    PinholeCameraType.CAM_L0: CameraChannel.CAM_L0,
-    PinholeCameraType.CAM_L1: CameraChannel.CAM_L1,
-    PinholeCameraType.CAM_L2: CameraChannel.CAM_L2,
-    PinholeCameraType.CAM_R0: CameraChannel.CAM_R0,
-    PinholeCameraType.CAM_R1: CameraChannel.CAM_R1,
-    PinholeCameraType.CAM_R2: CameraChannel.CAM_R2,
+    PinholeCameraType.PCAM_F0: CameraChannel.CAM_F0,
+    PinholeCameraType.PCAM_B0: CameraChannel.CAM_B0,
+    PinholeCameraType.PCAM_L0: CameraChannel.CAM_L0,
+    PinholeCameraType.PCAM_L1: CameraChannel.CAM_L1,
+    PinholeCameraType.PCAM_L2: CameraChannel.CAM_L2,
+    PinholeCameraType.PCAM_R0: CameraChannel.CAM_R0,
+    PinholeCameraType.PCAM_R1: CameraChannel.CAM_R1,
+    PinholeCameraType.PCAM_R2: CameraChannel.CAM_R2,
 }
 
 TARGET_DT: Final[float] = 0.1  # TODO: make configurable
@@ -176,7 +176,7 @@ class NuPlanConverter(AbstractDatasetConverter):
             location=nuplan_log_db.log.map_version,
             timestep_seconds=TARGET_DT,
             vehicle_parameters=get_nuplan_chrysler_pacifica_parameters(),
-            camera_metadata=_get_nuplan_camera_metadata(source_log_path, self.dataset_converter_config),
+            pinhole_camera_metadata=_get_nuplan_camera_metadata(source_log_path, self.dataset_converter_config),
             lidar_metadata=_get_nuplan_lidar_metadata(
                 self._nuplan_sensor_root, log_name, self.dataset_converter_config
             ),
@@ -196,7 +196,7 @@ class NuPlanConverter(AbstractDatasetConverter):
                     ego_state=_extract_nuplan_ego_state(nuplan_lidar_pc),
                     box_detections=_extract_nuplan_box_detections(nuplan_lidar_pc, source_log_path),
                     traffic_lights=_extract_nuplan_traffic_lights(nuplan_log_db, lidar_pc_token),
-                    cameras=_extract_nuplan_cameras(
+                    pinhole_cameras=_extract_nuplan_cameras(
                         nuplan_log_db=nuplan_log_db,
                         nuplan_lidar_pc=nuplan_lidar_pc,
                         source_log_path=source_log_path,
@@ -256,7 +256,7 @@ def _get_nuplan_camera_metadata(
         )
 
     camera_metadata: Dict[str, PinholeCameraMetadata] = {}
-    if dataset_converter_config.include_cameras:
+    if dataset_converter_config.include_pinhole_cameras:
         for camera_type in NUPLAN_CAMERA_MAPPING.keys():
             camera_metadata[camera_type] = _get_camera_metadata(camera_type)
 
@@ -277,7 +277,7 @@ def _get_nuplan_lidar_metadata(
         for lidar_type in NUPLAN_LIDAR_DICT.values():
             metadata[lidar_type] = LiDARMetadata(
                 lidar_type=lidar_type,
-                lidar_index=NuPlanLidarIndex,
+                lidar_index=NuPlanLiDARIndex,
                 extrinsic=None,  # NOTE: LiDAR extrinsic are unknown
             )
     return metadata
@@ -350,7 +350,7 @@ def _extract_nuplan_cameras(
 
     camera_dict: Dict[str, Union[str, bytes]] = {}
 
-    if dataset_converter_config.include_cameras:
+    if dataset_converter_config.include_pinhole_cameras:
         log_cam_infos = {camera.token: camera for camera in nuplan_log_db.log.cameras}
         for camera_type, camera_channel in NUPLAN_CAMERA_MAPPING.items():
             camera_data: Optional[Union[str, bytes]] = None
@@ -387,9 +387,9 @@ def _extract_nuplan_cameras(
 
                     # Store camera data, either as path or binary
                     camera_data: Optional[Union[str, bytes]] = None
-                    if dataset_converter_config.camera_store_option == "path":
+                    if dataset_converter_config.pinhole_camera_store_option == "path":
                         camera_data = str(filename_jpg)
-                    elif dataset_converter_config.camera_store_option == "binary":
+                    elif dataset_converter_config.pinhole_camera_store_option == "binary":
                         with open(filename_jpg, "rb") as f:
                             camera_data = f.read()
 

@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from typing import List, Optional, Union
 
-from py123d.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICameraType
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
-from py123d.datatypes.sensors.camera.utils import deserialize_camera_type, get_camera_type_by_value
+from py123d.common.utils.enums import SerialIntEnum
+from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 
 # TODO: Add more filter options (e.g. scene tags, ego movement, or whatever appropriate)
 
@@ -13,7 +13,6 @@ class SceneFilter:
 
     split_types: Optional[List[str]] = None
     split_names: Optional[List[str]] = None
-    # scene_tags: List[str] = None
     log_names: Optional[List[str]] = None
 
     locations: Optional[List[str]] = None  # TODO:
@@ -25,24 +24,20 @@ class SceneFilter:
     duration_s: Optional[float] = 10.0
     history_s: Optional[float] = 3.0
 
-    camera_types: Optional[List[Union[PinholeCameraType, FisheyeMEICameraType]]] = None
+    pinhole_camera_types: Optional[List[PinholeCameraType]] = None
+    fisheye_mei_camera_types: Optional[List[FisheyeMEICameraType]] = None
 
     max_num_scenes: Optional[int] = None
     shuffle: bool = False
 
     def __post_init__(self):
-        if self.camera_types is not None:
-            assert isinstance(self.camera_types, list), "camera_types must be a list of CameraType"
-            camera_types = []
-            for camera_type in self.camera_types:
-                if isinstance(camera_type, str):
-                    camera_type = deserialize_camera_type(camera_type)
-                    camera_types.append(camera_type)
-                elif isinstance(camera_type, int):
-                    camera_type = get_camera_type_by_value(camera_type)
-                    camera_types.append(camera_type)
-                elif isinstance(camera_type, (PinholeCameraType, FisheyeMEICameraType)):
-                    camera_types.append(camera_type)
-                else:
-                    raise ValueError(f"Invalid camera type: {camera_type}")
-            self.camera_types = camera_types
+        if self.pinhole_camera_types is not None:
+            assert isinstance(self.pinhole_camera_types, list), "camera_types must be a list of CameraType"
+
+            def _resolve_enum_arguments(
+                serial_enum_cls: SerialIntEnum, input: List[Union[int, str, SerialIntEnum]]
+            ) -> List[SerialIntEnum]:
+                return [serial_enum_cls.from_arbitrary(value) for value in input]
+
+            self.pinhole_camera_types = _resolve_enum_arguments(PinholeCameraType, self.pinhole_camera_types)
+            self.fisheye_mei_camera_types = _resolve_enum_arguments(FisheyeMEICameraType, self.fisheye_mei_camera_types)

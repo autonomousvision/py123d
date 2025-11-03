@@ -6,7 +6,7 @@ import numpy.typing as npt
 from omegaconf import DictConfig
 
 from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.lidar.lidar import LiDARType
+from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
 DATASET_PATHS: DictConfig = get_dataset_paths()

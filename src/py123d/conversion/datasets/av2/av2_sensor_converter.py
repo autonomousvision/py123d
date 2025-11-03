@@ -21,18 +21,18 @@ from py123d.conversion.datasets.av2.utils.av2_helper import (
 )
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.registry.lidar_index_registry import AVSensorLidarIndex
+from py123d.conversion.registry.lidar_index_registry import AVSensorLiDARIndex
 from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.maps.map_metadata import MapMetadata
 from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.camera.pinhole_camera import (
+from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
+from py123d.datatypes.sensors.pinhole_camera import (
     PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
 )
-from py123d.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import (
@@ -118,7 +118,7 @@ class AV2SensorConverter(AbstractDatasetConverter):
             location=map_metadata.location,
             timestep_seconds=0.1,
             vehicle_parameters=get_av2_ford_fusion_hybrid_parameters(),
-            camera_metadata=_get_av2_camera_metadata(source_log_path, self.dataset_converter_config),
+            pinhole_camera_metadata=_get_av2_pinhole_camera_metadata(source_log_path, self.dataset_converter_config),
             lidar_metadata=_get_av2_lidar_metadata(source_log_path, self.dataset_converter_config),
             map_metadata=map_metadata,
         )
@@ -151,7 +151,7 @@ class AV2SensorConverter(AbstractDatasetConverter):
                     timestamp=TimePoint.from_ns(int(lidar_timestamp_ns)),
                     ego_state=ego_state,
                     box_detections=_extract_av2_sensor_box_detections(annotations_df, lidar_timestamp_ns, ego_state),
-                    cameras=_extract_av2_sensor_camera(
+                    pinhole_cameras=_extract_av2_sensor_pinhole_cameras(
                         lidar_timestamp_ns,
                         egovehicle_se3_sensor_df,
                         synchronization_df,
@@ -185,27 +185,25 @@ def _get_av2_sensor_map_metadata(split: str, source_log_path: Path) -> MapMetada
     )
 
 
-def _get_av2_camera_metadata(
+def _get_av2_pinhole_camera_metadata(
     source_log_path: Path, dataset_converter_config: DatasetConverterConfig
 ) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
 
-    camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
-
-    if dataset_converter_config.include_cameras:
+    pinhole_camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
+    if dataset_converter_config.include_pinhole_cameras:
         intrinsics_file = source_log_path / "calibration" / "intrinsics.feather"
         intrinsics_df = pd.read_feather(intrinsics_file)
         for _, row in intrinsics_df.iterrows():
             row = row.to_dict()
             camera_type = AV2_CAMERA_TYPE_MAPPING[row["sensor_name"]]
-            camera_metadata[camera_type] = PinholeCameraMetadata(
+            pinhole_camera_metadata[camera_type] = PinholeCameraMetadata(
                 camera_type=camera_type,
                 width=row["width_px"],
                 height=row["height_px"],
                 intrinsics=PinholeIntrinsics(fx=row["fx_px"], fy=row["fy_px"], cx=row["cx_px"], cy=row["cy_px"]),
                 distortion=PinholeDistortion(k1=row["k1"], k2=row["k2"], p1=0.0, p2=0.0, k3=row["k3"]),
             )
-
-    return camera_metadata
+    return pinhole_camera_metadata
 
 
 def _get_av2_lidar_metadata(
@@ -226,7 +224,7 @@ def _get_av2_lidar_metadata(
         # top lidar:
         metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
             lidar_type=LiDARType.LIDAR_TOP,
-            lidar_index=AVSensorLidarIndex,
+            lidar_index=AVSensorLiDARIndex,
             extrinsic=_row_dict_to_state_se3(
                 calibration_df[calibration_df["sensor_name"] == "up_lidar"].iloc[0].to_dict()
             ),
@@ -234,7 +232,7 @@ def _get_av2_lidar_metadata(
         # down lidar:
         metadata[LiDARType.LIDAR_DOWN] = LiDARMetadata(
             lidar_type=LiDARType.LIDAR_DOWN,
-            lidar_index=AVSensorLidarIndex,
+            lidar_index=AVSensorLiDARIndex,
             extrinsic=_row_dict_to_state_se3(
                 calibration_df[calibration_df["sensor_name"] == "down_lidar"].iloc[0].to_dict()
             ),
@@ -321,7 +319,7 @@ def _extract_av2_sensor_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_ti
     )
 
 
-def _extract_av2_sensor_camera(
+def _extract_av2_sensor_pinhole_cameras(
     lidar_timestamp_ns: int,
     egovehicle_se3_sensor_df: pd.DataFrame,
     synchronization_df: pd.DataFrame,
@@ -333,7 +331,7 @@ def _extract_av2_sensor_camera(
     split = source_log_path.parent.name
     log_id = source_log_path.name
 
-    if dataset_converter_config.include_cameras:
+    if dataset_converter_config.include_pinhole_cameras:
         av2_sensor_data_root = source_log_path.parent.parent
 
         for _, row in egovehicle_se3_sensor_df.iterrows():
@@ -341,15 +339,15 @@ def _extract_av2_sensor_camera(
             if row["sensor_name"] not in AV2_CAMERA_TYPE_MAPPING:
                 continue
 
-            camera_name = row["sensor_name"]
-            camera_type = AV2_CAMERA_TYPE_MAPPING[camera_name]
+            pinhole_camera_name = row["sensor_name"]
+            pinhole_camera_type = AV2_CAMERA_TYPE_MAPPING[pinhole_camera_name]
 
             relative_image_path = find_closest_target_fpath(
                 split=split,
                 log_id=log_id,
                 src_sensor_name="lidar",
                 src_timestamp_ns=lidar_timestamp_ns,
-                target_sensor_name=camera_name,
+                target_sensor_name=pinhole_camera_name,
                 synchronization_df=synchronization_df,
             )
             if relative_image_path is not None:
@@ -359,12 +357,12 @@ def _extract_av2_sensor_camera(
                 # TODO: Adjust for finer IMU timestamps to correct the camera extrinsic.
                 camera_extrinsic = _row_dict_to_state_se3(row)
                 camera_data = None
-                if dataset_converter_config.camera_store_option == "path":
+                if dataset_converter_config.pinhole_camera_store_option == "path":
                     camera_data = str(relative_image_path)
-                elif dataset_converter_config.camera_store_option == "binary":
+                elif dataset_converter_config.pinhole_camera_store_option == "binary":
                     with open(absolute_image_path, "rb") as f:
                         camera_data = f.read()
-                camera_dict[camera_type] = camera_data, camera_extrinsic
+                camera_dict[pinhole_camera_type] = camera_data, camera_extrinsic
 
     return camera_dict
 

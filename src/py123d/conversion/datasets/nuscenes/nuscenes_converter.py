@@ -19,17 +19,17 @@ from py123d.conversion.datasets.nuscenes.utils.nuscenes_constants import (
 )
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.conversion.registry.lidar_index_registry import NuScenesLiDARIndex
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.maps.map_metadata import MapMetadata
 from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.camera.pinhole_camera import (
+from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
+from py123d.datatypes.sensors.pinhole_camera import (
     PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
 )
-from py123d.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
-from py123d.datatypes.sensors.lidar.lidar_index import NuScenesLidarIndex
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_nuscenes_renault_zoe_parameters
@@ -148,7 +148,7 @@ class NuScenesConverter(AbstractDatasetConverter):
             location=log_record["location"],
             timestep_seconds=TARGET_DT,
             vehicle_parameters=get_nuscenes_renault_zoe_parameters(),
-            camera_metadata=_get_nuscenes_camera_metadata(nusc, scene, self.dataset_converter_config),
+            pinhole_camera_metadata=_get_nuscenes_pinhole_camera_metadata(nusc, scene, self.dataset_converter_config),
             lidar_metadata=_get_nuscenes_lidar_metadata(nusc, scene, self.dataset_converter_config),
             map_metadata=_get_nuscenes_map_metadata(log_record["location"]),
         )
@@ -172,7 +172,7 @@ class NuScenesConverter(AbstractDatasetConverter):
                         timestamp=TimePoint.from_us(sample["timestamp"]),
                         ego_state=_extract_nuscenes_ego_state(nusc, sample, can_bus),
                         box_detections=_extract_nuscenes_box_detections(nusc, sample),
-                        cameras=_extract_nuscenes_cameras(
+                        pinhole_cameras=_extract_nuscenes_cameras(
                             nusc=nusc,
                             sample=sample,
                             dataset_converter_config=self.dataset_converter_config,
@@ -192,14 +192,14 @@ class NuScenesConverter(AbstractDatasetConverter):
         gc.collect()
 
 
-def _get_nuscenes_camera_metadata(
+def _get_nuscenes_pinhole_camera_metadata(
     nusc: NuScenes,
     scene: Dict[str, Any],
     dataset_converter_config: DatasetConverterConfig,
 ) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
     camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
 
-    if dataset_converter_config.include_cameras:
+    if dataset_converter_config.include_pinhole_cameras:
         first_sample_token = scene["first_sample_token"]
         first_sample = nusc.get("sample", first_sample_token)
 
@@ -246,7 +246,7 @@ def _get_nuscenes_lidar_metadata(
 
         metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
             lidar_type=LiDARType.LIDAR_TOP,
-            lidar_index=NuScenesLidarIndex,
+            lidar_index=NuScenesLiDARIndex,
             extrinsic=extrinsic,
         )
 
@@ -389,7 +389,7 @@ def _extract_nuscenes_cameras(
 ) -> Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]]:
     camera_dict: Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]] = {}
 
-    if dataset_converter_config.include_cameras:
+    if dataset_converter_config.include_pinhole_cameras:
         for camera_type, camera_channel in NUSCENES_CAMERA_TYPES.items():
             cam_token = sample["data"][camera_channel]
             cam_data = nusc.get("sample_data", cam_token)
@@ -410,9 +410,9 @@ def _extract_nuscenes_cameras(
             cam_path = NUSCENES_DATA_ROOT / cam_data["filename"]
 
             if cam_path.exists() and cam_path.is_file():
-                if dataset_converter_config.camera_store_option == "path":
+                if dataset_converter_config.pinhole_camera_store_option == "path":
                     camera_data = str(cam_path)
-                elif dataset_converter_config.camera_store_option == "binary":
+                elif dataset_converter_config.pinhole_camera_store_option == "binary":
                     with open(cam_path, "rb") as f:
                         camera_data = f.read()
                 else:

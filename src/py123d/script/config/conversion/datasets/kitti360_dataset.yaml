@@ -2,9 +2,17 @@ kitti360_dataset:
   _target_: py123d.conversion.datasets.kitti360.kitti360_converter.Kitti360Converter
   _convert_: 'all'
 
-  splits: ["kitti360"]
+  splits: ["kitti360_train", "kitti360_val", "kitti360_test"]
+
   kitti360_data_root: ${dataset_paths.kitti360_data_root}
 
+  # NOTE: We preprocess detections into cache directory to speed up repeated conversions
+  # The bounding boxes are preprocessed into a per-frame format based on the ego distance and
+  # visibility based on the lidar point cloud.
+  detection_cache_root: ${dataset_paths.kitti360_data_root}/preprocessed_detections
+  detection_radius: 60.0
+
+  # NOTE:
   dataset_converter_config:
     _target_: py123d.conversion.dataset_converter_config.DatasetConverterConfig
     _convert_: 'all'
@@ -21,17 +29,39 @@ kitti360_dataset:
     # Box Detections
     include_box_detections: true
 
-    # Traffic Lights
-    include_traffic_lights: false
+    # Pinhole Cameras
+    include_pinhole_cameras: true
+    pinhole_camera_store_option: "path"
 
-    # Cameras
-    include_cameras: true
-    camera_store_option: "path"
+    # Fisheye Cameras
+    include_fisheye_mei_cameras: false
+    fisheye_mei_camera_store_option: "path"
 
     # LiDARs
     include_lidars: true
     lidar_store_option: "path"
 
-    # Scenario tag / Route
-    include_scenario_tags: false
+    # Not available:
+    include_traffic_lights: false
     include_route: false
+    include_scenario_tags: false
+
+  # NOTE: Pandaset does not have official splits, so we create our own here.
+  # We use 80% of the logs for training, 10% for validation, and 10% for testing.
+  train_sequences:
+    - "2013_05_28_drive_0000_sync"
+    - "2013_05_28_drive_0002_sync"
+    - "2013_05_28_drive_0003_sync"
+
+
+  val_sequences:
+    - "2013_05_28_drive_0004_sync"
+    - "2013_05_28_drive_0005_sync"
+    - "2013_05_28_drive_0006_sync"
+    - "2013_05_28_drive_0007_sync"
+
+  test_sequences:
+    - "2013_05_28_drive_0008_sync"
+    - "2013_05_28_drive_0009_sync"
+    - "2013_05_28_drive_0010_sync"
+    - "2013_05_28_drive_0018_sync"

@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import abc
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.maps.abstract_map import AbstractMap
 from py123d.datatypes.scene.scene_metadata import LogMetadata, SceneExtractionMetadata
-from py123d.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
-from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARType
+from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
+from py123d.datatypes.sensors.lidar import LiDAR, LiDARType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
@@ -54,9 +54,15 @@ class AbstractScene(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_camera_at_iteration(
-        self, iteration: int, camera_type: Union[PinholeCameraType, FisheyeMEICameraType]
-    ) -> Optional[Union[PinholeCamera, FisheyeMEICamera]]:
+    def get_pinhole_camera_at_iteration(
+        self, iteration: int, camera_type: PinholeCameraType
+    ) -> Optional[PinholeCamera]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_fisheye_mei_camera_at_iteration(
+        self, iteration: int, camera_type: FisheyeMEICameraType
+    ) -> Optional[FisheyeMEICamera]:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -81,8 +87,12 @@ class AbstractScene(abc.ABC):
         return self.log_metadata.vehicle_parameters
 
     @property
-    def available_camera_types(self) -> List[Union[PinholeCameraType, FisheyeMEICameraType]]:
-        return list(self.log_metadata.camera_metadata.keys())
+    def available_pinhole_camera_types(self) -> List[PinholeCameraType]:
+        return list(self.log_metadata.pinhole_camera_metadata.keys())
+
+    @property
+    def available_fisheye_mei_camera_types(self) -> List[FisheyeMEICameraType]:
+        return list(self.log_metadata.fisheye_mei_camera_metadata.keys())
 
     @property
     def available_lidar_types(self) -> List[LiDARType]:

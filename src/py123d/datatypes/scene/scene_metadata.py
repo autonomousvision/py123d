@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Dict, Optional, Union
+from typing import Dict, Optional
 
 import py123d
 from py123d.datatypes.maps.map_metadata import MapMetadata
-from py123d.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICameraMetadata, FisheyeMEICameraType
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraMetadata, PinholeCameraType
-from py123d.datatypes.sensors.lidar.lidar import LiDARMetadata, LiDARType
+from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraMetadata, FisheyeMEICameraType
+from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata, PinholeCameraType
 from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 
 
@@ -21,9 +21,8 @@ class LogMetadata:
     timestep_seconds: float
 
     vehicle_parameters: Optional[VehicleParameters] = None
-    camera_metadata: Union[
-        Dict[PinholeCameraType, PinholeCameraMetadata], Dict[FisheyeMEICameraType, FisheyeMEICameraMetadata]
-    ] = field(default_factory=dict)
+    pinhole_camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = field(default_factory=dict)
+    fisheye_mei_camera_metadata: Dict[FisheyeMEICameraType, FisheyeMEICameraMetadata] = field(default_factory=dict)
     lidar_metadata: Dict[LiDARType, LiDARMetadata] = field(default_factory=dict)
 
     map_metadata: Optional[MapMetadata] = None
@@ -32,23 +31,31 @@ class LogMetadata:
     @classmethod
     def from_dict(cls, data_dict: Dict) -> LogMetadata:
 
+        # Ego Vehicle Parameters
         if data_dict["vehicle_parameters"] is not None:
             data_dict["vehicle_parameters"] = VehicleParameters.from_dict(data_dict["vehicle_parameters"])
 
-        camera_metadata = {}
-        for key, value in data_dict.get("camera_metadata", {}).items():
-            if value.get("mirror_parameter") is not None:
-                camera_type = FisheyeMEICameraType.deserialize(key)
-                camera_metadata[camera_type] = FisheyeMEICameraMetadata.from_dict(value)
-            else:
-                camera_type = PinholeCameraType.deserialize(key)
-                camera_metadata[camera_type] = PinholeCameraMetadata.from_dict(value)
-        data_dict["camera_metadata"] = camera_metadata
+        # Pinhole Camera Metadata
+        pinhole_camera_metadata = {}
+        for key, value in data_dict.get("pinhole_camera_metadata", {}).items():
+            pinhole_camera_metadata[PinholeCameraType.deserialize(key)] = PinholeCameraMetadata.from_dict(value)
+        data_dict["pinhole_camera_metadata"] = pinhole_camera_metadata
 
+        # Fisheye MEI Camera Metadata
+        fisheye_mei_camera_metadata = {}
+        for key, value in data_dict.get("fisheye_mei_camera_metadata", {}).items():
+            fisheye_mei_camera_metadata[FisheyeMEICameraType.deserialize(key)] = FisheyeMEICameraMetadata.from_dict(
+                value
+            )
+        data_dict["fisheye_mei_camera_metadata"] = fisheye_mei_camera_metadata
+
+        # LiDAR Metadata
         data_dict["lidar_metadata"] = {
             LiDARType.deserialize(key): LiDARMetadata.from_dict(value)
             for key, value in data_dict.get("lidar_metadata", {}).items()
         }
+
+        # Map Metadata
         if data_dict["map_metadata"] is not None:
             data_dict["map_metadata"] = MapMetadata.from_dict(data_dict["map_metadata"])
 
@@ -57,7 +64,12 @@ class LogMetadata:
     def to_dict(self) -> Dict:
         data_dict = asdict(self)
         data_dict["vehicle_parameters"] = self.vehicle_parameters.to_dict() if self.vehicle_parameters else None
-        data_dict["camera_metadata"] = {key.serialize(): value.to_dict() for key, value in self.camera_metadata.items()}
+        data_dict["pinhole_camera_metadata"] = {
+            key.serialize(): value.to_dict() for key, value in self.pinhole_camera_metadata.items()
+        }
+        data_dict["fisheye_mei_camera_metadata"] = {
+            key.serialize(): value.to_dict() for key, value in self.fisheye_mei_camera_metadata.items()
+        }
         data_dict["lidar_metadata"] = {key.serialize(): value.to_dict() for key, value in self.lidar_metadata.items()}
         data_dict["map_metadata"] = self.map_metadata.to_dict() if self.map_metadata else None
         return data_dict

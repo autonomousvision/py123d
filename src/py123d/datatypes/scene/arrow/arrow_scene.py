@@ -19,9 +19,9 @@ from py123d.datatypes.scene.arrow.utils.arrow_getters import (
 )
 from py123d.datatypes.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow
 from py123d.datatypes.scene.scene_metadata import LogMetadata, SceneExtractionMetadata
-from py123d.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
-from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARType
+from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
+from py123d.datatypes.sensors.lidar import LiDAR, LiDARType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 
@@ -128,18 +128,31 @@ class ArrowScene(AbstractScene):
             route_lane_group_ids = table["route_lane_group_ids"][self._get_table_index(iteration)].as_py()
         return route_lane_group_ids
 
-    def get_camera_at_iteration(
+    def get_pinhole_camera_at_iteration(
         self, iteration: int, camera_type: Union[PinholeCameraType, FisheyeMEICameraType]
     ) -> Optional[Union[PinholeCamera, FisheyeMEICamera]]:
-        camera: Optional[Union[PinholeCamera, FisheyeMEICamera]] = None
-        if camera_type in self.available_camera_types:
-            camera = get_camera_from_arrow_table(
+        pinhole_camera: Optional[PinholeCamera] = None
+        if camera_type in self.available_pinhole_camera_types:
+            pinhole_camera = get_camera_from_arrow_table(
                 self._get_recording_table(),
                 self._get_table_index(iteration),
                 camera_type,
                 self.log_metadata,
             )
-        return camera
+        return pinhole_camera
+
+    def get_fisheye_mei_camera_at_iteration(
+        self, iteration: int, camera_type: FisheyeMEICameraType
+    ) -> Optional[FisheyeMEICamera]:
+        fisheye_mei_camera: Optional[FisheyeMEICamera] = None
+        if camera_type in self.available_pinhole_camera_types:
+            fisheye_mei_camera = get_camera_from_arrow_table(
+                self._get_recording_table(),
+                self._get_table_index(iteration),
+                camera_type,
+                self.log_metadata,
+            )
+        return fisheye_mei_camera
 
     def get_lidar_at_iteration(self, iteration: int, lidar_type: LiDARType) -> Optional[LiDAR]:
         lidar: Optional[LiDAR] = None

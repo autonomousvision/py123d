@@ -12,30 +12,27 @@ pandaset_dataset:
     force_log_conversion: ${force_log_conversion}
     force_map_conversion: ${force_map_conversion}
 
-    # Map
-    include_map: false
-
     # Ego
     include_ego: true
 
     # Box Detections
     include_box_detections: true
 
-    # Traffic Lights
-    include_traffic_lights: false
-
-    # Cameras
-    include_cameras: true
-    camera_store_option: "binary" # "path", "binary", "mp4"
+    # Pinhole Cameras
+    include_pinhole_cameras: true
+    pinhole_camera_store_option: "path"
 
     # LiDARs
     include_lidars: true
-    lidar_store_option: "binary" # "path", "path_merged", "binary"
+    lidar_store_option: "path"
 
-    # Scenario tag / Route
-    # NOTE: These are only supported for nuPlan. Consider removing or expanding support.
+    # Not available:
+    include_map: false
+    include_fisheye_mei_cameras: false
+    include_traffic_lights: false
     include_scenario_tags: false
     include_route: false
+
 
   # NOTE: Pandaset does not have official splits, so we create our own here.
   # We use 80% of the logs for training, 10% for validation, and 10% for testing.

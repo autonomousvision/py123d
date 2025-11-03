@@ -15,9 +15,9 @@ from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
 from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICameraType
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCameraType
-from py123d.datatypes.sensors.lidar.lidar import LiDARType
+from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraType
+from py123d.datatypes.sensors.lidar import LiDARType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3, EgoStateSE3Index
 from py123d.geometry import BoundingBoxSE3Index, StateSE3, StateSE3Index, Vector3DIndex
@@ -84,7 +84,8 @@ class ArrowLogWriter(AbstractLogWriter):
         ego_state: Optional[EgoStateSE3] = None,
         box_detections: Optional[BoxDetectionWrapper] = None,
         traffic_lights: Optional[TrafficLightDetectionWrapper] = None,
-        cameras: Optional[Dict[Union[PinholeCameraType, FisheyeMEICameraType], Tuple[Any, ...]]] = None,
+        pinhole_cameras: Optional[Dict[PinholeCameraType, Tuple[Any, ...]]] = None,
+        fisheye_mei_cameras: Optional[Dict[FisheyeMEICameraType, Tuple[Any, ...]]] = None,
         lidars: Optional[List[LiDARData]] = None,
         scenario_tags: Optional[List[str]] = None,
         route_lane_group_ids: Optional[List[int]] = None,
@@ -159,34 +160,68 @@ class ArrowLogWriter(AbstractLogWriter):
             record_batch_data["traffic_light_types"] = [traffic_light_types]
 
         # --------------------------------------------------------------------------------------------------------------
-        # Cameras
+        # Pinhole Cameras
         # --------------------------------------------------------------------------------------------------------------
-        if self._dataset_converter_config.include_cameras:
-            assert cameras is not None, "Camera data is required but not provided."
-            provided_cameras = set(cameras.keys())
-            expected_cameras = set(self._log_metadata.camera_metadata.keys())
-            for camera_type in expected_cameras:
-                camera_name = camera_type.serialize()
+        if self._dataset_converter_config.include_pinhole_cameras:
+            assert pinhole_cameras is not None, "Pinhole camera data is required but not provided."
+            provided_pinhole_cameras = set(pinhole_cameras.keys())
+            expected_pinhole_cameras = set(self._log_metadata.pinhole_camera_metadata.keys())
+            for pinhole_camera_type in expected_pinhole_cameras:
+                pinhole_camera_name = pinhole_camera_type.serialize()
 
                 # NOTE @DanielDauner: Missing cameras are allowed, e.g., for synchronization mismatches.
                 # In this case, we write None/null to the arrow table.
-                camera_data: Optional[Any] = None
-                camera_pose: Optional[StateSE3] = None
-                if camera_type in provided_cameras:
-                    camera_data, camera_pose = cameras[camera_type]
+                pinhole_camera_data: Optional[Any] = None
+                pinhole_camera_pose: Optional[StateSE3] = None
+                if pinhole_camera_type in provided_pinhole_cameras:
+                    pinhole_camera_data, pinhole_camera_pose = pinhole_cameras[pinhole_camera_type]
 
                 # TODO: Refactor how camera data handed to the writer.
                 # This should be combined with configurations to write to log, sensor_root, or sensor_root as mp4.
-                if isinstance(camera_data, Path) or isinstance(camera_data, str):
-                    camera_data = str(camera_data)
-                elif isinstance(camera_data, bytes):
-                    camera_data = camera_data
-                elif isinstance(camera_data, np.ndarray):
-                    _, encoded_img = cv2.imencode(".jpg", camera_data)
-                    camera_data = encoded_img.tobytes()
+                if isinstance(pinhole_camera_data, Path) or isinstance(pinhole_camera_data, str):
+                    pinhole_camera_data = str(pinhole_camera_data)
+                elif isinstance(pinhole_camera_data, bytes):
+                    pinhole_camera_data = pinhole_camera_data
+                elif isinstance(pinhole_camera_data, np.ndarray):
+                    _, encoded_img = cv2.imencode(".jpg", pinhole_camera_data)
+                    pinhole_camera_data = encoded_img.tobytes()
 
-                record_batch_data[f"{camera_name}_data"] = [camera_data]
-                record_batch_data[f"{camera_name}_extrinsic"] = [camera_pose.array if camera_pose else None]
+                record_batch_data[f"{pinhole_camera_name}_data"] = [pinhole_camera_data]
+                record_batch_data[f"{pinhole_camera_name}_extrinsic"] = [
+                    pinhole_camera_pose.array if pinhole_camera_pose else None
+                ]
+
+        # --------------------------------------------------------------------------------------------------------------
+        # Fisheye MEI Cameras
+        # --------------------------------------------------------------------------------------------------------------
+        if self._dataset_converter_config.include_fisheye_mei_cameras:
+            assert fisheye_mei_cameras is not None, "Fisheye MEI camera data is required but not provided."
+            provided_fisheye_mei_cameras = set(fisheye_mei_cameras.keys())
+            expected_fisheye_mei_cameras = set(self._log_metadata.fisheye_mei_camera_metadata.keys())
+            for fisheye_mei_camera_type in expected_fisheye_mei_cameras:
+                fisheye_mei_camera_name = fisheye_mei_camera_type.serialize()
+
+                # NOTE @DanielDauner: Missing cameras are allowed, e.g., for synchronization mismatches.
+                # In this case, we write None/null to the arrow table.
+                fisheye_mei_camera_data: Optional[Any] = None
+                fisheye_mei_camera_pose: Optional[StateSE3] = None
+                if fisheye_mei_camera_type in provided_fisheye_mei_cameras:
+                    fisheye_mei_camera_data, fisheye_mei_camera_pose = fisheye_mei_cameras[fisheye_mei_camera_type]
+
+                # TODO: Refactor how camera data handed to the writer.
+                # This should be combined with configurations to write to log, sensor_root, or sensor_root as mp4.
+                if isinstance(fisheye_mei_camera_data, Path) or isinstance(fisheye_mei_camera_data, str):
+                    fisheye_mei_camera_data = str(fisheye_mei_camera_data)
+                elif isinstance(fisheye_mei_camera_data, bytes):
+                    fisheye_mei_camera_data = fisheye_mei_camera_data
+                elif isinstance(fisheye_mei_camera_data, np.ndarray):
+                    _, encoded_img = cv2.imencode(".jpg", fisheye_mei_camera_data)
+                    fisheye_mei_camera_data = encoded_img.tobytes()
+
+                record_batch_data[f"{fisheye_mei_camera_name}_data"] = [fisheye_mei_camera_data]
+                record_batch_data[f"{fisheye_mei_camera_name}_extrinsic"] = [
+                    fisheye_mei_camera_pose.array if fisheye_mei_camera_pose else None
+                ]
 
         # --------------------------------------------------------------------------------------------------------------
         # LiDARs
@@ -286,21 +321,44 @@ class ArrowLogWriter(AbstractLogWriter):
             )
 
         # --------------------------------------------------------------------------------------------------------------
-        # Cameras
+        # Pinhole Cameras
         # --------------------------------------------------------------------------------------------------------------
-        if dataset_converter_config.include_cameras:
-            for camera_type in log_metadata.camera_metadata.keys():
-                camera_name = camera_type.serialize()
+        if dataset_converter_config.include_pinhole_cameras:
+            for pinhole_camera_type in log_metadata.pinhole_camera_metadata.keys():
+                pinhole_camera_name = pinhole_camera_type.serialize()
 
                 # Depending on the storage option, define the schema for camera data
-                if dataset_converter_config.camera_store_option == "path":
-                    schema_list.append((f"{camera_name}_data", pa.string()))
+                if dataset_converter_config.pinhole_camera_store_option == "path":
+                    schema_list.append((f"{pinhole_camera_name}_data", pa.string()))
 
-                elif dataset_converter_config.camera_store_option == "binary":
-                    schema_list.append((f"{camera_name}_data", pa.binary()))
+                elif dataset_converter_config.pinhole_camera_store_option == "binary":
+                    schema_list.append((f"{pinhole_camera_name}_data", pa.binary()))
+
+                elif dataset_converter_config.pinhole_camera_store_option == "mp4":
+                    raise NotImplementedError("MP4 format is not yet supported, but planned for future releases.")
 
                 # Add camera pose
-                schema_list.append((f"{camera_name}_extrinsic", pa.list_(pa.float64(), len(StateSE3Index))))
+                schema_list.append((f"{pinhole_camera_name}_extrinsic", pa.list_(pa.float64(), len(StateSE3Index))))
+
+        # --------------------------------------------------------------------------------------------------------------
+        # Fisheye MEI Cameras
+        # --------------------------------------------------------------------------------------------------------------
+        if dataset_converter_config.include_fisheye_mei_cameras:
+            for fisheye_mei_camera_type in log_metadata.fisheye_mei_camera_metadata.keys():
+                fisheye_mei_camera_name = fisheye_mei_camera_type.serialize()
+
+                # Depending on the storage option, define the schema for camera data
+                if dataset_converter_config.fisheye_mei_camera_store_option == "path":
+                    schema_list.append((f"{fisheye_mei_camera_name}_data", pa.string()))
+
+                elif dataset_converter_config.fisheye_mei_camera_store_option == "binary":
+                    schema_list.append((f"{fisheye_mei_camera_name}_data", pa.binary()))
+
+                elif dataset_converter_config.fisheye_mei_camera_store_option == "mp4":
+                    raise NotImplementedError("MP4 format is not yet supported, but planned for future releases.")
+
+                # Add camera pose
+                schema_list.append((f"{fisheye_mei_camera_name}_extrinsic", pa.list_(pa.float64(), len(StateSE3Index))))
 
         # --------------------------------------------------------------------------------------------------------------
         # LiDARs

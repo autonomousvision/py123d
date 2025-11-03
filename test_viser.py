@@ -4,7 +4,7 @@ from py123d.datatypes.scene.scene_filter import SceneFilter
 from py123d.visualization.viser.viser_viewer import ViserViewer
 
 if __name__ == "__main__":
-    splits = ["kitti360"]
+    splits = ["kitti360_train"]
     # splits = ["nuscenes-mini_val", "nuscenes-mini_train"]
     # splits = ["nuplan-mini_test", "nuplan-mini_train", "nuplan-mini_val"]
     # splits = ["nuplan_private_test"]
@@ -27,7 +27,7 @@ if __name__ == "__main__":
         history_s=0.0,
         timestamp_threshold_s=None,
         shuffle=True,
-        # camera_types=[PinholeCameraType.CAM_F0],
+        # pinhole_camera_types=[PinholeCameraType.CAM_F0],
     )
     scene_builder = ArrowSceneBuilder()
     worker = Sequential()

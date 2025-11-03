@@ -17,9 +17,8 @@ class FisheyeMEICameraType(SerialIntEnum):
     Enum for fisheye cameras in d123.
     """
 
-    # NOTE  Use higher values to avoid conflicts with PinholeCameraType
-    CAM_L = 10
-    CAM_R = 11
+    FCAM_L = 0
+    FCAM_R = 1
 
 
 @dataclass

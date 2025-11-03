@@ -158,10 +158,10 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
 
             # Check if camera data is available for the scene, if specified in filter
             # NOTE: We only check camera availability at the initial index of the scene.
-            if filter.camera_types is not None:
+            if filter.pinhole_camera_types is not None:
                 cameras_available = [
                     recording_table[f"{camera_type.serialize()}_data"][start_idx].as_py() is not None
-                    for camera_type in filter.camera_types
+                    for camera_type in filter.pinhole_camera_types
                 ]
                 if not all(cameras_available):
                     continue

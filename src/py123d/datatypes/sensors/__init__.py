@@ -1,4 +1,4 @@
-from py123d.datatypes.sensors.camera.pinhole_camera import (
+from py123d.datatypes.sensors.pinhole_camera import (
     PinholeCameraType,
     PinholeCamera,
     PinholeIntrinsicsIndex,
@@ -6,4 +6,17 @@ from py123d.datatypes.sensors.camera.pinhole_camera import (
     PinholeDistortionIndex,
     PinholeDistortion,
     PinholeCameraMetadata,
+)
+from py123d.datatypes.sensors.fisheye_mei_camera import (
+    FisheyeMEICameraType,
+    FisheyeMEICamera,
+    FisheyeMEIDistortionIndex,
+    FisheyeMEIProjectionIndex,
+    FisheyeMEIProjection,
+    FisheyeMEICameraMetadata,
+)
+from py123d.datatypes.sensors.lidar import (
+    LiDARType,
+    LiDARMetadata,
+    LiDAR,
 )

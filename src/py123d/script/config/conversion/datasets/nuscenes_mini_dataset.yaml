@@ -24,13 +24,16 @@ nuscenes_dataset:
     # Box Detections
     include_box_detections: true
 
-    # Traffic Lights
-    include_traffic_lights: false
+    # Pinhole Cameras
+    include_pinhole_cameras: true
+    pinhole_camera_store_option: "path"
 
-    # Cameras
-    include_cameras: true
-    camera_store_option: "binary"
-
-    #lidar
+    # LiDARs
     include_lidars: true
-    lidar_store_option: "binary"
+    lidar_store_option: "path"
+
+    # Not available:
+    include_fisheye_mei_cameras: false
+    include_traffic_lights: false
+    include_scenario_tags: false
+    include_route: false

@@ -28,14 +28,14 @@ class LiDARIndex(IntEnum):
 
 
 @register_lidar_index
-class DefaultLidarIndex(LiDARIndex):
+class DefaultLiDARIndex(LiDARIndex):
     X = 0
     Y = 1
     Z = 2
 
 
 @register_lidar_index
-class NuPlanLidarIndex(LiDARIndex):
+class NuPlanLiDARIndex(LiDARIndex):
     X = 0
     Y = 1
     Z = 2
@@ -44,7 +44,7 @@ class NuPlanLidarIndex(LiDARIndex):
 
 
 @register_lidar_index
-class CARLALidarIndex(LiDARIndex):
+class CARLALiDARIndex(LiDARIndex):
     X = 0
     Y = 1
     Z = 2
@@ -52,7 +52,7 @@ class CARLALidarIndex(LiDARIndex):
 
 
 @register_lidar_index
-class WOPDLidarIndex(LiDARIndex):
+class WOPDLiDARIndex(LiDARIndex):
     RANGE = 0
     INTENSITY = 1
     ELONGATION = 2
@@ -62,7 +62,7 @@ class WOPDLidarIndex(LiDARIndex):
 
 
 @register_lidar_index
-class Kitti360LidarIndex(LiDARIndex):
+class Kitti360LiDARIndex(LiDARIndex):
     X = 0
     Y = 1
     Z = 2
@@ -70,7 +70,7 @@ class Kitti360LidarIndex(LiDARIndex):
 
 
 @register_lidar_index
-class AVSensorLidarIndex(LiDARIndex):
+class AVSensorLiDARIndex(LiDARIndex):
     """Argoverse Sensor LiDAR Indexing Scheme.
 
     NOTE: The LiDAR files also include, 'offset_ns', which we do not currently include.
@@ -83,7 +83,7 @@ class AVSensorLidarIndex(LiDARIndex):
 
 
 @register_lidar_index
-class PandasetLidarIndex(LiDARIndex):
+class PandasetLiDARIndex(LiDARIndex):
     """Pandaset LiDAR Indexing Scheme."""
 
     X = 0
@@ -93,7 +93,7 @@ class PandasetLidarIndex(LiDARIndex):
 
 
 @register_lidar_index
-class NuScenesLidarIndex(LiDARIndex):
+class NuScenesLiDARIndex(LiDARIndex):
     X = 0
     Y = 1
     Z = 2

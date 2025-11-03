@@ -7,6 +7,7 @@ import numpy.typing as npt
 import pyarrow as pa
 from omegaconf import DictConfig
 
+from py123d.conversion.registry.lidar_index_registry import DefaultLiDARIndex
 from py123d.conversion.sensor_io.lidar.draco_lidar_io import load_lidar_from_draco_binary
 from py123d.conversion.sensor_io.lidar.file_lidar_io import load_lidar_pcs_from_file
 from py123d.conversion.sensor_io.lidar.laz_lidar_io import load_lidar_from_laz_binary
@@ -23,10 +24,9 @@ from py123d.datatypes.detections.traffic_light_detections import (
     TrafficLightStatus,
 )
 from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.camera.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
-from py123d.datatypes.sensors.camera.pinhole_camera import PinholeCamera, PinholeCameraType
-from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata, LiDARType
-from py123d.datatypes.sensors.lidar.lidar_index import DefaultLidarIndex
+from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
+from py123d.datatypes.sensors.lidar import LiDAR, LiDARMetadata, LiDARType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
@@ -137,7 +137,7 @@ def get_camera_from_arrow_table(
     else:
         raise NotImplementedError("Only string file paths for camera data are supported.")
 
-    camera_metadata = log_metadata.camera_metadata[camera_type]
+    camera_metadata = log_metadata.pinhole_camera_metadata[camera_type]
     if hasattr(camera_metadata, "mirror_parameter") and camera_metadata.mirror_parameter is not None:
         return FisheyeMEICamera(
             metadata=camera_metadata,
@@ -178,7 +178,7 @@ def get_lidar_from_arrow_table(
                 lidar = LiDAR(
                     metadata=LiDARMetadata(
                         lidar_type=LiDARType.LIDAR_MERGED,
-                        lidar_index=DefaultLidarIndex,
+                        lidar_index=DefaultLiDARIndex,
                         extrinsic=None,
                     ),
                     point_cloud=merged_pc,
@@ -192,7 +192,7 @@ def get_lidar_from_arrow_table(
             lidar_metadata = log_metadata.lidar_metadata[lidar_type]
             if lidar_data.startswith(b"DRACO"):
                 # NOTE: DRACO only allows XYZ compression, so we need to override the lidar index here.
-                lidar_metadata.lidar_index = DefaultLidarIndex
+                lidar_metadata.lidar_index = DefaultLiDARIndex
 
                 lidar = load_lidar_from_draco_binary(lidar_data, lidar_metadata)
             elif lidar_data.startswith(b"LASF"):

@@ -1,5 +1,4 @@
 import copy
-import os
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -11,14 +10,11 @@ from py123d.geometry import BoundingBoxSE3, StateSE3
 from py123d.geometry.polyline import Polyline3D
 from py123d.geometry.rotation import EulerAngles
 
-KITTI360_DATA_ROOT = Path(os.environ["KITTI360_DATA_ROOT"])
-DIR_CALIB = "calibration"
-PATH_CALIB_ROOT: Path = KITTI360_DATA_ROOT / DIR_CALIB
+# KITTI360_DATA_ROOT = Path(os.environ["KITTI360_DATA_ROOT"])
+# DIR_CALIB = "calibration"
+# PATH_CALIB_ROOT: Path = KITTI360_DATA_ROOT / DIR_CALIB
 
-DEFAULT_ROLL = 0.0
-DEFAULT_PITCH = 0.0
-
-kitti3602nuplan_imu_calibration_ideal = np.array(
+KITTI3602NUPLAN_IMU_CALIBRATION = np.array(
     [
         [1, 0, 0, 0],
         [0, -1, 0, 0],
@@ -27,9 +23,6 @@ kitti3602nuplan_imu_calibration_ideal = np.array(
     ],
     dtype=np.float64,
 )
-
-KITTI3602NUPLAN_IMU_CALIBRATION = kitti3602nuplan_imu_calibration_ideal
-
 MAX_N = 1000
 
 
@@ -246,12 +239,12 @@ def parseOpencvMatrix(node):
     return mat
 
 
-def get_lidar_extrinsic() -> np.ndarray:
-    cam2pose_txt = PATH_CALIB_ROOT / "calib_cam_to_pose.txt"
+def get_kitti360_lidar_extrinsic(kitti360_calibration_root: Path) -> np.ndarray:
+    cam2pose_txt = kitti360_calibration_root / "calib_cam_to_pose.txt"
     if not cam2pose_txt.exists():
         raise FileNotFoundError(f"calib_cam_to_pose.txt file not found: {cam2pose_txt}")
 
-    cam2velo_txt = PATH_CALIB_ROOT / "calib_cam_to_velo.txt"
+    cam2velo_txt = kitti360_calibration_root / "calib_cam_to_velo.txt"
     if not cam2velo_txt.exists():
         raise FileNotFoundError(f"calib_cam_to_velo.txt file not found: {cam2velo_txt}")
 

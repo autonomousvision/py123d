@@ -4,7 +4,7 @@ import laspy
 import numpy as np
 import numpy.typing as npt
 
-from py123d.datatypes.sensors.lidar.lidar import LiDAR, LiDARMetadata
+from py123d.datatypes.sensors.lidar import LiDAR, LiDARMetadata
 
 
 def encode_lidar_pc_as_laz_binary(point_cloud: npt.NDArray[np.float32], lidar_metadata: LiDARMetadata) -> bytes:

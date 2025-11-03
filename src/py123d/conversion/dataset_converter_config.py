@@ -23,9 +23,13 @@ class DatasetConverterConfig:
     # Traffic Lights
     include_traffic_lights: bool = False
 
-    # Cameras
-    include_cameras: bool = False
-    camera_store_option: Literal["path", "binary", "mp4"] = "path"
+    # Pinhole Cameras
+    include_pinhole_cameras: bool = False
+    pinhole_camera_store_option: Literal["path", "binary", "mp4"] = "path"
+
+    # Fisheye MEI Cameras
+    include_fisheye_mei_cameras: bool = False
+    fisheye_mei_camera_store_option: Literal["path", "binary", "mp4"] = "path"
 
     # LiDARs
     include_lidars: bool = False
@@ -37,11 +41,13 @@ class DatasetConverterConfig:
     include_route: bool = False
 
     def __post_init__(self):
-        assert self.camera_store_option != "mp4", "MP4 format is not yet supported, but planned for future releases."
-        assert self.camera_store_option in [
+        assert (
+            self.pinhole_camera_store_option != "mp4"
+        ), "MP4 format is not yet supported, but planned for future releases."
+        assert self.pinhole_camera_store_option in [
             "path",
             "binary",
-        ], f"Invalid camera store option, got {self.camera_store_option}."
+        ], f"Invalid camera store option, got {self.pinhole_camera_store_option}."
 
         assert self.lidar_store_option in [
             "path",

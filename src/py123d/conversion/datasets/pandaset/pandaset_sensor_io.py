@@ -10,8 +10,8 @@ from py123d.conversion.datasets.pandaset.utils.pandaset_utlis import (
     read_json,
     read_pkl_gz,
 )
-from py123d.conversion.registry.lidar_index_registry import PandasetLidarIndex
-from py123d.datatypes.sensors.lidar.lidar import LiDARType
+from py123d.conversion.registry.lidar_index_registry import PandasetLiDARIndex
+from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.geometry.transform.transform_se3 import convert_absolute_to_relative_points_3d_array
 
 
@@ -46,9 +46,9 @@ def load_pandaset_lidars_pcs_from_file(
     )
 
     for lidar_type in lidar_pc_dict.keys():
-        lidar_pc_dict[lidar_type][..., PandasetLidarIndex.XYZ] = convert_absolute_to_relative_points_3d_array(
+        lidar_pc_dict[lidar_type][..., PandasetLiDARIndex.XYZ] = convert_absolute_to_relative_points_3d_array(
             ego_pose,
-            lidar_pc_dict[lidar_type][..., PandasetLidarIndex.XYZ],
+            lidar_pc_dict[lidar_type][..., PandasetLiDARIndex.XYZ],
         )
 
     return lidar_pc_dict
