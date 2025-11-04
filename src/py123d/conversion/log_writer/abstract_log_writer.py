@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import numpy as np
+import numpy.typing as npt
+
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
@@ -63,11 +66,20 @@ class LiDARData:
     iteration: Optional[int] = None
     dataset_root: Optional[Union[str, Path]] = None
     relative_path: Optional[Union[str, Path]] = None
+    point_cloud: Optional[npt.NDArray[np.float32]] = None
 
     def __post_init__(self):
-        has_file_path = self.dataset_root is not None and self.relative_path is not None
+        assert (
+            self.has_file_path or self.has_point_cloud
+        ), "Either file path (dataset_root and relative_path) or point_cloud must be provided for LiDARData."
 
-        assert has_file_path, "Either file path (dataset_root and relative_path) must be provided for LiDARData."
+    @property
+    def has_file_path(self) -> bool:
+        return self.dataset_root is not None and self.relative_path is not None
+
+    @property
+    def has_point_cloud(self) -> bool:
+        return self.point_cloud is not None
 
 
 @dataclass

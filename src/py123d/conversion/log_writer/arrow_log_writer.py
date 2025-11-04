@@ -234,6 +234,7 @@ class ArrowLogWriter(AbstractLogWriter):
                 # LiDAR point clouds in a single file. In this case, writing the file path several times is wasteful.
                 # Instead, we store the file path once, and divide the point clouds during reading.
                 assert len(lidars) == 1, "Exactly one LiDAR data must be provided for merged LiDAR storage."
+                assert lidars[0].has_file_path, "LiDAR data must provide file path for merged LiDAR storage."
                 merged_lidar_data: Optional[str] = str(lidars[0].relative_path)
 
                 record_batch_data[f"{LiDARType.LIDAR_MERGED.serialize()}_data"] = [merged_lidar_data]
@@ -393,6 +394,7 @@ class ArrowLogWriter(AbstractLogWriter):
 
         if self._dataset_converter_config.lidar_store_option == "path":
             for lidar_data in lidars:
+                assert lidar_data.has_file_path, "LiDAR data must provide file path for path storage."
                 lidar_data_dict[lidar_data.lidar_type] = str(lidar_data.relative_path)
 
         elif self._dataset_converter_config.lidar_store_option == "binary":
@@ -400,14 +402,17 @@ class ArrowLogWriter(AbstractLogWriter):
 
             # 1. Load point clouds from files
             for lidar_data in lidars:
-                lidar_pcs_dict.update(
-                    load_lidar_pcs_from_file(
-                        lidar_data.relative_path,
-                        self._log_metadata,
-                        lidar_data.iteration,
-                        lidar_data.dataset_root,
+                if lidar_data.has_point_cloud:
+                    lidar_pcs_dict[lidar_data.lidar_type] = lidar_data.point_cloud
+                elif lidar_data.has_file_path:
+                    lidar_pcs_dict.update(
+                        load_lidar_pcs_from_file(
+                            lidar_data.relative_path,
+                            self._log_metadata,
+                            lidar_data.iteration,
+                            lidar_data.dataset_root,
+                        )
                     )
-                )
 
             # 2. Compress the point clouds to bytes
             for lidar_type, point_cloud in lidar_pcs_dict.items():
