@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from py123d.conversion.registry.box_detection_type_registry import WOPDBoxDetectionType
+from py123d.conversion.registry.box_detection_label_registry import WOPDBoxDetectionLabel
 from py123d.datatypes.maps.map_datatypes import LaneType, RoadEdgeType, RoadLineType
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
@@ -12,12 +12,12 @@ WOPD_AVAILABLE_SPLITS: List[str] = [
 ]
 
 # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/label.proto#L63
-WOPD_DETECTION_NAME_DICT: Dict[int, WOPDBoxDetectionType] = {
-    0: WOPDBoxDetectionType.TYPE_UNKNOWN,
-    1: WOPDBoxDetectionType.TYPE_VEHICLE,
-    2: WOPDBoxDetectionType.TYPE_PEDESTRIAN,
-    3: WOPDBoxDetectionType.TYPE_SIGN,
-    4: WOPDBoxDetectionType.TYPE_CYCLIST,
+WOPD_DETECTION_NAME_DICT: Dict[int, WOPDBoxDetectionLabel] = {
+    0: WOPDBoxDetectionLabel.TYPE_UNKNOWN,
+    1: WOPDBoxDetectionLabel.TYPE_VEHICLE,
+    2: WOPDBoxDetectionLabel.TYPE_PEDESTRIAN,
+    3: WOPDBoxDetectionLabel.TYPE_SIGN,
+    4: WOPDBoxDetectionLabel.TYPE_CYCLIST,
 }
 
 # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L50

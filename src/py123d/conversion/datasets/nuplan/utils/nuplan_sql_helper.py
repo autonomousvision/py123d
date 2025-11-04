@@ -51,13 +51,13 @@ def get_box_detections_for_lidarpc_token_from_db(log_file: str, token: str) -> L
                 qy=quaternion.qy,
                 qz=quaternion.qz,
             ),
-            length=row["length"],  # nuPlan uses length,
-            width=row["width"],  # width,
-            height=row["height"],  # height
+            length=row["length"],
+            width=row["width"],
+            height=row["height"],
         )
         box_detection = BoxDetectionSE3(
             metadata=BoxDetectionMetadata(
-                box_detection_type=NUPLAN_DETECTION_NAME_DICT[row["category_name"]],
+                label=NUPLAN_DETECTION_NAME_DICT[row["category_name"]],
                 track_token=row["track_token"].hex(),
             ),
             bounding_box_se3=bounding_box,

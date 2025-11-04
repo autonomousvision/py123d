@@ -28,7 +28,7 @@ from py123d.conversion.datasets.kitti360.utils.kitti360_helper import (
 )
 from py123d.conversion.datasets.kitti360.utils.kitti360_labels import (
     BBOX_LABLES_TO_DETECTION_NAME_DICT,
-    KITTI360_DETECTION_NAME_DICT,
+    KIITI360_DETECTION_NAME_DICT,
     kittiId2label,
 )
 
@@ -73,10 +73,10 @@ def _collect_static_objects(kitti360_dataset_root: Path, log_name: str) -> List[
             semanticIdKITTI = int(child.find("semanticId").text)
             name = kittiId2label[semanticIdKITTI].name
         else:
-            lable = child.find("label").text
-            name = BBOX_LABLES_TO_DETECTION_NAME_DICT.get(lable, "unknown")
+            label = child.find("label").text
+            name = BBOX_LABLES_TO_DETECTION_NAME_DICT.get(label, "unknown")
         timestamp = int(child.find("timestamp").text)  # -1 for static objects
-        if child.find("transform") is None or name not in KITTI360_DETECTION_NAME_DICT or timestamp != -1:
+        if child.find("transform") is None or name not in KIITI360_DETECTION_NAME_DICT.keys() or timestamp != -1:
             continue
         obj = KITTI360Bbox3D()
         obj.parseBbox(child)

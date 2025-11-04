@@ -114,7 +114,11 @@ class ArrowScene(AbstractScene):
         )
 
     def get_box_detections_at_iteration(self, iteration: int) -> Optional[BoxDetectionWrapper]:
-        return get_box_detections_from_arrow_table(self._get_recording_table(), self._get_table_index(iteration))
+        return get_box_detections_from_arrow_table(
+            self._get_recording_table(),
+            self._get_table_index(iteration),
+            self.log_metadata,
+        )
 
     def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetectionWrapper]:
         return get_traffic_light_detections_from_arrow_table(

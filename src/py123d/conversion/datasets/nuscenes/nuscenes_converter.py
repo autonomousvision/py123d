@@ -17,6 +17,7 @@ from py123d.conversion.datasets.nuscenes.utils.nuscenes_constants import (
 )
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.conversion.registry.box_detection_label_registry import NuScenesBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import NuScenesLiDARIndex
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.maps.map_metadata import MapMetadata
@@ -153,6 +154,7 @@ class NuScenesConverter(AbstractDatasetConverter):
             location=log_record["location"],
             timestep_seconds=NUSCENES_DT,
             vehicle_parameters=get_nuscenes_renault_zoe_parameters(),
+            box_detection_label_class=NuScenesBoxDetectionLabel,
             pinhole_camera_metadata=_get_nuscenes_pinhole_camera_metadata(nusc, scene, self.dataset_converter_config),
             lidar_metadata=_get_nuscenes_lidar_metadata(nusc, scene, self.dataset_converter_config),
             map_metadata=_get_nuscenes_map_metadata(log_record["location"]),
@@ -357,22 +359,14 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
         bounding_box = BoundingBoxSE3(center, box.wlh[1], box.wlh[0], box.wlh[2])
         # Get detection type
         category = ann["category_name"]
-        det_type = None
-        for key, value in NUSCENES_DETECTION_NAME_DICT.items():
-            if category.startswith(key):
-                det_type = value
-                break
-
-        if det_type is None:
-            print(f"Warning: Unmapped nuScenes category: {category}, skipping")
-            continue
+        label = NUSCENES_DETECTION_NAME_DICT[category]
 
         # Get velocity if available
         velocity = nusc.box_velocity(ann_token)
         velocity_3d = Vector3D(x=velocity[0], y=velocity[1], z=velocity[2] if len(velocity) > 2 else 0.0)
 
         metadata = BoxDetectionMetadata(
-            box_detection_type=det_type,
+            label=label,
             track_token=ann["instance_token"],
             timepoint=TimePoint.from_us(sample["timestamp"]),
             confidence=1.0,  # nuScenes annotations are ground truth

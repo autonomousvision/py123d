@@ -1,6 +1,6 @@
 from typing import Dict, Final, List, Set
 
-from py123d.datatypes.detections.box_detection_types import BoxDetectionType
+from py123d.conversion.registry.box_detection_label_registry import NuPlanBoxDetectionLabel
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightStatus
 from py123d.datatypes.maps.map_datatypes import RoadLineType
 from py123d.datatypes.sensors.lidar import LiDARType
@@ -16,13 +16,13 @@ NUPLAN_TRAFFIC_STATUS_DICT: Final[Dict[str, TrafficLightStatus]] = {
 
 
 NUPLAN_DETECTION_NAME_DICT = {
-    "vehicle": BoxDetectionType.VEHICLE,
-    "bicycle": BoxDetectionType.BICYCLE,
-    "pedestrian": BoxDetectionType.PEDESTRIAN,
-    "traffic_cone": BoxDetectionType.TRAFFIC_CONE,
-    "barrier": BoxDetectionType.BARRIER,
-    "czone_sign": BoxDetectionType.CZONE_SIGN,
-    "generic_object": BoxDetectionType.GENERIC_OBJECT,
+    "vehicle": NuPlanBoxDetectionLabel.VEHICLE,
+    "bicycle": NuPlanBoxDetectionLabel.BICYCLE,
+    "pedestrian": NuPlanBoxDetectionLabel.PEDESTRIAN,
+    "traffic_cone": NuPlanBoxDetectionLabel.TRAFFIC_CONE,
+    "barrier": NuPlanBoxDetectionLabel.BARRIER,
+    "czone_sign": NuPlanBoxDetectionLabel.CZONE_SIGN,
+    "generic_object": NuPlanBoxDetectionLabel.GENERIC_OBJECT,
 }
 
 # https://github.com/motional/nuplan-devkit/blob/e9241677997dd86bfc0bcd44817ab04fe631405b/nuplan/database/nuplan_db_orm/utils.py#L1129-L1135

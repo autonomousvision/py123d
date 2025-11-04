@@ -20,12 +20,13 @@ from py123d.conversion.datasets.kitti360.utils.kitti360_helper import (
 )
 from py123d.conversion.datasets.kitti360.utils.kitti360_labels import (
     BBOX_LABLES_TO_DETECTION_NAME_DICT,
-    KITTI360_DETECTION_NAME_DICT,
+    KIITI360_DETECTION_NAME_DICT,
     kittiId2label,
 )
 from py123d.conversion.datasets.kitti360.utils.preprocess_detection import process_detection
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.conversion.registry.box_detection_label_registry import KITTI360BoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import Kitti360LiDARIndex
 from py123d.datatypes.detections.box_detections import (
     BoxDetectionMetadata,
@@ -240,6 +241,7 @@ class Kitti360Converter(AbstractDatasetConverter):
             log_name=log_name,
             location=log_name,
             timestep_seconds=KITTI360_DT,
+            box_detection_label_class=KITTI360BoxDetectionLabel,
             vehicle_parameters=get_kitti360_vw_passat_parameters(),
             pinhole_camera_metadata=_get_kitti360_pinhole_camera_metadata(
                 self._kitti360_folders,
@@ -566,7 +568,7 @@ def _extract_kitti360_box_detections_all(
     detections_states: List[List[List[float]]] = [[] for _ in range(ts_len)]
     detections_velocity: List[List[List[float]]] = [[] for _ in range(ts_len)]
     detections_tokens: List[List[str]] = [[] for _ in range(ts_len)]
-    detections_types: List[List[int]] = [[] for _ in range(ts_len)]
+    detections_labels: List[List[int]] = [[] for _ in range(ts_len)]
 
     if log_name == "2013_05_28_drive_0004_sync":
         bbox_3d_path = kitti360_folders[DIR_3D_BBOX] / "train_full" / f"{log_name}.xml"
@@ -600,9 +602,9 @@ def _extract_kitti360_box_detections_all(
             semanticIdKITTI = int(child.find("semanticId").text)
             name = kittiId2label[semanticIdKITTI].name
         else:
-            lable = child.find("label").text
-            name = BBOX_LABLES_TO_DETECTION_NAME_DICT.get(lable, "unknown")
-        if child.find("transform") is None or name not in KITTI360_DETECTION_NAME_DICT.keys():
+            label = child.find("label").text
+            name = BBOX_LABLES_TO_DETECTION_NAME_DICT.get(label, "unknown")
+        if child.find("transform") is None or name not in KIITI360_DETECTION_NAME_DICT.keys():
             continue
         obj = KITTI360Bbox3D()
         obj.parseBbox(child)
@@ -618,7 +620,7 @@ def _extract_kitti360_box_detections_all(
                 detections_states[frame].append(obj.get_state_array())
                 detections_velocity[frame].append(np.array([0.0, 0.0, 0.0]))
                 detections_tokens[frame].append(str(obj.globalID))
-                detections_types[frame].append(KITTI360_DETECTION_NAME_DICT[obj.name])
+                detections_labels[frame].append(KIITI360_DETECTION_NAME_DICT[obj.name])
         else:
             global_ID = obj.globalID
             dynamic_objs[global_ID].append(obj)
@@ -655,21 +657,21 @@ def _extract_kitti360_box_detections_all(
             detections_states[frame].append(obj.get_state_array())
             detections_velocity[frame].append(vel)
             detections_tokens[frame].append(str(obj.globalID))
-            detections_types[frame].append(KITTI360_DETECTION_NAME_DICT[obj.name])
+            detections_labels[frame].append(KIITI360_DETECTION_NAME_DICT[obj.name])
 
     box_detection_wrapper_all: List[BoxDetectionWrapper] = []
     for frame in range(ts_len):
         box_detections: List[BoxDetectionSE3] = []
-        for state, velocity, token, detection_type in zip(
+        for state, velocity, token, detection_label in zip(
             detections_states[frame],
             detections_velocity[frame],
             detections_tokens[frame],
-            detections_types[frame],
+            detections_labels[frame],
         ):
             if state is None:
                 break
             detection_metadata = BoxDetectionMetadata(
-                box_detection_type=detection_type,
+                label=detection_label,
                 timepoint=None,
                 track_token=token,
                 confidence=None,

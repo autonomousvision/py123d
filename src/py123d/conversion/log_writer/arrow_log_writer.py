@@ -126,19 +126,19 @@ class ArrowLogWriter(AbstractLogWriter):
             box_detection_state = []
             box_detection_velocity = []
             box_detection_token = []
-            box_detection_type = []
+            box_detection_label = []
 
             for box_detection in box_detections:
                 box_detection_state.append(box_detection.bounding_box.array)
                 box_detection_velocity.append(box_detection.velocity.array)  # TODO: make optional
                 box_detection_token.append(box_detection.metadata.track_token)
-                box_detection_type.append(int(box_detection.metadata.box_detection_type))
+                box_detection_label.append(int(box_detection.metadata.label))
 
             # Add to record batch data
             record_batch_data["box_detection_state"] = [box_detection_state]
             record_batch_data["box_detection_velocity"] = [box_detection_velocity]
             record_batch_data["box_detection_token"] = [box_detection_token]
-            record_batch_data["box_detection_type"] = [box_detection_type]
+            record_batch_data["box_detection_label"] = [box_detection_label]
 
         # --------------------------------------------------------------------------------------------------------------
         # Traffic Lights
@@ -306,7 +306,7 @@ class ArrowLogWriter(AbstractLogWriter):
                     ("box_detection_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
                     ("box_detection_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
                     ("box_detection_token", pa.list_(pa.string())),
-                    ("box_detection_type", pa.list_(pa.int16())),
+                    ("box_detection_label", pa.list_(pa.int16())),
                 ]
             )
 

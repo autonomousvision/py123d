@@ -1,6 +1,6 @@
 from typing import Final, List
 
-from py123d.datatypes.detections.box_detection_types import BoxDetectionType
+from py123d.conversion.registry.box_detection_label_registry import NuScenesBoxDetectionLabel
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 
 NUSCENES_MAPS: List[str] = ["boston-seaport", "singapore-hollandvillage", "singapore-onenorth", "singapore-queenstown"]
@@ -18,34 +18,35 @@ NUSCENES_DT: Final[float] = 0.5
 SORT_BY_TIMESTAMP: Final[bool] = True
 NUSCENES_DETECTION_NAME_DICT = {
     # Vehicles (4+ wheels)
-    "vehicle.car": BoxDetectionType.VEHICLE,
-    "vehicle.truck": BoxDetectionType.VEHICLE,
-    "vehicle.bus.bendy": BoxDetectionType.VEHICLE,
-    "vehicle.bus.rigid": BoxDetectionType.VEHICLE,
-    "vehicle.construction": BoxDetectionType.VEHICLE,
-    "vehicle.emergency.ambulance": BoxDetectionType.VEHICLE,
-    "vehicle.emergency.police": BoxDetectionType.VEHICLE,
-    "vehicle.trailer": BoxDetectionType.VEHICLE,
+    "vehicle.car": NuScenesBoxDetectionLabel.VEHICLE_CAR,
+    "vehicle.truck": NuScenesBoxDetectionLabel.VEHICLE_TRUCK,
+    "vehicle.bus.bendy": NuScenesBoxDetectionLabel.VEHICLE_BUS_BENDY,
+    "vehicle.bus.rigid": NuScenesBoxDetectionLabel.VEHICLE_BUS_RIGID,
+    "vehicle.construction": NuScenesBoxDetectionLabel.VEHICLE_CONSTRUCTION,
+    "vehicle.emergency.ambulance": NuScenesBoxDetectionLabel.VEHICLE_EMERGENCY_AMBULANCE,
+    "vehicle.emergency.police": NuScenesBoxDetectionLabel.VEHICLE_EMERGENCY_POLICE,
+    "vehicle.trailer": NuScenesBoxDetectionLabel.VEHICLE_TRAILER,
     # Bicycles / Motorcycles
-    "vehicle.bicycle": BoxDetectionType.BICYCLE,
-    "vehicle.motorcycle": BoxDetectionType.BICYCLE,
+    "vehicle.bicycle": NuScenesBoxDetectionLabel.VEHICLE_BICYCLE,
+    "vehicle.motorcycle": NuScenesBoxDetectionLabel.VEHICLE_MOTORCYCLE,
     # Pedestrians (all subtypes)
-    "human.pedestrian.adult": BoxDetectionType.PEDESTRIAN,
-    "human.pedestrian.child": BoxDetectionType.PEDESTRIAN,
-    "human.pedestrian.construction_worker": BoxDetectionType.PEDESTRIAN,
-    "human.pedestrian.personal_mobility": BoxDetectionType.PEDESTRIAN,
-    "human.pedestrian.police_officer": BoxDetectionType.PEDESTRIAN,
-    "human.pedestrian.stroller": BoxDetectionType.PEDESTRIAN,
-    "human.pedestrian.wheelchair": BoxDetectionType.PEDESTRIAN,
+    "human.pedestrian.adult": NuScenesBoxDetectionLabel.HUMAN_PEDESTRIAN_ADULT,
+    "human.pedestrian.child": NuScenesBoxDetectionLabel.HUMAN_PEDESTRIAN_CHILD,
+    "human.pedestrian.construction_worker": NuScenesBoxDetectionLabel.HUMAN_PEDESTRIAN_CONSTRUCTION_WORKER,
+    "human.pedestrian.personal_mobility": NuScenesBoxDetectionLabel.HUMAN_PEDESTRIAN_PERSONAL_MOBILITY,
+    "human.pedestrian.police_officer": NuScenesBoxDetectionLabel.HUMAN_PEDESTRIAN_POLICE_OFFICER,
+    "human.pedestrian.stroller": NuScenesBoxDetectionLabel.HUMAN_PEDESTRIAN_STROLLER,
+    "human.pedestrian.wheelchair": NuScenesBoxDetectionLabel.HUMAN_PEDESTRIAN_WHEELCHAIR,
     # Traffic cone / barrier
-    "movable_object.trafficcone": BoxDetectionType.TRAFFIC_CONE,
-    "movable_object.barrier": BoxDetectionType.BARRIER,
+    "movable_object.trafficcone": NuScenesBoxDetectionLabel.MOVABLE_OBJECT_TRAFFICCONE,
+    "movable_object.barrier": NuScenesBoxDetectionLabel.MOVABLE_OBJECT_BARRIER,
     # Generic objects
-    "movable_object.pushable_pullable": BoxDetectionType.GENERIC_OBJECT,
-    "movable_object.debris": BoxDetectionType.GENERIC_OBJECT,
-    "static_object.bicycle_rack": BoxDetectionType.GENERIC_OBJECT,
-    "animal": BoxDetectionType.GENERIC_OBJECT,
+    "movable_object.pushable_pullable": NuScenesBoxDetectionLabel.MOVABLE_OBJECT_PUSHABLE_PULLABLE,
+    "movable_object.debris": NuScenesBoxDetectionLabel.MOVABLE_OBJECT_DEBRIS,
+    "static_object.bicycle_rack": NuScenesBoxDetectionLabel.STATIC_OBJECT_BICYCLE_RACK,
+    "animal": NuScenesBoxDetectionLabel.ANIMAL,
 }
+
 
 NUSCENES_CAMERA_TYPES = {
     PinholeCameraType.PCAM_F0: "CAM_FRONT",

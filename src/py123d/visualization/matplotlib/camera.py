@@ -10,7 +10,7 @@ import numpy.typing as npt
 # from PIL import ImageColor
 from pyquaternion import Quaternion
 
-from py123d.datatypes.detections.box_detection_types import BoxDetectionType
+from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
 from py123d.datatypes.detections.box_detections import BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeIntrinsics
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
@@ -77,8 +77,8 @@ def add_box_detections_to_camera_ax(
 ) -> plt.Axes:
 
     box_detection_array = np.zeros((len(box_detections.box_detections), len(BoundingBoxSE3Index)), dtype=np.float64)
-    detection_types = np.array(
-        [detection.metadata.box_detection_type for detection in box_detections.box_detections], dtype=object
+    default_labels = np.array(
+        [detection.metadata.default_label for detection in box_detections.box_detections], dtype=object
     )
     for idx, box_detection in enumerate(box_detections.box_detections):
         assert isinstance(
@@ -109,8 +109,8 @@ def add_box_detections_to_camera_ax(
     corners_pc_in_fov = corners_pc_in_fov.reshape(-1, 8)
     valid_corners = corners_pc_in_fov.any(-1)
 
-    box_corners, detection_types = box_corners[valid_corners], detection_types[valid_corners]
-    image = _plot_rect_3d_on_img(camera.image.copy(), box_corners, detection_types)
+    box_corners, default_labels = box_corners[valid_corners], default_labels[valid_corners]
+    image = _plot_rect_3d_on_img(camera.image.copy(), box_corners, default_labels)
 
     if return_image:
         # ax.imshow(image)
@@ -211,7 +211,7 @@ def _rotation_3d_in_axis(points: npt.NDArray[np.float32], angles: npt.NDArray[np
 def _plot_rect_3d_on_img(
     image: npt.NDArray[np.float32],
     box_corners: npt.NDArray[np.float32],
-    detection_types: List[BoxDetectionType],
+    labels: List[DefaultBoxDetectionLabel],
     thickness: int = 3,
 ) -> npt.NDArray[np.uint8]:
     """
@@ -238,7 +238,7 @@ def _plot_rect_3d_on_img(
         (6, 7),
     )
     for i in range(len(box_corners)):
-        color = BOX_DETECTION_CONFIG[detection_types[i]].fill_color.rgb
+        color = BOX_DETECTION_CONFIG[labels[i]].fill_color.rgb
         corners = box_corners[i].astype(np.int64)
         for start, end in line_indices:
             cv2.line(

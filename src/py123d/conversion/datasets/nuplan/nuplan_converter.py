@@ -24,6 +24,7 @@ from py123d.conversion.datasets.nuplan.utils.nuplan_sql_helper import (
 )
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.conversion.registry.box_detection_label_registry import NuPlanBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import NuPlanLiDARIndex
 from py123d.datatypes.detections.box_detections import BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetection, TrafficLightDetectionWrapper
@@ -178,6 +179,7 @@ class NuPlanConverter(AbstractDatasetConverter):
             location=nuplan_log_db.log.map_version,
             timestep_seconds=TARGET_DT,
             vehicle_parameters=get_nuplan_chrysler_pacifica_parameters(),
+            box_detection_label_class=NuPlanBoxDetectionLabel,
             pinhole_camera_metadata=_get_nuplan_camera_metadata(
                 source_log_path, self._nuplan_sensor_root, self.dataset_converter_config
             ),

@@ -5,7 +5,7 @@ import numpy.typing as npt
 import trimesh
 import viser
 
-from py123d.datatypes.detections.box_detection_types import BoxDetectionType
+from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry.geometry_index import BoundingBoxSE3Index, Corners3DIndex, StateSE3Index
@@ -74,7 +74,7 @@ def _get_bounding_box_meshes(scene: AbstractScene, iteration: int, initial_ego_s
 
     # Load boxes to visualize, including ego vehicle at the last position
     boxes = [bd.bounding_box_se3 for bd in box_detections.box_detections] + [ego_vehicle_state.bounding_box_se3]
-    boxes_type = [bd.metadata.box_detection_type for bd in box_detections.box_detections] + [BoxDetectionType.EGO]
+    boxes_labels = [bd.metadata.default_label for bd in box_detections.box_detections] + [DefaultBoxDetectionLabel.EGO]
 
     # create meshes for all boxes
     box_se3_array = np.array([box.array for box in boxes])
@@ -84,8 +84,8 @@ def _get_bounding_box_meshes(scene: AbstractScene, iteration: int, initial_ego_s
 
     # Create colors for each box based on detection type
     box_colors = []
-    for box_type in boxes_type:
-        box_colors.append(BOX_DETECTION_CONFIG[box_type].fill_color.rgba)
+    for box_lable in boxes_labels:
+        box_colors.append(BOX_DETECTION_CONFIG[box_lable].fill_color.rgba)
 
     # Convert to numpy array and repeat for each vertex
     box_colors = np.array(box_colors)
@@ -135,7 +135,7 @@ def _get_bounding_box_outlines(
 
     # Load boxes to visualize, including ego vehicle at the last position
     boxes = [bd.bounding_box_se3 for bd in box_detections.box_detections] + [ego_vehicle_state.bounding_box_se3]
-    boxes_type = [bd.metadata.box_detection_type for bd in box_detections.box_detections] + [BoxDetectionType.EGO]
+    boxes_labels = [bd.metadata.default_label for bd in box_detections.box_detections] + [DefaultBoxDetectionLabel.EGO]
 
     # Create lines for all boxes
     box_se3_array = np.array([box.array for box in boxes])
@@ -145,8 +145,8 @@ def _get_bounding_box_outlines(
 
     # Create colors for all boxes
     box_colors = np.zeros(box_outlines.shape, dtype=np.float32)
-    for i, box_type in enumerate(boxes_type):
-        box_colors[i, ...] = BOX_DETECTION_CONFIG[box_type].fill_color.rgb_norm
+    for i, box_label in enumerate(boxes_labels):
+        box_colors[i, ...] = BOX_DETECTION_CONFIG[box_label].fill_color.rgb_norm
 
     box_outlines = box_outlines.reshape(-1, *box_outlines.shape[2:])
     box_colors = box_colors.reshape(-1, *box_colors.shape[2:])
