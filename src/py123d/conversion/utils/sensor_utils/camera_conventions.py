@@ -79,6 +79,14 @@ def convert_camera_convention(
             ],
             dtype=np.float64,
         ).T,
+        (CameraConvention.pZmYpX, CameraConvention.pXpZmY): np.array(
+            [
+                [0.0, 0.0, 1.0],  # new X = old Z (right)
+                [-1.0, 0.0, 0.0],  # new Y = old -X (down)
+                [0.0, -1.0, 0.0],  # new Z = old -Y (forward)
+            ],
+            dtype=np.float64,
+        ).T,
     }
 
     pose_transformation = from_pose.transformation_matrix.copy()
