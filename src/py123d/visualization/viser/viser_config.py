@@ -46,15 +46,19 @@ class ViserConfig:
     theme_show_share_button: bool = True
     theme_brand_color: Optional[Tuple[int, int, int]] = ELLIS_5[0].rgb
 
+    # Play Controls
+    is_playing: bool = False
+    playback_speed: float = 1.0  # Multiplier for real-time speed
+
     # Map
     map_visible: bool = True
-    map_radius: float = 100.0  # [m]
+    map_radius: float = 500.0  # [m]
     map_non_road_z_offset: float = 0.1  # small z-translation to place crosswalks, parking, etc. on top of the road
     map_requery: bool = True  # Re-query map when ego vehicle moves out of current map bounds
 
     # Bounding boxes
     bounding_box_visible: bool = True
-    bounding_box_type: Literal["mesh", "lines"] = "lines"
+    bounding_box_type: Literal["mesh", "lines"] = "mesh"
     bounding_box_line_width: float = 4.0
 
     # Cameras
@@ -74,3 +78,6 @@ class ViserConfig:
     lidar_types: List[LiDARType] = field(default_factory=lambda: all_lidar_types.copy())
     lidar_point_size: float = 0.05
     lidar_point_shape: Literal["square", "diamond", "circle", "rounded", "sparkle"] = "circle"
+
+    # internal use
+    _force_map_update: bool = False

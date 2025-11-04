@@ -29,7 +29,7 @@ def add_map_to_viser_server(
 
         map_trimesh_dict: Optional[Dict[MapLayer, trimesh.Trimesh]] = None
 
-        if len(map_handles) == 0:
+        if len(map_handles) == 0 or viser_config._force_map_update:
             current_ego_state = initial_ego_state
             map_trimesh_dict = _get_map_trimesh_dict(
                 scene,
@@ -38,6 +38,7 @@ def add_map_to_viser_server(
                 viser_config,
             )
             last_query_position = current_ego_state.center_se3.point_3d
+            viser_config._force_map_update = False
 
         elif viser_config.map_requery:
             current_ego_state = scene.get_ego_state_at_iteration(iteration)

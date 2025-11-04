@@ -8,7 +8,6 @@ from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverte
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.conversion.datasets.pandaset.utils.pandaset_constants import (
     PANDASET_BOX_DETECTION_FROM_STR,
-    PANDASET_BOX_DETECTION_TO_DEFAULT,
     PANDASET_CAMERA_DISTORTIONS,
     PANDASET_CAMERA_MAPPING,
     PANDASET_LIDAR_EXTRINSICS,
@@ -25,26 +24,20 @@ from py123d.conversion.datasets.pandaset.utils.pandaset_utlis import (
 )
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.conversion.registry.box_detection_label_registry import PandasetBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import PandasetLiDARIndex
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
-from py123d.datatypes.sensors.pinhole_camera import (
-    PinholeCameraMetadata,
-    PinholeCameraType,
-    PinholeIntrinsics,
-)
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata, PinholeCameraType, PinholeIntrinsics
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import (
     get_pandaset_chrysler_pacifica_parameters,
     rear_axle_se3_to_center_se3,
 )
-from py123d.geometry import BoundingBoxSE3, StateSE3, Vector3D
-from py123d.geometry.geometry_index import BoundingBoxSE3Index, EulerAnglesIndex
-from py123d.geometry.transform.transform_se3 import (
-    convert_absolute_to_relative_se3_array,
-)
+from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, EulerAnglesIndex, StateSE3, Vector3D
+from py123d.geometry.transform.transform_se3 import convert_absolute_to_relative_se3_array
 from py123d.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from py123d.geometry.utils.rotation_utils import get_quaternion_array_from_euler_array
 
@@ -115,6 +108,7 @@ class PandasetConverter(AbstractDatasetConverter):
             location=None,  # TODO: Add location information.
             timestep_seconds=0.1,
             vehicle_parameters=get_pandaset_chrysler_pacifica_parameters(),
+            box_detection_label_class=PandasetBoxDetectionLabel,
             pinhole_camera_metadata=_get_pandaset_camera_metadata(source_log_path, self.dataset_converter_config),
             lidar_metadata=_get_pandaset_lidar_metadata(source_log_path, self.dataset_converter_config),
             map_metadata=None,  # NOTE: Pandaset does not have maps.
@@ -311,8 +305,7 @@ def _extract_pandaset_box_detections(
         if sensor_ids[box_idx] == 1 and sibling_ids[box_idx] in top_lidar_uuids:
             continue
 
-        pandaset_box_detection_type = PANDASET_BOX_DETECTION_FROM_STR[box_label_names[box_idx]]
-        box_detection_type = PANDASET_BOX_DETECTION_TO_DEFAULT[pandaset_box_detection_type]
+        pandaset_box_detection_label = PANDASET_BOX_DETECTION_FROM_STR[box_label_names[box_idx]]
 
         # Convert coordinates to ISO 8855
         # NOTE: This would be faster over a batch operation.
@@ -322,7 +315,7 @@ def _extract_pandaset_box_detections(
 
         box_detection_se3 = BoxDetectionSE3(
             metadata=BoxDetectionMetadata(
-                box_detection_type=box_detection_type,
+                label=pandaset_box_detection_label,
                 track_token=box_uuids[box_idx],
             ),
             bounding_box_se3=BoundingBoxSE3.from_array(box_se3_array[box_idx]),

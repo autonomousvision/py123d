@@ -5,6 +5,8 @@
 
 from collections import namedtuple
 
+from py123d.conversion.registry.box_detection_label_registry import KITTI360BoxDetectionLabel
+
 # --------------------------------------------------------------------------------
 # Definitions
 # --------------------------------------------------------------------------------
@@ -161,8 +163,6 @@ def assureSingleInstanceName(name):
     return name
 
 
-from py123d.datatypes.detections.box_detection_types import BoxDetectionType
-
 BBOX_LABLES_TO_DETECTION_NAME_DICT = {
     "car": "car",
     "truck": "truck",
@@ -176,42 +176,33 @@ BBOX_LABLES_TO_DETECTION_NAME_DICT = {
     "trafficSign": "traffic sign",
     "rider": "rider",
     "caravan": "caravan",
+    "box": "box",
+    "lamp": "lamp",
+    "pole": "pole",
+    "smallpole": "smallpole",
+    "train": "train",
+    "trashBin": "trash bin",
+    "vendingMachine": "vending machine",
 }
 
-KITTI360_DETECTION_NAME_DICT = {
-    "traffic light": BoxDetectionType.SIGN,
-    "traffic sign": BoxDetectionType.SIGN,
-    "person": BoxDetectionType.PEDESTRIAN,
-    "rider": BoxDetectionType.BICYCLE,
-    "car": BoxDetectionType.VEHICLE,
-    "truck": BoxDetectionType.VEHICLE,
-    "bus": BoxDetectionType.VEHICLE,
-    "caravan": BoxDetectionType.VEHICLE,
-    "trailer": BoxDetectionType.VEHICLE,
-    "train": BoxDetectionType.VEHICLE,
-    "motorcycle": BoxDetectionType.BICYCLE,
-    "bicycle": BoxDetectionType.BICYCLE,
-    "stop": BoxDetectionType.SIGN,
+KIITI360_DETECTION_NAME_DICT = {
+    "bicycle": KITTI360BoxDetectionLabel.BICYCLE,
+    "box": KITTI360BoxDetectionLabel.BOX,
+    "bus": KITTI360BoxDetectionLabel.BUS,
+    "car": KITTI360BoxDetectionLabel.CAR,
+    "caravan": KITTI360BoxDetectionLabel.CARAVAN,
+    "lamp": KITTI360BoxDetectionLabel.LAMP,
+    "motorcycle": KITTI360BoxDetectionLabel.MOTORCYCLE,
+    "person": KITTI360BoxDetectionLabel.PERSON,
+    "pole": KITTI360BoxDetectionLabel.POLE,
+    "rider": KITTI360BoxDetectionLabel.RIDER,
+    "smallpole": KITTI360BoxDetectionLabel.SMALLPOLE,
+    "stop": KITTI360BoxDetectionLabel.STOP,
+    "traffic light": KITTI360BoxDetectionLabel.TRAFFIC_LIGHT,
+    "traffic sign": KITTI360BoxDetectionLabel.TRAFFIC_SIGN,
+    "trailer": KITTI360BoxDetectionLabel.TRAILER,
+    "train": KITTI360BoxDetectionLabel.TRAIN,
+    "trash bin": KITTI360BoxDetectionLabel.TRASH_BIN,
+    "truck": KITTI360BoxDetectionLabel.TRUCK,
+    "vending machine": KITTI360BoxDetectionLabel.VENDING_MACHINE,
 }
-
-# KIITI360_DETECTION_NAME_DICT = {
-#     "pole": DetectionType.GENERIC_OBJECT,
-#     "traffic light": DetectionType.SIGN,
-#     "traffic sign": DetectionType.SIGN,
-#     "person": DetectionType.PEDESTRIAN,
-#     "rider": DetectionType.BICYCLE,
-#     "car": DetectionType.VEHICLE,
-#     "truck": DetectionType.VEHICLE,
-#     "bus": DetectionType.VEHICLE,
-#     "caravan": DetectionType.VEHICLE,
-#     "trailer": DetectionType.VEHICLE,
-#     "train": DetectionType.VEHICLE,
-#     "motorcycle": DetectionType.BICYCLE,
-#     "bicycle": DetectionType.BICYCLE,
-#     "stop": DetectionType.SIGN,
-#     "smallpole": DetectionType.GENERIC_OBJECT,
-#     "lamp": DetectionType.GENERIC_OBJECT,
-#     "trash bin": DetectionType.GENERIC_OBJECT,
-#     "vending machine": DetectionType.GENERIC_OBJECT,
-#     "box": DetectionType.GENERIC_OBJECT,
-# }

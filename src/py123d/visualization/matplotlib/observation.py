@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import shapely.geometry as geom
 
-from py123d.datatypes.detections.box_detection_types import BoxDetectionType
+from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.maps.abstract_map import AbstractMap
@@ -85,7 +85,7 @@ def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionWrapper) 
         # TODO: Optionally, continue on boxes outside of plot.
         # if box_detection.metadata.detection_type == DetectionType.GENERIC_OBJECT:
         #     continue
-        plot_config = BOX_DETECTION_CONFIG[box_detection.metadata.box_detection_type]
+        plot_config = BOX_DETECTION_CONFIG[box_detection.metadata.default_label]
         add_bounding_box_to_ax(ax, box_detection.bounding_box, plot_config)
 
 
@@ -96,7 +96,7 @@ def add_box_future_detections_to_ax(ax: plt.Axes, scene: AbstractScene, iteratio
     agents_poses = {
         agent.metadata.track_token: [agent.center_se3]
         for agent in initial_agents
-        if agent.metadata.box_detection_type == BoxDetectionType.VEHICLE
+        if agent.metadata.default_label == DefaultBoxDetectionLabel.VEHICLE
     }
     frequency = 1
     for iteration in range(iteration + frequency, scene.number_of_iterations, frequency):
@@ -115,10 +115,10 @@ def add_box_future_detections_to_ax(ax: plt.Axes, scene: AbstractScene, iteratio
             ax.plot(
                 poses[i : i + 2, 0],
                 poses[i : i + 2, 1],
-                color=BOX_DETECTION_CONFIG[BoxDetectionType.VEHICLE].fill_color.hex,
+                color=BOX_DETECTION_CONFIG[DefaultBoxDetectionLabel.VEHICLE].fill_color.hex,
                 alpha=alphas[i + 1],
-                linewidth=BOX_DETECTION_CONFIG[BoxDetectionType.VEHICLE].line_width * 5,
-                zorder=BOX_DETECTION_CONFIG[BoxDetectionType.VEHICLE].zorder,
+                linewidth=BOX_DETECTION_CONFIG[DefaultBoxDetectionLabel.VEHICLE].line_width * 5,
+                zorder=BOX_DETECTION_CONFIG[DefaultBoxDetectionLabel.VEHICLE].zorder,
             )
 
 

@@ -103,7 +103,7 @@ def add_lidar_pc_to_viser_server(
     initial_ego_state: EgoStateSE3,
     viser_server: viser.ViserServer,
     viser_config: ViserConfig,
-    lidar_pc_handle: Optional[viser.PointCloudHandle],
+    lidar_pc_handles: Dict[LiDARType, Optional[viser.PointCloudHandle]],
 ) -> None:
     if viser_config.lidar_visible:
 
@@ -151,17 +151,19 @@ def add_lidar_pc_to_viser_server(
         #     wxyz=lidar_extrinsic[StateSE3Index.QUATERNION],
         # )
 
-        if lidar_pc_handle is not None:
-            lidar_pc_handle.points = points
-            lidar_pc_handle.colors = colors
+        if lidar_pc_handles[LiDARType.LIDAR_MERGED] is not None:
+            lidar_pc_handles[LiDARType.LIDAR_MERGED].points = points
+            lidar_pc_handles[LiDARType.LIDAR_MERGED].colors = colors
         else:
-            lidar_pc_handle = viser_server.scene.add_point_cloud(
+            lidar_pc_handles[LiDARType.LIDAR_MERGED] = viser_server.scene.add_point_cloud(
                 "lidar_points",
                 points=points,
                 colors=colors,
                 point_size=viser_config.lidar_point_size,
                 point_shape=viser_config.lidar_point_shape,
             )
+    elif lidar_pc_handles[LiDARType.LIDAR_MERGED] is not None:
+        lidar_pc_handles[LiDARType.LIDAR_MERGED].visible = False
 
 
 def _get_camera_values(

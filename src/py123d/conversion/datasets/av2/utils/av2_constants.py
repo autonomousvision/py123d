@@ -1,47 +1,9 @@
 from typing import Dict, Final, Set
 
-from py123d.conversion.registry.box_detection_type_registry import AV2SensorBoxDetectionType
-from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.maps.map_datatypes import RoadLineType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 
 AV2_SENSOR_SPLITS: Set[str] = {"av2-sensor_train", "av2-sensor_val", "av2-sensor_test"}
-
-
-# Mapping from AV2SensorBoxDetectionType to general DetectionType
-# TODO: Change the detection types. Multiple mistakes, e.g. animals/dogs are not generic objects.
-AV2_TO_DETECTION_TYPE = {
-    AV2SensorBoxDetectionType.ANIMAL: BoxDetectionType.GENERIC_OBJECT,
-    AV2SensorBoxDetectionType.ARTICULATED_BUS: BoxDetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.BICYCLE: BoxDetectionType.BICYCLE,
-    AV2SensorBoxDetectionType.BICYCLIST: BoxDetectionType.PEDESTRIAN,
-    AV2SensorBoxDetectionType.BOLLARD: BoxDetectionType.BARRIER,
-    AV2SensorBoxDetectionType.BOX_TRUCK: BoxDetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.BUS: BoxDetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.CONSTRUCTION_BARREL: BoxDetectionType.BARRIER,
-    AV2SensorBoxDetectionType.CONSTRUCTION_CONE: BoxDetectionType.TRAFFIC_CONE,
-    AV2SensorBoxDetectionType.DOG: BoxDetectionType.GENERIC_OBJECT,
-    AV2SensorBoxDetectionType.LARGE_VEHICLE: BoxDetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.MESSAGE_BOARD_TRAILER: BoxDetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.MOBILE_PEDESTRIAN_CROSSING_SIGN: BoxDetectionType.CZONE_SIGN,
-    AV2SensorBoxDetectionType.MOTORCYCLE: BoxDetectionType.BICYCLE,
-    AV2SensorBoxDetectionType.MOTORCYCLIST: BoxDetectionType.BICYCLE,
-    AV2SensorBoxDetectionType.OFFICIAL_SIGNALER: BoxDetectionType.PEDESTRIAN,
-    AV2SensorBoxDetectionType.PEDESTRIAN: BoxDetectionType.PEDESTRIAN,
-    AV2SensorBoxDetectionType.RAILED_VEHICLE: BoxDetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.REGULAR_VEHICLE: BoxDetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.SCHOOL_BUS: BoxDetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.SIGN: BoxDetectionType.SIGN,
-    AV2SensorBoxDetectionType.STOP_SIGN: BoxDetectionType.SIGN,
-    AV2SensorBoxDetectionType.STROLLER: BoxDetectionType.PEDESTRIAN,
-    AV2SensorBoxDetectionType.TRAFFIC_LIGHT_TRAILER: BoxDetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.TRUCK: BoxDetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.TRUCK_CAB: BoxDetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.VEHICULAR_TRAILER: BoxDetectionType.VEHICLE,
-    AV2SensorBoxDetectionType.WHEELCHAIR: BoxDetectionType.PEDESTRIAN,
-    AV2SensorBoxDetectionType.WHEELED_DEVICE: BoxDetectionType.GENERIC_OBJECT,
-    AV2SensorBoxDetectionType.WHEELED_RIDER: BoxDetectionType.BICYCLE,
-}
 
 
 AV2_CAMERA_TYPE_MAPPING: Dict[str, PinholeCameraType] = {

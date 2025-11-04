@@ -19,6 +19,7 @@ from py123d.conversion.datasets.wopd.utils.wopd_constants import (
 from py123d.conversion.datasets.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.conversion.registry.box_detection_label_registry import WOPDBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import DefaultLiDARIndex, WOPDLiDARIndex
 from py123d.conversion.utils.sensor_utils.camera_conventions import CameraConvention, convert_camera_convention
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
@@ -143,6 +144,7 @@ class WOPDConverter(AbstractDatasetConverter):
             location=str(initial_frame.context.stats.location),
             timestep_seconds=0.1,
             vehicle_parameters=get_wopd_chrysler_pacifica_parameters(),
+            box_detection_label_class=WOPDBoxDetectionLabel,
             pinhole_camera_metadata=_get_wopd_camera_metadata(
                 initial_frame,
                 self.dataset_converter_config,
@@ -362,7 +364,7 @@ def _extract_wopd_box_detections(
         box_detections.append(
             BoxDetectionSE3(
                 metadata=BoxDetectionMetadata(
-                    box_detection_type=detections_types[detection_idx],
+                    label=detections_types[detection_idx],
                     timepoint=None,
                     track_token=detections_token[detection_idx],
                     confidence=None,

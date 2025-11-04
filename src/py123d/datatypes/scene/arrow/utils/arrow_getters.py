@@ -11,7 +11,6 @@ from py123d.conversion.registry.lidar_index_registry import DefaultLiDARIndex
 from py123d.conversion.sensor_io.lidar.draco_lidar_io import load_lidar_from_draco_binary
 from py123d.conversion.sensor_io.lidar.file_lidar_io import load_lidar_pcs_from_file
 from py123d.conversion.sensor_io.lidar.laz_lidar_io import load_lidar_from_laz_binary
-from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.detections.box_detections import (
     BoxDetection,
     BoxDetectionMetadata,
@@ -59,19 +58,24 @@ def get_ego_vehicle_state_from_arrow_table(
     )
 
 
-def get_box_detections_from_arrow_table(arrow_table: pa.Table, index: int) -> BoxDetectionWrapper:
+def get_box_detections_from_arrow_table(
+    arrow_table: pa.Table,
+    index: int,
+    log_metadata: LogMetadata,
+) -> BoxDetectionWrapper:
     timepoint = get_timepoint_from_arrow_table(arrow_table, index)
     box_detections: List[BoxDetection] = []
+    box_detection_label_class = log_metadata.box_detection_label_class
 
-    for detection_state, detection_velocity, detection_token, detection_type in zip(
+    for detection_state, detection_velocity, detection_token, detection_label in zip(
         arrow_table["box_detection_state"][index].as_py(),
         arrow_table["box_detection_velocity"][index].as_py(),
         arrow_table["box_detection_token"][index].as_py(),
-        arrow_table["box_detection_type"][index].as_py(),
+        arrow_table["box_detection_label"][index].as_py(),
     ):
         box_detection = BoxDetectionSE3(
             metadata=BoxDetectionMetadata(
-                box_detection_type=BoxDetectionType(detection_type),
+                label=box_detection_label_class(detection_label),
                 timepoint=timepoint,
                 track_token=detection_token,
                 confidence=None,

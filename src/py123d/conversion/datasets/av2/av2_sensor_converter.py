@@ -7,12 +7,7 @@ import pandas as pd
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.conversion.datasets.av2.av2_map_conversion import convert_av2_map
-from py123d.conversion.datasets.av2.utils.av2_constants import (
-    AV2_CAMERA_TYPE_MAPPING,
-    AV2_SENSOR_SPLITS,
-    AV2_TO_DETECTION_TYPE,
-    AV2SensorBoxDetectionType,
-)
+from py123d.conversion.datasets.av2.utils.av2_constants import AV2_CAMERA_TYPE_MAPPING, AV2_SENSOR_SPLITS
 from py123d.conversion.datasets.av2.utils.av2_helper import (
     build_sensor_dataframe,
     build_synchronization_dataframe,
@@ -21,8 +16,8 @@ from py123d.conversion.datasets.av2.utils.av2_helper import (
 )
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.conversion.registry.box_detection_label_registry import AV2SensorBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import AVSensorLiDARIndex
-from py123d.datatypes.detections.box_detection_types import BoxDetectionType
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.maps.map_metadata import MapMetadata
 from py123d.datatypes.scene.scene_metadata import LogMetadata
@@ -118,6 +113,7 @@ class AV2SensorConverter(AbstractDatasetConverter):
             log_name=source_log_path.name,
             location=map_metadata.location,
             timestep_seconds=0.1,
+            box_detection_label_class=AV2SensorBoxDetectionLabel,
             vehicle_parameters=get_av2_ford_fusion_hybrid_parameters(),
             pinhole_camera_metadata=_get_av2_pinhole_camera_metadata(source_log_path, self.dataset_converter_config),
             lidar_metadata=_get_av2_lidar_metadata(source_log_path, self.dataset_converter_config),
@@ -258,7 +254,7 @@ def _extract_av2_sensor_box_detections(
     detections_state = np.zeros((num_detections, len(BoundingBoxSE3Index)), dtype=np.float64)
     detections_velocity = np.zeros((num_detections, len(Vector3DIndex)), dtype=np.float64)
     detections_token: List[str] = annotations_slice["track_uuid"].tolist()
-    detections_types: List[BoxDetectionType] = []
+    detections_labels: List[AV2SensorBoxDetectionLabel] = []
 
     for detection_idx, (_, row) in enumerate(annotations_slice.iterrows()):
         row = row.to_dict()
@@ -267,8 +263,8 @@ def _extract_av2_sensor_box_detections(
         detections_state[detection_idx, BoundingBoxSE3Index.QUATERNION] = [row["qw"], row["qx"], row["qy"], row["qz"]]
         detections_state[detection_idx, BoundingBoxSE3Index.EXTENT] = [row["length_m"], row["width_m"], row["height_m"]]
 
-        av2_detection_type = AV2SensorBoxDetectionType.deserialize(row["category"])
-        detections_types.append(AV2_TO_DETECTION_TYPE[av2_detection_type])
+        detections_label = AV2SensorBoxDetectionLabel.deserialize(row["category"])
+        detections_labels.append(detections_label)
 
     detections_state[:, BoundingBoxSE3Index.STATE_SE3] = convert_relative_to_absolute_se3_array(
         origin=ego_state_se3.rear_axle_se3,
@@ -280,7 +276,7 @@ def _extract_av2_sensor_box_detections(
         box_detections.append(
             BoxDetectionSE3(
                 metadata=BoxDetectionMetadata(
-                    box_detection_type=detections_types[detection_idx],
+                    label=detections_labels[detection_idx],
                     timepoint=None,
                     track_token=detections_token[detection_idx],
                     confidence=None,

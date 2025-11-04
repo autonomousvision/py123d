@@ -8,7 +8,6 @@ from pyquaternion import Quaternion
 from py123d.common.utils.dependencies import check_dependencies
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
-from py123d.conversion.datasets.nuplan.nuplan_converter import TARGET_DT
 from py123d.conversion.datasets.nuscenes.nuscenes_map_conversion import NUSCENES_MAPS, write_nuscenes_map
 from py123d.conversion.datasets.nuscenes.utils.nuscenes_constants import (
     NUSCENES_CAMERA_TYPES,
@@ -18,6 +17,7 @@ from py123d.conversion.datasets.nuscenes.utils.nuscenes_constants import (
 )
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.conversion.registry.box_detection_label_registry import NuScenesBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import NuScenesLiDARIndex
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.maps.map_metadata import MapMetadata
@@ -77,7 +77,6 @@ class NuScenesConverter(AbstractDatasetConverter):
         self._use_lanelet2 = use_lanelet2
         self._version = version
         self._scene_tokens_per_split: Dict[str, List[str]] = self._collect_scene_tokens()
-        self._target_dt: float = TARGET_DT
 
     def _collect_scene_tokens(self) -> Dict[str, List[str]]:
 
@@ -153,8 +152,9 @@ class NuScenesConverter(AbstractDatasetConverter):
             split=split,
             log_name=scene["name"],
             location=log_record["location"],
-            timestep_seconds=TARGET_DT,
+            timestep_seconds=NUSCENES_DT,
             vehicle_parameters=get_nuscenes_renault_zoe_parameters(),
+            box_detection_label_class=NuScenesBoxDetectionLabel,
             pinhole_camera_metadata=_get_nuscenes_pinhole_camera_metadata(nusc, scene, self.dataset_converter_config),
             lidar_metadata=_get_nuscenes_lidar_metadata(nusc, scene, self.dataset_converter_config),
             map_metadata=_get_nuscenes_map_metadata(log_record["location"]),
@@ -166,7 +166,7 @@ class NuScenesConverter(AbstractDatasetConverter):
         if log_needs_writing:
             can_bus = NuScenesCanBus(dataroot=str(self._nuscenes_data_root))
 
-            step_interval = max(1, int(TARGET_DT / NUSCENES_DT))
+            step_interval = max(1, int(NUSCENES_DT / NUSCENES_DT))
             sample_count = 0
 
             # Traverse all samples in the scene
@@ -359,22 +359,14 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
         bounding_box = BoundingBoxSE3(center, box.wlh[1], box.wlh[0], box.wlh[2])
         # Get detection type
         category = ann["category_name"]
-        det_type = None
-        for key, value in NUSCENES_DETECTION_NAME_DICT.items():
-            if category.startswith(key):
-                det_type = value
-                break
-
-        if det_type is None:
-            print(f"Warning: Unmapped nuScenes category: {category}, skipping")
-            continue
+        label = NUSCENES_DETECTION_NAME_DICT[category]
 
         # Get velocity if available
         velocity = nusc.box_velocity(ann_token)
         velocity_3d = Vector3D(x=velocity[0], y=velocity[1], z=velocity[2] if len(velocity) > 2 else 0.0)
 
         metadata = BoxDetectionMetadata(
-            box_detection_type=det_type,
+            label=label,
             track_token=ann["instance_token"],
             timepoint=TimePoint.from_us(sample["timestamp"]),
             confidence=1.0,  # nuScenes annotations are ground truth
