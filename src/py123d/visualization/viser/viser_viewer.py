@@ -104,6 +104,8 @@ class ViserViewer:
         server_rendering = False
 
         with self._viser_server.gui.add_folder("Playback"):
+            gui_info = self._viser_server.gui.add_markdown(content=_get_scene_info_markdown(scene))
+
             gui_timestep = self._viser_server.gui.add_slider(
                 "Timestep",
                 min=0,
@@ -133,7 +135,7 @@ class ViserViewer:
             )
             modalities_lidar_visible = self._viser_server.gui.add_checkbox("Lidar", self._viser_config.lidar_visible)
 
-        with self._viser_server.gui.add_folder("Options", expand_by_default=False):
+        with self._viser_server.gui.add_folder("Options", expand_by_default=True):
             option_bounding_box_type = self._viser_server.gui.add_dropdown(
                 "Bounding Box Type", ("mesh", "lines"), initial_value=self._viser_config.bounding_box_type
             )
@@ -367,3 +369,13 @@ class ViserViewer:
 
         self._viser_server.flush()
         self.next()
+
+
+def _get_scene_info_markdown(scene: AbstractScene) -> str:
+    markdown = f"""
+    - Dataset: {scene.log_metadata.split}
+    - Location: {scene.log_metadata.location if scene.log_metadata.location else 'N/A'}
+    - UUID: {scene.uuid}
+    """
+    # - UUID: {scene.log_name}
+    return markdown
