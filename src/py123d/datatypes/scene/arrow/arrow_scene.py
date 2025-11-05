@@ -149,7 +149,7 @@ class ArrowScene(AbstractScene):
         self, iteration: int, camera_type: FisheyeMEICameraType
     ) -> Optional[FisheyeMEICamera]:
         fisheye_mei_camera: Optional[FisheyeMEICamera] = None
-        if camera_type in self.available_pinhole_camera_types:
+        if camera_type in self.available_fisheye_mei_camera_types:
             fisheye_mei_camera = get_camera_from_arrow_table(
                 self._get_recording_table(),
                 self._get_table_index(iteration),

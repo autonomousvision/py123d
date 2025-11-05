@@ -150,6 +150,10 @@ class FisheyeMEICameraMetadata:
         )
         return FisheyeMEICameraMetadata(**data_dict)
 
+    @property
+    def aspect_ratio(self) -> float:
+        return self.width / self.height
+
     def to_dict(self) -> Dict[str, Any]:
         data_dict = asdict(self)
         data_dict["camera_type"] = int(self.camera_type)

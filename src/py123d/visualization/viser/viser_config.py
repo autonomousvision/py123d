@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Literal, Optional, Tuple
 
+from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraType
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 from py123d.visualization.color.color import ELLIS_5
@@ -52,7 +53,7 @@ class ViserConfig:
 
     # Map
     map_visible: bool = True
-    map_radius: float = 500.0  # [m]
+    map_radius: float = 200.0  # [m]
     map_non_road_z_offset: float = 0.1  # small z-translation to place crosswalks, parking, etc. on top of the road
     map_requery: bool = True  # Re-query map when ego vehicle moves out of current map bounds
 
@@ -61,17 +62,27 @@ class ViserConfig:
     bounding_box_type: Literal["mesh", "lines"] = "mesh"
     bounding_box_line_width: float = 4.0
 
-    # Cameras
+    # Pinhole Cameras
     # -> Frustum
     camera_frustum_visible: bool = True
     camera_frustum_types: List[PinholeCameraType] = field(default_factory=lambda: all_camera_types.copy())
-    camera_frustum_frustum_scale: float = 1.0
+    camera_frustum_scale: float = 1.0
     camera_frustum_image_scale: float = 0.25  # Resize factor for the camera image shown on the frustum (<1.0 for speed)
 
     # -> GUI
     camera_gui_visible: bool = True
     camera_gui_types: List[PinholeCameraType] = field(default_factory=lambda: [PinholeCameraType.PCAM_F0].copy())
     camera_gui_image_scale: float = 0.25  # Resize factor for the camera image shown in the GUI (<1.0 for speed)
+
+    # Fisheye MEI Cameras
+    # -> Frustum
+    fisheye_frustum_visible: bool = True
+    fisheye_mei_camera_frustum_visible: bool = True
+    fisheye_mei_camera_frustum_types: List[PinholeCameraType] = field(
+        default_factory=lambda: [fcam for fcam in FisheyeMEICameraType]
+    )
+    fisheye_frustum_scale: float = 1.0
+    fisheye_frustum_image_scale: float = 0.25  # Resize factor for the camera image shown on the frustum
 
     # LiDAR
     lidar_visible: bool = True

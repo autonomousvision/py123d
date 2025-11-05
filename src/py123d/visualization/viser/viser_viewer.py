@@ -10,6 +10,7 @@ from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
 
 from py123d.datatypes.maps.map_datatypes import MapLayer
 from py123d.datatypes.scene.abstract_scene import AbstractScene
+from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraType
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
@@ -24,6 +25,7 @@ from py123d.visualization.viser.elements.render_elements import (
     get_ego_3rd_person_view_position,
     get_ego_bev_view_position,
 )
+from py123d.visualization.viser.elements.sensor_elements import add_fisheye_frustums_to_viser_server
 from py123d.visualization.viser.viser_config import ViserConfig
 
 logger = logging.getLogger(__name__)
@@ -249,6 +251,14 @@ class ViserViewer:
                 self._viser_config,
                 camera_gui_handles,
             )
+            add_fisheye_frustums_to_viser_server(
+                scene,
+                gui_timestep.value,
+                initial_ego_state,
+                self._viser_server,
+                self._viser_config,
+                fisheye_frustum_handles,
+            )
             add_lidar_pc_to_viser_server(
                 scene,
                 gui_timestep.value,
@@ -315,6 +325,7 @@ class ViserViewer:
             "lines": None,
         }
         camera_frustum_handles: Dict[PinholeCameraType, viser.CameraFrustumHandle] = {}
+        fisheye_frustum_handles: Dict[FisheyeMEICameraType, viser.CameraFrustumHandle] = {}
         camera_gui_handles: Dict[PinholeCameraType, viser.GuiImageHandle] = {}
         lidar_pc_handles: Dict[LiDARType, Optional[viser.PointCloudHandle]] = {LiDARType.LIDAR_MERGED: None}
         map_handles: Dict[MapLayer, viser.MeshHandle] = {}
@@ -341,6 +352,14 @@ class ViserViewer:
             self._viser_server,
             self._viser_config,
             camera_gui_handles,
+        )
+        add_fisheye_frustums_to_viser_server(
+            scene,
+            gui_timestep.value,
+            initial_ego_state,
+            self._viser_server,
+            self._viser_config,
+            fisheye_frustum_handles,
         )
         add_lidar_pc_to_viser_server(
             scene,

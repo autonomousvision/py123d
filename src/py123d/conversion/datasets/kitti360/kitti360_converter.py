@@ -387,7 +387,7 @@ def _get_kitti360_fisheye_mei_camera_metadata(
                 camera_type=fcam_type,
                 width=fisheye_result[fcam_name]["image_width"],
                 height=fisheye_result[fcam_name]["image_height"],
-                mirror_parameter=fisheye_result[fcam_name]["mirror_parameters"],
+                mirror_parameter=float(fisheye_result[fcam_name]["mirror_parameters"]["xi"]),
                 distortion=distortion,
                 projection=projection,
             )

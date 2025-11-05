@@ -7,8 +7,8 @@ from py123d.visualization.viser.viser_viewer import ViserViewer
 
 if __name__ == "__main__":
     # splits = ["kitti360_train"]
-    # splits = ["nuscenes-mini_val", "nuscenes-mini_train"]
-    splits = ["nuplan-mini_test", "nuplan-mini_train", "nuplan-mini_val"]
+    splits = ["nuscenes-mini_val", "nuscenes-mini_train"]
+    # splits = ["nuplan-mini_test", "nuplan-mini_train", "nuplan-mini_val"]
     # splits = ["nuplan_private_test"]
     # splits = ["carla_test"]
     # splits = ["wopd_val"]

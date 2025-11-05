@@ -141,14 +141,15 @@ def get_camera_from_arrow_table(
     else:
         raise NotImplementedError("Only string file paths for camera data are supported.")
 
-    camera_metadata = log_metadata.pinhole_camera_metadata[camera_type]
-    if hasattr(camera_metadata, "mirror_parameter") and camera_metadata.mirror_parameter is not None:
+    if camera_name.startswith("fcam"):
+        camera_metadata = log_metadata.fisheye_mei_camera_metadata[camera_type]
         return FisheyeMEICamera(
             metadata=camera_metadata,
             image=image,
             extrinsic=extrinsic,
         )
     else:
+        camera_metadata = log_metadata.pinhole_camera_metadata[camera_type]
         return PinholeCamera(
             metadata=camera_metadata,
             image=image,

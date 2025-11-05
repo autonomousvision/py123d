@@ -34,7 +34,7 @@ kitti360_dataset:
     pinhole_camera_store_option: "path"
 
     # Fisheye Cameras
-    include_fisheye_mei_cameras: false
+    include_fisheye_mei_cameras: true
     fisheye_mei_camera_store_option: "path"
 
     # LiDARs
