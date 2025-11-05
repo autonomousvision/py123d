@@ -1,6 +1,6 @@
 import gc
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Union
 
 import numpy as np
 from pyquaternion import Quaternion
@@ -15,7 +15,7 @@ from py123d.conversion.datasets.nuscenes.utils.nuscenes_constants import (
     NUSCENES_DETECTION_NAME_DICT,
     NUSCENES_DT,
 )
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.box_detection_label_registry import NuScenesBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import NuScenesLiDARIndex
@@ -388,8 +388,8 @@ def _extract_nuscenes_cameras(
     sample: Dict[str, Any],
     nuscenes_data_root: Path,
     dataset_converter_config: DatasetConverterConfig,
-) -> Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]]:
-    camera_dict: Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]] = {}
+) -> List[CameraData]:
+    camera_data_list: List[CameraData] = []
 
     if dataset_converter_config.include_pinhole_cameras:
         for camera_type, camera_channel in NUSCENES_CAMERA_TYPES.items():
@@ -409,20 +409,20 @@ def _extract_nuscenes_cameras(
             extrinsic_matrix[:3, 3] = translation
             extrinsic = StateSE3.from_transformation_matrix(extrinsic_matrix)
 
-            cam_path = nuscenes_data_root / cam_data["filename"]
+            cam_path = nuscenes_data_root / str(cam_data["filename"])
 
             if cam_path.exists() and cam_path.is_file():
-                if dataset_converter_config.pinhole_camera_store_option == "path":
-                    camera_data = str(cam_path)
-                elif dataset_converter_config.pinhole_camera_store_option == "binary":
-                    with open(cam_path, "rb") as f:
-                        camera_data = f.read()
-                else:
-                    continue
+                # camera_dict[camera_type] = (camera_data, extrinsic)
+                camera_data_list.append(
+                    CameraData(
+                        camera_type=camera_type,
+                        extrinsic=extrinsic,
+                        relative_path=cam_path.relative_to(nuscenes_data_root),
+                        dataset_root=nuscenes_data_root,
+                    )
+                )
 
-                camera_dict[camera_type] = (camera_data, extrinsic)
-
-    return camera_dict
+    return camera_data_list
 
 
 def _extract_nuscenes_lidars(

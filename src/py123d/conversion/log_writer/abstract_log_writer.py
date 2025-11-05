@@ -3,7 +3,7 @@ from __future__ import annotations
 import abc
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -17,6 +17,7 @@ from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
+from py123d.geometry import StateSE3
 
 
 class AbstractLogWriter(abc.ABC):
@@ -43,8 +44,8 @@ class AbstractLogWriter(abc.ABC):
         ego_state: Optional[EgoStateSE3] = None,
         box_detections: Optional[BoxDetectionWrapper] = None,
         traffic_lights: Optional[TrafficLightDetectionWrapper] = None,
-        pinhole_cameras: Optional[Dict[PinholeCameraType, Tuple[Any, ...]]] = None,
-        fisheye_mei_cameras: Optional[Dict[FisheyeMEICameraType, Tuple[Any, ...]]] = None,
+        pinhole_cameras: Optional[List[CameraData]] = None,
+        fisheye_mei_cameras: Optional[List[CameraData]] = None,
         lidars: Optional[List[LiDARData]] = None,
         scenario_tags: Optional[List[str]] = None,
         route_lane_group_ids: Optional[List[int]] = None,
@@ -85,17 +86,32 @@ class LiDARData:
 @dataclass
 class CameraData:
 
-    camera_type: PinholeCameraType
+    camera_type: Union[PinholeCameraType, FisheyeMEICameraType]
+    extrinsic: StateSE3
 
     timestamp: Optional[TimePoint] = None
     jpeg_binary: Optional[bytes] = None
+    numpy_image: Optional[npt.NDArray[np.uint8]] = None
     dataset_root: Optional[Union[str, Path]] = None
     relative_path: Optional[Union[str, Path]] = None
 
     def __post_init__(self):
-        has_file_path = self.dataset_root is not None and self.relative_path is not None
-        has_jpeg_binary = self.jpeg_binary is not None
-
         assert (
-            has_file_path or has_jpeg_binary
-        ), "Either file path (dataset_root and relative_path) or jpeg_binary must be provided for CameraData."
+            self.has_file_path or self.has_jpeg_binary or self.has_numpy_image
+        ), "Either file path (dataset_root and relative_path) or jpeg_binary or numpy_image must be provided for CameraData."
+
+        if self.has_file_path:
+            absolute_path = Path(self.dataset_root) / self.relative_path
+            assert absolute_path.exists(), f"Camera file not found: {absolute_path}"
+
+    @property
+    def has_file_path(self) -> bool:
+        return self.dataset_root is not None and self.relative_path is not None
+
+    @property
+    def has_jpeg_binary(self) -> bool:
+        return self.jpeg_binary is not None
+
+    @property
+    def has_numpy_image(self) -> bool:
+        return self.numpy_image is not None

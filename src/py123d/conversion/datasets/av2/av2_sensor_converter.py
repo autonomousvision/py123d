@@ -14,7 +14,7 @@ from py123d.conversion.datasets.av2.utils.av2_helper import (
     find_closest_target_fpath,
     get_slice_with_timestamp_ns,
 )
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.box_detection_label_registry import AV2SensorBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import AVSensorLiDARIndex
@@ -322,9 +322,9 @@ def _extract_av2_sensor_pinhole_cameras(
     synchronization_df: pd.DataFrame,
     source_log_path: Path,
     dataset_converter_config: DatasetConverterConfig,
-) -> Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]]:
+) -> List[CameraData]:
 
-    camera_dict: Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]] = {}
+    camera_data_list: List[CameraData] = []
     split = source_log_path.parent.name
     log_id = source_log_path.name
 
@@ -351,17 +351,15 @@ def _extract_av2_sensor_pinhole_cameras(
                 absolute_image_path = av2_sensor_data_root / relative_image_path
                 assert absolute_image_path.exists()
 
-                # TODO: Adjust for finer IMU timestamps to correct the camera extrinsic.
-                camera_extrinsic = _row_dict_to_state_se3(row)
-                camera_data = None
-                if dataset_converter_config.pinhole_camera_store_option == "path":
-                    camera_data = str(relative_image_path)
-                elif dataset_converter_config.pinhole_camera_store_option == "binary":
-                    with open(absolute_image_path, "rb") as f:
-                        camera_data = f.read()
-                camera_dict[pinhole_camera_type] = camera_data, camera_extrinsic
+                camera_data = CameraData(
+                    camera_type=pinhole_camera_type,
+                    extrinsic=_row_dict_to_state_se3(row),
+                    dataset_root=av2_sensor_data_root,
+                    relative_path=relative_image_path,
+                )
+                camera_data_list.append(camera_data)
 
-    return camera_dict
+    return camera_data_list
 
 
 def _extract_av2_sensor_lidars(

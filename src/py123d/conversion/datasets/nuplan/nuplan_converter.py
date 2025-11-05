@@ -22,7 +22,7 @@ from py123d.conversion.datasets.nuplan.utils.nuplan_sql_helper import (
     get_box_detections_for_lidarpc_token_from_db,
     get_nearest_ego_pose_for_timestamp_from_db,
 )
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.box_detection_label_registry import NuPlanBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import NuPlanLiDARIndex
@@ -356,9 +356,9 @@ def _extract_nuplan_cameras(
     source_log_path: Path,
     nuplan_sensor_root: Path,
     dataset_converter_config: DatasetConverterConfig,
-) -> Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]]:
+) -> List[CameraData]:
 
-    camera_dict: Dict[str, Union[str, bytes]] = {}
+    camera_data_list: List[CameraData] = []
 
     if dataset_converter_config.include_pinhole_cameras:
         log_cam_infos = {camera.token: camera for camera in nuplan_log_db.log.cameras}
@@ -395,18 +395,17 @@ def _extract_nuplan_cameras(
                     c2e = img_e2e @ c2img_e
                     extrinsic = StateSE3.from_transformation_matrix(c2e)
 
-                    # Store camera data, either as path or binary
-                    camera_data: Optional[Union[str, bytes]] = None
-                    if dataset_converter_config.pinhole_camera_store_option == "path":
-                        camera_data = str(filename_jpg)
-                    elif dataset_converter_config.pinhole_camera_store_option == "binary":
-                        with open(filename_jpg, "rb") as f:
-                            camera_data = f.read()
-
                     # Store in dictionary
-                    camera_dict[camera_type] = camera_data, extrinsic
+                    camera_data_list.append(
+                        CameraData(
+                            camera_type=camera_type,
+                            extrinsic=extrinsic,
+                            dataset_root=nuplan_sensor_root,
+                            relative_path=filename_jpg.relative_to(nuplan_sensor_root),
+                        )
+                    )
 
-    return camera_dict
+    return camera_data_list
 
 
 def _extract_nuplan_lidars(

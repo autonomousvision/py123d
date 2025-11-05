@@ -41,12 +41,11 @@ class DatasetConverterConfig:
     include_route: bool = False
 
     def __post_init__(self):
-        assert (
-            self.pinhole_camera_store_option != "mp4"
-        ), "MP4 format is not yet supported, but planned for future releases."
+
         assert self.pinhole_camera_store_option in [
             "path",
             "binary",
+            "mp4",
         ], f"Invalid camera store option, got {self.pinhole_camera_store_option}."
 
         assert self.lidar_store_option in [

@@ -30,7 +30,7 @@ wopd_dataset:
     pinhole_camera_store_option: "binary" # "path", "binary", "mp4"
 
     # LiDARs
-    include_lidars: true
+    include_lidars: false
     lidar_store_option: "binary" # "path", "path_merged", "binary"
 
     # Not available:

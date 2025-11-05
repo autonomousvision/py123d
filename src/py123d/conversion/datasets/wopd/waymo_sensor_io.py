@@ -28,7 +28,11 @@ def _get_frame_at_iteration(filepath: Path, iteration: int) -> Optional[dataset_
     return frame
 
 
-def load_jpeg_binary_from_file(tf_record_path: Path, iteration: int, pinhole_camera_type: PinholeCameraType) -> bytes:
+def load_jpeg_binary_from_tf_record_file(
+    tf_record_path: Path,
+    iteration: int,
+    pinhole_camera_type: PinholeCameraType,
+) -> bytes:
     frame = _get_frame_at_iteration(tf_record_path, iteration)
     assert frame is not None, f"Frame at iteration {iteration} not found in Waymo file: {tf_record_path}"
 

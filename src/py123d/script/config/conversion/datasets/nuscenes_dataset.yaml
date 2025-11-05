@@ -26,11 +26,11 @@ nuscenes_dataset:
 
     # Pinhole Cameras
     include_pinhole_cameras: true
-    pinhole_camera_store_option: "path"
+    pinhole_camera_store_option: "binary"
 
     # LiDARs
     include_lidars: true
-    lidar_store_option: "path"
+    lidar_store_option: "binary"
 
     # Not available:
     include_fisheye_mei_cameras: false

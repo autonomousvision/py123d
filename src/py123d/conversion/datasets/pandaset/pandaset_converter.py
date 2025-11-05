@@ -22,7 +22,7 @@ from py123d.conversion.datasets.pandaset.utils.pandaset_utlis import (
     read_pkl_gz,
     rotate_pandaset_pose_to_iso_coordinates,
 )
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.box_detection_label_registry import PandasetBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import PandasetLiDARIndex
@@ -332,9 +332,8 @@ def _extract_pandaset_sensor_camera(
     ego_state_se3: EgoStateSE3,
     camera_poses: Dict[str, List[Dict[str, Dict[str, float]]]],
     dataset_converter_config: DatasetConverterConfig,
-) -> Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]]:
-
-    camera_dict: Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]] = {}
+) -> List[CameraData]:
+    camera_data_list: List[CameraData] = []
     iteration_str = f"{iteration:02d}"
 
     if dataset_converter_config.include_pinhole_cameras:
@@ -346,22 +345,20 @@ def _extract_pandaset_sensor_camera(
 
             camera_pose_dict = camera_poses[camera_name][iteration]
             camera_extrinsic = pandaset_pose_dict_to_state_se3(camera_pose_dict)
-            # camera_extrinsic = rotate_pandaset_pose_to_iso_coordinates(camera_extrinsic)
 
             camera_extrinsic = StateSE3.from_array(
                 convert_absolute_to_relative_se3_array(ego_state_se3.rear_axle_se3, camera_extrinsic.array), copy=True
             )
+            camera_data_list.append(
+                CameraData(
+                    camera_type=camera_type,
+                    extrinsic=camera_extrinsic,
+                    dataset_root=source_log_path.parent,
+                    relative_path=image_abs_path.relative_to(source_log_path.parent),
+                )
+            )
 
-            camera_data = None
-            if dataset_converter_config.pinhole_camera_store_option == "path":
-                pandaset_data_root = source_log_path.parent
-                camera_data = str(image_abs_path.relative_to(pandaset_data_root))
-            elif dataset_converter_config.pinhole_camera_store_option == "binary":
-                with open(image_abs_path, "rb") as f:
-                    camera_data = f.read()
-            camera_dict[camera_type] = camera_data, camera_extrinsic
-
-    return camera_dict
+    return camera_data_list
 
 
 def _extract_pandaset_lidar(

@@ -24,7 +24,7 @@ from py123d.conversion.datasets.kitti360.utils.kitti360_labels import (
     kittiId2label,
 )
 from py123d.conversion.datasets.kitti360.utils.preprocess_detection import process_detection
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.box_detection_label_registry import KITTI360BoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import Kitti360LiDARIndex
@@ -304,12 +304,9 @@ class Kitti360Converter(AbstractDatasetConverter):
                     timestamp=ts_list[valid_idx],
                     ego_state=ego_state_all[idx],
                     box_detections=box_detection_wrapper_all[valid_idx],
-                    traffic_lights=None,
                     pinhole_cameras=pinhole_cameras,
                     fisheye_mei_cameras=fisheye_cameras,
                     lidars=lidars,
-                    scenario_tags=None,
-                    route_lane_group_ids=None,
                 )
 
         log_writer.close()
@@ -724,26 +721,24 @@ def _extract_kitti360_pinhole_cameras(
     camera_calibration: Dict[str, StateSE3],
     kitti360_folders: Dict[str, Path],
     data_converter_config: DatasetConverterConfig,
-) -> Dict[Union[PinholeCameraType, FisheyeMEICameraType], Optional[Tuple[Union[str, bytes], StateSE3]]]:
+) -> List[CameraData]:
 
-    pinhole_camera_dict: Dict[PinholeCameraType, Optional[Tuple[Union[str, bytes], StateSE3]]] = {}
+    pinhole_camera_data_list: List[CameraData] = []
     if data_converter_config.include_pinhole_cameras:
-
         for camera_type, cam_dir_name in KITTI360_PINHOLE_CAMERA_TYPES.items():
             img_path_png = kitti360_folders[DIR_2D_RAW] / log_name / cam_dir_name / "data_rect" / f"{idx:010d}.png"
             camera_extrinsic = camera_calibration[cam_dir_name]
-
             if img_path_png.exists():
-                if data_converter_config.pinhole_camera_store_option == "path":
-                    camera_data = str(img_path_png)
-                elif data_converter_config.pinhole_camera_store_option == "binary":
-                    with open(img_path_png, "rb") as f:
-                        camera_data = f.read()
-            else:
-                camera_data = None
+                pinhole_camera_data_list.append(
+                    CameraData(
+                        camera_type=camera_type,
+                        extrinsic=camera_extrinsic,
+                        dataset_root=kitti360_folders[DIR_ROOT],
+                        relative_path=img_path_png.relative_to(kitti360_folders[DIR_ROOT]),
+                    )
+                )
 
-            pinhole_camera_dict[camera_type] = camera_data, camera_extrinsic
-    return pinhole_camera_dict
+    return pinhole_camera_data_list
 
 
 def _extract_kitti360_fisheye_mei_cameras(
@@ -752,22 +747,23 @@ def _extract_kitti360_fisheye_mei_cameras(
     camera_calibration: Dict[str, StateSE3],
     kitti360_folders: Dict[str, Path],
     data_converter_config: DatasetConverterConfig,
-) -> Dict[Union[PinholeCameraType, FisheyeMEICameraType], Optional[Tuple[Union[str, bytes], StateSE3]]]:
+) -> List[CameraData]:
 
-    fisheye_camera_dict: Dict[FisheyeMEICameraType, Optional[Tuple[Union[str, bytes], StateSE3]]] = {}
-    for camera_type, cam_dir_name in KITTI360_FISHEYE_MEI_CAMERA_TYPES.items():
-        img_path_png = kitti360_folders[DIR_2D_RAW] / log_name / cam_dir_name / "data_rgb" / f"{idx:010d}.png"
-        camera_extrinsic = camera_calibration[cam_dir_name]
-        if img_path_png.exists():
-            if data_converter_config.pinhole_camera_store_option == "path":
-                camera_data = str(img_path_png)
-            elif data_converter_config.pinhole_camera_store_option == "binary":
-                with open(img_path_png, "rb") as f:
-                    camera_data = f.read()
-        else:
-            camera_data = None
-        fisheye_camera_dict[camera_type] = camera_data, camera_extrinsic
-    return fisheye_camera_dict
+    fisheye_camera_data_list: List[CameraData] = []
+    if data_converter_config.include_fisheye_mei_cameras:
+        for camera_type, cam_dir_name in KITTI360_FISHEYE_MEI_CAMERA_TYPES.items():
+            img_path_png = kitti360_folders[DIR_2D_RAW] / log_name / cam_dir_name / "data_rgb" / f"{idx:010d}.png"
+            camera_extrinsic = camera_calibration[cam_dir_name]
+            if img_path_png.exists():
+                fisheye_camera_data_list.append(
+                    CameraData(
+                        camera_type=camera_type,
+                        extrinsic=camera_extrinsic,
+                        dataset_root=kitti360_folders[DIR_ROOT],
+                        relative_path=img_path_png.relative_to(kitti360_folders[DIR_ROOT]),
+                    )
+                )
+    return fisheye_camera_data_list
 
 
 def _load_kitti_360_calibration(kitti_360_data_root: Path) -> Dict[str, StateSE3]:

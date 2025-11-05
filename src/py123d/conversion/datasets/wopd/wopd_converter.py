@@ -17,7 +17,7 @@ from py123d.conversion.datasets.wopd.utils.wopd_constants import (
     WOPD_LIDAR_TYPES,
 )
 from py123d.conversion.datasets.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, LiDARData
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.box_detection_label_registry import WOPDBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import DefaultLiDARIndex, WOPDLiDARIndex
@@ -379,9 +379,9 @@ def _extract_wopd_box_detections(
 
 def _extract_wopd_cameras(
     frame: dataset_pb2.Frame, dataset_converter_config: DatasetConverterConfig
-) -> Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]]:
+) -> List[CameraData]:
 
-    camera_dict: Dict[PinholeCameraType, Tuple[Union[str, bytes], StateSE3]] = {}
+    camera_data_list: List[CameraData] = []
 
     if dataset_converter_config.include_pinhole_cameras:
 
@@ -404,10 +404,15 @@ def _extract_wopd_cameras(
 
         for image_proto in frame.images:
             camera_type = WOPD_CAMERA_TYPES[image_proto.name]
-            camera_bytes: bytes = image_proto.image
-            camera_dict[camera_type] = camera_bytes, camera_extrinsic[camera_type]
+            camera_data_list.append(
+                CameraData(
+                    camera_type=camera_type,
+                    extrinsic=camera_extrinsic[camera_type],
+                    jpeg_binary=image_proto.image,
+                )
+            )
 
-    return camera_dict
+    return camera_data_list
 
 
 def _extract_wopd_lidars(

@@ -28,11 +28,11 @@ nuplan_mini_dataset:
 
     # Pinhole Cameras
     include_pinhole_cameras: true
-    pinhole_camera_store_option: "path" # "path", "binary", "mp4"
+    pinhole_camera_store_option: "binary" # "path", "binary", "mp4"
 
     # LiDARs
     include_lidars: true
-    lidar_store_option: "path_merged" # "path", "path_merged", "binary"
+    lidar_store_option: "binary" # "path", "path_merged", "binary"
 
     # Scenario tag / Route
     include_scenario_tags: true

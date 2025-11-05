@@ -31,11 +31,11 @@ kitti360_dataset:
 
     # Pinhole Cameras
     include_pinhole_cameras: true
-    pinhole_camera_store_option: "path"
+    pinhole_camera_store_option: "binary"
 
     # Fisheye Cameras
     include_fisheye_mei_cameras: true
-    fisheye_mei_camera_store_option: "path"
+    fisheye_mei_camera_store_option: "binary"
 
     # LiDARs
     include_lidars: true
@@ -46,8 +46,6 @@ kitti360_dataset:
     include_route: false
     include_scenario_tags: false
 
-  # NOTE: Pandaset does not have official splits, so we create our own here.
-  # We use 80% of the logs for training, 10% for validation, and 10% for testing.
   train_sequences:
     - "2013_05_28_drive_0000_sync"
     - "2013_05_28_drive_0002_sync"

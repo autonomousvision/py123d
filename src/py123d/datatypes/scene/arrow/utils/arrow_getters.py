@@ -8,6 +8,8 @@ import pyarrow as pa
 from omegaconf import DictConfig
 
 from py123d.conversion.registry.lidar_index_registry import DefaultLiDARIndex
+from py123d.conversion.sensor_io.camera.jpeg_camera_io import decode_image_from_jpeg_binary
+from py123d.conversion.sensor_io.camera.mp4_camera_io import get_mp4_reader_from_path
 from py123d.conversion.sensor_io.lidar.draco_lidar_io import load_lidar_from_draco_binary
 from py123d.conversion.sensor_io.lidar.file_lidar_io import load_lidar_pcs_from_file
 from py123d.conversion.sensor_io.lidar.laz_lidar_io import load_lidar_from_laz_binary
@@ -136,10 +138,13 @@ def get_camera_from_arrow_table(
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     elif isinstance(table_data, bytes):
-        image = cv2.imdecode(np.frombuffer(table_data, np.uint8), cv2.IMREAD_UNCHANGED)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = decode_image_from_jpeg_binary(table_data)
+    elif isinstance(table_data, int):
+        image = _unoptimized_demo_mp4_read(log_metadata, camera_name, table_data)
     else:
-        raise NotImplementedError("Only string file paths for camera data are supported.")
+        raise NotImplementedError(
+            f"Only string file paths, bytes, or int frame indices are supported for camera data, got {type(table_data)}"
+        )
 
     if camera_name.startswith("fcam"):
         camera_metadata = log_metadata.fisheye_mei_camera_metadata[camera_type]
@@ -210,3 +215,16 @@ def get_lidar_from_arrow_table(
             )
 
     return lidar
+
+
+def _unoptimized_demo_mp4_read(log_metadata: LogMetadata, camera_name: str, frame_index: int) -> Optional[np.ndarray]:
+    """A quick and dirty MP4 reader for testing purposes only. Not optimized for performance."""
+    image: Optional[npt.NDArray[np.uint8]] = None
+
+    py123d_sensor_root = Path(DATASET_PATHS.py123d_sensors_root)
+    mp4_path = py123d_sensor_root / log_metadata.split / log_metadata.log_name / f"{camera_name}.mp4"
+    if mp4_path.exists():
+        reader = get_mp4_reader_from_path(str(mp4_path))
+        image = reader.get_frame(frame_index)
+
+    return image
