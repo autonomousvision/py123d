@@ -5,6 +5,7 @@ from omegaconf import DictConfig
 
 from py123d.script.builders.scene_builder_builder import build_scene_builder
 from py123d.script.builders.scene_filter_builder import build_scene_filter
+from py123d.script.builders.viser_config_builder import build_viser_config
 from py123d.script.run_conversion import build_worker
 from py123d.script.utils.dataset_path_utils import setup_dataset_paths
 from py123d.visualization.viser.viser_viewer import ViserViewer
@@ -31,8 +32,11 @@ def main(cfg: DictConfig) -> None:
     # Get scenes from scene builder
     scenes = scene_builder.get_scenes(scene_filter, worker=worker)
 
+    # Build Viser config
+    viser_config = build_viser_config(cfg.viser_config)
+
     # Launch Viser viewer with the scenes
-    ViserViewer(scenes=scenes)
+    ViserViewer(scenes=scenes, viser_config=viser_config)
 
 
 if __name__ == "__main__":

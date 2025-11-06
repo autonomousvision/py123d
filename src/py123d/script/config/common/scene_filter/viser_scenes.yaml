@@ -8,13 +8,13 @@ log_names: null
 
 locations: null
 scene_uuids: null
-timestamp_threshold_s: 10.0
+timestamp_threshold_s: null
 ego_displacement_minimum_m: null
 
-duration_s: 10.0
-history_s: 0.0
+duration_s: null
+history_s: null
 
-camera_types: null
+pinhole_camera_types: null
 
 max_num_scenes: null
 shuffle: True

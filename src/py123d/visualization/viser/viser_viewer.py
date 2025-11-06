@@ -43,24 +43,24 @@ def _build_viser_server(viser_config: ViserConfig) -> viser.ViserServer:
         TitlebarButton(
             text="Getting Started",
             icon=None,
-            href="https://danieldauner.github.io/123d",
+            href="https://danieldauner.github.io/py123d",
         ),
         TitlebarButton(
             text="Github",
             icon="GitHub",
-            href="https://github.com/DanielDauner/123d",
+            href="https://github.com/DanielDauner/py123d",
         ),
         TitlebarButton(
             text="Documentation",
             icon="Description",
-            href="https://danieldauner.github.io/123d",
+            href="https://danieldauner.github.io/py123d",
         ),
     )
     image = TitlebarImage(
-        image_url_light="https://danieldauner.github.io/123d/_static/logo_black.png",
-        image_url_dark="https://danieldauner.github.io/123d/_static/logo_white.png",
+        image_url_light="https://danieldauner.github.io/py123d/_static/logo_black.png",
+        image_url_dark="https://danieldauner.github.io/py123d/_static/logo_white.png",
         image_alt="123D",
-        href="https://danieldauner.github.io/123d/",
+        href="https://danieldauner.github.io/py123d/",
     )
     titlebar_theme = TitlebarConfig(buttons=buttons, image=image)
 
@@ -396,5 +396,4 @@ def _get_scene_info_markdown(scene: AbstractScene) -> str:
     - Location: {scene.log_metadata.location if scene.log_metadata.location else 'N/A'}
     - UUID: {scene.uuid}
     """
-    # - UUID: {scene.log_name}
     return markdown

@@ -13,7 +13,7 @@ from py123d.script.builders.writer_builder import build_log_writer, build_map_wr
 from py123d.script.utils.dataset_path_utils import setup_dataset_paths
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 CONFIG_PATH = "config/conversion"
 CONFIG_NAME = "default_conversion"

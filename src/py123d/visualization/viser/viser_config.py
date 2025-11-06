@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
-from typing import List, Literal, Optional, Tuple
+from typing import List, Literal, Optional, Tuple, Union
 
+from py123d.common.utils.enums import SerialIntEnum
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraType
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
@@ -45,7 +46,7 @@ class ViserConfig:
     theme_dark_mode: bool = False
     theme_show_logo: bool = True
     theme_show_share_button: bool = True
-    theme_brand_color: Optional[Tuple[int, int, int]] = ELLIS_5[0].rgb
+    theme_brand_color: Optional[Tuple[int, int, int]] = ELLIS_5[4].rgb
 
     # Play Controls
     is_playing: bool = False
@@ -92,3 +93,30 @@ class ViserConfig:
 
     # internal use
     _force_map_update: bool = False
+
+    def __post_init__(self):
+        def _resolve_enum_arguments(
+            serial_enum_cls: SerialIntEnum, input: Optional[List[Union[int, str, SerialIntEnum]]]
+        ) -> List[SerialIntEnum]:
+
+            if input is None:
+                return None
+            assert isinstance(input, list), f"input must be a list of {serial_enum_cls.__name__}"
+            return [serial_enum_cls.from_arbitrary(value) for value in input]
+
+        self.camera_frustum_types = _resolve_enum_arguments(
+            PinholeCameraType,
+            self.camera_frustum_types,
+        )
+        self.camera_gui_types = _resolve_enum_arguments(
+            FisheyeMEICameraType,
+            self.camera_gui_types,
+        )
+        self.fisheye_mei_camera_frustum_types = _resolve_enum_arguments(
+            FisheyeMEICameraType,
+            self.fisheye_mei_camera_frustum_types,
+        )
+        self.lidar_types = _resolve_enum_arguments(
+            LiDARType,
+            self.lidar_types,
+        )

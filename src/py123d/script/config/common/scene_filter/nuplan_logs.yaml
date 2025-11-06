@@ -2,7 +2,10 @@ _target_: py123d.datatypes.scene.scene_filter.SceneFilter
 _convert_: 'all'
 
 split_types: null
-split_names: null
+split_names:
+  - "nuplan_train"
+  - "nuplan_val"
+  - "nuplan_test"
 log_names: null
 
 
@@ -10,11 +13,7 @@ locations: null
 scene_uuids: null
 timestamp_threshold_s: null
 ego_displacement_minimum_m: null
-
-duration_s: 9.2
-history_s: 3.0
-
-camera_types: null
-
 max_num_scenes: null
-shuffle: false
+
+duration_s: null
+history_s: null
