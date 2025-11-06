@@ -13,10 +13,27 @@ documentation for details.
 
 .. toctree::
    :maxdepth: 1
-   :caption: Contents:
+   :caption: Overview:
 
    installation
    datasets/index
-   schema
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: API Reference:
+
+   geometry
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Visualization:
+
    visualization
-   contributing
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Development:
+
+   development/index

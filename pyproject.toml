@@ -12,57 +12,49 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "License :: OSI Approved :: Apache Software License",
 ]
-name = "d123"
-version = "v0.0.6"
+name = "py123d"
+version = "v0.0.7"
 authors = [{ name = "Daniel Dauner", email = "daniel.dauner@gmail.com" }]
 description = "TODO"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "Apache-2.0"}
 dependencies = [
-    "aioboto3",
-    "aiofiles",
     "bokeh",
-    "casadi",
-    "control",
-    "Fiona",
     "geopandas",
-    "guppy3",
     "joblib",
     "matplotlib",
-    "nest_asyncio",
     "numpy",
     "opencv-python",
     "pandas",
     "Pillow",
     "psutil",
     "pyarrow",
-    "pyinstrument",
     "pyogrio",
     "pyquaternion",
     "pytest",
     "rasterio",
     "ray",
-    "retry",
     "rtree",
     "scipy",
-    "selenium",
     "setuptools",
     "shapely>=2.0.0",
-    "SQLAlchemy==1.4.27",
-    "sympy",
-    "tornado",
     "tqdm",
-    "ujson",
     "notebook",
     "pre-commit",
-    "cachetools",
     "hydra_colorlog",
     "hydra-core",
     "lxml",
     "trimesh",
     "viser",
+    "laspy[lazrs]",
+    "DracoPy",
 ]
+
+[project.scripts]
+py123d-viser = "py123d.script.run_viser:main"
+py123d-conversion = "py123d.script.run_conversion:main"
+
 
 [project.optional-dependencies]
 dev = [
@@ -76,24 +68,54 @@ docs = [
     "sphinx-rtd-theme",
     "sphinx-autobuild",
     "myst-parser",
+    "sphinx-copybutton",
+    "furo",
 ]
 nuplan = [
     "nuplan-devkit @ git+https://github.com/motional/nuplan-devkit/@nuplan-devkit-v1.2",
+    "ujson",
+    "tornado",
+    "sympy",
+    "SQLAlchemy==1.4.27",
+    "selenium",
+    "nest_asyncio",
+    "cachetools",
+    "aioboto3",
+    "aiofiles",
+    "casadi",
+    "control",
+    "pyinstrument",
+    "Fiona",
+    "guppy3",
+    "retry",
+]
+nuscenes = [
+    "lanelet2",
+    "nuscenes-devkit==1.2.0",
+]
+nuscenes_expanded = [
+    "nuscenes-devkit==1.2.0",
+    "pycocotools==2.0.10",
+    "laspy==2.6.1",
+    "embreex==2.17.7.post6",
+    "lanelet2==1.2.2",
+    "protobuf==4.25.3",
+    "pycollada==0.9.2",
+    "vhacdx==0.0.8.post2",
+    "yourdfpy==0.0.58",
 ]
 waymo = [
-    "tensorflow==2.11.0",
-    "waymo-open-dataset-tf-2-11-0",
-    "intervaltree",
+    "protobuf==4.21.0",
+    "tensorflow==2.13.0",
+    "waymo-open-dataset-tf-2-12-0==1.6.6",
 ]
-av2 = [
-    "av2==0.2.1",
+ffmpeg = [
+    "imageio[ffmpeg]",
 ]
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["d123*"]  # Only include d123 package
-exclude = ["notebooks*", "tests*", "docs*"]  # Explicitly exclude notebooks
+where = ["src"]
 
 [project.urls]
-"Homepage" = "https://github.com/DanielDauner/d123"
-"Bug Tracker" = "https://github.com/DanielDauner/d123/issues"
+"Homepage" = "https://github.com/DanielDauner/py123d"
+"Bug Tracker" = "https://github.com/DanielDauner/py123d/issues"

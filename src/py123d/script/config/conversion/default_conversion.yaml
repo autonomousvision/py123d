@@ -1,0 +1,26 @@
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+  searchpath:
+    - pkg://py123d.script.config
+    - pkg://py123d.script.config.common
+  job:
+    env_set:
+      HYDRA_FULL_ERROR: 1
+    chdir: False
+#
+defaults:
+  - default_common
+  - default_dataset_paths
+  - log_writer: arrow_log_writer
+  - map_writer: gpkg_map_writer
+  - datasets:
+      - kitti360_dataset
+  - _self_
+
+
+terminate_on_exception: True
+
+force_map_conversion: True
+force_log_conversion: True

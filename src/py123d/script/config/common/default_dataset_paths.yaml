@@ -1,0 +1,30 @@
+dataset_paths:
+
+  # 123D defaults
+  py123d_data_root: ${oc.env:PY123D_DATA_ROOT,null}
+  py123d_logs_root: ${dataset_paths.py123d_data_root}/logs
+  py123d_maps_root: ${dataset_paths.py123d_data_root}/maps
+  py123d_sensors_root: ${dataset_paths.py123d_data_root}/sensors
+
+  # nuPlan defaults
+  nuplan_data_root: ${oc.env:NUPLAN_DATA_ROOT,null}
+  nuplan_maps_root: ${oc.env:NUPLAN_MAPS_ROOT,null}
+  nuplan_sensor_root: ${oc.env:NUPLAN_SENSOR_ROOT,null}
+
+  # AV2 defaults
+  av2_data_root: ${oc.env:AV2_DATA_ROOT,null}
+  av2_sensor_data_root: ${dataset_paths.av2_data_root}/sensor
+
+  # WOPD defaults
+  wopd_data_root: ${oc.env:WOPD_DATA_ROOT,null}
+
+  # Pandaset defaults
+  pandaset_data_root: ${oc.env:PANDASET_DATA_ROOT,null}
+
+  # KITTI360 defaults
+  kitti360_data_root: ${oc.env:KITTI360_DATA_ROOT,null}
+
+  # nuScenes defaults
+  nuscenes_data_root: ${oc.env:NUSCENES_DATA_ROOT,null}
+  nuscenes_map_root: ${dataset_paths.nuscenes_data_root}
+  nuscenes_sensor_root: ${dataset_paths.nuscenes_data_root}

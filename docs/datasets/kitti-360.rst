@@ -7,12 +7,12 @@ KiTTI-360
     :alt: Dataset sample image
     :width: 290px
 
-  | **Paper:** `Name of Paper <https://example.com/paper>`_
-  | **Download:** `Documentation <https://example.com/paper>`_
-  | **Code:** [Code]
-  | **Documentation:** [License type]
+  | **Paper:** `KITTI-360: A Novel Dataset and Benchmarks for Urban Scene Understanding in 2D and 3D <https://arxiv.org/pdf/2109.13410>`_
+  | **Download:** `www.cvlibs.net/datasets/kitti-360 <https://www.cvlibs.net/datasets/kitti-360/user_login.php>`_
+  | **Code:** `www.github.com/autonomousvision/kitti360Scripts <https://github.com/autonomousvision/kitti360Scripts>`_
+  | **Documentation:** `kitti-360 Document<https://www.cvlibs.net/datasets/kitti-360/documentation.php>`_
   | **License:** [License type]
-  | **Duration:** [Duration here]
+  | **Duration:** 320k image
   | **Supported Versions:** [Yes/No/Conditions]
   | **Redistribution:** [Yes/No/Conditions]
 
@@ -29,7 +29,7 @@ Installation
 .. code-block:: bash
 
    # Example installation commands
-   pip install d123[dataset_name]
+   pip install py123d[dataset_name]
    # or
    wget https://example.com/dataset.zip
 

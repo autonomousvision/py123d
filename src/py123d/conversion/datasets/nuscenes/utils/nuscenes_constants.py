@@ -1,0 +1,58 @@
+from typing import Final, List
+
+from py123d.conversion.registry.box_detection_label_registry import NuScenesBoxDetectionLabel
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
+
+NUSCENES_MAPS: List[str] = ["boston-seaport", "singapore-hollandvillage", "singapore-onenorth", "singapore-queenstown"]
+
+NUSCENES_DATA_SPLITS: Final[List[str]] = [
+    "nuscenes_train",
+    "nuscenes_val",
+    "nuscenes_test",
+    "nuscenes-mini_train",
+    "nuscenes-mini_val",
+]
+
+TARGET_DT: Final[float] = 0.1
+NUSCENES_DT: Final[float] = 0.5
+SORT_BY_TIMESTAMP: Final[bool] = True
+NUSCENES_DETECTION_NAME_DICT = {
+    # Vehicles (4+ wheels)
+    "vehicle.car": NuScenesBoxDetectionLabel.VEHICLE_CAR,
+    "vehicle.truck": NuScenesBoxDetectionLabel.VEHICLE_TRUCK,
+    "vehicle.bus.bendy": NuScenesBoxDetectionLabel.VEHICLE_BUS_BENDY,
+    "vehicle.bus.rigid": NuScenesBoxDetectionLabel.VEHICLE_BUS_RIGID,
+    "vehicle.construction": NuScenesBoxDetectionLabel.VEHICLE_CONSTRUCTION,
+    "vehicle.emergency.ambulance": NuScenesBoxDetectionLabel.VEHICLE_EMERGENCY_AMBULANCE,
+    "vehicle.emergency.police": NuScenesBoxDetectionLabel.VEHICLE_EMERGENCY_POLICE,
+    "vehicle.trailer": NuScenesBoxDetectionLabel.VEHICLE_TRAILER,
+    # Bicycles / Motorcycles
+    "vehicle.bicycle": NuScenesBoxDetectionLabel.VEHICLE_BICYCLE,
+    "vehicle.motorcycle": NuScenesBoxDetectionLabel.VEHICLE_MOTORCYCLE,
+    # Pedestrians (all subtypes)
+    "human.pedestrian.adult": NuScenesBoxDetectionLabel.HUMAN_PEDESTRIAN_ADULT,
+    "human.pedestrian.child": NuScenesBoxDetectionLabel.HUMAN_PEDESTRIAN_CHILD,
+    "human.pedestrian.construction_worker": NuScenesBoxDetectionLabel.HUMAN_PEDESTRIAN_CONSTRUCTION_WORKER,
+    "human.pedestrian.personal_mobility": NuScenesBoxDetectionLabel.HUMAN_PEDESTRIAN_PERSONAL_MOBILITY,
+    "human.pedestrian.police_officer": NuScenesBoxDetectionLabel.HUMAN_PEDESTRIAN_POLICE_OFFICER,
+    "human.pedestrian.stroller": NuScenesBoxDetectionLabel.HUMAN_PEDESTRIAN_STROLLER,
+    "human.pedestrian.wheelchair": NuScenesBoxDetectionLabel.HUMAN_PEDESTRIAN_WHEELCHAIR,
+    # Traffic cone / barrier
+    "movable_object.trafficcone": NuScenesBoxDetectionLabel.MOVABLE_OBJECT_TRAFFICCONE,
+    "movable_object.barrier": NuScenesBoxDetectionLabel.MOVABLE_OBJECT_BARRIER,
+    # Generic objects
+    "movable_object.pushable_pullable": NuScenesBoxDetectionLabel.MOVABLE_OBJECT_PUSHABLE_PULLABLE,
+    "movable_object.debris": NuScenesBoxDetectionLabel.MOVABLE_OBJECT_DEBRIS,
+    "static_object.bicycle_rack": NuScenesBoxDetectionLabel.STATIC_OBJECT_BICYCLE_RACK,
+    "animal": NuScenesBoxDetectionLabel.ANIMAL,
+}
+
+
+NUSCENES_CAMERA_TYPES = {
+    PinholeCameraType.PCAM_F0: "CAM_FRONT",
+    PinholeCameraType.PCAM_B0: "CAM_BACK",
+    PinholeCameraType.PCAM_L0: "CAM_FRONT_LEFT",
+    PinholeCameraType.PCAM_L1: "CAM_BACK_LEFT",
+    PinholeCameraType.PCAM_R0: "CAM_FRONT_RIGHT",
+    PinholeCameraType.PCAM_R1: "CAM_BACK_RIGHT",
+}

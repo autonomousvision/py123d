@@ -5,7 +5,6 @@ Argoverse 2
 
   .. image:: https://www.argoverse.org/assets/images/reference_images/av2_vehicle.jpg
     :alt: Dataset sample image
-    :width: 290px
 
   | **Paper:** `Name of Paper <https://example.com/paper>`_
   | **Download:** `Documentation <https://example.com/paper>`_
@@ -29,7 +28,7 @@ Installation
 .. code-block:: bash
 
    # Example installation commands
-   pip install d123[dataset_name]
+   pip install py123d[dataset_name]
    # or
    wget https://example.com/dataset.zip
 
