@@ -2,7 +2,6 @@ Map Objects
 -----------
 
 .. autoclass:: py123d.datatypes.map.AbstractCarpark()
-   :how-inheritance:
    :inherited-members:
    :autoclasstoc:
 
