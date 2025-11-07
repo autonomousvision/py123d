@@ -3,12 +3,12 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from py123d.common.utils.dependencies import check_dependencies
+from py123d.conversion.datasets.wopd.utils.womp_boundary_utils import WaymoLaneData, fill_lane_boundaries
 from py123d.conversion.datasets.wopd.utils.wopd_constants import (
     WAYMO_LANE_TYPE_CONVERSION,
     WAYMO_ROAD_EDGE_TYPE_CONVERSION,
     WAYMO_ROAD_LINE_TYPE_CONVERSION,
 )
-from py123d.conversion.datasets.wopd.waymo_map_utils.womp_boundary_utils import WaymoLaneData, fill_lane_boundaries
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.datatypes.maps.abstract_map_objects import AbstractLane, AbstractRoadEdge, AbstractRoadLine
 from py123d.datatypes.maps.cache.cache_map_objects import (

@@ -7,6 +7,16 @@ import numpy.typing as npt
 from py123d.datatypes.sensors.lidar import LiDAR, LiDARMetadata
 
 
+def is_laz_binary(laz_binary: bytes) -> bool:
+    """Check if the given binary data represents a LAZ compressed point cloud.
+
+    :param laz_binary: The binary data to check.
+    :return: True if the binary data is a LAZ compressed point cloud, False otherwise.
+    """
+    LAS_MAGIC_NUMBER = b"LASF"
+    return laz_binary[0:4] == LAS_MAGIC_NUMBER
+
+
 def encode_lidar_pc_as_laz_binary(point_cloud: npt.NDArray[np.float32], lidar_metadata: LiDARMetadata) -> bytes:
     """Compress LiDAR point cloud data using LAZ format.
 

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Iterator, List, Optional, Set, Union
 
 from py123d.common.multithreading.worker_utils import WorkerPool, worker_map
+from py123d.common.utils.arrow_column_names import FISHEYE_CAMERA_DATA_COLUMN, PINHOLE_CAMERA_DATA_COLUMN, UUID_COLUMN
 from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.scene.abstract_scene_builder import SceneBuilder
@@ -120,7 +121,7 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
     elif filter.duration_s is None:
         scene_extraction_metadatas.append(
             SceneExtractionMetadata(
-                initial_uuid=str(recording_table["uuid"][start_idx].as_py()),
+                initial_uuid=str(recording_table[UUID_COLUMN][start_idx].as_py()),
                 initial_idx=start_idx,
                 duration_s=(end_idx - start_idx) * log_metadata.timestep_seconds,
                 history_s=filter.history_s if filter.history_s is not None else 0.0,
@@ -165,7 +166,7 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
         start_idx = scene_extraction_metadata.initial_idx
         if filter.pinhole_camera_types is not None:
             for pinhole_camera_type in filter.pinhole_camera_types:
-                column_name = f"{pinhole_camera_type.serialize()}_data"
+                column_name = PINHOLE_CAMERA_DATA_COLUMN(pinhole_camera_type.serialize())
 
                 if (
                     pinhole_camera_type in log_metadata.pinhole_camera_metadata
@@ -179,7 +180,7 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
 
         if filter.fisheye_mei_camera_types is not None:
             for fisheye_mei_camera_type in filter.fisheye_mei_camera_types:
-                column_name = f"{fisheye_mei_camera_type.serialize()}_data"
+                column_name = FISHEYE_CAMERA_DATA_COLUMN(fisheye_mei_camera_type.serialize())
 
                 if (
                     fisheye_mei_camera_type in log_metadata.fisheye_mei_camera_metadata

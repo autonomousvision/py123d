@@ -13,6 +13,16 @@ DRACO_QUANTIZATION_RANGE: Final[int] = -1  # Use default range
 DRACO_PRESERVE_ORDER: Final[bool] = False
 
 
+def is_draco_binary(draco_binary: bytes) -> bool:
+    """Check if the given binary data represents a Draco compressed point cloud.
+
+    :param draco_binary: The binary data to check.
+    :return: True if the binary data is a Draco compressed point cloud, False otherwise.
+    """
+    DRACO_MAGIC_NUMBER = b"DRACO"
+    return draco_binary.startswith(DRACO_MAGIC_NUMBER)
+
+
 def encode_lidar_pc_as_draco_binary(lidar_pc: npt.NDArray[np.float32], lidar_metadata: LiDARMetadata) -> bytes:
     """Compress LiDAR point cloud data using Draco format.
 

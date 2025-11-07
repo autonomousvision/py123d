@@ -52,7 +52,6 @@ from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import (
     get_kitti360_vw_passat_parameters,
-    rear_axle_se3_to_center_se3,
 )
 from py123d.geometry import BoundingBoxSE3, Quaternion, StateSE3, Vector3D
 from py123d.geometry.transform.transform_se3 import convert_se3_array_between_origins, translate_se3_along_body_frame
@@ -518,13 +517,12 @@ def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> 
             qz=ego_quaternion.qz,
         )
 
-        rear_axle_pose = translate_se3_along_body_frame(
+        rear_axle_se3 = translate_se3_along_body_frame(
             imu_pose,
             Vector3D(0.05, -0.32, 0.0),
         )
 
-        center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
-        dynamic_state = DynamicStateSE3(
+        dynamic_state_se3 = DynamicStateSE3(
             velocity=Vector3D(
                 x=oxts_data[8],
                 y=oxts_data[9],
@@ -542,11 +540,10 @@ def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> 
             ),
         )
         ego_state_all.append(
-            EgoStateSE3(
-                center_se3=center,
-                dynamic_state_se3=dynamic_state,
+            EgoStateSE3.from_rear_axle(
+                rear_axle_se3=rear_axle_se3,
                 vehicle_parameters=vehicle_parameters,
-                timepoint=None,
+                dynamic_state=dynamic_state_se3,
             )
         )
     return ego_state_all, valid_timestamp
@@ -671,7 +668,6 @@ def _extract_kitti360_box_detections_all(
                 label=detection_label,
                 timepoint=None,
                 track_token=token,
-                confidence=None,
             )
             bounding_box_se3 = BoundingBoxSE3.from_array(state)
             velocity_vector = Vector3D.from_array(velocity)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import IntEnum
+from enum import Enum
 
 from pyparsing import Union
 
@@ -13,7 +13,11 @@ class classproperty(object):
         return self.f(owner)
 
 
-class SerialIntEnum(IntEnum):
+class SerialIntEnum(Enum):
+
+    def __int__(self) -> int:
+        return self.value
+
     def serialize(self, lower: bool = True) -> str:
         """Serialize the type when saving."""
         # Allow for lower/upper case letters during serialize

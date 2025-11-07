@@ -50,7 +50,7 @@ def load_lidar_pcs_from_file(
         lidar_pcs_dict = load_av2_sensor_lidar_pcs_from_file(full_lidar_path)
 
     elif log_metadata.dataset == "wopd":
-        from py123d.conversion.datasets.wopd.waymo_sensor_io import load_wopd_lidar_pcs_from_file
+        from py123d.conversion.datasets.wopd.wopd_sensor_io import load_wopd_lidar_pcs_from_file
 
         lidar_pcs_dict = load_wopd_lidar_pcs_from_file(full_lidar_path, index, keep_polar_features=False)
 

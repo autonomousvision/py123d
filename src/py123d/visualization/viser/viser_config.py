@@ -79,7 +79,7 @@ class ViserConfig:
     # -> Frustum
     fisheye_frustum_visible: bool = True
     fisheye_mei_camera_frustum_visible: bool = True
-    fisheye_mei_camera_frustum_types: List[PinholeCameraType] = field(
+    fisheye_mei_camera_frustum_types: List[FisheyeMEICameraType] = field(
         default_factory=lambda: [fcam for fcam in FisheyeMEICameraType]
     )
     fisheye_frustum_scale: float = 1.0
@@ -109,7 +109,7 @@ class ViserConfig:
             self.camera_frustum_types,
         )
         self.camera_gui_types = _resolve_enum_arguments(
-            FisheyeMEICameraType,
+            PinholeCameraType,
             self.camera_gui_types,
         )
         self.fisheye_mei_camera_frustum_types = _resolve_enum_arguments(

@@ -41,11 +41,10 @@ from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import (
     get_nuplan_chrysler_pacifica_parameters,
-    rear_axle_se3_to_center_se3,
 )
 from py123d.geometry import StateSE3, Vector3D
 
-check_dependencies(["nuplan", "sqlalchemy"], "nuplan")
+check_dependencies(["nuplan"], "nuplan")
 from nuplan.database.nuplan_db.nuplan_scenario_queries import get_cameras, get_images_from_lidar_tokens
 from nuplan.database.nuplan_db_orm.lidar_pc import LidarPc
 from nuplan.database.nuplan_db_orm.nuplandb import NuPlanDB
@@ -305,8 +304,7 @@ def _extract_nuplan_ego_state(nuplan_lidar_pc: LidarPc) -> EgoStateSE3:
         qy=nuplan_lidar_pc.ego_pose.qy,
         qz=nuplan_lidar_pc.ego_pose.qz,
     )
-    center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
-    dynamic_state = DynamicStateSE3(
+    dynamic_state_se3 = DynamicStateSE3(
         velocity=Vector3D(
             x=nuplan_lidar_pc.ego_pose.vx,
             y=nuplan_lidar_pc.ego_pose.vy,
@@ -323,11 +321,10 @@ def _extract_nuplan_ego_state(nuplan_lidar_pc: LidarPc) -> EgoStateSE3:
             z=nuplan_lidar_pc.ego_pose.angular_rate_z,
         ),
     )
-    return EgoStateSE3(
-        center_se3=center,
-        dynamic_state_se3=dynamic_state,
+    return EgoStateSE3.from_rear_axle(
+        rear_axle_se3=rear_axle_pose,
         vehicle_parameters=vehicle_parameters,
-        timepoint=None,  # NOTE: Timepoint is not needed during writing, set to None
+        dynamic_state_se3=dynamic_state_se3,
     )
 
 

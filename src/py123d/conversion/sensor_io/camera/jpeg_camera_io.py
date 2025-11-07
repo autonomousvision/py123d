@@ -5,6 +5,18 @@ import numpy as np
 import numpy.typing as npt
 
 
+def is_jpeg_binary(jpeg_binary: bytes) -> bool:
+    """Check if the given binary data represents a JPEG image.
+
+    :param jpeg_binary: The binary data to check.
+    :return: True if the binary data is a JPEG image, False otherwise.
+    """
+    SOI_MARKER = b"\xff\xd8"  # Start Of Image
+    EOI_MARKER = b"\xff\xd9"  # End Of Image
+
+    return jpeg_binary.startswith(SOI_MARKER) and jpeg_binary.endswith(EOI_MARKER)
+
+
 def encode_image_as_jpeg_binary(image: npt.NDArray[np.uint8]) -> bytes:
     _, encoded_img = cv2.imencode(".jpg", image)
     jpeg_binary = encoded_img.tobytes()

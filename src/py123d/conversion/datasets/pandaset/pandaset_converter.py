@@ -31,11 +31,8 @@ from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata, PinholeCameraType, PinholeIntrinsics
 from py123d.datatypes.time.time_point import TimePoint
-from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
-from py123d.datatypes.vehicle_state.vehicle_parameters import (
-    get_pandaset_chrysler_pacifica_parameters,
-    rear_axle_se3_to_center_se3,
-)
+from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
+from py123d.datatypes.vehicle_state.vehicle_parameters import get_pandaset_chrysler_pacifica_parameters
 from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, EulerAnglesIndex, StateSE3, Vector3D
 from py123d.geometry.transform.transform_se3 import convert_absolute_to_relative_se3_array
 from py123d.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
@@ -210,23 +207,17 @@ def _get_pandaset_lidar_metadata(
 
 def _extract_pandaset_sensor_ego_state(gps: Dict[str, float], lidar_pose: Dict[str, Dict[str, float]]) -> EgoStateSE3:
 
-    rear_axle_pose = main_lidar_to_rear_axle(pandaset_pose_dict_to_state_se3(lidar_pose))
+    rear_axle_se3 = main_lidar_to_rear_axle(pandaset_pose_dict_to_state_se3(lidar_pose))
 
     vehicle_parameters = get_pandaset_chrysler_pacifica_parameters()
-    center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
 
     # TODO: Add script to calculate the dynamic state from log sequence.
-    dynamic_state = DynamicStateSE3(
-        # velocity=Vector3D(x=gps["xvel"], y=gps["yvel"], z=0.0),
-        velocity=Vector3D(x=0.0, y=0.0, z=0.0),
-        acceleration=Vector3D(x=0.0, y=0.0, z=0.0),
-        angular_velocity=Vector3D(x=0.0, y=0.0, z=0.0),
-    )
+    dynamic_state_se3 = None
 
-    return EgoStateSE3(
-        center_se3=center,
-        dynamic_state_se3=dynamic_state,
+    return EgoStateSE3.from_rear_axle(
+        rear_axle_se3=rear_axle_se3,
         vehicle_parameters=vehicle_parameters,
+        dynamic_state_se3=dynamic_state_se3,
         timepoint=None,
     )
 

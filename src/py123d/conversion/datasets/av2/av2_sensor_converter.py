@@ -29,10 +29,9 @@ from py123d.datatypes.sensors.pinhole_camera import (
     PinholeIntrinsics,
 )
 from py123d.datatypes.time.time_point import TimePoint
-from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
+from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import (
     get_av2_ford_fusion_hybrid_parameters,
-    rear_axle_se3_to_center_se3,
 )
 from py123d.geometry import BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
 from py123d.geometry.bounding_box import BoundingBoxSE3
@@ -255,16 +254,15 @@ def _extract_av2_sensor_box_detections(
     detections_velocity = np.zeros((num_detections, len(Vector3DIndex)), dtype=np.float64)
     detections_token: List[str] = annotations_slice["track_uuid"].tolist()
     detections_labels: List[AV2SensorBoxDetectionLabel] = []
+    detections_num_lidar_points: List[int] = []
 
     for detection_idx, (_, row) in enumerate(annotations_slice.iterrows()):
         row = row.to_dict()
-
         detections_state[detection_idx, BoundingBoxSE3Index.XYZ] = [row["tx_m"], row["ty_m"], row["tz_m"]]
         detections_state[detection_idx, BoundingBoxSE3Index.QUATERNION] = [row["qw"], row["qx"], row["qy"], row["qz"]]
         detections_state[detection_idx, BoundingBoxSE3Index.EXTENT] = [row["length_m"], row["width_m"], row["height_m"]]
-
-        detections_label = AV2SensorBoxDetectionLabel.deserialize(row["category"])
-        detections_labels.append(detections_label)
+        detections_labels.append(AV2SensorBoxDetectionLabel.deserialize(row["category"]))
+        detections_num_lidar_points.append(int(row["num_interior_pts"]))
 
     detections_state[:, BoundingBoxSE3Index.STATE_SE3] = convert_relative_to_absolute_se3_array(
         origin=ego_state_se3.rear_axle_se3,
@@ -277,9 +275,8 @@ def _extract_av2_sensor_box_detections(
             BoxDetectionSE3(
                 metadata=BoxDetectionMetadata(
                     label=detections_labels[detection_idx],
-                    timepoint=None,
                     track_token=detections_token[detection_idx],
-                    confidence=None,
+                    num_lidar_points=detections_num_lidar_points[detection_idx],
                 ),
                 bounding_box_se3=BoundingBoxSE3.from_array(detections_state[detection_idx]),
                 velocity=Vector3D.from_array(detections_velocity[detection_idx]),
@@ -299,19 +296,14 @@ def _extract_av2_sensor_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_ti
     rear_axle_pose = _row_dict_to_state_se3(ego_pose_dict)
 
     vehicle_parameters = get_av2_ford_fusion_hybrid_parameters()
-    center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
 
     # TODO: Add script to calculate the dynamic state from log sequence.
-    dynamic_state = DynamicStateSE3(
-        velocity=Vector3D(x=0.0, y=0.0, z=0.0),
-        acceleration=Vector3D(x=0.0, y=0.0, z=0.0),
-        angular_velocity=Vector3D(x=0.0, y=0.0, z=0.0),
-    )
+    dynamic_state_se3 = None
 
-    return EgoStateSE3(
-        center_se3=center,
-        dynamic_state_se3=dynamic_state,
+    return EgoStateSE3.from_rear_axle(
+        rear_axle_se3=rear_axle_pose,
         vehicle_parameters=vehicle_parameters,
+        dynamic_state_se3=dynamic_state_se3,
         timepoint=None,
     )
 

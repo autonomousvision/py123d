@@ -10,10 +10,11 @@ from py123d.datatypes.maps.abstract_map import AbstractMap
 from py123d.datatypes.maps.gpkg.gpkg_map import get_global_map_api, get_local_map_api
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.scene.arrow.utils.arrow_getters import (
-    get_box_detections_from_arrow_table,
+    get_box_detections_se3_from_arrow_table,
     get_camera_from_arrow_table,
-    get_ego_vehicle_state_from_arrow_table,
+    get_ego_state_se3_from_arrow_table,
     get_lidar_from_arrow_table,
+    get_route_lane_group_ids_from_arrow_table,
     get_timepoint_from_arrow_table,
     get_traffic_light_detections_from_arrow_table,
 )
@@ -107,14 +108,14 @@ class ArrowScene(AbstractScene):
         return get_timepoint_from_arrow_table(self._get_recording_table(), self._get_table_index(iteration))
 
     def get_ego_state_at_iteration(self, iteration: int) -> Optional[EgoStateSE3]:
-        return get_ego_vehicle_state_from_arrow_table(
+        return get_ego_state_se3_from_arrow_table(
             self._get_recording_table(),
             self._get_table_index(iteration),
             self.log_metadata.vehicle_parameters,
         )
 
     def get_box_detections_at_iteration(self, iteration: int) -> Optional[BoxDetectionWrapper]:
-        return get_box_detections_from_arrow_table(
+        return get_box_detections_se3_from_arrow_table(
             self._get_recording_table(),
             self._get_table_index(iteration),
             self.log_metadata,
@@ -126,15 +127,11 @@ class ArrowScene(AbstractScene):
         )
 
     def get_route_lane_group_ids(self, iteration: int) -> Optional[List[int]]:
-        route_lane_group_ids: Optional[List[int]] = None
-        table = self._get_recording_table()
-        if "route_lane_group_ids" in table.column_names:
-            route_lane_group_ids = table["route_lane_group_ids"][self._get_table_index(iteration)].as_py()
-        return route_lane_group_ids
+        return get_route_lane_group_ids_from_arrow_table(self._get_recording_table(), self._get_table_index(iteration))
 
     def get_pinhole_camera_at_iteration(
-        self, iteration: int, camera_type: Union[PinholeCameraType, FisheyeMEICameraType]
-    ) -> Optional[Union[PinholeCamera, FisheyeMEICamera]]:
+        self, iteration: int, camera_type: PinholeCameraType
+    ) -> Optional[PinholeCamera]:
         pinhole_camera: Optional[PinholeCamera] = None
         if camera_type in self.available_pinhole_camera_types:
             pinhole_camera = get_camera_from_arrow_table(

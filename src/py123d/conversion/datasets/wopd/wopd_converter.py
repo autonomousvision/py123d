@@ -16,7 +16,7 @@ from py123d.conversion.datasets.wopd.utils.wopd_constants import (
     WOPD_DETECTION_NAME_DICT,
     WOPD_LIDAR_TYPES,
 )
-from py123d.conversion.datasets.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
+from py123d.conversion.datasets.wopd.wopd_map_conversion import convert_wopd_map
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.box_detection_label_registry import WOPDBoxDetectionLabel
@@ -25,15 +25,16 @@ from py123d.conversion.utils.sensor_utils.camera_conventions import CameraConven
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.maps.map_metadata import MapMetadata
 from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
-from py123d.datatypes.sensors.pinhole_camera import (
+from py123d.datatypes.sensors import (
+    LiDARMetadata,
+    LiDARType,
     PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
 )
 from py123d.datatypes.time.time_point import TimePoint
-from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
+from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_wopd_chrysler_pacifica_parameters
 from py123d.geometry import (
     BoundingBoxSE3,
@@ -296,15 +297,11 @@ def _extract_wopd_ego_state(frame: dataset_pb2.Frame, map_pose_offset: Vector3D)
     vehicle_parameters = get_wopd_chrysler_pacifica_parameters()
     # FIXME: Find dynamic state in waymo open perception dataset
     # https://github.com/waymo-research/waymo-open-dataset/issues/55#issuecomment-546152290
-    dynamic_state = DynamicStateSE3(
-        velocity=Vector3D(*np.zeros(3)),
-        acceleration=Vector3D(*np.zeros(3)),
-        angular_velocity=Vector3D(*np.zeros(3)),
-    )
+    dynamic_state_se3 = None
 
     return EgoStateSE3.from_rear_axle(
         rear_axle_se3=rear_axle_pose,
-        dynamic_state_se3=dynamic_state,
+        dynamic_state_se3=dynamic_state_se3,
         vehicle_parameters=vehicle_parameters,
         time_point=None,
     )
@@ -367,7 +364,6 @@ def _extract_wopd_box_detections(
                     label=detections_types[detection_idx],
                     timepoint=None,
                     track_token=detections_token[detection_idx],
-                    confidence=None,
                 ),
                 bounding_box_se3=BoundingBoxSE3.from_array(detections_state[detection_idx]),
                 velocity=Vector3D.from_array(detections_velocity[detection_idx]),

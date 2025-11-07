@@ -320,18 +320,10 @@ def _extract_nuscenes_ego_state(nusc, sample, can_bus) -> EgoStateSE3:
         acceleration=Vector3D(*acceleration),
         angular_velocity=Vector3D(*angular_velocity),
     )
-
-    # return EgoStateSE3(
-    #     center_se3=pose,
-    #     dynamic_state_se3=dynamic_state,
-    #     vehicle_parameters=vehicle_parameters,
-    #     timepoint=TimePoint.from_us(sample["timestamp"]),
-    # )
     return EgoStateSE3.from_rear_axle(
         rear_axle_se3=imu_pose,
         dynamic_state_se3=dynamic_state,
         vehicle_parameters=vehicle_parameters,
-        time_point=TimePoint.from_us(sample["timestamp"]),
     )
 
 
@@ -341,9 +333,6 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
     for ann_token in sample["anns"]:
         ann = nusc.get("sample_annotation", ann_token)
         box = Box(ann["translation"], ann["size"], Quaternion(ann["rotation"]))
-
-        box_quat = box.orientation
-        euler_angles = box_quat.yaw_pitch_roll  # (yaw, pitch, roll)
 
         # Create StateSE3 for box center and orientation
         center_quat = box.orientation
@@ -369,7 +358,6 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
             label=label,
             track_token=ann["instance_token"],
             timepoint=TimePoint.from_us(sample["timestamp"]),
-            confidence=1.0,  # nuScenes annotations are ground truth
             num_lidar_points=ann.get("num_lidar_pts", 0),
         )
 

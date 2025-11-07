@@ -4,6 +4,26 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 import numpy as np
 import pyarrow as pa
 
+from py123d.common.utils.arrow_column_names import (
+    BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN,
+    BOX_DETECTIONS_LABEL_COLUMN,
+    BOX_DETECTIONS_NUM_LIDAR_POINTS_COLUMN,
+    BOX_DETECTIONS_TOKEN_COLUMN,
+    BOX_DETECTIONS_VELOCITY_3D_COLUMN,
+    EGO_DYNAMIC_STATE_SE3_COLUMN,
+    EGO_REAR_AXLE_SE3_COLUMN,
+    FISHEYE_CAMERA_DATA_COLUMN,
+    FISHEYE_CAMERA_EXTRINSIC_COLUMN,
+    LIDAR_DATA_COLUMN,
+    PINHOLE_CAMERA_DATA_COLUMN,
+    PINHOLE_CAMERA_EXTRINSIC_COLUMN,
+    ROUTE_LANE_GROUP_IDS_COLUMN,
+    SCENARIO_TAGS_COLUMN,
+    TIMESTAMP_US_COLUMN,
+    TRAFFIC_LIGHTS_LANE_ID_COLUMN,
+    TRAFFIC_LIGHTS_STATUS_COLUMN,
+    UUID_COLUMN,
+)
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.conversion.abstract_dataset_converter import AbstractLogWriter, DatasetConverterConfig
 from py123d.conversion.log_writer.abstract_log_writer import CameraData, LiDARData
@@ -21,10 +41,10 @@ from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
 from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.lidar import LiDARType
-from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
+from py123d.datatypes.sensors import LiDARType, PinholeCameraType
 from py123d.datatypes.time.time_point import TimePoint
-from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3, EgoStateSE3Index
+from py123d.datatypes.vehicle_state.dynamic_state import DynamicStateSE3Index
+from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import BoundingBoxSE3Index, StateSE3, StateSE3Index, Vector3DIndex
 
 
@@ -40,6 +60,15 @@ def _get_sensors_root() -> Path:
 
     DATASET_PATHS = get_dataset_paths()
     return Path(DATASET_PATHS.py123d_sensors_root)
+
+
+def _store_option_to_arrow_type(store_option: Literal["path", "binary", "mp4"]) -> pa.DataType:
+    data_type_map = {
+        "path": pa.string(),
+        "binary": pa.binary(),
+        "mp4": pa.int64(),
+    }
+    return data_type_map[store_option]
 
 
 class ArrowLogWriter(AbstractLogWriter):
@@ -124,14 +153,14 @@ class ArrowLogWriter(AbstractLogWriter):
         assert self._source is not None, "Log writer is not initialized."
 
         record_batch_data = {
-            "uuid": [
+            UUID_COLUMN: [
                 create_deterministic_uuid(
                     split=self._log_metadata.split,
                     log_name=self._log_metadata.log_name,
                     timestamp_us=timestamp.time_us,
                 ).bytes
             ],
-            "timestamp": [timestamp.time_us],
+            TIMESTAMP_US_COLUMN: [timestamp.time_us],
         }
 
         # --------------------------------------------------------------------------------------------------------------
@@ -139,51 +168,53 @@ class ArrowLogWriter(AbstractLogWriter):
         # --------------------------------------------------------------------------------------------------------------
         if self._dataset_converter_config.include_ego:
             assert ego_state is not None, "Ego state is required but not provided."
-            record_batch_data["ego_state"] = [ego_state.array]
+            record_batch_data[EGO_REAR_AXLE_SE3_COLUMN] = [ego_state.rear_axle_se3]
+            record_batch_data[EGO_DYNAMIC_STATE_SE3_COLUMN] = [ego_state.dynamic_state_se3]
 
         # --------------------------------------------------------------------------------------------------------------
         # Box Detections
         # --------------------------------------------------------------------------------------------------------------
         if self._dataset_converter_config.include_box_detections:
             assert box_detections is not None, "Box detections are required but not provided."
-            # TODO: Figure out more elegant way without for-loops.
 
             # Accumulate box detection data
             box_detection_state = []
-            box_detection_velocity = []
             box_detection_token = []
             box_detection_label = []
+            box_detection_velocity = []
+            box_detection_num_lidar_points = []
 
             for box_detection in box_detections:
-                box_detection_state.append(box_detection.bounding_box.array)
-                box_detection_velocity.append(box_detection.velocity.array)  # TODO: make optional
+                box_detection_state.append(box_detection.bounding_box)
                 box_detection_token.append(box_detection.metadata.track_token)
                 box_detection_label.append(int(box_detection.metadata.label))
+                box_detection_velocity.append(box_detection.velocity)
+                box_detection_num_lidar_points.append(box_detection.metadata.num_lidar_points)
 
             # Add to record batch data
-            record_batch_data["box_detection_state"] = [box_detection_state]
-            record_batch_data["box_detection_velocity"] = [box_detection_velocity]
-            record_batch_data["box_detection_token"] = [box_detection_token]
-            record_batch_data["box_detection_label"] = [box_detection_label]
+            record_batch_data[BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN] = [box_detection_state]
+            record_batch_data[BOX_DETECTIONS_TOKEN_COLUMN] = [box_detection_token]
+            record_batch_data[BOX_DETECTIONS_LABEL_COLUMN] = [box_detection_label]
+            record_batch_data[BOX_DETECTIONS_VELOCITY_3D_COLUMN] = [box_detection_velocity]
+            record_batch_data[BOX_DETECTIONS_NUM_LIDAR_POINTS_COLUMN] = [box_detection_num_lidar_points]
 
         # --------------------------------------------------------------------------------------------------------------
         # Traffic Lights
         # --------------------------------------------------------------------------------------------------------------
         if self._dataset_converter_config.include_traffic_lights:
             assert traffic_lights is not None, "Traffic light detections are required but not provided."
-            # TODO: Figure out more elegant way without for-loops.
 
             # Accumulate traffic light data
             traffic_light_ids = []
-            traffic_light_types = []
+            traffic_light_statuses = []
 
             for traffic_light in traffic_lights:
                 traffic_light_ids.append(traffic_light.lane_id)
-                traffic_light_types.append(int(traffic_light.status))
+                traffic_light_statuses.append(int(traffic_light.status))
 
             # Add to record batch data
-            record_batch_data["traffic_light_ids"] = [traffic_light_ids]
-            record_batch_data["traffic_light_types"] = [traffic_light_types]
+            record_batch_data[TRAFFIC_LIGHTS_LANE_ID_COLUMN] = [traffic_light_ids]
+            record_batch_data[TRAFFIC_LIGHTS_STATUS_COLUMN] = [traffic_light_statuses]
 
         # --------------------------------------------------------------------------------------------------------------
         # Pinhole Cameras
@@ -203,14 +234,16 @@ class ArrowLogWriter(AbstractLogWriter):
 
                 # NOTE @DanielDauner: Missing cameras are allowed, e.g., for synchronization mismatches.
                 # In this case, we write None/null to the arrow table.
+                # Theoretically, we could extend the store asynchronous cameras in the future by storing the
+                # camera data as a dictionary, list or struct-like object in the columns.
                 pinhole_camera_data: Optional[Any] = None
                 pinhole_camera_pose: Optional[StateSE3] = None
                 if pinhole_camera_type in provided_pinhole_data:
                     pinhole_camera_data = provided_pinhole_data[pinhole_camera_type]
                     pinhole_camera_pose = provided_pinhole_extrinsics[pinhole_camera_type]
 
-                record_batch_data[f"{pinhole_camera_name}_data"] = [pinhole_camera_data]
-                record_batch_data[f"{pinhole_camera_name}_extrinsic"] = [
+                record_batch_data[PINHOLE_CAMERA_DATA_COLUMN(pinhole_camera_name)] = [pinhole_camera_data]
+                record_batch_data[PINHOLE_CAMERA_EXTRINSIC_COLUMN(pinhole_camera_name)] = [
                     pinhole_camera_pose.array if pinhole_camera_pose else None
                 ]
 
@@ -238,8 +271,8 @@ class ArrowLogWriter(AbstractLogWriter):
                     fisheye_mei_camera_data = provided_fisheye_mei_data[fisheye_mei_camera_type]
                     fisheye_mei_camera_pose = provided_fisheye_mei_extrinsics[fisheye_mei_camera_type]
 
-                record_batch_data[f"{fisheye_mei_camera_name}_data"] = [fisheye_mei_camera_data]
-                record_batch_data[f"{fisheye_mei_camera_name}_extrinsic"] = [
+                record_batch_data[FISHEYE_CAMERA_DATA_COLUMN(fisheye_mei_camera_name)] = [fisheye_mei_camera_data]
+                record_batch_data[FISHEYE_CAMERA_EXTRINSIC_COLUMN(fisheye_mei_camera_name)] = [
                     fisheye_mei_camera_pose.array if fisheye_mei_camera_pose else None
                 ]
 
@@ -250,14 +283,15 @@ class ArrowLogWriter(AbstractLogWriter):
             assert lidars is not None, "LiDAR data is required but not provided."
 
             if self._dataset_converter_config.lidar_store_option == "path_merged":
-                # NOTE @DanielDauner: The path_merged option is necessary for dataset, that natively store multiple
+                # NOTE @DanielDauner: The path_merged option is necessary for datasets, that natively store multiple
                 # LiDAR point clouds in a single file. In this case, writing the file path several times is wasteful.
                 # Instead, we store the file path once, and divide the point clouds during reading.
                 assert len(lidars) == 1, "Exactly one LiDAR data must be provided for merged LiDAR storage."
                 assert lidars[0].has_file_path, "LiDAR data must provide file path for merged LiDAR storage."
                 merged_lidar_data: Optional[str] = str(lidars[0].relative_path)
+                lidar_name = LiDARType.LIDAR_MERGED.serialize()
 
-                record_batch_data[f"{LiDARType.LIDAR_MERGED.serialize()}_data"] = [merged_lidar_data]
+                record_batch_data[LIDAR_DATA_COLUMN(lidar_name)] = [merged_lidar_data]
 
             else:
                 # NOTE @DanielDauner: for "path" and "binary" options, we write each LiDAR in a separate column.
@@ -270,18 +304,18 @@ class ArrowLogWriter(AbstractLogWriter):
                 for lidar_type in expected_lidars:
                     lidar_name = lidar_type.serialize()
                     lidar_data: Optional[Union[str, bytes]] = lidar_data_dict.get(lidar_type, None)
-                    record_batch_data[f"{lidar_name}_data"] = [lidar_data]
+                    record_batch_data[LIDAR_DATA_COLUMN(lidar_name)] = [lidar_data]
 
         # --------------------------------------------------------------------------------------------------------------
         # Miscellaneous (Scenario Tags / Route)
         # --------------------------------------------------------------------------------------------------------------
         if self._dataset_converter_config.include_scenario_tags:
             assert scenario_tags is not None, "Scenario tags are required but not provided."
-            record_batch_data["scenario_tags"] = [scenario_tags]
+            record_batch_data[SCENARIO_TAGS_COLUMN] = [scenario_tags]
 
         if self._dataset_converter_config.include_route:
             assert route_lane_group_ids is not None, "Route lane group IDs are required but not provided."
-            record_batch_data["route_lane_group_ids"] = [route_lane_group_ids]
+            record_batch_data[ROUTE_LANE_GROUP_IDS_COLUMN] = [route_lane_group_ids]
 
         record_batch = pa.record_batch(record_batch_data, schema=self._schema)
         self._record_batch_writer.write_batch(record_batch)
@@ -310,8 +344,8 @@ class ArrowLogWriter(AbstractLogWriter):
     def _build_schema(dataset_converter_config: DatasetConverterConfig, log_metadata: LogMetadata) -> pa.Schema:
 
         schema_list: List[Tuple[str, pa.DataType]] = [
-            ("uuid", pa.uuid()),
-            ("timestamp", pa.int64()),
+            (UUID_COLUMN, pa.uuid()),
+            (TIMESTAMP_US_COLUMN, pa.int64()),
         ]
 
         # --------------------------------------------------------------------------------------------------------------
@@ -320,7 +354,8 @@ class ArrowLogWriter(AbstractLogWriter):
         if dataset_converter_config.include_ego:
             schema_list.extend(
                 [
-                    ("ego_state", pa.list_(pa.float64(), len(EgoStateSE3Index))),
+                    (EGO_REAR_AXLE_SE3_COLUMN, pa.list_(pa.float64(), len(StateSE3Index))),
+                    (EGO_DYNAMIC_STATE_SE3_COLUMN, pa.list_(pa.float64(), len(DynamicStateSE3Index))),
                 ]
             )
 
@@ -330,10 +365,26 @@ class ArrowLogWriter(AbstractLogWriter):
         if dataset_converter_config.include_box_detections:
             schema_list.extend(
                 [
-                    ("box_detection_state", pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index)))),
-                    ("box_detection_velocity", pa.list_(pa.list_(pa.float64(), len(Vector3DIndex)))),
-                    ("box_detection_token", pa.list_(pa.string())),
-                    ("box_detection_label", pa.list_(pa.int16())),
+                    (
+                        BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN,
+                        pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index))),
+                    ),
+                    (
+                        BOX_DETECTIONS_TOKEN_COLUMN,
+                        pa.list_(pa.string()),
+                    ),
+                    (
+                        BOX_DETECTIONS_LABEL_COLUMN,
+                        pa.list_(pa.int16()),
+                    ),
+                    (
+                        BOX_DETECTIONS_VELOCITY_3D_COLUMN,
+                        pa.list_(pa.list_(pa.float64(), len(Vector3DIndex))),
+                    ),
+                    (
+                        BOX_DETECTIONS_NUM_LIDAR_POINTS_COLUMN,
+                        pa.list_(pa.int64()),
+                    ),
                 ]
             )
 
@@ -343,8 +394,8 @@ class ArrowLogWriter(AbstractLogWriter):
         if dataset_converter_config.include_traffic_lights:
             schema_list.extend(
                 [
-                    ("traffic_light_ids", pa.list_(pa.int64())),
-                    ("traffic_light_types", pa.list_(pa.int16())),
+                    (TRAFFIC_LIGHTS_LANE_ID_COLUMN, pa.list_(pa.int64())),
+                    (TRAFFIC_LIGHTS_STATUS_COLUMN, pa.list_(pa.int16())),
                 ]
             )
 
@@ -354,19 +405,18 @@ class ArrowLogWriter(AbstractLogWriter):
         if dataset_converter_config.include_pinhole_cameras:
             for pinhole_camera_type in log_metadata.pinhole_camera_metadata.keys():
                 pinhole_camera_name = pinhole_camera_type.serialize()
-
-                # Depending on the storage option, define the schema for camera data
-                if dataset_converter_config.pinhole_camera_store_option == "path":
-                    schema_list.append((f"{pinhole_camera_name}_data", pa.string()))
-
-                elif dataset_converter_config.pinhole_camera_store_option == "binary":
-                    schema_list.append((f"{pinhole_camera_name}_data", pa.binary()))
-
-                elif dataset_converter_config.pinhole_camera_store_option == "mp4":
-                    schema_list.append((f"{pinhole_camera_name}_data", pa.int64()))
-
-                # Add camera pose
-                schema_list.append((f"{pinhole_camera_name}_extrinsic", pa.list_(pa.float64(), len(StateSE3Index))))
+                schema_list.extend(
+                    [
+                        (
+                            PINHOLE_CAMERA_DATA_COLUMN(pinhole_camera_name),
+                            _store_option_to_arrow_type(dataset_converter_config.pinhole_camera_store_option),
+                        ),
+                        (
+                            PINHOLE_CAMERA_EXTRINSIC_COLUMN(pinhole_camera_name),
+                            pa.list_(pa.float64(), len(StateSE3Index)),
+                        ),
+                    ]
+                )
 
         # --------------------------------------------------------------------------------------------------------------
         # Fisheye MEI Cameras
@@ -374,45 +424,44 @@ class ArrowLogWriter(AbstractLogWriter):
         if dataset_converter_config.include_fisheye_mei_cameras:
             for fisheye_mei_camera_type in log_metadata.fisheye_mei_camera_metadata.keys():
                 fisheye_mei_camera_name = fisheye_mei_camera_type.serialize()
-
-                # Depending on the storage option, define the schema for camera data
-                if dataset_converter_config.fisheye_mei_camera_store_option == "path":
-                    schema_list.append((f"{fisheye_mei_camera_name}_data", pa.string()))
-
-                elif dataset_converter_config.fisheye_mei_camera_store_option == "binary":
-                    schema_list.append((f"{fisheye_mei_camera_name}_data", pa.binary()))
-
-                elif dataset_converter_config.fisheye_mei_camera_store_option == "mp4":
-                    schema_list.append((f"{fisheye_mei_camera_name}_data", pa.int64()))
-
-                # Add camera pose
-                schema_list.append((f"{fisheye_mei_camera_name}_extrinsic", pa.list_(pa.float64(), len(StateSE3Index))))
+                schema_list.extend(
+                    [
+                        (
+                            FISHEYE_CAMERA_DATA_COLUMN(fisheye_mei_camera_name),
+                            _store_option_to_arrow_type(dataset_converter_config.fisheye_mei_camera_store_option),
+                        ),
+                        (
+                            FISHEYE_CAMERA_EXTRINSIC_COLUMN(fisheye_mei_camera_name),
+                            pa.list_(pa.float64(), len(StateSE3Index)),
+                        ),
+                    ]
+                )
 
         # --------------------------------------------------------------------------------------------------------------
         # LiDARs
         # --------------------------------------------------------------------------------------------------------------
         if dataset_converter_config.include_lidars and len(log_metadata.lidar_metadata) > 0:
             if dataset_converter_config.lidar_store_option == "path_merged":
-                schema_list.append((f"{LiDARType.LIDAR_MERGED.serialize()}_data", pa.string()))
+                lidar_name = LiDARType.LIDAR_MERGED.serialize()
+                schema_list.append((LIDAR_DATA_COLUMN(lidar_name), pa.string()))
             else:
                 for lidar_type in log_metadata.lidar_metadata.keys():
                     lidar_name = lidar_type.serialize()
-
-                    # Depending on the storage option, define the schema for LiDAR data
-                    if dataset_converter_config.lidar_store_option == "path":
-                        schema_list.append((f"{lidar_name}_data", pa.string()))
-
-                    elif dataset_converter_config.lidar_store_option == "binary":
-                        schema_list.append((f"{lidar_name}_data", pa.binary()))
+                    schema_list.append(
+                        (
+                            LIDAR_DATA_COLUMN(lidar_name),
+                            _store_option_to_arrow_type(dataset_converter_config.lidar_store_option),
+                        )
+                    )
 
         # --------------------------------------------------------------------------------------------------------------
         # Miscellaneous (Scenario Tags / Route)
         # --------------------------------------------------------------------------------------------------------------
         if dataset_converter_config.include_scenario_tags:
-            schema_list.append(("scenario_tags", pa.list_(pa.string())))
+            schema_list.append((SCENARIO_TAGS_COLUMN, pa.list_(pa.string())))
 
         if dataset_converter_config.include_route:
-            schema_list.append(("route_lane_group_ids", pa.list_(pa.int64())))
+            schema_list.append((ROUTE_LANE_GROUP_IDS_COLUMN, pa.list_(pa.int64())))
 
         return add_log_metadata_to_arrow_schema(pa.schema(schema_list), log_metadata)
 
