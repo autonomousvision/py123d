@@ -55,7 +55,6 @@ dependencies = [
 py123d-viser = "py123d.script.run_viser:main"
 py123d-conversion = "py123d.script.run_conversion:main"
 
-
 [project.optional-dependencies]
 dev = [
     "black",
@@ -70,6 +69,7 @@ docs = [
     "myst-parser",
     "sphinx-copybutton",
     "furo",
+    "autoclasstoc",
 ]
 nuplan = [
     "nuplan-devkit @ git+https://github.com/motional/nuplan-devkit/@nuplan-devkit-v1.2",

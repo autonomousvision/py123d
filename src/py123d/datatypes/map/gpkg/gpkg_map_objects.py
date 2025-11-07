@@ -10,7 +10,7 @@ import pandas as pd
 import shapely.geometry as geom
 import trimesh
 
-from py123d.datatypes.maps.abstract_map_objects import (
+from py123d.datatypes.map.abstract_map_objects import (
     AbstractCarpark,
     AbstractCrosswalk,
     AbstractGenericDrivable,
@@ -24,8 +24,8 @@ from py123d.datatypes.maps.abstract_map_objects import (
     AbstractWalkway,
     MapObjectIDType,
 )
-from py123d.datatypes.maps.gpkg.gpkg_utils import get_row_with_value, get_trimesh_from_boundaries
-from py123d.datatypes.maps.map_datatypes import RoadEdgeType, RoadLineType
+from py123d.datatypes.map.gpkg.gpkg_utils import get_row_with_value, get_trimesh_from_boundaries
+from py123d.datatypes.map.map_datatypes import RoadEdgeType, RoadLineType
 from py123d.geometry import Point3DIndex, Polyline3D
 from py123d.geometry.polyline import Polyline2D
 

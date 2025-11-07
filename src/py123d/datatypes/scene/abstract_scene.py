@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
-from py123d.datatypes.maps.abstract_map import AbstractMap
+from py123d.datatypes.map.abstract_map import AbstractMap
 from py123d.datatypes.scene.scene_metadata import LogMetadata, SceneExtractionMetadata
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
 from py123d.datatypes.sensors.lidar import LiDAR, LiDARType

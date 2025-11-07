@@ -7,9 +7,9 @@ import shapely.geometry as geom
 from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
-from py123d.datatypes.maps.abstract_map import AbstractMap
-from py123d.datatypes.maps.abstract_map_objects import AbstractLane
-from py123d.datatypes.maps.map_datatypes import MapLayer
+from py123d.datatypes.map.abstract_map import AbstractMap
+from py123d.datatypes.map.abstract_map_objects import AbstractLane
+from py123d.datatypes.map.map_datatypes import MapLayer
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE2, EgoStateSE3
 from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D, StateSE2Index, Vector2D

@@ -17,7 +17,7 @@ from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     get_road_edge_linear_rings,
     split_line_geometry_by_max_length,
 )
-from py123d.datatypes.maps.cache.cache_map_objects import (
+from py123d.datatypes.map.cache.cache_map_objects import (
     CacheCarpark,
     CacheCrosswalk,
     CacheGenericDrivable,
@@ -28,8 +28,8 @@ from py123d.datatypes.maps.cache.cache_map_objects import (
     CacheRoadLine,
     CacheWalkway,
 )
-from py123d.datatypes.maps.gpkg.gpkg_utils import get_all_rows_with_value, get_row_with_value
-from py123d.datatypes.maps.map_datatypes import RoadEdgeType
+from py123d.datatypes.map.gpkg.gpkg_utils import get_all_rows_with_value, get_row_with_value
+from py123d.datatypes.map.map_datatypes import RoadEdgeType
 from py123d.geometry.polyline import Polyline2D, Polyline3D
 
 MAX_ROAD_EDGE_LENGTH: Final[float] = 100.0  # meters, used to filter out very long road edges. TODO @add to config?

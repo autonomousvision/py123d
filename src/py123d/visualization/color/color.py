@@ -73,7 +73,7 @@ TAB_10: Dict[int, Color] = {
     9: Color("#17becf"),  # cyan
 }
 
-NEW_TAB_10: Dict[int, str] = {
+NEW_TAB_10: Dict[int, Color] = {
     0: Color("#4e79a7"),  # blue
     1: Color("#f28e2b"),  # orange
     2: Color("#e15759"),  # red

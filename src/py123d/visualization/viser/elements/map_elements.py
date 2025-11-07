@@ -4,8 +4,8 @@ import numpy as np
 import trimesh
 import viser
 
-from py123d.datatypes.maps.abstract_map import MapLayer
-from py123d.datatypes.maps.abstract_map_objects import AbstractSurfaceMapObject
+from py123d.datatypes.map.abstract_map import MapLayer
+from py123d.datatypes.map.abstract_map_objects import AbstractSurfaceMapObject
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import Point3D, Point3DIndex

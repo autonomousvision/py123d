@@ -110,7 +110,7 @@ class StateSE3(ArrayMixin):
     _array: npt.NDArray[np.float64]
 
     def __init__(self, x: float, y: float, z: float, qw: float, qx: float, qy: float, qz: float):
-        """Initialize QuaternionSE3 with x, y, z, qw, qx, qy, qz coordinates."""
+        """Initialize StateSE3 with x, y, z, qw, qx, qy, qz coordinates."""
         array = np.zeros(len(StateSE3Index), dtype=np.float64)
         array[StateSE3Index.X] = x
         array[StateSE3Index.Y] = y
@@ -123,11 +123,11 @@ class StateSE3(ArrayMixin):
 
     @classmethod
     def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> StateSE3:
-        """Constructs a QuaternionSE3 from a numpy array.
+        """Constructs a StateSE3 from a numpy array.
 
-        :param array: Array of shape (7,), indexed by :class:`~py123d.geometry.geometry_index.QuaternionSE3Index`.
+        :param array: Array of shape (7,), indexed by :class:`~py123d.geometry.geometry_index.StateSE3Index`.
         :param copy: Whether to copy the input array. Defaults to True.
-        :return: A QuaternionSE3 instance.
+        :return: A StateSE3 instance.
         """
         assert array.ndim == 1
         assert array.shape[0] == len(StateSE3Index)
@@ -207,9 +207,9 @@ class StateSE3(ArrayMixin):
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
-        """Converts the QuaternionSE3 instance to a numpy array.
+        """Converts the StateSE3 instance to a numpy array.
 
-        :return: A numpy array of shape (7,), indexed by :class:`~py123d.geometry.geometry_index.QuaternionSE3Index`.
+        :return: A numpy array of shape (7,), indexed by :class:`~py123d.geometry.geometry_index.StateSE3Index`.
         """
         return self._array
 

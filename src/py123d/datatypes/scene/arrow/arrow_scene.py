@@ -6,8 +6,8 @@ import pyarrow as pa
 from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
-from py123d.datatypes.maps.abstract_map import AbstractMap
-from py123d.datatypes.maps.gpkg.gpkg_map import get_global_map_api, get_local_map_api
+from py123d.datatypes.map.abstract_map import AbstractMap
+from py123d.datatypes.map.gpkg.gpkg_map import get_global_map_api, get_local_map_api
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.scene.arrow.utils.arrow_getters import (
     get_box_detections_se3_from_arrow_table,

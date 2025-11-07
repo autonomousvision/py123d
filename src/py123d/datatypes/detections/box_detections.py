@@ -11,20 +11,57 @@ from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, OccupancyMap2D, Stat
 
 @dataclass
 class BoxDetectionMetadata:
+    """Store metadata for a detected bounding box.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        from mymodule import my_function
+
+        result = my_function()
+        print(result)
+
+    """
 
     label: BoxDetectionLabel
     track_token: str
-    confidence: Optional[float] = None
     num_lidar_points: Optional[int] = None
     timepoint: Optional[TimePoint] = None
 
     @property
     def default_label(self) -> DefaultBoxDetectionLabel:
+        """The default label of the detection.
+
+        :return: The default label.
+        """
         return self.label.to_default()
 
 
 @dataclass
 class BoxDetectionSE2:
+    """Store a 2D bounding box detection.
+
+    Example:
+        >>> from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
+        >>> from py123d.datatypes.detections import BoxDetectionMetadata, BoxDetectionSE2
+        >>> from py123d.geometry import BoundingBoxSE2, StateSE2, Vector2D
+        >>> metadata = BoxDetectionMetadata(
+        ...     label=DefaultBoxDetectionLabel.VEHICLE,
+        ...     track_token="track_123",
+        ... )
+        >>> bounding_box = BoundingBoxSE2(
+        ...     center=StateSE2(x=0.0, y=0.0, yaw=0.0),
+        ...     length=4.0,
+        ...     width=2.0,
+        ... )
+        >>> detection = BoxDetectionSE2(
+        ...     metadata=metadata,
+        ...     bounding_box_se2=bounding_box,
+        ...     velocity=Vector2D(x=1.0, y=0.0),
+        ... )
+    """
 
     metadata: BoxDetectionMetadata
     bounding_box_se2: BoundingBoxSE2

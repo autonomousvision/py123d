@@ -16,10 +16,9 @@ release = "v0.0.7"
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    "sphinx.ext.duration",
-    "sphinx.ext.doctest",
+    "autoclasstoc",
     "sphinx.ext.autodoc",
-    "sphinx.ext.intersphinx",
+    "sphinx.ext.viewcode",
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
@@ -63,13 +62,29 @@ autodoc_typehints = "both"
 autodoc_class_signature = "separated"
 autodoc_default_options = {
     "members": True,
-    "member-order": "bysource",
+    "special-members": False,
+    "private-members": True,
+    "inherited-members": True,
     "undoc-members": True,
-    "inherited-members": False,
-    "exclude-members": "__init__, __post_init__, __new__",
+    "member-order": "bysource",
+    "exclude-members": "__post_init__, __new__, __weakref__, __iter__,  __hash__, annotations, _array",
     "imported-members": True,
 }
 
+autosummary_generate = True
+
+autoclasstoc_sections = [
+    "public-attrs",
+    "public-methods-without-dunders",
+    "private-methods",
+]
+
+# 'members': True,
+# 'special-members': True,
+# 'private-members': True,
+# 'inherited-members': True,
+# 'undoc-members': True,
+# 'exclude-members': '__weakref__',
 
 # Custom CSS for color theming
 html_css_files = [
@@ -79,8 +94,8 @@ html_css_files = [
 # Additional theme options for color customization
 html_theme_options.update(
     {
-        "light_logo": "logo_black.png",
-        "dark_logo": "logo_white.png",
+        "light_logo": "123D_logo_transparent_black.svg",
+        "dark_logo": "123D_logo_transparent_white.svg",
         "sidebar_hide_name": True,
     }
 )

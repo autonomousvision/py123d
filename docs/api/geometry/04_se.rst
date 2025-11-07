@@ -1,0 +1,10 @@
+Special Euclidean Groups
+------------------------
+
+.. autoclass:: py123d.geometry.StateSE3
+   :members:
+   :autoclasstoc:
+
+.. autoclass:: py123d.geometry.StateSE2
+   :members:
+   :autoclasstoc:

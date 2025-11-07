@@ -9,7 +9,7 @@ import shapely.geometry as geom
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.map_writer.utils.gpkg_utils import IntIDMapping
-from py123d.datatypes.maps.abstract_map_objects import (
+from py123d.datatypes.map.abstract_map_objects import (
     AbstractCarpark,
     AbstractCrosswalk,
     AbstractGenericDrivable,
@@ -23,8 +23,8 @@ from py123d.datatypes.maps.abstract_map_objects import (
     AbstractSurfaceMapObject,
     AbstractWalkway,
 )
-from py123d.datatypes.maps.map_datatypes import MapLayer
-from py123d.datatypes.maps.map_metadata import MapMetadata
+from py123d.datatypes.map.map_datatypes import MapLayer
+from py123d.datatypes.map.map_metadata import MapMetadata
 from py123d.geometry.polyline import Polyline3D
 
 MAP_OBJECT_DATA = Dict[str, List[Union[str, int, float, bool, geom.base.BaseGeometry]]]

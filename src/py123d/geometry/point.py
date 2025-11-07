@@ -108,15 +108,6 @@ class Point3D(ArrayMixin):
         return instance
 
     @property
-    def array(self) -> npt.NDArray[np.float64]:
-        """The array representation of the point.
-
-        :return: A numpy array of shape (3,) containing the point coordinates [x, y, z], indexed by \
-            :class:`~py123d.geometry.Point3DIndex`.
-        """
-        return self._array
-
-    @property
     def x(self) -> float:
         """The x coordinate of the point.
 
@@ -139,6 +130,15 @@ class Point3D(ArrayMixin):
         :return: The z coordinate of the point.
         """
         return self._array[Point3DIndex.Z]
+
+    @property
+    def array(self) -> npt.NDArray[np.float64]:
+        """The array representation of the point.
+
+        :return: A numpy array of shape (3,) containing the point coordinates [x, y, z], indexed by \
+            :class:`~py123d.geometry.Point3DIndex`.
+        """
+        return self._array
 
     @property
     def point_2d(self) -> Point2D:

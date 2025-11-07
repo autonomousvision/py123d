@@ -10,9 +10,9 @@ import geopandas as gpd
 import shapely
 import shapely.geometry as geom
 
-from py123d.datatypes.maps.abstract_map import AbstractMap
-from py123d.datatypes.maps.abstract_map_objects import AbstractMapObject
-from py123d.datatypes.maps.gpkg.gpkg_map_objects import (
+from py123d.datatypes.map.abstract_map import AbstractMap
+from py123d.datatypes.map.abstract_map_objects import AbstractMapObject
+from py123d.datatypes.map.gpkg.gpkg_map_objects import (
     GPKGCarpark,
     GPKGCrosswalk,
     GPKGGenericDrivable,
@@ -23,9 +23,9 @@ from py123d.datatypes.maps.gpkg.gpkg_map_objects import (
     GPKGRoadLine,
     GPKGWalkway,
 )
-from py123d.datatypes.maps.gpkg.gpkg_utils import load_gdf_with_geometry_columns
-from py123d.datatypes.maps.map_datatypes import MapLayer
-from py123d.datatypes.maps.map_metadata import MapMetadata
+from py123d.datatypes.map.gpkg.gpkg_utils import load_gdf_with_geometry_columns
+from py123d.datatypes.map.map_datatypes import MapLayer
+from py123d.datatypes.map.map_metadata import MapMetadata
 from py123d.geometry import Point2D
 from py123d.script.utils.dataset_path_utils import get_dataset_paths
 

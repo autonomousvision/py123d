@@ -4,8 +4,8 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import shapely.geometry as geom
 
-from py123d.datatypes.maps.abstract_map_objects import AbstractRoadEdge, AbstractRoadLine
-from py123d.datatypes.maps.map_datatypes import LaneType
+from py123d.datatypes.map.abstract_map_objects import AbstractRoadEdge, AbstractRoadLine
+from py123d.datatypes.map.map_datatypes import LaneType
 from py123d.geometry import OccupancyMap2D, Point3D, Polyline3D, PolylineSE2, StateSE2, Vector2D
 from py123d.geometry.transform.transform_se2 import translate_se2_along_body_frame
 from py123d.geometry.utils.rotation_utils import normalize_angle

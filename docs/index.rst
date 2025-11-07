@@ -23,8 +23,8 @@ documentation for details.
    :maxdepth: 2
    :caption: API Reference:
 
-   geometry
-
+   api/map/index
+   api/geometry/index
 
 .. toctree::
    :maxdepth: 1

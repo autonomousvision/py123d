@@ -9,7 +9,7 @@ import shapely
 import shapely.geometry as geom
 
 from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import get_road_edge_linear_rings
-from py123d.datatypes.maps.abstract_map_objects import (
+from py123d.datatypes.map.abstract_map_objects import (
     AbstractCarpark,
     AbstractGenericDrivable,
     AbstractLane,

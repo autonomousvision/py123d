@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Iterable
 
 import numpy as np
@@ -135,7 +134,6 @@ class Vector2D(ArrayMixin):
         return hash((self.x, self.y))
 
 
-@dataclass
 class Vector3D(ArrayMixin):
     """
     Class to represents 3D vectors, in x, y, z direction.

@@ -2,7 +2,7 @@ import abc
 from abc import abstractmethod
 
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
-from py123d.datatypes.maps.abstract_map_objects import (
+from py123d.datatypes.map.abstract_map_objects import (
     AbstractCarpark,
     AbstractCrosswalk,
     AbstractGenericDrivable,
@@ -14,7 +14,7 @@ from py123d.datatypes.maps.abstract_map_objects import (
     AbstractStopLine,
     AbstractWalkway,
 )
-from py123d.datatypes.maps.map_metadata import MapMetadata
+from py123d.datatypes.map.map_metadata import MapMetadata
 
 
 class AbstractMapWriter(abc.ABC):

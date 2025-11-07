@@ -7,7 +7,7 @@ import shapely.geometry as geom
 import trimesh
 from typing_extensions import TypeAlias
 
-from py123d.datatypes.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
+from py123d.datatypes.map.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
 from py123d.geometry import Polyline2D, Polyline3D, PolylineSE2
 
 # TODO: Refactor and just use int
@@ -16,46 +16,50 @@ MapObjectIDType: TypeAlias = Union[str, int]
 
 
 class AbstractMapObject(abc.ABC):
-    """
-    Base interface representation of all map objects.
-    """
 
     def __init__(self, object_id: MapObjectIDType):
-        """
-        Constructor of the base map object type.
+        """Constructor of the base map object type.
+
         :param object_id: unique identifier of the map object.
         """
         self.object_id: MapObjectIDType = object_id
 
     @property
+    def object_id(self) -> MapObjectIDType:
+        """Returns the unique identifier of the map object.
+
+        :return: map object id
+        """
+        return self.object_id
+
+    @property
     @abc.abstractmethod
     def layer(self) -> MapLayer:
         """
-        Returns map layer type, e.g. LANE, ROAD_EDGE.
+
         :return: map layer type
         """
 
 
 class AbstractSurfaceMapObject(AbstractMapObject):
-    """
-    Base interface representation of all map objects.
-    """
 
     @property
     @abc.abstractmethod
     def shapely_polygon(self) -> geom.Polygon:
-        """
-        Returns the 2D shapely polygon of the map object.
+        """Returns the 2D shapely polygon of the map object.
+
         :return: shapely polygon
         """
+        raise NotImplementedError
 
     @property
     @abc.abstractmethod
     def outline(self) -> Union[Polyline2D, Polyline3D]:
-        """
-        Returns the 2D or 3D outline of the map surface, if available.
+        """Returns the 2D or 3D outline of the map surface, if available.
+
         :return: 2D or 3D polyline
         """
+        raise NotImplementedError
 
     @property
     @abc.abstractmethod
@@ -64,6 +68,7 @@ class AbstractSurfaceMapObject(AbstractMapObject):
         Returns a triangle mesh of the map surface.
         :return: Trimesh
         """
+        raise NotImplementedError
 
     @property
     def outline_3d(self) -> Polyline3D:
@@ -138,7 +143,6 @@ class AbstractLineMapObject(AbstractMapObject):
 
 
 class AbstractLane(AbstractSurfaceMapObject):
-    """Abstract interface for lane objects."""
 
     @property
     def layer(self) -> MapLayer:
@@ -147,8 +151,8 @@ class AbstractLane(AbstractSurfaceMapObject):
     @property
     @abc.abstractmethod
     def speed_limit_mps(self) -> Optional[float]:
-        """
-        Property of lanes speed limit in m/s, if available.
+        """Property of lanes speed limit in m/s, if available.
+
         :return: float or none
         """
 

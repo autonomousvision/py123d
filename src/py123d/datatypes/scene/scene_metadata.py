@@ -5,7 +5,7 @@ from typing import Dict, Optional, Type
 
 import py123d
 from py123d.conversion.registry.box_detection_label_registry import BOX_DETECTION_LABEL_REGISTRY, BoxDetectionLabel
-from py123d.datatypes.maps.map_metadata import MapMetadata
+from py123d.datatypes.map.map_metadata import MapMetadata
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraMetadata, FisheyeMEICameraType
 from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata, PinholeCameraType

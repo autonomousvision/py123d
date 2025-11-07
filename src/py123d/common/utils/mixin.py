@@ -51,6 +51,10 @@ class ArrayMixin:
         """Convert the array to a Python list."""
         return self.array.tolist()
 
+    def to_list(self) -> list:
+        """Convert the array to a Python list."""
+        return self.array.tolist()
+
     def copy(self) -> ArrayMixin:
         """Return a copy of the object with a copied array."""
         return self.__class__.from_array(self.array, copy=True)

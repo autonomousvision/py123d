@@ -8,7 +8,7 @@ import viser
 from tqdm import tqdm
 from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
 
-from py123d.datatypes.maps.map_datatypes import MapLayer
+from py123d.datatypes.map.map_datatypes import MapLayer
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraType
 from py123d.datatypes.sensors.lidar import LiDARType

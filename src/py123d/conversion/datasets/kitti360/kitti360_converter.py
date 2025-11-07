@@ -33,7 +33,7 @@ from py123d.datatypes.detections.box_detections import (
     BoxDetectionSE3,
     BoxDetectionWrapper,
 )
-from py123d.datatypes.maps.map_metadata import MapMetadata
+from py123d.datatypes.map.map_metadata import MapMetadata
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.fisheye_mei_camera import (
     FisheyeMEICameraMetadata,

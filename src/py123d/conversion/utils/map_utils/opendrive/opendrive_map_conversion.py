@@ -21,7 +21,7 @@ from py123d.conversion.utils.map_utils.road_edge.road_edge_3d_utils import (
     get_road_edges_3d_from_drivable_surfaces,
     lift_outlines_to_3d,
 )
-from py123d.datatypes.maps.cache.cache_map_objects import (
+from py123d.datatypes.map.cache.cache_map_objects import (
     CacheCarpark,
     CacheCrosswalk,
     CacheGenericDrivable,
@@ -32,7 +32,7 @@ from py123d.datatypes.maps.cache.cache_map_objects import (
     CacheRoadLine,
     CacheWalkway,
 )
-from py123d.datatypes.maps.map_datatypes import RoadEdgeType, RoadLineType
+from py123d.datatypes.map.map_datatypes import RoadEdgeType, RoadLineType
 from py123d.geometry.geometry_index import Point3DIndex
 from py123d.geometry.polyline import Polyline3D
 

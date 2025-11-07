@@ -6,7 +6,7 @@ import numpy as np
 import shapely.geometry as geom
 import trimesh
 
-from py123d.datatypes.maps.abstract_map_objects import (
+from py123d.datatypes.map.abstract_map_objects import (
     AbstractCarpark,
     AbstractCrosswalk,
     AbstractGenericDrivable,
@@ -20,7 +20,7 @@ from py123d.datatypes.maps.abstract_map_objects import (
     AbstractWalkway,
     MapObjectIDType,
 )
-from py123d.datatypes.maps.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
+from py123d.datatypes.map.map_datatypes import MapLayer, RoadEdgeType, RoadLineType
 from py123d.geometry import Polyline3D
 from py123d.geometry.polyline import Polyline2D
 

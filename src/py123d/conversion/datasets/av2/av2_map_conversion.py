@@ -15,7 +15,7 @@ from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     split_line_geometry_by_max_length,
 )
 from py123d.conversion.utils.map_utils.road_edge.road_edge_3d_utils import lift_road_edges_to_3d
-from py123d.datatypes.maps.cache.cache_map_objects import (
+from py123d.datatypes.map.cache.cache_map_objects import (
     CacheCrosswalk,
     CacheGenericDrivable,
     CacheIntersection,
@@ -24,7 +24,7 @@ from py123d.datatypes.maps.cache.cache_map_objects import (
     CacheRoadEdge,
     CacheRoadLine,
 )
-from py123d.datatypes.maps.map_datatypes import RoadEdgeType
+from py123d.datatypes.map.map_datatypes import RoadEdgeType
 from py123d.geometry import OccupancyMap2D, Point3DIndex, Polyline2D, Polyline3D
 
 LANE_GROUP_MARK_TYPES: List[str] = [

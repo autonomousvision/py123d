@@ -10,8 +10,8 @@ from py123d.conversion.datasets.wopd.utils.wopd_constants import (
     WAYMO_ROAD_LINE_TYPE_CONVERSION,
 )
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.datatypes.maps.abstract_map_objects import AbstractLane, AbstractRoadEdge, AbstractRoadLine
-from py123d.datatypes.maps.cache.cache_map_objects import (
+from py123d.datatypes.map.abstract_map_objects import AbstractLane, AbstractRoadEdge, AbstractRoadLine
+from py123d.datatypes.map.cache.cache_map_objects import (
     CacheCarpark,
     CacheCrosswalk,
     CacheLane,
@@ -19,7 +19,7 @@ from py123d.datatypes.maps.cache.cache_map_objects import (
     CacheRoadEdge,
     CacheRoadLine,
 )
-from py123d.datatypes.maps.map_datatypes import LaneType, RoadEdgeType, RoadLineType
+from py123d.datatypes.map.map_datatypes import LaneType, RoadEdgeType, RoadLineType
 from py123d.geometry import Polyline3D
 from py123d.geometry.utils.units import mph_to_mps
 

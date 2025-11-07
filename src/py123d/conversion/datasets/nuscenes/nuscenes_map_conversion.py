@@ -18,7 +18,7 @@ from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     split_line_geometry_by_max_length,
     split_polygon_by_grid,
 )
-from py123d.datatypes.maps.cache.cache_map_objects import (
+from py123d.datatypes.map.cache.cache_map_objects import (
     CacheCarpark,
     CacheCrosswalk,
     CacheGenericDrivable,
@@ -29,7 +29,7 @@ from py123d.datatypes.maps.cache.cache_map_objects import (
     CacheRoadLine,
     CacheWalkway,
 )
-from py123d.datatypes.maps.map_datatypes import RoadEdgeType, RoadLineType
+from py123d.datatypes.map.map_datatypes import RoadEdgeType, RoadLineType
 from py123d.geometry import OccupancyMap2D, Polyline2D, Polyline3D
 from py123d.geometry.utils.polyline_utils import offset_points_perpendicular
 

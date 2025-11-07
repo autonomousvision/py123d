@@ -20,7 +20,7 @@ from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.box_detection_label_registry import NuScenesBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import NuScenesLiDARIndex
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
-from py123d.datatypes.maps.map_metadata import MapMetadata
+from py123d.datatypes.map.map_metadata import MapMetadata
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
 from py123d.datatypes.sensors.pinhole_camera import (

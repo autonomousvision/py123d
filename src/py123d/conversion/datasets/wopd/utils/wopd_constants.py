@@ -1,7 +1,7 @@
 from typing import Dict, List
 
 from py123d.conversion.registry.box_detection_label_registry import WOPDBoxDetectionLabel
-from py123d.datatypes.maps.map_datatypes import LaneType, RoadEdgeType, RoadLineType
+from py123d.datatypes.map.map_datatypes import LaneType, RoadEdgeType, RoadLineType
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 
