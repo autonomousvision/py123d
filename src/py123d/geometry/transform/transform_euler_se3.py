@@ -11,44 +11,44 @@ from py123d.geometry.utils.rotation_utils import (
 )
 
 
-def translate_euler_se3_along_z(state_se3: EulerStateSE3, distance: float) -> EulerStateSE3:
+def translate_euler_se3_along_z(pose_se3: EulerStateSE3, distance: float) -> EulerStateSE3:
 
-    R = state_se3.rotation_matrix
+    R = pose_se3.rotation_matrix
     z_axis = R[:, 2]
 
-    state_se3_array = state_se3.array.copy()
-    state_se3_array[EulerStateSE3Index.XYZ] += distance * z_axis[Vector3DIndex.XYZ]
-    return EulerStateSE3.from_array(state_se3_array, copy=False)
+    pose_se3_array = pose_se3.array.copy()
+    pose_se3_array[EulerStateSE3Index.XYZ] += distance * z_axis[Vector3DIndex.XYZ]
+    return EulerStateSE3.from_array(pose_se3_array, copy=False)
 
 
-def translate_euler_se3_along_y(state_se3: EulerStateSE3, distance: float) -> EulerStateSE3:
+def translate_euler_se3_along_y(pose_se3: EulerStateSE3, distance: float) -> EulerStateSE3:
 
-    R = state_se3.rotation_matrix
+    R = pose_se3.rotation_matrix
     y_axis = R[:, 1]
 
-    state_se3_array = state_se3.array.copy()
-    state_se3_array[EulerStateSE3Index.XYZ] += distance * y_axis[Vector3DIndex.XYZ]
-    return EulerStateSE3.from_array(state_se3_array, copy=False)
+    pose_se3_array = pose_se3.array.copy()
+    pose_se3_array[EulerStateSE3Index.XYZ] += distance * y_axis[Vector3DIndex.XYZ]
+    return EulerStateSE3.from_array(pose_se3_array, copy=False)
 
 
-def translate_euler_se3_along_x(state_se3: EulerStateSE3, distance: float) -> EulerStateSE3:
+def translate_euler_se3_along_x(pose_se3: EulerStateSE3, distance: float) -> EulerStateSE3:
 
-    R = state_se3.rotation_matrix
+    R = pose_se3.rotation_matrix
     x_axis = R[:, 0]
 
-    state_se3_array = state_se3.array.copy()
-    state_se3_array[EulerStateSE3Index.XYZ] += distance * x_axis[Vector3DIndex.XYZ]
-    return EulerStateSE3.from_array(state_se3_array, copy=False)
+    pose_se3_array = pose_se3.array.copy()
+    pose_se3_array[EulerStateSE3Index.XYZ] += distance * x_axis[Vector3DIndex.XYZ]
+    return EulerStateSE3.from_array(pose_se3_array, copy=False)
 
 
-def translate_euler_se3_along_body_frame(state_se3: EulerStateSE3, vector_3d: Vector3D) -> EulerStateSE3:
+def translate_euler_se3_along_body_frame(pose_se3: EulerStateSE3, vector_3d: Vector3D) -> EulerStateSE3:
 
-    R = state_se3.rotation_matrix
+    R = pose_se3.rotation_matrix
     world_translation = R @ vector_3d.array
 
-    state_se3_array = state_se3.array.copy()
-    state_se3_array[EulerStateSE3Index.XYZ] += world_translation[Vector3DIndex.XYZ]
-    return EulerStateSE3.from_array(state_se3_array, copy=False)
+    pose_se3_array = pose_se3.array.copy()
+    pose_se3_array[EulerStateSE3Index.XYZ] += world_translation[Vector3DIndex.XYZ]
+    return EulerStateSE3.from_array(pose_se3_array, copy=False)
 
 
 def convert_absolute_to_relative_euler_se3_array(
@@ -65,7 +65,7 @@ def convert_absolute_to_relative_euler_se3_array(
         t_origin = origin_array[EulerStateSE3Index.XYZ]
         R_origin = get_rotation_matrix_from_euler_array(origin_array[EulerStateSE3Index.EULER_ANGLES])
     else:
-        raise TypeError(f"Expected StateSE3 or np.ndarray, got {type(origin)}")
+        raise TypeError(f"Expected PoseSE3 or np.ndarray, got {type(origin)}")
 
     assert se3_array.ndim >= 1
     assert se3_array.shape[-1] == len(EulerStateSE3Index)
@@ -106,7 +106,7 @@ def convert_relative_to_absolute_euler_se3_array(
         t_origin = origin_array[EulerStateSE3Index.XYZ]
         R_origin = get_rotation_matrix_from_euler_array(origin_array[EulerStateSE3Index.EULER_ANGLES])
     else:
-        raise TypeError(f"Expected StateSE3 or np.ndarray, got {type(origin)}")
+        raise TypeError(f"Expected PoseSE3 or np.ndarray, got {type(origin)}")
 
     assert se3_array.ndim >= 1
     assert se3_array.shape[-1] == len(EulerStateSE3Index)
@@ -141,7 +141,7 @@ def convert_absolute_to_relative_points_3d_array(
         t_origin = origin[EulerStateSE3Index.XYZ]
         R_origin = get_rotation_matrix_from_euler_array(origin[EulerStateSE3Index.EULER_ANGLES])
     else:
-        raise TypeError(f"Expected StateSE3 or np.ndarray, got {type(origin)}")
+        raise TypeError(f"Expected PoseSE3 or np.ndarray, got {type(origin)}")
 
     assert points_3d_array.ndim >= 1
     assert points_3d_array.shape[-1] == len(Point3DIndex)

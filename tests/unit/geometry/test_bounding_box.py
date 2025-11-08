@@ -4,7 +4,7 @@ import numpy as np
 import shapely.geometry as geom
 
 from py123d.common.utils.mixin import ArrayMixin
-from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D, Point3D, StateSE2, StateSE3
+from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D, Point3D, PoseSE2, PoseSE3
 from py123d.geometry.geometry_index import (
     BoundingBoxSE2Index,
     BoundingBoxSE3Index,
@@ -19,7 +19,7 @@ class TestBoundingBoxSE2(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.center = StateSE2(1.0, 2.0, 0.5)
+        self.center = PoseSE2(1.0, 2.0, 0.5)
         self.length = 4.0
         self.width = 2.0
         self.bbox = BoundingBoxSE2(self.center, self.length, self.width)
@@ -110,7 +110,7 @@ class TestBoundingBoxSE3(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.array = np.array([1.0, 2.0, 3.0, 0.98185617, 0.06407135, 0.09115755, 0.1534393, 4.0, 2.0, 1.5])
-        self.center = StateSE3(1.0, 2.0, 3.0, 0.98185617, 0.06407135, 0.09115755, 0.1534393)
+        self.center = PoseSE3(1.0, 2.0, 3.0, 0.98185617, 0.06407135, 0.09115755, 0.1534393)
         self.length = 4.0
         self.width = 2.0
         self.height = 1.5
@@ -209,7 +209,7 @@ class TestBoundingBoxSE3(unittest.TestCase):
 
     def test_zero_dimensions(self):
         """Test bounding box with zero dimensions."""
-        center = StateSE3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        center = PoseSE3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         bbox = BoundingBoxSE3(center, 0.0, 0.0, 0.0)
         self.assertEqual(bbox.length, 0.0)
         self.assertEqual(bbox.width, 0.0)

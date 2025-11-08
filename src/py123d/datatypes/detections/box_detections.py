@@ -6,7 +6,7 @@ import shapely
 
 from py123d.conversion.registry.box_detection_label_registry import BoxDetectionLabel, DefaultBoxDetectionLabel
 from py123d.datatypes.time.time_point import TimePoint
-from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, OccupancyMap2D, StateSE2, StateSE3, Vector2D, Vector3D
+from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, OccupancyMap2D, PoseSE2, PoseSE3, Vector2D, Vector3D
 
 
 @dataclass
@@ -72,7 +72,7 @@ class BoxDetectionSE2:
         return self.bounding_box_se2.shapely_polygon
 
     @property
-    def center(self) -> StateSE2:
+    def center(self) -> PoseSE2:
         return self.bounding_box_se2.center
 
     @property
@@ -92,11 +92,11 @@ class BoxDetectionSE3:
         return self.bounding_box_se3.shapely_polygon
 
     @property
-    def center(self) -> StateSE3:
+    def center(self) -> PoseSE3:
         return self.bounding_box_se3.center
 
     @property
-    def center_se3(self) -> StateSE3:
+    def center_se3(self) -> PoseSE3:
         return self.bounding_box_se3.center_se3
 
     @property

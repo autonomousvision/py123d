@@ -14,7 +14,7 @@ from py123d.datatypes.vehicle_state.vehicle_parameters import (
     rear_axle_se2_to_center_se2,
     rear_axle_se3_to_center_se3,
 )
-from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, StateSE2, StateSE3
+from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, PoseSE2, PoseSE3
 
 EGO_TRACK_TOKEN: Final[str] = "ego_vehicle"
 
@@ -23,7 +23,7 @@ class EgoStateSE3:
 
     def __init__(
         self,
-        rear_axle_se3: StateSE3,
+        rear_axle_se3: PoseSE3,
         vehicle_parameters: VehicleParameters,
         dynamic_state_se3: Optional[DynamicStateSE3] = None,
         timepoint: Optional[TimePoint] = None,
@@ -38,7 +38,7 @@ class EgoStateSE3:
     @classmethod
     def from_center(
         cls,
-        center_se3: StateSE3,
+        center_se3: PoseSE3,
         vehicle_parameters: VehicleParameters,
         dynamic_state_se3: Optional[DynamicStateSE3] = None,
         timepoint: Optional[TimePoint] = None,
@@ -62,7 +62,7 @@ class EgoStateSE3:
     @classmethod
     def from_rear_axle(
         cls,
-        rear_axle_se3: StateSE3,
+        rear_axle_se3: PoseSE3,
         vehicle_parameters: VehicleParameters,
         dynamic_state_se3: Optional[DynamicStateSE3] = None,
         timepoint: Optional[TimePoint] = None,
@@ -78,7 +78,7 @@ class EgoStateSE3:
         )
 
     @property
-    def rear_axle_se3(self) -> StateSE3:
+    def rear_axle_se3(self) -> PoseSE3:
         return self._rear_axle_se3
 
     @property
@@ -98,26 +98,26 @@ class EgoStateSE3:
         return self._tire_steering_angle
 
     @property
-    def rear_axle_se2(self) -> StateSE2:
-        return self._rear_axle_se3.state_se2
+    def rear_axle_se2(self) -> PoseSE2:
+        return self._rear_axle_se3.pose_se2
 
     @property
-    def rear_axle(self) -> StateSE3:
+    def rear_axle(self) -> PoseSE3:
         return self._rear_axle_se3
 
     @property
-    def center_se3(self) -> StateSE3:
+    def center_se3(self) -> PoseSE3:
         return rear_axle_se3_to_center_se3(
             rear_axle_se3=self._rear_axle_se3,
             vehicle_parameters=self._vehicle_parameters,
         )
 
     @property
-    def center_se2(self) -> StateSE2:
-        return self.center_se3.state_se2
+    def center_se2(self) -> PoseSE2:
+        return self.center_se3.pose_se2
 
     @property
-    def center(self) -> StateSE3:
+    def center(self) -> PoseSE3:
         return self.center_se3
 
     @property
@@ -174,13 +174,13 @@ class EgoStateSE2:
 
     def __init__(
         self,
-        rear_axle_se2: StateSE2,
+        rear_axle_se2: PoseSE2,
         vehicle_parameters: VehicleParameters,
         dynamic_state_se2: Optional[DynamicStateSE2] = None,
         timepoint: Optional[TimePoint] = None,
         tire_steering_angle: Optional[float] = 0.0,
     ):
-        self._rear_axle_se2: StateSE2 = rear_axle_se2
+        self._rear_axle_se2: PoseSE2 = rear_axle_se2
         self._vehicle_parameters: VehicleParameters = vehicle_parameters
         self._dynamic_state_se2: Optional[DynamicStateSE2] = dynamic_state_se2
         self._timepoint: Optional[TimePoint] = timepoint
@@ -189,7 +189,7 @@ class EgoStateSE2:
     @classmethod
     def from_rear_axle(
         cls,
-        rear_axle_se2: StateSE2,
+        rear_axle_se2: PoseSE2,
         dynamic_state_se2: DynamicStateSE2,
         vehicle_parameters: VehicleParameters,
         timepoint: TimePoint,
@@ -207,7 +207,7 @@ class EgoStateSE2:
     @classmethod
     def from_center(
         cls,
-        center_se2: StateSE2,
+        center_se2: PoseSE2,
         dynamic_state_se2: DynamicStateSE2,
         vehicle_parameters: VehicleParameters,
         timepoint: TimePoint,
@@ -229,7 +229,7 @@ class EgoStateSE2:
         )
 
     @property
-    def rear_axle_se2(self) -> StateSE2:
+    def rear_axle_se2(self) -> PoseSE2:
         return self._rear_axle_se2
 
     @property
@@ -249,15 +249,15 @@ class EgoStateSE2:
         return self._tire_steering_angle
 
     @property
-    def rear_axle(self) -> StateSE2:
+    def rear_axle(self) -> PoseSE2:
         return self.rear_axle_se2
 
     @property
-    def center_se2(self) -> StateSE2:
+    def center_se2(self) -> PoseSE2:
         return rear_axle_se2_to_center_se2(rear_axle_se2=self.rear_axle_se2, vehicle_parameters=self.vehicle_parameters)
 
     @property
-    def center(self) -> StateSE3:
+    def center(self) -> PoseSE3:
         return self.center_se2
 
     @property

@@ -10,9 +10,9 @@ import shapely.geometry as geom
 from scipy.interpolate import interp1d
 
 from py123d.common.utils.mixin import ArrayMixin
-from py123d.geometry.geometry_index import Point2DIndex, Point3DIndex, StateSE2Index
+from py123d.geometry.geometry_index import Point2DIndex, Point3DIndex, PoseSE2Index
 from py123d.geometry.point import Point2D, Point3D
-from py123d.geometry.se import StateSE2
+from py123d.geometry.pose import PoseSE2
 from py123d.geometry.utils.constants import DEFAULT_Z
 from py123d.geometry.utils.polyline_utils import get_linestring_yaws, get_path_progress
 from py123d.geometry.utils.rotation_utils import normalize_angle
@@ -116,7 +116,7 @@ class Polyline2D(ArrayMixin):
 
     def project(
         self,
-        point: Union[geom.Point, Point2D, StateSE2, npt.NDArray[np.float64]],
+        point: Union[geom.Point, Point2D, PoseSE2, npt.NDArray[np.float64]],
         normalized: bool = False,
     ) -> npt.NDArray[np.float64]:
         """Projects a point onto the polyline and returns the distance along the polyline to the closest point.
@@ -125,7 +125,7 @@ class Polyline2D(ArrayMixin):
         :param normalized: Whether to return the normalized distance, defaults to False.
         :return: The distance along the polyline to the closest point.
         """
-        if isinstance(point, Point2D) or isinstance(point, StateSE2):
+        if isinstance(point, Point2D) or isinstance(point, PoseSE2):
             point_ = point.shapely_point
         elif isinstance(point, geom.Point):
             point_ = point
@@ -148,9 +148,9 @@ class PolylineSE2(ArrayMixin):
         assert self._array is not None
 
         if self.linestring is None:
-            self.linestring = geom_creation.linestrings(self._array[..., StateSE2Index.XY])
+            self.linestring = geom_creation.linestrings(self._array[..., PoseSE2Index.XY])
 
-        self._array[:, StateSE2Index.YAW] = np.unwrap(self._array[:, StateSE2Index.YAW], axis=0)
+        self._array[:, PoseSE2Index.YAW] = np.unwrap(self._array[:, PoseSE2Index.YAW], axis=0)
         self._progress = get_path_progress(self._array)
         self._interpolator = interp1d(self._progress, self._array, axis=0, bounds_error=False, fill_value=0.0)
 
@@ -161,10 +161,10 @@ class PolylineSE2(ArrayMixin):
         :param linestring: The LineString to convert.
         :return: A PolylineSE2 representing the same path as the LineString.
         """
-        points_2d = np.array(linestring.coords, dtype=np.float64)[..., StateSE2Index.XY]
-        se2_array = np.zeros((len(points_2d), len(StateSE2Index)), dtype=np.float64)
-        se2_array[:, StateSE2Index.XY] = points_2d
-        se2_array[:, StateSE2Index.YAW] = get_linestring_yaws(linestring)
+        points_2d = np.array(linestring.coords, dtype=np.float64)[..., PoseSE2Index.XY]
+        se2_array = np.zeros((len(points_2d), len(PoseSE2Index)), dtype=np.float64)
+        se2_array[:, PoseSE2Index.XY] = points_2d
+        se2_array[:, PoseSE2Index.YAW] = get_linestring_yaws(linestring)
         return PolylineSE2(se2_array, linestring)
 
     @classmethod
@@ -172,23 +172,23 @@ class PolylineSE2(ArrayMixin):
         """Creates a PolylineSE2 from a numpy array.
 
         :param polyline_array: The input numpy array representing, either indexed by \
-            :class:`~py123d.geometry.Point2DIndex` or :class:`~py123d.geometry.StateSE2Index`.
+            :class:`~py123d.geometry.Point2DIndex` or :class:`~py123d.geometry.PoseSE2Index`.
         :raises ValueError: If the input array is not of the expected shape.
         :return: A PolylineSE2 representing the same path as the input array.
         """
         assert polyline_array.ndim == 2
         if polyline_array.shape[-1] == len(Point2DIndex):
-            se2_array = np.zeros((len(polyline_array), len(StateSE2Index)), dtype=np.float64)
-            se2_array[:, StateSE2Index.XY] = polyline_array
-            se2_array[:, StateSE2Index.YAW] = get_linestring_yaws(geom_creation.linestrings(*polyline_array.T))
-        elif polyline_array.shape[-1] == len(StateSE2Index):
+            se2_array = np.zeros((len(polyline_array), len(PoseSE2Index)), dtype=np.float64)
+            se2_array[:, PoseSE2Index.XY] = polyline_array
+            se2_array[:, PoseSE2Index.YAW] = get_linestring_yaws(geom_creation.linestrings(*polyline_array.T))
+        elif polyline_array.shape[-1] == len(PoseSE2Index):
             se2_array = np.array(polyline_array, dtype=np.float64)
         else:
             raise ValueError("Invalid polyline array shape.")
         return PolylineSE2(se2_array)
 
     @classmethod
-    def from_discrete_se2(cls, discrete_se2: List[StateSE2]) -> PolylineSE2:
+    def from_discrete_se2(cls, discrete_se2: List[PoseSE2]) -> PolylineSE2:
         """Creates a PolylineSE2 from a list of discrete SE2 states.
 
         :param discrete_se2: The list of discrete SE2 states.
@@ -198,7 +198,7 @@ class PolylineSE2(ArrayMixin):
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
-        """Converts the polyline to a numpy array, indexed by :class:`~py123d.geometry.StateSE2Index`.
+        """Converts the polyline to a numpy array, indexed by :class:`~py123d.geometry.PoseSE2Index`.
 
         :return: A numpy array of shape (N, 3) representing the polyline.
         """
@@ -216,7 +216,7 @@ class PolylineSE2(ArrayMixin):
         self,
         distances: Union[float, npt.NDArray[np.float64]],
         normalized: bool = False,
-    ) -> Union[StateSE2, npt.NDArray[np.float64]]:
+    ) -> Union[PoseSE2, npt.NDArray[np.float64]]:
         """Interpolates the polyline at the given distances.
 
         :param distances: The distances along the polyline to interpolate.
@@ -228,16 +228,16 @@ class PolylineSE2(ArrayMixin):
         clipped_distances = np.clip(distances_, 1e-8, self.length)
 
         interpolated_se2_array = self._interpolator(clipped_distances)
-        interpolated_se2_array[..., StateSE2Index.YAW] = normalize_angle(interpolated_se2_array[..., StateSE2Index.YAW])
+        interpolated_se2_array[..., PoseSE2Index.YAW] = normalize_angle(interpolated_se2_array[..., PoseSE2Index.YAW])
 
         if clipped_distances.ndim == 0:
-            return StateSE2(*interpolated_se2_array)
+            return PoseSE2(*interpolated_se2_array)
         else:
             return interpolated_se2_array
 
     def project(
         self,
-        point: Union[geom.Point, Point2D, StateSE2, npt.NDArray[np.float64]],
+        point: Union[geom.Point, Point2D, PoseSE2, npt.NDArray[np.float64]],
         normalized: bool = False,
     ) -> npt.NDArray[np.float64]:
         """Projects a point onto the polyline and returns the distance along the polyline to the closest point.
@@ -246,7 +246,7 @@ class PolylineSE2(ArrayMixin):
         :param normalized: Whether to return the normalized distance, defaults to False.
         :return: The distance along the polyline to the closest point.
         """
-        if isinstance(point, Point2D) or isinstance(point, StateSE2):
+        if isinstance(point, Point2D) or isinstance(point, PoseSE2):
             point_ = point.shapely_point
         elif isinstance(point, geom.Point):
             point_ = point
@@ -350,7 +350,7 @@ class Polyline3D(ArrayMixin):
         :param normalized: Whether to return normalized distances, defaults to False.
         :return: The distance along the polyline to the closest point.
         """
-        if isinstance(point, Point2D) or isinstance(point, StateSE2) or isinstance(point, Point3D):
+        if isinstance(point, Point2D) or isinstance(point, PoseSE2) or isinstance(point, Point3D):
             point_ = point.shapely_point
         elif isinstance(point, geom.Point):
             point_ = point
@@ -361,7 +361,7 @@ class Polyline3D(ArrayMixin):
 
 @dataclass
 class PolylineSE3:
-    # TODO: Implement PolylineSE3 once quaternions are used in StateSE3
+    # TODO: Implement PolylineSE3 once quaternions are used in PoseSE3
     # Interpolating along SE3 states (i.e., 3D position + orientation) is meaningful,
     # but more complex than SE2 due to 3D rotations (quaternions or rotation matrices).
     # Linear interpolation of positions is straightforward, but orientation interpolation

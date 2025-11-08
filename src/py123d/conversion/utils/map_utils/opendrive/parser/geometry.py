@@ -8,7 +8,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.special import fresnel
 
-from py123d.geometry import StateSE2Index
+from py123d.geometry import PoseSE2Index
 
 
 @dataclass
@@ -25,10 +25,10 @@ class Geometry:
 
     @property
     def start_se2(self) -> npt.NDArray[np.float64]:
-        start_se2 = np.zeros(len(StateSE2Index), dtype=np.float64)
-        start_se2[StateSE2Index.X] = self.x
-        start_se2[StateSE2Index.Y] = self.y
-        start_se2[StateSE2Index.YAW] = self.hdg
+        start_se2 = np.zeros(len(PoseSE2Index), dtype=np.float64)
+        start_se2[PoseSE2Index.X] = self.x
+        start_se2[PoseSE2Index.Y] = self.y
+        start_se2[PoseSE2Index.YAW] = self.hdg
         return start_se2
 
     def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
@@ -49,12 +49,12 @@ class Line(Geometry):
     def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
 
         interpolated_se2 = self.start_se2.copy()
-        interpolated_se2[StateSE2Index.X] += s * np.cos(self.hdg)
-        interpolated_se2[StateSE2Index.Y] += s * np.sin(self.hdg)
+        interpolated_se2[PoseSE2Index.X] += s * np.cos(self.hdg)
+        interpolated_se2[PoseSE2Index.Y] += s * np.sin(self.hdg)
 
         if t != 0.0:
-            interpolated_se2[StateSE2Index.X] += t * np.cos(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
-            interpolated_se2[StateSE2Index.Y] += t * np.sin(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
+            interpolated_se2[PoseSE2Index.X] += t * np.cos(interpolated_se2[PoseSE2Index.YAW] + np.pi / 2)
+            interpolated_se2[PoseSE2Index.Y] += t * np.sin(interpolated_se2[PoseSE2Index.YAW] + np.pi / 2)
 
         return interpolated_se2
 
@@ -90,13 +90,13 @@ class Arc(Geometry):
         dy = -radius * (np.cos(final_heading) - np.cos(initial_heading))
 
         interpolated_se2 = self.start_se2.copy()
-        interpolated_se2[StateSE2Index.X] += dx
-        interpolated_se2[StateSE2Index.Y] += dy
-        interpolated_se2[StateSE2Index.YAW] = final_heading
+        interpolated_se2[PoseSE2Index.X] += dx
+        interpolated_se2[PoseSE2Index.Y] += dy
+        interpolated_se2[PoseSE2Index.YAW] = final_heading
 
         if t != 0.0:
-            interpolated_se2[StateSE2Index.X] += t * np.cos(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
-            interpolated_se2[StateSE2Index.Y] += t * np.sin(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
+            interpolated_se2[PoseSE2Index.X] += t * np.cos(interpolated_se2[PoseSE2Index.YAW] + np.pi / 2)
+            interpolated_se2[PoseSE2Index.Y] += t * np.sin(interpolated_se2[PoseSE2Index.YAW] + np.pi / 2)
 
         return interpolated_se2
 
@@ -131,13 +131,13 @@ class Spiral(Geometry):
 
         dx, dy = self._compute_spiral_position(s, gamma)
 
-        interpolated_se2[StateSE2Index.X] += dx
-        interpolated_se2[StateSE2Index.Y] += dy
-        interpolated_se2[StateSE2Index.YAW] += gamma * s**2 / 2 + self.curvature_start * s
+        interpolated_se2[PoseSE2Index.X] += dx
+        interpolated_se2[PoseSE2Index.Y] += dy
+        interpolated_se2[PoseSE2Index.YAW] += gamma * s**2 / 2 + self.curvature_start * s
 
         if t != 0.0:
-            interpolated_se2[StateSE2Index.X] += t * np.cos(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
-            interpolated_se2[StateSE2Index.Y] += t * np.sin(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
+            interpolated_se2[PoseSE2Index.X] += t * np.cos(interpolated_se2[PoseSE2Index.YAW] + np.pi / 2)
+            interpolated_se2[PoseSE2Index.Y] += t * np.sin(interpolated_se2[PoseSE2Index.YAW] + np.pi / 2)
 
         return interpolated_se2
 

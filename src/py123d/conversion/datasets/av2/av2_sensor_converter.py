@@ -33,7 +33,7 @@ from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import (
     get_av2_ford_fusion_hybrid_parameters,
 )
-from py123d.geometry import BoundingBoxSE3Index, StateSE3, Vector3D, Vector3DIndex
+from py123d.geometry import BoundingBoxSE3Index, PoseSE3, Vector3D, Vector3DIndex
 from py123d.geometry.bounding_box import BoundingBoxSE3
 from py123d.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array
 
@@ -221,7 +221,7 @@ def _get_av2_lidar_metadata(
         metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
             lidar_type=LiDARType.LIDAR_TOP,
             lidar_index=AVSensorLiDARIndex,
-            extrinsic=_row_dict_to_state_se3(
+            extrinsic=_row_dict_to_pose_se3(
                 calibration_df[calibration_df["sensor_name"] == "up_lidar"].iloc[0].to_dict()
             ),
         )
@@ -229,7 +229,7 @@ def _get_av2_lidar_metadata(
         metadata[LiDARType.LIDAR_DOWN] = LiDARMetadata(
             lidar_type=LiDARType.LIDAR_DOWN,
             lidar_index=AVSensorLiDARIndex,
-            extrinsic=_row_dict_to_state_se3(
+            extrinsic=_row_dict_to_pose_se3(
                 calibration_df[calibration_df["sensor_name"] == "down_lidar"].iloc[0].to_dict()
             ),
         )
@@ -264,9 +264,9 @@ def _extract_av2_sensor_box_detections(
         detections_labels.append(AV2SensorBoxDetectionLabel.deserialize(row["category"]))
         detections_num_lidar_points.append(int(row["num_interior_pts"]))
 
-    detections_state[:, BoundingBoxSE3Index.STATE_SE3] = convert_relative_to_absolute_se3_array(
+    detections_state[:, BoundingBoxSE3Index.POSE_SE3] = convert_relative_to_absolute_se3_array(
         origin=ego_state_se3.rear_axle_se3,
-        se3_array=detections_state[:, BoundingBoxSE3Index.STATE_SE3],
+        se3_array=detections_state[:, BoundingBoxSE3Index.POSE_SE3],
     )
 
     box_detections: List[BoxDetectionSE3] = []
@@ -293,7 +293,7 @@ def _extract_av2_sensor_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_ti
     ), f"Expected exactly one ego state for timestamp {lidar_timestamp_ns}, got {len(ego_state_slice)}."
 
     ego_pose_dict = ego_state_slice.iloc[0].to_dict()
-    rear_axle_pose = _row_dict_to_state_se3(ego_pose_dict)
+    rear_axle_pose = _row_dict_to_pose_se3(ego_pose_dict)
 
     vehicle_parameters = get_av2_ford_fusion_hybrid_parameters()
 
@@ -345,7 +345,7 @@ def _extract_av2_sensor_pinhole_cameras(
 
                 camera_data = CameraData(
                     camera_type=pinhole_camera_type,
-                    extrinsic=_row_dict_to_state_se3(row),
+                    extrinsic=_row_dict_to_pose_se3(row),
                     dataset_root=av2_sensor_data_root,
                     relative_path=relative_image_path,
                 )
@@ -377,9 +377,9 @@ def _extract_av2_sensor_lidars(
     return lidars
 
 
-def _row_dict_to_state_se3(row_dict: Dict[str, float]) -> StateSE3:
-    """Helper function to convert a row dictionary to a StateSE3 object."""
-    return StateSE3(
+def _row_dict_to_pose_se3(row_dict: Dict[str, float]) -> PoseSE3:
+    """Helper function to convert a row dictionary to a PoseSE3 object."""
+    return PoseSE3(
         x=row_dict["tx_m"],
         y=row_dict["ty_m"],
         z=row_dict["tz_m"],

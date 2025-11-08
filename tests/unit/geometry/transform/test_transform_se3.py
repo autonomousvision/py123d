@@ -4,7 +4,7 @@ import numpy as np
 import numpy.typing as npt
 
 import py123d.geometry.transform.transform_euler_se3 as euler_transform_se3
-from py123d.geometry import EulerStateSE3, EulerStateSE3Index, Point3D, StateSE3, StateSE3Index
+from py123d.geometry import EulerStateSE3, EulerStateSE3Index, Point3D, PoseSE3, PoseSE3Index
 from py123d.geometry.transform.transform_se3 import (
     convert_absolute_to_relative_points_3d_array,
     convert_absolute_to_relative_se3_array,
@@ -52,9 +52,9 @@ class TestTransformSE3(unittest.TestCase):
             yaw=np.deg2rad(90),
         )
 
-        quat_se3_a: StateSE3 = euler_se3_a.state_se3
-        quat_se3_b: StateSE3 = euler_se3_b.state_se3
-        quat_se3_c: StateSE3 = euler_se3_c.state_se3
+        quat_se3_a: PoseSE3 = euler_se3_a.pose_se3
+        quat_se3_b: PoseSE3 = euler_se3_b.pose_se3
+        quat_se3_c: PoseSE3 = euler_se3_c.pose_se3
 
         self.euler_se3 = [euler_se3_a, euler_se3_b, euler_se3_c]
         self.quat_se3 = [quat_se3_a, quat_se3_b, quat_se3_c]
@@ -77,9 +77,9 @@ class TestTransformSE3(unittest.TestCase):
         self, euler_se3_array: npt.NDArray[np.float64]
     ) -> npt.NDArray[np.float64]:
         """Convert an array of SE3 poses from Euler angles to Quaternion representation"""
-        quat_se3_array = np.zeros((euler_se3_array.shape[0], len(StateSE3Index)), dtype=np.float64)
-        quat_se3_array[:, StateSE3Index.XYZ] = euler_se3_array[:, EulerStateSE3Index.XYZ]
-        quat_se3_array[:, StateSE3Index.QUATERNION] = get_quaternion_array_from_euler_array(
+        quat_se3_array = np.zeros((euler_se3_array.shape[0], len(PoseSE3Index)), dtype=np.float64)
+        quat_se3_array[:, PoseSE3Index.XYZ] = euler_se3_array[:, EulerStateSE3Index.XYZ]
+        quat_se3_array[:, PoseSE3Index.QUATERNION] = get_quaternion_array_from_euler_array(
             euler_se3_array[:, EulerStateSE3Index.EULER_ANGLES]
         )
         return quat_se3_array
@@ -111,11 +111,11 @@ class TestTransformSE3(unittest.TestCase):
 
             np.testing.assert_allclose(
                 random_euler_se3_array[:, EulerStateSE3Index.XYZ],
-                random_quat_se3_array[:, StateSE3Index.XYZ],
+                random_quat_se3_array[:, PoseSE3Index.XYZ],
                 atol=1e-6,
             )
             quat_rotation_matrices = get_rotation_matrices_from_quaternion_array(
-                random_quat_se3_array[:, StateSE3Index.QUATERNION]
+                random_quat_se3_array[:, PoseSE3Index.QUATERNION]
             )
             euler_rotation_matrices = get_rotation_matrices_from_euler_array(
                 random_euler_se3_array[:, EulerStateSE3Index.EULER_ANGLES]
@@ -143,11 +143,11 @@ class TestTransformSE3(unittest.TestCase):
                 euler_se3, random_euler_se3_array
             )
             np.testing.assert_allclose(
-                rel_se3_euler[..., EulerStateSE3Index.XYZ], rel_se3_quat[..., StateSE3Index.XYZ], atol=1e-6
+                rel_se3_euler[..., EulerStateSE3Index.XYZ], rel_se3_quat[..., PoseSE3Index.XYZ], atol=1e-6
             )
             # We compare rotation matrices to avoid issues with quaternion sign ambiguity
             quat_rotation_matrices = get_rotation_matrices_from_quaternion_array(
-                rel_se3_quat[..., StateSE3Index.QUATERNION]
+                rel_se3_quat[..., PoseSE3Index.QUATERNION]
             )
             euler_rotation_matrices = get_rotation_matrices_from_euler_array(
                 rel_se3_euler[..., EulerStateSE3Index.EULER_ANGLES]
@@ -175,12 +175,12 @@ class TestTransformSE3(unittest.TestCase):
                 euler_se3, random_euler_se3_array
             )
             np.testing.assert_allclose(
-                abs_se3_euler[..., EulerStateSE3Index.XYZ], abs_se3_quat[..., StateSE3Index.XYZ], atol=1e-6
+                abs_se3_euler[..., EulerStateSE3Index.XYZ], abs_se3_quat[..., PoseSE3Index.XYZ], atol=1e-6
             )
 
             # We compare rotation matrices to avoid issues with quaternion sign ambiguity
             quat_rotation_matrices = get_rotation_matrices_from_quaternion_array(
-                abs_se3_quat[..., StateSE3Index.QUATERNION]
+                abs_se3_quat[..., PoseSE3Index.QUATERNION]
             )
             euler_rotation_matrices = get_rotation_matrices_from_euler_array(
                 abs_se3_euler[..., EulerStateSE3Index.EULER_ANGLES]
@@ -192,11 +192,11 @@ class TestTransformSE3(unittest.TestCase):
         for _ in range(10):
             random_quat_se3_array = self._get_random_quat_se3_array(np.random.randint(1, 10))
 
-            from_se3 = StateSE3.from_array(self._get_random_quat_se3_array(1)[0])
-            to_se3 = StateSE3.from_array(self._get_random_quat_se3_array(1)[0])
-            identity_se3_array = np.zeros(len(StateSE3Index), dtype=np.float64)
-            identity_se3_array[StateSE3Index.QW] = 1.0
-            identity_se3 = StateSE3.from_array(identity_se3_array)
+            from_se3 = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+            to_se3 = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+            identity_se3_array = np.zeros(len(PoseSE3Index), dtype=np.float64)
+            identity_se3_array[PoseSE3Index.QW] = 1.0
+            identity_se3 = PoseSE3.from_array(identity_se3_array)
 
             # Check if consistent with absolute-relative-absolute conversion
             converted_se3_quat = convert_se3_array_between_origins(from_se3, to_se3, random_quat_se3_array)
@@ -205,32 +205,32 @@ class TestTransformSE3(unittest.TestCase):
             rel_to_se3_quat = convert_absolute_to_relative_se3_array(to_se3, abs_from_se3_quat)
 
             np.testing.assert_allclose(
-                converted_se3_quat[..., StateSE3Index.XYZ],
-                rel_to_se3_quat[..., StateSE3Index.XYZ],
+                converted_se3_quat[..., PoseSE3Index.XYZ],
+                rel_to_se3_quat[..., PoseSE3Index.XYZ],
                 atol=1e-6,
             )
             np.testing.assert_allclose(
-                converted_se3_quat[..., StateSE3Index.QUATERNION],
-                rel_to_se3_quat[..., StateSE3Index.QUATERNION],
+                converted_se3_quat[..., PoseSE3Index.QUATERNION],
+                rel_to_se3_quat[..., PoseSE3Index.QUATERNION],
                 atol=1e-6,
             )
 
             # Check if consistent with absolute conversion to identity origin
             absolute_se3_quat = convert_se3_array_between_origins(from_se3, identity_se3, random_quat_se3_array)
             np.testing.assert_allclose(
-                absolute_se3_quat[..., StateSE3Index.XYZ],
-                abs_from_se3_quat[..., StateSE3Index.XYZ],
+                absolute_se3_quat[..., PoseSE3Index.XYZ],
+                abs_from_se3_quat[..., PoseSE3Index.XYZ],
                 atol=1e-6,
             )
 
     def test_convert_points_3d_array_between_origins(self):
         random_points_3d = np.random.rand(10, 3)
         for _ in range(10):
-            from_se3 = StateSE3.from_array(self._get_random_quat_se3_array(1)[0])
-            to_se3 = StateSE3.from_array(self._get_random_quat_se3_array(1)[0])
-            identity_se3_array = np.zeros(len(StateSE3Index), dtype=np.float64)
-            identity_se3_array[StateSE3Index.QW] = 1.0
-            identity_se3 = StateSE3.from_array(identity_se3_array)
+            from_se3 = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+            to_se3 = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+            identity_se3_array = np.zeros(len(PoseSE3Index), dtype=np.float64)
+            identity_se3_array[PoseSE3Index.QW] = 1.0
+            identity_se3 = PoseSE3.from_array(identity_se3_array)
 
             # Check if consistent with absolute-relative-absolute conversion
             converted_points_quat = convert_points_3d_array_between_origins(from_se3, to_se3, random_points_3d)
@@ -239,12 +239,12 @@ class TestTransformSE3(unittest.TestCase):
             np.testing.assert_allclose(converted_points_quat, rel_to_se3_quat, atol=1e-6)
 
             # Check if consistent with se3 array conversion
-            random_se3_poses = np.zeros((random_points_3d.shape[0], len(StateSE3Index)), dtype=np.float64)
-            random_se3_poses[:, StateSE3Index.XYZ] = random_points_3d
-            random_se3_poses[:, StateSE3Index.QUATERNION] = np.array([1.0, 0.0, 0.0, 0.0])  # Identity rotation
+            random_se3_poses = np.zeros((random_points_3d.shape[0], len(PoseSE3Index)), dtype=np.float64)
+            random_se3_poses[:, PoseSE3Index.XYZ] = random_points_3d
+            random_se3_poses[:, PoseSE3Index.QUATERNION] = np.array([1.0, 0.0, 0.0, 0.0])  # Identity rotation
             converted_se3_quat_poses = convert_se3_array_between_origins(from_se3, to_se3, random_se3_poses)
             np.testing.assert_allclose(
-                converted_se3_quat_poses[:, StateSE3Index.XYZ],
+                converted_se3_quat_poses[:, PoseSE3Index.XYZ],
                 converted_points_quat,
                 atol=1e-6,
             )
@@ -252,8 +252,8 @@ class TestTransformSE3(unittest.TestCase):
             # Check if consistent with absolute conversion to identity origin
             absolute_se3_quat = convert_points_3d_array_between_origins(from_se3, identity_se3, random_points_3d)
             np.testing.assert_allclose(
-                absolute_se3_quat[..., StateSE3Index.XYZ],
-                abs_from_se3_quat[..., StateSE3Index.XYZ],
+                absolute_se3_quat[..., PoseSE3Index.XYZ],
+                abs_from_se3_quat[..., PoseSE3Index.XYZ],
                 atol=1e-6,
             )
 

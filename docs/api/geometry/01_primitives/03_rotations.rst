@@ -1,5 +1,5 @@
 Rotations
----------
+^^^^^^^^^
 
 .. autoclass:: py123d.geometry.Quaternion
    :members:

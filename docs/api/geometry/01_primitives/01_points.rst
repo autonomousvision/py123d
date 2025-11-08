@@ -1,5 +1,5 @@
 Points
-------
+^^^^^^
 
 .. autoclass:: py123d.geometry.Point3D
    :members:

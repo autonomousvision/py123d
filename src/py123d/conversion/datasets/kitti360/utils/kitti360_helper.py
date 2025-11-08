@@ -6,7 +6,7 @@ import numpy as np
 from scipy.linalg import polar
 
 from py123d.conversion.datasets.kitti360.utils.kitti360_labels import BBOX_LABLES_TO_DETECTION_NAME_DICT, kittiId2label
-from py123d.geometry import BoundingBoxSE3, EulerAngles, Polyline3D, StateSE3
+from py123d.geometry import BoundingBoxSE3, EulerAngles, Polyline3D, PoseSE3
 
 # KITTI360_DATA_ROOT = Path(os.environ["KITTI360_DATA_ROOT"])
 # DIR_CALIB = "calibration"
@@ -137,7 +137,7 @@ class KITTI360Bbox3D:
         self.qz = obj_quaternion.qz
 
     def get_state_array(self) -> np.ndarray:
-        center = StateSE3(
+        center = PoseSE3(
             x=self.T[0],
             y=self.T[1],
             z=self.T[2],

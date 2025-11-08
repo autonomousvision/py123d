@@ -32,7 +32,7 @@ from py123d.datatypes.sensors.pinhole_camera import (
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_nuscenes_renault_zoe_parameters
-from py123d.geometry import BoundingBoxSE3, StateSE3
+from py123d.geometry import BoundingBoxSE3, PoseSE3
 from py123d.geometry.vector import Vector3D
 
 check_dependencies(["nuscenes"], "nuscenes")
@@ -251,7 +251,7 @@ def _get_nuscenes_lidar_metadata(
         extrinsic = np.eye(4)
         extrinsic[:3, :3] = rotation
         extrinsic[:3, 3] = translation
-        extrinsic = StateSE3.from_transformation_matrix(extrinsic)
+        extrinsic = PoseSE3.from_transformation_matrix(extrinsic)
 
         metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
             lidar_type=LiDARType.LIDAR_TOP,
@@ -280,7 +280,7 @@ def _extract_nuscenes_ego_state(nusc, sample, can_bus) -> EgoStateSE3:
     quat = Quaternion(ego_pose["rotation"])
 
     vehicle_parameters = get_nuscenes_renault_zoe_parameters()
-    imu_pose = StateSE3(
+    imu_pose = PoseSE3(
         x=ego_pose["translation"][0],
         y=ego_pose["translation"][1],
         z=ego_pose["translation"][2],
@@ -334,9 +334,9 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
         ann = nusc.get("sample_annotation", ann_token)
         box = Box(ann["translation"], ann["size"], Quaternion(ann["rotation"]))
 
-        # Create StateSE3 for box center and orientation
+        # Create PoseSE3 for box center and orientation
         center_quat = box.orientation
-        center = StateSE3(
+        center = PoseSE3(
             box.center[0],
             box.center[1],
             box.center[2],
@@ -395,7 +395,7 @@ def _extract_nuscenes_cameras(
             extrinsic_matrix = np.eye(4)
             extrinsic_matrix[:3, :3] = rotation
             extrinsic_matrix[:3, 3] = translation
-            extrinsic = StateSE3.from_transformation_matrix(extrinsic_matrix)
+            extrinsic = PoseSE3.from_transformation_matrix(extrinsic_matrix)
 
             cam_path = nuscenes_data_root / str(cam_data["filename"])
 

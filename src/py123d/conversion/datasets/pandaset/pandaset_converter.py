@@ -17,7 +17,7 @@ from py123d.conversion.datasets.pandaset.utils.pandaset_constants import (
 )
 from py123d.conversion.datasets.pandaset.utils.pandaset_utlis import (
     main_lidar_to_rear_axle,
-    pandaset_pose_dict_to_state_se3,
+    pandaset_pose_dict_to_pose_se3,
     read_json,
     read_pkl_gz,
     rotate_pandaset_pose_to_iso_coordinates,
@@ -33,7 +33,7 @@ from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata, Pinho
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_pandaset_chrysler_pacifica_parameters
-from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, EulerAnglesIndex, StateSE3, Vector3D
+from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, EulerAnglesIndex, PoseSE3, Vector3D
 from py123d.geometry.transform.transform_se3 import convert_absolute_to_relative_se3_array
 from py123d.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from py123d.geometry.utils.rotation_utils import get_quaternion_array_from_euler_array
@@ -207,7 +207,7 @@ def _get_pandaset_lidar_metadata(
 
 def _extract_pandaset_sensor_ego_state(gps: Dict[str, float], lidar_pose: Dict[str, Dict[str, float]]) -> EgoStateSE3:
 
-    rear_axle_se3 = main_lidar_to_rear_axle(pandaset_pose_dict_to_state_se3(lidar_pose))
+    rear_axle_se3 = main_lidar_to_rear_axle(pandaset_pose_dict_to_pose_se3(lidar_pose))
 
     vehicle_parameters = get_pandaset_chrysler_pacifica_parameters()
 
@@ -300,8 +300,8 @@ def _extract_pandaset_box_detections(
 
         # Convert coordinates to ISO 8855
         # NOTE: This would be faster over a batch operation.
-        box_se3_array[box_idx, BoundingBoxSE3Index.STATE_SE3] = rotate_pandaset_pose_to_iso_coordinates(
-            StateSE3.from_array(box_se3_array[box_idx, BoundingBoxSE3Index.STATE_SE3], copy=False)
+        box_se3_array[box_idx, BoundingBoxSE3Index.POSE_SE3] = rotate_pandaset_pose_to_iso_coordinates(
+            PoseSE3.from_array(box_se3_array[box_idx, BoundingBoxSE3Index.POSE_SE3], copy=False)
         ).array
 
         box_detection_se3 = BoxDetectionSE3(
@@ -335,9 +335,9 @@ def _extract_pandaset_sensor_camera(
             assert image_abs_path.exists(), f"Camera image file {str(image_abs_path)} does not exist."
 
             camera_pose_dict = camera_poses[camera_name][iteration]
-            camera_extrinsic = pandaset_pose_dict_to_state_se3(camera_pose_dict)
+            camera_extrinsic = pandaset_pose_dict_to_pose_se3(camera_pose_dict)
 
-            camera_extrinsic = StateSE3.from_array(
+            camera_extrinsic = PoseSE3.from_array(
                 convert_absolute_to_relative_se3_array(ego_state_se3.rear_axle_se3, camera_extrinsic.array), copy=True
             )
             camera_data_list.append(

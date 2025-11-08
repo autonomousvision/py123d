@@ -9,7 +9,7 @@ from zmq import IntEnum
 
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.common.utils.mixin import ArrayMixin
-from py123d.geometry.se import StateSE3
+from py123d.geometry.pose import PoseSE3
 
 
 class FisheyeMEICameraType(SerialIntEnum):
@@ -26,7 +26,7 @@ class FisheyeMEICamera:
 
     metadata: FisheyeMEICameraMetadata
     image: npt.NDArray[np.uint8]
-    extrinsic: StateSE3
+    extrinsic: PoseSE3
 
 
 class FisheyeMEIDistortionIndex(IntEnum):

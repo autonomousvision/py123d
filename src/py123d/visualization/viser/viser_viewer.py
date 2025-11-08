@@ -382,6 +382,8 @@ class ViserViewer:
         while server_playing:
             if gui_playing.value and not server_rendering:
                 gui_timestep.value = (gui_timestep.value + 1) % num_frames
+            else:
+                time.sleep(0.1)
 
             # update config
             self._viser_config.playback_speed = gui_speed.value

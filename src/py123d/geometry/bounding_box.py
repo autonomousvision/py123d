@@ -10,7 +10,7 @@ import shapely.geometry as geom
 from py123d.common.utils.mixin import ArrayMixin
 from py123d.geometry.geometry_index import BoundingBoxSE2Index, BoundingBoxSE3Index, Corners2DIndex, Corners3DIndex
 from py123d.geometry.point import Point2D, Point3D
-from py123d.geometry.se import StateSE2, StateSE3
+from py123d.geometry.pose import PoseSE2, PoseSE3
 from py123d.geometry.utils.bounding_box_utils import bbse2_array_to_corners_array, bbse3_array_to_corners_array
 
 
@@ -31,7 +31,7 @@ class BoundingBoxSE2(ArrayMixin):
 
     _array: npt.NDArray[np.float64]
 
-    def __init__(self, center: StateSE2, length: float, width: float):
+    def __init__(self, center: PoseSE2, length: float, width: float):
         """Initialize BoundingBoxSE2 with center (StateSE2), length and width.
 
         :param center: Center of the bounding box as a StateSE2 instance.
@@ -60,15 +60,15 @@ class BoundingBoxSE2(ArrayMixin):
         return instance
 
     @property
-    def center(self) -> StateSE2:
+    def center(self) -> PoseSE2:
         """The center of the bounding box as a StateSE2 instance.
 
         :return: The center of the bounding box as a StateSE2 instance.
         """
-        return StateSE2.from_array(self._array[BoundingBoxSE2Index.SE2])
+        return PoseSE2.from_array(self._array[BoundingBoxSE2Index.SE2])
 
     @property
-    def center_se2(self) -> StateSE2:
+    def center_se2(self) -> PoseSE2:
         """The center of the bounding box as a StateSE2 instance.
 
         :return: The center of the bounding box as a StateSE2 instance.
@@ -136,11 +136,11 @@ class BoundingBoxSE2(ArrayMixin):
 
 class BoundingBoxSE3(ArrayMixin):
     """
-    Rotated bounding box in 3D defined by center with quaternion rotation (StateSE3), length, width and height.
+    Rotated bounding box in 3D defined by center with quaternion rotation (PoseSE3), length, width and height.
 
     Example:
-        >>> from py123d.geometry import StateSE3
-        >>> bbox = BoundingBoxSE3(center=StateSE3(1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0), length=4.0, width=2.0, height=1.5)
+        >>> from py123d.geometry import PoseSE3
+        >>> bbox = BoundingBoxSE3(center=PoseSE3(1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0), length=4.0, width=2.0, height=1.5)
         >>> bbox.array
         array([1. , 2. , 3. , 1. , 0. , 0. , 0. , 4. , 2. , 1.5])
         >>> bbox.bounding_box_se2.array
@@ -151,16 +151,16 @@ class BoundingBoxSE3(ArrayMixin):
 
     _array: npt.NDArray[np.float64]
 
-    def __init__(self, center: StateSE3, length: float, width: float, height: float):
-        """Initialize BoundingBoxSE3 with center (StateSE3), length, width and height.
+    def __init__(self, center: PoseSE3, length: float, width: float, height: float):
+        """Initialize BoundingBoxSE3 with center (PoseSE3), length, width and height.
 
-        :param center: Center of the bounding box as a StateSE3 instance.
+        :param center: Center of the bounding box as a PoseSE3 instance.
         :param length: Length of the bounding box along the x-axis in the local frame.
         :param width: Width of the bounding box along the y-axis in the local frame.
         :param height: Height of the bounding box along the z-axis in the local frame.
         """
         array = np.zeros(len(BoundingBoxSE3Index), dtype=np.float64)
-        array[BoundingBoxSE3Index.STATE_SE3] = center.array
+        array[BoundingBoxSE3Index.POSE_SE3] = center.array
         array[BoundingBoxSE3Index.LENGTH] = length
         array[BoundingBoxSE3Index.WIDTH] = width
         array[BoundingBoxSE3Index.HEIGHT] = height
@@ -182,28 +182,28 @@ class BoundingBoxSE3(ArrayMixin):
         return instance
 
     @property
-    def center(self) -> StateSE3:
-        """The center of the bounding box as a StateSE3 instance.
+    def center(self) -> PoseSE3:
+        """The center of the bounding box as a PoseSE3 instance.
 
-        :return: The center of the bounding box as a StateSE3 instance.
+        :return: The center of the bounding box as a PoseSE3 instance.
         """
-        return StateSE3.from_array(self._array[BoundingBoxSE3Index.STATE_SE3])
+        return PoseSE3.from_array(self._array[BoundingBoxSE3Index.POSE_SE3])
 
     @property
-    def center_se3(self) -> StateSE3:
-        """The center of the bounding box as a StateSE3 instance.
+    def center_se3(self) -> PoseSE3:
+        """The center of the bounding box as a PoseSE3 instance.
 
-        :return: The center of the bounding box as a StateSE3 instance.
+        :return: The center of the bounding box as a PoseSE3 instance.
         """
         return self.center
 
     @property
-    def center_se2(self) -> StateSE2:
+    def center_se2(self) -> PoseSE2:
         """The center of the bounding box as a StateSE2 instance.
 
         :return: The center of the bounding box as a StateSE2 instance.
         """
-        return self.center_se3.state_se2
+        return self.center_se3.pose_se2
 
     @property
     def length(self) -> float:

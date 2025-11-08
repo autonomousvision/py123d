@@ -7,7 +7,7 @@ import shapely.affinity as affinity
 import shapely.geometry as geom
 from matplotlib.path import Path
 
-from py123d.geometry import StateSE2, StateSE3
+from py123d.geometry import PoseSE2, PoseSE3
 from py123d.visualization.color.config import PlotConfig
 
 
@@ -113,7 +113,7 @@ def get_pose_triangle(size: float) -> geom.Polygon:
 
 
 def shapely_geometry_local_coords(
-    geometry: geom.base.BaseGeometry, origin: Union[StateSE2, StateSE3]
+    geometry: geom.base.BaseGeometry, origin: Union[PoseSE2, PoseSE3]
 ) -> geom.base.BaseGeometry:
     """Helper for transforming shapely geometry in coord-frame"""
     # TODO: move somewhere else for general use

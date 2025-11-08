@@ -41,8 +41,8 @@ from py123d.geometry import (
     BoundingBoxSE3Index,
     EulerAngles,
     EulerAnglesIndex,
-    StateSE3,
-    StateSE3Index,
+    PoseSE3,
+    PoseSE3Index,
     Vector3D,
     Vector3DIndex,
 )
@@ -270,10 +270,10 @@ def _get_wopd_lidar_metadata(
 
             lidar_type = WOPD_LIDAR_TYPES[laser_calibration.name]
 
-            extrinsic: Optional[StateSE3] = None
+            extrinsic: Optional[PoseSE3] = None
             if laser_calibration.extrinsic:
                 extrinsic_transform = np.array(laser_calibration.extrinsic.transform, dtype=np.float64).reshape(4, 4)
-                extrinsic = StateSE3.from_transformation_matrix(extrinsic_transform)
+                extrinsic = PoseSE3.from_transformation_matrix(extrinsic_transform)
 
             laser_metadatas[lidar_type] = LiDARMetadata(
                 lidar_type=lidar_type,
@@ -284,10 +284,10 @@ def _get_wopd_lidar_metadata(
     return laser_metadatas
 
 
-def _get_ego_pose_se3(frame: dataset_pb2.Frame, map_pose_offset: Vector3D) -> StateSE3:
+def _get_ego_pose_se3(frame: dataset_pb2.Frame, map_pose_offset: Vector3D) -> PoseSE3:
     ego_pose_matrix = np.array(frame.pose.transform, dtype=np.float64).reshape(4, 4)
-    ego_pose_se3 = StateSE3.from_transformation_matrix(ego_pose_matrix)
-    ego_pose_se3.array[StateSE3Index.XYZ] += map_pose_offset.array[Vector3DIndex.XYZ]
+    ego_pose_se3 = PoseSE3.from_transformation_matrix(ego_pose_matrix)
+    ego_pose_se3.array[PoseSE3Index.XYZ] += map_pose_offset.array[Vector3DIndex.XYZ]
     return ego_pose_se3
 
 
@@ -347,8 +347,8 @@ def _extract_wopd_box_detections(
         detections_types.append(WOPD_DETECTION_NAME_DICT[detection.type])
         detections_token.append(str(detection.id))
 
-    detections_state[:, BoundingBoxSE3Index.STATE_SE3] = convert_relative_to_absolute_se3_array(
-        origin=ego_pose_se3, se3_array=detections_state[:, BoundingBoxSE3Index.STATE_SE3]
+    detections_state[:, BoundingBoxSE3Index.POSE_SE3] = convert_relative_to_absolute_se3_array(
+        origin=ego_pose_se3, se3_array=detections_state[:, BoundingBoxSE3Index.POSE_SE3]
     )
     if zero_roll_pitch:
         euler_array = get_euler_array_from_quaternion_array(detections_state[:, BoundingBoxSE3Index.QUATERNION])
@@ -384,11 +384,11 @@ def _extract_wopd_cameras(
         # NOTE @DanielDauner: The extrinsic matrix in frame.context.camera_calibration is fixed to model the ego to camera transformation.
         # The poses in frame.images[idx] are the motion compensated ego poses when the camera triggers.
         # TODO: Verify if this is correct.
-        camera_extrinsic: Dict[str, StateSE3] = {}
+        camera_extrinsic: Dict[str, PoseSE3] = {}
         for calibration in frame.context.camera_calibrations:
             camera_type = WOPD_CAMERA_TYPES[calibration.name]
             camera_transform = np.array(calibration.extrinsic.transform, dtype=np.float64).reshape(4, 4)
-            camera_pose = StateSE3.from_transformation_matrix(camera_transform)
+            camera_pose = PoseSE3.from_transformation_matrix(camera_transform)
             # NOTE: WOPD uses a different camera convention than py123d
             # https://arxiv.org/pdf/1912.04838 (Figure 1.)
             camera_pose = convert_camera_convention(

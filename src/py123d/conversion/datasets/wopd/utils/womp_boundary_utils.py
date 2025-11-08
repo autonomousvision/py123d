@@ -6,7 +6,7 @@ import shapely.geometry as geom
 
 from py123d.datatypes.map.abstract_map_objects import AbstractRoadEdge, AbstractRoadLine
 from py123d.datatypes.map.map_datatypes import LaneType
-from py123d.geometry import OccupancyMap2D, Point3D, Polyline3D, PolylineSE2, StateSE2, Vector2D
+from py123d.geometry import OccupancyMap2D, Point3D, Polyline3D, PolylineSE2, PoseSE2, Vector2D
 from py123d.geometry.transform.transform_se2 import translate_se2_along_body_frame
 from py123d.geometry.utils.rotation_utils import normalize_angle
 
@@ -80,7 +80,7 @@ class PerpendicularHit:
 
 
 def _collect_perpendicular_hits(
-    lane_query_se2: StateSE2,
+    lane_query_se2: PoseSE2,
     lane_token: str,
     polyline_dict: Dict[str, Dict[int, Polyline3D]],
     lane_polyline_se2_dict: Dict[int, PolylineSE2],
@@ -215,7 +215,7 @@ def fill_lane_boundaries(
             0, lane_polyline_se2.length, int(lane_polyline_se2.length / BOUNDARY_STEP_SIZE) + 1, endpoint=True
         )
         lane_queries_se2 = [
-            StateSE2.from_array(state_se2_array) for state_se2_array in lane_polyline_se2.interpolate(distances_se2)
+            PoseSE2.from_array(pose_se2_array) for pose_se2_array in lane_polyline_se2.interpolate(distances_se2)
         ]
         distances_3d = np.linspace(
             0, lane_polyline.length, int(lane_polyline.length / BOUNDARY_STEP_SIZE) + 1, endpoint=True
@@ -295,9 +295,7 @@ def fill_lane_boundaries(
             no_boundary_ratio = boundary_points_3d.count(None) / len(boundary_points_3d)
             final_boundary_points_3d = []
 
-            def _get_default_boundary_point_3d(
-                lane_query_se2: StateSE2, lane_query_3d: Point3D, sign: float
-            ) -> Point3D:
+            def _get_default_boundary_point_3d(lane_query_se2: PoseSE2, lane_query_3d: Point3D, sign: float) -> Point3D:
                 perp_boundary_distance = DEFAULT_LANE_WIDTH / 2.0
                 boundary_point_se2 = translate_se2_along_body_frame(
                     lane_query_se2, Vector2D(0.0, sign * perp_boundary_distance)

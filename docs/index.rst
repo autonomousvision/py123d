@@ -25,6 +25,7 @@ documentation for details.
 
    api/map/index
    api/geometry/index
+   api/datatypes/index
 
 .. toctree::
    :maxdepth: 1

@@ -6,7 +6,7 @@ import pandas as pd
 
 from py123d.conversion.datasets.pandaset.utils.pandaset_utlis import (
     main_lidar_to_rear_axle,
-    pandaset_pose_dict_to_state_se3,
+    pandaset_pose_dict_to_pose_se3,
     read_json,
     read_pkl_gz,
 )
@@ -42,7 +42,7 @@ def load_pandaset_lidars_pcs_from_file(
     lidar_pc_dict = load_pandaset_global_lidar_pc_from_path(pkl_gz_path)
 
     ego_pose = main_lidar_to_rear_axle(
-        pandaset_pose_dict_to_state_se3(read_json(pkl_gz_path.parent / "poses.json")[iteration])
+        pandaset_pose_dict_to_pose_se3(read_json(pkl_gz_path.parent / "poses.json")[iteration])
     )
 
     for lidar_type in lidar_pc_dict.keys():

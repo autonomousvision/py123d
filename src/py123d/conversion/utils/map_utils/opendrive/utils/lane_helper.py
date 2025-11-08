@@ -14,7 +14,7 @@ from py123d.conversion.utils.map_utils.opendrive.utils.id_system import (
     derive_lane_id,
     lane_group_id_from_lane_id,
 )
-from py123d.geometry import StateSE2Index
+from py123d.geometry import PoseSE2Index
 from py123d.geometry.polyline import Polyline3D, PolylineSE2
 from py123d.geometry.utils.units import kmph_to_mps, mph_to_mps
 
@@ -156,8 +156,8 @@ class OpenDriveLaneHelper:
 
     @property
     def shapely_polygon(self) -> shapely.Polygon:
-        inner_polyline = self.inner_polyline_se2[..., StateSE2Index.XY]
-        outer_polyline = self.outer_polyline_se2[..., StateSE2Index.XY][::-1]
+        inner_polyline = self.inner_polyline_se2[..., PoseSE2Index.XY]
+        outer_polyline = self.outer_polyline_se2[..., PoseSE2Index.XY][::-1]
         polygon_exterior = np.concatenate(
             [
                 inner_polyline,
@@ -239,8 +239,8 @@ class OpenDriveLaneGroupHelper:
 
     @property
     def shapely_polygon(self) -> shapely.Polygon:
-        inner_polyline = self.inner_polyline_se2[..., StateSE2Index.XY]
-        outer_polyline = self.outer_polyline_se2[..., StateSE2Index.XY][::-1]
+        inner_polyline = self.inner_polyline_se2[..., PoseSE2Index.XY]
+        outer_polyline = self.outer_polyline_se2[..., PoseSE2Index.XY][::-1]
         polygon_exterior = np.concatenate(
             [
                 inner_polyline,

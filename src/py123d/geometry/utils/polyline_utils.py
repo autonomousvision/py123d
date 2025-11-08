@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 from shapely.geometry import LineString
 
-from py123d.geometry.geometry_index import Point2DIndex, StateSE2Index
+from py123d.geometry.geometry_index import Point2DIndex, PoseSE2Index
 from py123d.geometry.transform.transform_se2 import translate_2d_along_body_frame
 
 
@@ -31,13 +31,13 @@ def get_path_progress(points_array: npt.NDArray[np.float64]) -> list[float]:
     if points_array.shape[-1] == len(Point2DIndex):
         x_diff = np.diff(points_array[..., Point2DIndex.X])
         y_diff = np.diff(points_array[..., Point2DIndex.X])
-    elif points_array.shape[-1] == len(StateSE2Index):
-        x_diff = np.diff(points_array[..., StateSE2Index.X])
-        y_diff = np.diff(points_array[..., StateSE2Index.Y])
+    elif points_array.shape[-1] == len(PoseSE2Index):
+        x_diff = np.diff(points_array[..., PoseSE2Index.X])
+        y_diff = np.diff(points_array[..., PoseSE2Index.Y])
     else:
         raise ValueError(
             f"Invalid points_array shape: {points_array.shape}. Expected last dimension to be {len(Point2DIndex)} or "
-            f"{len(StateSE2Index)}."
+            f"{len(PoseSE2Index)}."
         )
     points_diff: npt.NDArray[np.float64] = np.concatenate(([x_diff], [y_diff]), axis=0, dtype=np.float64)
     progress_diff = np.append(0.0, np.linalg.norm(points_diff, axis=0))
@@ -48,13 +48,13 @@ def offset_points_perpendicular(points_array: npt.NDArray[np.float64], offset: f
     if points_array.shape[-1] == len(Point2DIndex):
         xy = points_array[..., Point2DIndex.XY]
         yaws = get_points_2d_yaws(points_array[..., Point2DIndex.XY])
-    elif points_array.shape[-1] == len(StateSE2Index):
-        xy = points_array[..., StateSE2Index.XY]
-        yaws = points_array[..., StateSE2Index.YAW]
+    elif points_array.shape[-1] == len(PoseSE2Index):
+        xy = points_array[..., PoseSE2Index.XY]
+        yaws = points_array[..., PoseSE2Index.YAW]
     else:
         raise ValueError(
             f"Invalid points_array shape: {points_array.shape}. Expected last dimension to be {len(Point2DIndex)} or "
-            f"{len(StateSE2Index)}."
+            f"{len(PoseSE2Index)}."
         )
 
     return translate_2d_along_body_frame(

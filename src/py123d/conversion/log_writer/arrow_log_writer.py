@@ -45,7 +45,7 @@ from py123d.datatypes.sensors import LiDARType, PinholeCameraType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.dynamic_state import DynamicStateSE3Index
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
-from py123d.geometry import BoundingBoxSE3Index, StateSE3, StateSE3Index, Vector3DIndex
+from py123d.geometry import BoundingBoxSE3Index, PoseSE3, PoseSE3Index, Vector3DIndex
 
 
 def _get_logs_root() -> Path:
@@ -237,7 +237,7 @@ class ArrowLogWriter(AbstractLogWriter):
                 # Theoretically, we could extend the store asynchronous cameras in the future by storing the
                 # camera data as a dictionary, list or struct-like object in the columns.
                 pinhole_camera_data: Optional[Any] = None
-                pinhole_camera_pose: Optional[StateSE3] = None
+                pinhole_camera_pose: Optional[PoseSE3] = None
                 if pinhole_camera_type in provided_pinhole_data:
                     pinhole_camera_data = provided_pinhole_data[pinhole_camera_type]
                     pinhole_camera_pose = provided_pinhole_extrinsics[pinhole_camera_type]
@@ -266,7 +266,7 @@ class ArrowLogWriter(AbstractLogWriter):
                 # NOTE @DanielDauner: Missing cameras are allowed, e.g., for synchronization mismatches.
                 # In this case, we write None/null to the arrow table.
                 fisheye_mei_camera_data: Optional[Any] = None
-                fisheye_mei_camera_pose: Optional[StateSE3] = None
+                fisheye_mei_camera_pose: Optional[PoseSE3] = None
                 if fisheye_mei_camera_type in provided_fisheye_mei_data:
                     fisheye_mei_camera_data = provided_fisheye_mei_data[fisheye_mei_camera_type]
                     fisheye_mei_camera_pose = provided_fisheye_mei_extrinsics[fisheye_mei_camera_type]
@@ -354,7 +354,7 @@ class ArrowLogWriter(AbstractLogWriter):
         if dataset_converter_config.include_ego:
             schema_list.extend(
                 [
-                    (EGO_REAR_AXLE_SE3_COLUMN, pa.list_(pa.float64(), len(StateSE3Index))),
+                    (EGO_REAR_AXLE_SE3_COLUMN, pa.list_(pa.float64(), len(PoseSE3Index))),
                     (EGO_DYNAMIC_STATE_SE3_COLUMN, pa.list_(pa.float64(), len(DynamicStateSE3Index))),
                 ]
             )
@@ -413,7 +413,7 @@ class ArrowLogWriter(AbstractLogWriter):
                         ),
                         (
                             PINHOLE_CAMERA_EXTRINSIC_COLUMN(pinhole_camera_name),
-                            pa.list_(pa.float64(), len(StateSE3Index)),
+                            pa.list_(pa.float64(), len(PoseSE3Index)),
                         ),
                     ]
                 )
@@ -432,7 +432,7 @@ class ArrowLogWriter(AbstractLogWriter):
                         ),
                         (
                             FISHEYE_CAMERA_EXTRINSIC_COLUMN(fisheye_mei_camera_name),
-                            pa.list_(pa.float64(), len(StateSE3Index)),
+                            pa.list_(pa.float64(), len(PoseSE3Index)),
                         ),
                     ]
                 )

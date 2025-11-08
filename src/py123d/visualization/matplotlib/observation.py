@@ -12,7 +12,7 @@ from py123d.datatypes.map.abstract_map_objects import AbstractLane
 from py123d.datatypes.map.map_datatypes import MapLayer
 from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE2, EgoStateSE3
-from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D, StateSE2Index, Vector2D
+from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D, PoseSE2Index, Vector2D
 from py123d.geometry.transform.transform_se2 import translate_se2_along_body_frame
 from py123d.visualization.color.config import PlotConfig
 from py123d.visualization.color.default import (
@@ -158,7 +158,7 @@ def add_bounding_box_to_ax(
             arrow[1] = translate_se2_along_body_frame(
                 center_se2,
                 Vector2D(bounding_box.length / 2.0 + 0.5, 0.0),
-            ).array[StateSE2Index.XY]
+            ).array[PoseSE2Index.XY]
             ax.plot(
                 arrow[:, 0],
                 arrow[:, 1],

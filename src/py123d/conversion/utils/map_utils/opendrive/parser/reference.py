@@ -13,7 +13,7 @@ from py123d.conversion.utils.map_utils.opendrive.parser.elevation import Elevati
 from py123d.conversion.utils.map_utils.opendrive.parser.geometry import Arc, Geometry, Line, Spiral
 from py123d.conversion.utils.map_utils.opendrive.parser.lane import LaneOffset, Width
 from py123d.conversion.utils.map_utils.opendrive.parser.polynomial import Polynomial
-from py123d.geometry import Point3DIndex, StateSE2Index
+from py123d.geometry import Point3DIndex, PoseSE2Index
 
 TOLERANCE: Final[float] = 1e-3
 
@@ -152,7 +152,7 @@ class ReferenceLine:
 
         elevation_polynomial = self._find_polynomial(s, self.elevations, lane_section_end=lane_section_end)
         point_3d = np.zeros(len(Point3DIndex), dtype=np.float64)
-        point_3d[Point3DIndex.XY] = se2[StateSE2Index.XY]
+        point_3d[Point3DIndex.XY] = se2[PoseSE2Index.XY]
         point_3d[Point3DIndex.Z] = elevation_polynomial.get_value(s - elevation_polynomial.s)
 
         return point_3d

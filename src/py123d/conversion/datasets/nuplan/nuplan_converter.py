@@ -42,7 +42,7 @@ from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE
 from py123d.datatypes.vehicle_state.vehicle_parameters import (
     get_nuplan_chrysler_pacifica_parameters,
 )
-from py123d.geometry import StateSE3, Vector3D
+from py123d.geometry import PoseSE3, Vector3D
 
 check_dependencies(["nuplan"], "nuplan")
 from nuplan.database.nuplan_db.nuplan_scenario_queries import get_cameras, get_images_from_lidar_tokens
@@ -295,7 +295,7 @@ def _get_nuplan_lidar_metadata(
 def _extract_nuplan_ego_state(nuplan_lidar_pc: LidarPc) -> EgoStateSE3:
 
     vehicle_parameters = get_nuplan_chrysler_pacifica_parameters()
-    rear_axle_pose = StateSE3(
+    rear_axle_pose = PoseSE3(
         x=nuplan_lidar_pc.ego_pose.x,
         y=nuplan_lidar_pc.ego_pose.y,
         z=nuplan_lidar_pc.ego_pose.z,
@@ -390,7 +390,7 @@ def _extract_nuplan_cameras(
                     cam_info = log_cam_infos[image.camera_token]
                     c2img_e = cam_info.trans_matrix
                     c2e = img_e2e @ c2img_e
-                    extrinsic = StateSE3.from_transformation_matrix(c2e)
+                    extrinsic = PoseSE3.from_transformation_matrix(c2e)
 
                     # Store in dictionary
                     camera_data_list.append(

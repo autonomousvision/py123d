@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import shapely.geometry as geom
 
-from py123d.geometry import Point2D, Point3D, Polyline2D, Polyline3D, PolylineSE2, StateSE2
+from py123d.geometry import Point2D, Point3D, Polyline2D, Polyline3D, PolylineSE2, PoseSE2
 
 
 class TestPolyline2D(unittest.TestCase):
@@ -108,7 +108,7 @@ class TestPolyline2D(unittest.TestCase):
         coords = [(0.0, 0.0), (2.0, 0.0)]
         linestring = geom.LineString(coords)
         polyline = Polyline2D.from_linestring(linestring)
-        state = StateSE2(1.0, 1.0, 0.0)
+        state = PoseSE2(1.0, 1.0, 0.0)
         distance = polyline.project(state)
         self.assertEqual(distance, 1.0)
 
@@ -154,7 +154,7 @@ class TestPolylineSE2(unittest.TestCase):
 
     def test_from_discrete_se2(self):
         """Test creating PolylineSE2 from discrete SE2 states."""
-        states = [StateSE2(0.0, 0.0, 0.0), StateSE2(1.0, 0.0, 0.0), StateSE2(2.0, 0.0, 0.0)]
+        states = [PoseSE2(0.0, 0.0, 0.0), PoseSE2(1.0, 0.0, 0.0), PoseSE2(2.0, 0.0, 0.0)]
         polyline = PolylineSE2.from_discrete_se2(states)
         self.assertIsInstance(polyline, PolylineSE2)
         self.assertEqual(polyline.array.shape, (3, 3))
@@ -170,7 +170,7 @@ class TestPolylineSE2(unittest.TestCase):
         array = np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]], dtype=np.float64)
         polyline = PolylineSE2.from_array(array)
         state = polyline.interpolate(1.0)
-        self.assertIsInstance(state, StateSE2)
+        self.assertIsInstance(state, PoseSE2)
         self.assertEqual(state.x, 1.0)
         self.assertEqual(state.y, 0.0)
 
@@ -187,7 +187,7 @@ class TestPolylineSE2(unittest.TestCase):
         array = np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]], dtype=np.float64)
         polyline = PolylineSE2.from_array(array)
         state = polyline.interpolate(0.5, normalized=True)
-        self.assertIsInstance(state, StateSE2)
+        self.assertIsInstance(state, PoseSE2)
         self.assertEqual(state.x, 1.0)
         self.assertEqual(state.y, 0.0)
 
@@ -203,7 +203,7 @@ class TestPolylineSE2(unittest.TestCase):
         """Test projecting StateSE2 onto SE2 polyline."""
         array = np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]], dtype=np.float64)
         polyline = PolylineSE2.from_array(array)
-        state = StateSE2(1.0, 1.0, 0.0)
+        state = PoseSE2(1.0, 1.0, 0.0)
         distance = polyline.project(state)
         self.assertEqual(distance, 1.0)
 

@@ -22,7 +22,7 @@ def _plot_scene_on_ax(ax: plt.Axes, scene: AbstractScene, iteration: int = 0, ra
     route_lane_group_ids = scene.get_route_lane_group_ids(iteration)
     map_api = scene.get_map_api()
 
-    point_2d = ego_vehicle_state.bounding_box.center.state_se2.point_2d
+    point_2d = ego_vehicle_state.bounding_box.center.pose_se2.point_2d
     if map_api is not None:
         add_default_map_on_ax(ax, map_api, point_2d, radius=radius, route_lane_group_ids=route_lane_group_ids)
         if traffic_light_detections is not None:

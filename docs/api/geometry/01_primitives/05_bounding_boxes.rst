@@ -1,5 +1,5 @@
 Bounding Boxes
---------------
+^^^^^^^^^^^^^^
 
 .. autoclass:: py123d.geometry.BoundingBoxSE3
    :members:

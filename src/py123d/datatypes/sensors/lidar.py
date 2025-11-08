@@ -8,7 +8,7 @@ import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.conversion.registry.lidar_index_registry import LIDAR_INDEX_REGISTRY, LiDARIndex
-from py123d.geometry import StateSE3
+from py123d.geometry import PoseSE3
 
 
 class LiDARType(SerialIntEnum):
@@ -28,7 +28,7 @@ class LiDARMetadata:
 
     lidar_type: LiDARType
     lidar_index: Type[LiDARIndex]
-    extrinsic: Optional[StateSE3] = None
+    extrinsic: Optional[PoseSE3] = None
     # TODO: add identifier if point cloud is returned in lidar or ego frame.
 
     def to_dict(self) -> dict:
@@ -44,7 +44,7 @@ class LiDARMetadata:
         if data_dict["lidar_index"] not in LIDAR_INDEX_REGISTRY:
             raise ValueError(f"Unknown lidar index: {data_dict['lidar_index']}")
         lidar_index_class = LIDAR_INDEX_REGISTRY[data_dict["lidar_index"]]
-        extrinsic = StateSE3.from_list(data_dict["extrinsic"]) if data_dict["extrinsic"] is not None else None
+        extrinsic = PoseSE3.from_list(data_dict["extrinsic"]) if data_dict["extrinsic"] is not None else None
         return cls(lidar_type=lidar_type, lidar_index=lidar_index_class, extrinsic=extrinsic)
 
 

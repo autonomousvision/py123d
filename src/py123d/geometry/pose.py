@@ -7,62 +7,62 @@ import numpy.typing as npt
 import shapely.geometry as geom
 
 from py123d.common.utils.mixin import ArrayMixin
-from py123d.geometry.geometry_index import EulerStateSE3Index, Point3DIndex, StateSE2Index, StateSE3Index
+from py123d.geometry.geometry_index import EulerStateSE3Index, Point3DIndex, PoseSE2Index, PoseSE3Index
 from py123d.geometry.point import Point2D, Point3D
 from py123d.geometry.rotation import EulerAngles, Quaternion
 
 
-class StateSE2(ArrayMixin):
+class PoseSE2(ArrayMixin):
     """Class to represents a 2D pose as SE2 (x, y, yaw)."""
 
     _array: npt.NDArray[np.float64]
 
     def __init__(self, x: float, y: float, yaw: float):
         """Initialize StateSE2 with x, y, yaw coordinates."""
-        array = np.zeros(len(StateSE2Index), dtype=np.float64)
-        array[StateSE2Index.X] = x
-        array[StateSE2Index.Y] = y
-        array[StateSE2Index.YAW] = yaw
+        array = np.zeros(len(PoseSE2Index), dtype=np.float64)
+        array[PoseSE2Index.X] = x
+        array[PoseSE2Index.Y] = y
+        array[PoseSE2Index.YAW] = yaw
         object.__setattr__(self, "_array", array)
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> StateSE2:
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> PoseSE2:
         """Constructs a StateSE2 from a numpy array.
 
         :param array: Array of shape (3,) representing the state [x, y, yaw], indexed by \
-            :class:`~py123d.geometry.geometry_index.StateSE2Index`.
+            :class:`~py123d.geometry.geometry_index.PoseSE2Index`.
         :param copy: Whether to copy the input array. Defaults to True.
         :return: A StateSE2 instance.
         """
         assert array.ndim == 1
-        assert array.shape[0] == len(StateSE2Index)
+        assert array.shape[0] == len(PoseSE2Index)
         instance = object.__new__(cls)
         object.__setattr__(instance, "_array", array.copy() if copy else array)
         return instance
 
     @property
     def x(self) -> float:
-        return self._array[StateSE2Index.X]
+        return self._array[PoseSE2Index.X]
 
     @property
     def y(self) -> float:
-        return self._array[StateSE2Index.Y]
+        return self._array[PoseSE2Index.Y]
 
     @property
     def yaw(self) -> float:
-        return self._array[StateSE2Index.YAW]
+        return self._array[PoseSE2Index.YAW]
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
         """Converts the StateSE2 instance to a numpy array
 
         :return: A numpy array of shape (3,) containing the state, indexed by \
-            :class:`~py123d.geometry.geometry_index.StateSE2Index`.
+            :class:`~py123d.geometry.geometry_index.PoseSE2Index`.
         """
         return self._array
 
     @property
-    def state_se2(self) -> StateSE2:
+    def pose_se2(self) -> PoseSE2:
         """The 2D pose itself. Helpful for polymorphism.
 
         :return: A StateSE2 instance representing the 2D pose.
@@ -75,7 +75,7 @@ class StateSE2(ArrayMixin):
 
         :return: A Point2D instance representing the 2D projection of the 2D pose.
         """
-        return Point2D.from_array(self.array[StateSE2Index.XY])
+        return Point2D.from_array(self.array[PoseSE2Index.XY])
 
     @property
     def rotation_matrix(self) -> npt.NDArray[np.float64]:
@@ -104,50 +104,60 @@ class StateSE2(ArrayMixin):
         return geom.Point(self.x, self.y)
 
 
-class StateSE3(ArrayMixin):
-    """Class representing a quaternion in SE3 space."""
+class PoseSE3(ArrayMixin):
+    """Class representing a quaternion in SE3 space
+
+    Examples:
+        >>> pose = PoseSE3(x=1.0, y=2.0, z=3.0, qw=0.7071, qx=0.0, qy=0.7071, qz=0.0)
+        >>> print(pose.x, pose.y, pose.z)
+        1.0 2.0 3.0
+        >>> print(pose.qw, pose.qx, pose.qy, pose.qz)
+        0.7071 0.0 0.7071 0.0
+        >>> print(pose.yaw)
+        1.5707963267948966
+    """
 
     _array: npt.NDArray[np.float64]
 
     def __init__(self, x: float, y: float, z: float, qw: float, qx: float, qy: float, qz: float):
-        """Initialize StateSE3 with x, y, z, qw, qx, qy, qz coordinates."""
-        array = np.zeros(len(StateSE3Index), dtype=np.float64)
-        array[StateSE3Index.X] = x
-        array[StateSE3Index.Y] = y
-        array[StateSE3Index.Z] = z
-        array[StateSE3Index.QW] = qw
-        array[StateSE3Index.QX] = qx
-        array[StateSE3Index.QY] = qy
-        array[StateSE3Index.QZ] = qz
+        """Initialize PoseSE3 with x, y, z, qw, qx, qy, qz coordinates."""
+        array = np.zeros(len(PoseSE3Index), dtype=np.float64)
+        array[PoseSE3Index.X] = x
+        array[PoseSE3Index.Y] = y
+        array[PoseSE3Index.Z] = z
+        array[PoseSE3Index.QW] = qw
+        array[PoseSE3Index.QX] = qx
+        array[PoseSE3Index.QY] = qy
+        array[PoseSE3Index.QZ] = qz
         object.__setattr__(self, "_array", array)
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> StateSE3:
-        """Constructs a StateSE3 from a numpy array.
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> PoseSE3:
+        """Constructs a PoseSE3 from a numpy array.
 
-        :param array: Array of shape (7,), indexed by :class:`~py123d.geometry.geometry_index.StateSE3Index`.
+        :param array: Array of shape (7,), indexed by :class:`~py123d.geometry.geometry_index.PoseSE3Index`.
         :param copy: Whether to copy the input array. Defaults to True.
-        :return: A StateSE3 instance.
+        :return: A PoseSE3 instance.
         """
         assert array.ndim == 1
-        assert array.shape[0] == len(StateSE3Index)
+        assert array.shape[0] == len(PoseSE3Index)
         instance = object.__new__(cls)
         object.__setattr__(instance, "_array", array.copy() if copy else array)
         return instance
 
     @classmethod
-    def from_transformation_matrix(cls, transformation_matrix: npt.NDArray[np.float64]) -> StateSE3:
-        """Constructs a StateSE3 from a 4x4 transformation matrix.
+    def from_transformation_matrix(cls, transformation_matrix: npt.NDArray[np.float64]) -> PoseSE3:
+        """Constructs a PoseSE3 from a 4x4 transformation matrix.
 
         :param transformation_matrix: A 4x4 numpy array representing the transformation matrix.
-        :return: A StateSE3 instance.
+        :return: A PoseSE3 instance.
         """
         assert transformation_matrix.ndim == 2
         assert transformation_matrix.shape == (4, 4)
-        array = np.zeros(len(StateSE3Index), dtype=np.float64)
-        array[StateSE3Index.XYZ] = transformation_matrix[:3, 3]
-        array[StateSE3Index.QUATERNION] = Quaternion.from_rotation_matrix(transformation_matrix[:3, :3])
-        return StateSE3.from_array(array, copy=False)
+        array = np.zeros(len(PoseSE3Index), dtype=np.float64)
+        array[PoseSE3Index.XYZ] = transformation_matrix[:3, 3]
+        array[PoseSE3Index.QUATERNION] = Quaternion.from_rotation_matrix(transformation_matrix[:3, :3])
+        return PoseSE3.from_array(array, copy=False)
 
     @property
     def x(self) -> float:
@@ -155,7 +165,7 @@ class StateSE3(ArrayMixin):
 
         :return: The x-coordinate.
         """
-        return self._array[StateSE3Index.X]
+        return self._array[PoseSE3Index.X]
 
     @property
     def y(self) -> float:
@@ -163,7 +173,7 @@ class StateSE3(ArrayMixin):
 
         :return: The y-coordinate.
         """
-        return self._array[StateSE3Index.Y]
+        return self._array[PoseSE3Index.Y]
 
     @property
     def z(self) -> float:
@@ -171,7 +181,7 @@ class StateSE3(ArrayMixin):
 
         :return: The z-coordinate.
         """
-        return self._array[StateSE3Index.Z]
+        return self._array[PoseSE3Index.Z]
 
     @property
     def qw(self) -> float:
@@ -179,7 +189,7 @@ class StateSE3(ArrayMixin):
 
         :return: The w-coordinate.
         """
-        return self._array[StateSE3Index.QW]
+        return self._array[PoseSE3Index.QW]
 
     @property
     def qx(self) -> float:
@@ -187,7 +197,7 @@ class StateSE3(ArrayMixin):
 
         :return: The x-coordinate.
         """
-        return self._array[StateSE3Index.QX]
+        return self._array[PoseSE3Index.QX]
 
     @property
     def qy(self) -> float:
@@ -195,7 +205,7 @@ class StateSE3(ArrayMixin):
 
         :return: The y-coordinate.
         """
-        return self._array[StateSE3Index.QY]
+        return self._array[PoseSE3Index.QY]
 
     @property
     def qz(self) -> float:
@@ -203,25 +213,25 @@ class StateSE3(ArrayMixin):
 
         :return: The z-coordinate.
         """
-        return self._array[StateSE3Index.QZ]
+        return self._array[PoseSE3Index.QZ]
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
-        """Converts the StateSE3 instance to a numpy array.
+        """Converts the PoseSE3 instance to a numpy array.
 
-        :return: A numpy array of shape (7,), indexed by :class:`~py123d.geometry.geometry_index.StateSE3Index`.
+        :return: A numpy array of shape (7,), indexed by :class:`~py123d.geometry.geometry_index.PoseSE3Index`.
         """
         return self._array
 
     @property
-    def state_se2(self) -> StateSE2:
-        """Returns the quaternion state as a 2D state by ignoring the z-axis.
+    def pose_se2(self) -> PoseSE2:
+        """Returns the SE2 pose of ...
 
         :return: A StateSE2 instance representing the 2D projection of the 3D state.
         """
         # Convert quaternion to yaw angle
         yaw = self.quaternion.euler_angles.yaw
-        return StateSE2(self.x, self.y, yaw)
+        return PoseSE2(self.x, self.y, yaw)
 
     @property
     def point_3d(self) -> Point3D:
@@ -253,7 +263,7 @@ class StateSE3(ArrayMixin):
 
         :return: A Quaternion instance representing the quaternion.
         """
-        return Quaternion.from_array(self.array[StateSE3Index.QUATERNION])
+        return Quaternion.from_array(self.array[PoseSE3Index.QUATERNION])
 
     @property
     def euler_angles(self) -> EulerAngles:
@@ -303,20 +313,20 @@ class StateSE3(ArrayMixin):
         """
         transformation_matrix = np.eye(4, dtype=np.float64)
         transformation_matrix[:3, :3] = self.rotation_matrix
-        transformation_matrix[:3, 3] = self.array[StateSE3Index.XYZ]
+        transformation_matrix[:3, 3] = self.array[PoseSE3Index.XYZ]
         return transformation_matrix
 
 
 class EulerStateSE3(ArrayMixin):
     """
     Class to represents a 3D pose as SE3 (x, y, z, roll, pitch, yaw).
-    NOTE: This class is deprecated, use :class:`~py123d.geometry.StateSE3` instead (quaternion based).
+    NOTE: This class is deprecated, use :class:`~py123d.geometry.PoseSE3` instead (quaternion based).
     """
 
     _array: npt.NDArray[np.float64]
 
     def __init__(self, x: float, y: float, z: float, roll: float, pitch: float, yaw: float):
-        """Initialize StateSE3 with x, y, z, roll, pitch, yaw coordinates."""
+        """Initialize PoseSE3 with x, y, z, roll, pitch, yaw coordinates."""
         array = np.zeros(len(EulerStateSE3Index), dtype=np.float64)
         array[EulerStateSE3Index.X] = x
         array[EulerStateSE3Index.Y] = y
@@ -328,12 +338,12 @@ class EulerStateSE3(ArrayMixin):
 
     @classmethod
     def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> EulerStateSE3:
-        """Constructs a StateSE3 from a numpy array.
+        """Constructs a PoseSE3 from a numpy array.
 
         :param array: Array of shape (6,) representing the state [x, y, z, roll, pitch, yaw], indexed by \
-            :class:`~py123d.geometry.geometry_index.StateSE3Index`.
+            :class:`~py123d.geometry.geometry_index.PoseSE3Index`.
         :param copy: Whether to copy the input array. Defaults to True.
-        :return: A StateSE3 instance.
+        :return: A PoseSE3 instance.
         """
         assert array.ndim == 1
         assert array.shape[0] == len(EulerStateSE3Index)
@@ -412,20 +422,20 @@ class EulerStateSE3(ArrayMixin):
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
-        """Returns the StateSE3 instance as a numpy array.
+        """Returns the PoseSE3 instance as a numpy array.
 
         :return: A numpy array of shape (6,), indexed by \
-            :class:`~py123d.geometry.geometry_index.StateSE3Index`.
+            :class:`~py123d.geometry.geometry_index.PoseSE3Index`.
         """
         return self._array
 
     @property
-    def state_se2(self) -> StateSE2:
+    def pose_se2(self) -> PoseSE2:
         """Returns the 3D state as a 2D state by ignoring the z-axis.
 
         :return: A StateSE2 instance representing the 2D projection of the 3D state.
         """
-        return StateSE2(self.x, self.y, self.yaw)
+        return PoseSE2(self.x, self.y, self.yaw)
 
     @property
     def point_3d(self) -> Point3D:
@@ -476,11 +486,11 @@ class EulerStateSE3(ArrayMixin):
         return EulerAngles.from_array(self.array[EulerStateSE3Index.EULER_ANGLES])
 
     @property
-    def state_se3(self) -> StateSE3:
-        quaternion_se3_array = np.zeros(len(StateSE3Index), dtype=np.float64)
-        quaternion_se3_array[StateSE3Index.XYZ] = self.array[EulerStateSE3Index.XYZ]
-        quaternion_se3_array[StateSE3Index.QUATERNION] = Quaternion.from_euler_angles(self.euler_angles)
-        return StateSE3.from_array(quaternion_se3_array, copy=False)
+    def pose_se3(self) -> PoseSE3:
+        quaternion_se3_array = np.zeros(len(PoseSE3Index), dtype=np.float64)
+        quaternion_se3_array[PoseSE3Index.XYZ] = self.array[EulerStateSE3Index.XYZ]
+        quaternion_se3_array[PoseSE3Index.QUATERNION] = Quaternion.from_euler_angles(self.euler_angles)
+        return PoseSE3.from_array(quaternion_se3_array, copy=False)
 
     @property
     def quaternion(self) -> Quaternion:

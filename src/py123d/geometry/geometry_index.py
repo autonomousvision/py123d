@@ -29,7 +29,7 @@ class Vector2DIndex(IntEnum):
         return slice(cls.X, cls.Y + 1)
 
 
-class StateSE2Index(IntEnum):
+class PoseSE2Index(IntEnum):
     """
     Indexes array-like representations of SE2 states (x,y,yaw).
     """
@@ -130,7 +130,7 @@ class EulerStateSE3Index(IntEnum):
         return slice(cls.ROLL, cls.YAW + 1)
 
 
-class StateSE3Index(IntEnum):
+class PoseSE3Index(IntEnum):
     """
     Indexes array-like representations of SE3 states with quaternions (x,y,z,qw,qx,qy,qz).
     """
@@ -223,7 +223,7 @@ class BoundingBoxSE3Index(IntEnum):
         return slice(cls.X, cls.Z + 1)
 
     @classproperty
-    def STATE_SE3(cls) -> slice:
+    def POSE_SE3(cls) -> slice:
         return slice(cls.X, cls.QZ + 1)
 
     @classproperty

@@ -1,5 +1,5 @@
 Indexing Enums
---------------
+^^^^^^^^^^^^^^
 
 .. autoclass:: py123d.geometry.Point2DIndex
    :members:
@@ -9,10 +9,10 @@ Indexing Enums
    :members:
    :no-inherited-members:
 
-.. autoclass:: py123d.geometry.StateSE2Index
+.. autoclass:: py123d.geometry.PoseSE2Index
    :members:
    :no-inherited-members:
 
-.. autoclass:: py123d.geometry.StateSE3Index
+.. autoclass:: py123d.geometry.PoseSE3Index
    :members:
    :no-inherited-members:

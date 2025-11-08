@@ -22,7 +22,7 @@ class AbstractMapObject(abc.ABC):
 
         :param object_id: unique identifier of the map object.
         """
-        self.object_id: MapObjectIDType = object_id
+        self._object_id: MapObjectIDType = object_id
 
     @property
     def object_id(self) -> MapObjectIDType:
@@ -30,7 +30,7 @@ class AbstractMapObject(abc.ABC):
 
         :return: map object id
         """
-        return self.object_id
+        return self._object_id
 
     @property
     @abc.abstractmethod

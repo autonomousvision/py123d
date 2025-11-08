@@ -8,7 +8,7 @@ from py123d.datatypes.detections import (
     BoxDetectionWrapper,
 )
 from py123d.datatypes.time.time_point import TimePoint
-from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, StateSE2, StateSE3, Vector2D, Vector3D
+from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, PoseSE2, PoseSE3, Vector2D, Vector3D
 
 
 class DummyBoxDetectionLabel(BoxDetectionLabel):
@@ -98,7 +98,7 @@ class TestBoxDetectionSE2(unittest.TestCase):
     def setUp(self):
         self.metadata = BoxDetectionMetadata(**sample_metadata_args)
         self.bounding_box_se2 = BoundingBoxSE2(
-            center=StateSE2(x=0.0, y=0.0, yaw=0.0),
+            center=PoseSE2(x=0.0, y=0.0, yaw=0.0),
             length=4.0,
             width=2.0,
         )
@@ -147,7 +147,7 @@ class TestBoxBoxDetectionSE3(unittest.TestCase):
     def setUp(self):
         self.metadata = BoxDetectionMetadata(**sample_metadata_args)
         self.bounding_box_se3 = BoundingBoxSE3(
-            center=StateSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
+            center=PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
             length=4.0,
             width=2.0,
             height=1.5,
@@ -253,7 +253,7 @@ class TestBoxDetectionWrapper(unittest.TestCase):
         self.box_detection1 = BoxDetectionSE2(
             metadata=self.metadata1,
             bounding_box_se2=BoundingBoxSE2(
-                center=StateSE2(x=0.0, y=0.0, yaw=0.0),
+                center=PoseSE2(x=0.0, y=0.0, yaw=0.0),
                 length=4.0,
                 width=2.0,
             ),
@@ -262,7 +262,7 @@ class TestBoxDetectionWrapper(unittest.TestCase):
         self.box_detection2 = BoxDetectionSE2(
             metadata=self.metadata2,
             bounding_box_se2=BoundingBoxSE2(
-                center=StateSE2(x=5.0, y=5.0, yaw=0.0),
+                center=PoseSE2(x=5.0, y=5.0, yaw=0.0),
                 length=1.0,
                 width=0.5,
             ),
@@ -271,7 +271,7 @@ class TestBoxDetectionWrapper(unittest.TestCase):
         self.box_detection3 = BoxDetectionSE3(
             metadata=self.metadata3,
             bounding_box_se3=BoundingBoxSE3(
-                center=StateSE3(x=10.0, y=10.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
+                center=PoseSE3(x=10.0, y=10.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
                 length=2.0,
                 width=1.0,
                 height=1.5,

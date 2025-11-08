@@ -1,5 +1,5 @@
 Polylines
----------
+^^^^^^^^^
 
 .. autoclass:: py123d.geometry.Polyline3D
    :members:

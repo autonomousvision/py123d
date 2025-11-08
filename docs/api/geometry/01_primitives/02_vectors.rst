@@ -1,5 +1,5 @@
 Vectors
--------
+^^^^^^^
 
 .. autoclass:: py123d.geometry.Vector3D
    :members:

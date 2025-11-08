@@ -8,15 +8,15 @@ from py123d.geometry.geometry_index import (
     EulerAnglesIndex,
     EulerStateSE3Index,
     QuaternionIndex,
-    StateSE2Index,
-    StateSE3Index,
+    PoseSE2Index,
+    PoseSE3Index,
     Vector2DIndex,
     Vector3DIndex,
 )
 from py123d.geometry.point import Point2D, Point3D
 from py123d.geometry.vector import Vector2D, Vector3D
 from py123d.geometry.rotation import EulerAngles, Quaternion
-from py123d.geometry.se import EulerStateSE3, StateSE2, StateSE3
+from py123d.geometry.pose import EulerStateSE3, PoseSE2, PoseSE3
 from py123d.geometry.bounding_box import BoundingBoxSE2, BoundingBoxSE3
 from py123d.geometry.polyline import Polyline2D, Polyline3D, PolylineSE2
 from py123d.geometry.occupancy_map import OccupancyMap2D

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
-from py123d.geometry import StateSE2, StateSE3, Vector2D, Vector3D
+from py123d.geometry import PoseSE2, PoseSE3, Vector2D, Vector3D
 from py123d.geometry.transform.transform_se2 import translate_se2_along_body_frame
 from py123d.geometry.transform.transform_se3 import translate_se3_along_body_frame
 
@@ -137,7 +137,7 @@ def get_pandaset_chrysler_pacifica_parameters() -> VehicleParameters:
     )
 
 
-def center_se3_to_rear_axle_se3(center_se3: StateSE3, vehicle_parameters: VehicleParameters) -> StateSE3:
+def center_se3_to_rear_axle_se3(center_se3: PoseSE3, vehicle_parameters: VehicleParameters) -> PoseSE3:
     """
     Converts a center state to a rear axle state.
     :param center_se3: The center state.
@@ -154,7 +154,7 @@ def center_se3_to_rear_axle_se3(center_se3: StateSE3, vehicle_parameters: Vehicl
     )
 
 
-def rear_axle_se3_to_center_se3(rear_axle_se3: StateSE3, vehicle_parameters: VehicleParameters) -> StateSE3:
+def rear_axle_se3_to_center_se3(rear_axle_se3: PoseSE3, vehicle_parameters: VehicleParameters) -> PoseSE3:
     """
     Converts a rear axle state to a center state.
     :param rear_axle_se3: The rear axle state.
@@ -171,7 +171,7 @@ def rear_axle_se3_to_center_se3(rear_axle_se3: StateSE3, vehicle_parameters: Veh
     )
 
 
-def center_se2_to_rear_axle_se2(center_se2: StateSE2, vehicle_parameters: VehicleParameters) -> StateSE2:
+def center_se2_to_rear_axle_se2(center_se2: PoseSE2, vehicle_parameters: VehicleParameters) -> PoseSE2:
     """
     Converts a center state to a rear axle state in 2D.
     :param center_se2: The center state in 2D.
@@ -181,7 +181,7 @@ def center_se2_to_rear_axle_se2(center_se2: StateSE2, vehicle_parameters: Vehicl
     return translate_se2_along_body_frame(center_se2, Vector2D(-vehicle_parameters.rear_axle_to_center_longitudinal, 0))
 
 
-def rear_axle_se2_to_center_se2(rear_axle_se2: StateSE2, vehicle_parameters: VehicleParameters) -> StateSE2:
+def rear_axle_se2_to_center_se2(rear_axle_se2: PoseSE2, vehicle_parameters: VehicleParameters) -> PoseSE2:
     """
     Converts a rear axle state to a center state in 2D.
     :param rear_axle_se2: The rear axle state in 2D.

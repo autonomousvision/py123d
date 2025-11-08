@@ -17,7 +17,7 @@ from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
-from py123d.geometry import StateSE3
+from py123d.geometry import PoseSE3
 
 
 class AbstractLogWriter(abc.ABC):
@@ -87,7 +87,7 @@ class LiDARData:
 class CameraData:
 
     camera_type: Union[PinholeCameraType, FisheyeMEICameraType]
-    extrinsic: StateSE3
+    extrinsic: PoseSE3
 
     timestamp: Optional[TimePoint] = None
     jpeg_binary: Optional[bytes] = None

@@ -53,7 +53,7 @@ from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.dynamic_state import DynamicStateSE3
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
-from py123d.geometry import BoundingBoxSE3, StateSE3, Vector3D
+from py123d.geometry import BoundingBoxSE3, PoseSE3, Vector3D
 from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
 DATASET_PATHS: DictConfig = get_dataset_paths()
@@ -81,7 +81,7 @@ def get_ego_state_se3_from_arrow_table(
     ego_state_se3: Optional[EgoStateSE3] = None
     if _all_columns_in_schema(arrow_table, EGO_STATE_SE3_COLUMNS):
         timepoint = get_timepoint_from_arrow_table(arrow_table, index)
-        rear_axle_se3 = StateSE3.from_list(arrow_table[EGO_REAR_AXLE_SE3_COLUMN][index].as_py())
+        rear_axle_se3 = PoseSE3.from_list(arrow_table[EGO_REAR_AXLE_SE3_COLUMN][index].as_py())
         ego_state_se3 = EgoStateSE3.from_rear_axle(
             rear_axle_se3=rear_axle_se3,
             vehicle_parameters=vehicle_parameters,
@@ -172,41 +172,45 @@ def get_camera_from_arrow_table(
 
     if _all_columns_in_schema(arrow_table, [camera_data_column, camera_extrinsic_column]):
         table_data = arrow_table[camera_data_column][index].as_py()
-        extrinsic = StateSE3.from_list(arrow_table[camera_extrinsic_column][index].as_py())
-        image: Optional[npt.NDArray[np.uint8]] = None
+        extrinsic_data = arrow_table[camera_extrinsic_column][index].as_py()
 
-        if isinstance(table_data, str):
-            sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
-            assert (
-                sensor_root is not None
-            ), f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}"
-            full_image_path = Path(sensor_root) / table_data
-            assert full_image_path.exists(), f"Camera file not found: {full_image_path}"
+        if table_data is not None and extrinsic_data is not None:
+            extrinsic = PoseSE3.from_list(extrinsic_data)
+            image: Optional[npt.NDArray[np.uint8]] = None
 
-            image = load_image_from_jpeg_file(full_image_path)
-        elif isinstance(table_data, bytes):
-            image = decode_image_from_jpeg_binary(table_data)
-        elif isinstance(table_data, int):
-            image = _unoptimized_demo_mp4_read(log_metadata, camera_name, table_data)
-        else:
-            raise NotImplementedError(
-                f"Only string file paths, bytes, or int frame indices are supported for camera data, got {type(table_data)}"
-            )
+            if isinstance(table_data, str):
+                sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
+                assert (
+                    sensor_root is not None
+                ), f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}"
+                full_image_path = Path(sensor_root) / table_data
+                assert full_image_path.exists(), f"Camera file not found: {full_image_path}"
 
-        if is_pinhole:
-            camera_metadata = log_metadata.pinhole_camera_metadata[camera_type]
-            camera = PinholeCamera(
-                metadata=camera_metadata,
-                image=image,
-                extrinsic=extrinsic,
-            )
-        else:
-            camera_metadata = log_metadata.fisheye_mei_camera_metadata[camera_type]
-            camera = FisheyeMEICamera(
-                metadata=camera_metadata,
-                image=image,
-                extrinsic=extrinsic,
-            )
+                image = load_image_from_jpeg_file(full_image_path)
+            elif isinstance(table_data, bytes):
+                image = decode_image_from_jpeg_binary(table_data)
+            elif isinstance(table_data, int):
+                image = _unoptimized_demo_mp4_read(log_metadata, camera_name, table_data)
+            else:
+                raise NotImplementedError(
+                    f"Only string file paths, bytes, or int frame indices are supported for camera data, got {type(table_data)}"
+                )
+            # extrinsic = PoseSE3.from_list(arrow_table[camera_extrinsic_column][index].as_py())
+
+            if is_pinhole:
+                camera_metadata = log_metadata.pinhole_camera_metadata[camera_type]
+                camera = PinholeCamera(
+                    metadata=camera_metadata,
+                    image=image,
+                    extrinsic=extrinsic,
+                )
+            else:
+                camera_metadata = log_metadata.fisheye_mei_camera_metadata[camera_type]
+                camera = FisheyeMEICamera(
+                    metadata=camera_metadata,
+                    image=image,
+                    extrinsic=extrinsic,
+                )
 
     return camera
 

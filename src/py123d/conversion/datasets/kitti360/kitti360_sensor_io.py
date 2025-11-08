@@ -7,7 +7,7 @@ import numpy as np
 from py123d.conversion.registry.lidar_index_registry import Kitti360LiDARIndex
 from py123d.datatypes.scene.scene_metadata import LogMetadata
 from py123d.datatypes.sensors.lidar import LiDARType
-from py123d.geometry.se import StateSE3
+from py123d.geometry.pose import PoseSE3
 from py123d.geometry.transform.transform_se3 import convert_points_3d_array_between_origins
 
 
@@ -22,7 +22,7 @@ def load_kitti360_lidar_pcs_from_file(filepath: Path, log_metadata: LogMetadata)
 
     lidar_pc[..., Kitti360LiDARIndex.XYZ] = convert_points_3d_array_between_origins(
         from_origin=lidar_extrinsic,
-        to_origin=StateSE3(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0),
+        to_origin=PoseSE3(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0),
         points_3d_array=lidar_pc[..., Kitti360LiDARIndex.XYZ],
     )
 
