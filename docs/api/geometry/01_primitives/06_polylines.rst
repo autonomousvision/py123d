@@ -1,7 +1,7 @@
 Polylines
 ^^^^^^^^^
 
-.. autoclass:: py123d.geometry.Polyline3D
+.. autoclass:: py123d.geometry.Polyline2D
    :members:
    :autoclasstoc:
 
@@ -9,6 +9,6 @@ Polylines
    :members:
    :autoclasstoc:
 
-.. autoclass:: py123d.geometry.Polyline2D
+.. autoclass:: py123d.geometry.Polyline3D
    :members:
    :autoclasstoc:

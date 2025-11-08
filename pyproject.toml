@@ -66,8 +66,9 @@ docs = [
     "Sphinx",
     "sphinx-rtd-theme",
     "sphinx-autobuild",
-    "myst-parser",
+    "sphinx-inline-tabs",
     "sphinx-copybutton",
+    "myst-parser",
     "furo",
     "autoclasstoc",
 ]

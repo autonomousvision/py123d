@@ -1,8 +1,10 @@
 from py123d.geometry.transform.transform_se2 import (
-    convert_absolute_to_relative_point_2d_array,
+    convert_absolute_to_relative_points_2d_array,
     convert_absolute_to_relative_se2_array,
-    convert_relative_to_absolute_point_2d_array,
+    convert_relative_to_absolute_points_2d_array,
     convert_relative_to_absolute_se2_array,
+    convert_points_2d_array_between_origins,
+    convert_se2_array_between_origins,
     translate_se2_along_body_frame,
     translate_se2_along_x,
     translate_se2_along_y,

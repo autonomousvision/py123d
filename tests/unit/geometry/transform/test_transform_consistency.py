@@ -15,9 +15,9 @@ from py123d.geometry.transform.transform_euler_se3 import (
     translate_euler_se3_along_y,
 )
 from py123d.geometry.transform.transform_se2 import (
-    convert_absolute_to_relative_point_2d_array,
+    convert_absolute_to_relative_points_2d_array,
     convert_absolute_to_relative_se2_array,
-    convert_relative_to_absolute_point_2d_array,
+    convert_relative_to_absolute_points_2d_array,
     convert_relative_to_absolute_se2_array,
     translate_se2_along_body_frame,
     translate_se2_along_x,
@@ -83,8 +83,8 @@ class TestTransformConsistency(unittest.TestCase):
             absolute_points = self._get_random_se2_array(num_points)[:, PoseSE2Index.XY]
 
             # Convert absolute -> relative -> absolute
-            relative_points = convert_absolute_to_relative_point_2d_array(reference, absolute_points)
-            recovered_absolute = convert_relative_to_absolute_point_2d_array(reference, relative_points)
+            relative_points = convert_absolute_to_relative_points_2d_array(reference, absolute_points)
+            recovered_absolute = convert_relative_to_absolute_points_2d_array(reference, relative_points)
 
             np.testing.assert_array_almost_equal(absolute_points, recovered_absolute, decimal=self.decimal)
 
@@ -100,13 +100,15 @@ class TestTransformConsistency(unittest.TestCase):
 
             # Convert absolute -> relative -> absolute
             relative_se2 = convert_absolute_to_relative_se2_array(reference, absolute_se2)
-            relative_points = convert_absolute_to_relative_point_2d_array(reference, absolute_se2[..., PoseSE2Index.XY])
+            relative_points = convert_absolute_to_relative_points_2d_array(
+                reference, absolute_se2[..., PoseSE2Index.XY]
+            )
             np.testing.assert_array_almost_equal(
                 relative_se2[..., PoseSE2Index.XY], relative_points, decimal=self.decimal
             )
 
             recovered_absolute_se2 = convert_relative_to_absolute_se2_array(reference, relative_se2)
-            absolute_points = convert_relative_to_absolute_point_2d_array(reference, relative_points)
+            absolute_points = convert_relative_to_absolute_points_2d_array(reference, relative_points)
             np.testing.assert_array_almost_equal(
                 recovered_absolute_se2[..., PoseSE2Index.XY], absolute_points, decimal=self.decimal
             )
@@ -285,8 +287,8 @@ class TestTransformConsistency(unittest.TestCase):
             points_3d = np.column_stack([points_2d, np.zeros(num_points)])
 
             # Convert using SE2 functions
-            relative_2d = convert_absolute_to_relative_point_2d_array(reference_se2, points_2d)
-            absolute_2d_recovered = convert_relative_to_absolute_point_2d_array(reference_se2, relative_2d)
+            relative_2d = convert_absolute_to_relative_points_2d_array(reference_se2, points_2d)
+            absolute_2d_recovered = convert_relative_to_absolute_points_2d_array(reference_se2, relative_2d)
 
             # Convert using SE3 functions
             relative_3d = convert_absolute_to_relative_points_3d_array(reference_se3, points_3d)
@@ -393,7 +395,7 @@ class TestTransformConsistency(unittest.TestCase):
         empty_2d_points = np.array([], dtype=np.float64).reshape(0, len(Point2DIndex))
 
         result_se2_poses = convert_absolute_to_relative_se2_array(reference_se2, empty_se2_poses)
-        result_2d_points = convert_absolute_to_relative_point_2d_array(reference_se2, empty_2d_points)
+        result_2d_points = convert_absolute_to_relative_points_2d_array(reference_se2, empty_2d_points)
 
         self.assertEqual(result_se2_poses.shape, (0, len(PoseSE2Index)))
         self.assertEqual(result_2d_points.shape, (0, len(Point2DIndex)))
@@ -421,7 +423,7 @@ class TestTransformConsistency(unittest.TestCase):
             se2_points = se2_poses[:, PoseSE2Index.XY]
 
             relative_se2_poses = convert_absolute_to_relative_se2_array(identity_se2, se2_poses)
-            relative_se2_points = convert_absolute_to_relative_point_2d_array(identity_se2, se2_points)
+            relative_se2_points = convert_absolute_to_relative_points_2d_array(identity_se2, se2_points)
 
             np.testing.assert_array_almost_equal(se2_poses, relative_se2_poses, decimal=self.decimal)
             np.testing.assert_array_almost_equal(se2_points, relative_se2_points, decimal=self.decimal)
@@ -465,8 +467,8 @@ class TestTransformConsistency(unittest.TestCase):
             relative_se3 = convert_absolute_to_relative_euler_se3_array(reference_se3, test_se3_poses)
             recovered_se3 = convert_relative_to_absolute_euler_se3_array(reference_se3, relative_se3)
 
-            relative_2d_points = convert_absolute_to_relative_point_2d_array(reference_se2, test_2d_points)
-            recovered_2d_points = convert_relative_to_absolute_point_2d_array(reference_se2, relative_2d_points)
+            relative_2d_points = convert_absolute_to_relative_points_2d_array(reference_se2, test_2d_points)
+            recovered_2d_points = convert_relative_to_absolute_points_2d_array(reference_se2, relative_2d_points)
 
             relative_3d_points = convert_absolute_to_relative_points_3d_array(reference_se3, test_3d_points)
             recovered_3d_points = convert_relative_to_absolute_points_3d_array(reference_se3, relative_3d_points)

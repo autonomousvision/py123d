@@ -23,6 +23,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx_copybutton",
+    "sphinx_inline_tabs",
     "myst_parser",
 ]
 
@@ -78,13 +79,9 @@ autoclasstoc_sections = [
     "public-methods-without-dunders",
     "private-methods",
 ]
+html_css_files = ["css/theme_overrides.css", "css/version_switch.css"]
+html_js_files = ["js/version_switch.js"]
 
-# 'members': True,
-# 'special-members': True,
-# 'private-members': True,
-# 'inherited-members': True,
-# 'undoc-members': True,
-# 'exclude-members': '__weakref__',
 
 # Custom CSS for color theming
 html_css_files = [
@@ -99,6 +96,17 @@ html_theme_options.update(
         "sidebar_hide_name": True,
     }
 )
+
+html_sidebars = {
+    "**": [
+        "sidebar/brand.html",
+        "sidebar/search.html",
+        "sidebar/scroll-start.html",
+        "sidebar/navigation.html",
+        "sidebar/scroll-end.html",
+        "sidebar/variant-selector.html",
+    ]
+}
 
 # This CSS should go in /home/daniel/py123d_workspace/py123d/docs/_static/custom.css
 # Your conf.py already references it in html_css_files = ["custom.css"]

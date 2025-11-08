@@ -1,10 +1,8 @@
 Points
 ^^^^^^
 
-.. autoclass:: py123d.geometry.Point3D
-   :members:
+.. autoclass:: py123d.geometry.Point2D
    :autoclasstoc:
 
-.. autoclass:: py123d.geometry.Point2D
-   :members:
+.. autoclass:: py123d.geometry.Point3D
    :autoclasstoc:
