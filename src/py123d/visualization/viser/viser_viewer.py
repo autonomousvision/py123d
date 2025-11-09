@@ -8,8 +8,8 @@ import viser
 from tqdm import tqdm
 from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
 
-from py123d.datatypes.map.map_datatypes import MapLayer
-from py123d.datatypes.scene.abstract_scene import AbstractScene
+from py123d.api.scene.scene_api import SceneAPI
+from py123d.datatypes.map_objects.map_layer_types import MapLayer
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraType
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
@@ -79,7 +79,7 @@ def _build_viser_server(viser_config: ViserConfig) -> viser.ViserServer:
 class ViserViewer:
     def __init__(
         self,
-        scenes: List[AbstractScene],
+        scenes: List[SceneAPI],
         viser_config: ViserConfig = ViserConfig(),
         scene_index: int = 0,
     ) -> None:
@@ -99,7 +99,7 @@ class ViserViewer:
         self._scene_index = (self._scene_index + 1) % len(self._scenes)
         self.set_scene(self._scenes[self._scene_index])
 
-    def set_scene(self, scene: AbstractScene) -> None:
+    def set_scene(self, scene: SceneAPI) -> None:
         num_frames = scene.number_of_iterations
         initial_ego_state: EgoStateSE3 = scene.get_ego_state_at_iteration(0)
         server_playing = True
@@ -392,7 +392,7 @@ class ViserViewer:
         self.next()
 
 
-def _get_scene_info_markdown(scene: AbstractScene) -> str:
+def _get_scene_info_markdown(scene: SceneAPI) -> str:
     markdown = f"""
     - Dataset: {scene.log_metadata.split}
     - Location: {scene.log_metadata.location if scene.log_metadata.location else 'N/A'}

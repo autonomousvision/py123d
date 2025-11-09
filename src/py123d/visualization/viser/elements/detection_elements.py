@@ -5,8 +5,8 @@ import numpy.typing as npt
 import trimesh
 import viser
 
+from py123d.api.scene.scene_api import SceneAPI
 from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
-from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry.geometry_index import BoundingBoxSE3Index, Corners3DIndex, PoseSE3Index
 from py123d.geometry.utils.bounding_box_utils import (
@@ -19,7 +19,7 @@ from py123d.visualization.viser.viser_config import ViserConfig
 
 
 def add_box_detections_to_viser_server(
-    scene: AbstractScene,
+    scene: SceneAPI,
     scene_interation: int,
     initial_ego_state: EgoStateSE3,
     viser_server: viser.ViserServer,
@@ -67,7 +67,7 @@ def add_box_detections_to_viser_server(
             box_detection_handles[key].visible = False
 
 
-def _get_bounding_box_meshes(scene: AbstractScene, iteration: int, initial_ego_state: EgoStateSE3) -> trimesh.Trimesh:
+def _get_bounding_box_meshes(scene: SceneAPI, iteration: int, initial_ego_state: EgoStateSE3) -> trimesh.Trimesh:
 
     ego_vehicle_state = scene.get_ego_state_at_iteration(iteration)
     box_detections = scene.get_box_detections_at_iteration(iteration)
@@ -127,7 +127,7 @@ def _get_bounding_box_meshes(scene: AbstractScene, iteration: int, initial_ego_s
 
 
 def _get_bounding_box_outlines(
-    scene: AbstractScene, iteration: int, initial_ego_state: EgoStateSE3
+    scene: SceneAPI, iteration: int, initial_ego_state: EgoStateSE3
 ) -> npt.NDArray[np.float64]:
 
     ego_vehicle_state = scene.get_ego_state_at_iteration(iteration)

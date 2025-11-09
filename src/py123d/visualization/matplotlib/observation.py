@@ -4,13 +4,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import shapely.geometry as geom
 
+from py123d.api.map.map_api import MapAPI
+from py123d.api.scene.scene_api import SceneAPI
 from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
-from py123d.datatypes.map.abstract_map import AbstractMap
-from py123d.datatypes.map.abstract_map_objects import AbstractLane
-from py123d.datatypes.map.map_datatypes import MapLayer
-from py123d.datatypes.scene.abstract_scene import AbstractScene
+from py123d.datatypes.map_objects.map_layer_types import MapLayer
+from py123d.datatypes.map_objects.map_objects import Lane
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE2, EgoStateSE3
 from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D, PoseSE2Index, Vector2D
 from py123d.geometry.transform.transform_se2 import translate_se2_along_body_frame
@@ -33,7 +33,7 @@ from py123d.visualization.matplotlib.utils import (
 
 def add_default_map_on_ax(
     ax: plt.Axes,
-    map_api: AbstractMap,
+    map_api: MapAPI,
     point_2d: Point2D,
     radius: float,
     route_lane_group_ids: Optional[List[int]] = None,
@@ -69,7 +69,7 @@ def add_default_map_on_ax(
                 ]:
                     add_shapely_polygon_to_ax(ax, map_object.shapely_polygon, MAP_SURFACE_CONFIG[layer])
                 if layer in [MapLayer.LANE]:
-                    map_object: AbstractLane
+                    map_object: Lane
                     add_shapely_linestring_to_ax(ax, map_object.centerline.linestring, CENTERLINE_CONFIG)
             except Exception:
                 import traceback
@@ -89,7 +89,7 @@ def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionWrapper) 
         add_bounding_box_to_ax(ax, box_detection.bounding_box, plot_config)
 
 
-def add_box_future_detections_to_ax(ax: plt.Axes, scene: AbstractScene, iteration: int) -> None:
+def add_box_future_detections_to_ax(ax: plt.Axes, scene: SceneAPI, iteration: int) -> None:
 
     # TODO: Refactor this function
     initial_agents = scene.get_box_detections_at_iteration(iteration)
@@ -127,10 +127,10 @@ def add_ego_vehicle_to_ax(ax: plt.Axes, ego_vehicle_state: Union[EgoStateSE3, Eg
 
 
 def add_traffic_lights_to_ax(
-    ax: plt.Axes, traffic_light_detections: TrafficLightDetectionWrapper, map_api: AbstractMap
+    ax: plt.Axes, traffic_light_detections: TrafficLightDetectionWrapper, map_api: MapAPI
 ) -> None:
     for traffic_light_detection in traffic_light_detections:
-        lane: AbstractLane = map_api.get_map_object(str(traffic_light_detection.lane_id), MapLayer.LANE)
+        lane: Lane = map_api.get_map_object(str(traffic_light_detection.lane_id), MapLayer.LANE)
         if lane is not None:
             add_shapely_linestring_to_ax(
                 ax,

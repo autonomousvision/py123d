@@ -1,6 +1,6 @@
+from py123d.api.scene.arrow.arrow_scene_builder import ArrowSceneBuilder
+from py123d.api.scene.scene_filter import SceneFilter
 from py123d.common.multithreading.worker_sequential import Sequential
-from py123d.datatypes.scene.arrow.arrow_scene_builder import ArrowSceneBuilder
-from py123d.datatypes.scene.scene_filter import SceneFilter
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 from py123d.visualization.viser.viser_viewer import ViserViewer
 

@@ -15,16 +15,16 @@ from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     split_line_geometry_by_max_length,
 )
 from py123d.conversion.utils.map_utils.road_edge.road_edge_3d_utils import lift_road_edges_to_3d
-from py123d.datatypes.map.cache.cache_map_objects import (
-    CacheCrosswalk,
-    CacheGenericDrivable,
-    CacheIntersection,
-    CacheLane,
-    CacheLaneGroup,
-    CacheRoadEdge,
-    CacheRoadLine,
+from py123d.datatypes.map_objects.map_layer_types import RoadEdgeType
+from py123d.datatypes.map_objects.map_objects import (
+    Crosswalk,
+    GenericDrivable,
+    Intersection,
+    Lane,
+    LaneGroup,
+    RoadEdge,
+    RoadLine,
 )
-from py123d.datatypes.map.map_datatypes import RoadEdgeType
 from py123d.geometry import OccupancyMap2D, Point3DIndex, Polyline2D, Polyline3D
 
 LANE_GROUP_MARK_TYPES: List[str] = [
@@ -118,7 +118,7 @@ def _write_av2_lanes(lanes: Dict[int, Any], map_writer: AbstractMapWriter) -> No
         right_lane_id = lane_dict["right_neighbor_id"] if lane_dict["right_neighbor_id"] in lanes else None
 
         map_writer.write_lane(
-            CacheLane(
+            Lane(
                 object_id=lane_id,
                 lane_group_id=lane_dict["lane_group_id"],
                 left_boundary=lane_dict["left_lane_boundary"],
@@ -140,7 +140,7 @@ def _write_av2_lane_group(lane_group_dict: Dict[int, Any], map_writer: AbstractM
     for lane_group_id, lane_group_values in lane_group_dict.items():
 
         map_writer.write_lane_group(
-            CacheLaneGroup(
+            LaneGroup(
                 object_id=lane_group_id,
                 lane_ids=lane_group_values["lane_ids"],
                 left_boundary=lane_group_values["left_boundary"],
@@ -157,7 +157,7 @@ def _write_av2_lane_group(lane_group_dict: Dict[int, Any], map_writer: AbstractM
 def _write_av2_intersections(intersection_dict: Dict[int, Any], map_writer: AbstractMapWriter) -> None:
     for intersection_id, intersection_values in intersection_dict.items():
         map_writer.write_intersection(
-            CacheIntersection(
+            Intersection(
                 object_id=intersection_id,
                 lane_group_ids=intersection_values["lane_group_ids"],
                 outline=intersection_values["outline_3d"],
@@ -168,7 +168,7 @@ def _write_av2_intersections(intersection_dict: Dict[int, Any], map_writer: Abst
 def _write_av2_crosswalks(crosswalks: Dict[int, npt.NDArray[np.float64]], map_writer: AbstractMapWriter) -> None:
     for cross_walk_id, crosswalk_dict in crosswalks.items():
         map_writer.write_crosswalk(
-            CacheCrosswalk(
+            Crosswalk(
                 object_id=cross_walk_id,
                 outline=crosswalk_dict["outline"],
             )
@@ -178,7 +178,7 @@ def _write_av2_crosswalks(crosswalks: Dict[int, npt.NDArray[np.float64]], map_wr
 def _write_av2_generic_drivable(drivable_areas: Dict[int, Polyline3D], map_writer: AbstractMapWriter) -> None:
     for drivable_area_id, drivable_area_outline in drivable_areas.items():
         map_writer.write_generic_drivable(
-            CacheGenericDrivable(
+            GenericDrivable(
                 object_id=drivable_area_id,
                 outline=drivable_area_outline,
             )
@@ -200,7 +200,7 @@ def _write_av2_road_edge(drivable_areas: Dict[int, Polyline3D], map_writer: Abst
 
         # TODO @DanielDauner: Figure out if other road edge types should/could be assigned here.
         map_writer.write_road_edge(
-            CacheRoadEdge(
+            RoadEdge(
                 object_id=idx,
                 road_edge_type=RoadEdgeType.ROAD_EDGE_BOUNDARY,
                 polyline=Polyline3D.from_linestring(road_edge),
@@ -218,7 +218,7 @@ def _write_av2_road_lines(lanes: Dict[int, Any], map_writer: AbstractMapWriter) 
                 continue
 
             map_writer.write_road_line(
-                CacheRoadLine(
+                RoadLine(
                     object_id=running_road_line_id,
                     road_line_type=AV2_ROAD_LINE_TYPE_MAPPING[lane[f"{side}_lane_mark_type"]],
                     polyline=lane[f"{side}_lane_boundary"],

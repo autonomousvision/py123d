@@ -5,8 +5,8 @@ import numpy as np
 import numpy.typing as npt
 import shapely
 
-from py123d.conversion.utils.map_utils.opendrive.parser.objects import Object
-from py123d.conversion.utils.map_utils.opendrive.parser.reference import ReferenceLine
+from py123d.conversion.utils.map_utils.opendrive.parser.objects import XODRObject
+from py123d.conversion.utils.map_utils.opendrive.parser.reference import XODRReferenceLine
 from py123d.geometry import Point3D, Point3DIndex, PoseSE2, Vector2D
 from py123d.geometry.geometry_index import PoseSE2Index
 from py123d.geometry.polyline import Polyline3D
@@ -33,7 +33,7 @@ class OpenDriveObjectHelper:
         return shapely.geometry.Polygon(self.outline_3d[:, Point3DIndex.XY])
 
 
-def get_object_helper(object: Object, reference_line: ReferenceLine) -> OpenDriveObjectHelper:
+def get_object_helper(object: XODRObject, reference_line: XODRReferenceLine) -> OpenDriveObjectHelper:
 
     object_helper: Optional[OpenDriveObjectHelper] = None
 

@@ -5,7 +5,7 @@ from typing import Dict, Optional, Type
 
 import py123d
 from py123d.conversion.registry.box_detection_label_registry import BOX_DETECTION_LABEL_REGISTRY, BoxDetectionLabel
-from py123d.datatypes.map.map_metadata import MapMetadata
+from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraMetadata, FisheyeMEICameraType
 from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata, PinholeCameraType
@@ -87,25 +87,3 @@ class LogMetadata:
         data_dict["lidar_metadata"] = {key.serialize(): value.to_dict() for key, value in self.lidar_metadata.items()}
         data_dict["map_metadata"] = self.map_metadata.to_dict() if self.map_metadata else None
         return data_dict
-
-
-@dataclass(frozen=True)
-class SceneExtractionMetadata:
-
-    initial_uuid: str
-    initial_idx: int
-    duration_s: float
-    history_s: float
-    iteration_duration_s: float
-
-    @property
-    def number_of_iterations(self) -> int:
-        return round(self.duration_s / self.iteration_duration_s)
-
-    @property
-    def number_of_history_iterations(self) -> int:
-        return round(self.history_s / self.iteration_duration_s)
-
-    @property
-    def end_idx(self) -> int:
-        return self.initial_idx + self.number_of_iterations

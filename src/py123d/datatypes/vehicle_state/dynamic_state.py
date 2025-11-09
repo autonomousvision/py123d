@@ -61,16 +61,17 @@ class DynamicStateSE3(ArrayMixin):
         self._array = array
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64]) -> DynamicStateSE3:
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> DynamicStateSE3:
         """
         Create a DynamicVehicleState from an array.
         :param array: The array containing the dynamic state information.
+        :param copy: Whether to copy the array data.
         :return: A DynamicVehicleState instance.
         """
         assert array.ndim == 1
         assert array.shape[0] == len(DynamicStateSE3Index)
         instance = object.__new__(cls)
-        instance._array = array
+        object.__setattr__(instance, "_array", array.copy() if copy else array)
         return instance
 
     @property

@@ -9,12 +9,12 @@ import shapely
 import shapely.geometry as geom
 
 from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import get_road_edge_linear_rings
-from py123d.datatypes.map.abstract_map_objects import (
-    AbstractCarpark,
-    AbstractGenericDrivable,
-    AbstractLane,
-    AbstractLaneGroup,
-    AbstractSurfaceMapObject,
+from py123d.datatypes.map_objects.map_objects import (
+    BaseMapSurfaceObject,
+    Carpark,
+    GenericDrivable,
+    Lane,
+    LaneGroup,
     MapObjectIDType,
 )
 from py123d.geometry import Point3DIndex
@@ -25,10 +25,10 @@ logger = logging.getLogger(__name__)
 
 
 def get_road_edges_3d_from_drivable_surfaces(
-    lanes: List[AbstractLane],
-    lane_groups: List[AbstractLaneGroup],
-    car_parks: List[AbstractCarpark],
-    generic_drivables: List[AbstractGenericDrivable],
+    lanes: List[Lane],
+    lane_groups: List[LaneGroup],
+    car_parks: List[Carpark],
+    generic_drivables: List[GenericDrivable],
 ) -> List[Polyline3D]:
     """Generates 3D road edges from drivable surfaces, i.e., lane groups, car parks, and generic drivables.
     This method merges polygons in 2D and lifts them to 3D using the boundaries/outlines of elements.
@@ -47,7 +47,7 @@ def get_road_edges_3d_from_drivable_surfaces(
     # 2. Extract road edges in 2D (including conflicting lane groups)
     drivable_polygons: List[shapely.Polygon] = []
     for map_surface in lane_groups + car_parks + generic_drivables:
-        map_surface: AbstractSurfaceMapObject
+        map_surface: BaseMapSurfaceObject
         drivable_polygons.append(map_surface.shapely_polygon)
     road_edges_2d = get_road_edge_linear_rings(drivable_polygons)
 
@@ -73,7 +73,7 @@ def get_road_edges_3d_from_drivable_surfaces(
 
 
 def _get_conflicting_lane_groups(
-    lane_groups: List[AbstractLaneGroup], lanes: List[AbstractLane], z_threshold: float = 5.0
+    lane_groups: List[LaneGroup], lanes: List[Lane], z_threshold: float = 5.0
 ) -> Dict[int, List[int]]:
     """Identifies conflicting lane groups based on their 2D footprints and Z-values.
     The z-values are inferred from the centerlines of the lanes within each lane group.
@@ -85,9 +85,7 @@ def _get_conflicting_lane_groups(
     """
 
     # Convert to regular dictionaries for simpler access
-    lane_group_dict: Dict[MapObjectIDType, AbstractLaneGroup] = {
-        lane_group.object_id: lane_group for lane_group in lane_groups
-    }
+    lane_group_dict: Dict[MapObjectIDType, LaneGroup] = {lane_group.object_id: lane_group for lane_group in lane_groups}
     lane_centerline_dict: Dict[MapObjectIDType, Polyline3D] = {lane.object_id: lane.centerline for lane in lanes}
 
     # Pre-compute all centerlines
@@ -255,7 +253,7 @@ def lift_outlines_to_3d(
 
 def _resolve_conflicting_lane_groups(
     conflicting_lane_groups: Dict[MapObjectIDType, List[MapObjectIDType]],
-    lane_groups: List[AbstractLaneGroup],
+    lane_groups: List[LaneGroup],
 ) -> List[Polyline3D]:
     """Resolve conflicting lane groups by merging their geometries.
 
@@ -265,9 +263,7 @@ def _resolve_conflicting_lane_groups(
     """
 
     # Helper dictionary for easy access to lane group data
-    lane_group_dict: Dict[MapObjectIDType, AbstractLaneGroup] = {
-        lane_group.object_id: lane_group for lane_group in lane_groups
-    }
+    lane_group_dict: Dict[MapObjectIDType, LaneGroup] = {lane_group.object_id: lane_group for lane_group in lane_groups}
 
     # NOTE @DanielDauner: A non-conflicting set has overlapping lane groups separated into different layers (e.g., bridges).
     # For each non-conflicting set, we can repeat the process of merging polygons in 2D and lifting to 3D.

@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 import numpy as np
 import pyarrow as pa
 
+from py123d.api.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
 from py123d.common.utils.arrow_column_names import (
     BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN,
     BOX_DETECTIONS_LABEL_COLUMN,
@@ -39,8 +40,7 @@ from py123d.conversion.sensor_io.lidar.file_lidar_io import load_lidar_pcs_from_
 from py123d.conversion.sensor_io.lidar.laz_lidar_io import encode_lidar_pc_as_laz_binary
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
-from py123d.datatypes.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
-from py123d.datatypes.scene.scene_metadata import LogMetadata
+from py123d.datatypes.metadata import LogMetadata
 from py123d.datatypes.sensors import LiDARType, PinholeCameraType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.dynamic_state import DynamicStateSE3Index

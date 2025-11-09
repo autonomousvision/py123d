@@ -3,10 +3,11 @@ from __future__ import annotations
 import abc
 from typing import List, Optional
 
+from py123d.api.map.map_api import MapAPI
+from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
-from py123d.datatypes.map.abstract_map import AbstractMap
-from py123d.datatypes.scene.scene_metadata import LogMetadata, SceneExtractionMetadata
+from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
 from py123d.datatypes.sensors.lidar import LiDAR, LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraType
@@ -15,7 +16,7 @@ from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 
 
-class AbstractScene(abc.ABC):
+class SceneAPI(abc.ABC):
 
     ####################################################################################################################
     # Abstract Methods, to be implemented by subclasses
@@ -26,11 +27,11 @@ class AbstractScene(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_scene_extraction_metadata(self) -> SceneExtractionMetadata:
+    def get_scene_extraction_metadata(self) -> SceneMetadata:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_map_api(self) -> Optional[AbstractMap]:
+    def get_map_api(self) -> Optional[MapAPI]:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -100,7 +101,7 @@ class AbstractScene(abc.ABC):
 
     # 2. Scene Extraction Metadata properties
     @property
-    def scene_extraction_metadata(self) -> SceneExtractionMetadata:
+    def scene_extraction_metadata(self) -> SceneMetadata:
         return self.get_scene_extraction_metadata()
 
     @property

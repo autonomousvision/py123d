@@ -1,6 +1,6 @@
 from typing import Dict, Final, Set
 
-from py123d.datatypes.map.map_datatypes import RoadLineType
+from py123d.datatypes.map_objects.map_layer_types import RoadLineType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 
 AV2_SENSOR_SPLITS: Set[str] = {"av2-sensor_train", "av2-sensor_val", "av2-sensor_test"}

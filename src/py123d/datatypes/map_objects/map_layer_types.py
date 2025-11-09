@@ -21,7 +21,7 @@ class MapLayer(SerialIntEnum):
     WALKWAY = 4
     CARPARK = 5
     GENERIC_DRIVABLE = 6
-    STOP_LINE = 7
+    STOP_ZONE = 7
     ROAD_EDGE = 8
     ROAD_LINE = 9
 

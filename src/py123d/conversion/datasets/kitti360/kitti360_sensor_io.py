@@ -5,7 +5,7 @@ from typing import Dict
 import numpy as np
 
 from py123d.conversion.registry.lidar_index_registry import Kitti360LiDARIndex
-from py123d.datatypes.scene.scene_metadata import LogMetadata
+from py123d.datatypes.metadata import LogMetadata
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.geometry.pose import PoseSE3
 from py123d.geometry.transform.transform_se3 import convert_points_3d_array_between_origins

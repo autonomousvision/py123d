@@ -27,7 +27,7 @@ from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.box_detection_label_registry import PandasetBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import PandasetLiDARIndex
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
-from py123d.datatypes.scene.scene_metadata import LogMetadata
+from py123d.datatypes.metadata import LogMetadata
 from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata, PinholeCameraType, PinholeIntrinsics
 from py123d.datatypes.time.time_point import TimePoint

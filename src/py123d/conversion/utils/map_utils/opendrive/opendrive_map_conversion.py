@@ -6,7 +6,7 @@ import numpy as np
 import shapely
 
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.utils.map_utils.opendrive.parser.opendrive import Junction, OpenDrive
+from py123d.conversion.utils.map_utils.opendrive.parser.opendrive import XODR, Junction
 from py123d.conversion.utils.map_utils.opendrive.utils.collection import collect_element_helpers
 from py123d.conversion.utils.map_utils.opendrive.utils.lane_helper import (
     OpenDriveLaneGroupHelper,
@@ -21,18 +21,19 @@ from py123d.conversion.utils.map_utils.road_edge.road_edge_3d_utils import (
     get_road_edges_3d_from_drivable_surfaces,
     lift_outlines_to_3d,
 )
-from py123d.datatypes.map.cache.cache_map_objects import (
-    CacheCarpark,
-    CacheCrosswalk,
-    CacheGenericDrivable,
-    CacheIntersection,
-    CacheLane,
-    CacheLaneGroup,
-    CacheRoadEdge,
-    CacheRoadLine,
-    CacheWalkway,
+from py123d.datatypes.map_objects import (
+    Carpark,
+    Crosswalk,
+    GenericDrivable,
+    Intersection,
+    Lane,
+    LaneGroup,
+    RoadEdge,
+    RoadEdgeType,
+    RoadLine,
+    RoadLineType,
+    Walkway,
 )
-from py123d.datatypes.map.map_datatypes import RoadEdgeType, RoadLineType
 from py123d.geometry.geometry_index import Point3DIndex
 from py123d.geometry.polyline import Polyline3D
 
@@ -48,7 +49,7 @@ def convert_xodr_map(
     connection_distance_threshold: float = 0.1,
 ) -> None:
 
-    opendrive = OpenDrive.parse_from_file(xordr_file)
+    opendrive = XODR.parse_from_file(xordr_file)
 
     _, junction_dict, lane_helper_dict, lane_group_helper_dict, object_helper_dict = collect_element_helpers(
         opendrive, interpolation_step_size, connection_distance_threshold
@@ -79,9 +80,9 @@ def convert_xodr_map(
 def _extract_and_write_lanes(
     lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper],
     map_writer: AbstractMapWriter,
-) -> List[CacheLane]:
+) -> List[Lane]:
 
-    lanes: List[CacheLane] = []
+    lanes: List[Lane] = []
     for lane_group_helper in lane_group_helper_dict.values():
         lane_group_id = lane_group_helper.lane_group_id
         lane_helpers = lane_group_helper.lane_helpers
@@ -90,7 +91,7 @@ def _extract_and_write_lanes(
         for lane_idx, lane_helper in enumerate(lane_helpers):
             left_lane_id = lane_helpers[lane_idx - 1].lane_id if lane_idx > 0 else None
             right_lane_id = lane_helpers[lane_idx + 1].lane_id if lane_idx < num_lanes - 1 else None
-            lane = CacheLane(
+            lane = Lane(
                 object_id=lane_helper.lane_id,
                 lane_group_id=lane_group_id,
                 left_boundary=lane_helper.inner_polyline_3d,
@@ -112,12 +113,12 @@ def _extract_and_write_lanes(
 
 def _extract_and_write_lane_groups(
     lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper], map_writer: AbstractMapWriter
-) -> List[CacheLaneGroup]:
+) -> List[LaneGroup]:
 
-    lane_groups: List[CacheLaneGroup] = []
+    lane_groups: List[LaneGroup] = []
     for lane_group_helper in lane_group_helper_dict.values():
         lane_group_helper: OpenDriveLaneGroupHelper
-        lane_group = CacheLaneGroup(
+        lane_group = LaneGroup(
             object_id=lane_group_helper.lane_group_id,
             lane_ids=[lane_helper.lane_id for lane_helper in lane_group_helper.lane_helpers],
             left_boundary=lane_group_helper.inner_polyline_3d,
@@ -138,7 +139,7 @@ def _write_walkways(lane_helper_dict: Dict[str, OpenDriveLaneHelper], map_writer
     for lane_helper in lane_helper_dict.values():
         if lane_helper.type == "sidewalk":
             map_writer.write_walkway(
-                CacheWalkway(
+                Walkway(
                     object_id=lane_helper.lane_id,
                     outline=lane_helper.outline_polyline_3d,
                     geometry=None,
@@ -148,12 +149,12 @@ def _write_walkways(lane_helper_dict: Dict[str, OpenDriveLaneHelper], map_writer
 
 def _extract_and_write_carparks(
     lane_helper_dict: Dict[str, OpenDriveLaneHelper], map_writer: AbstractMapWriter
-) -> List[CacheCarpark]:
+) -> List[Carpark]:
 
-    carparks: List[CacheCarpark] = []
+    carparks: List[Carpark] = []
     for lane_helper in lane_helper_dict.values():
         if lane_helper.type == "parking":
-            carpark = CacheCarpark(
+            carpark = Carpark(
                 object_id=lane_helper.lane_id,
                 outline=lane_helper.outline_polyline_3d,
                 geometry=None,
@@ -166,12 +167,12 @@ def _extract_and_write_carparks(
 
 def _extract_and_write_generic_drivables(
     lane_helper_dict: Dict[str, OpenDriveLaneHelper], map_writer: AbstractMapWriter
-) -> List[CacheGenericDrivable]:
+) -> List[GenericDrivable]:
 
-    generic_drivables: List[CacheGenericDrivable] = []
+    generic_drivables: List[GenericDrivable] = []
     for lane_helper in lane_helper_dict.values():
         if lane_helper.type in ["none", "border", "bidirectional"]:
-            generic_drivable = CacheGenericDrivable(
+            generic_drivable = GenericDrivable(
                 object_id=lane_helper.lane_id,
                 outline=lane_helper.outline_polyline_3d,
                 geometry=None,
@@ -204,7 +205,7 @@ def _write_intersections(
         # TODO @DanielDauner: Create a method that extracts 3D outlines of intersections.
         outline = _extract_intersection_outline(lane_group_helpers, junction.id)
         map_writer.write_intersection(
-            CacheIntersection(
+            Intersection(
                 object_id=junction.id,
                 lane_group_ids=lane_group_ids_,
                 outline=outline,
@@ -216,7 +217,7 @@ def _write_intersections(
 def _write_crosswalks(object_helper_dict: Dict[int, OpenDriveObjectHelper], map_writer: AbstractMapWriter) -> None:
     for object_helper in object_helper_dict.values():
         map_writer.write_crosswalk(
-            CacheCrosswalk(
+            Crosswalk(
                 object_id=object_helper.object_id,
                 outline=object_helper.outline_polyline_3d,
                 geometry=None,
@@ -224,7 +225,7 @@ def _write_crosswalks(object_helper_dict: Dict[int, OpenDriveObjectHelper], map_
         )
 
 
-def _write_road_lines(lanes: List[CacheLane], lane_groups: List[CacheLaneGroup], map_writer: AbstractMapWriter) -> None:
+def _write_road_lines(lanes: List[Lane], lane_groups: List[LaneGroup], map_writer: AbstractMapWriter) -> None:
 
     # NOTE @DanielDauner: This method of extracting road lines is very simplistic and needs improvement.
     # The OpenDRIVE format provides lane boundary types that could be used here.
@@ -266,20 +267,14 @@ def _write_road_lines(lanes: List[CacheLane], lane_groups: List[CacheLaneGroup],
             running_id += 1
 
     for object_id, road_line_type, polyline in zip(ids, road_line_types, polylines):
-        map_writer.write_road_line(
-            CacheRoadLine(
-                object_id=object_id,
-                road_line_type=road_line_type,
-                polyline=polyline,
-            )
-        )
+        map_writer.write_road_line(RoadLine(object_id=object_id, road_line_type=road_line_type, polyline=polyline))
 
 
 def _write_road_edges(
-    lanes: List[CacheLane],
-    lane_groups: List[CacheLaneGroup],
-    car_parks: List[CacheCarpark],
-    generic_drivables: List[CacheGenericDrivable],
+    lanes: List[Lane],
+    lane_groups: List[LaneGroup],
+    car_parks: List[Carpark],
+    generic_drivables: List[GenericDrivable],
     map_writer: AbstractMapWriter,
 ) -> None:
 
@@ -297,7 +292,7 @@ def _write_road_edges(
     for road_edge_linestring in road_edge_linestrings:
         #  TODO @DanielDauner: Figure out if other types should/could be assigned here.
         map_writer.write_road_edge(
-            CacheRoadEdge(
+            RoadEdge(
                 object_id=running_id,
                 road_edge_type=RoadEdgeType.ROAD_EDGE_BOUNDARY,
                 polyline=Polyline3D.from_linestring(road_edge_linestring),

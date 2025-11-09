@@ -3,13 +3,9 @@ from typing import List, Optional, Union
 
 import pyarrow as pa
 
-from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
-from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
-from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
-from py123d.datatypes.map.abstract_map import AbstractMap
-from py123d.datatypes.map.gpkg.gpkg_map import get_global_map_api, get_local_map_api
-from py123d.datatypes.scene.abstract_scene import AbstractScene
-from py123d.datatypes.scene.arrow.utils.arrow_getters import (
+from py123d.api.map.gpkg.gpkg_map_api import get_global_map_api, get_local_map_api
+from py123d.api.map.map_api import MapAPI
+from py123d.api.scene.arrow.utils.arrow_getters import (
     get_box_detections_se3_from_arrow_table,
     get_camera_from_arrow_table,
     get_ego_state_se3_from_arrow_table,
@@ -18,8 +14,13 @@ from py123d.datatypes.scene.arrow.utils.arrow_getters import (
     get_timepoint_from_arrow_table,
     get_traffic_light_detections_from_arrow_table,
 )
-from py123d.datatypes.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow
-from py123d.datatypes.scene.scene_metadata import LogMetadata, SceneExtractionMetadata
+from py123d.api.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow
+from py123d.api.scene.scene_api import SceneAPI
+from py123d.api.scene.scene_metadata import SceneMetadata
+from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
+from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
+from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
+from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
 from py123d.datatypes.sensors.lidar import LiDAR, LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraType
@@ -27,12 +28,12 @@ from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 
 
-class ArrowScene(AbstractScene):
+class ArrowSceneAPI(SceneAPI):
 
     def __init__(
         self,
         arrow_file_path: Union[Path, str],
-        scene_extraction_metadata: Optional[SceneExtractionMetadata] = None,
+        scene_extraction_metadata: Optional[SceneMetadata] = None,
     ) -> None:
 
         self._arrow_file_path: Path = Path(arrow_file_path)
@@ -45,18 +46,18 @@ class ArrowScene(AbstractScene):
             initial_uuid = table["uuid"][0].as_py()
 
         if scene_extraction_metadata is None:
-            scene_extraction_metadata = SceneExtractionMetadata(
+            scene_extraction_metadata = SceneMetadata(
                 initial_uuid=initial_uuid,
                 initial_idx=0,
                 duration_s=self._log_metadata.timestep_seconds * num_rows,
                 history_s=0.0,
                 iteration_duration_s=self._log_metadata.timestep_seconds,
             )
-        self._scene_extraction_metadata: SceneExtractionMetadata = scene_extraction_metadata
+        self._scene_extraction_metadata: SceneMetadata = scene_extraction_metadata
 
         # NOTE: Lazy load a log-specific map API, and keep reference.
         # Global maps are LRU cached internally.
-        self._local_map_api: Optional[AbstractMap] = None
+        self._local_map_api: Optional[MapAPI] = None
 
     ####################################################################################################################
     # Helpers for ArrowScene
@@ -88,11 +89,11 @@ class ArrowScene(AbstractScene):
     def get_log_metadata(self) -> LogMetadata:
         return self._log_metadata
 
-    def get_scene_extraction_metadata(self) -> SceneExtractionMetadata:
+    def get_scene_extraction_metadata(self) -> SceneMetadata:
         return self._scene_extraction_metadata
 
-    def get_map_api(self) -> Optional[AbstractMap]:
-        map_api: Optional[AbstractMap] = None
+    def get_map_api(self) -> Optional[MapAPI]:
+        map_api: Optional[MapAPI] = None
         if self.log_metadata.map_metadata is not None:
             if self.log_metadata.map_metadata.map_is_local:
                 if self._local_map_api is None:

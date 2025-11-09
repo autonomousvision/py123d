@@ -6,9 +6,9 @@ import numpy as np
 import numpy.typing as npt
 import shapely
 
-from py123d.conversion.utils.map_utils.opendrive.parser.lane import Lane, LaneSection
-from py123d.conversion.utils.map_utils.opendrive.parser.reference import ReferenceLine
-from py123d.conversion.utils.map_utils.opendrive.parser.road import RoadType
+from py123d.conversion.utils.map_utils.opendrive.parser.lane import XODRLane, XODRLaneSection
+from py123d.conversion.utils.map_utils.opendrive.parser.reference import XODRReferenceLine
+from py123d.conversion.utils.map_utils.opendrive.parser.road import XODRRoadType
 from py123d.conversion.utils.map_utils.opendrive.utils.id_system import (
     derive_lane_group_id,
     derive_lane_id,
@@ -23,11 +23,11 @@ from py123d.geometry.utils.units import kmph_to_mps, mph_to_mps
 class OpenDriveLaneHelper:
 
     lane_id: str
-    open_drive_lane: Lane
+    open_drive_lane: XODRLane
     s_inner_offset: float
     s_range: Tuple[float, float]
-    inner_boundary: ReferenceLine
-    outer_boundary: ReferenceLine
+    inner_boundary: XODRReferenceLine
+    outer_boundary: XODRReferenceLine
     speed_limit_mps: Optional[float]
     interpolation_step_size: float
 
@@ -255,11 +255,11 @@ class OpenDriveLaneGroupHelper:
 
 def lane_section_to_lane_helpers(
     lane_section_id: str,
-    lane_section: LaneSection,
-    reference_line: ReferenceLine,
+    lane_section: XODRLaneSection,
+    reference_line: XODRReferenceLine,
     s_min: float,
     s_max: float,
-    road_types: List[RoadType],
+    road_types: List[XODRRoadType],
     interpolation_step_size: float,
 ) -> Dict[str, OpenDriveLaneHelper]:
 
@@ -272,7 +272,7 @@ def lane_section_to_lane_helpers(
             lane_id = derive_lane_id(lane_group_id, lane.id)
             s_inner_offset = lane_section.s if len(lane_boundaries) == 1 else 0.0
             lane_boundaries.append(
-                ReferenceLine.from_reference_line(
+                XODRReferenceLine.from_reference_line(
                     reference_line=lane_boundaries[-1],
                     widths=lane.widths,
                     s_offset=s_inner_offset,
@@ -294,7 +294,7 @@ def lane_section_to_lane_helpers(
     return lane_helpers
 
 
-def _get_speed_limit_mps(s: float, road_types: List[RoadType]) -> Optional[float]:
+def _get_speed_limit_mps(s: float, road_types: List[XODRRoadType]) -> Optional[float]:
 
     # NOTE: Likely not correct way to extract speed limit from CARLA maps, but serves as a placeholder
     speed_limit_mps: Optional[float] = None

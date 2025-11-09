@@ -6,7 +6,7 @@ from xml.etree.ElementTree import Element
 
 
 @dataclass
-class Object:
+class XODRObject:
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/13_objects/13_01_introduction.html
     """
@@ -31,7 +31,7 @@ class Object:
         pass
 
     @classmethod
-    def parse(cls, object_element: Optional[Element]) -> Object:
+    def parse(cls, object_element: Optional[Element]) -> XODRObject:
 
         args = {}
         args["id"] = int(object_element.get("id"))
@@ -53,7 +53,7 @@ class Object:
                 outline.append(CornerLocal.parse(corner_element))
         args["outline"] = outline
 
-        return Object(**args)
+        return XODRObject(**args)
 
 
 @dataclass

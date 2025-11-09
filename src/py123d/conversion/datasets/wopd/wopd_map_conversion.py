@@ -10,16 +10,8 @@ from py123d.conversion.datasets.wopd.utils.wopd_constants import (
     WAYMO_ROAD_LINE_TYPE_CONVERSION,
 )
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.datatypes.map.abstract_map_objects import AbstractLane, AbstractRoadEdge, AbstractRoadLine
-from py123d.datatypes.map.cache.cache_map_objects import (
-    CacheCarpark,
-    CacheCrosswalk,
-    CacheLane,
-    CacheLaneGroup,
-    CacheRoadEdge,
-    CacheRoadLine,
-)
-from py123d.datatypes.map.map_datatypes import LaneType, RoadEdgeType, RoadLineType
+from py123d.datatypes.map_objects.map_layer_types import LaneType, RoadEdgeType, RoadLineType
+from py123d.datatypes.map_objects.map_objects import Carpark, Crosswalk, Lane, LaneGroup, RoadEdge, RoadLine
 from py123d.geometry import Polyline3D
 from py123d.geometry.utils.units import mph_to_mps
 
@@ -48,17 +40,17 @@ def convert_wopd_map(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) ->
     _write_waymo_misc_surfaces(frame, map_writer)
 
 
-def _write_and_get_waymo_road_lines(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> List[AbstractRoadLine]:
+def _write_and_get_waymo_road_lines(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> List[RoadLine]:
     """Helper function to extract road lines from a Waymo frame proto."""
 
-    road_lines: List[AbstractRoadLine] = []
+    road_lines: List[RoadLine] = []
     for map_feature in frame.map_features:
         if map_feature.HasField("road_line"):
             polyline = _extract_polyline_waymo_proto(map_feature.road_line)
             if polyline is not None:
                 road_line_type = WAYMO_ROAD_LINE_TYPE_CONVERSION.get(map_feature.road_line.type, RoadLineType.UNKNOWN)
                 road_lines.append(
-                    CacheRoadLine(
+                    RoadLine(
                         object_id=map_feature.id,
                         road_line_type=road_line_type,
                         polyline=polyline,
@@ -71,17 +63,17 @@ def _write_and_get_waymo_road_lines(frame: dataset_pb2.Frame, map_writer: Abstra
     return road_lines
 
 
-def _write_and_get_waymo_road_edges(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> List[AbstractRoadEdge]:
+def _write_and_get_waymo_road_edges(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> List[RoadEdge]:
     """Helper function to extract road edges from a Waymo frame proto."""
 
-    road_edges: List[AbstractRoadEdge] = []
+    road_edges: List[RoadEdge] = []
     for map_feature in frame.map_features:
         if map_feature.HasField("road_edge"):
             polyline = _extract_polyline_waymo_proto(map_feature.road_edge)
             if polyline is not None:
                 road_edge_type = WAYMO_ROAD_EDGE_TYPE_CONVERSION.get(map_feature.road_edge.type, RoadEdgeType.UNKNOWN)
                 road_edges.append(
-                    CacheRoadEdge(
+                    RoadEdge(
                         object_id=map_feature.id,
                         road_edge_type=road_edge_type,
                         polyline=polyline,
@@ -95,11 +87,8 @@ def _write_and_get_waymo_road_edges(frame: dataset_pb2.Frame, map_writer: Abstra
 
 
 def _write_and_get_waymo_lanes(
-    frame: dataset_pb2.Frame,
-    road_lines: List[AbstractRoadLine],
-    road_edges: List[AbstractRoadEdge],
-    map_writer: AbstractMapWriter,
-) -> List[AbstractLane]:
+    frame: dataset_pb2.Frame, road_lines: List[RoadLine], road_edges: List[RoadEdge], map_writer: AbstractMapWriter
+) -> List[Lane]:
 
     # 1. Load lane data from Waymo frame proto
     lane_data_dict: Dict[int, WaymoLaneData] = {}
@@ -136,7 +125,7 @@ def _write_and_get_waymo_lanes(
         }
         return str(max(length, key=length.get))
 
-    lanes: List[AbstractLane] = []
+    lanes: List[Lane] = []
     for lane_data in lane_data_dict.values():
 
         # Skip lanes without boundaries
@@ -144,7 +133,7 @@ def _write_and_get_waymo_lanes(
             continue
 
         lanes.append(
-            CacheLane(
+            Lane(
                 object_id=lane_data.object_id,
                 lane_group_id=lane_data.object_id,
                 left_boundary=lane_data.left_boundary,
@@ -164,12 +153,12 @@ def _write_and_get_waymo_lanes(
     return lanes
 
 
-def _write_waymo_lane_groups(lanes: List[AbstractLane], map_writer: AbstractMapWriter) -> None:
+def _write_waymo_lane_groups(lanes: List[Lane], map_writer: AbstractMapWriter) -> None:
 
     # NOTE: WOPD does not provide lane groups, so we create a lane group for each lane.
     for lane in lanes:
         map_writer.write_lane_group(
-            CacheLaneGroup(
+            LaneGroup(
                 object_id=lane.object_id,
                 lane_ids=[lane.object_id],
                 left_boundary=lane.left_boundary,
@@ -189,11 +178,11 @@ def _write_waymo_misc_surfaces(frame: dataset_pb2.Frame, map_writer: AbstractMap
             # NOTE: We currently only handle classify driveways as carparks.
             outline = _extract_outline_from_waymo_proto(map_feature.driveway)
             if outline is not None:
-                map_writer.write_carpark(CacheCarpark(object_id=map_feature.id, outline=outline))
+                map_writer.write_carpark(Carpark(object_id=map_feature.id, outline=outline))
         elif map_feature.HasField("crosswalk"):
             outline = _extract_outline_from_waymo_proto(map_feature.crosswalk)
             if outline is not None:
-                map_writer.write_crosswalk(CacheCrosswalk(object_id=map_feature.id, outline=outline))
+                map_writer.write_crosswalk(Crosswalk(object_id=map_feature.id, outline=outline))
 
         elif map_feature.HasField("stop_sign"):
             pass  # TODO: Implement stop signs

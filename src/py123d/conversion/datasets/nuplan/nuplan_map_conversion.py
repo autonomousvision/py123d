@@ -7,6 +7,7 @@ import numpy as np
 import pyogrio
 from shapely import LineString
 
+from py123d.api.map.gpkg.gpkg_utils import get_all_rows_with_value, get_row_with_value
 from py123d.conversion.datasets.nuplan.utils.nuplan_constants import (
     NUPLAN_MAP_GPKG_LAYERS,
     NUPLAN_MAP_LOCATION_FILES,
@@ -17,19 +18,18 @@ from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     get_road_edge_linear_rings,
     split_line_geometry_by_max_length,
 )
-from py123d.datatypes.map.cache.cache_map_objects import (
-    CacheCarpark,
-    CacheCrosswalk,
-    CacheGenericDrivable,
-    CacheIntersection,
-    CacheLane,
-    CacheLaneGroup,
-    CacheRoadEdge,
-    CacheRoadLine,
-    CacheWalkway,
+from py123d.datatypes.map_objects.map_layer_types import RoadEdgeType
+from py123d.datatypes.map_objects.map_objects import (
+    Carpark,
+    Crosswalk,
+    GenericDrivable,
+    Intersection,
+    Lane,
+    LaneGroup,
+    RoadEdge,
+    RoadLine,
+    Walkway,
 )
-from py123d.datatypes.map.gpkg.gpkg_utils import get_all_rows_with_value, get_row_with_value
-from py123d.datatypes.map.map_datatypes import RoadEdgeType
 from py123d.geometry.polyline import Polyline2D, Polyline3D
 
 MAX_ROAD_EDGE_LENGTH: Final[float] = 100.0  # meters, used to filter out very long road edges. TODO @add to config?
@@ -105,7 +105,7 @@ def _write_nuplan_lanes(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: Abs
         right_boundary = align_boundary_direction(centerline, right_boundary)
 
         map_writer.write_lane(
-            CacheLane(
+            Lane(
                 object_id=lane_id,
                 lane_group_id=all_lane_group_ids[idx],
                 left_boundary=Polyline3D.from_linestring(left_boundary),
@@ -158,7 +158,7 @@ def _write_nuplan_lane_connectors(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_w
         # geometries.append(lane_connector_polygons_row.geometry)
 
         map_writer.write_lane(
-            CacheLane(
+            Lane(
                 object_id=lane_id,
                 lane_group_id=all_lane_group_ids[idx],
                 left_boundary=Polyline3D.from_linestring(left_boundary),
@@ -216,7 +216,7 @@ def _write_nuplan_lane_groups(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_write
         right_boundary = align_boundary_direction(repr_centerline, right_boundary)
 
         map_writer.write_lane_group(
-            CacheLaneGroup(
+            LaneGroup(
                 object_id=lane_group_id,
                 lane_ids=lane_ids,
                 left_boundary=Polyline3D.from_linestring(left_boundary),
@@ -257,7 +257,7 @@ def _write_nuplan_lane_connector_groups(nuplan_gdf: Dict[str, gpd.GeoDataFrame],
         right_boundary = get_row_with_value(nuplan_gdf["boundaries"], "fid", str(right_boundary_fid))["geometry"]
 
         map_writer.write_lane_group(
-            CacheLaneGroup(
+            LaneGroup(
                 object_id=lane_group_connector_id,
                 lane_ids=lane_ids,
                 left_boundary=Polyline3D.from_linestring(left_boundary),
@@ -281,7 +281,7 @@ def _write_nuplan_intersections(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_wri
         )["fid"].tolist()
 
         map_writer.write_intersection(
-            CacheIntersection(
+            Intersection(
                 object_id=intersection_id,
                 lane_group_ids=lane_group_connector_ids,
                 geometry=all_geometries[idx],
@@ -292,19 +292,19 @@ def _write_nuplan_intersections(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_wri
 def _write_nuplan_crosswalks(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
     # NOTE: drops: creator_id, intersection_fids, lane_fids, is_marked (?)
     for id, geometry in zip(nuplan_gdf["crosswalks"].fid.to_list(), nuplan_gdf["crosswalks"].geometry.to_list()):
-        map_writer.write_crosswalk(CacheCrosswalk(object_id=id, geometry=geometry))
+        map_writer.write_crosswalk(Crosswalk(object_id=id, geometry=geometry))
 
 
 def _write_nuplan_walkways(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
     # NOTE: drops: creator_id
     for id, geometry in zip(nuplan_gdf["walkways"].fid.to_list(), nuplan_gdf["walkways"].geometry.to_list()):
-        map_writer.write_walkway(CacheWalkway(object_id=id, geometry=geometry))
+        map_writer.write_walkway(Walkway(object_id=id, geometry=geometry))
 
 
 def _write_nuplan_carparks(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
     # NOTE: drops: creator_id
     for id, geometry in zip(nuplan_gdf["carpark_areas"].fid.to_list(), nuplan_gdf["carpark_areas"].geometry.to_list()):
-        map_writer.write_carpark(CacheCarpark(object_id=id, geometry=geometry))
+        map_writer.write_carpark(Carpark(object_id=id, geometry=geometry))
 
 
 def _write_nuplan_generic_drivables(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
@@ -312,7 +312,7 @@ def _write_nuplan_generic_drivables(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map
     for id, geometry in zip(
         nuplan_gdf["generic_drivable_areas"].fid.to_list(), nuplan_gdf["generic_drivable_areas"].geometry.to_list()
     ):
-        map_writer.write_generic_drivable(CacheGenericDrivable(object_id=id, geometry=geometry))
+        map_writer.write_generic_drivable(GenericDrivable(object_id=id, geometry=geometry))
 
 
 def _write_nuplan_road_edges(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
@@ -327,7 +327,7 @@ def _write_nuplan_road_edges(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer
 
     for idx in range(len(road_edges)):
         map_writer.write_road_edge(
-            CacheRoadEdge(
+            RoadEdge(
                 object_id=idx,
                 road_edge_type=RoadEdgeType.ROAD_EDGE_BOUNDARY,
                 polyline=Polyline2D.from_linestring(road_edges[idx]),
@@ -342,7 +342,7 @@ def _write_nuplan_road_lines(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer
 
     for idx in range(len(boundary_types)):
         map_writer.write_road_line(
-            CacheRoadLine(
+            RoadLine(
                 object_id=fids[idx],
                 road_line_type=NUPLAN_ROAD_LINE_CONVERSION[boundary_types[idx]],
                 polyline=Polyline2D.from_linestring(boundaries[idx]),

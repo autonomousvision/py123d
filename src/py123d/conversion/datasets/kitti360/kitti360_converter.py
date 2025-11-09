@@ -28,21 +28,15 @@ from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, 
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.box_detection_label_registry import KITTI360BoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import Kitti360LiDARIndex
-from py123d.datatypes.detections.box_detections import (
-    BoxDetectionMetadata,
-    BoxDetectionSE3,
-    BoxDetectionWrapper,
-)
-from py123d.datatypes.map.map_metadata import MapMetadata
-from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.fisheye_mei_camera import (
+from py123d.datatypes.detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
+from py123d.datatypes.metadata import LogMetadata, MapMetadata
+from py123d.datatypes.sensors import (
     FisheyeMEICameraMetadata,
     FisheyeMEICameraType,
     FisheyeMEIDistortion,
     FisheyeMEIProjection,
-)
-from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
-from py123d.datatypes.sensors.pinhole_camera import (
+    LiDARMetadata,
+    LiDARType,
     PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
@@ -523,27 +517,15 @@ def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> 
         )
 
         dynamic_state_se3 = DynamicStateSE3(
-            velocity=Vector3D(
-                x=oxts_data[8],
-                y=oxts_data[9],
-                z=oxts_data[10],
-            ),
-            acceleration=Vector3D(
-                x=oxts_data[14],
-                y=oxts_data[15],
-                z=oxts_data[16],
-            ),
-            angular_velocity=Vector3D(
-                x=oxts_data[20],
-                y=oxts_data[21],
-                z=oxts_data[22],
-            ),
+            velocity=Vector3D(x=oxts_data[8], y=oxts_data[9], z=oxts_data[10]),
+            acceleration=Vector3D(x=oxts_data[14], y=oxts_data[15], z=oxts_data[16]),
+            angular_velocity=Vector3D(x=oxts_data[20], y=oxts_data[21], z=oxts_data[22]),
         )
         ego_state_all.append(
             EgoStateSE3.from_rear_axle(
                 rear_axle_se3=rear_axle_se3,
                 vehicle_parameters=vehicle_parameters,
-                dynamic_state=dynamic_state_se3,
+                dynamic_state_se3=dynamic_state_se3,
             )
         )
     return ego_state_all, valid_timestamp

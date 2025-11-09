@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import warnings
 from collections import defaultdict
 from functools import lru_cache
@@ -10,34 +11,35 @@ import geopandas as gpd
 import shapely
 import shapely.geometry as geom
 
-from py123d.datatypes.map.abstract_map import AbstractMap
-from py123d.datatypes.map.abstract_map_objects import AbstractMapObject
-from py123d.datatypes.map.gpkg.gpkg_map_objects import (
-    GPKGCarpark,
-    GPKGCrosswalk,
-    GPKGGenericDrivable,
-    GPKGIntersection,
-    GPKGLane,
-    GPKGLaneGroup,
-    GPKGRoadEdge,
-    GPKGRoadLine,
-    GPKGWalkway,
+from py123d.api.map.gpkg.gpkg_utils import get_row_with_value, load_gdf_with_geometry_columns
+from py123d.api.map.map_api import MapAPI
+from py123d.datatypes.map_objects.base_map_objects import BaseMapObject
+from py123d.datatypes.map_objects.map_layer_types import MapLayer, RoadEdgeType, RoadLineType
+from py123d.datatypes.map_objects.map_objects import (
+    Carpark,
+    Crosswalk,
+    GenericDrivable,
+    Intersection,
+    Lane,
+    LaneGroup,
+    RoadEdge,
+    RoadLine,
+    Walkway,
 )
-from py123d.datatypes.map.gpkg.gpkg_utils import load_gdf_with_geometry_columns
-from py123d.datatypes.map.map_datatypes import MapLayer
-from py123d.datatypes.map.map_metadata import MapMetadata
+from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.geometry import Point2D
+from py123d.geometry.polyline import Polyline3D
 from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
 USE_ARROW: bool = True
 MAX_LRU_CACHED_TABLES: Final[int] = 128  # TODO: add to some configs
 
 
-class GPKGMap(AbstractMap):
+class GPKGMapAPI(MapAPI):
     def __init__(self, file_path: Path) -> None:
 
         self._file_path = file_path
-        self._map_object_getter: Dict[MapLayer, Callable[[str], Optional[AbstractMapObject]]] = {
+        self._map_object_getter: Dict[MapLayer, Callable[[str], Optional[BaseMapObject]]] = {
             MapLayer.LANE: self._get_lane,
             MapLayer.LANE_GROUP: self._get_lane_group,
             MapLayer.INTERSECTION: self._get_intersection,
@@ -94,7 +96,7 @@ class GPKGMap(AbstractMap):
         self._assert_initialize()
         return list(self._gpd_dataframes.keys())
 
-    def get_map_object(self, object_id: str, layer: MapLayer) -> Optional[AbstractMapObject]:
+    def get_map_object(self, object_id: str, layer: MapLayer) -> Optional[BaseMapObject]:
         """Inherited, see superclass."""
 
         self._assert_initialize()
@@ -104,7 +106,7 @@ class GPKGMap(AbstractMap):
         except KeyError:
             raise ValueError(f"Object representation for layer: {layer.name} object: {object_id} is unavailable")
 
-    def get_all_map_objects(self, point_2d: Point2D, layer: MapLayer) -> List[AbstractMapObject]:
+    def get_all_map_objects(self, point_2d: Point2D, layer: MapLayer) -> List[BaseMapObject]:
         """Inherited, see superclass."""
         raise NotImplementedError
 
@@ -114,7 +116,7 @@ class GPKGMap(AbstractMap):
 
     def get_proximal_map_objects(
         self, point_2d: Point2D, radius: float, layers: List[MapLayer]
-    ) -> Dict[MapLayer, List[AbstractMapObject]]:
+    ) -> Dict[MapLayer, List[BaseMapObject]]:
         """Inherited, see superclass."""
         center_point = geom.Point(point_2d.x, point_2d.y)
         patch = center_point.buffer(radius)
@@ -127,13 +129,11 @@ class GPKGMap(AbstractMap):
         predicate: Optional[str] = None,
         sort: bool = False,
         distance: Optional[float] = None,
-    ) -> Dict[MapLayer, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]]:
+    ) -> Dict[MapLayer, Union[List[BaseMapObject], Dict[int, List[BaseMapObject]]]]:
         supported_layers = self.get_available_map_objects()
         unsupported_layers = [layer for layer in layers if layer not in supported_layers]
         assert len(unsupported_layers) == 0, f"Object representation for layer(s): {unsupported_layers} is unavailable"
-        object_map: Dict[MapLayer, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]] = defaultdict(
-            list
-        )
+        object_map: Dict[MapLayer, Union[List[BaseMapObject], Dict[int, List[BaseMapObject]]]] = defaultdict(list)
         for layer in layers:
             object_map[layer] = self._query_layer(geometry, layer, predicate, sort, distance)
         return object_map
@@ -180,13 +180,13 @@ class GPKGMap(AbstractMap):
         predicate: Optional[str] = None,
         sort: bool = False,
         distance: Optional[float] = None,
-    ) -> Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]:
+    ) -> Union[List[BaseMapObject], Dict[int, List[BaseMapObject]]]:
         queried_indices = self._gpd_dataframes[layer].sindex.query(
             geometry, predicate=predicate, sort=sort, distance=distance
         )
 
         if queried_indices.ndim == 2:
-            query_dict: Dict[int, List[AbstractMapObject]] = defaultdict(list)
+            query_dict: Dict[int, List[BaseMapObject]] = defaultdict(list)
             for geometry_idx, map_object_idx in zip(queried_indices[0], queried_indices[1]):
                 map_object_id = self._gpd_dataframes[layer]["id"].iloc[map_object_idx]
                 query_dict[int(geometry_idx)].append(self.get_map_object(map_object_id, layer))
@@ -253,142 +253,218 @@ class GPKGMap(AbstractMap):
         else:
             return list(ids[queried_indices])
 
-    def _get_lane(self, id: str) -> Optional[GPKGLane]:
-        return (
-            GPKGLane(
-                id,
-                self._gpd_dataframes[MapLayer.LANE],
-                self._gpd_dataframes[MapLayer.LANE_GROUP],
-                self._gpd_dataframes[MapLayer.INTERSECTION],
+    def _get_lane(self, id: str) -> Optional[Lane]:
+        lane: Optional[Lane] = None
+        lane_row = get_row_with_value(self._gpd_dataframes[MapLayer.LANE], "id", id)
+
+        if lane_row is not None:
+            object_id: str = lane_row["id"]
+            lane_group_id: str = lane_row["lane_group_id"]
+            left_boundary: Polyline3D = Polyline3D.from_linestring(lane_row["left_boundary"])
+            right_boundary: Optional[Polyline3D] = Polyline3D.from_linestring(lane_row["right_boundary"])
+            centerline: Polyline3D = Polyline3D.from_linestring(lane_row["centerline"])
+            left_lane_id: Optional[str] = lane_row["left_lane_id"]
+            right_lane_id: Optional[str] = lane_row["right_lane_id"]
+            predecessor_ids: List[str] = ast.literal_eval(lane_row.predecessor_ids)
+            successor_ids: List[str] = ast.literal_eval(lane_row.successor_ids)
+            speed_limit_mps: Optional[float] = lane_row["speed_limit_mps"]
+            outline: Optional[Polyline3D] = (
+                Polyline3D.from_linestring(lane_row["outline"]) if lane_row["outline"] is not None else None
             )
-            if id in self._gpd_dataframes[MapLayer.LANE]["id"].tolist()
-            else None
-        )
+            geometry: geom.LineString = lane_row["geometry"]
 
-    def _get_lane_group(self, id: str) -> Optional[GPKGLaneGroup]:
-        return (
-            GPKGLaneGroup(
-                id,
-                self._gpd_dataframes[MapLayer.LANE_GROUP],
-                self._gpd_dataframes[MapLayer.LANE],
-                self._gpd_dataframes[MapLayer.INTERSECTION],
+            lane = Lane(
+                object_id=object_id,
+                lane_group_id=lane_group_id,
+                left_boundary=left_boundary,
+                right_boundary=right_boundary,
+                centerline=centerline,
+                left_lane_id=left_lane_id,
+                right_lane_id=right_lane_id,
+                predecessor_ids=predecessor_ids,
+                successor_ids=successor_ids,
+                speed_limit_mps=speed_limit_mps,
+                outline=outline,
+                geometry=geometry,
+                map_api=self,
             )
-            if id in self._gpd_dataframes[MapLayer.LANE_GROUP]["id"].tolist()
-            else None
-        )
 
-    def _get_intersection(self, id: str) -> Optional[GPKGIntersection]:
-        return (
-            GPKGIntersection(
-                id,
-                self._gpd_dataframes[MapLayer.INTERSECTION],
-                self._gpd_dataframes[MapLayer.LANE],
-                self._gpd_dataframes[MapLayer.LANE_GROUP],
+        return lane
+
+    def _get_lane_group(self, id: str) -> Optional[LaneGroup]:
+        lane_group: Optional[LaneGroup] = None
+        lane_group_row = get_row_with_value(self._gpd_dataframes[MapLayer.LANE_GROUP], "id", id)
+        if lane_group_row is not None:
+
+            object_id: str = lane_group_row["id"]
+            lane_ids: List[str] = ast.literal_eval(lane_group_row.lane_ids)
+            left_boundary: Polyline3D = Polyline3D.from_linestring(lane_group_row["left_boundary"])
+            right_boundary: Optional[Polyline3D] = Polyline3D.from_linestring(lane_group_row["right_boundary"])
+            intersection_id: Optional[str] = lane_group_row["intersection_id"]
+            predecessor_ids: Optional[List[str]] = ast.literal_eval(lane_group_row.predecessor_ids)
+            successor_ids: Optional[List[str]] = ast.literal_eval(lane_group_row.successor_ids)
+            outline: Optional[Polyline3D] = (
+                Polyline3D.from_linestring(lane_group_row["outline"]) if lane_group_row["outline"] is not None else None
             )
-            if id in self._gpd_dataframes[MapLayer.INTERSECTION]["id"].tolist()
-            else None
-        )
+            geometry: geom.Polygon = lane_group_row["geometry"]
 
-    def _get_crosswalk(self, id: str) -> Optional[GPKGCrosswalk]:
-        return (
-            GPKGCrosswalk(id, self._gpd_dataframes[MapLayer.CROSSWALK])
-            if id in self._gpd_dataframes[MapLayer.CROSSWALK]["id"].tolist()
-            else None
-        )
+            lane_group = LaneGroup(
+                object_id=object_id,
+                lane_ids=lane_ids,
+                left_boundary=left_boundary,
+                right_boundary=right_boundary,
+                intersection_id=intersection_id,
+                predecessor_ids=predecessor_ids,
+                successor_ids=successor_ids,
+                outline=outline,
+                geometry=geometry,
+                map_api=self,
+            )
 
-    def _get_walkway(self, id: str) -> Optional[GPKGWalkway]:
-        return (
-            GPKGWalkway(id, self._gpd_dataframes[MapLayer.WALKWAY])
-            if id in self._gpd_dataframes[MapLayer.WALKWAY]["id"].tolist()
-            else None
-        )
+        return lane_group
 
-    def _get_carpark(self, id: str) -> Optional[GPKGCarpark]:
-        return (
-            GPKGCarpark(id, self._gpd_dataframes[MapLayer.CARPARK])
-            if id in self._gpd_dataframes[MapLayer.CARPARK]["id"].tolist()
-            else None
-        )
+    def _get_intersection(self, id: str) -> Optional[Intersection]:
 
-    def _get_generic_drivable(self, id: str) -> Optional[GPKGGenericDrivable]:
-        return (
-            GPKGGenericDrivable(id, self._gpd_dataframes[MapLayer.GENERIC_DRIVABLE])
-            if id in self._gpd_dataframes[MapLayer.GENERIC_DRIVABLE]["id"].tolist()
-            else None
-        )
+        intersection: Optional[Intersection] = None
+        intersection_row = get_row_with_value(self._gpd_dataframes[MapLayer.INTERSECTION], "id", id)
+        if intersection_row is not None:
 
-    def _get_road_edge(self, id: str) -> Optional[GPKGRoadEdge]:
-        return (
-            GPKGRoadEdge(id, self._gpd_dataframes[MapLayer.ROAD_EDGE])
-            if id in self._gpd_dataframes[MapLayer.ROAD_EDGE]["id"].tolist()
-            else None
-        )
+            object_id: str = intersection_row["id"]
+            lane_group_ids: List[str] = ast.literal_eval(intersection_row.lane_group_ids)
+            outline: Optional[Polyline3D] = (
+                Polyline3D.from_linestring(intersection_row["outline"])
+                if intersection_row["outline"] is not None
+                else None
+            )
+            geometry: geom.Polygon = intersection_row["geometry"]
 
-    def _get_road_line(self, id: str) -> Optional[GPKGRoadLine]:
-        return (
-            GPKGRoadLine(id, self._gpd_dataframes[MapLayer.ROAD_LINE])
-            if id in self._gpd_dataframes[MapLayer.ROAD_LINE]["id"].tolist()
-            else None
-        )
+            intersection = Intersection(
+                object_id=object_id,
+                lane_group_ids=lane_group_ids,
+                outline=outline,
+                geometry=geometry,
+                map_api=self,
+            )
 
-    # def _query_layer(
-    #     self,
-    #     geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
-    #     layer: MapLayer,
-    #     predicate: Optional[str] = None,
-    #     sort: bool = False,
-    #     distance: Optional[float] = None,
-    # ) -> Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]:
-    #     queried_indices = self._gpd_dataframes[layer].sindex.query(
-    #         geometry, predicate=predicate, sort=sort, distance=distance
-    #     )
-    #     ids = self._gpd_dataframes[layer]["id"].values  # numpy array for fast access
-    #     if queried_indices.ndim == 2:
-    #         query_dict: Dict[int, List[AbstractMapObject]] = defaultdict(list)
-    #         for geometry_idx, map_object_idx in zip(queried_indices[0], queried_indices[1]):
-    #             map_object_id = ids[map_object_idx]
-    #             query_dict[int(geometry_idx)].append(self.get_map_object(map_object_id, layer))
-    #         return query_dict
-    #     else:
-    #         map_object_ids = ids[queried_indices]
-    #         return [self.get_map_object(map_object_id, layer) for map_object_id in map_object_ids]
+        return intersection
 
-    # def _query_layer_objects_ids(
-    #     self,
-    #     geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
-    #     layer: MapLayer,
-    #     predicate: Optional[str] = None,
-    #     sort: bool = False,
-    #     distance: Optional[float] = None,
-    # ) -> Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]:
-    #     queried_indices = self._gpd_dataframes[layer].sindex.query(
-    #         geometry, predicate=predicate, sort=sort, distance=distance
-    #     )
-    #     if queried_indices.ndim == 2:
-    #         query_dict: Dict[int, List[AbstractMapObject]] = defaultdict(list)
-    #         for geometry_idx, map_object_idx in zip(queried_indices[0], queried_indices[1]):
-    #             map_object_id = self._gpd_dataframes[layer]["id"].iloc[map_object_idx]
-    #             query_dict[int(geometry_idx)].append(map_object_id)
-    #         return query_dict
-    #     else:
-    #         map_object_ids = self._gpd_dataframes[layer]["id"].iloc[queried_indices]
-    #         return list(map_object_ids)
+    def _get_crosswalk(self, id: str) -> Optional[Crosswalk]:
+        crosswalk: Optional[Crosswalk] = None
+        crosswalk_row = get_row_with_value(self._gpd_dataframes[MapLayer.CROSSWALK], "id", id)
+        if crosswalk_row is not None:
+
+            object_id: str = crosswalk_row["id"]
+            outline: Polyline3D = Polyline3D.from_linestring(crosswalk_row["outline"])
+            geometry: geom.Polygon = crosswalk_row["geometry"]
+
+            crosswalk = Crosswalk(
+                object_id=object_id,
+                outline=outline,
+                geometry=geometry,
+            )
+
+        return crosswalk
+
+    def _get_walkway(self, id: str) -> Optional[Walkway]:
+        walkway: Optional[Walkway] = None
+        walkway_row = get_row_with_value(self._gpd_dataframes[MapLayer.WALKWAY], "id", id)
+        if walkway_row is not None:
+
+            object_id: str = walkway_row["id"]
+            outline: Polyline3D = Polyline3D.from_linestring(walkway_row["outline"])
+            geometry: geom.Polygon = walkway_row["geometry"]
+
+            walkway = Walkway(
+                object_id=object_id,
+                outline=outline,
+                geometry=geometry,
+            )
+
+        return walkway
+
+    def _get_carpark(self, id: str) -> Optional[Carpark]:
+        carpark: Optional[Carpark] = None
+        carpark_row = get_row_with_value(self._gpd_dataframes[MapLayer.CARPARK], "id", id)
+        if carpark_row is not None:
+
+            object_id: str = carpark_row["id"]
+            outline: Polyline3D = Polyline3D.from_linestring(carpark_row["outline"])
+            geometry: geom.Polygon = carpark_row["geometry"]
+
+            carpark = Carpark(
+                object_id=object_id,
+                outline=outline,
+                geometry=geometry,
+            )
+
+        return carpark
+
+    def _get_generic_drivable(self, id: str) -> Optional[GenericDrivable]:
+        generic_drivable: Optional[GenericDrivable] = None
+        generic_drivable_row = get_row_with_value(self._gpd_dataframes[MapLayer.GENERIC_DRIVABLE], "id", id)
+        if generic_drivable_row is not None:
+
+            object_id: str = generic_drivable_row["id"]
+            outline: Polyline3D = Polyline3D.from_linestring(generic_drivable_row["outline"])
+            geometry: geom.Polygon = generic_drivable_row["geometry"]
+
+            generic_drivable = GenericDrivable(
+                object_id=object_id,
+                outline=outline,
+                geometry=geometry,
+            )
+
+        return generic_drivable
+
+    def _get_road_edge(self, id: str) -> Optional[RoadEdge]:
+        road_edge: Optional[RoadEdge] = None
+        road_edge_row = get_row_with_value(self._gpd_dataframes[MapLayer.ROAD_EDGE], "id", id)
+        if road_edge_row is not None:
+
+            object_id: str = road_edge_row["id"]
+            polyline: Polyline3D = Polyline3D.from_linestring(road_edge_row["geometry"])
+            road_edge_type: RoadEdgeType = RoadEdgeType(road_edge_row["road_edge_type"])
+
+            road_edge = RoadEdge(
+                object_id=object_id,
+                road_edge_type=road_edge_type,
+                polyline=polyline,
+            )
+
+        return road_edge
+
+    def _get_road_line(self, id: str) -> Optional[RoadLine]:
+        road_line: Optional[RoadLine] = None
+        road_line_row = get_row_with_value(self._gpd_dataframes[MapLayer.ROAD_LINE], "id", id)
+        if road_line_row is not None:
+
+            object_id: str = road_line_row["id"]
+            polyline: Polyline3D = Polyline3D.from_linestring(road_line_row["geometry"])
+            road_line_type: RoadLineType = RoadLineType(road_line_row["road_line_type"])
+
+            road_line = RoadLine(
+                object_id=object_id,
+                road_line_type=road_line_type,
+                polyline=polyline,
+            )
+
+        return road_line
 
 
 @lru_cache(maxsize=MAX_LRU_CACHED_TABLES)
-def get_global_map_api(dataset: str, location: str) -> GPKGMap:
+def get_global_map_api(dataset: str, location: str) -> GPKGMapAPI:
     PY123D_MAPS_ROOT: Path = Path(get_dataset_paths().py123d_maps_root)
     gpkg_path = PY123D_MAPS_ROOT / dataset / f"{dataset}_{location}.gpkg"
     assert gpkg_path.is_file(), f"{dataset}_{location}.gpkg not found in {str(PY123D_MAPS_ROOT)}."
-    map_api = GPKGMap(gpkg_path)
+    map_api = GPKGMapAPI(gpkg_path)
     map_api.initialize()
     return map_api
 
 
-def get_local_map_api(split_name: str, log_name: str) -> GPKGMap:
+def get_local_map_api(split_name: str, log_name: str) -> GPKGMapAPI:
     PY123D_MAPS_ROOT: Path = Path(get_dataset_paths().py123d_maps_root)
     gpkg_path = PY123D_MAPS_ROOT / split_name / f"{log_name}.gpkg"
     assert gpkg_path.is_file(), f"{log_name}.gpkg not found in {str(PY123D_MAPS_ROOT)}."
-    map_api = GPKGMap(gpkg_path)
+    map_api = GPKGMapAPI(gpkg_path)
     map_api.initialize()
     return map_api

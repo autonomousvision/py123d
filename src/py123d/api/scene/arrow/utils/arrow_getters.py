@@ -45,7 +45,7 @@ from py123d.datatypes.detections.traffic_light_detections import (
     TrafficLightDetectionWrapper,
     TrafficLightStatus,
 )
-from py123d.datatypes.scene.scene_metadata import LogMetadata
+from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
 from py123d.datatypes.sensors.lidar import LiDAR, LiDARMetadata, LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraType

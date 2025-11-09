@@ -3,7 +3,7 @@ from xml.etree.ElementTree import Element
 
 
 @dataclass
-class Polynomial:
+class XODRPolynomial:
     """
     Multiple OpenDRIVE elements use polynomial coefficients, e.g. Elevation, LaneOffset, etc.
     This class provides a common interface to parse and access polynomial coefficients.
@@ -19,7 +19,7 @@ class Polynomial:
     d: float
 
     @classmethod
-    def parse(cls: type["Polynomial"], element: Element) -> "Polynomial":
+    def parse(cls: type["XODRPolynomial"], element: Element) -> "XODRPolynomial":
         args = {key: float(element.get(key)) for key in ["s", "a", "b", "c", "d"]}
         return cls(**args)
 

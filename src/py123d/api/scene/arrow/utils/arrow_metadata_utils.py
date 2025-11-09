@@ -6,7 +6,7 @@ from typing import Union
 import pyarrow as pa
 
 from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
-from py123d.datatypes.scene.scene_metadata import LogMetadata
+from py123d.datatypes.metadata.log_metadata import LogMetadata
 
 
 @lru_cache(maxsize=10000)

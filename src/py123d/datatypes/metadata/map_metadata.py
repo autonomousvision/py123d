@@ -5,8 +5,6 @@ from typing import Any, Dict, Optional
 
 import py123d
 
-# TODO: Refactor the usage of the map map metadata in this repo.
-
 
 @dataclass
 class MapMetadata:

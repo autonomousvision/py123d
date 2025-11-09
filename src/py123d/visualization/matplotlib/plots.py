@@ -5,7 +5,7 @@ import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from py123d.datatypes.scene.abstract_scene import AbstractScene
+from py123d.api.scene.scene_api import SceneAPI
 from py123d.visualization.matplotlib.observation import (
     add_box_detections_to_ax,
     add_default_map_on_ax,
@@ -14,7 +14,7 @@ from py123d.visualization.matplotlib.observation import (
 )
 
 
-def _plot_scene_on_ax(ax: plt.Axes, scene: AbstractScene, iteration: int = 0, radius: float = 80) -> plt.Axes:
+def _plot_scene_on_ax(ax: plt.Axes, scene: SceneAPI, iteration: int = 0, radius: float = 80) -> plt.Axes:
 
     ego_vehicle_state = scene.get_ego_state_at_iteration(iteration)
     box_detections = scene.get_box_detections_at_iteration(iteration)
@@ -38,9 +38,7 @@ def _plot_scene_on_ax(ax: plt.Axes, scene: AbstractScene, iteration: int = 0, ra
     return ax
 
 
-def plot_scene_at_iteration(
-    scene: AbstractScene, iteration: int = 0, radius: float = 80
-) -> Tuple[plt.Figure, plt.Axes]:
+def plot_scene_at_iteration(scene: SceneAPI, iteration: int = 0, radius: float = 80) -> Tuple[plt.Figure, plt.Axes]:
 
     fig, ax = plt.subplots(figsize=(10, 10))
     _plot_scene_on_ax(ax, scene, iteration, radius)
@@ -48,7 +46,7 @@ def plot_scene_at_iteration(
 
 
 def render_scene_animation(
-    scene: AbstractScene,
+    scene: SceneAPI,
     output_path: Union[str, Path],
     start_idx: int = 0,
     end_idx: Optional[int] = None,

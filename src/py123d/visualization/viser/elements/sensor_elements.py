@@ -6,10 +6,15 @@ import numpy as np
 import numpy.typing as npt
 import viser
 
-from py123d.datatypes.scene.abstract_scene import AbstractScene
-from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraMetadata, FisheyeMEICameraType
-from py123d.datatypes.sensors.lidar import LiDARType
-from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraType
+from py123d.api.scene.scene_api import SceneAPI
+from py123d.datatypes.sensors import (
+    FisheyeMEICamera,
+    FisheyeMEICameraMetadata,
+    FisheyeMEICameraType,
+    LiDARType,
+    PinholeCamera,
+    PinholeCameraType,
+)
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import PoseSE3Index
 from py123d.geometry.transform.transform_se3 import (
@@ -21,7 +26,7 @@ from py123d.visualization.viser.viser_config import ViserConfig
 
 
 def add_camera_frustums_to_viser_server(
-    scene: AbstractScene,
+    scene: SceneAPI,
     scene_interation: int,
     initial_ego_state: EgoStateSE3,
     viser_server: viser.ViserServer,
@@ -76,7 +81,7 @@ def add_camera_frustums_to_viser_server(
 
 
 def add_fisheye_frustums_to_viser_server(
-    scene: AbstractScene,
+    scene: SceneAPI,
     scene_interation: int,
     initial_ego_state: EgoStateSE3,
     viser_server: viser.ViserServer,
@@ -130,7 +135,7 @@ def add_fisheye_frustums_to_viser_server(
 
 
 def add_camera_gui_to_viser_server(
-    scene: AbstractScene,
+    scene: SceneAPI,
     scene_interation: int,
     viser_server: viser.ViserServer,
     viser_config: ViserConfig,
@@ -153,7 +158,7 @@ def add_camera_gui_to_viser_server(
 
 
 def add_lidar_pc_to_viser_server(
-    scene: AbstractScene,
+    scene: SceneAPI,
     scene_interation: int,
     initial_ego_state: EgoStateSE3,
     viser_server: viser.ViserServer,

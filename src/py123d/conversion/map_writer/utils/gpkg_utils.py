@@ -22,13 +22,16 @@ class IntIDMapping:
         return IntIDMapping(str_to_int)
 
     def map(self, str_like: Any) -> Optional[int]:
-        # Handle NaN and None values
+        # NOTE: We need to convert a string-like input to an integer ID
         if pd.isna(str_like) or str_like is None:
             return None
 
-        # Convert to string for uniform handling
-        str_key = str(str_like)
-        return self.str_to_int.get(str_key, None)
+        if isinstance(str_like, float):
+            key = str(int(str_like))  # Convert float to int first to avoid decimal point
+        else:
+            key = str(str_like)
+
+        return self.str_to_int.get(key, None)
 
     def map_list(self, id_list: Optional[List[str]]) -> List[int]:
         if id_list is None:

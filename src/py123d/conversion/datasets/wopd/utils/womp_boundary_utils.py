@@ -4,8 +4,8 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import shapely.geometry as geom
 
-from py123d.datatypes.map.abstract_map_objects import AbstractRoadEdge, AbstractRoadLine
-from py123d.datatypes.map.map_datatypes import LaneType
+from py123d.datatypes.map_objects.map_layer_types import LaneType
+from py123d.datatypes.map_objects.map_objects import RoadEdge, RoadLine
 from py123d.geometry import OccupancyMap2D, Point3D, Polyline3D, PolylineSE2, PoseSE2, Vector2D
 from py123d.geometry.transform.transform_se2 import translate_se2_along_body_frame
 from py123d.geometry.utils.rotation_utils import normalize_angle
@@ -169,9 +169,7 @@ def _filter_perpendicular_hits(
 
 
 def fill_lane_boundaries(
-    lane_data_dict: Dict[int, WaymoLaneData],
-    road_lines: List[AbstractRoadLine],
-    road_edges: List[AbstractRoadEdge],
+    lane_data_dict: Dict[int, WaymoLaneData], road_lines: List[RoadLine], road_edges: List[RoadEdge]
 ) -> Tuple[Dict[str, Polyline3D], Dict[str, Polyline3D]]:
     """Welcome to insanity.
 

@@ -1,4 +1,4 @@
-_target_: py123d.datatypes.scene.scene_filter.SceneFilter
+_target_: py123d.api.scene.scene_filter.SceneFilter
 _convert_: 'all'
 
 split_types: null

@@ -3,15 +3,15 @@ from functools import partial
 from pathlib import Path
 from typing import Iterator, List, Optional, Set, Union
 
+from py123d.api.scene.arrow.arrow_scene import ArrowSceneAPI
+from py123d.api.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow
+from py123d.api.scene.scene_api import SceneAPI
+from py123d.api.scene.scene_builder import SceneBuilder
+from py123d.api.scene.scene_filter import SceneFilter
+from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.common.multithreading.worker_utils import WorkerPool, worker_map
 from py123d.common.utils.arrow_column_names import FISHEYE_CAMERA_DATA_COLUMN, PINHOLE_CAMERA_DATA_COLUMN, UUID_COLUMN
 from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
-from py123d.datatypes.scene.abstract_scene import AbstractScene
-from py123d.datatypes.scene.abstract_scene_builder import SceneBuilder
-from py123d.datatypes.scene.arrow.arrow_scene import ArrowScene
-from py123d.datatypes.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow
-from py123d.datatypes.scene.scene_filter import SceneFilter
-from py123d.datatypes.scene.scene_metadata import SceneExtractionMetadata
 from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
 
@@ -33,7 +33,7 @@ class ArrowSceneBuilder(SceneBuilder):
         self._logs_root = Path(logs_root)
         self._maps_root = Path(maps_root)
 
-    def get_scenes(self, filter: SceneFilter, worker: WorkerPool) -> Iterator[AbstractScene]:
+    def get_scenes(self, filter: SceneFilter, worker: WorkerPool) -> Iterator[SceneAPI]:
         """See superclass."""
 
         split_types = set(filter.split_types) if filter.split_types else {"train", "val", "test"}
@@ -79,8 +79,8 @@ def _discover_log_paths(logs_root: Path, split_names: Set[str], log_names: Optio
     return log_paths
 
 
-def _extract_scenes_from_logs(log_paths: List[Path], filter: SceneFilter) -> List[AbstractScene]:
-    scenes: List[AbstractScene] = []
+def _extract_scenes_from_logs(log_paths: List[Path], filter: SceneFilter) -> List[SceneAPI]:
+    scenes: List[SceneAPI] = []
     for log_path in log_paths:
         try:
             scene_extraction_metadatas = _get_scene_extraction_metadatas(log_path, filter)
@@ -89,7 +89,7 @@ def _extract_scenes_from_logs(log_paths: List[Path], filter: SceneFilter) -> Lis
             continue
         for scene_extraction_metadata in scene_extraction_metadatas:
             scenes.append(
-                ArrowScene(
+                ArrowSceneAPI(
                     arrow_file_path=log_path,
                     scene_extraction_metadata=scene_extraction_metadata,
                 )
@@ -97,8 +97,8 @@ def _extract_scenes_from_logs(log_paths: List[Path], filter: SceneFilter) -> Lis
     return scenes
 
 
-def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFilter) -> List[SceneExtractionMetadata]:
-    scene_extraction_metadatas: List[SceneExtractionMetadata] = []
+def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFilter) -> List[SceneMetadata]:
+    scene_extraction_metadatas: List[SceneMetadata] = []
 
     recording_table = get_lru_cached_arrow_table(log_path)
     log_metadata = get_log_metadata_from_arrow(log_path)
@@ -120,7 +120,7 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
 
     elif filter.duration_s is None:
         scene_extraction_metadatas.append(
-            SceneExtractionMetadata(
+            SceneMetadata(
                 initial_uuid=str(recording_table[UUID_COLUMN][start_idx].as_py()),
                 initial_idx=start_idx,
                 duration_s=(end_idx - start_idx) * log_metadata.timestep_seconds,
@@ -131,10 +131,10 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
     else:
         scene_uuid_set = set(filter.scene_uuids) if filter.scene_uuids is not None else None
         for idx in range(start_idx, end_idx):
-            scene_extraction_metadata: Optional[SceneExtractionMetadata] = None
+            scene_extraction_metadata: Optional[SceneMetadata] = None
 
             if scene_uuid_set is None:
-                scene_extraction_metadata = SceneExtractionMetadata(
+                scene_extraction_metadata = SceneMetadata(
                     initial_uuid=str(recording_table["uuid"][idx].as_py()),
                     initial_idx=idx,
                     duration_s=filter.duration_s,
@@ -142,7 +142,7 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
                     iteration_duration_s=log_metadata.timestep_seconds,
                 )
             elif str(recording_table["uuid"][idx]) in scene_uuid_set:
-                scene_extraction_metadata = SceneExtractionMetadata(
+                scene_extraction_metadata = SceneMetadata(
                     initial_uuid=str(recording_table["uuid"][idx].as_py()),
                     initial_idx=idx,
                     duration_s=filter.duration_s,

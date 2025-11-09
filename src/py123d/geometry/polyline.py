@@ -283,7 +283,11 @@ class Polyline3D(ArrayMixin):
             :class:`~py123d.geometry.Point3DIndex`.
         :return: A Polyline3D instance.
         """
-        assert array.ndim == 2 and array.shape[1] == len(Point3DIndex), "Array must be 3D with shape (N, 3)"
+        assert array.ndim == 2, "Array must be 2D with shape (N, 3) or (N, 2)."
+        if array.shape[1] == len(Point2DIndex):
+            array = np.hstack((array, np.full((array.shape[0], 1), DEFAULT_Z)))
+        elif array.shape[1] != len(Point3DIndex):
+            raise ValueError("Array must have shape (N, 3) for Point3D.")
         linestring = geom_creation.linestrings(*array.T)
         return Polyline3D(linestring)
 

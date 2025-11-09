@@ -23,9 +23,10 @@ documentation for details.
    :maxdepth: 2
    :caption: API Reference:
 
+   api/scene/index
    api/map/index
-   api/geometry/index
    api/datatypes/index
+   api/geometry/index
 
 .. toctree::
    :maxdepth: 1

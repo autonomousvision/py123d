@@ -23,8 +23,8 @@ from py123d.conversion.registry.box_detection_label_registry import WOPDBoxDetec
 from py123d.conversion.registry.lidar_index_registry import DefaultLiDARIndex, WOPDLiDARIndex
 from py123d.conversion.utils.sensor_utils.camera_conventions import CameraConvention, convert_camera_convention
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
-from py123d.datatypes.map.map_metadata import MapMetadata
-from py123d.datatypes.scene.scene_metadata import LogMetadata
+from py123d.datatypes.metadata.log_metadata import LogMetadata
+from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.datatypes.sensors import (
     LiDARMetadata,
     LiDARType,

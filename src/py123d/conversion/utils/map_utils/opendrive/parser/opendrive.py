@@ -6,31 +6,31 @@ from pathlib import Path
 from typing import List, Literal, Optional
 from xml.etree.ElementTree import Element, parse
 
-from py123d.conversion.utils.map_utils.opendrive.parser.road import Road
+from py123d.conversion.utils.map_utils.opendrive.parser.road import XODRRoad
 
 
 @dataclass
-class OpenDrive:
+class XODR:
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/06_general_architecture/06_03_root_element.html
     """
 
     header: Header
 
-    roads: List[Road]
+    roads: List[XODRRoad]
     controllers: List[Controller]
     junctions: List[Junction]
 
     @classmethod
-    def parse(cls, root_element: Element) -> OpenDrive:
+    def parse(cls, root_element: Element) -> XODR:
 
         args = {}
         args["header"] = Header.parse(root_element.find("header"))
 
-        roads: List[Road] = []
+        roads: List[XODRRoad] = []
         for road_element in root_element.findall("road"):
             try:
-                roads.append(Road.parse(road_element))
+                roads.append(XODRRoad.parse(road_element))
             except Exception as e:
                 print(
                     f"Error parsing road element with id/name {road_element.get('id')}/{road_element.get('name')}: {e}"
@@ -48,12 +48,12 @@ class OpenDrive:
             junctions.append(Junction.parse(junction_element))
         args["junctions"] = junctions
 
-        return OpenDrive(**args)
+        return XODR(**args)
 
     @classmethod
-    def parse_from_file(cls, file_path: Path) -> OpenDrive:
+    def parse_from_file(cls, file_path: Path) -> XODR:
         tree = parse(file_path)
-        return OpenDrive.parse(tree.getroot())
+        return XODR.parse(tree.getroot())
 
 
 @dataclass

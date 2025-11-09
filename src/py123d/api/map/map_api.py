@@ -5,9 +5,9 @@ from typing import Dict, Iterable, List, Optional, Union
 
 import shapely
 
-from py123d.datatypes.map.abstract_map_objects import AbstractMapObject
-from py123d.datatypes.map.map_datatypes import MapLayer
-from py123d.datatypes.map.map_metadata import MapMetadata
+from py123d.datatypes.map_objects.base_map_objects import BaseMapObject
+from py123d.datatypes.map_objects.map_layer_types import MapLayer
+from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.geometry import Point2D
 
 # TODO:
@@ -17,7 +17,7 @@ from py123d.geometry import Point2D
 # - Add stop pads or stop lines.
 
 
-class AbstractMap(abc.ABC):
+class MapAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_map_metadata(self) -> MapMetadata:
@@ -32,11 +32,11 @@ class AbstractMap(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_map_object(self, object_id: str, layer: MapLayer) -> Optional[AbstractMapObject]:
+    def get_map_object(self, object_id: str, layer: MapLayer) -> Optional[BaseMapObject]:
         pass
 
     @abc.abstractmethod
-    def get_all_map_objects(self, point_2d: Point2D, layer: MapLayer) -> List[AbstractMapObject]:
+    def get_all_map_objects(self, point_2d: Point2D, layer: MapLayer) -> List[BaseMapObject]:
         pass
 
     @abc.abstractmethod
@@ -46,7 +46,7 @@ class AbstractMap(abc.ABC):
     @abc.abstractmethod
     def get_proximal_map_objects(
         self, point: Point2D, radius: float, layers: List[MapLayer]
-    ) -> Dict[MapLayer, List[AbstractMapObject]]:
+    ) -> Dict[MapLayer, List[BaseMapObject]]:
         pass
 
     @abc.abstractmethod
@@ -57,7 +57,7 @@ class AbstractMap(abc.ABC):
         predicate: Optional[str] = None,
         sort: bool = False,
         distance: Optional[float] = None,
-    ) -> Dict[MapLayer, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]]:
+    ) -> Dict[MapLayer, Union[List[BaseMapObject], Dict[int, List[BaseMapObject]]]]:
         pass
 
     @abc.abstractmethod
@@ -80,7 +80,7 @@ class AbstractMap(abc.ABC):
         max_distance: Optional[float] = None,
         return_distance: bool = False,
         exclusive: bool = False,
-    ) -> Dict[MapLayer, Union[List[AbstractMapObject], Dict[int, List[AbstractMapObject]]]]:
+    ) -> Dict[MapLayer, Union[List[BaseMapObject], Dict[int, List[BaseMapObject]]]]:
         pass
 
     @property

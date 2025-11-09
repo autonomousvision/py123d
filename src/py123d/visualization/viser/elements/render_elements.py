@@ -1,17 +1,14 @@
 import numpy as np
 
+from py123d.api.scene.scene_api import SceneAPI
 from py123d.conversion.utils.sensor_utils.camera_conventions import convert_camera_convention
-from py123d.datatypes.scene.abstract_scene import AbstractScene
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
-from py123d.geometry.geometry_index import PoseSE3Index
-from py123d.geometry.pose import PoseSE3
-from py123d.geometry.rotation import EulerAngles
+from py123d.geometry import EulerAngles, PoseSE3, PoseSE3Index, Vector3D
 from py123d.geometry.transform.transform_se3 import translate_se3_along_body_frame
-from py123d.geometry.vector import Vector3D
 
 
 def get_ego_3rd_person_view_position(
-    scene: AbstractScene,
+    scene: SceneAPI,
     iteration: int,
     initial_ego_state: EgoStateSE3,
 ) -> PoseSE3:
@@ -36,7 +33,7 @@ def get_ego_3rd_person_view_position(
 
 
 def get_ego_bev_view_position(
-    scene: AbstractScene,
+    scene: SceneAPI,
     iteration: int,
     initial_ego_state: EgoStateSE3,
 ) -> PoseSE3:

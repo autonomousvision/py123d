@@ -12,7 +12,7 @@ from py123d.geometry import PoseSE2Index
 
 
 @dataclass
-class Geometry:
+class XODRGeometry:
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/09_geometries/09_02_road_reference_line.html
     """
@@ -36,13 +36,13 @@ class Geometry:
 
 
 @dataclass
-class Line(Geometry):
+class XODRLine(XODRGeometry):
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/09_geometries/09_03_straight_line.html
     """
 
     @classmethod
-    def parse(cls, geometry_element: Element) -> Geometry:
+    def parse(cls, geometry_element: Element) -> XODRGeometry:
         args = {key: float(geometry_element.get(key)) for key in ["s", "x", "y", "hdg", "length"]}
         return cls(**args)
 
@@ -60,7 +60,7 @@ class Line(Geometry):
 
 
 @dataclass
-class Arc(Geometry):
+class XODRArc(XODRGeometry):
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/09_geometries/09_05_arc.html
     """
@@ -72,7 +72,7 @@ class Arc(Geometry):
             raise ValueError("Curvature cannot be zero for Arc geometry.")
 
     @classmethod
-    def parse(cls, geometry_element: Element) -> Geometry:
+    def parse(cls, geometry_element: Element) -> XODRGeometry:
         args = {key: float(geometry_element.get(key)) for key in ["s", "x", "y", "hdg", "length"]}
         args["curvature"] = float(geometry_element.find("arc").get("curvature"))
         return cls(**args)
@@ -102,7 +102,7 @@ class Arc(Geometry):
 
 
 @dataclass
-class Spiral(Geometry):
+class XODRSpiral(XODRGeometry):
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/09_geometries/09_04_spiral.html
     https://en.wikipedia.org/wiki/Euler_spiral
@@ -117,7 +117,7 @@ class Spiral(Geometry):
             raise ValueError("Curvature change is too small, cannot define a valid spiral.")
 
     @classmethod
-    def parse(cls, geometry_element: Element) -> Geometry:
+    def parse(cls, geometry_element: Element) -> XODRGeometry:
         args = {key: float(geometry_element.get(key)) for key in ["s", "x", "y", "hdg", "length"]}
         spiral_element = geometry_element.find("spiral")
         args["curvature_start"] = float(spiral_element.get("curvStart"))
