@@ -108,22 +108,22 @@ class TestBoxDetectionSE2(unittest.TestCase):
         box_detection = BoxDetectionSE2(
             metadata=self.metadata,
             bounding_box_se2=self.bounding_box_se2,
-            velocity=self.velocity,
+            velocity_2d=self.velocity,
         )
         self.assertIsInstance(box_detection, BoxDetectionSE2)
         self.assertEqual(box_detection.metadata, self.metadata)
         self.assertEqual(box_detection.bounding_box_se2, self.bounding_box_se2)
-        self.assertIsNone(box_detection.velocity)
+        self.assertIsNone(box_detection.velocity_2d)
 
     def test_properties(self):
         box_detection = BoxDetectionSE2(
             metadata=self.metadata,
             bounding_box_se2=self.bounding_box_se2,
-            velocity=self.velocity,
+            velocity_2d=self.velocity,
         )
         self.assertEqual(box_detection.shapely_polygon, self.bounding_box_se2.shapely_polygon)
-        self.assertEqual(box_detection.center, self.bounding_box_se2.center)
-        self.assertEqual(box_detection.bounding_box, self.bounding_box_se2)
+        self.assertEqual(box_detection.center_se2, self.bounding_box_se2.center)
+        self.assertEqual(box_detection.bounding_box_se2, self.bounding_box_se2)
 
     def test_optional_velocity(self):
         box_detection_no_velo = BoxDetectionSE2(
@@ -131,15 +131,15 @@ class TestBoxDetectionSE2(unittest.TestCase):
             bounding_box_se2=self.bounding_box_se2,
         )
         self.assertIsInstance(box_detection_no_velo, BoxDetectionSE2)
-        self.assertIsNone(box_detection_no_velo.velocity)
+        self.assertIsNone(box_detection_no_velo.velocity_2d)
 
         box_detection_velo = BoxDetectionSE2(
             metadata=self.metadata,
             bounding_box_se2=self.bounding_box_se2,
-            velocity=Vector2D(x=1.0, y=0.0),
+            velocity_2d=Vector2D(x=1.0, y=0.0),
         )
         self.assertIsInstance(box_detection_velo, BoxDetectionSE2)
-        self.assertEqual(box_detection_velo.velocity, Vector2D(x=1.0, y=0.0))
+        self.assertEqual(box_detection_velo.velocity_2d, Vector2D(x=1.0, y=0.0))
 
 
 class TestBoxBoxDetectionSE3(unittest.TestCase):
@@ -163,7 +163,7 @@ class TestBoxBoxDetectionSE3(unittest.TestCase):
         self.assertIsInstance(box_detection, BoxDetectionSE3)
         self.assertEqual(box_detection.metadata, self.metadata)
         self.assertEqual(box_detection.bounding_box_se3, self.bounding_box_se3)
-        self.assertEqual(box_detection.velocity, self.velocity)
+        self.assertEqual(box_detection.velocity_3d, self.velocity)
 
     def test_properties(self):
         box_detection = BoxDetectionSE3(
@@ -172,10 +172,12 @@ class TestBoxBoxDetectionSE3(unittest.TestCase):
             velocity=self.velocity,
         )
         self.assertEqual(box_detection.shapely_polygon, self.bounding_box_se3.shapely_polygon)
-        self.assertEqual(box_detection.center, self.bounding_box_se3.center_se3)
         self.assertEqual(box_detection.center_se3, self.bounding_box_se3.center_se3)
-        self.assertEqual(box_detection.bounding_box, self.bounding_box_se3)
+        self.assertEqual(box_detection.center_se2, self.bounding_box_se3.center_se2)
+        self.assertEqual(box_detection.bounding_box_se3, self.bounding_box_se3)
         self.assertEqual(box_detection.bounding_box_se2, self.bounding_box_se3.bounding_box_se2)
+        self.assertEqual(box_detection.velocity_3d, self.velocity)
+        self.assertEqual(box_detection.velocity_2d, self.velocity.vector_2d)
 
     def test_box_detection_se2_conversion(self):
         box_detection = BoxDetectionSE3(
@@ -187,13 +189,13 @@ class TestBoxBoxDetectionSE3(unittest.TestCase):
         self.assertIsInstance(box_detection_se2, BoxDetectionSE2)
         self.assertEqual(box_detection_se2.metadata, self.metadata)
         self.assertEqual(box_detection_se2.bounding_box_se2, self.bounding_box_se3.bounding_box_se2)
-        self.assertEqual(box_detection_se2.velocity, Vector2D(x=1.0, y=0.0))
+        self.assertEqual(box_detection_se2.velocity_2d, Vector2D(x=1.0, y=0.0))
 
     def test_box_detection_se3_conversion(self):
         box_detection_se2 = BoxDetectionSE2(
             metadata=self.metadata,
             bounding_box_se2=self.bounding_box_se3.bounding_box_se2,
-            velocity=Vector2D(x=1.0, y=0.0),
+            velocity_2d=Vector2D(x=1.0, y=0.0),
         )
         box_detection_se3 = BoxDetectionSE3(
             metadata=box_detection_se2.metadata,
@@ -203,13 +205,13 @@ class TestBoxBoxDetectionSE3(unittest.TestCase):
         self.assertIsInstance(box_detection_se3, BoxDetectionSE3)
         self.assertEqual(box_detection_se3.metadata, box_detection_se2.metadata)
         self.assertEqual(box_detection_se3.bounding_box_se3, self.bounding_box_se3)
-        self.assertEqual(box_detection_se3.velocity, Vector2D(x=1.0, y=0.0))
+        self.assertEqual(box_detection_se3.velocity_3d, Vector2D(x=1.0, y=0.0))
 
         box_detection_se3_converted = box_detection_se3.box_detection_se2
         self.assertIsInstance(box_detection_se3_converted, BoxDetectionSE2)
         self.assertEqual(box_detection_se3_converted.metadata, box_detection_se2.metadata)
         self.assertEqual(box_detection_se3_converted.bounding_box_se2, box_detection_se2.bounding_box_se2)
-        self.assertEqual(box_detection_se3_converted.velocity, box_detection_se2.velocity)
+        self.assertEqual(box_detection_se3_converted.velocity_2d, box_detection_se2.velocity_2d)
 
     def test_optional_velocity(self):
         box_detection_no_velo = BoxDetectionSE3(
@@ -217,7 +219,7 @@ class TestBoxBoxDetectionSE3(unittest.TestCase):
             bounding_box_se3=self.bounding_box_se3,
         )
         self.assertIsInstance(box_detection_no_velo, BoxDetectionSE3)
-        self.assertIsNone(box_detection_no_velo.velocity)
+        self.assertIsNone(box_detection_no_velo.velocity_3d)
 
         box_detection_velo = BoxDetectionSE3(
             metadata=self.metadata,
@@ -225,7 +227,7 @@ class TestBoxBoxDetectionSE3(unittest.TestCase):
             velocity=Vector3D(x=1.0, y=0.0, z=0.0),
         )
         self.assertIsInstance(box_detection_velo, BoxDetectionSE3)
-        self.assertEqual(box_detection_velo.velocity, Vector3D(x=1.0, y=0.0, z=0.0))
+        self.assertEqual(box_detection_velo.velocity_3d, Vector3D(x=1.0, y=0.0, z=0.0))
 
 
 class TestBoxDetectionWrapper(unittest.TestCase):
@@ -257,7 +259,7 @@ class TestBoxDetectionWrapper(unittest.TestCase):
                 length=4.0,
                 width=2.0,
             ),
-            velocity=Vector2D(x=1.0, y=0.0),
+            velocity_2d=Vector2D(x=1.0, y=0.0),
         )
         self.box_detection2 = BoxDetectionSE2(
             metadata=self.metadata2,
@@ -266,7 +268,7 @@ class TestBoxDetectionWrapper(unittest.TestCase):
                 length=1.0,
                 width=0.5,
             ),
-            velocity=Vector2D(x=0.5, y=0.5),
+            velocity_2d=Vector2D(x=0.5, y=0.5),
         )
         self.box_detection3 = BoxDetectionSE3(
             metadata=self.metadata3,
@@ -333,7 +335,7 @@ class TestBoxDetectionWrapper(unittest.TestCase):
 
     def test_occupancy_map(self):
         wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2])
-        occupancy_map = wrapper.occupancy_map
+        occupancy_map = wrapper.occupancy_map_2d
         self.assertIsNotNone(occupancy_map)
         self.assertEqual(len(occupancy_map.geometries), 2)
         self.assertEqual(len(occupancy_map.ids), 2)
@@ -342,13 +344,13 @@ class TestBoxDetectionWrapper(unittest.TestCase):
 
     def test_occupancy_map_cached(self):
         wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2])
-        occupancy_map1 = wrapper.occupancy_map
-        occupancy_map2 = wrapper.occupancy_map
+        occupancy_map1 = wrapper.occupancy_map_2d
+        occupancy_map2 = wrapper.occupancy_map_2d
         self.assertIs(occupancy_map1, occupancy_map2)
 
     def test_occupancy_map_empty(self):
         wrapper = BoxDetectionWrapper(box_detections=[])
-        occupancy_map = wrapper.occupancy_map
+        occupancy_map = wrapper.occupancy_map_2d
         self.assertIsNotNone(occupancy_map)
         self.assertEqual(len(occupancy_map.geometries), 0)
         self.assertEqual(len(occupancy_map.ids), 0)

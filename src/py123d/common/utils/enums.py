@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum
+import enum
 
 from pyparsing import Union
 
@@ -13,7 +13,7 @@ class classproperty(object):
         return self.f(owner)
 
 
-class SerialIntEnum(Enum):
+class SerialIntEnum(enum.Enum):
 
     def __int__(self) -> int:
         return self.value

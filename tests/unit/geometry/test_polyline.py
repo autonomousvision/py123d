@@ -236,8 +236,12 @@ class TestPolyline3D(unittest.TestCase):
 
     def test_from_array_invalid_shape(self):
         """Test creating Polyline3D from invalid array shape."""
-        array = np.array([[0.0, 0.0], [1.0, 1.0]], dtype=np.float64)
-        with self.assertRaises(AssertionError):
+        array = np.array([[0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0]], dtype=np.float64)
+        with self.assertRaises(ValueError):
+            Polyline3D.from_array(array)
+
+        array = np.array([[0.0], [1.0]], dtype=np.float64)
+        with self.assertRaises(ValueError):
             Polyline3D.from_array(array)
 
     def test_array_property(self):

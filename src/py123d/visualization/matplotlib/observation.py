@@ -86,7 +86,7 @@ def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionWrapper) 
         # if box_detection.metadata.detection_type == DetectionType.GENERIC_OBJECT:
         #     continue
         plot_config = BOX_DETECTION_CONFIG[box_detection.metadata.default_label]
-        add_bounding_box_to_ax(ax, box_detection.bounding_box, plot_config)
+        add_bounding_box_to_ax(ax, box_detection.bounding_box_se2, plot_config)
 
 
 def add_box_future_detections_to_ax(ax: plt.Axes, scene: SceneAPI, iteration: int) -> None:

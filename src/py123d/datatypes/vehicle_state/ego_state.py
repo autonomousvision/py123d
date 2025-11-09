@@ -282,7 +282,7 @@ class EgoStateSE2:
                 num_lidar_points=None,
             ),
             bounding_box_se2=self.bounding_box,
-            velocity=self.dynamic_state_se2.velocity,
+            velocity_2d=self.dynamic_state_se2.velocity,
         )
 
     @property
