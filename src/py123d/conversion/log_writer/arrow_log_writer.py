@@ -35,6 +35,11 @@ from py123d.conversion.sensor_io.camera.jpeg_camera_io import (
     load_jpeg_binary_from_jpeg_file,
 )
 from py123d.conversion.sensor_io.camera.mp4_camera_io import MP4Writer
+from py123d.conversion.sensor_io.camera.png_camera_io import (
+    encode_image_as_png_binary,
+    load_image_from_png_file,
+    load_png_binary_from_png_file,
+)
 from py123d.conversion.sensor_io.lidar.draco_lidar_io import encode_lidar_pc_as_draco_binary
 from py123d.conversion.sensor_io.lidar.file_lidar_io import load_lidar_pcs_from_file
 from py123d.conversion.sensor_io.lidar.laz_lidar_io import encode_lidar_pc_as_laz_binary
@@ -62,10 +67,15 @@ def _get_sensors_root() -> Path:
     return Path(DATASET_PATHS.py123d_sensors_root)
 
 
-def _store_option_to_arrow_type(store_option: Literal["path", "binary", "mp4"]) -> pa.DataType:
+def _store_option_to_arrow_type(
+    store_option: Literal["path", "jpeg_binary", "png_binary", "laz_binary"],
+) -> pa.DataType:
     data_type_map = {
         "path": pa.string(),
-        "binary": pa.binary(),
+        "jpeg_binary": pa.binary(),
+        "png_binary": pa.binary(),
+        "laz_binary": pa.binary(),
+        "draco_binary": pa.binary(),
         "mp4": pa.int64(),
     }
     return data_type_map[store_option]
@@ -79,14 +89,12 @@ class ArrowLogWriter(AbstractLogWriter):
         sensors_root: Optional[Union[str, Path]] = None,
         ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
         ipc_compression_level: Optional[int] = None,
-        lidar_compression: Optional[Literal["draco", "laz"]] = "draco",
     ) -> None:
 
         self._logs_root = Path(logs_root) if logs_root is not None else _get_logs_root()
         self._sensors_root = Path(sensors_root) if sensors_root is not None else _get_sensors_root()
         self._ipc_compression = ipc_compression
         self._ipc_compression_level = ipc_compression_level
-        self._lidar_compression = lidar_compression
 
         # Loaded during .reset() and cleared during .close()
         self._dataset_converter_config: Optional[DatasetConverterConfig] = None
@@ -473,7 +481,7 @@ class ArrowLogWriter(AbstractLogWriter):
                 assert lidar_data.has_file_path, "LiDAR data must provide file path for path storage."
                 lidar_data_dict[lidar_data.lidar_type] = str(lidar_data.relative_path)
 
-        elif self._dataset_converter_config.lidar_store_option == "binary":
+        elif self._dataset_converter_config.lidar_store_option in ["laz_binary", "draco_binary"]:
             lidar_pcs_dict: Dict[LiDARType, np.ndarray] = {}
 
             # 1. Load point clouds from files
@@ -494,9 +502,9 @@ class ArrowLogWriter(AbstractLogWriter):
             for lidar_type, point_cloud in lidar_pcs_dict.items():
                 lidar_metadata = self._log_metadata.lidar_metadata[lidar_type]
                 binary: Optional[bytes] = None
-                if self._lidar_compression == "draco":
+                if self._dataset_converter_config.lidar_store_option == "draco_binary":
                     binary = encode_lidar_pc_as_draco_binary(point_cloud, lidar_metadata)
-                elif self._lidar_compression == "laz":
+                elif self._dataset_converter_config.lidar_store_option == "laz_binary":
                     binary = encode_lidar_pc_as_laz_binary(point_cloud, lidar_metadata)
                 lidar_data_dict[lidar_type] = binary
 
@@ -513,8 +521,10 @@ class ArrowLogWriter(AbstractLogWriter):
                     camera_data_dict[camera_data.camera_type] = str(camera_data.relative_path)
                 else:
                     raise NotImplementedError("Only file path storage is supported for camera data.")
-            elif store_option == "binary":
+            elif store_option == "jpeg_binary":
                 camera_data_dict[camera_data.camera_type] = _get_jpeg_binary_from_camera_data(camera_data)
+            elif store_option == "png_binary":
+                camera_data_dict[camera_data.camera_type] = _get_png_binary_from_camera_data(camera_data)
             elif store_option == "mp4":
                 camera_name = camera_data.camera_type.serialize()
                 if camera_name not in self._pinhole_mp4_writers:
@@ -541,20 +551,43 @@ def _get_jpeg_binary_from_camera_data(camera_data: CameraData) -> Optional[bytes
 
     if camera_data.has_jpeg_binary:
         jpeg_binary = camera_data.jpeg_binary
+    elif camera_data.has_jpeg_file_path:
+        absolute_path = Path(camera_data.dataset_root) / camera_data.relative_path
+        jpeg_binary = load_jpeg_binary_from_jpeg_file(absolute_path)
+    elif camera_data.has_png_file_path:
+        absolute_path = Path(camera_data.dataset_root) / camera_data.relative_path
+        numpy_image = load_image_from_png_file(absolute_path)
+        jpeg_binary = encode_image_as_jpeg_binary(numpy_image)
     elif camera_data.has_numpy_image:
         jpeg_binary = encode_image_as_jpeg_binary(camera_data.numpy_image)
-    elif camera_data.has_file_path:
-        absolute_path = Path(camera_data.dataset_root) / camera_data.relative_path
-
-        if absolute_path.suffix.lower() in [".jpg", ".jpeg"]:
-            jpeg_binary = load_jpeg_binary_from_jpeg_file(absolute_path)
-        else:
-            raise NotImplementedError(f"Unsupported camera file format: {absolute_path.suffix} for binary storage.")
     else:
         raise NotImplementedError("Camera data must provide jpeg_binary, numpy_image, or file path for binary storage.")
 
     assert jpeg_binary is not None
     return jpeg_binary
+
+
+def _get_png_binary_from_camera_data(camera_data: CameraData) -> Optional[bytes]:
+    png_binary: Optional[bytes] = None
+
+    if camera_data.has_png_file_path:
+        absolute_path = Path(camera_data.dataset_root) / camera_data.relative_path
+        png_binary = load_png_binary_from_png_file(absolute_path)
+    elif camera_data.has_numpy_image:
+        png_binary = encode_image_as_png_binary(camera_data.numpy_image)
+    elif camera_data.has_jpeg_file_path:
+        absolute_path = Path(camera_data.dataset_root) / camera_data.relative_path
+        numpy_image = load_image_from_jpeg_file(absolute_path)
+        png_binary = encode_image_as_png_binary(numpy_image)
+
+    elif camera_data.has_jpeg_binary:
+        numpy_image = decode_image_from_jpeg_binary(camera_data.jpeg_binary)
+        png_binary = encode_image_as_png_binary(numpy_image)
+    else:
+        raise NotImplementedError("Camera data must provide png_binary, numpy_image, or file path for binary storage.")
+
+    assert png_binary is not None
+    return png_binary
 
 
 def _get_numpy_image_from_camera_data(camera_data: CameraData) -> Optional[np.ndarray]:
@@ -564,9 +597,12 @@ def _get_numpy_image_from_camera_data(camera_data: CameraData) -> Optional[np.nd
         numpy_image = camera_data.numpy_image
     elif camera_data.has_jpeg_binary:
         numpy_image = decode_image_from_jpeg_binary(camera_data.jpeg_binary)
-    elif camera_data.has_file_path:
+    elif camera_data.has_jpeg_file_path:
         absolute_path = Path(camera_data.dataset_root) / camera_data.relative_path
         numpy_image = load_image_from_jpeg_file(absolute_path)
+    elif camera_data.has_png_file_path:
+        absolute_path = Path(camera_data.dataset_root) / camera_data.relative_path
+        numpy_image = load_image_from_png_file(absolute_path)
     else:
         raise NotImplementedError("Camera data must provide numpy_image, jpeg_binary, or file path for numpy image.")
 

@@ -25,15 +25,15 @@ class DatasetConverterConfig:
 
     # Pinhole Cameras
     include_pinhole_cameras: bool = False
-    pinhole_camera_store_option: Literal["path", "binary", "mp4"] = "path"
+    pinhole_camera_store_option: Literal["path", "jpeg_binary", "png_binary", "mp4"] = "path"
 
     # Fisheye MEI Cameras
     include_fisheye_mei_cameras: bool = False
-    fisheye_mei_camera_store_option: Literal["path", "binary", "mp4"] = "path"
+    fisheye_mei_camera_store_option: Literal["path", "jpeg_binary", "png_binary", "mp4"] = "path"
 
     # LiDARs
     include_lidars: bool = False
-    lidar_store_option: Literal["path", "path_merged", "binary"] = "path"
+    lidar_store_option: Literal["path", "path_merged", "laz_binary", "draco_binary"] = "path"
 
     # Scenario tag / Route
     # NOTE: These are only supported for nuPlan. Consider removing or expanding support.
@@ -44,12 +44,21 @@ class DatasetConverterConfig:
 
         assert self.pinhole_camera_store_option in [
             "path",
-            "binary",
+            "jpeg_binary",
+            "png_binary",
             "mp4",
-        ], f"Invalid camera store option, got {self.pinhole_camera_store_option}."
+        ], f"Invalid Pinhole camera store option, got {self.pinhole_camera_store_option}."
+
+        assert self.fisheye_mei_camera_store_option in [
+            "path",
+            "jpeg_binary",
+            "png_binary",
+            "mp4",
+        ], f"Invalid Fisheye MEI camera store option, got {self.fisheye_mei_camera_store_option}."
 
         assert self.lidar_store_option in [
             "path",
             "path_merged",
-            "binary",
+            "laz_binary",
+            "draco_binary",
         ], f"Invalid LiDAR store option, got {self.lidar_store_option}."

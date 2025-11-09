@@ -30,8 +30,13 @@ from py123d.common.utils.arrow_column_names import (
 )
 from py123d.common.utils.mixin import ArrayMixin
 from py123d.conversion.registry.lidar_index_registry import DefaultLiDARIndex
-from py123d.conversion.sensor_io.camera.jpeg_camera_io import decode_image_from_jpeg_binary, load_image_from_jpeg_file
+from py123d.conversion.sensor_io.camera.jpeg_camera_io import (
+    decode_image_from_jpeg_binary,
+    is_jpeg_binary,
+    load_image_from_jpeg_file,
+)
 from py123d.conversion.sensor_io.camera.mp4_camera_io import get_mp4_reader_from_path
+from py123d.conversion.sensor_io.camera.png_camera_io import decode_image_from_png_binary, is_png_binary
 from py123d.conversion.sensor_io.lidar.draco_lidar_io import is_draco_binary, load_lidar_from_draco_binary
 from py123d.conversion.sensor_io.lidar.file_lidar_io import load_lidar_pcs_from_file
 from py123d.conversion.sensor_io.lidar.laz_lidar_io import is_laz_binary, load_lidar_from_laz_binary
@@ -188,7 +193,13 @@ def get_camera_from_arrow_table(
 
                 image = load_image_from_jpeg_file(full_image_path)
             elif isinstance(table_data, bytes):
-                image = decode_image_from_jpeg_binary(table_data)
+                if is_jpeg_binary(table_data):
+                    image = decode_image_from_jpeg_binary(table_data)
+                elif is_png_binary(table_data):
+                    image = decode_image_from_png_binary(table_data)
+                else:
+                    raise ValueError("Camera binary data is neither in JPEG nor PNG format.")
+
             elif isinstance(table_data, int):
                 image = _unoptimized_demo_mp4_read(log_metadata, camera_name, table_data)
             else:
@@ -258,12 +269,9 @@ def get_lidar_from_arrow_table(
             if is_draco_binary(lidar_data):
                 # NOTE: DRACO only allows XYZ compression, so we need to override the lidar index here.
                 lidar_metadata.lidar_index = DefaultLiDARIndex
-
                 lidar = load_lidar_from_draco_binary(lidar_data, lidar_metadata)
             elif is_laz_binary(lidar_data):
-
                 lidar = load_lidar_from_laz_binary(lidar_data, lidar_metadata)
-
             else:
                 raise ValueError("LiDAR binary data is neither in Draco nor LAZ format.")
         elif lidar_data is not None:

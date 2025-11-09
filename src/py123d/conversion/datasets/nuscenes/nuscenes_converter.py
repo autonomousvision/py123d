@@ -344,7 +344,12 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
             center_quat.y,
             center_quat.z,
         )
-        bounding_box = BoundingBoxSE3(center, box.wlh[1], box.wlh[0], box.wlh[2])
+        bounding_box = BoundingBoxSE3(
+            center=center,
+            length=box.wlh[1],
+            width=box.wlh[0],
+            height=box.wlh[2],
+        )
         # Get detection type
         category = ann["category_name"]
         label = NUSCENES_DETECTION_NAME_DICT[category]

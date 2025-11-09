@@ -109,6 +109,14 @@ class CameraData:
         return self.dataset_root is not None and self.relative_path is not None
 
     @property
+    def has_jpeg_file_path(self) -> bool:
+        return self.relative_path is not None and str(self.relative_path).lower().endswith((".jpg", ".jpeg"))
+
+    @property
+    def has_png_file_path(self) -> bool:
+        return self.relative_path is not None and str(self.relative_path).lower().endswith((".png",))
+
+    @property
     def has_jpeg_binary(self) -> bool:
         return self.jpeg_binary is not None
 

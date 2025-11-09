@@ -3,5 +3,6 @@ _convert_: 'all'
 
 
 logs_root: ${dataset_paths.py123d_logs_root}
+sensors_root: ${dataset_paths.py123d_sensors_root}
 ipc_compression: null # Compression method for ipc files. Options: None, 'lz4', 'zstd'
 ipc_compression_level: null # Compression level for ipc files. Options: None, or depending on compression method
