@@ -9,6 +9,8 @@ import numpy.typing as npt
 class ArrayMixin:
     """Mixin class for object entities."""
 
+    __slots__ = ()
+
     @classmethod
     def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> ArrayMixin:
         """Create an instance from a NumPy array."""

@@ -32,10 +32,10 @@ from py123d.datatypes.metadata import LogMetadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
 from py123d.datatypes.sensors.pinhole_camera import (
-    PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
+    PinholeMetadata,
 )
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
@@ -242,9 +242,9 @@ def _get_nuplan_camera_metadata(
     source_log_path: Path,
     nuplan_sensor_root: Path,
     dataset_converter_config: DatasetConverterConfig,
-) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
+) -> Dict[PinholeCameraType, PinholeMetadata]:
 
-    def _get_camera_metadata(camera_type: PinholeCameraType) -> PinholeCameraMetadata:
+    def _get_camera_metadata(camera_type: PinholeCameraType) -> PinholeMetadata:
         cam = list(get_cameras(source_log_path, [str(NUPLAN_CAMERA_MAPPING[camera_type].value)]))[0]
 
         intrinsics_camera_matrix = np.array(pickle.loads(cam.intrinsic), dtype=np.float64)  # array of shape (3, 3)
@@ -253,7 +253,7 @@ def _get_nuplan_camera_metadata(
         distortion_array = np.array(pickle.loads(cam.distortion), dtype=np.float64)  # array of shape (5,)
         distortion = PinholeDistortion.from_array(distortion_array, copy=False)
 
-        return PinholeCameraMetadata(
+        return PinholeMetadata(
             camera_type=camera_type,
             width=cam.width,
             height=cam.height,
@@ -261,7 +261,7 @@ def _get_nuplan_camera_metadata(
             distortion=distortion,
         )
 
-    camera_metadata: Dict[str, PinholeCameraMetadata] = {}
+    camera_metadata: Dict[str, PinholeMetadata] = {}
     if dataset_converter_config.include_pinhole_cameras:
         log_name = source_log_path.stem
         for camera_type, nuplan_camera_type in NUPLAN_CAMERA_MAPPING.items():

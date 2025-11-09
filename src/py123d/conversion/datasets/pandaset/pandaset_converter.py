@@ -29,7 +29,7 @@ from py123d.conversion.registry.lidar_index_registry import PandasetLiDARIndex
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.metadata import LogMetadata
 from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
-from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata, PinholeCameraType, PinholeIntrinsics
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType, PinholeIntrinsics, PinholeMetadata
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_pandaset_chrysler_pacifica_parameters
@@ -155,9 +155,9 @@ class PandasetConverter(AbstractDatasetConverter):
 
 def _get_pandaset_camera_metadata(
     source_log_path: Path, dataset_config: DatasetConverterConfig
-) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
+) -> Dict[PinholeCameraType, PinholeMetadata]:
 
-    camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
+    camera_metadata: Dict[PinholeCameraType, PinholeMetadata] = {}
 
     if dataset_config.include_pinhole_cameras:
         all_cameras_folder = source_log_path / "camera"
@@ -171,7 +171,7 @@ def _get_pandaset_camera_metadata(
             assert intrinsics_file.exists(), f"Camera intrinsics file {intrinsics_file} does not exist."
             intrinsics_data = read_json(intrinsics_file)
 
-            camera_metadata[camera_type] = PinholeCameraMetadata(
+            camera_metadata[camera_type] = PinholeMetadata(
                 camera_type=camera_type,
                 width=1920,
                 height=1080,

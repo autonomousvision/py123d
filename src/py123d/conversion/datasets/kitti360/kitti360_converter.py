@@ -37,10 +37,10 @@ from py123d.datatypes.sensors import (
     FisheyeMEIProjection,
     LiDARMetadata,
     LiDARType,
-    PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
+    PinholeMetadata,
 )
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
@@ -308,9 +308,9 @@ class Kitti360Converter(AbstractDatasetConverter):
 def _get_kitti360_pinhole_camera_metadata(
     kitti360_folders: Dict[str, Path],
     dataset_converter_config: DatasetConverterConfig,
-) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
+) -> Dict[PinholeCameraType, PinholeMetadata]:
 
-    pinhole_cam_metadatas: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
+    pinhole_cam_metadatas: Dict[PinholeCameraType, PinholeMetadata] = {}
     if dataset_converter_config.include_pinhole_cameras:
         persp = kitti360_folders[DIR_CALIB] / "perspective.txt"
         assert persp.exists()
@@ -329,7 +329,7 @@ def _get_kitti360_pinhole_camera_metadata(
                     persp_result[f"image_{cam_id}"]["distortion"] = [float(x) for x in value.split()]
 
         for pcam_type, pcam_name in KITTI360_PINHOLE_CAMERA_TYPES.items():
-            pinhole_cam_metadatas[pcam_type] = PinholeCameraMetadata(
+            pinhole_cam_metadatas[pcam_type] = PinholeMetadata(
                 camera_type=pcam_type,
                 width=persp_result[pcam_name]["wh"][0],
                 height=persp_result[pcam_name]["wh"][1],

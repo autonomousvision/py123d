@@ -5,7 +5,7 @@ from py123d.datatypes.sensors.pinhole_camera import (
     PinholeIntrinsics,
     PinholeDistortionIndex,
     PinholeDistortion,
-    PinholeCameraMetadata,
+    PinholeMetadata,
 )
 from py123d.datatypes.sensors.fisheye_mei_camera import (
     FisheyeMEICameraType,

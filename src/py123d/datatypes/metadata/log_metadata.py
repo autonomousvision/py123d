@@ -8,7 +8,7 @@ from py123d.conversion.registry.box_detection_label_registry import BOX_DETECTIO
 from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraMetadata, FisheyeMEICameraType
 from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
-from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata, PinholeCameraType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType, PinholeMetadata
 from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 
 
@@ -23,7 +23,7 @@ class LogMetadata:
 
     vehicle_parameters: Optional[VehicleParameters] = None
     box_detection_label_class: Optional[Type[BoxDetectionLabel]] = None
-    pinhole_camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = field(default_factory=dict)
+    pinhole_camera_metadata: Dict[PinholeCameraType, PinholeMetadata] = field(default_factory=dict)
     fisheye_mei_camera_metadata: Dict[FisheyeMEICameraType, FisheyeMEICameraMetadata] = field(default_factory=dict)
     lidar_metadata: Dict[LiDARType, LiDARMetadata] = field(default_factory=dict)
 
@@ -50,7 +50,7 @@ class LogMetadata:
         # Pinhole Camera Metadata
         pinhole_camera_metadata = {}
         for key, value in data_dict.get("pinhole_camera_metadata", {}).items():
-            pinhole_camera_metadata[PinholeCameraType.deserialize(key)] = PinholeCameraMetadata.from_dict(value)
+            pinhole_camera_metadata[PinholeCameraType.deserialize(key)] = PinholeMetadata.from_dict(value)
         data_dict["pinhole_camera_metadata"] = pinhole_camera_metadata
 
         # Fisheye MEI Camera Metadata

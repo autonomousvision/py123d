@@ -28,10 +28,10 @@ from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.datatypes.sensors import (
     LiDARMetadata,
     LiDARType,
-    PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
+    PinholeMetadata,
 )
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
@@ -231,9 +231,9 @@ def _get_wopd_map_metadata(initial_frame: dataset_pb2.Frame, split: str) -> MapM
 
 def _get_wopd_camera_metadata(
     initial_frame: dataset_pb2.Frame, dataset_converter_config: DatasetConverterConfig
-) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
+) -> Dict[PinholeCameraType, PinholeMetadata]:
 
-    camera_metadata_dict: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
+    camera_metadata_dict: Dict[PinholeCameraType, PinholeMetadata] = {}
 
     if dataset_converter_config.pinhole_camera_store_option is not None:
         for calibration in initial_frame.context.camera_calibrations:
@@ -244,7 +244,7 @@ def _get_wopd_camera_metadata(
             intrinsics = PinholeIntrinsics(fx=fx, fy=fy, cx=cx, cy=cy)
             distortion = PinholeDistortion(k1=k1, k2=k2, p1=p1, p2=p2, k3=k3)
             if camera_type in WOPD_CAMERA_TYPES.values():
-                camera_metadata_dict[camera_type] = PinholeCameraMetadata(
+                camera_metadata_dict[camera_type] = PinholeMetadata(
                     camera_type=camera_type,
                     width=calibration.width,
                     height=calibration.height,
