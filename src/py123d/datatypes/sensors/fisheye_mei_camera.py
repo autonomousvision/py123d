@@ -21,12 +21,29 @@ class FisheyeMEICameraType(SerialIntEnum):
     FCAM_R = 1
 
 
-@dataclass
 class FisheyeMEICamera:
 
-    metadata: FisheyeMEICameraMetadata
-    image: npt.NDArray[np.uint8]
-    extrinsic: PoseSE3
+    def __init__(
+        self,
+        metadata: FisheyeMEICameraMetadata,
+        image: npt.NDArray[np.uint8],
+        extrinsic: PoseSE3,
+    ) -> None:
+        self._metadata = metadata
+        self._image = image
+        self._extrinsic = extrinsic
+
+    @property
+    def metadata(self) -> FisheyeMEICameraMetadata:
+        return self._metadata
+
+    @property
+    def image(self) -> npt.NDArray[np.uint8]:
+        return self._image
+
+    @property
+    def extrinsic(self) -> PoseSE3:
+        return self._extrinsic
 
 
 class FisheyeMEIDistortionIndex(IntEnum):
@@ -62,18 +79,22 @@ class FisheyeMEIDistortion(ArrayMixin):
 
     @property
     def k1(self) -> float:
+        """Radial distortion coefficient."""
         return self._array[FisheyeMEIDistortionIndex.K1]
 
     @property
     def k2(self) -> float:
+        """Radial distortion coefficient."""
         return self._array[FisheyeMEIDistortionIndex.K2]
 
     @property
     def p1(self) -> float:
+        """Tangential distortion coefficient."""
         return self._array[FisheyeMEIDistortionIndex.P1]
 
     @property
     def p2(self) -> float:
+        """Tangential distortion coefficient."""
         return self._array[FisheyeMEIDistortionIndex.P2]
 
 
