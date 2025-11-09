@@ -64,7 +64,7 @@ autodoc_class_signature = "separated"
 autodoc_default_options = {
     "members": True,
     "special-members": False,
-    "private-members": True,
+    "private-members": False,
     "inherited-members": True,
     "undoc-members": True,
     "member-order": "bysource",

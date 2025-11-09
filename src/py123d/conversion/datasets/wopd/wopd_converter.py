@@ -303,7 +303,7 @@ def _extract_wopd_ego_state(frame: dataset_pb2.Frame, map_pose_offset: Vector3D)
         rear_axle_se3=rear_axle_pose,
         dynamic_state_se3=dynamic_state_se3,
         vehicle_parameters=vehicle_parameters,
-        time_point=None,
+        timepoint=None,
     )
 
 

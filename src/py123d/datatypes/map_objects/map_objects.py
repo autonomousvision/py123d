@@ -143,7 +143,7 @@ class Lane(BaseMapSurfaceObject):
         return self._speed_limit_mps
 
     @property
-    def trimesh(self) -> Trimesh:
+    def trimesh_mesh(self) -> Trimesh:
         return get_trimesh_from_boundaries(self.left_boundary, self.right_boundary)
 
 
@@ -251,7 +251,7 @@ class LaneGroup(BaseMapSurfaceObject):
         return successors
 
     @property
-    def trimesh(self) -> Trimesh:
+    def trimesh_mesh(self) -> Trimesh:
         return get_trimesh_from_boundaries(self.left_boundary, self.right_boundary)
 
 

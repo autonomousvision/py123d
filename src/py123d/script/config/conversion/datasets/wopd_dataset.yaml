@@ -30,7 +30,7 @@ wopd_dataset:
     pinhole_camera_store_option: "jpeg_binary"   # "path", "jpeg_binary", "png_binary", "mp4"
 
     # LiDARs
-    include_lidars: false
+    include_lidars: true
     lidar_store_option: "laz_binary"  # "path", "path_merged", "laz_binary", "draco_binary"
 
     # Not available:

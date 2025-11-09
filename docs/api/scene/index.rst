@@ -1,8 +1,5 @@
-Scene
-=====
+Scene API
+=========
 
-
-.. toctree::
-   :maxdepth: 2
-
-   scene_api
+.. autoclass:: py123d.api.SceneAPI
+   :autoclasstoc:
