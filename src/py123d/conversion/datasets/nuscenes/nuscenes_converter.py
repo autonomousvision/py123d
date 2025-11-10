@@ -23,10 +23,10 @@ from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, Box
 from py123d.datatypes.metadata import LogMetadata, MapMetadata
 from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
 from py123d.datatypes.sensors.pinhole_camera import (
+    PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
-    PinholeMetadata,
 )
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
@@ -204,8 +204,8 @@ def _get_nuscenes_pinhole_camera_metadata(
     nusc: NuScenes,
     scene: Dict[str, Any],
     dataset_converter_config: DatasetConverterConfig,
-) -> Dict[PinholeCameraType, PinholeMetadata]:
-    camera_metadata: Dict[PinholeCameraType, PinholeMetadata] = {}
+) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
+    camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
 
     if dataset_converter_config.include_pinhole_cameras:
         first_sample_token = scene["first_sample_token"]
@@ -220,7 +220,7 @@ def _get_nuscenes_pinhole_camera_metadata(
             intrinsic = PinholeIntrinsics.from_camera_matrix(intrinsic_matrix)
             distortion = PinholeDistortion.from_array(np.zeros(5), copy=False)
 
-            camera_metadata[camera_type] = PinholeMetadata(
+            camera_metadata[camera_type] = PinholeCameraMetadata(
                 camera_type=camera_type,
                 width=cam_data["width"],
                 height=cam_data["height"],

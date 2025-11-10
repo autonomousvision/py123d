@@ -292,7 +292,7 @@ class GPKGMapAPI(MapAPI):
                 successor_ids=successor_ids,
                 speed_limit_mps=speed_limit_mps,
                 outline=outline,
-                geometry=geometry,
+                shapely_polygon=geometry,
                 map_api=self,
             )
 
@@ -325,7 +325,7 @@ class GPKGMapAPI(MapAPI):
                 predecessor_ids=predecessor_ids,
                 successor_ids=successor_ids,
                 outline=outline,
-                geometry=geometry,
+                shapely_polygon=geometry,
                 map_api=self,
             )
 
@@ -351,7 +351,7 @@ class GPKGMapAPI(MapAPI):
                 object_id=object_id,
                 lane_group_ids=lane_group_ids,
                 outline=outline,
-                geometry=geometry,
+                shapely_polygon=geometry,
                 map_api=self,
             )
 
@@ -371,7 +371,7 @@ class GPKGMapAPI(MapAPI):
             crosswalk = Crosswalk(
                 object_id=object_id,
                 outline=outline,
-                geometry=geometry,
+                shapely_polygon=geometry,
             )
 
         return crosswalk
@@ -390,7 +390,7 @@ class GPKGMapAPI(MapAPI):
             walkway = Walkway(
                 object_id=object_id,
                 outline=outline,
-                geometry=geometry,
+                shapely_polygon=geometry,
             )
 
         return walkway
@@ -409,7 +409,7 @@ class GPKGMapAPI(MapAPI):
             carpark = Carpark(
                 object_id=object_id,
                 outline=outline,
-                geometry=geometry,
+                shapely_polygon=geometry,
             )
 
         return carpark
@@ -428,7 +428,7 @@ class GPKGMapAPI(MapAPI):
             generic_drivable = GenericDrivable(
                 object_id=object_id,
                 outline=outline,
-                geometry=geometry,
+                shapely_polygon=geometry,
             )
 
         return generic_drivable

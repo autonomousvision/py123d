@@ -1,0 +1,107 @@
+import unittest
+
+from py123d.datatypes.metadata.map_metadata import MapMetadata
+
+
+class TestMapMetadata(unittest.TestCase):
+
+    def test_map_metadata_initialization(self):
+        """Test that MapMetadata can be initialized with required fields."""
+        metadata = MapMetadata(
+            dataset="test_dataset",
+            split="train",
+            log_name="log_001",
+            location="test_location",
+            map_has_z=True,
+            map_is_local=False,
+        )
+
+        assert metadata.dataset == "test_dataset"
+        assert metadata.split == "train"
+        assert metadata.log_name == "log_001"
+        assert metadata.location == "test_location"
+        assert metadata.map_has_z is True
+        assert metadata.map_is_local is False
+        assert metadata.version is not None
+
+    def test_map_metadata_to_dict(self):
+        """Test conversion of MapMetadata to dictionary."""
+        metadata = MapMetadata(
+            dataset="test_dataset",
+            split="val",
+            log_name="log_002",
+            location="test_location",
+            map_has_z=False,
+            map_is_local=True,
+        )
+
+        result = metadata.to_dict()
+
+        assert isinstance(result, dict)
+        assert result["dataset"] == "test_dataset"
+        assert result["split"] == "val"
+        assert result["log_name"] == "log_002"
+        assert result["location"] == "test_location"
+        assert result["map_has_z"] is False
+        assert result["map_is_local"] is True
+        assert "version" in result
+
+    def test_map_metadata_from_dict(self):
+        """Test creation of MapMetadata from dictionary."""
+        data = {
+            "dataset": "test_dataset",
+            "split": "test",
+            "log_name": "log_003",
+            "location": "test_location",
+            "map_has_z": True,
+            "map_is_local": False,
+            "version": "1.0.0",
+        }
+
+        metadata = MapMetadata.from_dict(data)
+
+        assert metadata.dataset == "test_dataset"
+        assert metadata.split == "test"
+        assert metadata.log_name == "log_003"
+        assert metadata.location == "test_location"
+        assert metadata.map_has_z is True
+        assert metadata.map_is_local is False
+        assert metadata.version == "1.0.0"
+
+    def test_map_metadata_with_none_values(self):
+        """Test MapMetadata with None values for optional fields."""
+        metadata = MapMetadata(
+            dataset="test_dataset",
+            split=None,
+            log_name=None,
+            location="test_location",
+            map_has_z=True,
+            map_is_local=True,
+        )
+
+        assert metadata.split is None
+        assert metadata.log_name is None
+        assert metadata.dataset == "test_dataset"
+
+    def test_map_metadata_roundtrip(self):
+        """Test that converting to dict and back preserves data."""
+        original = MapMetadata(
+            dataset="roundtrip_dataset",
+            split="train",
+            log_name="log_roundtrip",
+            location="location_test",
+            map_has_z=False,
+            map_is_local=True,
+            version="2.0.0",
+        )
+
+        data_dict = original.to_dict()
+        restored = MapMetadata.from_dict(data_dict)
+
+        assert restored.dataset == original.dataset
+        assert restored.split == original.split
+        assert restored.log_name == original.log_name
+        assert restored.location == original.location
+        assert restored.map_has_z == original.map_has_z
+        assert restored.map_is_local == original.map_is_local
+        assert restored.version == original.version

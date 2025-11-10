@@ -23,10 +23,10 @@ from py123d.datatypes.metadata import LogMetadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
 from py123d.datatypes.sensors.pinhole_camera import (
+    PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
-    PinholeMetadata,
 )
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
@@ -183,16 +183,16 @@ def _get_av2_sensor_map_metadata(split: str, source_log_path: Path) -> MapMetada
 
 def _get_av2_pinhole_camera_metadata(
     source_log_path: Path, dataset_converter_config: DatasetConverterConfig
-) -> Dict[PinholeCameraType, PinholeMetadata]:
+) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
 
-    pinhole_camera_metadata: Dict[PinholeCameraType, PinholeMetadata] = {}
+    pinhole_camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
     if dataset_converter_config.include_pinhole_cameras:
         intrinsics_file = source_log_path / "calibration" / "intrinsics.feather"
         intrinsics_df = pd.read_feather(intrinsics_file)
         for _, row in intrinsics_df.iterrows():
             row = row.to_dict()
             camera_type = AV2_CAMERA_TYPE_MAPPING[row["sensor_name"]]
-            pinhole_camera_metadata[camera_type] = PinholeMetadata(
+            pinhole_camera_metadata[camera_type] = PinholeCameraMetadata(
                 camera_type=camera_type,
                 width=row["width_px"],
                 height=row["height_px"],

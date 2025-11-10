@@ -52,7 +52,7 @@ class PinholeCamera:
 
     def __init__(
         self,
-        metadata: PinholeMetadata,
+        metadata: PinholeCameraMetadata,
         image: npt.NDArray[np.uint8],
         extrinsic: PoseSE3,
     ) -> None:
@@ -67,8 +67,8 @@ class PinholeCamera:
         self._extrinsic = extrinsic
 
     @property
-    def metadata(self) -> PinholeMetadata:
-        """The static :class:`PinholeMetadata` associated with the pinhole camera."""
+    def metadata(self) -> PinholeCameraMetadata:
+        """The static :class:`PinholeCameraMetadata` associated with the pinhole camera."""
         return self._metadata
 
     @property
@@ -285,7 +285,7 @@ class PinholeDistortion(ArrayMixin):
         return self._array[PinholeDistortionIndex.K3]
 
 
-class PinholeMetadata:
+class PinholeCameraMetadata:
     """Static metadata for a pinhole camera, stored in a log."""
 
     __slots__ = ("_camera_type", "_intrinsics", "_distortion", "_width", "_height")
@@ -298,7 +298,7 @@ class PinholeMetadata:
         width: int,
         height: int,
     ) -> None:
-        """Initialize a :class:`PinholeMetadata` instance.
+        """Initialize a :class:`PinholeCameraMetadata` instance.
 
         :param camera_type: The type of the pinhole camera.
         :param intrinsics: The :class:`PinholeIntrinsics` of the pinhole camera.
@@ -313,11 +313,11 @@ class PinholeMetadata:
         self._height = height
 
     @classmethod
-    def from_dict(cls, data_dict: Dict[str, Any]) -> PinholeMetadata:
-        """Create a :class:`PinholeMetadata` from a dictionary.
+    def from_dict(cls, data_dict: Dict[str, Any]) -> PinholeCameraMetadata:
+        """Create a :class:`PinholeCameraMetadata` from a dictionary.
 
         :param data_dict: A dictionary containing the metadata.
-        :return: A PinholeMetadata instance.
+        :return: A PinholeCameraMetadata instance.
         """
         data_dict["camera_type"] = PinholeCameraType(data_dict["camera_type"])
         data_dict["intrinsics"] = (
@@ -326,12 +326,12 @@ class PinholeMetadata:
         data_dict["distortion"] = (
             PinholeDistortion.from_list(data_dict["distortion"]) if data_dict["distortion"] is not None else None
         )
-        return PinholeMetadata(**data_dict)
+        return PinholeCameraMetadata(**data_dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        """Converts the :class:`PinholeMetadata` to a dictionary.
+        """Converts the :class:`PinholeCameraMetadata` to a dictionary.
 
-        :return: A dictionary representation of the PinholeMetadata instance, with default Python types.
+        :return: A dictionary representation of the PinholeCameraMetadata instance, with default Python types.
         """
         data_dict = {}
         data_dict["camera_type"] = int(self.camera_type)

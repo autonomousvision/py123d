@@ -12,7 +12,7 @@ Pinhole Camera Data
 Pinhole Metadata
 ----------------
 
-.. autoclass:: py123d.datatypes.sensors.PinholeMetadata
+.. autoclass:: py123d.datatypes.sensors.PinholeCameraMetadata
    :members:
    :exclude-members: __init__
    :autoclasstoc:

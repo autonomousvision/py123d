@@ -1,25 +1,92 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 from typing import Any, Dict, Optional
 
 import py123d
 
 
-@dataclass
 class MapMetadata:
     """Class to hold metadata information about a map."""
 
-    dataset: str
-    split: Optional[str]  # None, if map is not per log
-    log_name: Optional[str]  # None, if map is per log
-    location: str
-    map_has_z: bool
-    map_is_local: bool  # True, if map is per log
-    version: str = str(py123d.__version__)
+    __slots__ = ("_dataset", "_split", "_log_name", "_location", "_map_has_z", "_map_is_local", "_version")
 
-    def to_dict(self) -> dict:
-        return asdict(self)
+    def __init__(
+        self,
+        dataset: str,
+        location: str,
+        map_has_z: bool,
+        map_is_local: bool,
+        split: Optional[str] = None,
+        log_name: Optional[str] = None,
+        version: str = str(py123d.__version__),
+    ):
+        """Initialize a MapMetadata instance.
 
-    def from_dict(data_dict: Dict[str, Any]) -> MapMetadata:
+        :param dataset: The dataset name in lowercase.
+        :param location: The location of the map data.
+        :param map_has_z: Indicates if the map includes Z (elevation) data.
+        :param map_is_local: Indicates if the map is local (map for each log) or
+            global (map for multiple logs in dataset).
+        :param split: Data split name, typically ``{dataset_name}_{train/val/test}``, defaults to None
+        :param log_name: Name of the log file, defaults to None
+        :param version: Version of the py123d library used to create this map metadata,
+            defaults to str(py123d.__version__)
+        """
+        self._dataset = dataset
+        self._split = split
+        self._log_name = log_name
+        self._location = location
+        self._map_has_z = map_has_z
+        self._map_is_local = map_is_local
+        self._version = version
+
+    @property
+    def dataset(self) -> str:
+        """The dataset name in lowercase."""
+        return self._dataset
+
+    @property
+    def split(self) -> Optional[str]:
+        """Data split name, typically ``{dataset_name}_{train/val/test}``."""
+        return self._split
+
+    @property
+    def log_name(self) -> Optional[str]:
+        """Name of the log file."""
+        return self._log_name
+
+    @property
+    def location(self) -> str:
+        """Location of the map data."""
+        return self._location
+
+    @property
+    def map_has_z(self) -> bool:
+        """Indicates if the map includes Z (elevation) data."""
+        return self._map_has_z
+
+    @property
+    def map_is_local(self) -> bool:
+        """Indicates if the map is local (map for each log) or global (map for multiple logs in dataset)."""
+        return self._map_is_local
+
+    @property
+    def version(self) -> str:
+        """Version of the py123d library used to create this map metadata."""
+        return self._version
+
+    @classmethod
+    def from_dict(cls, data_dict: Dict[str, Any]) -> MapMetadata:
+        """Create a MapMetadata instance from a dictionary.
+
+        :param data_dict: A dictionary representation of a MapMetadata instance.
+        :return: A MapMetadata instance.
+        """
         return MapMetadata(**data_dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the MapMetadata instance to a dictionary.
+
+        :return: A dictionary representation of the MapMetadata instance.
+        """
+        return {slot.lstrip("_"): getattr(self, slot) for slot in self.__slots__}
