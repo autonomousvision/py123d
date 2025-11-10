@@ -89,7 +89,7 @@ class ArrowSceneAPI(SceneAPI):
     def get_log_metadata(self) -> LogMetadata:
         return self._log_metadata
 
-    def get_scene_extraction_metadata(self) -> SceneMetadata:
+    def get_scene_metadata(self) -> SceneMetadata:
         return self._scene_extraction_metadata
 
     def get_map_api(self) -> Optional[MapAPI]:

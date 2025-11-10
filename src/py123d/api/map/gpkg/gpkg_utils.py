@@ -20,8 +20,8 @@ def load_gdf_with_geometry_columns(gdf: gpd.GeoDataFrame, geometry_column_names:
 def get_all_rows_with_value(
     elements: gpd.geodataframe.GeoDataFrame, column_label: str, desired_value: str
 ) -> Optional[gpd.geodataframe.GeoDataFrame]:
-    """
-    Extract all matching elements. Note, if no matching desired_key is found and empty list is returned.
+    """Extract all matching elements. Note, if no matching desired_key is found and empty list is returned.
+
     :param elements: data frame from MapsDb.
     :param column_label: key to extract from a column.
     :param desired_value: key which is compared with the values of column_label entry.
@@ -36,8 +36,8 @@ def get_all_rows_with_value(
 def get_row_with_value(
     elements: gpd.geodataframe.GeoDataFrame, column_label: str, desired_value: str
 ) -> Optional[gpd.GeoSeries]:
-    """
-    Extract a matching element.
+    """Extract a matching element.
+
     :param elements: data frame from MapsDb.
     :param column_label: key to extract from a column.
     :param desired_value: key which is compared with the values of column_label entry.

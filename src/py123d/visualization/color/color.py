@@ -8,31 +8,38 @@ from PIL import ImageColor
 
 @dataclass(frozen=True)
 class Color:
+    """Class representing a color in hexadecimal format."""
 
     hex: str
 
     @classmethod
     def from_rgb(cls, rgb: Tuple[int, int, int]) -> Color:
+        """Create a Color instance from an RGB tuple."""
         r, g, b = rgb
         return cls(f"#{r:02x}{g:02x}{b:02x}")
 
     @property
     def rgb(self) -> Tuple[int, int, int]:
+        """The RGB representation of the color."""
         return ImageColor.getcolor(self.hex, "RGB")
 
     @property
     def rgba(self) -> Tuple[int, int, int]:
+        """The RGBA representation of the color."""
         return ImageColor.getcolor(self.hex, "RGBA")
 
     @property
     def rgb_norm(self) -> Tuple[float, float, float]:
+        """The normalized RGB representation of the color."""
         return tuple([c / 255 for c in self.rgb])
 
     @property
     def rgba_norm(self) -> Tuple[float, float, float]:
+        """The normalized RGBA representation of the color."""
         return tuple([c / 255 for c in self.rgba])
 
     def set_brightness(self, factor: float) -> Color:
+        """Return a new Color with adjusted brightness."""
         r, g, b = self.rgb
         return Color.from_rgb(
             (
@@ -43,7 +50,12 @@ class Color:
         )
 
     def __str__(self) -> str:
+        """Return the string representation of the color."""
         return self.hex
+
+    def __repr__(self) -> str:
+        """Return the official string representation of the color."""
+        return f"Color(hex='{self.hex}')"
 
 
 BLACK: Color = Color("#000000")

@@ -316,7 +316,7 @@ class ViserViewer:
             elif format == "mp4":
                 iio.imwrite(buffer, images, extension=".mp4", fps=20)
             content = buffer.getvalue()
-            scene_name = f"{scene.log_metadata.split}_{scene.uuid}"
+            scene_name = f"{scene.log_metadata.split}_{scene.scene_uuid}"
             client.send_file_download(f"{scene_name}.{format}", content, save_immediately=True)
             server_rendering = False
 
@@ -396,6 +396,6 @@ def _get_scene_info_markdown(scene: SceneAPI) -> str:
     markdown = f"""
     - Dataset: {scene.log_metadata.split}
     - Location: {scene.log_metadata.location if scene.log_metadata.location else 'N/A'}
-    - UUID: {scene.uuid}
+    - UUID: {scene.scene_uuid}
     """
     return markdown

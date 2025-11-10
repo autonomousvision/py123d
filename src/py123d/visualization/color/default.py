@@ -82,24 +82,6 @@ MAP_SURFACE_CONFIG: Dict[MapLayer, PlotConfig] = {
         zorder=1,
     ),
 }
-# # Vehicles
-# EGO = 0
-# VEHICLE = 1
-# TRAIN = 2
-
-# # Vulnerable Road Users
-# BICYCLE = 3
-# PERSON = 4
-# ANIMAL = 5
-
-# # Traffic Control
-# TRAFFIC_SIGN = 6
-# TRAFFIC_CONE = 7
-# TRAFFIC_LIGHT = 8
-
-# # Other Obstacles
-# BARRIER = 9
-# GENERIC_OBJECT = 10
 
 
 BOX_DETECTION_CONFIG: Dict[DefaultBoxDetectionLabel, PlotConfig] = {

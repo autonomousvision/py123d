@@ -27,18 +27,35 @@ from py123d.datatypes.map_objects.map_objects import (
     Walkway,
 )
 from py123d.datatypes.metadata.map_metadata import MapMetadata
-from py123d.geometry import Point2D
-from py123d.geometry.polyline import Polyline3D
+from py123d.geometry import Point2D, Point3D, Polyline3D
 from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
+# TODO: add to some configs
 USE_ARROW: bool = True
-MAX_LRU_CACHED_TABLES: Final[int] = 128  # TODO: add to some configs
+MAX_LRU_CACHED_TABLES: Final[int] = 128
 
 
 class GPKGMapAPI(MapAPI):
-    def __init__(self, file_path: Path) -> None:
+    """The GeoPackage (GPKG) implementation of the :class:`~py123d.api.MapAPI`.
 
-        self._file_path = file_path
+    Notes
+    -----
+    The current implementation is inspired by the nuPlan GPKG map API [1]_. Ideally, the 123D implementation could
+    be replaced in the future by a more lightweight solution based on GeoParquet or GeoArrow.
+
+    References
+    ----------
+    .. [1] https://github.com/motional/nuplan-devkit/blob/master/nuplan/common/maps/nuplan_map/nuplan_map.py
+
+    """
+
+    def __init__(self, file_path: Union[Path, str]) -> None:
+        """Initialize a GPKGMapAPI instance.
+
+        :param file_path: The file path to the GeoPackage.
+        """
+
+        self._file_path = Path(file_path)
         self._map_object_getter: Dict[MapLayer, Callable[[str], Optional[BaseMapObject]]] = {
             MapLayer.LANE: self._get_lane,
             MapLayer.LANE_GROUP: self._get_lane_group,
@@ -56,7 +73,7 @@ class GPKGMapAPI(MapAPI):
         self._map_metadata: Optional[MapMetadata] = None
 
     def _initialize(self) -> None:
-        """Inherited, see superclass."""
+        """Loads all available map layers and metadata from the GPKG file into GeoDataFrames."""
         if len(self._gpd_dataframes) == 0:
             available_layers = list(gpd.list_layers(self._file_path).name)
             for map_layer in list(MapLayer):
@@ -81,11 +98,11 @@ class GPKGMapAPI(MapAPI):
             self._map_metadata = MapMetadata.from_dict(metadata_gdf.iloc[0].to_dict())
 
     def _assert_initialize(self) -> None:
-        "Checks if `.initialize()` was called, before retrieving data."
+        """Checks if `.initialize()` was called, before retrieving data."""
         assert len(self._gpd_dataframes) > 0, "GPKGMap: Call `.initialize()` before retrieving data!"
 
     def _assert_layer_available(self, layer: MapLayer) -> None:
-        "Checks if layer is available."
+        """Checks if layer is available."""
         assert layer in self.get_available_map_layers(), f"GPKGMap: MapLayer {layer.name} is unavailable."
 
     def get_map_metadata(self):
@@ -107,19 +124,14 @@ class GPKGMapAPI(MapAPI):
         except KeyError:
             raise ValueError(f"Object representation for layer: {layer.name} object: {object_id} is unavailable")
 
-    def get_all_map_objects(self, point_2d: Point2D, layer: MapLayer) -> List[BaseMapObject]:
-        """Inherited, see superclass."""
-        raise NotImplementedError
-
-    def is_in_layer(self, point: Point2D, layer: MapLayer) -> bool:
-        """Inherited, see superclass."""
-        raise NotImplementedError
-
-    def get_proximal_map_objects(
-        self, point_2d: Point2D, radius: float, layers: List[MapLayer]
+    def get_map_objects_in_radius(
+        self,
+        point: Union[Point2D, Point3D],
+        radius: float,
+        layers: List[MapLayer],
     ) -> Dict[MapLayer, List[BaseMapObject]]:
         """Inherited, see superclass."""
-        center_point = geom.Point(point_2d.x, point_2d.y)
+        center_point = point.shapely_point
         patch = center_point.buffer(radius)
         return self.query(geometry=patch, layers=layers, predicate="intersects")
 
@@ -474,6 +486,7 @@ class GPKGMapAPI(MapAPI):
 
 @lru_cache(maxsize=MAX_LRU_CACHED_TABLES)
 def get_global_map_api(dataset: str, location: str) -> GPKGMapAPI:
+    """Get the global map API for a given dataset and location."""
     PY123D_MAPS_ROOT: Path = Path(get_dataset_paths().py123d_maps_root)
     gpkg_path = PY123D_MAPS_ROOT / dataset / f"{dataset}_{location}.gpkg"
     assert gpkg_path.is_file(), f"{dataset}_{location}.gpkg not found in {str(PY123D_MAPS_ROOT)}."
@@ -483,6 +496,7 @@ def get_global_map_api(dataset: str, location: str) -> GPKGMapAPI:
 
 
 def get_local_map_api(split_name: str, log_name: str) -> GPKGMapAPI:
+    """Get the local map API for a given split name and log name."""
     PY123D_MAPS_ROOT: Path = Path(get_dataset_paths().py123d_maps_root)
     gpkg_path = PY123D_MAPS_ROOT / split_name / f"{log_name}.gpkg"
     assert gpkg_path.is_file(), f"{log_name}.gpkg not found in {str(PY123D_MAPS_ROOT)}."

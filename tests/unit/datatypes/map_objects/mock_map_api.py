@@ -83,13 +83,7 @@ class MockMapAPI(MapAPI):
                 break
         return map_object
 
-    def get_all_map_objects(self, point_2d: Point2D, layer: MapLayer) -> List[BaseMapObject]:
-        return []
-
-    def is_in_layer(self, point: Point2D, layer: MapLayer) -> bool:
-        return False
-
-    def get_proximal_map_objects(
+    def get_map_objects_in_radius(
         self, point: Point2D, radius: float, layers: List[MapLayer]
     ) -> Dict[MapLayer, List[BaseMapObject]]:
         return {}

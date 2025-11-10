@@ -76,5 +76,5 @@ def render_scene_animation(
     pbar = tqdm(total=len(frames), desc=f"Rendering {scene.log_name} as {format}")
     ani = animation.FuncAnimation(fig, update, frames=frames, repeat=False)
 
-    ani.save(output_path / f"{scene.log_name}_{scene.uuid}.{format}", writer="ffmpeg", fps=fps, dpi=dpi)
+    ani.save(output_path / f"{scene.log_name}_{scene.scene_uuid}.{format}", writer="ffmpeg", fps=fps, dpi=dpi)
     plt.close(fig)

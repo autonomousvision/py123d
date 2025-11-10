@@ -91,7 +91,7 @@ def _get_map_trimesh_dict(
     ]
     map_api = scene.get_map_api()
     if map_api is not None:
-        map_objects_dict = map_api.get_proximal_map_objects(
+        map_objects_dict = map_api.get_map_objects_in_radius(
             scene_query_position.point_2d,
             radius=viser_config.map_radius,
             layers=map_layers,
