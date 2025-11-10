@@ -67,6 +67,8 @@ class TrafficLightDetectionWrapper:
     The wrapper is is used in to read and write traffic light detections from/to logs.
     """
 
+    __slots__ = ("_traffic_light_detections",)
+
     def __init__(self, traffic_light_detections: List[TrafficLightDetection]) -> None:
         """Initialize a TrafficLightDetectionWrapper instance.
 
@@ -88,12 +90,11 @@ class TrafficLightDetectionWrapper:
         return self.traffic_light_detections[index]
 
     def __len__(self) -> int:
-        """
-        :return: The number of traffic light detections.
-        """
+        """The number of traffic light detections in the wrapper."""
         return len(self.traffic_light_detections)
 
     def __iter__(self):
+        """Iterator over the traffic light detections in the wrapper."""
         return iter(self.traffic_light_detections)
 
     def get_detection_by_lane_id(self, lane_id: int) -> Optional[TrafficLightDetection]:

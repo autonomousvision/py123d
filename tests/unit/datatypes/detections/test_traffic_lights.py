@@ -24,7 +24,7 @@ class TestTrafficLightDetection(unittest.TestCase):
 
     def test_creation_with_timepoint(self):
         """Test that TrafficLightDetection can be created with timepoint."""
-        timepoint = TimePoint(0)
+        timepoint = TimePoint.from_s(0)
         detection = TrafficLightDetection(
             lane_id=2,
             status=TrafficLightStatus.RED,

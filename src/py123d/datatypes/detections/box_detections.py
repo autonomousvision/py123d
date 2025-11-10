@@ -192,6 +192,10 @@ BoxDetection = Union[BoxDetectionSE2, BoxDetectionSE3]
 
 
 class BoxDetectionWrapper:
+    """The BoxDetectionWrapper is a container for multiple box detections.
+    It provides methods to access individual detections as well as to retrieve a detection by track token.
+    The wrapper is used to read and write box detections from/to logs.
+    """
 
     def __init__(self, box_detections: List[BoxDetection]) -> None:
         """Initialize a BoxDetectionWrapper instance.
