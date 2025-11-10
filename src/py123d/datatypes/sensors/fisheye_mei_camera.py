@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -13,15 +13,19 @@ from py123d.geometry.pose import PoseSE3
 
 
 class FisheyeMEICameraType(SerialIntEnum):
-    """
-    Enum for fisheye cameras in d123.
-    """
+    """Enumeration of fisheye MEI camera types in multi-sensor setups."""
 
     FCAM_L = 0
+    """Left-facing fisheye MEI camera."""
+
     FCAM_R = 1
+    """Right-facing fisheye MEI camera."""
 
 
 class FisheyeMEICamera:
+    """Fisheye MEI camera data structure."""
+
+    __slots__ = ("_metadata", "_image", "_extrinsic")
 
     def __init__(
         self,
@@ -29,35 +33,61 @@ class FisheyeMEICamera:
         image: npt.NDArray[np.uint8],
         extrinsic: PoseSE3,
     ) -> None:
+        """Initialize a Fisheye MEI camera.
+
+        :param metadata: Metadata for the camera.
+        :param image: Image captured by the camera.
+        :param extrinsic: Extrinsic pose of the camera.
+        """
         self._metadata = metadata
         self._image = image
         self._extrinsic = extrinsic
 
     @property
     def metadata(self) -> FisheyeMEICameraMetadata:
+        """The :class:`FisheyeMEICameraMetadata` object for the camera."""
         return self._metadata
 
     @property
     def image(self) -> npt.NDArray[np.uint8]:
+        """Image captured by the camera, as a NumPy array."""
         return self._image
 
     @property
     def extrinsic(self) -> PoseSE3:
+        """Extrinsic :class:`~py123d.geometry.PoseSE3` of the camera."""
         return self._extrinsic
 
 
 class FisheyeMEIDistortionIndex(IntEnum):
+    """Indexing for fisheye MEI distortion parameters."""
 
     K1 = 0
+    """Radial distortion coefficient k1."""
+
     K2 = 1
+    """Radial distortion coefficient k2."""
+
     P1 = 2
+    """Tangential distortion coefficient p1."""
+
     P2 = 3
+    """Tangential distortion coefficient p2."""
 
 
 class FisheyeMEIDistortion(ArrayMixin):
+
+    __slots__ = ("_array",)
     _array: npt.NDArray[np.float64]
 
     def __init__(self, k1: float, k2: float, p1: float, p2: float) -> None:
+        """Initialize the fisheye MEI distortion parameters.
+
+        :param k1: Radial distortion coefficient k1.
+        :param k2: Radial distortion coefficient k2.
+        :param p1: Tangential distortion coefficient p1.
+        :param p2: Tangential distortion coefficient p2.
+        """
         array = np.zeros(len(FisheyeMEIDistortionIndex), dtype=np.float64)
         array[FisheyeMEIDistortionIndex.K1] = k1
         array[FisheyeMEIDistortionIndex.K2] = k2
@@ -67,6 +97,13 @@ class FisheyeMEIDistortion(ArrayMixin):
 
     @classmethod
     def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> FisheyeMEIDistortion:
+        """Creates a :class:`FisheyeMEIDistortion` instance from a NumPy array,
+            indexing according to :class:`FisheyeMEIDistortionIndex`.
+
+        :param array: Input array containing distortion parameters.
+        :param copy: Whether to copy the array data, defaults to True.
+        :return: A new instance of :class:`FisheyeMEIDistortion`.
+        """
         assert array.ndim == 1
         assert array.shape[-1] == len(FisheyeMEIDistortionIndex)
         instance = object.__new__(cls)
@@ -75,6 +112,7 @@ class FisheyeMEIDistortion(ArrayMixin):
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
+        """Underlying NumPy array of distortion parameters, indexed by :class:`FisheyeMEIDistortionIndex`."""
         return self._array
 
     @property
@@ -99,17 +137,35 @@ class FisheyeMEIDistortion(ArrayMixin):
 
 
 class FisheyeMEIProjectionIndex(IntEnum):
+    """Indexing for fisheye MEI projection parameters."""
 
     GAMMA1 = 0
+    """Generalized focal length gamma1."""
+
     GAMMA2 = 1
+    """Generalized focal length gamma2."""
+
     U0 = 2
+    """Principal point x-coordinate."""
+
     V0 = 3
+    """Principal point y-coordinate."""
 
 
 class FisheyeMEIProjection(ArrayMixin):
+    """Fisheye MEI projection parameters."""
+
+    __slots__ = ("_array",)
     _array: npt.NDArray[np.float64]
 
     def __init__(self, gamma1: float, gamma2: float, u0: float, v0: float) -> None:
+        """Initialize the fisheye MEI projection parameters.
+
+        :param gamma1: Generalized focal length gamma1.
+        :param gamma2: Generalized focal length gamma2.
+        :param u0: Principal point x-coordinate.
+        :param v0: Principal point y-coordinate.
+        """
         array = np.zeros(len(FisheyeMEIProjectionIndex), dtype=np.float64)
         array[FisheyeMEIProjectionIndex.GAMMA1] = gamma1
         array[FisheyeMEIProjectionIndex.GAMMA2] = gamma2
@@ -119,6 +175,13 @@ class FisheyeMEIProjection(ArrayMixin):
 
     @classmethod
     def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> FisheyeMEIProjection:
+        """Intializes a :class:`FisheyeMEIProjection` from a NumPy array,
+            indexing according to :class:`FisheyeMEIProjectionIndex`.
+
+        :param array: Input array containing projection parameters.
+        :param copy: Whether to copy the array data, defaults to True.
+        :return: A new instance of :class:`FisheyeMEIProjection`.
+        """
         assert array.ndim == 1
         assert array.shape[-1] == len(FisheyeMEIProjectionIndex)
         instance = object.__new__(cls)
@@ -127,37 +190,68 @@ class FisheyeMEIProjection(ArrayMixin):
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
+        """Underlying NumPy array of projection parameters, indexed by :class:`FisheyeMEIProjectionIndex`."""
         return self._array
 
     @property
     def gamma1(self) -> float:
+        """Generalized focal length gamma1."""
         return self._array[FisheyeMEIProjectionIndex.GAMMA1]
 
     @property
     def gamma2(self) -> float:
+        """Generalized focal length gamma2."""
         return self._array[FisheyeMEIProjectionIndex.GAMMA2]
 
     @property
     def u0(self) -> float:
+        """Principal point x-coordinate."""
         return self._array[FisheyeMEIProjectionIndex.U0]
 
     @property
     def v0(self) -> float:
+        """Principal point y-coordinate."""
         return self._array[FisheyeMEIProjectionIndex.V0]
 
 
 @dataclass
 class FisheyeMEICameraMetadata:
+    """Metadata for a fisheye MEI camera."""
 
-    camera_type: FisheyeMEICameraType
-    mirror_parameter: Optional[float]
-    distortion: Optional[FisheyeMEIDistortion]
-    projection: Optional[FisheyeMEIProjection]
-    width: int
-    height: int
+    __slots__ = ("_camera_type", "_mirror_parameter", "_distortion", "_projection", "_width", "_height")
+
+    def __init__(
+        self,
+        camera_type: FisheyeMEICameraType,
+        mirror_parameter: Optional[float],
+        distortion: Optional[FisheyeMEIDistortion],
+        projection: Optional[FisheyeMEIProjection],
+        width: int,
+        height: int,
+    ) -> None:
+        """Initialize the fisheye MEI camera metadata.
+
+        :param camera_type: Type of the fisheye MEI camera.
+        :param mirror_parameter: Mirror parameter of the camera model.
+        :param distortion: Distortion parameters of the camera.
+        :param projection: Projection parameters of the camera.
+        :param width: Width of the camera image in pixels.
+        :param height: Height of the camera image in pixels.
+        """
+        self._camera_type = camera_type
+        self._mirror_parameter = mirror_parameter
+        self._distortion = distortion
+        self._projection = projection
+        self._width = width
+        self._height = height
 
     @classmethod
     def from_dict(cls, data_dict: Dict[str, Any]) -> FisheyeMEICameraMetadata:
+        """Create a :class:`FisheyeMEICameraMetadata` instance from a dictionary.
+
+        :param data_dict: Dictionary containing camera metadata.
+        :return: A new instance of :class:`FisheyeMEICameraMetadata`.
+        """
         data_dict["camera_type"] = FisheyeMEICameraType(data_dict["camera_type"])
         data_dict["distortion"] = (
             FisheyeMEIDistortion.from_array(np.array(data_dict["distortion"]))
@@ -172,14 +266,42 @@ class FisheyeMEICameraMetadata:
         return FisheyeMEICameraMetadata(**data_dict)
 
     @property
+    def camera_type(self) -> FisheyeMEICameraType:
+        """The type of the fisheye MEI camera."""
+        return self._camera_type
+
+    @property
+    def mirror_parameter(self) -> Optional[float]:
+        """The mirror parameter of the fisheye MEI camera."""
+        return self._mirror_parameter
+
+    @property
+    def distortion(self) -> Optional[FisheyeMEIDistortion]:
+        """The distortion parameters of the fisheye MEI camera, if available."""
+        return self._distortion
+
+    @property
+    def projection(self) -> Optional[FisheyeMEIProjection]:
+        """The projection parameters of the fisheye MEI camera, if available."""
+        return self._projection
+
+    @property
     def aspect_ratio(self) -> float:
-        return self.width / self.height
+        """The aspect ratio of the fisheye MEI camera."""
+        return self._width / self._height
 
     def to_dict(self) -> Dict[str, Any]:
-        data_dict = asdict(self)
-        data_dict["camera_type"] = int(self.camera_type)
-        data_dict["distortion"] = self.distortion.array.tolist() if self.distortion is not None else None
-        data_dict["projection"] = self.projection.array.tolist() if self.projection is not None else None
+        """Converts the :class:`FisheyeMEICameraMetadata` instance to a Python dictionary.
+
+        :return: A dictionary representation of the camera metadata.
+        """
+        data_dict: Dict[str, Any] = {}
+        data_dict["mirror_parameter"] = self._mirror_parameter
+        data_dict["camera_type"] = int(self._camera_type)
+        data_dict["distortion"] = self._distortion.array.tolist() if self._distortion is not None else None
+        data_dict["projection"] = self._projection.array.tolist() if self._projection is not None else None
+        data_dict["width"] = self._width
+        data_dict["height"] = self._height
         return data_dict
 
     def cam2image(self, points_3d: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
