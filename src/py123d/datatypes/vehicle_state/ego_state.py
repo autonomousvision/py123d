@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Final, Optional
 
 from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
@@ -20,6 +19,10 @@ EGO_TRACK_TOKEN: Final[str] = "ego_vehicle"
 
 
 class EgoStateSE3:
+    """The EgoStateSE3 represents the state of the ego vehicle in SE3 (3D space).
+    It includes the rear axle pose, vehicle parameters, optional dynamic state,
+    optional timepoint, and optional tire steering angle.
+    """
 
     def __init__(
         self,
@@ -29,6 +32,14 @@ class EgoStateSE3:
         timepoint: Optional[TimePoint] = None,
         tire_steering_angle: Optional[float] = 0.0,
     ):
+        """Initialize an :class:`EgoStateSE3` instance.
+
+        :param rear_axle_se3: The pose of the rear axle in SE3.
+        :param vehicle_parameters: The parameters of the vehicle.
+        :param dynamic_state_se3: The dynamic state of the vehicle, defaults to None.
+        :param timepoint: The timepoint of the state, defaults to None.
+        :param tire_steering_angle: The tire steering angle, defaults to 0.0.
+        """
         self._rear_axle_se3 = rear_axle_se3
         self._vehicle_parameters = vehicle_parameters
         self._dynamic_state_se3 = dynamic_state_se3
@@ -44,6 +55,15 @@ class EgoStateSE3:
         timepoint: Optional[TimePoint] = None,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE3:
+        """Create an :class:`EgoStateSE3` from the center pose.
+
+        :param center_se3: The center pose in SE3.
+        :param vehicle_parameters: The parameters of the vehicle.
+        :param dynamic_state_se3: The dynamic state of the vehicle, defaults to None.
+        :param timepoint: The timepoint of the state, defaults to None.
+        :param tire_steering_angle: The tire steering angle, defaults to 0.0.
+        :return: An :class:`EgoStateSE3` instance.
+        """
 
         rear_axle_se3 = center_se3_to_rear_axle_se3(
             center_se3=center_se3,
@@ -68,6 +88,15 @@ class EgoStateSE3:
         timepoint: Optional[TimePoint] = None,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE3:
+        """Create an :class:`EgoStateSE3` from the rear axle pose.
+
+        :param rear_axle_se3: The pose of the rear axle in SE3.
+        :param vehicle_parameters: The parameters of the vehicle.
+        :param dynamic_state_se3: The dynamic state of the vehicle, defaults to None.
+        :param timepoint: The timepoint of the state, defaults to None.
+        :param tire_steering_angle: The tire steering angle, defaults to 0.0.
+        :return: An :class:`EgoStateSE3` instance.
+        """
 
         return EgoStateSE3(
             rear_axle_se3=rear_axle_se3,
@@ -78,35 +107,48 @@ class EgoStateSE3:
         )
 
     @property
-    def rear_axle_se3(self) -> PoseSE3:
+    def rear_axle(self) -> PoseSE3:
+        """The :class:`~py123d.geometry.PoseSE3` of the rear axle in SE3."""
         return self._rear_axle_se3
 
     @property
+    def rear_axle_se3(self) -> PoseSE3:
+        """The :class:`~py123d.geometry.PoseSE3` of the rear axle in SE3."""
+        return self._rear_axle_se3
+
+    @property
+    def rear_axle_se2(self) -> PoseSE2:
+        """The :class:`~py123d.geometry.PoseSE2` of the rear axle in SE2."""
+        return self._rear_axle_se3.pose_se2
+
+    @property
     def vehicle_parameters(self) -> VehicleParameters:
+        """The :class:`~py123d.datatypes.vehicle_state.VehicleParameters` of the vehicle."""
         return self._vehicle_parameters
 
     @property
     def dynamic_state_se3(self) -> Optional[DynamicStateSE3]:
+        """The :class:`~py123d.datatypes.vehicle_state.DynamicStateSE3` of the vehicle."""
         return self._dynamic_state_se3
 
     @property
     def timepoint(self) -> Optional[TimePoint]:
+        """The :class:`~py123d.datatypes.time.TimePoint` of the ego state, if available."""
         return self._timepoint
 
     @property
     def tire_steering_angle(self) -> Optional[float]:
+        """The tire steering angle of the ego state, if available."""
         return self._tire_steering_angle
 
     @property
-    def rear_axle_se2(self) -> PoseSE2:
-        return self._rear_axle_se3.pose_se2
-
-    @property
-    def rear_axle(self) -> PoseSE3:
-        return self._rear_axle_se3
+    def center(self) -> PoseSE3:
+        """The :class:`~py123d.geometry.PoseSE3` of the vehicle center in SE3."""
+        return self.center_se3
 
     @property
     def center_se3(self) -> PoseSE3:
+        """The :class:`~py123d.geometry.PoseSE3` of the vehicle center in SE3."""
         return rear_axle_se3_to_center_se3(
             rear_axle_se3=self._rear_axle_se3,
             vehicle_parameters=self._vehicle_parameters,
@@ -114,14 +156,17 @@ class EgoStateSE3:
 
     @property
     def center_se2(self) -> PoseSE2:
+        """The :class:`~py123d.geometry.PoseSE2` of the vehicle center in SE2."""
         return self.center_se3.pose_se2
 
     @property
-    def center(self) -> PoseSE3:
-        return self.center_se3
+    def bounding_box(self) -> BoundingBoxSE3:
+        """The :class:`~py123d.geometry.BoundingBoxSE3` of the ego vehicle."""
+        return self.bounding_box_se3
 
     @property
     def bounding_box_se3(self) -> BoundingBoxSE3:
+        """The :class:`~py123d.geometry.BoundingBoxSE3` of the ego vehicle."""
         return BoundingBoxSE3(
             center=self.center_se3,
             length=self.vehicle_parameters.length,
@@ -131,14 +176,17 @@ class EgoStateSE3:
 
     @property
     def bounding_box_se2(self) -> BoundingBoxSE2:
+        """The :class:`~py123d.geometry.BoundingBoxSE2` of the ego vehicle."""
         return self.bounding_box.bounding_box_se2
 
     @property
-    def bounding_box(self) -> BoundingBoxSE3:
-        return self.bounding_box_se3
+    def box_detection(self) -> BoxDetectionSE3:
+        """The :class:`~py123d.datatypes.detections.BoxDetectionSE3` projection of the ego vehicle."""
+        return self.box_detection_se3
 
     @property
     def box_detection_se3(self) -> BoxDetectionSE3:
+        """The :class:`~py123d.datatypes.detections.BoxDetectionSE3` projection of the ego vehicle."""
         return BoxDetectionSE3(
             metadata=BoxDetectionMetadata(
                 label=DefaultBoxDetectionLabel.EGO,
@@ -152,14 +200,12 @@ class EgoStateSE3:
 
     @property
     def box_detection_se2(self) -> BoxDetectionSE2:
-        return self.box_detection.box_detection_se2
-
-    @property
-    def box_detection(self) -> BoxDetectionSE3:
-        return self.box_detection_se3
+        """The :class:`~py123d.datatypes.detections.BoxDetectionSE2` projection of the ego vehicle."""
+        return self.box_detection_se3.box_detection_se2
 
     @property
     def ego_state_se2(self) -> EgoStateSE2:
+        """The :class:`EgoStateSE2` projection of this SE3 ego state."""
         return EgoStateSE2.from_rear_axle(
             rear_axle_se2=self.rear_axle_se2,
             vehicle_parameters=self.vehicle_parameters,
@@ -169,8 +215,10 @@ class EgoStateSE3:
         )
 
 
-@dataclass
 class EgoStateSE2:
+    """The EgoStateSE2 represents the state of the ego vehicle in SE2 (2D space).
+    It includes the rear axle pose, vehicle parameters, optional dynamic state, and optional timepoint.
+    """
 
     def __init__(
         self,
@@ -180,6 +228,14 @@ class EgoStateSE2:
         timepoint: Optional[TimePoint] = None,
         tire_steering_angle: Optional[float] = 0.0,
     ):
+        """Initialize an :class:`EgoStateSE2` instance.
+
+        :param rear_axle_se2: The pose of the rear axle in SE2.
+        :param vehicle_parameters: The parameters of the vehicle.
+        :param dynamic_state_se2: The dynamic state of the vehicle in SE2, defaults to None.
+        :param timepoint: The timepoint of the state, defaults to None.
+        :param tire_steering_angle: The tire steering angle, defaults to 0.0
+        """
         self._rear_axle_se2: PoseSE2 = rear_axle_se2
         self._vehicle_parameters: VehicleParameters = vehicle_parameters
         self._dynamic_state_se2: Optional[DynamicStateSE2] = dynamic_state_se2
@@ -195,6 +251,15 @@ class EgoStateSE2:
         timepoint: TimePoint,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE2:
+        """Create an :class:`EgoStateSE2` from the rear axle pose.
+
+        :param rear_axle_se2: The pose of the rear axle in SE2.
+        :param dynamic_state_se2: The dynamic state of the vehicle in SE2.
+        :param vehicle_parameters: The parameters of the vehicle.
+        :param timepoint: The timepoint of the state.
+        :param tire_steering_angle: The tire steering angle, defaults to 0.0.
+        :return: An instance of :class:`EgoStateSE2`.
+        """
 
         return EgoStateSE2(
             rear_axle_se2=rear_axle_se2,
@@ -213,6 +278,15 @@ class EgoStateSE2:
         timepoint: TimePoint,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE2:
+        """Create an :class:`EgoStateSE2` from the center pose.
+
+        :param center_se2: The pose of the center in SE2.
+        :param dynamic_state_se2: The dynamic state of the vehicle in SE2.
+        :param vehicle_parameters: The parameters of the vehicle.
+        :param timepoint: The timepoint of the state.
+        :param tire_steering_angle: The tire steering angle, defaults to 0.0.
+        :return: An instance of :class:`EgoStateSE2`.
+        """
 
         rear_axle_se2 = center_se2_to_rear_axle_se2(
             center_se2=center_se2,
@@ -229,39 +303,53 @@ class EgoStateSE2:
         )
 
     @property
+    def rear_axle(self) -> PoseSE2:
+        """The :class:`~py123d.geometry.PoseSE2` of the rear axle in SE2."""
+        return self.rear_axle_se2
+
+    @property
     def rear_axle_se2(self) -> PoseSE2:
+        """The :class:`~py123d.geometry.PoseSE2` of the rear axle in SE2."""
         return self._rear_axle_se2
 
     @property
     def vehicle_parameters(self) -> VehicleParameters:
+        """The :class:`~py123d.datatypes.vehicle_state.VehicleParameters` of the vehicle."""
         return self._vehicle_parameters
 
     @property
-    def dynamic_state_se2(self) -> Optional[DynamicStateSE3]:
+    def dynamic_state_se2(self) -> Optional[DynamicStateSE2]:
+        """The :class:`~py123d.datatypes.vehicle_state.DynamicStateSE2` of the vehicle."""
         return self._dynamic_state_se2
 
     @property
     def timepoint(self) -> Optional[TimePoint]:
+        """The :class:`~py123d.datatypes.time.TimePoint` of the ego state, if available."""
         return self._timepoint
 
     @property
     def tire_steering_angle(self) -> Optional[float]:
+        """The tire steering angle of the ego state, if available."""
         return self._tire_steering_angle
 
     @property
-    def rear_axle(self) -> PoseSE2:
-        return self.rear_axle_se2
-
-    @property
-    def center_se2(self) -> PoseSE2:
-        return rear_axle_se2_to_center_se2(rear_axle_se2=self.rear_axle_se2, vehicle_parameters=self.vehicle_parameters)
-
-    @property
     def center(self) -> PoseSE3:
+        """The :class:`~py123d.geometry.PoseSE2` of the center in SE2."""
         return self.center_se2
 
     @property
+    def center_se2(self) -> PoseSE2:
+        """The :class:`~py123d.geometry.PoseSE2` of the center in SE2."""
+        return rear_axle_se2_to_center_se2(rear_axle_se2=self.rear_axle_se2, vehicle_parameters=self.vehicle_parameters)
+
+    @property
+    def bounding_box(self) -> BoundingBoxSE2:
+        """The :class:`~py123d.geometry.BoundingBoxSE2` of the ego vehicle."""
+        return self.bounding_box_se2
+
+    @property
     def bounding_box_se2(self) -> BoundingBoxSE2:
+        """The :class:`~py123d.geometry.BoundingBoxSE2` of the ego vehicle."""
         return BoundingBoxSE2(
             center=self.center_se2,
             length=self.vehicle_parameters.length,
@@ -269,11 +357,13 @@ class EgoStateSE2:
         )
 
     @property
-    def bounding_box(self) -> BoundingBoxSE2:
-        return self.bounding_box_se2
+    def box_detection(self) -> BoxDetectionSE2:
+        """The :class:`~py123d.datatypes.detections.BoxDetectionSE2` projection of the ego vehicle."""
+        return self.box_detection_se2
 
     @property
     def box_detection_se2(self) -> BoxDetectionSE2:
+        """The :class:`~py123d.datatypes.detections.BoxDetectionSE2` projection of the ego vehicle."""
         return BoxDetectionSE2(
             metadata=BoxDetectionMetadata(
                 label=DefaultBoxDetectionLabel.EGO,
@@ -284,7 +374,3 @@ class EgoStateSE2:
             bounding_box_se2=self.bounding_box,
             velocity_2d=self.dynamic_state_se2.velocity,
         )
-
-    @property
-    def box_detection(self) -> BoxDetectionSE2:
-        return self.box_detection_se2
