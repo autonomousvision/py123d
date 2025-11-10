@@ -55,7 +55,7 @@ class GPKGMapAPI(MapAPI):
         self._gpd_dataframes: Dict[MapLayer, gpd.GeoDataFrame] = {}
         self._map_metadata: Optional[MapMetadata] = None
 
-    def initialize(self) -> None:
+    def _initialize(self) -> None:
         """Inherited, see superclass."""
         if len(self._gpd_dataframes) == 0:
             available_layers = list(gpd.list_layers(self._file_path).name)
@@ -86,12 +86,13 @@ class GPKGMapAPI(MapAPI):
 
     def _assert_layer_available(self, layer: MapLayer) -> None:
         "Checks if layer is available."
-        assert layer in self.get_available_map_objects(), f"GPKGMap: MapLayer {layer.name} is unavailable."
+        assert layer in self.get_available_map_layers(), f"GPKGMap: MapLayer {layer.name} is unavailable."
 
     def get_map_metadata(self):
+        """Inherited, see superclass."""
         return self._map_metadata
 
-    def get_available_map_objects(self) -> List[MapLayer]:
+    def get_available_map_layers(self) -> List[MapLayer]:
         """Inherited, see superclass."""
         self._assert_initialize()
         return list(self._gpd_dataframes.keys())
@@ -130,7 +131,8 @@ class GPKGMapAPI(MapAPI):
         sort: bool = False,
         distance: Optional[float] = None,
     ) -> Dict[MapLayer, Union[List[BaseMapObject], Dict[int, List[BaseMapObject]]]]:
-        supported_layers = self.get_available_map_objects()
+        """Inherited, see superclass."""
+        supported_layers = self.get_available_map_layers()
         unsupported_layers = [layer for layer in layers if layer not in supported_layers]
         assert len(unsupported_layers) == 0, f"Object representation for layer(s): {unsupported_layers} is unavailable"
         object_map: Dict[MapLayer, Union[List[BaseMapObject], Dict[int, List[BaseMapObject]]]] = defaultdict(list)
@@ -146,7 +148,8 @@ class GPKGMapAPI(MapAPI):
         sort: bool = False,
         distance: Optional[float] = None,
     ) -> Dict[MapLayer, Union[List[str], Dict[int, List[str]]]]:
-        supported_layers = self.get_available_map_objects()
+        """Inherited, see superclass."""
+        supported_layers = self.get_available_map_layers()
         unsupported_layers = [layer for layer in layers if layer not in supported_layers]
         assert len(unsupported_layers) == 0, f"Object representation for layer(s): {unsupported_layers} is unavailable"
         object_map: Dict[MapLayer, Union[List[str], Dict[int, List[str]]]] = defaultdict(list)
@@ -163,7 +166,8 @@ class GPKGMapAPI(MapAPI):
         return_distance: bool = False,
         exclusive: bool = False,
     ) -> Dict[MapLayer, Union[List[str], Dict[int, List[str]], Dict[int, List[Tuple[str, float]]]]]:
-        supported_layers = self.get_available_map_objects()
+        """Inherited, see superclass."""
+        supported_layers = self.get_available_map_layers()
         unsupported_layers = [layer for layer in layers if layer not in supported_layers]
         assert len(unsupported_layers) == 0, f"Object representation for layer(s): {unsupported_layers} is unavailable"
         object_map: Dict[MapLayer, Union[List[str], Dict[int, List[str]]]] = defaultdict(list)
@@ -181,6 +185,8 @@ class GPKGMapAPI(MapAPI):
         sort: bool = False,
         distance: Optional[float] = None,
     ) -> Union[List[BaseMapObject], Dict[int, List[BaseMapObject]]]:
+        """Helper method to query a single layer."""
+
         queried_indices = self._gpd_dataframes[layer].sindex.query(
             geometry, predicate=predicate, sort=sort, distance=distance
         )
@@ -203,7 +209,7 @@ class GPKGMapAPI(MapAPI):
         sort: bool = False,
         distance: Optional[float] = None,
     ) -> Union[List[str], Dict[int, List[str]]]:
-        # Use numpy for fast indexing and avoid .iloc in a loop
+        """Helper method to query a single layer."""
 
         queried_indices = self._gpd_dataframes[layer].sindex.query(
             geometry, predicate=predicate, sort=sort, distance=distance
@@ -227,7 +233,7 @@ class GPKGMapAPI(MapAPI):
         return_distance: bool = False,
         exclusive: bool = False,
     ) -> Union[List[str], Dict[int, List[str]], Dict[int, List[Tuple[str, float]]]]:
-        # Use numpy for fast indexing and avoid .iloc in a loop
+        """Helper method to query a single layer."""
 
         queried_indices = self._gpd_dataframes[layer].sindex.nearest(
             geometry,
@@ -254,6 +260,7 @@ class GPKGMapAPI(MapAPI):
             return list(ids[queried_indices])
 
     def _get_lane(self, id: str) -> Optional[Lane]:
+        """Helper method for getting a lane by its ID."""
         lane: Optional[Lane] = None
         lane_row = get_row_with_value(self._gpd_dataframes[MapLayer.LANE], "id", id)
 
@@ -292,6 +299,7 @@ class GPKGMapAPI(MapAPI):
         return lane
 
     def _get_lane_group(self, id: str) -> Optional[LaneGroup]:
+        """Helper method for getting a lane group by its ID."""
         lane_group: Optional[LaneGroup] = None
         lane_group_row = get_row_with_value(self._gpd_dataframes[MapLayer.LANE_GROUP], "id", id)
         if lane_group_row is not None:
@@ -324,6 +332,7 @@ class GPKGMapAPI(MapAPI):
         return lane_group
 
     def _get_intersection(self, id: str) -> Optional[Intersection]:
+        """Helper method for getting an intersection by its ID."""
 
         intersection: Optional[Intersection] = None
         intersection_row = get_row_with_value(self._gpd_dataframes[MapLayer.INTERSECTION], "id", id)
@@ -349,6 +358,8 @@ class GPKGMapAPI(MapAPI):
         return intersection
 
     def _get_crosswalk(self, id: str) -> Optional[Crosswalk]:
+        """Helper method for getting a crosswalk by its ID."""
+
         crosswalk: Optional[Crosswalk] = None
         crosswalk_row = get_row_with_value(self._gpd_dataframes[MapLayer.CROSSWALK], "id", id)
         if crosswalk_row is not None:
@@ -366,6 +377,8 @@ class GPKGMapAPI(MapAPI):
         return crosswalk
 
     def _get_walkway(self, id: str) -> Optional[Walkway]:
+        """Helper method for getting a walkway by its ID."""
+
         walkway: Optional[Walkway] = None
         walkway_row = get_row_with_value(self._gpd_dataframes[MapLayer.WALKWAY], "id", id)
         if walkway_row is not None:
@@ -383,6 +396,8 @@ class GPKGMapAPI(MapAPI):
         return walkway
 
     def _get_carpark(self, id: str) -> Optional[Carpark]:
+        """Helper method for getting a carpark by its ID."""
+
         carpark: Optional[Carpark] = None
         carpark_row = get_row_with_value(self._gpd_dataframes[MapLayer.CARPARK], "id", id)
         if carpark_row is not None:
@@ -400,6 +415,8 @@ class GPKGMapAPI(MapAPI):
         return carpark
 
     def _get_generic_drivable(self, id: str) -> Optional[GenericDrivable]:
+        """Helper method for getting a generic drivable area by its ID."""
+
         generic_drivable: Optional[GenericDrivable] = None
         generic_drivable_row = get_row_with_value(self._gpd_dataframes[MapLayer.GENERIC_DRIVABLE], "id", id)
         if generic_drivable_row is not None:
@@ -417,6 +434,8 @@ class GPKGMapAPI(MapAPI):
         return generic_drivable
 
     def _get_road_edge(self, id: str) -> Optional[RoadEdge]:
+        """Helper method for getting a road edge by its ID."""
+
         road_edge: Optional[RoadEdge] = None
         road_edge_row = get_row_with_value(self._gpd_dataframes[MapLayer.ROAD_EDGE], "id", id)
         if road_edge_row is not None:
@@ -434,6 +453,8 @@ class GPKGMapAPI(MapAPI):
         return road_edge
 
     def _get_road_line(self, id: str) -> Optional[RoadLine]:
+        """Helper method for getting a road line by its ID."""
+
         road_line: Optional[RoadLine] = None
         road_line_row = get_row_with_value(self._gpd_dataframes[MapLayer.ROAD_LINE], "id", id)
         if road_line_row is not None:
@@ -457,7 +478,7 @@ def get_global_map_api(dataset: str, location: str) -> GPKGMapAPI:
     gpkg_path = PY123D_MAPS_ROOT / dataset / f"{dataset}_{location}.gpkg"
     assert gpkg_path.is_file(), f"{dataset}_{location}.gpkg not found in {str(PY123D_MAPS_ROOT)}."
     map_api = GPKGMapAPI(gpkg_path)
-    map_api.initialize()
+    map_api._initialize()
     return map_api
 
 
@@ -466,5 +487,5 @@ def get_local_map_api(split_name: str, log_name: str) -> GPKGMapAPI:
     gpkg_path = PY123D_MAPS_ROOT / split_name / f"{log_name}.gpkg"
     assert gpkg_path.is_file(), f"{log_name}.gpkg not found in {str(PY123D_MAPS_ROOT)}."
     map_api = GPKGMapAPI(gpkg_path)
-    map_api.initialize()
+    map_api._initialize()
     return map_api

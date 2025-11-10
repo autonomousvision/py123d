@@ -24,11 +24,7 @@ class MapAPI(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def initialize(self) -> None:
-        pass
-
-    @abc.abstractmethod
-    def get_available_map_objects(self) -> List[MapLayer]:
+    def get_available_map_layers(self) -> List[MapLayer]:
         pass
 
     @abc.abstractmethod

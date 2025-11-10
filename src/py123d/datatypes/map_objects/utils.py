@@ -8,8 +8,16 @@ from py123d.geometry import Polyline3D
 def get_trimesh_from_boundaries(
     left_boundary: Polyline3D, right_boundary: Polyline3D, resolution: float = 0.25
 ) -> trimesh.Trimesh:
+    """Helper function to create a trimesh from two lane boundaries.
+
+    :param left_boundary: The left boundary polyline.
+    :param right_boundary: The right boundary polyline.
+    :param resolution: The resolution for the mesh, defaults to 0.25.
+    :return: A trimesh representation of the lane.
+    """
 
     def _interpolate_polyline(polyline_3d: Polyline3D, num_samples: int) -> npt.NDArray[np.float64]:
+        """Helper function to interpolate a polyline to a fixed number of samples."""
         if num_samples < 2:
             num_samples = 2
         distances = np.linspace(0, polyline_3d.length, num=num_samples, endpoint=True, dtype=np.float64)
@@ -25,6 +33,13 @@ def get_trimesh_from_boundaries(
 def _create_lane_mesh_from_boundary_arrays(
     left_boundary_array: npt.NDArray[np.float64], right_boundary_array: npt.NDArray[np.float64]
 ) -> trimesh.Trimesh:
+    """Helper function to create a trimesh from two boundary arrays.
+
+    :param left_boundary_array: The left boundary array.
+    :param right_boundary_array: The right boundary array.
+    :raises ValueError: If the boundary arrays do not have the same number of points.
+    :return: A trimesh representation of the lane.
+    """
 
     # Ensure both polylines have the same number of points
     if left_boundary_array.shape[0] != right_boundary_array.shape[0]:

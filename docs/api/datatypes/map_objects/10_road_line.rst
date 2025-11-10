@@ -6,4 +6,5 @@ Road Line
    :autoclasstoc:
 
 .. autoclass:: py123d.datatypes.map_objects.RoadLineType
-   :autoclasstoc:
+   :no-inherited-members:
+   :exclude-members: __new__
