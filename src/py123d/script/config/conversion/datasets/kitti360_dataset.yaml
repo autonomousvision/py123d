@@ -31,7 +31,7 @@ kitti360_dataset:
 
     # Pinhole Cameras
     include_pinhole_cameras: true
-    pinhole_camera_store_option: "png_binary" # "path", "jpeg_binary", "png_binary", "mp4"
+    pinhole_camera_store_option: "jpeg_binary" # "path", "jpeg_binary", "png_binary", "mp4"
 
     # Fisheye Cameras
     include_fisheye_mei_cameras: true

@@ -14,9 +14,10 @@ from py123d.api.scene.arrow.utils.arrow_getters import (
     get_timepoint_from_arrow_table,
     get_traffic_light_detections_from_arrow_table,
 )
-from py123d.api.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow
+from py123d.api.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow_file
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_metadata import SceneMetadata
+from py123d.common.utils.arrow_column_names import UUID_COLUMN
 from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
@@ -28,6 +29,19 @@ from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 
 
+def _get_complete_log_scene_metadata(arrow_file_path: Union[Path, str], log_metadata: LogMetadata) -> SceneMetadata:
+    table = get_lru_cached_arrow_table(arrow_file_path)
+    initial_uuid = table[UUID_COLUMN][0].as_py()
+    num_rows = table.num_rows
+    return SceneMetadata(
+        initial_uuid=initial_uuid,
+        initial_idx=0,
+        duration_s=log_metadata.timestep_seconds * num_rows,
+        history_s=0.0,
+        iteration_duration_s=log_metadata.timestep_seconds,
+    )
+
+
 class ArrowSceneAPI(SceneAPI):
 
     def __init__(
@@ -37,23 +51,12 @@ class ArrowSceneAPI(SceneAPI):
     ) -> None:
 
         self._arrow_file_path: Path = Path(arrow_file_path)
-        self._log_metadata: LogMetadata = get_log_metadata_from_arrow(arrow_file_path)
-
-        with pa.memory_map(str(self._arrow_file_path), "r") as source:
-            reader = pa.ipc.open_file(source)
-            table = reader.read_all()
-            num_rows = table.num_rows
-            initial_uuid = table["uuid"][0].as_py()
-
-        if scene_extraction_metadata is None:
-            scene_extraction_metadata = SceneMetadata(
-                initial_uuid=initial_uuid,
-                initial_idx=0,
-                duration_s=self._log_metadata.timestep_seconds * num_rows,
-                history_s=0.0,
-                iteration_duration_s=self._log_metadata.timestep_seconds,
-            )
-        self._scene_extraction_metadata: SceneMetadata = scene_extraction_metadata
+        self._log_metadata: LogMetadata = get_log_metadata_from_arrow_file(str(arrow_file_path))
+        self._scene_extraction_metadata: SceneMetadata = (
+            scene_extraction_metadata
+            if scene_extraction_metadata is not None
+            else _get_complete_log_scene_metadata(arrow_file_path, self._log_metadata)
+        )
 
         # NOTE: Lazy load a log-specific map API, and keep reference.
         # Global maps are LRU cached internally.

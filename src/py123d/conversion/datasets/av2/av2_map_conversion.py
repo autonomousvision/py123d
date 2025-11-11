@@ -130,7 +130,7 @@ def _write_av2_lanes(lanes: Dict[int, Any], map_writer: AbstractMapWriter) -> No
                 successor_ids=lane_dict["successors"],
                 speed_limit_mps=None,
                 outline=None,  # Inferred from boundaries
-                geometry=None,
+                shapely_polygon=None,
             )
         )
 
@@ -149,7 +149,7 @@ def _write_av2_lane_group(lane_group_dict: Dict[int, Any], map_writer: AbstractM
                 predecessor_ids=lane_group_values["predecessor_ids"],
                 successor_ids=lane_group_values["successor_ids"],
                 outline=None,
-                geometry=None,
+                shapely_polygon=None,
             )
         )
 

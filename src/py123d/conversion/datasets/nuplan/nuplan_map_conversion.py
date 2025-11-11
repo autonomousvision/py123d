@@ -117,7 +117,7 @@ def _write_nuplan_lanes(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: Abs
                 successor_ids=successor_ids,
                 speed_limit_mps=all_speed_limits_mps[idx],
                 outline=None,
-                geometry=all_geometries[idx],
+                shapely_polygon=all_geometries[idx],
             )
         )
 
@@ -170,7 +170,7 @@ def _write_nuplan_lane_connectors(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_w
                 successor_ids=successor_ids,
                 speed_limit_mps=all_speed_limits_mps[idx],
                 outline=None,
-                geometry=lane_connector_polygons_row.geometry,
+                shapely_polygon=lane_connector_polygons_row.geometry,
             )
         )
 
@@ -225,7 +225,7 @@ def _write_nuplan_lane_groups(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_write
                 predecessor_ids=predecessor_lane_group_ids,
                 successor_ids=successor_lane_group_ids,
                 outline=None,
-                geometry=lane_group_row.geometry,
+                shapely_polygon=lane_group_row.geometry,
             )
         )
 
@@ -266,7 +266,7 @@ def _write_nuplan_lane_connector_groups(nuplan_gdf: Dict[str, gpd.GeoDataFrame],
                 predecessor_ids=predecessor_lane_group_ids,
                 successor_ids=successor_lane_group_ids,
                 outline=None,
-                geometry=lane_group_connector_row.geometry,
+                shapely_polygon=lane_group_connector_row.geometry,
             )
         )
 
@@ -284,7 +284,7 @@ def _write_nuplan_intersections(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_wri
             Intersection(
                 object_id=intersection_id,
                 lane_group_ids=lane_group_connector_ids,
-                geometry=all_geometries[idx],
+                shapely_polygon=all_geometries[idx],
             )
         )
 
@@ -292,19 +292,19 @@ def _write_nuplan_intersections(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_wri
 def _write_nuplan_crosswalks(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
     # NOTE: drops: creator_id, intersection_fids, lane_fids, is_marked (?)
     for id, geometry in zip(nuplan_gdf["crosswalks"].fid.to_list(), nuplan_gdf["crosswalks"].geometry.to_list()):
-        map_writer.write_crosswalk(Crosswalk(object_id=id, geometry=geometry))
+        map_writer.write_crosswalk(Crosswalk(object_id=id, shapely_polygon=geometry))
 
 
 def _write_nuplan_walkways(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
     # NOTE: drops: creator_id
     for id, geometry in zip(nuplan_gdf["walkways"].fid.to_list(), nuplan_gdf["walkways"].geometry.to_list()):
-        map_writer.write_walkway(Walkway(object_id=id, geometry=geometry))
+        map_writer.write_walkway(Walkway(object_id=id, shapely_polygon=geometry))
 
 
 def _write_nuplan_carparks(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
     # NOTE: drops: creator_id
     for id, geometry in zip(nuplan_gdf["carpark_areas"].fid.to_list(), nuplan_gdf["carpark_areas"].geometry.to_list()):
-        map_writer.write_carpark(Carpark(object_id=id, geometry=geometry))
+        map_writer.write_carpark(Carpark(object_id=id, shapely_polygon=geometry))
 
 
 def _write_nuplan_generic_drivables(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
@@ -312,7 +312,7 @@ def _write_nuplan_generic_drivables(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map
     for id, geometry in zip(
         nuplan_gdf["generic_drivable_areas"].fid.to_list(), nuplan_gdf["generic_drivable_areas"].geometry.to_list()
     ):
-        map_writer.write_generic_drivable(GenericDrivable(object_id=id, geometry=geometry))
+        map_writer.write_generic_drivable(GenericDrivable(object_id=id, shapely_polygon=geometry))
 
 
 def _write_nuplan_road_edges(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:

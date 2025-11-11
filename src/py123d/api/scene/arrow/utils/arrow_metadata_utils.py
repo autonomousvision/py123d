@@ -1,5 +1,4 @@
 import json
-from functools import lru_cache
 from pathlib import Path
 from typing import Union
 
@@ -9,11 +8,13 @@ from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 
 
-@lru_cache(maxsize=10000)
-def get_log_metadata_from_arrow(arrow_file_path: Union[Path, str]) -> LogMetadata:
+def get_log_metadata_from_arrow_file(arrow_file_path: Union[Path, str]) -> LogMetadata:
     table = get_lru_cached_arrow_table(arrow_file_path)
-    log_metadata = LogMetadata.from_dict(json.loads(table.schema.metadata[b"log_metadata"].decode()))
-    return log_metadata
+    return get_log_metadata_from_arrow_table(table)
+
+
+def get_log_metadata_from_arrow_table(arrow_table: pa.Table) -> LogMetadata:
+    return LogMetadata.from_dict(json.loads(arrow_table.schema.metadata[b"log_metadata"].decode()))
 
 
 def add_log_metadata_to_arrow_schema(schema: pa.schema, log_metadata: LogMetadata) -> pa.schema:

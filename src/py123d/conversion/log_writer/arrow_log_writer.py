@@ -193,7 +193,7 @@ class ArrowLogWriter(AbstractLogWriter):
             box_detection_num_lidar_points = []
 
             for box_detection in box_detections:
-                box_detection_state.append(box_detection.bounding_box_se2)
+                box_detection_state.append(box_detection.bounding_box_se3)
                 box_detection_token.append(box_detection.metadata.track_token)
                 box_detection_label.append(int(box_detection.metadata.label))
                 box_detection_velocity.append(box_detection.velocity_3d)

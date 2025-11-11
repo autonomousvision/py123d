@@ -16,6 +16,7 @@ if __name__ == "__main__":
     # log_names = ["2013_05_28_drive_0000_sync"]
     # log_names = ["2013_05_28_drive_0000_sync"]
     log_names = None
+    splits = None
     # scene_uuids = ["87bf69e4-f2fb-5491-99fa-8b7e89fb697c"]
     scene_uuids = None
 
@@ -23,9 +24,9 @@ if __name__ == "__main__":
         split_names=splits,
         log_names=log_names,
         scene_uuids=scene_uuids,
-        duration_s=None,
+        duration_s=5.0,
         history_s=0.0,
-        timestamp_threshold_s=None,
+        timestamp_threshold_s=5.0,
         shuffle=True,
         # pinhole_camera_types=[PinholeCameraType.PCAM_F0],
     )
