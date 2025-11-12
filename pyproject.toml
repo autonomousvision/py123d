@@ -71,6 +71,7 @@ docs = [
     "myst-parser",
     "furo",
     "autoclasstoc",
+    "sphinx-autodoc-typehints",
 ]
 nuplan = [
     "nuplan-devkit @ git+https://github.com/motional/nuplan-devkit/@nuplan-devkit-v1.2",

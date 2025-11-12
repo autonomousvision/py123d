@@ -24,6 +24,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx_copybutton",
     "sphinx_inline_tabs",
+    "sphinx_autodoc_typehints",
     "myst_parser",
 ]
 
@@ -31,6 +32,7 @@ intersphinx_mapping = {
     "rtd": ("https://docs.readthedocs.io/en/stable/", None),
     "python": ("https://docs.python.org/3/", None),
     "sphinx": ("https://www.sphinx-doc.org/en/master/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
 }
 intersphinx_disabled_domains = ["std"]
 
@@ -56,6 +58,7 @@ html_title = ""
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+html_favicon = "_static/123D_favicon.svg"
 
 html_theme_options = {}
 
