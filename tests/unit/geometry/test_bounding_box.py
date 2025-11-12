@@ -29,7 +29,7 @@ class TestBoundingBoxSE2(unittest.TestCase):
         bbox = BoundingBoxSE2(self.center, self.length, self.width)
         self.assertEqual(bbox.length, self.length)
         self.assertEqual(bbox.width, self.width)
-        np.testing.assert_array_equal(bbox.center.array, self.center.array)
+        np.testing.assert_array_equal(bbox.center_se2.array, self.center.array)
 
     def test_from_array(self):
         """Test BoundingBoxSE2.from_array method."""
@@ -51,7 +51,6 @@ class TestBoundingBoxSE2(unittest.TestCase):
         """Test BoundingBoxSE2 properties."""
         self.assertEqual(self.bbox.length, self.length)
         self.assertEqual(self.bbox.width, self.width)
-        np.testing.assert_array_equal(self.bbox.center.array, self.center.array)
         np.testing.assert_array_equal(self.bbox.center_se2.array, self.center.array)
 
     def test_array_property(self):
@@ -110,19 +109,19 @@ class TestBoundingBoxSE3(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.array = np.array([1.0, 2.0, 3.0, 0.98185617, 0.06407135, 0.09115755, 0.1534393, 4.0, 2.0, 1.5])
-        self.center = PoseSE3(1.0, 2.0, 3.0, 0.98185617, 0.06407135, 0.09115755, 0.1534393)
+        self.center_se3 = PoseSE3(1.0, 2.0, 3.0, 0.98185617, 0.06407135, 0.09115755, 0.1534393)
         self.length = 4.0
         self.width = 2.0
         self.height = 1.5
-        self.bbox = BoundingBoxSE3(self.center, self.length, self.width, self.height)
+        self.bbox = BoundingBoxSE3(self.center_se3, self.length, self.width, self.height)
 
     def test_init(self):
         """Test BoundingBoxSE3 initialization."""
-        bbox = BoundingBoxSE3(self.center, self.length, self.width, self.height)
+        bbox = BoundingBoxSE3(self.center_se3, self.length, self.width, self.height)
         self.assertEqual(bbox.length, self.length)
         self.assertEqual(bbox.width, self.width)
         self.assertEqual(bbox.height, self.height)
-        np.testing.assert_array_equal(bbox.center.array, self.center.array)
+        np.testing.assert_array_equal(bbox.center_se3.array, self.center_se3.array)
 
     def test_from_array(self):
         """Test BoundingBoxSE3.from_array method."""
@@ -145,8 +144,7 @@ class TestBoundingBoxSE3(unittest.TestCase):
         self.assertEqual(self.bbox.length, self.length)
         self.assertEqual(self.bbox.width, self.width)
         self.assertEqual(self.bbox.height, self.height)
-        np.testing.assert_array_equal(self.bbox.center.array, self.center.array)
-        np.testing.assert_array_equal(self.bbox.center_se3.array, self.center.array)
+        np.testing.assert_array_equal(self.bbox.center_se3.array, self.center_se3.array)
 
     def test_array_property(self):
         """Test array property."""
@@ -169,9 +167,9 @@ class TestBoundingBoxSE3(unittest.TestCase):
         self.assertIsInstance(bbox_2d, BoundingBoxSE2)
         self.assertEqual(bbox_2d.length, self.length)
         self.assertEqual(bbox_2d.width, self.width)
-        self.assertEqual(bbox_2d.center.x, self.center.x)
-        self.assertEqual(bbox_2d.center.y, self.center.y)
-        self.assertEqual(bbox_2d.center.yaw, self.center.euler_angles.yaw)
+        self.assertEqual(bbox_2d.center_se2.x, self.center_se3.x)
+        self.assertEqual(bbox_2d.center_se2.y, self.center_se3.y)
+        self.assertEqual(bbox_2d.center_se2.yaw, self.center_se3.euler_angles.yaw)
 
     def test_corners_array(self):
         """Test corners_array property."""

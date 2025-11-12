@@ -58,9 +58,9 @@ class BaseMapSurfaceObject(BaseMapObject):
 
         if outline is None and shapely_polygon is None:
             raise ValueError("Either outline or shapely_polygon must be provided.")
-        elif outline is None:
-            outline = Polyline3D.from_linestring(shapely_polygon.exterior)
-        elif shapely_polygon is None:
+        if outline is None:
+            outline = Polyline3D.from_linestring(shapely_polygon.exterior)  # type: ignore
+        if shapely_polygon is None:
             shapely_polygon = geom.Polygon(outline.array[:, :2])
 
         self._object_id = object_id
@@ -76,7 +76,7 @@ class BaseMapSurfaceObject(BaseMapObject):
     @property
     def outline_2d(self) -> Polyline2D:
         """The outline of the surface as :class:`~py123d.geometry.Polyline2D`."""
-        if isinstance(self.outline, Polyline2D):
+        if isinstance(self._outline, Polyline2D):
             return self._outline
         # Converts 3D polyline to 2D by dropping the z-coordinate
         return Polyline2D.from_linestring(self._outline.linestring)

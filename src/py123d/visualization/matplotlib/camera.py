@@ -87,8 +87,8 @@ def add_box_detections_to_camera_ax(
         box_detection_array[idx] = box_detection.bounding_box_se3.array
 
     # FIXME
-    box_detection_array[..., BoundingBoxSE3Index.POSE_SE3] = convert_absolute_to_relative_se3_array(
-        ego_state_se3.rear_axle_se3, box_detection_array[..., BoundingBoxSE3Index.POSE_SE3]
+    box_detection_array[..., BoundingBoxSE3Index.SE3] = convert_absolute_to_relative_se3_array(
+        ego_state_se3.rear_axle_se3, box_detection_array[..., BoundingBoxSE3Index.SE3]
     )
     # box_detection_array[..., BoundingBoxSE3Index.XYZ] -= ego_state_se3.rear_axle_se3.point_3d.array
     detection_positions, detection_extents, detection_yaws = _transform_annotations_to_camera(

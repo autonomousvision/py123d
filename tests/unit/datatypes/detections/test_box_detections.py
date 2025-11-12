@@ -98,7 +98,7 @@ class TestBoxDetectionSE2(unittest.TestCase):
     def setUp(self):
         self.metadata = BoxDetectionMetadata(**sample_metadata_args)
         self.bounding_box_se2 = BoundingBoxSE2(
-            center=PoseSE2(x=0.0, y=0.0, yaw=0.0),
+            center_se2=PoseSE2(x=0.0, y=0.0, yaw=0.0),
             length=4.0,
             width=2.0,
         )
@@ -122,7 +122,7 @@ class TestBoxDetectionSE2(unittest.TestCase):
             velocity_2d=self.velocity,
         )
         self.assertEqual(box_detection.shapely_polygon, self.bounding_box_se2.shapely_polygon)
-        self.assertEqual(box_detection.center_se2, self.bounding_box_se2.center)
+        self.assertEqual(box_detection.center_se2, self.bounding_box_se2.center_se2)
         self.assertEqual(box_detection.bounding_box_se2, self.bounding_box_se2)
 
     def test_optional_velocity(self):
@@ -147,7 +147,7 @@ class TestBoxBoxDetectionSE3(unittest.TestCase):
     def setUp(self):
         self.metadata = BoxDetectionMetadata(**sample_metadata_args)
         self.bounding_box_se3 = BoundingBoxSE3(
-            center=PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
+            center_se3=PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
             length=4.0,
             width=2.0,
             height=1.5,
@@ -200,12 +200,12 @@ class TestBoxBoxDetectionSE3(unittest.TestCase):
         box_detection_se3 = BoxDetectionSE3(
             metadata=box_detection_se2.metadata,
             bounding_box_se3=self.bounding_box_se3,
-            velocity=Vector2D(x=1.0, y=0.0),
+            velocity=Vector3D(x=1.0, y=0.0, z=0.0),
         )
         self.assertIsInstance(box_detection_se3, BoxDetectionSE3)
         self.assertEqual(box_detection_se3.metadata, box_detection_se2.metadata)
         self.assertEqual(box_detection_se3.bounding_box_se3, self.bounding_box_se3)
-        self.assertEqual(box_detection_se3.velocity_3d, Vector2D(x=1.0, y=0.0))
+        self.assertEqual(box_detection_se3.velocity_2d, Vector2D(x=1.0, y=0.0))
 
         box_detection_se3_converted = box_detection_se3.box_detection_se2
         self.assertIsInstance(box_detection_se3_converted, BoxDetectionSE2)
@@ -255,7 +255,7 @@ class TestBoxDetectionWrapper(unittest.TestCase):
         self.box_detection1 = BoxDetectionSE2(
             metadata=self.metadata1,
             bounding_box_se2=BoundingBoxSE2(
-                center=PoseSE2(x=0.0, y=0.0, yaw=0.0),
+                center_se2=PoseSE2(x=0.0, y=0.0, yaw=0.0),
                 length=4.0,
                 width=2.0,
             ),
@@ -264,7 +264,7 @@ class TestBoxDetectionWrapper(unittest.TestCase):
         self.box_detection2 = BoxDetectionSE2(
             metadata=self.metadata2,
             bounding_box_se2=BoundingBoxSE2(
-                center=PoseSE2(x=5.0, y=5.0, yaw=0.0),
+                center_se2=PoseSE2(x=5.0, y=5.0, yaw=0.0),
                 length=1.0,
                 width=0.5,
             ),
@@ -273,7 +273,7 @@ class TestBoxDetectionWrapper(unittest.TestCase):
         self.box_detection3 = BoxDetectionSE3(
             metadata=self.metadata3,
             bounding_box_se3=BoundingBoxSE3(
-                center=PoseSE3(x=10.0, y=10.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
+                center_se3=PoseSE3(x=10.0, y=10.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
                 length=2.0,
                 width=1.0,
                 height=1.5,

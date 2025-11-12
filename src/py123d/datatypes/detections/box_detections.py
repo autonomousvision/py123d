@@ -103,7 +103,7 @@ class BoxDetectionSE2:
     @property
     def center_se2(self) -> PoseSE2:
         """The :class:`~py123d.geometry.PoseSE2` representing the center of the bounding box."""
-        return self.bounding_box_se2.center
+        return self.bounding_box_se2.center_se2
 
     @property
     def shapely_polygon(self) -> shapely.geometry.Polygon:

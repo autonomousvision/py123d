@@ -150,7 +150,7 @@ class TestBaseMapLineObject(unittest.TestCase):
 
     def test_init_with_polyline2d(self):
         coords = np.array([[0, 0], [1, 1], [2, 2]])
-        polyline = Polyline2D(coords)
+        polyline = Polyline2D.from_array(coords)
         obj = ConcreteMapLineObject("line_1", polyline)
         assert obj.object_id == "line_1"
         assert isinstance(obj.polyline, Polyline2D)
@@ -163,9 +163,9 @@ class TestBaseMapLineObject(unittest.TestCase):
 
     def test_polyline_property(self):
         coords = np.array([[0, 0], [1, 1], [2, 2]])
-        polyline = Polyline2D(coords)
+        polyline = Polyline2D.from_array(coords)
         obj = ConcreteMapLineObject("line_3", polyline)
-        assert obj.polyline is polyline
+        assert obj.polyline == polyline
 
     def test_polyline_2d_from_2d_polyline(self):
         coords = np.array([[0, 0], [1, 1], [2, 2]])

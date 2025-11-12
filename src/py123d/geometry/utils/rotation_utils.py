@@ -24,20 +24,20 @@ def batch_matmul(A: npt.NDArray[np.float64], B: npt.NDArray[np.float64]) -> npt.
 
 
 def normalize_angle(angle: Union[float, npt.NDArray[np.float64]]) -> Union[float, npt.NDArray[np.float64]]:
-    """
-    Map a angle in range [-π, π]
-    :param angle: any angle as float or array of floats
-    :return: normalized angle or array of normalized angles
+    """Normalizes an angle or array of angles to the range [-pi, pi].
+
+    :param angle: Angle or array of angles in radians to normalize.
+    :return: Normalized angle or array of angles.
     """
     return ((angle + np.pi) % (2 * np.pi)) - np.pi
 
 
 def get_rotation_matrices_from_euler_array(euler_angles_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    """
-    Convert Euler angles to rotation matrices using Tait-Bryan ZYX convention (yaw-pitch-roll).
+    """Convert Euler angles to rotation matrices using Tait-Bryan ZYX convention (yaw-pitch-roll).
 
-    Convention: Intrinsic rotations in order Z-Y-X (yaw, pitch, roll)
-    Equivalent to: R = R_z(yaw) @ R_y(pitch) @ R_x(roll)
+    :param euler_angles_array: Array of Euler angles of shape (..., 3), \
+        indexed by :class:`~py123d.geometry.EulerAnglesIndex`
+    :return: Array of rotation matrices of shape (..., 3, 3)
     """
     assert euler_angles_array.ndim >= 1 and euler_angles_array.shape[-1] == len(EulerAnglesIndex)
 
@@ -128,11 +128,21 @@ def get_euler_array_from_rotation_matrices(rotation_matrices: npt.NDArray[np.flo
 
 
 def get_euler_array_from_rotation_matrix(rotation_matrix: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Convert a rotation matrix to Euler angles using Tait-Bryan ZYX convention (yaw-pitch-roll).
+
+    :param rotation_matrix: Rotation matrix of shape (3, 3)
+    :return: Euler angles of shape (3,), indexed by :class:`~py123d.geometry.EulerAnglesIndex`
+    """
     assert rotation_matrix.ndim == 2 and rotation_matrix.shape == (3, 3)
     return get_euler_array_from_rotation_matrices(rotation_matrix[None, ...])[0]
 
 
 def get_quaternion_array_from_rotation_matrices(rotation_matrices: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Convert rotation matrices to quaternions.
+
+    :param rotation_matrices: Rotation matrices of shape (..., 3, 3)
+    :return: Quaternions of shape (..., 4), indexed by :class:`~py123d.geometry.QuaternionIndex`
+    """
     assert rotation_matrices.ndim >= 2
     assert rotation_matrices.shape[-1] == rotation_matrices.shape[-2] == 3
     # http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
@@ -198,11 +208,21 @@ def get_quaternion_array_from_rotation_matrices(rotation_matrices: npt.NDArray[n
 
 
 def get_quaternion_array_from_rotation_matrix(rotation_matrix: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Convert a rotation matrix to a quaternion.
+
+    :param rotation_matrix: Rotation matrix of shape (3, 3)
+    :return: Quaternion of shape (4,), indexed by :class:`~py123d.geometry.QuaternionIndex`.
+    """
     assert rotation_matrix.ndim == 2 and rotation_matrix.shape == (3, 3)
     return get_quaternion_array_from_rotation_matrices(rotation_matrix[None, ...])[0]
 
 
 def get_quaternion_array_from_euler_array(euler_angles: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Converts array of euler angles to array of quaternions.
+
+    :param euler_angles: Euler angles of shape (..., 3), indexed by :class:`~py123d.geometry.EulerAnglesIndex`
+    :return: Quaternions of shape (..., 4), indexed by :class:`~py123d.geometry.QuaternionIndex`
+    """
     assert euler_angles.ndim >= 1 and euler_angles.shape[-1] == len(EulerAnglesIndex)
 
     # Store original shape for reshaping later
@@ -245,15 +265,25 @@ def get_quaternion_array_from_euler_array(euler_angles: npt.NDArray[np.float64])
     if len(original_shape) > 1:
         quaternions = quaternions.reshape(original_shape + (len(QuaternionIndex),))
 
-    return normalize_quaternion_array(quaternions)
+    return normalize_quaternion_array(quaternions)  # type: ignore
 
 
 def get_rotation_matrix_from_euler_array(euler_angles: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Convert Euler angles to rotation matrix using Tait-Bryan ZYX convention (yaw-pitch-roll).
+
+    :param euler_angles: Euler angles of shape (3,), indexed by :class:`~py123d.geometry.EulerAnglesIndex`
+    :return: Rotation matrix of shape (3, 3)
+    """
     assert euler_angles.ndim == 1 and euler_angles.shape[0] == len(EulerAnglesIndex)
     return get_rotation_matrices_from_euler_array(euler_angles[None, ...])[0]
 
 
 def get_rotation_matrices_from_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Convert array of quaternions to array of rotation matrices.
+
+    :param quaternion_array: Quaternions of shape (..., 4), indexed by :class:`~py123d.geometry.QuaternionIndex`
+    :return: Rotation matrices of shape (..., 3, 3)
+    """
     assert quaternion_array.ndim >= 1 and quaternion_array.shape[-1] == len(QuaternionIndex)
 
     # Store original shape for reshaping later
@@ -279,12 +309,21 @@ def get_rotation_matrices_from_quaternion_array(quaternion_array: npt.NDArray[np
 
 
 def get_rotation_matrix_from_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    # TODO: Check if this function is necessary or batch-wise function is universally applicable
+    """Convert a quaternion to a rotation matrix.
+
+    :param quaternion_array: Quaternion of shape (4,), indexed by :class:`~py123d.geometry.QuaternionIndex`
+    :return: Rotation matrix of shape (3, 3)
+    """
     assert quaternion_array.ndim == 1 and quaternion_array.shape[0] == len(QuaternionIndex)
     return get_rotation_matrices_from_quaternion_array(quaternion_array[None, :])[0]
 
 
 def get_euler_array_from_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Converts array of quaternions to array of euler angles.
+
+    :param quaternion_array: Quaternions of shape (..., 4), indexed by :class:`~py123d.geometry.QuaternionIndex`
+    :return: Euler angles of shape (..., 3), indexed by :class:`~py123d.geometry.EulerAnglesIndex`
+    """
     assert quaternion_array.ndim >= 1 and quaternion_array.shape[-1] == len(QuaternionIndex)
     norm_quaternion = normalize_quaternion_array(quaternion_array)
     QW, QX, QY, QZ = (
@@ -311,11 +350,12 @@ def get_euler_array_from_quaternion_array(quaternion_array: npt.NDArray[np.float
 
 
 def conjugate_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    """Computes the conjugate of an array of quaternions.
-    in the order [qw, qx, qy, qz].
-    :param quaternion: Array of quaternions.
-    :return: Array of conjugated quaternions.
+    """Computes the conjugate of an array of quaternions, i.e. negating the vector part.
+
+    :param quaternion_array: Quaternions of shape (..., 4), indexed by :class:`~py123d.geometry.QuaternionIndex`
+    :return: Conjugated quaternions of shape (..., 4), indexed by :class:`~py123d.geometry.QuaternionIndex`
     """
+
     assert quaternion_array.ndim >= 1
     assert quaternion_array.shape[-1] == len(QuaternionIndex)
     conjugated_quaternions = np.zeros_like(quaternion_array)
@@ -325,10 +365,10 @@ def conjugate_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt
 
 
 def invert_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    """Computes the inverse of an array of quaternions.
-    in the order [qw, qx, qy, qz].
-    :param quaternion: Array of quaternions.
-    :return: Array of inverted quaternions.
+    """Computes the inverse of an array of quaternions, i.e. conjugate divided by norm squared.
+
+    :param quaternion_array: Quaternions of shape (..., 4), indexed by :class:`~py123d.geometry.QuaternionIndex`
+    :return: Inverted quaternions of shape (..., 4), indexed by :class:`~py123d.geometry.QuaternionIndex`
     """
     assert quaternion_array.ndim >= 1
     assert quaternion_array.shape[-1] == len(QuaternionIndex)
@@ -340,10 +380,10 @@ def invert_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt.ND
 
 
 def normalize_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    """Normalizes an array of quaternions.
-    in the order [qw, qx, qy, qz].
-    :param quaternion: Array of quaternions.
-    :return: Array of normalized quaternions.
+    """Normalizes an array of quaternions to unit length.
+
+    :param quaternion_array: Quaternions of shape (..., 4), indexed by :class:`~py123d.geometry.QuaternionIndex`
+    :return: Normalized quaternions of shape (..., 4), indexed by :class:`~py123d.geometry.QuaternionIndex`
     """
     assert quaternion_array.ndim >= 1
     assert quaternion_array.shape[-1] == len(QuaternionIndex)
@@ -354,11 +394,12 @@ def normalize_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt
 
 
 def multiply_quaternion_arrays(q1: npt.NDArray[np.float64], q2: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    """Multiplies two arrays of quaternions element-wise.
-    in the order [qw, qx, qy, qz].
-    :param q1: First array of quaternions.
-    :param q2: Second array of quaternions.
-    :return: Array of resulting quaternions after multiplication.
+    """Multiplies two arrays of quaternions.
+
+    :param q1: First array of quaternions, indexed by :class:`~py123d.geometry.QuaternionIndex` in the last dim.
+    :param q2: Second array of quaternions, indexed by :class:`~py123d.geometry.QuaternionIndex` in the last dim.
+    :return: Array of resulting quaternions after multiplication, \
+        indexed by :class:`~py123d.geometry.QuaternionIndex` in the last dim.
     """
     assert q1.ndim >= 1
     assert q2.ndim >= 1
@@ -392,9 +433,9 @@ def multiply_quaternion_arrays(q1: npt.NDArray[np.float64], q2: npt.NDArray[np.f
 
 def get_q_matrices(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     """Computes the Q matrices for an array of quaternions.
-    in the order [qw, qx, qy, qz].
-    :param quaternion: Array of quaternions.
-    :return: Array of Q matrices.
+
+    :param quaternion_array: Quaternions of shape (..., 4), indexed by :class:`~py123d.geometry.QuaternionIndex`
+    :return: Array of Q matrices of shape (..., 4, 4)
     """
     assert quaternion_array.ndim >= 1
     assert quaternion_array.shape[-1] == len(QuaternionIndex)
@@ -432,9 +473,9 @@ def get_q_matrices(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.
 
 def get_q_bar_matrices(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     """Computes the Q-bar matrices for an array of quaternions.
-    in the order [qw, qx, qy, qz].
-    :param quaternion: Array of quaternions.
-    :return: Array of Q-bar matrices.
+
+    :param quaternion_array: Quaternions of shape (..., 4), indexed by :class:`~py123d.geometry.QuaternionIndex`
+    :return: Array of Q-bar matrices of shape (..., 4, 4)
     """
     assert quaternion_array.ndim >= 1
     assert quaternion_array.shape[-1] == len(QuaternionIndex)

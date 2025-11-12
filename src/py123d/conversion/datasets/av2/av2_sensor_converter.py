@@ -264,9 +264,9 @@ def _extract_av2_sensor_box_detections(
         detections_labels.append(AV2SensorBoxDetectionLabel.deserialize(row["category"]))
         detections_num_lidar_points.append(int(row["num_interior_pts"]))
 
-    detections_state[:, BoundingBoxSE3Index.POSE_SE3] = convert_relative_to_absolute_se3_array(
+    detections_state[:, BoundingBoxSE3Index.SE3] = convert_relative_to_absolute_se3_array(
         origin=ego_state_se3.rear_axle_se3,
-        se3_array=detections_state[:, BoundingBoxSE3Index.POSE_SE3],
+        se3_array=detections_state[:, BoundingBoxSE3Index.SE3],
     )
 
     box_detections: List[BoxDetectionSE3] = []

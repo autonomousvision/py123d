@@ -205,7 +205,7 @@ class TestBoundingBoxUtils(unittest.TestCase):
             bounding_box_se3_array = np.zeros((len(BoundingBoxSE3Index),), dtype=np.float64)
             length, width, height = np.random.uniform(0.0, self._max_extent, size=3)
 
-            bounding_box_se3_array[BoundingBoxSE3Index.POSE_SE3] = se3_array
+            bounding_box_se3_array[BoundingBoxSE3Index.SE3] = se3_array
             bounding_box_se3_array[BoundingBoxSE3Index.LENGTH] = length
             bounding_box_se3_array[BoundingBoxSE3Index.WIDTH] = width
             bounding_box_se3_array[BoundingBoxSE3Index.HEIGHT] = height
@@ -233,7 +233,7 @@ class TestBoundingBoxUtils(unittest.TestCase):
             bounding_box_se3_array = np.zeros((N, len(BoundingBoxSE3Index)), dtype=np.float64)
             lengths, widths, heights = np.random.uniform(0.0, self._max_extent, size=(3, N))
 
-            bounding_box_se3_array[:, BoundingBoxSE3Index.POSE_SE3] = se3_state_array
+            bounding_box_se3_array[:, BoundingBoxSE3Index.SE3] = se3_state_array
             bounding_box_se3_array[:, BoundingBoxSE3Index.LENGTH] = lengths
             bounding_box_se3_array[:, BoundingBoxSE3Index.WIDTH] = widths
             bounding_box_se3_array[:, BoundingBoxSE3Index.HEIGHT] = heights
@@ -249,7 +249,7 @@ class TestBoundingBoxUtils(unittest.TestCase):
                     np.testing.assert_allclose(
                         corners_array[obj_idx, corner_idx],
                         translate_se3_along_body_frame(
-                            PoseSE3.from_array(bounding_box_se3_array[obj_idx, BoundingBoxSE3Index.POSE_SE3]),
+                            PoseSE3.from_array(bounding_box_se3_array[obj_idx, BoundingBoxSE3Index.SE3]),
                             body_translate_vector,
                         ).point_3d.array,
                         atol=1e-6,

@@ -97,8 +97,7 @@ def corners_2d_array_to_polygon_array(corners_array: npt.NDArray[np.float64]) ->
     :param corners_array: Array of shape (..., 4, 2) where 4 is the number of corners.
     :return: Array of shapely Polygons.
     """
-    polygons = shapely.creation.polygons(corners_array)
-    return polygons
+    return shapely.creation.polygons(corners_array)  # type: ignore
 
 
 def bbse2_array_to_polygon_array(bbse2: npt.NDArray[np.float64]) -> npt.NDArray[np.object_]:
@@ -144,6 +143,11 @@ def bbse3_array_to_corners_array(bbse3_array: npt.NDArray[np.float64]) -> npt.ND
 def corners_array_to_3d_mesh(
     corners_array: npt.NDArray[np.float64],
 ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.int32]]:
+    """Creates a triangular mesh representation of boxes defined by their corner points.
+
+    :param corners_array: An array of shape (..., 8, 3) representing the corners of the boxes.
+    :return: A tuple containing the vertices and faces of the mesh.
+    """
 
     num_boxes = corners_array.shape[0]
     vertices = corners_array.reshape(-1, 3)
@@ -180,6 +184,12 @@ def corners_array_to_3d_mesh(
 
 
 def corners_array_to_edge_lines(corners_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Creates line segments representing the edges of boxes defined by their corner points.
+
+    :param corners_array: An array of shape (..., 8, 3) representing the corners of the boxes.
+    :return: An array of shape (..., 12, 2, 3) representing the edge lines of the boxes.
+    """
+
     assert corners_array.shape[-1] == len(Point3DIndex)
     assert corners_array.shape[-2] == len(Corners3DIndex)
     assert corners_array.ndim >= 2

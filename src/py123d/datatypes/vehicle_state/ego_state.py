@@ -168,7 +168,7 @@ class EgoStateSE3:
     def bounding_box_se3(self) -> BoundingBoxSE3:
         """The :class:`~py123d.geometry.BoundingBoxSE3` of the ego vehicle."""
         return BoundingBoxSE3(
-            center=self.center_se3,
+            center_se3=self.center_se3,
             length=self.vehicle_parameters.length,
             width=self.vehicle_parameters.width,
             height=self.vehicle_parameters.height,
@@ -351,7 +351,7 @@ class EgoStateSE2:
     def bounding_box_se2(self) -> BoundingBoxSE2:
         """The :class:`~py123d.geometry.BoundingBoxSE2` of the ego vehicle."""
         return BoundingBoxSE2(
-            center=self.center_se2,
+            center_se2=self.center_se2,
             length=self.vehicle_parameters.length,
             width=self.vehicle_parameters.width,
         )

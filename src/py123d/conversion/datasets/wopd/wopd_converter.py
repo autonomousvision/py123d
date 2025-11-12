@@ -347,8 +347,8 @@ def _extract_wopd_box_detections(
         detections_types.append(WOPD_DETECTION_NAME_DICT[detection.type])
         detections_token.append(str(detection.id))
 
-    detections_state[:, BoundingBoxSE3Index.POSE_SE3] = convert_relative_to_absolute_se3_array(
-        origin=ego_pose_se3, se3_array=detections_state[:, BoundingBoxSE3Index.POSE_SE3]
+    detections_state[:, BoundingBoxSE3Index.SE3] = convert_relative_to_absolute_se3_array(
+        origin=ego_pose_se3, se3_array=detections_state[:, BoundingBoxSE3Index.SE3]
     )
     if zero_roll_pitch:
         euler_array = get_euler_array_from_quaternion_array(detections_state[:, BoundingBoxSE3Index.QUATERNION])

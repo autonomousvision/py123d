@@ -166,5 +166,5 @@ def convert_relative_to_absolute_points_3d_array(
     assert points_3d_array.shape[-1] == len(Point3DIndex)
 
     R = EulerAngles.from_array(origin_array[EulerStateSE3Index.EULER_ANGLES]).rotation_matrix
-    absolute_points = points_3d_array @ R.T + origin.point_3d.array
+    absolute_points = points_3d_array @ R.T + origin_array[EulerStateSE3Index.XYZ]
     return absolute_points

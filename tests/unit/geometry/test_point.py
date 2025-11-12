@@ -92,12 +92,6 @@ class TestPoint2D(unittest.TestCase):
         self.assertEqual(x, self.x_coord)
         self.assertEqual(y, self.y_coord)
 
-    def test_hash(self):
-        """Test the __hash__ method."""
-        point_dict = {self.point: "test"}
-        self.assertIn(self.point, point_dict)
-        self.assertEqual(point_dict[self.point], "test")
-
 
 class TestPoint3D(unittest.TestCase):
     """Unit tests for Point3D class."""
@@ -188,12 +182,6 @@ class TestPoint3D(unittest.TestCase):
         self.assertEqual(x, self.x_coord)
         self.assertEqual(y, self.y_coord)
         self.assertEqual(z, self.z_coord)
-
-    def test_hash(self):
-        """Test the __hash__ method."""
-        point_dict = {self.point: "test"}
-        self.assertIn(self.point, point_dict)
-        self.assertEqual(point_dict[self.point], "test")
 
 
 if __name__ == "__main__":

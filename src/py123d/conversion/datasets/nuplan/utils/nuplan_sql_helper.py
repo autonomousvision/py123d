@@ -42,7 +42,7 @@ def get_box_detections_for_lidarpc_token_from_db(log_file: str, token: str) -> L
     for row in execute_many(query, (bytearray.fromhex(token),), log_file):
         quaternion = EulerAngles(roll=DEFAULT_ROLL, pitch=DEFAULT_PITCH, yaw=row["yaw"]).quaternion
         bounding_box = BoundingBoxSE3(
-            center=PoseSE3(
+            center_se3=PoseSE3(
                 x=row["x"],
                 y=row["y"],
                 z=row["z"],

@@ -14,6 +14,7 @@ class Vector2D(ArrayMixin):
     Class to represents 2D vectors, in x, y direction.
 
     Example:
+        >>> from py123d.geometry import Vector2D
         >>> v1 = Vector2D(3.0, 4.0)
         >>> v2 = Vector2D(1.0, 2.0)
         >>> v3 = v1 + v2
@@ -25,6 +26,7 @@ class Vector2D(ArrayMixin):
         5.0
     """
 
+    __slots__ = ("_array",)
     _array: npt.NDArray[np.float64]
 
     def __init__(self, x: float, y: float):
@@ -139,6 +141,7 @@ class Vector3D(ArrayMixin):
     Class to represents 3D vectors, in x, y, z direction.
 
     Example:
+        >>> from py123d.geometry import Vector3D
         >>> v1 = Vector3D(1.0, 2.0, 3.0)
         >>> v2 = Vector3D(4.0, 5.0, 6.0)
         >>> v3 = v1 + v2
@@ -150,6 +153,7 @@ class Vector3D(ArrayMixin):
         3.7416573867739413
     """
 
+    __slots__ = ("_array",)
     _array: npt.NDArray[np.float64]
 
     def __init__(self, x: float, y: float, z: float):

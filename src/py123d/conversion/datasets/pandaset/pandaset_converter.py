@@ -300,8 +300,8 @@ def _extract_pandaset_box_detections(
 
         # Convert coordinates to ISO 8855
         # NOTE: This would be faster over a batch operation.
-        box_se3_array[box_idx, BoundingBoxSE3Index.POSE_SE3] = rotate_pandaset_pose_to_iso_coordinates(
-            PoseSE3.from_array(box_se3_array[box_idx, BoundingBoxSE3Index.POSE_SE3], copy=False)
+        box_se3_array[box_idx, BoundingBoxSE3Index.SE3] = rotate_pandaset_pose_to_iso_coordinates(
+            PoseSE3.from_array(box_se3_array[box_idx, BoundingBoxSE3Index.SE3], copy=False)
         ).array
 
         box_detection_se3 = BoxDetectionSE3(

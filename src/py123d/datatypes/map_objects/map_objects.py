@@ -105,7 +105,7 @@ class Lane(BaseMapSurfaceObject):
     def lane_group(self) -> Optional[LaneGroup]:
         """The :class:`LaneGroup` this lane belongs to."""
         if self._map_api is not None:
-            return self._map_api.get_map_object(self.lane_group_id, MapLayer.LANE_GROUP)
+            return self._map_api.get_map_object(self.lane_group_id, MapLayer.LANE_GROUP)  # type: ignore
         return None
 
     @property
@@ -132,7 +132,7 @@ class Lane(BaseMapSurfaceObject):
     def left_lane(self) -> Optional[Lane]:
         """The left neighboring :class:`Lane`, if available."""
         if self._map_api is not None and self.left_lane_id is not None:
-            return self._map_api.get_map_object(self.left_lane_id, self.layer)
+            return self._map_api.get_map_object(self.left_lane_id, self.layer)  # type: ignore
         return None
 
     @property
@@ -144,7 +144,7 @@ class Lane(BaseMapSurfaceObject):
     def right_lane(self) -> Optional[Lane]:
         """The right neighboring :class:`Lane`, if available."""
         if self._map_api is not None and self.right_lane_id is not None:
-            return self._map_api.get_map_object(self.right_lane_id, self.layer)
+            return self._map_api.get_map_object(self.right_lane_id, self.layer)  # type: ignore
         return None
 
     @property
@@ -157,7 +157,7 @@ class Lane(BaseMapSurfaceObject):
         """List of predecessor :class:`Lane` instances."""
         predecessors: Optional[List[Lane]] = None
         if self._map_api is not None:
-            predecessors = [self._map_api.get_map_object(lane_id, self.layer) for lane_id in self.predecessor_ids]
+            predecessors = [self._map_api.get_map_object(lane_id, self.layer) for lane_id in self.predecessor_ids]  # type: ignore
         return predecessors
 
     @property
@@ -170,7 +170,7 @@ class Lane(BaseMapSurfaceObject):
         """List of successor :class:`Lane` instances."""
         successors: Optional[List[Lane]] = None
         if self._map_api is not None:
-            successors = [self._map_api.get_map_object(lane_id, self.layer) for lane_id in self.successor_ids]
+            successors = [self._map_api.get_map_object(lane_id, self.layer) for lane_id in self.successor_ids]  # type: ignore
         return successors
 
     @property
@@ -263,8 +263,8 @@ class LaneGroup(BaseMapSurfaceObject):
         """List of :class:`Lane` instances in the group."""
         lanes: Optional[List[Lane]] = None
         if self._map_api is not None:
-            lanes = [self._map_api.get_map_object(lane_id, MapLayer.LANE) for lane_id in self.lane_ids]
-        return lanes
+            lanes = [self._map_api.get_map_object(lane_id, MapLayer.LANE) for lane_id in self.lane_ids]  # type: ignore
+        return lanes  # type: ignore
 
     @property
     def left_boundary(self) -> Polyline3D:
@@ -286,7 +286,7 @@ class LaneGroup(BaseMapSurfaceObject):
         """The :class:`Intersection` the lane group belongs to, if available."""
         intersection: Optional[Intersection] = None
         if self._map_api is not None and self.intersection_id is not None:
-            intersection = self._map_api.get_map_object(self.intersection_id, MapLayer.INTERSECTION)
+            intersection = self._map_api.get_map_object(self.intersection_id, MapLayer.INTERSECTION)  # type: ignore
         return intersection
 
     @property

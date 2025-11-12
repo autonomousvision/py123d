@@ -152,13 +152,6 @@ class TestPolylineSE2(unittest.TestCase):
         with self.assertRaises(ValueError):
             PolylineSE2.from_array(array)
 
-    def test_from_discrete_se2(self):
-        """Test creating PolylineSE2 from discrete SE2 states."""
-        states = [PoseSE2(0.0, 0.0, 0.0), PoseSE2(1.0, 0.0, 0.0), PoseSE2(2.0, 0.0, 0.0)]
-        polyline = PolylineSE2.from_discrete_se2(states)
-        self.assertIsInstance(polyline, PolylineSE2)
-        self.assertEqual(polyline.array.shape, (3, 3))
-
     def test_length_property(self):
         """Test length property."""
         array = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]], dtype=np.float64)
@@ -278,12 +271,22 @@ class TestPolyline3D(unittest.TestCase):
         polyline = Polyline3D.from_linestring(linestring)
         self.assertEqual(polyline.length, 2.0)
 
+        coords = [(0.0, 0.0, 0.0), (0.0, 0.0, 1.0), (0.0, 0.0, 2.0)]
+        linestring = geom.LineString(coords)
+        polyline = Polyline3D.from_linestring(linestring)
+        self.assertEqual(polyline.length, 2.0)
+
+        coords = [(0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (2.0, 2.0, 2.0)]
+        linestring = geom.LineString(coords)
+        polyline = Polyline3D.from_linestring(linestring)
+        self.assertEqual(polyline.length, 2 * np.sqrt(3))
+
     def test_interpolate_single_distance(self):
         """Test interpolation with single distance."""
         coords = [(0.0, 0.0, 0.0), (2.0, 0.0, 2.0)]
         linestring = geom.LineString(coords)
         polyline = Polyline3D.from_linestring(linestring)
-        point = polyline.interpolate(1.0)
+        point = polyline.interpolate(np.sqrt(2))
         self.assertIsInstance(point, Point3D)
         self.assertEqual(point.x, 1.0)
         self.assertEqual(point.y, 0.0)

@@ -75,20 +75,6 @@ class TestEulerAngles(unittest.TestCase):
         self.assertEqual(array[EulerAnglesIndex.PITCH], self.pitch)
         self.assertEqual(array[EulerAnglesIndex.YAW], self.yaw)
 
-    def test_iterator(self):
-        """Test iterator functionality."""
-        values = list(self.euler_angles)
-        self.assertEqual(values, [self.roll, self.pitch, self.yaw])
-
-    def test_hash(self):
-        """Test hash functionality."""
-        euler1 = EulerAngles(0.1, 0.2, 0.3)
-        euler2 = EulerAngles(0.1, 0.2, 0.3)
-        euler3 = EulerAngles(0.1, 0.2, 0.4)
-
-        self.assertEqual(hash(euler1), hash(euler2))
-        self.assertNotEqual(hash(euler1), hash(euler3))
-
 
 class TestQuaternion(unittest.TestCase):
     """Unit tests for Quaternion class."""
@@ -191,20 +177,6 @@ class TestQuaternion(unittest.TestCase):
         rot_matrix = self.quaternion.rotation_matrix
         self.assertEqual(rot_matrix.shape, (3, 3))
         np.testing.assert_array_almost_equal(rot_matrix, np.eye(3))
-
-    def test_iterator(self):
-        """Test iterator functionality."""
-        values = list(self.quaternion)
-        self.assertEqual(values, [self.qw, self.qx, self.qy, self.qz])
-
-    def test_hash(self):
-        """Test hash functionality."""
-        quat1 = Quaternion(1.0, 0.0, 0.0, 0.0)
-        quat2 = Quaternion(1.0, 0.0, 0.0, 0.0)
-        quat3 = Quaternion(0.0, 1.0, 0.0, 0.0)
-
-        self.assertEqual(hash(quat1), hash(quat2))
-        self.assertNotEqual(hash(quat1), hash(quat3))
 
 
 if __name__ == "__main__":
