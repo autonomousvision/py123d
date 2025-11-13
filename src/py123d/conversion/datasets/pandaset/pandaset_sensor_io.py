@@ -16,6 +16,8 @@ from py123d.geometry.transform.transform_se3 import convert_absolute_to_relative
 
 
 def load_pandaset_global_lidar_pc_from_path(pkl_gz_path: Union[Path, str]) -> Dict[LiDARType, np.ndarray]:
+    """Loads Pandaset LiDAR point clouds from a gzip-pickle file (pickled pandas DataFrame)."""
+
     # NOTE: The Pandaset dataset stores both front and top LiDAR data in the same gzip-pickle file.
     # We need to separate them based on the laser_number field.
     # See here: https://github.com/scaleapi/pandaset-devkit/blob/master/python/pandaset/sensors.py#L160
@@ -34,17 +36,15 @@ def load_pandaset_global_lidar_pc_from_path(pkl_gz_path: Union[Path, str]) -> Di
 def load_pandaset_lidars_pcs_from_file(
     pkl_gz_path: Union[Path, str],
     iteration: Optional[int],
-) -> np.ndarray:
+) -> Dict[LiDARType, np.ndarray]:
+    """Loads Pandaset LiDAR point clouds from a gzip-pickle file and converts them to ego frame."""
 
     pkl_gz_path = Path(pkl_gz_path)
     assert pkl_gz_path.exists(), f"Pandaset LiDAR file not found: {pkl_gz_path}"
-
     lidar_pc_dict = load_pandaset_global_lidar_pc_from_path(pkl_gz_path)
-
     ego_pose = main_lidar_to_rear_axle(
         pandaset_pose_dict_to_pose_se3(read_json(pkl_gz_path.parent / "poses.json")[iteration])
     )
-
     for lidar_type in lidar_pc_dict.keys():
         lidar_pc_dict[lidar_type][..., PandasetLiDARIndex.XYZ] = convert_absolute_to_relative_points_3d_array(
             ego_pose,

@@ -7,7 +7,7 @@ import shapely.geometry as geom
 from trimesh import Trimesh
 
 from py123d.datatypes.map_objects.base_map_objects import BaseMapLineObject, BaseMapSurfaceObject, MapObjectIDType
-from py123d.datatypes.map_objects.map_layer_types import MapLayer
+from py123d.datatypes.map_objects.map_layer_types import MapLayer, RoadEdgeType, RoadLineType
 from py123d.datatypes.map_objects.utils import get_trimesh_from_boundaries
 from py123d.geometry import Polyline2D, Polyline3D
 
@@ -530,7 +530,7 @@ class RoadEdge(BaseMapLineObject):
     def __init__(
         self,
         object_id: MapObjectIDType,
-        road_edge_type: int,
+        road_edge_type: RoadEdgeType,
         polyline: Union[Polyline2D, Polyline3D],
     ):
         """Initialize a RoadEdge instance.
@@ -547,7 +547,7 @@ class RoadEdge(BaseMapLineObject):
         return MapLayer.ROAD_EDGE
 
     @property
-    def road_edge_type(self) -> int:
+    def road_edge_type(self) -> RoadEdgeType:
         """The type of road edge, according to :class:`~py123d.datatypes.map_objects.map_layer_types.RoadEdgeType`."""
         return self._road_edge_type
 
@@ -560,7 +560,7 @@ class RoadLine(BaseMapLineObject):
     def __init__(
         self,
         object_id: MapObjectIDType,
-        road_line_type: int,
+        road_line_type: RoadLineType,
         polyline: Union[Polyline2D, Polyline3D],
     ):
         """Initialize a RoadLine instance.
@@ -578,6 +578,6 @@ class RoadLine(BaseMapLineObject):
         return MapLayer.ROAD_LINE
 
     @property
-    def road_line_type(self) -> int:
+    def road_line_type(self) -> RoadLineType:
         """The type of road edge, according to :class:`~py123d.datatypes.map_objects.map_layer_types.RoadLineType`."""
         return self._road_line_type

@@ -8,22 +8,23 @@ BOX_DETECTION_LABEL_REGISTRY = {}
 
 
 def register_box_detection_label(enum_class):
+    """Decorator to register a BoxDetectionLabel enum class."""
     BOX_DETECTION_LABEL_REGISTRY[enum_class.__name__] = enum_class
     return enum_class
 
 
 class BoxDetectionLabel(SerialIntEnum):
+    """Base class for all box detection label enums."""
 
     @abc.abstractmethod
     def to_default(self) -> DefaultBoxDetectionLabel:
+        """Convert to the default box detection label."""
         raise NotImplementedError("Subclasses must implement this method.")
 
 
 @register_box_detection_label
 class DefaultBoxDetectionLabel(BoxDetectionLabel):
-    """
-    Enum for agents in py123d.
-    """
+    """Default box detection labels used in 123D. Common labels across datasets."""
 
     # Vehicles
     EGO = 0
@@ -51,7 +52,7 @@ class DefaultBoxDetectionLabel(BoxDetectionLabel):
 
 @register_box_detection_label
 class AV2SensorBoxDetectionLabel(BoxDetectionLabel):
-    """Sensor dataset annotation categories."""
+    """Argoverse 2 Sensor dataset annotation categories."""
 
     ANIMAL = 0
     ARTICULATED_BUS = 1
@@ -123,6 +124,7 @@ class AV2SensorBoxDetectionLabel(BoxDetectionLabel):
 
 @register_box_detection_label
 class KITTI360BoxDetectionLabel(BoxDetectionLabel):
+    """KITTI-360 dataset annotation categories."""
 
     BICYCLE = 0
     BOX = 1
@@ -145,6 +147,7 @@ class KITTI360BoxDetectionLabel(BoxDetectionLabel):
     VENDING_MACHINE = 18
 
     def to_default(self) -> DefaultBoxDetectionLabel:
+        """Inherited, see superclass."""
         mapping = {
             KITTI360BoxDetectionLabel.BICYCLE: DefaultBoxDetectionLabel.BICYCLE,
             KITTI360BoxDetectionLabel.BOX: DefaultBoxDetectionLabel.GENERIC_OBJECT,
@@ -193,6 +196,7 @@ class NuPlanBoxDetectionLabel(BoxDetectionLabel):
     GENERIC_OBJECT = 6
 
     def to_default(self) -> DefaultBoxDetectionLabel:
+        """Inherited, see superclass."""
         mapping = {
             NuPlanBoxDetectionLabel.VEHICLE: DefaultBoxDetectionLabel.VEHICLE,
             NuPlanBoxDetectionLabel.BICYCLE: DefaultBoxDetectionLabel.BICYCLE,
@@ -237,6 +241,7 @@ class NuScenesBoxDetectionLabel(BoxDetectionLabel):
     ANIMAL = 22
 
     def to_default(self):
+        """Inherited, see superclass."""
         mapping = {
             NuScenesBoxDetectionLabel.VEHICLE_CAR: DefaultBoxDetectionLabel.VEHICLE,
             NuScenesBoxDetectionLabel.VEHICLE_TRUCK: DefaultBoxDetectionLabel.VEHICLE,
@@ -301,6 +306,7 @@ class PandasetBoxDetectionLabel(BoxDetectionLabel):
     TRAM_SUBWAY = 26
 
     def to_default(self) -> DefaultBoxDetectionLabel:
+        """Inherited, see superclass."""
         mapping = {
             PandasetBoxDetectionLabel.ANIMALS_BIRD: DefaultBoxDetectionLabel.ANIMAL,
             PandasetBoxDetectionLabel.ANIMALS_OTHER: DefaultBoxDetectionLabel.ANIMAL,
@@ -348,6 +354,7 @@ class WOPDBoxDetectionLabel(BoxDetectionLabel):
     TYPE_CYCLIST = 4
 
     def to_default(self) -> DefaultBoxDetectionLabel:
+        """Inherited, see superclass."""
         mapping = {
             WOPDBoxDetectionLabel.TYPE_UNKNOWN: DefaultBoxDetectionLabel.GENERIC_OBJECT,
             WOPDBoxDetectionLabel.TYPE_VEHICLE: DefaultBoxDetectionLabel.VEHICLE,

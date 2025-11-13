@@ -33,6 +33,7 @@ def load_jpeg_binary_from_tf_record_file(
     iteration: int,
     pinhole_camera_type: PinholeCameraType,
 ) -> bytes:
+    """Loads the JPEG binary of a specific pinhole camera from a Waymo TFRecord file at a given iteration."""
     frame = _get_frame_at_iteration(tf_record_path, iteration)
     assert frame is not None, f"Frame at iteration {iteration} not found in Waymo file: {tf_record_path}"
 
@@ -48,12 +49,11 @@ def load_jpeg_binary_from_tf_record_file(
 def load_wopd_lidar_pcs_from_file(
     tf_record_path: Path, index: int, keep_polar_features: bool = False
 ) -> Dict[LiDARType, np.ndarray]:
+    """Loads Waymo Open Perception Dataset (WOPD) LiDAR point clouds from a TFRecord file at a given iteration."""
 
     frame = _get_frame_at_iteration(tf_record_path, index)
     assert frame is not None, f"Frame at iteration {index} not found in Waymo file: {tf_record_path}"
-
     (range_images, camera_projections, _, range_image_top_pose) = parse_range_image_and_camera_projection(frame)
-
     points, cp_points = frame_utils.convert_range_image_to_point_cloud(
         frame=frame,
         range_images=range_images,
@@ -61,7 +61,6 @@ def load_wopd_lidar_pcs_from_file(
         range_image_top_pose=range_image_top_pose,
         keep_polar_features=keep_polar_features,
     )
-
     lidar_pcs_dict: Dict[LiDARType, np.ndarray] = {}
     for lidar_idx, frame_lidar in enumerate(frame.lasers):
         lidar_type = WOPD_LIDAR_TYPES[frame_lidar.name]

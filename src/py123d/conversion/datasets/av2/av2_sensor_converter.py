@@ -16,61 +16,60 @@ from py123d.conversion.datasets.av2.utils.av2_helper import (
 )
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.registry.box_detection_label_registry import AV2SensorBoxDetectionLabel
-from py123d.conversion.registry.lidar_index_registry import AVSensorLiDARIndex
-from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
-from py123d.datatypes.metadata import LogMetadata
-from py123d.datatypes.metadata.map_metadata import MapMetadata
-from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
-from py123d.datatypes.sensors.pinhole_camera import (
+from py123d.conversion.registry import AV2SensorBoxDetectionLabel, AVSensorLiDARIndex
+from py123d.datatypes.detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
+from py123d.datatypes.metadata import LogMetadata, MapMetadata
+from py123d.datatypes.sensors import (
+    LiDARMetadata,
+    LiDARType,
     PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
 )
-from py123d.datatypes.time.time_point import TimePoint
-from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
-from py123d.datatypes.vehicle_state.vehicle_parameters import (
-    get_av2_ford_fusion_hybrid_parameters,
-)
-from py123d.geometry import BoundingBoxSE3Index, PoseSE3, Vector3D, Vector3DIndex
-from py123d.geometry.bounding_box import BoundingBoxSE3
-from py123d.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array
+from py123d.datatypes.time import TimePoint
+from py123d.datatypes.vehicle_state import EgoStateSE3
+from py123d.datatypes.vehicle_state.vehicle_parameters import get_av2_ford_fusion_hybrid_parameters
+from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, PoseSE3, Vector3D, Vector3DIndex
+from py123d.geometry.transform import convert_relative_to_absolute_se3_array
 
 
 class AV2SensorConverter(AbstractDatasetConverter):
+    """Dataset converter for the AV2 sensor dataset."""
+
     def __init__(
         self,
         splits: List[str],
         av2_data_root: Union[Path, str],
         dataset_converter_config: DatasetConverterConfig,
     ) -> None:
+        """Initializes the AV2SensorConverter.
+
+        :param splits: List of dataset splits to convert, e.g. ["av2-sensor_train", "av2-sensor_val", "av2-sensor_test"]
+        :param av2_data_root: Root directory of the AV2 sensor dataset.
+        :param dataset_converter_config: Configuration for the dataset converter.
+        """
         super().__init__(dataset_converter_config)
         assert av2_data_root is not None, "The variable `av2_data_root` must be provided."
         for split in splits:
-            assert (
-                split in AV2_SENSOR_SPLITS
-            ), f"Split {split} is not available. Available splits: {self.available_splits}"
+            assert split in AV2_SENSOR_SPLITS, f"Split {split} is not available. Available splits: {AV2_SENSOR_SPLITS}"
 
         self._splits: List[str] = splits
         self._av2_data_root: Path = Path(av2_data_root)
-        self._log_paths_and_split: Dict[str, List[Path]] = self._collect_log_paths()
+        self._log_paths_and_split: List[Tuple[Path, str]] = self._collect_log_paths()
 
-    def _collect_log_paths(self) -> Dict[str, List[Path]]:
+    def _collect_log_paths(self) -> List[Tuple[Path, str]]:
+        """Collects source log folder paths for the specified splits."""
         log_paths_and_split: List[Tuple[Path, str]] = []
-
         for split in self._splits:
             dataset_name = split.split("_")[0]
             split_type = split.split("_")[-1]
             assert split_type in ["train", "val", "test"]
-
             if "av2-sensor" == dataset_name:
                 log_folder = self._av2_data_root / "sensor" / split_type
             else:
                 raise ValueError(f"Unknown dataset name {dataset_name} in split {split}.")
-
             log_paths_and_split.extend([(log_path, split) for log_path in log_folder.iterdir()])
-
         return log_paths_and_split
 
     def get_number_of_maps(self) -> int:
@@ -166,6 +165,7 @@ class AV2SensorConverter(AbstractDatasetConverter):
 
 
 def _get_av2_sensor_map_metadata(split: str, source_log_path: Path) -> MapMetadata:
+    """Helper to get map metadata for AV2 sensor dataset."""
     # NOTE: We need to get the city name from the map folder.
     # see: https://github.com/argoverse/av2-api/blob/main/src/av2/datasets/sensor/av2_sensor_dataloader.py#L163
     map_folder = source_log_path / "map"
@@ -184,7 +184,7 @@ def _get_av2_sensor_map_metadata(split: str, source_log_path: Path) -> MapMetada
 def _get_av2_pinhole_camera_metadata(
     source_log_path: Path, dataset_converter_config: DatasetConverterConfig
 ) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
-
+    """Helper to get pinhole camera metadata for AV2 sensor dataset."""
     pinhole_camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
     if dataset_converter_config.include_pinhole_cameras:
         intrinsics_file = source_log_path / "calibration" / "intrinsics.feather"
@@ -205,9 +205,9 @@ def _get_av2_pinhole_camera_metadata(
 def _get_av2_lidar_metadata(
     source_log_path: Path, dataset_converter_config: DatasetConverterConfig
 ) -> Dict[LiDARType, LiDARMetadata]:
+    """Helper to get LiDAR metadata for AV2 sensor dataset."""
 
     metadata: Dict[LiDARType, LiDARMetadata] = {}
-
     if dataset_converter_config.include_lidars:
 
         # Load calibration feather file
@@ -237,10 +237,9 @@ def _get_av2_lidar_metadata(
 
 
 def _extract_av2_sensor_box_detections(
-    annotations_df: Optional[pd.DataFrame],
-    lidar_timestamp_ns: int,
-    ego_state_se3: EgoStateSE3,
+    annotations_df: Optional[pd.DataFrame], lidar_timestamp_ns: int, ego_state_se3: EgoStateSE3
 ) -> BoxDetectionWrapper:
+    """Extract box detections from AV2 sensor dataset annotations."""
 
     # TODO: Extract velocity from annotations_df if available.
 
@@ -287,6 +286,7 @@ def _extract_av2_sensor_box_detections(
 
 
 def _extract_av2_sensor_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_timestamp_ns: int) -> EgoStateSE3:
+    """Extract ego state from AV2 sensor dataset city_SE3_egovehicle dataframe."""
     ego_state_slice = get_slice_with_timestamp_ns(city_se3_egovehicle_df, lidar_timestamp_ns)
     assert (
         len(ego_state_slice) == 1
@@ -315,6 +315,7 @@ def _extract_av2_sensor_pinhole_cameras(
     source_log_path: Path,
     dataset_converter_config: DatasetConverterConfig,
 ) -> List[CameraData]:
+    """Extract pinhole camera data from AV2 sensor dataset."""
 
     camera_data_list: List[CameraData] = []
     split = source_log_path.parent.name
@@ -357,6 +358,7 @@ def _extract_av2_sensor_pinhole_cameras(
 def _extract_av2_sensor_lidars(
     source_log_path: Path, lidar_timestamp_ns: int, dataset_converter_config: DatasetConverterConfig
 ) -> List[LiDARData]:
+    """Extract LiDAR data from AV2 sensor dataset."""
     lidars: List[LiDARData] = []
     if dataset_converter_config.include_lidars:
         av2_sensor_data_root = source_log_path.parent.parent

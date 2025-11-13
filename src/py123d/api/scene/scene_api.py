@@ -18,6 +18,7 @@ from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 
 
 class SceneAPI(abc.ABC):
+    """Base class for all scene APIs. The scene API provides access to all data modalities at in a scene."""
 
     # Abstract Methods, to be implemented by subclasses
     # ------------------------------------------------------------------------------------------------------------------

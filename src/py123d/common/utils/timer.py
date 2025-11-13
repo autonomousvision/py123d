@@ -6,18 +6,30 @@ import pandas as pd
 
 
 class Timer:
-    """
-    A simple timer class to measure execution time of different parts of the code.
+    """Simple Timer class to log time taken by code blocks.
+
+    Example
+    -------
+    >>> timer = Timer()
+    >>> timer.start()
+    >>> time.sleep(0.1)  # Simulate code block
+    >>> timer.log("block_1")
+    >>> time.sleep(0.2)  # Simulate another code block
+    >>> timer.log("block_2")
+    >>> timer.end()
+    >>> print(timer) # Displays timing statistics (with some variation)
+                mean       min       max     argmax    median
+    block_1  0.100123  0.100123  0.100123         0  0.100123
+    block_2  0.200456  0.200456  0.200456         0  0.200456
+    total    0.300579  0.300579  0.300579         0  0.300579
+
     """
 
-    def __init__(self, name: Optional[str] = None, end_key: str = "total"):
-        """
-        Initializes the Timer instance.
-        :param name: Name of the Timer, defaults to None
-        :param end_key: name of the final row, defaults to "total"
-        """
+    def __init__(self, end_key: str = "total"):
+        """Initializes the :class:`Timer`
 
-        self._name = name
+        :param end_key: The key used to log the total time, defaults to "total"
+        """
         self._end_key: str = end_key
         self._statistic_functions = {
             "mean": np.mean,
@@ -33,15 +45,17 @@ class Timer:
         self._iteration_time: Optional[float] = None
 
     def start(self) -> None:
-        """Called during the start of the timer ."""
+        """Called at the start of the timer."""
         self._start_time = time.perf_counter()
         self._iteration_time = time.perf_counter()
 
     def log(self, key: str) -> None:
         """
         Called after code block execution. Logs the time taken for the block, given the name (key).
-        :param key: Name of the code block to log the time for.
+        :param key: Unique identifier of the code block to log the time for.
         """
+        assert self._iteration_time is not None, "Timer has not been started. Call start() before logging."
+
         if key not in self._time_logs.keys():
             self._time_logs[key] = []
 
@@ -50,14 +64,15 @@ class Timer:
 
     def end(self) -> None:
         """Called at the end of the timer."""
+        assert self._start_time is not None, "Timer has not been started. Call start() before logging."
         if self._end_key not in self._time_logs.keys():
             self._time_logs[self._end_key] = []
 
         self._time_logs[self._end_key].append(time.perf_counter() - self._start_time)
 
     def to_pandas(self) -> Optional[pd.DataFrame]:
-        """
-        Returns a DataFrame with statistics of the logged times.
+        """Returns a DataFrame with statistics of the logged times.
+
         :return: pandas dataframe.
         """
 
@@ -73,13 +88,15 @@ class Timer:
         return dataframe
 
     def info(self) -> Dict[str, float]:
-        """
-        Summarized information about the timings.
+        """Summarized information about the timings.
+
         :return: Dictionary with the mean of each timing.
         """
         info = {}
         for key, timings in self._time_logs.items():
-            info[key] = np.array(timings).mean()
+            info[key] = {}
+            for name, function in self._statistic_functions.items():
+                info[key][name] = function(np.array(timings))
         return info
 
     def flush(self) -> None:

@@ -1,3 +1,8 @@
+"""
+Multi-threading execution code.
+Code is adapted from the nuplan-devkit: https://github.com/motional/nuplan-devkit
+"""
+
 import logging
 import traceback
 from functools import partial
@@ -14,8 +19,8 @@ from py123d.common.multithreading.worker_pool import Task
 
 
 def _ray_object_iterator(initial_ids: List[ray.ObjectRef]) -> Iterator[Tuple[ray.ObjectRef, Any]]:
-    """
-    Iterator that waits for each ray object in the input object list to be completed and fetches the result.
+    """Iterator that waits for each ray object in the input object list to be completed and fetches the result.
+
     :param initial_ids: list of ray object ids
     :yield: result of worker
     """
@@ -31,8 +36,8 @@ def _ray_object_iterator(initial_ids: List[ray.ObjectRef]) -> Iterator[Tuple[ray
 
 
 def wrap_function(fn: Callable[..., Any], log_dir: Optional[Path] = None) -> Callable[..., Any]:
-    """
-    Wraps a function to save its logs to a unique file inside the log directory.
+    """Wraps a function to save its logs to a unique file inside the log directory.
+
     :param fn: function to be wrapped.
     :param log_dir: directory to store logs (wrapper function does nothing if it's not set).
     :return: wrapped function which changes logging settings while it runs.
@@ -68,8 +73,8 @@ def wrap_function(fn: Callable[..., Any], log_dir: Optional[Path] = None) -> Cal
 
 
 def _ray_map_items(task: Task, *item_lists: Iterable[List[Any]], log_dir: Optional[Path] = None) -> List[Any]:
-    """
-    Map each item of a list of arguments to a callable and executes in parallel.
+    """Map each item of a list of arguments to a callable and executes in parallel.
+
     :param fn: callable to be run
     :param item_list: items to be parallelized
     :param log_dir: directory to store worker logs
@@ -106,8 +111,8 @@ def _ray_map_items(task: Task, *item_lists: Iterable[List[Any]], log_dir: Option
 
 
 def ray_map(task: Task, *item_lists: Iterable[List[Any]], log_dir: Optional[Path] = None) -> List[Any]:
-    """
-    Initialize ray, align item lists and map each item of a list of arguments to a callable and executes in parallel.
+    """Initialize ray, align item lists and map each item of a list of arguments to a callable and executes in parallel.
+
     :param task: callable to be run
     :param item_lists: items to be parallelized
     :param log_dir: directory to store worker logs

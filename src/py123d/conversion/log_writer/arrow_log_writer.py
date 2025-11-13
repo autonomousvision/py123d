@@ -70,6 +70,7 @@ def _get_sensors_root() -> Path:
 def _store_option_to_arrow_type(
     store_option: Literal["path", "jpeg_binary", "png_binary", "laz_binary"],
 ) -> pa.DataType:
+    """Maps the store option literal to the corresponding Arrow data type."""
     data_type_map = {
         "path": pa.string(),
         "jpeg_binary": pa.binary(),
@@ -82,6 +83,7 @@ def _store_option_to_arrow_type(
 
 
 class ArrowLogWriter(AbstractLogWriter):
+    """Log writer for Arrow-based logs. Writes log data to an Arrow IPC file format."""
 
     def __init__(
         self,
@@ -90,6 +92,13 @@ class ArrowLogWriter(AbstractLogWriter):
         ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
         ipc_compression_level: Optional[int] = None,
     ) -> None:
+        """Initializes the :class:`ArrowLogWriter`.
+
+        :param logs_root: The root directory for logs, defaults to None
+        :param sensors_root: The root directory for sensors (i.e. in case of re-writing sensor files), defaults to None
+        :param ipc_compression: The IPC compression method, defaults to None
+        :param ipc_compression_level: The IPC compression level, defaults to None
+        """
 
         self._logs_root = Path(logs_root) if logs_root is not None else _get_logs_root()
         self._sensors_root = Path(sensors_root) if sensors_root is not None else _get_sensors_root()
@@ -106,6 +115,7 @@ class ArrowLogWriter(AbstractLogWriter):
         self._fisheye_mei_mp4_writers: Dict[str, MP4Writer] = {}
 
     def reset(self, dataset_converter_config: DatasetConverterConfig, log_metadata: LogMetadata) -> bool:
+        """Inherited, see superclass."""
 
         log_needs_writing: bool = False
         sink_log_path: Path = self._logs_root / log_metadata.split / f"{log_metadata.log_name}.arrow"
@@ -152,7 +162,9 @@ class ArrowLogWriter(AbstractLogWriter):
         lidars: Optional[List[LiDARData]] = None,
         scenario_tags: Optional[List[str]] = None,
         route_lane_group_ids: Optional[List[int]] = None,
+        **kwargs,
     ) -> None:
+        """Inherited, see superclass."""
 
         assert self._dataset_converter_config is not None, "Log writer is not initialized."
         assert self._log_metadata is not None, "Log writer is not initialized."
@@ -329,6 +341,7 @@ class ArrowLogWriter(AbstractLogWriter):
         self._record_batch_writer.write_batch(record_batch)
 
     def close(self) -> None:
+        """Inherited, see superclass."""
         if self._record_batch_writer is not None:
             self._record_batch_writer.close()
             self._record_batch_writer: Optional[pa.ipc.RecordBatchWriter] = None
@@ -350,6 +363,12 @@ class ArrowLogWriter(AbstractLogWriter):
 
     @staticmethod
     def _build_schema(dataset_converter_config: DatasetConverterConfig, log_metadata: LogMetadata) -> pa.Schema:
+        """Builds the schema for the Arrow table, specifying datatypes and modalities to be stored.
+
+        :param dataset_converter_config: The dataset converter configuration.
+        :param log_metadata: The metadata for the log.
+        :return: The Arrow schema object.
+        """
 
         schema_list: List[Tuple[str, pa.DataType]] = [
             (UUID_COLUMN, pa.uuid()),
@@ -474,6 +493,12 @@ class ArrowLogWriter(AbstractLogWriter):
         return add_log_metadata_to_arrow_schema(pa.schema(schema_list), log_metadata)
 
     def _prepare_lidar_data_dict(self, lidars: List[LiDARData]) -> Dict[LiDARType, Union[str, bytes]]:
+        """Helper function to prepare LiDAR data dictionary for the target storage option.
+
+        :param lidars: List of LiDARData objects to be processed.
+        :return: Dictionary mapping LiDARType to either file path (str) or binary data (bytes) depending on storage option.
+        """
+
         lidar_data_dict: Dict[LiDARType, Union[str, bytes]] = {}
 
         if self._dataset_converter_config.lidar_store_option == "path":
@@ -506,6 +531,10 @@ class ArrowLogWriter(AbstractLogWriter):
                     binary = encode_lidar_pc_as_draco_binary(point_cloud, lidar_metadata)
                 elif self._dataset_converter_config.lidar_store_option == "laz_binary":
                     binary = encode_lidar_pc_as_laz_binary(point_cloud, lidar_metadata)
+                else:
+                    raise NotImplementedError(
+                        f"Unsupported LiDAR store option: {self._dataset_converter_config.lidar_store_option}"
+                    )
                 lidar_data_dict[lidar_type] = binary
 
         return lidar_data_dict
@@ -513,6 +542,14 @@ class ArrowLogWriter(AbstractLogWriter):
     def _prepare_camera_data_dict(
         self, cameras: List[CameraData], store_option: Literal["path", "binary"]
     ) -> Dict[PinholeCameraType, Union[str, bytes]]:
+        """Helper function to prepare camera data dictionary for the target storage option.
+
+        :param cameras: List of CameraData objects to be processed.
+        :param store_option: The storage option for camera data, either "path" or "binary".
+        :raises NotImplementedError: If the storage option is not supported.
+        :raises NotImplementedError: If the camera data does not support the specified storage option.
+        :return: Dictionary mapping PinholeCameraType to either file path (str) or binary data (bytes) depending on storage option.
+        """
         camera_data_dict: Dict[PinholeCameraType, Union[str, int, bytes]] = {}
 
         for camera_data in cameras:

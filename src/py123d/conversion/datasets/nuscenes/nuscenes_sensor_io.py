@@ -11,6 +11,8 @@ from py123d.geometry.transform.transform_se3 import convert_points_3d_array_betw
 
 
 def load_nuscenes_lidar_pcs_from_file(pcd_path: Path, log_metadata: LogMetadata) -> Dict[LiDARType, np.ndarray]:
+    """Loads nuScenes LiDAR point clouds from the original binary files."""
+
     lidar_pc = np.fromfile(pcd_path, dtype=np.float32).reshape(-1, len(NuScenesLiDARIndex))
 
     # convert lidar to ego frame

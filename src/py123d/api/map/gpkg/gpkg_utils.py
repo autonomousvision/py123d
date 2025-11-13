@@ -7,7 +7,12 @@ from shapely import wkt
 
 
 def load_gdf_with_geometry_columns(gdf: gpd.GeoDataFrame, geometry_column_names: List[str] = []):
-    # TODO: refactor
+    """Convert geometry columns stored as wkt back to shapely geometries.
+
+    :param gdf: input GeoDataFrame.
+    :param geometry_column_names: List of geometry column names to convert, defaults to []
+    """
+
     # Convert string geometry columns back to shapely objects
     for col in geometry_column_names:
         if col in gdf.columns and len(gdf) > 0 and isinstance(gdf[col].iloc[0], str):

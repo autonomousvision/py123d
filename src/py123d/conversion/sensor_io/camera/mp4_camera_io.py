@@ -12,16 +12,15 @@ import numpy as np
 
 
 class MP4Writer:
-    """Write images sequentially to an MP4 video file."""
+    """Simple implementation of an MP4 video writer, based on OpenCV."""
 
     def __init__(self, output_path: Union[str, Path], fps: float = 30.0, codec: str = "mp4v"):
         """
         Initialize MP4 writer.
 
-        Args:
-            output_path: Path to output MP4 file
-            fps: Frames per second
-            codec: Video codec ('mp4v', 'avc1', 'h264')
+        :param output_path: The output path for the MP4 file.
+        :param fps: Frames per second, defaults to 30.0
+        :param codec: Video codec, defaults to "mp4v"
         """
         self.output_path = Path(output_path)
         self.fps = fps
@@ -31,11 +30,11 @@ class MP4Writer:
         self.frame_count = 0
 
     def write_frame(self, frame: np.ndarray) -> int:
-        """
-        Write a single frame to the video.
+        """Write a single frame to the video.
 
-        Args:
-            frame: Image as numpy array (RGB format)
+        :param frame: Image as numpy array (RGB format)
+        :raises ValueError: If frame size does not match video size
+        :return: Index of the written frame
         """
         frame_idx = int(self.frame_count)
         if self.writer is None:
@@ -55,21 +54,22 @@ class MP4Writer:
         return frame_idx
 
     def close(self):
-        """Release the video writer."""
+        """Close the video writer and finalize the MP4 file."""
         if self.writer is not None:
             self.writer.release()
             self.writer = None
 
 
 class MP4Reader:
-    """Read MP4 video with random frame access."""
+    """Simple implementation of an MP4 video reader, based on OpenCV."""
 
     def __init__(self, video_path: Union[str, Path], read_all: bool = False):
-        """
-        Initialize MP4 reader.
+        """Initializes the MP4Reader.
 
-        Args:
-            video_path: Path to MP4 file
+        :param video_path: Path to the MP4 video file.
+        :param read_all: Whether to read all frames into memory, defaults to False
+        :raises FileNotFoundError: If the video file does not exist
+        :raises ValueError: If the video file cannot be opened
         """
         self.video_path = video_path
         if not Path(video_path).exists():
@@ -98,14 +98,11 @@ class MP4Reader:
             self.cap = None
 
     def get_frame(self, frame_index: int) -> Optional[np.ndarray]:
-        """
-        Get a specific frame by index.
+        """Get a specific frame, an RBG image as numpy array, by its index.
 
-        Args:
-            frame_index: Zero-based frame index
-
-        Returns:
-            Frame as numpy array (RGB format) or None if invalid index
+        :param frame_index: Index of the frame to retrieve.
+        :raises IndexError: If the frame index is out of range.
+        :return: The frame as a numpy array (RGB format) or None if the frame could not be read.
         """
 
         if frame_index < 0 or frame_index >= self.frame_count:
@@ -123,9 +120,12 @@ class MP4Reader:
 
         return frame if ret else None
 
-    def __getitem__(self, index: int) -> np.ndarray:
-        """Allow indexing like reader[10]"""
-        return self.get_frame(index)
+    def __del__(self):
+        """Destructor to release the video capture."""
+        if self.cap is not None:
+            self.cap.release()
+        if self.read_all:
+            self.frames = []
 
 
 @lru_cache(maxsize=64)

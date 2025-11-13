@@ -30,12 +30,13 @@ from py123d.datatypes.map_objects.map_objects import (
     RoadLine,
     Walkway,
 )
-from py123d.geometry.polyline import Polyline2D, Polyline3D
+from py123d.geometry import Polyline2D, Polyline3D
 
-MAX_ROAD_EDGE_LENGTH: Final[float] = 100.0  # meters, used to filter out very long road edges. TODO @add to config?
+MAX_ROAD_EDGE_LENGTH: Final[float] = 100.0  # meters, used to filter out very long road edges. TODO add to config?
 
 
 def write_nuplan_map(nuplan_maps_root: Path, location: str, map_writer: AbstractMapWriter) -> None:
+    """Convert nuPlan map data using the provided map writer."""
     assert location in NUPLAN_MAP_LOCATION_FILES.keys(), f"Map name {location} is not supported."
     source_map_path = nuplan_maps_root / NUPLAN_MAP_LOCATION_FILES[location]
     assert source_map_path.exists(), f"Map file {source_map_path} does not exist."
@@ -55,6 +56,7 @@ def write_nuplan_map(nuplan_maps_root: Path, location: str, map_writer: Abstract
 
 
 def _write_nuplan_lanes(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    """Write nuPlan lanes to the map writer."""
 
     # NOTE: drops: lane_index (?), creator_id, name (?), road_type_fid (?), lane_type_fid (?), width (?),
     # left_offset (?), right_offset (?), min_speed (?), max_speed (?), stops, left_has_reflectors (?),
@@ -123,6 +125,7 @@ def _write_nuplan_lanes(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: Abs
 
 
 def _write_nuplan_lane_connectors(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    """Write nuPlan lane connectors (lanes on intersections) to the map writer."""
 
     # NOTE: drops: exit_lane_group_fid, entry_lane_group_fid, to_edge_fid,
     # turn_type_fid (?), bulb_fids (?), traffic_light_stop_line_fids (?), overlap (?), creator_id
@@ -176,6 +179,8 @@ def _write_nuplan_lane_connectors(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_w
 
 
 def _write_nuplan_lane_groups(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    """Write nuPlan lane groups to the map writer."""
+
     # NOTE: drops: creator_id, from_edge_fid, to_edge_fid
     ids = nuplan_gdf["lane_groups_polygons"].fid.to_list()
     # all_geometries = nuplan_gdf["lane_groups_polygons"].geometry.to_list()
@@ -231,6 +236,8 @@ def _write_nuplan_lane_groups(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_write
 
 
 def _write_nuplan_lane_connector_groups(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    """Write nuPlan lane connector groups (lane groups on intersections) to the map writer."""
+
     # NOTE: drops: creator_id, from_edge_fid, to_edge_fid, intersection_fid
     ids = nuplan_gdf["lane_group_connectors"].fid.to_list()
     all_intersection_ids = nuplan_gdf["lane_group_connectors"].intersection_fid.to_list()
@@ -272,6 +279,7 @@ def _write_nuplan_lane_connector_groups(nuplan_gdf: Dict[str, gpd.GeoDataFrame],
 
 
 def _write_nuplan_intersections(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    """Write nuPlan intersections to the map writer."""
     # NOTE: drops: creator_id, intersection_type_fid (?), is_mini (?)
     all_ids = nuplan_gdf["intersections"].fid.to_list()
     all_geometries = nuplan_gdf["intersections"].geometry.to_list()
@@ -290,24 +298,28 @@ def _write_nuplan_intersections(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_wri
 
 
 def _write_nuplan_crosswalks(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    """Write nuPlan crosswalks to the map writer."""
     # NOTE: drops: creator_id, intersection_fids, lane_fids, is_marked (?)
     for id, geometry in zip(nuplan_gdf["crosswalks"].fid.to_list(), nuplan_gdf["crosswalks"].geometry.to_list()):
         map_writer.write_crosswalk(Crosswalk(object_id=id, shapely_polygon=geometry))
 
 
 def _write_nuplan_walkways(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    """Write nuPlan walkways to the map writer."""
     # NOTE: drops: creator_id
     for id, geometry in zip(nuplan_gdf["walkways"].fid.to_list(), nuplan_gdf["walkways"].geometry.to_list()):
         map_writer.write_walkway(Walkway(object_id=id, shapely_polygon=geometry))
 
 
 def _write_nuplan_carparks(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    """Write nuPlan carparks to the map writer."""
     # NOTE: drops: creator_id
     for id, geometry in zip(nuplan_gdf["carpark_areas"].fid.to_list(), nuplan_gdf["carpark_areas"].geometry.to_list()):
         map_writer.write_carpark(Carpark(object_id=id, shapely_polygon=geometry))
 
 
 def _write_nuplan_generic_drivables(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    """Write nuPlan generic drivable areas to the map writer."""
     # NOTE: drops: creator_id
     for id, geometry in zip(
         nuplan_gdf["generic_drivable_areas"].fid.to_list(), nuplan_gdf["generic_drivable_areas"].geometry.to_list()
@@ -316,6 +328,7 @@ def _write_nuplan_generic_drivables(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map
 
 
 def _write_nuplan_road_edges(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    """Write nuPlan road edges to the map writer."""
     drivable_polygons = (
         nuplan_gdf["intersections"].geometry.to_list()
         + nuplan_gdf["lane_groups_polygons"].geometry.to_list()
@@ -336,6 +349,7 @@ def _write_nuplan_road_edges(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer
 
 
 def _write_nuplan_road_lines(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
+    """Write nuPlan road lines to the map writer."""
     boundaries = nuplan_gdf["boundaries"].geometry.to_list()
     fids = nuplan_gdf["boundaries"].fid.to_list()
     boundary_types = nuplan_gdf["boundaries"].boundary_type_fid.to_list()
@@ -351,6 +365,7 @@ def _write_nuplan_road_lines(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer
 
 
 def _load_nuplan_gdf(map_file_path: Path) -> Dict[str, gpd.GeoDataFrame]:
+    """Load nuPlan map data from a GPKG file into a dictionary of GeoDataFrames."""
 
     # The projected coordinate system depends on which UTM zone the mapped location is in.
     map_meta = gpd.read_file(map_file_path, layer="meta", engine="pyogrio")
@@ -377,11 +392,14 @@ def _load_nuplan_gdf(map_file_path: Path) -> Dict[str, gpd.GeoDataFrame]:
 
 
 def _flip_linestring(linestring: LineString) -> LineString:
+    """Flips the direction of a shapely LineString."""
     # TODO: move somewhere more appropriate or implement in Polyline2D, PolylineSE2, etc.
     return LineString(linestring.coords[::-1])
 
 
 def lines_same_direction(centerline: LineString, boundary: LineString) -> bool:
+    """Check if the boundary LineString is in the same direction as the centerline LineString."""
+
     # TODO: refactor helper function.
     center_start = np.array(centerline.coords[0])
     center_end = np.array(centerline.coords[-1])
@@ -396,6 +414,7 @@ def lines_same_direction(centerline: LineString, boundary: LineString) -> bool:
 
 
 def align_boundary_direction(centerline: LineString, boundary: LineString) -> LineString:
+    """Aligns the boundary LineString direction to be the same as the centerline LineString direction."""
     # TODO: refactor helper function.
     if not lines_same_direction(centerline, boundary):
         return _flip_linestring(boundary)

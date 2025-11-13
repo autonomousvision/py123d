@@ -11,6 +11,7 @@ from nuplan.database.nuplan_db.query_session import execute_many, execute_one
 
 
 def get_box_detections_for_lidarpc_token_from_db(log_file: str, token: str) -> List[BoxDetectionSE3]:
+    """Gets the box detections for a given LiDAR point cloud token from the NuPlan database."""
 
     query = """
         SELECT  c.name AS category_name,
@@ -69,6 +70,7 @@ def get_box_detections_for_lidarpc_token_from_db(log_file: str, token: str) -> L
 
 
 def get_ego_pose_for_timestamp_from_db(log_file: str, timestamp: int) -> PoseSE3:
+    """Gets the ego pose for a given timestamp from the NuPlan database."""
 
     query = """
         SELECT  ep.x,
@@ -89,9 +91,7 @@ def get_ego_pose_for_timestamp_from_db(log_file: str, timestamp: int) -> PoseSE3
     """
 
     row = execute_one(query, (timestamp,), log_file)
-    if row is None:
-        return None
-
+    assert row is not None, f"No ego pose found for timestamp {timestamp} in log file {log_file}"
     return PoseSE3(x=row["x"], y=row["y"], z=row["z"], qw=row["qw"], qx=row["qx"], qy=row["qy"], qz=row["qz"])
 
 
@@ -102,6 +102,7 @@ def get_nearest_ego_pose_for_timestamp_from_db(
     lookahead_window_us: int = 50000,
     lookback_window_us: int = 50000,
 ) -> PoseSE3:
+    """Gets the nearest ego pose for a given timestamp from the NuPlan database within a lookahead and lookback window."""
 
     query = f"""
         SELECT  ep.x,

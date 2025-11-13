@@ -1,3 +1,8 @@
+"""
+Multi-threading execution code.
+Code is adapted from the nuplan-devkit: https://github.com/motional/nuplan-devkit
+"""
+
 import logging
 import os
 from concurrent.futures import Future

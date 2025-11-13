@@ -152,7 +152,7 @@ def _extract_nuscenes_lanes(nuscenes_map: NuScenesMap) -> List[Lane]:
                 successor_ids=outgoing,
                 speed_limit_mps=None,
                 outline=None,
-                geometry=None,
+                shapely_polygon=None,
             )
         )
 
@@ -200,7 +200,7 @@ def _extract_nuscenes_lane_connectors(nuscenes_map: NuScenesMap, road_edges: Lis
                 successor_ids=successor_ids,
                 speed_limit_mps=None,  # Default value
                 outline=None,
-                geometry=None,
+                shapely_polygon=None,
             )
         )
 
@@ -266,7 +266,7 @@ def _extract_nuscenes_lane_groups(
                 predecessor_ids=list(predecessor_ids),
                 successor_ids=list(successor_ids),
                 outline=None,
-                geometry=None,
+                shapely_polygon=None,
             )
         )
 
@@ -304,7 +304,7 @@ def _write_nuscenes_intersections(
                 object_id=idx,
                 lane_group_ids=intersecting_lane_connector_ids,
                 outline=None,
-                geometry=intersection_polygon,
+                shapely_polygon=intersection_polygon,
             )
         )
 
@@ -321,7 +321,7 @@ def _write_nuscenes_crosswalks(nuscenes_map: NuScenesMap, map_writer: AbstractMa
             crosswalk_polygons.append(polygon)
 
     for idx, polygon in enumerate(crosswalk_polygons):
-        map_writer.write_crosswalk(Crosswalk(object_id=idx, geometry=polygon))
+        map_writer.write_crosswalk(Crosswalk(object_id=idx, shapely_polygon=polygon))
 
 
 def _write_nuscenes_walkways(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
@@ -333,7 +333,7 @@ def _write_nuscenes_walkways(nuscenes_map: NuScenesMap, map_writer: AbstractMapW
             walkway_polygons.append(polygon)
 
     for idx, polygon in enumerate(walkway_polygons):
-        map_writer.write_walkway(Walkway(object_id=idx, geometry=polygon))
+        map_writer.write_walkway(Walkway(object_id=idx, shapely_polygon=polygon))
 
 
 def _write_nuscenes_carparks(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
@@ -345,7 +345,7 @@ def _write_nuscenes_carparks(nuscenes_map: NuScenesMap, map_writer: AbstractMapW
             carpark_polygons.append(polygon)
 
     for idx, polygon in enumerate(carpark_polygons):
-        map_writer.write_carpark(Carpark(object_id=idx, geometry=polygon))
+        map_writer.write_carpark(Carpark(object_id=idx, shapely_polygon=polygon))
 
 
 def _write_nuscenes_generic_drivables(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
@@ -362,7 +362,7 @@ def _write_nuscenes_generic_drivables(nuscenes_map: NuScenesMap, map_writer: Abs
             # drivable_polygons.append(polygon)
 
     for idx, geometry in enumerate(drivable_polygons):
-        map_writer.write_generic_drivable(GenericDrivable(object_id=idx, geometry=geometry))
+        map_writer.write_generic_drivable(GenericDrivable(object_id=idx, shapely_polygon=geometry))
 
 
 def _write_nuscenes_stop_zones(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
@@ -406,7 +406,7 @@ def _write_nuscenes_road_lines(nuscenes_map: NuScenesMap, map_writer: AbstractMa
             RoadLine(
                 object_id=running_idx,
                 road_line_type=line_type,
-                polyline=Polyline3D(LineString(line.coords)),
+                polyline=Polyline3D.from_linestring(LineString(line.coords)),
             )
         )
         running_idx += 1
@@ -421,7 +421,7 @@ def _write_nuscenes_road_lines(nuscenes_map: NuScenesMap, map_writer: AbstractMa
             RoadLine(
                 object_id=running_idx,
                 road_line_type=line_type,
-                polyline=Polyline3D(LineString(line.coords)),
+                polyline=Polyline3D.from_linestring(LineString(line.coords)),
             )
         )
         running_idx += 1

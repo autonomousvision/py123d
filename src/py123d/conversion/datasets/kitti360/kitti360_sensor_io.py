@@ -12,6 +12,8 @@ from py123d.geometry.transform.transform_se3 import convert_points_3d_array_betw
 
 
 def load_kitti360_lidar_pcs_from_file(filepath: Path, log_metadata: LogMetadata) -> Dict[LiDARType, np.ndarray]:
+    """Loads KITTI-360 LiDAR point clouds the original binary files."""
+
     if not filepath.exists():
         logging.warning(f"LiDAR file does not exist: {filepath}. Returning empty point cloud.")
         return {LiDARType.LIDAR_TOP: np.zeros((1, len(Kitti360LiDARIndex)), dtype=np.float32)}

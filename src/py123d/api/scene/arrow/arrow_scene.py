@@ -30,6 +30,7 @@ from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 
 
 def _get_complete_log_scene_metadata(arrow_file_path: Union[Path, str], log_metadata: LogMetadata) -> SceneMetadata:
+    """Helper function to get the scene metadata for a complete log of an Arrow file."""
     table = get_lru_cached_arrow_table(arrow_file_path)
     initial_uuid = table[UUID_COLUMN][0].as_py()
     num_rows = table.num_rows
@@ -43,18 +44,24 @@ def _get_complete_log_scene_metadata(arrow_file_path: Union[Path, str], log_meta
 
 
 class ArrowSceneAPI(SceneAPI):
+    """Scene API for Arrow-based scenes. Provides access to all data modalities in an Arrow scene."""
 
     def __init__(
         self,
         arrow_file_path: Union[Path, str],
-        scene_extraction_metadata: Optional[SceneMetadata] = None,
+        scene_metadata: Optional[SceneMetadata] = None,
     ) -> None:
+        """Initializes the :class:`ArrowSceneAPI`.
+
+        :param arrow_file_path: Path to the Arrow file.
+        :param scene_metadata: Scene metadata, defaults to None
+        """
 
         self._arrow_file_path: Path = Path(arrow_file_path)
         self._log_metadata: LogMetadata = get_log_metadata_from_arrow_file(str(arrow_file_path))
-        self._scene_extraction_metadata: SceneMetadata = (
-            scene_extraction_metadata
-            if scene_extraction_metadata is not None
+        self._scene_metadata: SceneMetadata = (
+            scene_metadata
+            if scene_metadata is not None
             else _get_complete_log_scene_metadata(arrow_file_path, self._log_metadata)
         )
 
@@ -62,9 +69,8 @@ class ArrowSceneAPI(SceneAPI):
         # Global maps are LRU cached internally.
         self._local_map_api: Optional[MapAPI] = None
 
-    ####################################################################################################################
-    # Helpers for ArrowScene
-    ####################################################################################################################
+    # Helper methods
+    # ------------------------------------------------------------------------------------------------------------------
 
     def __reduce__(self):
         """Helper for pickling the object."""
@@ -72,7 +78,7 @@ class ArrowSceneAPI(SceneAPI):
             self.__class__,
             (
                 self._arrow_file_path,
-                self._scene_extraction_metadata,
+                self._scene_metadata,
             ),
         )
 
@@ -81,21 +87,24 @@ class ArrowSceneAPI(SceneAPI):
         return get_lru_cached_arrow_table(self._arrow_file_path)
 
     def _get_table_index(self, iteration: int) -> int:
+        """Helper function to get the table index for a given iteration."""
         assert -self.number_of_history_iterations <= iteration < self.number_of_iterations, "Iteration out of bounds"
-        table_index = self._scene_extraction_metadata.initial_idx + iteration
+        table_index = self._scene_metadata.initial_idx + iteration
         return table_index
 
-    ####################################################################################################################
-    # Implementation of AbstractScene
-    ####################################################################################################################
+    # Implementation of abstract methods
+    # ------------------------------------------------------------------------------------------------------------------
 
     def get_log_metadata(self) -> LogMetadata:
+        """Inherited, see superclass."""
         return self._log_metadata
 
     def get_scene_metadata(self) -> SceneMetadata:
-        return self._scene_extraction_metadata
+        """Inherited, see superclass."""
+        return self._scene_metadata
 
     def get_map_api(self) -> Optional[MapAPI]:
+        """Inherited, see superclass."""
         map_api: Optional[MapAPI] = None
         if self.log_metadata.map_metadata is not None:
             if self.log_metadata.map_metadata.map_is_local:
@@ -109,9 +118,11 @@ class ArrowSceneAPI(SceneAPI):
         return map_api
 
     def get_timepoint_at_iteration(self, iteration: int) -> TimePoint:
+        """Inherited, see superclass."""
         return get_timepoint_from_arrow_table(self._get_recording_table(), self._get_table_index(iteration))
 
     def get_ego_state_at_iteration(self, iteration: int) -> Optional[EgoStateSE3]:
+        """Inherited, see superclass."""
         return get_ego_state_se3_from_arrow_table(
             self._get_recording_table(),
             self._get_table_index(iteration),
@@ -119,6 +130,7 @@ class ArrowSceneAPI(SceneAPI):
         )
 
     def get_box_detections_at_iteration(self, iteration: int) -> Optional[BoxDetectionWrapper]:
+        """Inherited, see superclass."""
         return get_box_detections_se3_from_arrow_table(
             self._get_recording_table(),
             self._get_table_index(iteration),
@@ -126,16 +138,19 @@ class ArrowSceneAPI(SceneAPI):
         )
 
     def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetectionWrapper]:
+        """Inherited, see superclass."""
         return get_traffic_light_detections_from_arrow_table(
             self._get_recording_table(), self._get_table_index(iteration)
         )
 
     def get_route_lane_group_ids(self, iteration: int) -> Optional[List[int]]:
+        """Inherited, see superclass."""
         return get_route_lane_group_ids_from_arrow_table(self._get_recording_table(), self._get_table_index(iteration))
 
     def get_pinhole_camera_at_iteration(
         self, iteration: int, camera_type: PinholeCameraType
     ) -> Optional[PinholeCamera]:
+        """Inherited, see superclass."""
         pinhole_camera: Optional[PinholeCamera] = None
         if camera_type in self.available_pinhole_camera_types:
             pinhole_camera = get_camera_from_arrow_table(
@@ -149,6 +164,7 @@ class ArrowSceneAPI(SceneAPI):
     def get_fisheye_mei_camera_at_iteration(
         self, iteration: int, camera_type: FisheyeMEICameraType
     ) -> Optional[FisheyeMEICamera]:
+        """Inherited, see superclass."""
         fisheye_mei_camera: Optional[FisheyeMEICamera] = None
         if camera_type in self.available_fisheye_mei_camera_types:
             fisheye_mei_camera = get_camera_from_arrow_table(
@@ -160,6 +176,7 @@ class ArrowSceneAPI(SceneAPI):
         return fisheye_mei_camera
 
     def get_lidar_at_iteration(self, iteration: int, lidar_type: LiDARType) -> Optional[LiDAR]:
+        """Inherited, see superclass."""
         lidar: Optional[LiDAR] = None
         if lidar_type in self.available_lidar_types or lidar_type == LiDARType.LIDAR_MERGED:
             lidar = get_lidar_from_arrow_table(

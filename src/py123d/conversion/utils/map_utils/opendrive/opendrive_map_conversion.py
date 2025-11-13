@@ -48,6 +48,13 @@ def convert_xodr_map(
     interpolation_step_size: float = 1.0,
     connection_distance_threshold: float = 0.1,
 ) -> None:
+    """Converts an OpenDRIVE map file and the map objects to an 123D map using a map writer.
+
+    :param xordr_file: Path to the OpenDRIVE (.xodr) file.
+    :param map_writer: Map writer to write the extracted map objects.
+    :param interpolation_step_size: Step size for interpolating polylines, defaults to 1.0
+    :param connection_distance_threshold: Distance threshold for connecting road elements, defaults to 0.1
+    """
 
     opendrive = XODR.parse_from_file(xordr_file)
 
@@ -81,6 +88,7 @@ def _extract_and_write_lanes(
     lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper],
     map_writer: AbstractMapWriter,
 ) -> List[Lane]:
+    """Extracts lanes from lane group helpers and writes them using the map writer."""
 
     lanes: List[Lane] = []
     for lane_group_helper in lane_group_helper_dict.values():
@@ -114,6 +122,7 @@ def _extract_and_write_lanes(
 def _extract_and_write_lane_groups(
     lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper], map_writer: AbstractMapWriter
 ) -> List[LaneGroup]:
+    """Extracts lane groups from lane group helpers and writes them using the map writer."""
 
     lane_groups: List[LaneGroup] = []
     for lane_group_helper in lane_group_helper_dict.values():
@@ -127,7 +136,6 @@ def _extract_and_write_lane_groups(
             predecessor_ids=lane_group_helper.predecessor_lane_group_ids,
             successor_ids=lane_group_helper.successor_lane_group_ids,
             outline=lane_group_helper.outline_polyline_3d,
-            geometry=None,
         )
         lane_groups.append(lane_group)
         map_writer.write_lane_group(lane_group)
@@ -136,13 +144,13 @@ def _extract_and_write_lane_groups(
 
 
 def _write_walkways(lane_helper_dict: Dict[str, OpenDriveLaneHelper], map_writer: AbstractMapWriter) -> None:
+    """Writes walkways from lane helpers using the map writer."""
     for lane_helper in lane_helper_dict.values():
         if lane_helper.type == "sidewalk":
             map_writer.write_walkway(
                 Walkway(
                     object_id=lane_helper.lane_id,
                     outline=lane_helper.outline_polyline_3d,
-                    geometry=None,
                 )
             )
 
@@ -150,24 +158,23 @@ def _write_walkways(lane_helper_dict: Dict[str, OpenDriveLaneHelper], map_writer
 def _extract_and_write_carparks(
     lane_helper_dict: Dict[str, OpenDriveLaneHelper], map_writer: AbstractMapWriter
 ) -> List[Carpark]:
-
+    """Extracts carparks from lane helpers and writes them using the map writer."""
     carparks: List[Carpark] = []
     for lane_helper in lane_helper_dict.values():
         if lane_helper.type == "parking":
             carpark = Carpark(
                 object_id=lane_helper.lane_id,
                 outline=lane_helper.outline_polyline_3d,
-                geometry=None,
             )
             carparks.append(carpark)
             map_writer.write_carpark(carpark)
-
     return carparks
 
 
 def _extract_and_write_generic_drivables(
     lane_helper_dict: Dict[str, OpenDriveLaneHelper], map_writer: AbstractMapWriter
 ) -> List[GenericDrivable]:
+    """Extracts generic drivables from lane helpers and writes them using the map writer."""
 
     generic_drivables: List[GenericDrivable] = []
     for lane_helper in lane_helper_dict.values():
@@ -175,7 +182,6 @@ def _extract_and_write_generic_drivables(
             generic_drivable = GenericDrivable(
                 object_id=lane_helper.lane_id,
                 outline=lane_helper.outline_polyline_3d,
-                geometry=None,
             )
             generic_drivables.append(generic_drivable)
             map_writer.write_generic_drivable(generic_drivable)
@@ -209,7 +215,6 @@ def _write_intersections(
                 object_id=junction.id,
                 lane_group_ids=lane_group_ids_,
                 outline=outline,
-                geometry=None,
             )
         )
 
@@ -220,7 +225,6 @@ def _write_crosswalks(object_helper_dict: Dict[int, OpenDriveObjectHelper], map_
             Crosswalk(
                 object_id=object_helper.object_id,
                 outline=object_helper.outline_polyline_3d,
-                geometry=None,
             )
         )
 

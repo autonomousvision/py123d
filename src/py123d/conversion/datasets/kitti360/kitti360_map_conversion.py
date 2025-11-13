@@ -23,13 +23,9 @@ from py123d.datatypes.map_objects.map_objects import (
 from py123d.geometry.polyline import Polyline3D
 
 MAX_ROAD_EDGE_LENGTH = 100.0  # meters, used to filter out very long road edges
-
 KITTI360_DATA_ROOT = Path(os.environ["KITTI360_DATA_ROOT"])
-
 DIR_3D_BBOX = "data_3d_bboxes"
-
 PATH_3D_BBOX_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_BBOX
-
 KITTI360_MAP_BBOX = [
     "road",
     "sidewalk",
@@ -40,8 +36,7 @@ KITTI360_MAP_BBOX = [
 
 
 def convert_kitti360_map_with_writer(log_name: str, map_writer: AbstractMapWriter) -> None:
-    """
-    Convert KITTI-360 map data using the provided map writer.
+    """Convert KITTI-360 map data using the provided map writer.
     This function extracts map data from KITTI-360 XML files and writes them using the map writer interface.
 
     :param log_name: The name of the log to convert

@@ -29,7 +29,7 @@ from py123d.common.utils.arrow_column_names import (
     TRAFFIC_LIGHTS_STATUS_COLUMN,
 )
 from py123d.common.utils.mixin import ArrayMixin
-from py123d.conversion.registry.lidar_index_registry import DefaultLiDARIndex
+from py123d.conversion.registry import DefaultLiDARIndex
 from py123d.conversion.sensor_io.camera.jpeg_camera_io import (
     decode_image_from_jpeg_binary,
     is_jpeg_binary,
@@ -40,24 +40,26 @@ from py123d.conversion.sensor_io.camera.png_camera_io import decode_image_from_p
 from py123d.conversion.sensor_io.lidar.draco_lidar_io import is_draco_binary, load_lidar_from_draco_binary
 from py123d.conversion.sensor_io.lidar.file_lidar_io import load_lidar_pcs_from_file
 from py123d.conversion.sensor_io.lidar.laz_lidar_io import is_laz_binary, load_lidar_from_laz_binary
-from py123d.datatypes.detections.box_detections import (
+from py123d.datatypes.detections import (
     BoxDetectionMetadata,
     BoxDetectionSE3,
     BoxDetectionWrapper,
-)
-from py123d.datatypes.detections.traffic_light_detections import (
     TrafficLightDetection,
     TrafficLightDetectionWrapper,
     TrafficLightStatus,
 )
-from py123d.datatypes.metadata.log_metadata import LogMetadata
-from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
-from py123d.datatypes.sensors.lidar import LiDAR, LiDARMetadata, LiDARType
-from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraType
-from py123d.datatypes.time.time_point import TimePoint
-from py123d.datatypes.vehicle_state.dynamic_state import DynamicStateSE3
-from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
-from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
+from py123d.datatypes.metadata import LogMetadata
+from py123d.datatypes.sensors import (
+    FisheyeMEICamera,
+    FisheyeMEICameraType,
+    LiDAR,
+    LiDARMetadata,
+    LiDARType,
+    PinholeCamera,
+    PinholeCameraType,
+)
+from py123d.datatypes.time import TimePoint
+from py123d.datatypes.vehicle_state import DynamicStateSE3, EgoStateSE3, VehicleParameters
 from py123d.geometry import BoundingBoxSE3, PoseSE3, Vector3D
 from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
@@ -73,6 +75,12 @@ DATASET_SENSOR_ROOT: Dict[str, Path] = {
 
 
 def get_timepoint_from_arrow_table(arrow_table: pa.Table, index: int) -> TimePoint:
+    """Builds a :class:`~py123d.datatypes.time.TimePoint` from an Arrow table at a given index.
+
+    :param arrow_table: The Arrow table containing the timepoint data.
+    :param index: The index to extract the timepoint from.
+    :return: The TimePoint at the given index.
+    """
     assert TIMESTAMP_US_COLUMN in arrow_table.schema.names, "Timestamp column not found in Arrow table."
     return TimePoint.from_us(arrow_table[TIMESTAMP_US_COLUMN][index].as_py())
 
@@ -80,19 +88,28 @@ def get_timepoint_from_arrow_table(arrow_table: pa.Table, index: int) -> TimePoi
 def get_ego_state_se3_from_arrow_table(
     arrow_table: pa.Table,
     index: int,
-    vehicle_parameters: VehicleParameters,
+    vehicle_parameters: Optional[VehicleParameters],
 ) -> Optional[EgoStateSE3]:
+    """Builds a :class:`~py123d.datatypes.vehicle_state.EgoStateSE3` from an Arrow table at a given index.
+
+    :param arrow_table: The Arrow table containing the ego state data.
+    :param index: The index to extract the ego state from.
+    :param vehicle_parameters: The vehicle parameters used to build the ego state.
+    :return: The ego state at the given index, or None if not available.
+    """
 
     ego_state_se3: Optional[EgoStateSE3] = None
-    if _all_columns_in_schema(arrow_table, EGO_STATE_SE3_COLUMNS):
+    if _all_columns_in_schema(arrow_table, EGO_STATE_SE3_COLUMNS) and vehicle_parameters is not None:
         timepoint = get_timepoint_from_arrow_table(arrow_table, index)
         rear_axle_se3 = PoseSE3.from_list(arrow_table[EGO_REAR_AXLE_SE3_COLUMN][index].as_py())
+        dynamic_state_se3 = _get_optional_array_mixin(
+            arrow_table[EGO_DYNAMIC_STATE_SE3_COLUMN][index].as_py(),
+            DynamicStateSE3,
+        )
         ego_state_se3 = EgoStateSE3.from_rear_axle(
             rear_axle_se3=rear_axle_se3,
             vehicle_parameters=vehicle_parameters,
-            dynamic_state_se3=_get_optional_array_mixin(
-                arrow_table[EGO_DYNAMIC_STATE_SE3_COLUMN][index].as_py(), DynamicStateSE3
-            ),
+            dynamic_state_se3=dynamic_state_se3,
             timepoint=timepoint,
         )
     return ego_state_se3
@@ -103,12 +120,20 @@ def get_box_detections_se3_from_arrow_table(
     index: int,
     log_metadata: LogMetadata,
 ) -> BoxDetectionWrapper:
+    """Builds a :class:`~py123d.datatypes.detections.BoxDetectionWrapper` from an Arrow table at a given index.
+
+    :param arrow_table: The Arrow table containing the box detections data.
+    :param index: The index to extract the box detections from.
+    :param log_metadata: The log metadata, contained the label class information.
+    :return: The BoxDetectionWrapper at the given index.
+    """
 
     box_detections: Optional[BoxDetectionWrapper] = None
     if _all_columns_in_schema(arrow_table, BOX_DETECTIONS_SE3_COLUMNS):
         timepoint = get_timepoint_from_arrow_table(arrow_table, index)
         box_detections_list: List[BoxDetectionSE3] = []
         box_detection_label_class = log_metadata.box_detection_label_class
+        assert box_detection_label_class is not None, "Box detection label class mapping not found in log metadata."
         for _bounding_box_se3, _token, _label, _velocity, _num_lidar_points in zip(
             arrow_table[BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN][index].as_py(),
             arrow_table[BOX_DETECTIONS_TOKEN_COLUMN][index].as_py(),
@@ -133,8 +158,17 @@ def get_box_detections_se3_from_arrow_table(
     return box_detections
 
 
-def get_traffic_light_detections_from_arrow_table(arrow_table: pa.Table, index: int) -> TrafficLightDetectionWrapper:
-    traffic_lights: Optional[List[TrafficLightDetection]] = None
+def get_traffic_light_detections_from_arrow_table(
+    arrow_table: pa.Table,
+    index: int,
+) -> Optional[TrafficLightDetectionWrapper]:
+    """Builds a :class:`~py123d.datatypes.detections.TrafficLightDetectionWrapper` from an Arrow table at a given index.
+
+    :param arrow_table: The Arrow table containing the traffic light detections data.
+    :param index: The index to extract the traffic light detections from.
+    :return: The TrafficLightDetectionWrapper at the given index, or None if not available.
+    """
+    traffic_lights: Optional[TrafficLightDetectionWrapper] = None
     if _all_columns_in_schema(arrow_table, TRAFFIC_LIGHTS_COLUMNS):
         timepoint = get_timepoint_from_arrow_table(arrow_table, index)
         traffic_light_detections: List[TrafficLightDetection] = []
@@ -159,6 +193,17 @@ def get_camera_from_arrow_table(
     camera_type: Union[PinholeCameraType, FisheyeMEICameraType],
     log_metadata: LogMetadata,
 ) -> Optional[Union[PinholeCamera, FisheyeMEICamera]]:
+    """Builds a camera object from an Arrow table at a given index.
+
+    :param arrow_table: The Arrow table containing the camera data.
+    :param index: The index to extract the camera data from.
+    :param camera_type: The type of camera to build (Pinhole or FisheyeMEI).
+    :param log_metadata: Metadata about the log, including dataset information.
+    :raises ValueError: If the camera data format is unsupported.
+    :raises NotImplementedError: If the camera data type is not supported.
+    :return: The constructed camera object, or None if not available.
+    """
+
     assert isinstance(
         camera_type, (PinholeCameraType, FisheyeMEICameraType)
     ), f"camera_type must be PinholeCameraType or FisheyeMEICameraType, got {type(camera_type)}"
@@ -206,7 +251,6 @@ def get_camera_from_arrow_table(
                 raise NotImplementedError(
                     f"Only string file paths, bytes, or int frame indices are supported for camera data, got {type(table_data)}"
                 )
-            # extrinsic = PoseSE3.from_list(arrow_table[camera_extrinsic_column][index].as_py())
 
             if is_pinhole:
                 camera_metadata = log_metadata.pinhole_camera_metadata[camera_type]
@@ -232,9 +276,19 @@ def get_lidar_from_arrow_table(
     lidar_type: LiDARType,
     log_metadata: LogMetadata,
 ) -> LiDAR:
+    """Builds a LiDAR object from an Arrow table at a given index.
+
+    :param arrow_table: The Arrow table containing the LiDAR data.
+    :param index: The index to extract the LiDAR data from.
+    :param lidar_type: The type of LiDAR to build.
+    :param log_metadata: Metadata about the log, including the LiDAR metadata.
+    :raises ValueError: If the LiDAR data format is unsupported.
+    :raises NotImplementedError: If the LiDAR data type is not supported.
+    :return: The constructed LiDAR object, or None if not available.
+    """
 
     lidar: Optional[LiDAR] = None
-    # NOTE @DanielDauner: Some LiDAR are stored together and are seperated only during loading.
+    # NOTE @DanielDauner: Some LiDAR are stored together and are separated only during loading.
     # In this case, we need to use the merged LiDAR column name.
 
     lidar_column_name = LIDAR_DATA_COLUMN(lidar_type.serialize())
@@ -283,6 +337,12 @@ def get_lidar_from_arrow_table(
 
 
 def get_route_lane_group_ids_from_arrow_table(arrow_table: pa.Table, index: int) -> Optional[List[int]]:
+    """Gets the route lane group IDs from an Arrow table at a given index.
+
+    :param arrow_table: The Arrow table containing the route lane group IDs data.
+    :param index: The index to extract the route lane group IDs from.
+    :return: The route lane group IDs at the given index, or None if not available
+    """
     route_lane_group_ids: Optional[List[int]] = None
     if _all_columns_in_schema(arrow_table, [ROUTE_LANE_GROUP_IDS_COLUMN]):
         route_lane_group_ids = arrow_table[ROUTE_LANE_GROUP_IDS_COLUMN][index].as_py()
@@ -290,6 +350,12 @@ def get_route_lane_group_ids_from_arrow_table(arrow_table: pa.Table, index: int)
 
 
 def get_scenario_tags_from_arrow_table(arrow_table: pa.Table, index: int) -> Optional[List[int]]:
+    """Gets the scenario tags from an Arrow table at a given index.
+
+    :param arrow_table: The Arrow table containing the scenario tags data.
+    :param index: The index to extract the scenario tags from.
+    :return: The scenario tags at the given index, or None if not available
+    """
     scenario_tags: Optional[List[int]] = None
     if _all_columns_in_schema(arrow_table, [SCENARIO_TAGS_COLUMN]):
         scenario_tags = arrow_table[SCENARIO_TAGS_COLUMN][index].as_py()
@@ -297,7 +363,13 @@ def get_scenario_tags_from_arrow_table(arrow_table: pa.Table, index: int) -> Opt
 
 
 def _unoptimized_demo_mp4_read(log_metadata: LogMetadata, camera_name: str, frame_index: int) -> Optional[np.ndarray]:
-    """A quick and dirty MP4 reader for testing purposes only. Not optimized for performance."""
+    """Reads a frame from an MP4 file for demonstration purposes. This features is not optimized for performance.
+
+    :param log_metadata: The metadata of the log containing the MP4 file.
+    :param camera_name: The name of the camera whose MP4 file is to be read.
+    :param frame_index: The index of the frame to read from the MP4 file.
+    :return: The image frame as a numpy array, or None if the file does not exist.
+    """
     image: Optional[npt.NDArray[np.uint8]] = None
 
     py123d_sensor_root = Path(DATASET_PATHS.py123d_sensors_root)
@@ -310,6 +382,13 @@ def _unoptimized_demo_mp4_read(log_metadata: LogMetadata, camera_name: str, fram
 
 
 def _get_optional_array_mixin(data: Optional[Union[List, npt.NDArray]], cls: Type[ArrayMixin]) -> Optional[ArrayMixin]:
+    """Builds an optional ArrayMixin if data is provided.
+
+    :param data: The data to convert into an ArrayMixin.
+    :param cls: The ArrayMixin class to instantiate.
+    :raises ValueError: If the data type is unsupported.
+    :return: The instantiated ArrayMixin, or None if data is None.
+    """
     if data is None:
         return None
     if isinstance(data, list):
@@ -321,4 +400,10 @@ def _get_optional_array_mixin(data: Optional[Union[List, npt.NDArray]], cls: Typ
 
 
 def _all_columns_in_schema(arrow_table: pa.Table, columns: List[str]) -> bool:
+    """Checks if all specified columns are present in the Arrow table schema.
+
+    :param arrow_table: The Arrow table to check.
+    :param columns: The list of column names to check for.
+    :return: True if all columns are present, False otherwise.
+    """
     return all(column in arrow_table.schema.names for column in columns)

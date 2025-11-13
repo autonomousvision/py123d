@@ -1,16 +1,21 @@
+from __future__ import annotations
+
 from enum import IntEnum
+from typing import Dict
 
 from py123d.common.utils.enums import classproperty
 
-LIDAR_INDEX_REGISTRY = {}
+LIDAR_INDEX_REGISTRY: Dict[str, LiDARIndex] = {}
 
 
 def register_lidar_index(enum_class):
+    """Decorator to register a LiDARIndex enum class."""
     LIDAR_INDEX_REGISTRY[enum_class.__name__] = enum_class
     return enum_class
 
 
 class LiDARIndex(IntEnum):
+    """Base class for all LiDAR Index enums. Defines common indices for LiDAR point clouds."""
 
     @classproperty
     def XY(self) -> slice:
@@ -29,6 +34,8 @@ class LiDARIndex(IntEnum):
 
 @register_lidar_index
 class DefaultLiDARIndex(LiDARIndex):
+    """Default LiDAR indices for XYZ point clouds."""
+
     X = 0
     Y = 1
     Z = 2
@@ -36,6 +43,8 @@ class DefaultLiDARIndex(LiDARIndex):
 
 @register_lidar_index
 class NuPlanLiDARIndex(LiDARIndex):
+    """LiDAR Indexing Scheme for the nuPlan dataset."""
+
     X = 0
     Y = 1
     Z = 2
@@ -45,6 +54,8 @@ class NuPlanLiDARIndex(LiDARIndex):
 
 @register_lidar_index
 class CARLALiDARIndex(LiDARIndex):
+    """LiDAR Indexing Scheme for the CARLA."""
+
     X = 0
     Y = 1
     Z = 2
@@ -53,6 +64,8 @@ class CARLALiDARIndex(LiDARIndex):
 
 @register_lidar_index
 class WOPDLiDARIndex(LiDARIndex):
+    """Waymo Open Perception Dataset (WOPD) LiDAR Indexing Scheme, with polar features."""
+
     RANGE = 0
     INTENSITY = 1
     ELONGATION = 2
@@ -63,6 +76,8 @@ class WOPDLiDARIndex(LiDARIndex):
 
 @register_lidar_index
 class Kitti360LiDARIndex(LiDARIndex):
+    """KITTI-360 LiDAR Indexing Scheme."""
+
     X = 0
     Y = 1
     Z = 2
@@ -71,10 +86,7 @@ class Kitti360LiDARIndex(LiDARIndex):
 
 @register_lidar_index
 class AVSensorLiDARIndex(LiDARIndex):
-    """Argoverse Sensor LiDAR Indexing Scheme.
-
-    NOTE: The LiDAR files also include, 'offset_ns', which we do not currently include.
-    """
+    """Argoverse 2 Sensor LiDAR Indexing Scheme."""
 
     X = 0
     Y = 1
@@ -94,6 +106,8 @@ class PandasetLiDARIndex(LiDARIndex):
 
 @register_lidar_index
 class NuScenesLiDARIndex(LiDARIndex):
+    """NuScenes LiDAR Indexing Scheme."""
+
     X = 0
     Y = 1
     Z = 2

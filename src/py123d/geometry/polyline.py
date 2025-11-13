@@ -372,7 +372,7 @@ class Polyline3D(ArrayMixin):
         :return: A Point3D instance or a numpy array of shape (N, 3) representing the interpolated points.
         """
 
-        _interpolator = interp1d(self._progress, self._array, axis=0, bounds_error=False, fill_value=0.0)
+        _interpolator = interp1d(self._progress, self._array, axis=0, bounds_error=False, fill_value="extrapolate")
         distances_ = distances * self.length if normalized else distances
         clipped_distances = np.clip(distances_, 1e-8, self.length)
 

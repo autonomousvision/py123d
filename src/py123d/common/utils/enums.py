@@ -1,21 +1,26 @@
 from __future__ import annotations
 
 import enum
-
-from pyparsing import Union
+from typing import Union
 
 
 class classproperty(object):
+    """Decorator for class-level properties."""
+
     def __init__(self, f):
+        """Initialize the classproperty with the given function."""
         self.f = f
 
     def __get__(self, obj, owner):
+        """Get the property value."""
         return self.f(owner)
 
 
 class SerialIntEnum(enum.Enum):
+    """Base class for serializable integer enums."""
 
     def __int__(self) -> int:
+        """Get the integer value of the enum."""
         return self.value
 
     def serialize(self, lower: bool = True) -> str:

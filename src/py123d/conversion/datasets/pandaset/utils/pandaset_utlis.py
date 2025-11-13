@@ -5,19 +5,20 @@ from pathlib import Path
 from typing import Dict
 
 import numpy as np
+from pyparsing import Union
 
 from py123d.geometry import PoseSE3, Vector3D
 from py123d.geometry.transform.transform_se3 import translate_se3_along_body_frame
 
 
-def read_json(json_file: Path):
+def read_json(json_file: Union[Path, str]):
     """Helper function to read a json file as dict."""
     with open(json_file, "r") as f:
         json_data = json.load(f)
     return json_data
 
 
-def read_pkl_gz(pkl_gz_file: Path):
+def read_pkl_gz(pkl_gz_file: Union[Path, str]):
     """Helper function to read a pkl.gz file as dict."""
     with gzip.open(pkl_gz_file, "rb") as f:
         pkl_data = pickle.load(f)

@@ -26,8 +26,20 @@ def load_lidar_pcs_from_file(
     index: Optional[int] = None,
     sensor_root: Optional[Union[str, Path]] = None,
 ) -> Dict[LiDARType, npt.NDArray[np.float32]]:
-    assert relative_path is not None, "Relative path to LiDAR file must be provided."
+    """Loads LiDAR point clouds from a file, based on the dataset specified in the log metadata.
 
+    :param relative_path: Relative path to the LiDAR file.
+    :param log_metadata: Metadata containing dataset information.
+    :param index: Optional index for datasets that require it, defaults to None
+    :param sensor_root: Optional root path for sensor data, defaults to None
+    :raises NotImplementedError: If the dataset is not supported
+    :return: Dictionary mapping LiDAR types to their point cloud numpy arrays
+    """
+    # NOTE @DanielDauner: This function is designed s.t. it can load multiple lidar types at the same time.
+    # Several datasets (e.g., PandaSet, nuScenes) have multiple LiDAR sensors stored in one file.
+    # Returning this as a dict allows us to handle this case without unnucessary io overhead.
+
+    assert relative_path is not None, "Relative path to LiDAR file must be provided."
     if sensor_root is None:
         assert (
             log_metadata.dataset in DATASET_SENSOR_ROOT.keys()

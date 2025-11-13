@@ -1,23 +1,45 @@
 from __future__ import annotations
 
+from typing import Self
+
 import numpy as np
 import numpy.typing as npt
 
-# import pyarrow as pa
-
 
 class ArrayMixin:
-    """Mixin class for object entities."""
+    """Mixin class to provide array-like behavior for classes.
+
+    Example:
+    >>> import numpy as np
+    >>> from py123d.common.utils.mixin import ArrayMixin
+    >>> class MyVector(ArrayMixin):
+    ...     def __init__(self, x: float, y: float):
+    ...         self._array = np.array([x, y], dtype=np.float64)
+    ...     @property
+    ...     def array(self) -> npt.NDArray[np.float64]:
+    ...         return self._array
+    ...     @classmethod
+    ...     def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> MyVector:
+    ...         if copy:
+    ...             array = array.copy()
+    ...         return cls(array[0], array[1])
+    >>> vec = MyVector(1.0, 2.0)
+    >>> print(vec)
+    MyVector(array=[1. 2.])
+    >>> np.array(vec, dtype=np.float32)
+    array([1., 2.], dtype=float32)
+
+    """
 
     __slots__ = ()
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> ArrayMixin:
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> Self:
         """Create an instance from a NumPy array."""
         raise NotImplementedError
 
     @classmethod
-    def from_list(cls, values: list) -> ArrayMixin:
+    def from_list(cls, values: list) -> Self:
         """Create an instance from a list of values."""
         return cls.from_array(np.array(values, dtype=np.float64), copy=False)
 
@@ -26,7 +48,7 @@ class ArrayMixin:
         """The array representation of the geometric entity."""
         raise NotImplementedError
 
-    def __array__(self, dtype: npt.DtypeLike = None, copy: bool = False) -> npt.NDArray:
+    def __array__(self, dtype: npt.DTypeLike = None, copy: bool = False) -> npt.NDArray:
         array = self.array
         return array if dtype is None else array.astype(dtype=dtype, copy=copy)
 

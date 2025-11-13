@@ -26,8 +26,7 @@ from py123d.conversion.datasets.kitti360.utils.kitti360_labels import (
 from py123d.conversion.datasets.kitti360.utils.preprocess_detection import process_detection
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.registry.box_detection_label_registry import KITTI360BoxDetectionLabel
-from py123d.conversion.registry.lidar_index_registry import Kitti360LiDARIndex
+from py123d.conversion.registry import KITTI360BoxDetectionLabel, Kitti360LiDARIndex
 from py123d.datatypes.detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.metadata import LogMetadata, MapMetadata
 from py123d.datatypes.sensors import (
@@ -42,13 +41,11 @@ from py123d.datatypes.sensors import (
     PinholeDistortion,
     PinholeIntrinsics,
 )
-from py123d.datatypes.time.time_point import TimePoint
-from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
-from py123d.datatypes.vehicle_state.vehicle_parameters import (
-    get_kitti360_vw_passat_parameters,
-)
+from py123d.datatypes.time import TimePoint
+from py123d.datatypes.vehicle_state import DynamicStateSE3, EgoStateSE3
+from py123d.datatypes.vehicle_state.vehicle_parameters import get_kitti360_vw_passat_parameters
 from py123d.geometry import BoundingBoxSE3, PoseSE3, Quaternion, Vector3D
-from py123d.geometry.transform.transform_se3 import convert_se3_array_between_origins, translate_se3_along_body_frame
+from py123d.geometry.transform import convert_se3_array_between_origins, translate_se3_along_body_frame
 
 KITTI360_DT: Final[float] = 0.1
 
@@ -110,6 +107,8 @@ def _get_kitti360_required_modality_roots(kitti360_folders: Dict[str, Path]) -> 
 
 
 class Kitti360Converter(AbstractDatasetConverter):
+    """Converter class for KITTI-360 dataset."""
+
     def __init__(
         self,
         splits: List[str],
@@ -121,6 +120,18 @@ class Kitti360Converter(AbstractDatasetConverter):
         val_sequences: List[str],
         test_sequences: List[str],
     ) -> None:
+        """Initializes the Kitti360Converter.
+
+        :param splits: List of splits to include in the conversion, e.g. `kitti360_train`, `kitti360_val`, `kitti360_test`
+        :param kitti360_data_root: Path to the KITTI-360 dataset root directory
+        :param detection_cache_root: Path to the detection cache directory
+        :param detection_radius: Radius for the box detections to include.
+        :param dataset_converter_config: Dataset converter configuration
+        :param train_sequences: List of sequences to include in the training split
+        :param val_sequences: List of sequences to include in the validation split
+        :param test_sequences: List of sequences to include in the test split
+        """
+
         assert kitti360_data_root is not None, "The variable `kitti360_data_root` must be provided."
         super().__init__(dataset_converter_config)
         for split in splits:
@@ -199,19 +210,15 @@ class Kitti360Converter(AbstractDatasetConverter):
         return log_paths_and_split
 
     def get_number_of_maps(self) -> int:
-        """Returns the number of available raw data maps for conversion."""
+        """Inherited, see superclass."""
         return self._total_maps
 
     def get_number_of_logs(self) -> int:
-        """Returns the number of available raw data logs for conversion."""
+        """Inherited, see superclass."""
         return self._total_logs
 
     def convert_map(self, map_index: int, map_writer: AbstractMapWriter) -> None:
-        """
-        Convert a single map in raw data format to the uniform 123D format.
-        :param map_index: The index of the map to convert.
-        :param map_writer: The map writer to use for writing the converted map.
-        """
+        """Inherited, see superclass."""
         log_name, split = self._log_names_and_split[map_index]
         map_metadata = _get_kitti360_map_metadata(split, log_name)
         map_needs_writing = map_writer.reset(self.dataset_converter_config, map_metadata)
@@ -220,11 +227,7 @@ class Kitti360Converter(AbstractDatasetConverter):
         map_writer.close()
 
     def convert_log(self, log_index: int, log_writer: AbstractLogWriter) -> None:
-        """
-        Convert a single log in raw data format to the uniform 123D format.
-        :param log_index: The index of the log to convert.
-        :param log_writer: The log writer to use for writing the converted log.
-        """
+        """Inherited, see superclass."""
         log_name, split = self._log_names_and_split[log_index]
 
         # Create log metadata
@@ -309,6 +312,7 @@ def _get_kitti360_pinhole_camera_metadata(
     kitti360_folders: Dict[str, Path],
     dataset_converter_config: DatasetConverterConfig,
 ) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
+    """Gets the KITTI-360 pinhole camera metadata from calibration files."""
 
     pinhole_cam_metadatas: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
     if dataset_converter_config.include_pinhole_cameras:
@@ -344,6 +348,8 @@ def _get_kitti360_fisheye_mei_camera_metadata(
     kitti360_folders: Dict[str, Path],
     dataset_converter_config: DatasetConverterConfig,
 ) -> Dict[FisheyeMEICameraType, FisheyeMEICameraMetadata]:
+    """Gets the KITTI-360 fisheye MEI camera metadata from calibration files."""
+
     fisheye_cam_metadatas: Dict[FisheyeMEICameraType, FisheyeMEICameraMetadata] = {}
     if dataset_converter_config.include_fisheye_mei_cameras:
 
@@ -386,6 +392,7 @@ def _get_kitti360_fisheye_mei_camera_metadata(
 
 
 def _get_kitti360_map_metadata(split: str, log_name: str) -> MapMetadata:
+    """Gets the KITTI-360 map metadata."""
     return MapMetadata(
         dataset="kitti360",
         split=split,
@@ -397,6 +404,7 @@ def _get_kitti360_map_metadata(split: str, log_name: str) -> MapMetadata:
 
 
 def _read_projection_matrix(p_line: str) -> np.ndarray:
+    """Helper function to read projection matrix from calibration file line."""
     parts = p_line.split(" ", 1)
     if len(parts) != 2:
         raise ValueError(f"Bad projection line: {p_line}")
@@ -407,7 +415,7 @@ def _read_projection_matrix(p_line: str) -> np.ndarray:
 
 
 def _readYAMLFile(fileName: Path) -> Dict[str, Any]:
-    """make OpenCV YAML file compatible with python"""
+    """Make OpenCV YAML file compatible with python"""
     ret = {}
     skip_lines = 1  # Skip the first line which says "%YAML:1.0". Or replace it with "%YAML 1.0"
     with open(fileName) as fin:
@@ -421,9 +429,9 @@ def _readYAMLFile(fileName: Path) -> Dict[str, Any]:
 
 
 def _get_kitti360_lidar_metadata(
-    kitti360_folders: Dict[str, Path],
-    dataset_converter_config: DatasetConverterConfig,
+    kitti360_folders: Dict[str, Path], dataset_converter_config: DatasetConverterConfig
 ) -> Dict[LiDARType, LiDARMetadata]:
+    """Gets the KITTI-360 LiDAR metadata from calibration files."""
     metadata: Dict[LiDARType, LiDARMetadata] = {}
     if dataset_converter_config.include_lidars:
         extrinsic = get_kitti360_lidar_extrinsic(kitti360_folders[DIR_CALIB])
@@ -438,9 +446,7 @@ def _get_kitti360_lidar_metadata(
 
 
 def _read_timestamps(log_name: str, kitti360_folders: Dict[str, Path]) -> Optional[List[TimePoint]]:
-    """
-    Read KITTI-360 timestamps for the given sequence and return Unix epoch timestamps.
-    """
+    """Read KITTI-360 timestamps for the given sequence and return Unix epoch timestamps."""
     ts_files = [
         kitti360_folders[DIR_3D_RAW] / log_name / "velodyne_points" / "timestamps.txt",
         kitti360_folders[DIR_2D_RAW] / log_name / "image_00" / "timestamps.txt",
@@ -472,8 +478,9 @@ def _read_timestamps(log_name: str, kitti360_folders: Dict[str, Path]) -> Option
 
 
 def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> Tuple[List[EgoStateSE3], List[int]]:
+    """Extracts all ego states for the given sequence."""
 
-    ego_state_all: List[List[float]] = []
+    ego_state_all: List[EgoStateSE3] = []
     pose_file = kitti360_folders[DIR_POSES] / log_name / "poses.txt"
     if not pose_file.exists():
         raise FileNotFoundError(f"Pose file not found: {pose_file}")
@@ -540,6 +547,7 @@ def _extract_kitti360_box_detections_all(
     detection_cache_root: Path,
     detection_radius: float,
 ) -> List[BoxDetectionWrapper]:
+    """Extracts all KITTI-360 box detections for the given sequence."""
 
     detections_states: List[List[List[float]]] = [[] for _ in range(ts_len)]
     detections_velocity: List[List[List[float]]] = [[] for _ in range(ts_len)]
@@ -669,6 +677,7 @@ def _extract_kitti360_lidar(
     kitti360_folders: Dict[str, Path],
     data_converter_config: DatasetConverterConfig,
 ) -> List[LiDARData]:
+    """Extracts KITTI-360 LiDAR data for the given sequence and index."""
 
     lidars: List[LiDARData] = []
     if data_converter_config.include_lidars:
@@ -700,6 +709,7 @@ def _extract_kitti360_pinhole_cameras(
     kitti360_folders: Dict[str, Path],
     data_converter_config: DatasetConverterConfig,
 ) -> List[CameraData]:
+    """Extracts KITTI-360 pinhole camera data for the given sequence and index."""
 
     pinhole_camera_data_list: List[CameraData] = []
     if data_converter_config.include_pinhole_cameras:
@@ -726,7 +736,7 @@ def _extract_kitti360_fisheye_mei_cameras(
     kitti360_folders: Dict[str, Path],
     data_converter_config: DatasetConverterConfig,
 ) -> List[CameraData]:
-
+    """Extracts KITTI-360 fisheye MEI camera data for the given sequence and index."""
     fisheye_camera_data_list: List[CameraData] = []
     if data_converter_config.include_fisheye_mei_cameras:
         for camera_type, cam_dir_name in KITTI360_FISHEYE_MEI_CAMERA_TYPES.items():
@@ -745,6 +755,7 @@ def _extract_kitti360_fisheye_mei_cameras(
 
 
 def _load_kitti_360_calibration(kitti_360_data_root: Path) -> Dict[str, PoseSE3]:
+    """Helper function to load KITTI-360 camera to IMU calibration."""
     calib_file = kitti_360_data_root / DIR_CALIB / "calib_cam_to_pose.txt"
     if not calib_file.exists():
         raise FileNotFoundError(f"Calibration file not found: {calib_file}")
@@ -766,6 +777,7 @@ def _load_kitti_360_calibration(kitti_360_data_root: Path) -> Dict[str, PoseSE3]
 
 
 def _extrinsic_from_imu_to_rear_axle(extrinsic: PoseSE3) -> PoseSE3:
+    """Convert extrinsic from IMU origin to rear axle origin."""
     imu_se3 = PoseSE3(x=-0.05, y=0.32, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
     rear_axle_se3 = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
     return PoseSE3.from_array(convert_se3_array_between_origins(imu_se3, rear_axle_se3, extrinsic.array))

@@ -32,9 +32,12 @@ class AbstractLogWriter(abc.ABC):
         self,
         dataset_converter_config: DatasetConverterConfig,
         log_metadata: LogMetadata,
-    ) -> None:
-        """
-        Reset the log writer for a new log.
+    ) -> bool:
+        """Resets the log writer to start writing a new log according to the provided configuration and metadata.
+
+        :param dataset_converter_config: The dataset converter configuration.
+        :param log_metadata: The metadata for the log.
+        :return: True if the current logs needs to be written, False otherwise.
         """
 
     @abc.abstractmethod
@@ -51,15 +54,27 @@ class AbstractLogWriter(abc.ABC):
         route_lane_group_ids: Optional[List[int]] = None,
         **kwargs,
     ) -> None:
-        pass
+        """Writes a single iteration of data to the log.
+
+        :param timestamp: Required, the timestamp of the iteration.
+        :param ego_state: Optional, the ego state of the vehicle, defaults to None.
+        :param box_detections: Optional, the box detections, defaults to None
+        :param traffic_lights: Optional, the traffic light detections, defaults to None
+        :param pinhole_cameras: Optional, the pinhole camera data, defaults to None
+        :param fisheye_mei_cameras: Optional, the fisheye MEI camera data, defaults to None
+        :param lidars: Optional, the LiDAR data, defaults to None
+        :param scenario_tags: Optional, the scenario tags, defaults to None
+        :param route_lane_group_ids: Optional, the route lane group IDs, defaults to None
+        """
 
     @abc.abstractmethod
     def close(self) -> None:
-        pass
+        """Closes the log writer and finalizes the log io operations."""
 
 
 @dataclass
 class LiDARData:
+    """Helper dataclass to pass LiDAR data to log writers."""
 
     lidar_type: LiDARType
 
@@ -85,6 +100,7 @@ class LiDARData:
 
 @dataclass
 class CameraData:
+    """Helper dataclass to pass Camera data to log writers."""
 
     camera_type: Union[PinholeCameraType, FisheyeMEICameraType]
     extrinsic: PoseSE3

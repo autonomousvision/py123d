@@ -5,19 +5,28 @@ from typing import Final, Union
 import pyarrow as pa
 
 # TODO: Tune Parameters and add to config?
-MAX_LRU_CACHED_TABLES: Final[int] = 1_000_000
+MAX_LRU_CACHED_TABLES: Final[int] = 50_000
 
 
 def open_arrow_table(arrow_file_path: Union[str, Path]) -> pa.Table:
+    """Open an `.arrow` file as memory map.
+
+    :param arrow_file_path: The file path, defined as string or Path.
+    :return: The memory-mapped arrow table.s
+    """
+
     with pa.memory_map(str(arrow_file_path), "rb") as source:
         table: pa.Table = pa.ipc.open_file(source).read_all()
     return table
 
 
 def write_arrow_table(table: pa.Table, arrow_file_path: Union[str, Path]) -> None:
-    # compression: Optional[Literal["lz4", "zstd"]] = "lz4"
-    # codec = pa.Codec("zstd", compression_level=100) if compression is not None else None
-    # options = pa.ipc.IpcWriteOptions(compression=codec)
+    """Writes an arrow table to the file path.
+
+    :param table: The arrow table to write.
+    :param arrow_file_path: The file path, defined as string or Path.
+    """
+
     with pa.OSFile(str(arrow_file_path), "wb") as sink:
         # with pa.ipc.new_file(sink, table.schema, options=options) as writer:
         with pa.ipc.new_file(sink, table.schema) as writer:
