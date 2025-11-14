@@ -185,7 +185,7 @@ BBOX_LABLES_TO_DETECTION_NAME_DICT = {
     "vendingMachine": "vending machine",
 }
 
-KIITI360_DETECTION_NAME_DICT = {
+KITTI360_DETECTION_NAME_DICT = {
     "bicycle": KITTI360BoxDetectionLabel.BICYCLE,
     "box": KITTI360BoxDetectionLabel.BOX,
     "bus": KITTI360BoxDetectionLabel.BUS,

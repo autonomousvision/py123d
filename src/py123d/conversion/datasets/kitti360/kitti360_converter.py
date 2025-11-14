@@ -20,7 +20,7 @@ from py123d.conversion.datasets.kitti360.utils.kitti360_helper import (
 )
 from py123d.conversion.datasets.kitti360.utils.kitti360_labels import (
     BBOX_LABLES_TO_DETECTION_NAME_DICT,
-    KIITI360_DETECTION_NAME_DICT,
+    KITTI360_DETECTION_NAME_DICT,
     kittiId2label,
 )
 from py123d.conversion.datasets.kitti360.utils.preprocess_detection import process_detection
@@ -588,7 +588,7 @@ def _extract_kitti360_box_detections_all(
         else:
             label = child.find("label").text
             name = BBOX_LABLES_TO_DETECTION_NAME_DICT.get(label, "unknown")
-        if child.find("transform") is None or name not in KIITI360_DETECTION_NAME_DICT.keys():
+        if child.find("transform") is None or name not in KITTI360_DETECTION_NAME_DICT.keys():
             continue
         obj = KITTI360Bbox3D()
         obj.parseBbox(child)
@@ -604,7 +604,7 @@ def _extract_kitti360_box_detections_all(
                 detections_states[frame].append(obj.get_state_array())
                 detections_velocity[frame].append(np.array([0.0, 0.0, 0.0]))
                 detections_tokens[frame].append(str(obj.globalID))
-                detections_labels[frame].append(KIITI360_DETECTION_NAME_DICT[obj.name])
+                detections_labels[frame].append(KITTI360_DETECTION_NAME_DICT[obj.name])
         else:
             global_ID = obj.globalID
             dynamic_objs[global_ID].append(obj)
@@ -641,7 +641,7 @@ def _extract_kitti360_box_detections_all(
             detections_states[frame].append(obj.get_state_array())
             detections_velocity[frame].append(vel)
             detections_tokens[frame].append(str(obj.globalID))
-            detections_labels[frame].append(KIITI360_DETECTION_NAME_DICT[obj.name])
+            detections_labels[frame].append(KITTI360_DETECTION_NAME_DICT[obj.name])
 
     box_detection_wrapper_all: List[BoxDetectionWrapper] = []
     for frame in range(ts_len):

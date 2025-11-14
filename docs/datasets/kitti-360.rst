@@ -1,4 +1,4 @@
-KiTTI-360
+KITTI-360
 ---------
 
 .. sidebar:: Dataset Name
@@ -75,7 +75,7 @@ Dataset Specific Issues
 Citation
 ~~~~~~~~
 
-If you use KiTTI-360 in your research, please cite:
+If you use KITTI-360 in your research, please cite:
 
 .. code-block:: bibtex
 
