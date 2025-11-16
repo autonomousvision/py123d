@@ -2,7 +2,6 @@ from py123d.datatypes.metadata.map_metadata import MapMetadata
 
 
 class TestMapMetadata:
-
     def test_map_metadata_initialization(self):
         """Test that MapMetadata can be initialized with required fields."""
         metadata = MapMetadata(

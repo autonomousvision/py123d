@@ -1,5 +1,3 @@
-import unittest
-
 import numpy as np
 import pytest
 
@@ -178,7 +176,3 @@ class TestQuaternion:
         rot_matrix = self.quaternion.rotation_matrix
         assert rot_matrix.shape == (3, 3)
         np.testing.assert_array_almost_equal(rot_matrix, np.eye(3))
-
-
-if __name__ == "__main__":
-    unittest.main()

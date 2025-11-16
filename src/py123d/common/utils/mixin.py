@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Self
-
 import numpy as np
 import numpy.typing as npt
+from typing_extensions import Self
 
 
 class ArrayMixin:

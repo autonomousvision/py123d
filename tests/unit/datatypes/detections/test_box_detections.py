@@ -12,7 +12,6 @@ from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, PoseSE2, PoseSE3, Ve
 
 
 class DummyBoxDetectionLabel(BoxDetectionLabel):
-
     CAR = 1
     PEDESTRIAN = 2
     BICYCLE = 3
@@ -35,7 +34,6 @@ sample_metadata_args = {
 
 
 class TestBoxDetectionMetadata:
-
     def test_initialization(self):
         metadata = BoxDetectionMetadata(**sample_metadata_args)
         assert isinstance(metadata, BoxDetectionMetadata)
@@ -94,7 +92,6 @@ class TestBoxDetectionMetadata:
 
 
 class TestBoxDetectionSE2:
-
     def setup_method(self):
         self.metadata = BoxDetectionMetadata(**sample_metadata_args)
         self.bounding_box_se2 = BoundingBoxSE2(
@@ -143,7 +140,6 @@ class TestBoxDetectionSE2:
 
 
 class TestBoxBoxDetectionSE3:
-
     def setup_method(self):
         self.metadata = BoxDetectionMetadata(**sample_metadata_args)
         self.bounding_box_se3 = BoundingBoxSE3(
@@ -231,7 +227,6 @@ class TestBoxBoxDetectionSE3:
 
 
 class TestBoxDetectionWrapper:
-
     def setup_method(self):
         self.metadata1 = BoxDetectionMetadata(
             label=DummyBoxDetectionLabel.CAR,

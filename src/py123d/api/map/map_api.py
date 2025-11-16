@@ -33,7 +33,7 @@ class MapAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_map_object(self, object_id: str, layer: MapLayer) -> Optional[BaseMapObject]:
+    def get_map_object(self, object_id: Union[str, int], layer: MapLayer) -> Optional[BaseMapObject]:
         """Returns a :class:`~p123d.datatypes.map_objects.base_map_object.BaseMapObject` by its ID
             and :class:`~p123d.datatypes.map_objects.map_layer_types.MapLayer`.
 

@@ -221,7 +221,6 @@ def _extract_nuscenes_lane_groups(
         lane_group_lane_dict[lane.lane_group_id].append(lane.object_id)
 
     for lane_group_id, lane_ids in lane_group_lane_dict.items():
-
         if len(lane_ids) > 1:
             lane_centerlines: List[Polyline2D] = [lanes_dict[lane_id].centerline for lane_id in lane_ids]
             ordered_lane_indices = order_lanes_left_to_right(lane_centerlines)

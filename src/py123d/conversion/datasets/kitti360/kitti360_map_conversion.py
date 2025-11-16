@@ -6,13 +6,17 @@ from typing import List
 import numpy as np
 import shapely.geometry as geom
 
-from py123d.conversion.datasets.kitti360.utils.kitti360_helper import KITTI360_MAP_Bbox3D
+from py123d.conversion.datasets.kitti360.utils.kitti360_helper import (
+    KITTI360_MAP_Bbox3D,
+)
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     get_road_edge_linear_rings,
     split_line_geometry_by_max_length,
 )
-from py123d.conversion.utils.map_utils.road_edge.road_edge_3d_utils import lift_road_edges_to_3d
+from py123d.conversion.utils.map_utils.road_edge.road_edge_3d_utils import (
+    lift_road_edges_to_3d,
+)
 from py123d.datatypes.map_objects.map_layer_types import RoadEdgeType
 from py123d.datatypes.map_objects.map_objects import (
     Carpark,

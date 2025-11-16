@@ -42,14 +42,12 @@ def global2local(globalId: int) -> Tuple[int, int]:
 
 
 class KITTI360Bbox3D:
-
     # global id(only used for sequence 0004)
     dynamic_global_id = 2000000
     static_global_id = 1000000
 
     # Constructor
     def __init__(self):
-
         # the ID of the corresponding object
         self.semanticId = -1
         self.instanceId = -1

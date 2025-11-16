@@ -30,3 +30,7 @@ docs/_build/
 docs/build/
 _build/
 .doctrees/
+
+
+# ruff
+.ruff_cache/*

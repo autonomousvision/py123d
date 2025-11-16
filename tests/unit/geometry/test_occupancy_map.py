@@ -1,5 +1,3 @@
-import unittest
-
 import numpy as np
 import pytest
 import shapely.geometry as geom
@@ -279,8 +277,3 @@ class TestOccupancyMap2D:
         assert len(occ_map) == 1
         assert occ_map.ids == ["single"]
         assert occ_map["single"] == self.square1
-
-
-if __name__ == "__main__":
-
-    unittest.main()

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import IntEnum
 from typing import Any, Dict, Optional
 
 import numpy as np
 import numpy.typing as npt
-from zmq import IntEnum
 
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.common.utils.mixin import ArrayMixin
@@ -76,7 +76,6 @@ class FisheyeMEIDistortionIndex(IntEnum):
 
 
 class FisheyeMEIDistortion(ArrayMixin):
-
     __slots__ = ("_array",)
     _array: npt.NDArray[np.float64]
 

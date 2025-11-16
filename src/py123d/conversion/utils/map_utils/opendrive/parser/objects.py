@@ -32,7 +32,6 @@ class XODRObject:
 
     @classmethod
     def parse(cls, object_element: Optional[Element]) -> XODRObject:
-
         args = {}
         args["id"] = int(object_element.get("id"))
         args["name"] = object_element.get("name")

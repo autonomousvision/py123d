@@ -1,5 +1,3 @@
-import unittest
-
 import numpy as np
 import numpy.typing as npt
 
@@ -486,7 +484,3 @@ class TestTransformConsistency:
             )
             np.testing.assert_array_almost_equal(test_2d_points, recovered_2d_points, decimal=self.decimal)
             np.testing.assert_array_almost_equal(test_3d_points, recovered_3d_points, decimal=self.decimal)
-
-
-if __name__ == "__main__":
-    unittest.main()

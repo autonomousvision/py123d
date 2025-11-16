@@ -215,7 +215,6 @@ class TestEgoStateSE3:
         """Test rear_axle properties."""
         ego_state = EgoStateSE3(rear_axle_se3=self.rear_axle_pose, vehicle_parameters=self.vehicle_params)
 
-        assert ego_state.rear_axle == self.rear_axle_pose
         assert ego_state.rear_axle_se3 == self.rear_axle_pose
         assert ego_state.rear_axle_se2 is not None
 
@@ -244,7 +243,7 @@ class TestEgoStateSE3:
 
         bbox_se2 = ego_state.bounding_box_se2
         assert bbox_se2 is not None
-        assert ego_state.bounding_box == bbox_se3
+        assert ego_state.bounding_box_se3 == bbox_se3
 
     def test_box_detection_properties(self):
         """Test box detection properties."""

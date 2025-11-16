@@ -4,7 +4,6 @@ from py123d.datatypes.time.time_point import TimePoint
 
 
 class TestTimePoint:
-
     def test_from_ns(self):
         """Test constructing TimePoint from nanoseconds."""
         tp = TimePoint.from_ns(1000000)

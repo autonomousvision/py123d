@@ -16,7 +16,6 @@ from py123d.geometry.utils.rotation_utils import normalize_angle
 
 @dataclass
 class OpenDriveObjectHelper:
-
     object_id: int
     outline_3d: npt.NDArray[np.float64]
 
@@ -34,7 +33,6 @@ class OpenDriveObjectHelper:
 
 
 def get_object_helper(object: XODRObject, reference_line: XODRReferenceLine) -> OpenDriveObjectHelper:
-
     object_helper: Optional[OpenDriveObjectHelper] = None
 
     # 1. Extract object position in frenet frame of the reference line

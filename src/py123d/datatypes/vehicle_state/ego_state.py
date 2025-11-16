@@ -107,11 +107,6 @@ class EgoStateSE3:
         )
 
     @property
-    def rear_axle(self) -> PoseSE3:
-        """The :class:`~py123d.geometry.PoseSE3` of the rear axle in SE3."""
-        return self._rear_axle_se3
-
-    @property
     def rear_axle_se3(self) -> PoseSE3:
         """The :class:`~py123d.geometry.PoseSE3` of the rear axle in SE3."""
         return self._rear_axle_se3
@@ -160,11 +155,6 @@ class EgoStateSE3:
         return self.center_se3.pose_se2
 
     @property
-    def bounding_box(self) -> BoundingBoxSE3:
-        """The :class:`~py123d.geometry.BoundingBoxSE3` of the ego vehicle."""
-        return self.bounding_box_se3
-
-    @property
     def bounding_box_se3(self) -> BoundingBoxSE3:
         """The :class:`~py123d.geometry.BoundingBoxSE3` of the ego vehicle."""
         return BoundingBoxSE3(
@@ -177,7 +167,7 @@ class EgoStateSE3:
     @property
     def bounding_box_se2(self) -> BoundingBoxSE2:
         """The :class:`~py123d.geometry.BoundingBoxSE2` of the ego vehicle."""
-        return self.bounding_box.bounding_box_se2
+        return self.bounding_box_se3.bounding_box_se2
 
     @property
     def box_detection(self) -> BoxDetectionSE3:
@@ -194,7 +184,7 @@ class EgoStateSE3:
                 track_token=EGO_TRACK_TOKEN,
                 num_lidar_points=None,
             ),
-            bounding_box_se3=self.bounding_box,
+            bounding_box_se3=self.bounding_box_se3,
             velocity=self.dynamic_state_se3.velocity,
         )
 

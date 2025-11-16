@@ -12,7 +12,6 @@ from py123d.geometry.utils.rotation_utils import (
 
 
 def translate_euler_se3_along_z(pose_se3: EulerStateSE3, distance: float) -> EulerStateSE3:
-
     R = pose_se3.rotation_matrix
     z_axis = R[:, 2]
 
@@ -22,7 +21,6 @@ def translate_euler_se3_along_z(pose_se3: EulerStateSE3, distance: float) -> Eul
 
 
 def translate_euler_se3_along_y(pose_se3: EulerStateSE3, distance: float) -> EulerStateSE3:
-
     R = pose_se3.rotation_matrix
     y_axis = R[:, 1]
 
@@ -32,7 +30,6 @@ def translate_euler_se3_along_y(pose_se3: EulerStateSE3, distance: float) -> Eul
 
 
 def translate_euler_se3_along_x(pose_se3: EulerStateSE3, distance: float) -> EulerStateSE3:
-
     R = pose_se3.rotation_matrix
     x_axis = R[:, 0]
 
@@ -42,7 +39,6 @@ def translate_euler_se3_along_x(pose_se3: EulerStateSE3, distance: float) -> Eul
 
 
 def translate_euler_se3_along_body_frame(pose_se3: EulerStateSE3, vector_3d: Vector3D) -> EulerStateSE3:
-
     R = pose_se3.rotation_matrix
     world_translation = R @ vector_3d.array
 
@@ -54,7 +50,6 @@ def translate_euler_se3_along_body_frame(pose_se3: EulerStateSE3, vector_3d: Vec
 def convert_absolute_to_relative_euler_se3_array(
     origin: Union[EulerStateSE3, npt.NDArray[np.float64]], se3_array: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:
-
     if isinstance(origin, EulerStateSE3):
         origin_array = origin.array
         t_origin = origin.point_3d.array
@@ -95,7 +90,6 @@ def convert_absolute_to_relative_euler_se3_array(
 def convert_relative_to_absolute_euler_se3_array(
     origin: EulerStateSE3, se3_array: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:
-
     if isinstance(origin, EulerStateSE3):
         origin_array = origin.array
         t_origin = origin.point_3d.array
@@ -132,7 +126,6 @@ def convert_relative_to_absolute_euler_se3_array(
 def convert_absolute_to_relative_points_3d_array(
     origin: Union[EulerStateSE3, npt.NDArray[np.float64]], points_3d_array: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:
-
     if isinstance(origin, EulerStateSE3):
         t_origin = origin.point_3d.array
         R_origin = origin.rotation_matrix
@@ -154,7 +147,6 @@ def convert_absolute_to_relative_points_3d_array(
 def convert_relative_to_absolute_points_3d_array(
     origin: Union[EulerStateSE3, npt.NDArray[np.float64]], points_3d_array: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:
-
     if isinstance(origin, EulerStateSE3):
         origin_array = origin.array
     elif isinstance(origin, np.ndarray):

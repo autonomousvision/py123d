@@ -32,7 +32,6 @@ def main(cfg: DictConfig) -> None:
     dataset_converters: List[AbstractDatasetConverter] = build_dataset_converters(cfg.datasets)
 
     for dataset_converter in dataset_converters:
-
         worker = build_worker(cfg)
         logger.info(f"Processing dataset: {dataset_converter.__class__.__name__}")
 
@@ -55,7 +54,6 @@ def main(cfg: DictConfig) -> None:
 
 
 def _convert_maps(args: List[Dict[str, int]], cfg: DictConfig, dataset_converter: AbstractDatasetConverter) -> List:
-
     map_writer = build_map_writer(cfg.map_writer)
     for arg in args:
         dataset_converter.convert_map(arg["map_index"], map_writer)
@@ -63,7 +61,6 @@ def _convert_maps(args: List[Dict[str, int]], cfg: DictConfig, dataset_converter
 
 
 def _convert_logs(args: List[Dict[str, int]], cfg: DictConfig, dataset_converter: AbstractDatasetConverter) -> None:
-
     setup_dataset_paths(cfg.dataset_paths)
 
     def _internal_convert_log(args: Dict[str, int], dataset_converter_: AbstractDatasetConverter) -> int:

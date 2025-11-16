@@ -132,7 +132,6 @@ class PandasetConverter(AbstractDatasetConverter):
 
         # 3. Process source log data
         if log_needs_writing:
-
             # Read files from pandaset
             timesteps = read_json(source_log_path / "meta" / "timestamps.json")
             gps: List[Dict[str, float]] = read_json(source_log_path / "meta" / "gps.json")
@@ -144,7 +143,6 @@ class PandasetConverter(AbstractDatasetConverter):
 
             # Write data to log writer
             for iteration, timestep_s in enumerate(timesteps):
-
                 ego_state = _extract_pandaset_sensor_ego_state(gps[iteration], lidar_poses[iteration])
                 log_writer.write(
                     timestamp=TimePoint.from_s(timestep_s),
@@ -177,7 +175,6 @@ def _get_pandaset_camera_metadata(
     if dataset_config.include_pinhole_cameras:
         all_cameras_folder = source_log_path / "camera"
         for camera_folder in all_cameras_folder.iterdir():
-
             camera_name = camera_folder.name
             assert camera_name in PANDASET_CAMERA_MAPPING.keys(), f"Camera name {camera_name} is not recognized."
 
@@ -297,7 +294,6 @@ def _extract_pandaset_box_detections(source_log_path: Path, iteration: int) -> B
     # Fill bounding box detections and return
     box_detections: List[BoxDetectionSE3] = []
     for box_idx in range(num_boxes):
-
         # Skip duplicate box detections from front lidar if sibling exists in top lidar
         if sensor_ids[box_idx] == 1 and sibling_ids[box_idx] in top_lidar_uuids:
             continue
@@ -335,9 +331,7 @@ def _extract_pandaset_sensor_camera(
     iteration_str = f"{iteration:02d}"
 
     if dataset_converter_config.include_pinhole_cameras:
-
         for camera_name, camera_type in PANDASET_CAMERA_MAPPING.items():
-
             image_abs_path = source_log_path / f"camera/{camera_name}/{iteration_str}.jpg"
             assert image_abs_path.exists(), f"Camera image file {str(image_abs_path)} does not exist."
 

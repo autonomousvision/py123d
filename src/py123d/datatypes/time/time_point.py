@@ -4,7 +4,7 @@ from __future__ import annotations
 class TimePoint:
     """Time instance in a time series."""
 
-    __slots__ = "_time_us"
+    __slots__ = ("_time_us",)
     _time_us: int  # [micro seconds] time since epoch in micro seconds
 
     @classmethod

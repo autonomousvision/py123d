@@ -1,5 +1,3 @@
-import unittest
-
 import numpy as np
 import numpy.typing as npt
 import shapely
@@ -25,7 +23,6 @@ from py123d.geometry.vector import Vector3D
 
 
 class TestBoundingBoxUtils:
-
     def setup_method(self):
         self._num_consistency_checks = 10
         self._max_pose_xyz = 100.0
@@ -260,7 +257,3 @@ class TestBoundingBoxUtils:
         corners_array = bbse3_array_to_corners_array(bounding_box_se3_array)
         expected_corners = np.zeros((0, 8, 3), dtype=np.float64)
         np.testing.assert_allclose(corners_array, expected_corners, atol=1e-6)
-
-
-if __name__ == "__main__":
-    unittest.main()

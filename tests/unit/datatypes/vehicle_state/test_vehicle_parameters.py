@@ -2,7 +2,6 @@ from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 
 
 class TestVehicleParameters:
-
     def setup_method(self):
         self.params = VehicleParameters(
             vehicle_name="test_vehicle",

@@ -1,5 +1,3 @@
-import unittest
-
 import numpy as np
 import numpy.typing as npt
 
@@ -25,7 +23,6 @@ from py123d.geometry.utils.rotation_utils import (
 
 
 class TestTransformSE3:
-
     def setup_method(self):
         euler_se3_a = EulerStateSE3(
             x=1.0,
@@ -92,17 +89,16 @@ class TestTransformSE3:
 
     def test_sanity(self):
         for quat_se3, euler_se3 in zip(self.quat_se3, self.euler_se3):
-            for quat_se3, euler_se3 in zip(self.quat_se3, self.euler_se3):
-                np.testing.assert_allclose(
-                    quat_se3.point_3d.array,
-                    euler_se3.point_3d.array,
-                    atol=1e-6,
-                )
-                np.testing.assert_allclose(
-                    quat_se3.rotation_matrix,
-                    euler_se3.rotation_matrix,
-                    atol=1e-6,
-                )
+            np.testing.assert_allclose(
+                quat_se3.point_3d.array,
+                euler_se3.point_3d.array,
+                atol=1e-6,
+            )
+            np.testing.assert_allclose(
+                quat_se3.rotation_matrix,
+                euler_se3.rotation_matrix,
+                atol=1e-6,
+            )
 
     def test_random_sanity(self):
         for _ in range(10):
@@ -123,7 +119,6 @@ class TestTransformSE3:
             np.testing.assert_allclose(euler_rotation_matrices, quat_rotation_matrices, atol=1e-6)
 
     def test_convert_absolute_to_relative_points_3d_array(self):
-
         random_points_3d = np.random.rand(10, 3)
         for quat_se3, euler_se3 in zip(self.quat_se3, self.euler_se3):
             rel_points_quat = convert_absolute_to_relative_points_3d_array(quat_se3, random_points_3d)
@@ -133,7 +128,6 @@ class TestTransformSE3:
             np.testing.assert_allclose(rel_points_quat, rel_points_euler, atol=1e-6)
 
     def test_convert_absolute_to_relative_se3_array(self):
-
         for quat_se3, euler_se3 in zip(self.quat_se3, self.euler_se3):
             random_euler_se3_array = self._get_random_euler_se3_array(np.random.randint(1, 10))
             random_quat_se3_array = self._convert_euler_se3_array_to_quat_se3_array(random_euler_se3_array)
@@ -155,7 +149,6 @@ class TestTransformSE3:
             np.testing.assert_allclose(quat_rotation_matrices, euler_rotation_matrices, atol=1e-6)
 
     def test_convert_relative_to_absolute_points_3d_array(self):
-
         random_points_3d = np.random.rand(10, 3)
         for quat_se3, euler_se3 in zip(self.quat_se3, self.euler_se3):
             rel_points_quat = convert_relative_to_absolute_points_3d_array(quat_se3, random_points_3d)
@@ -165,7 +158,6 @@ class TestTransformSE3:
             np.testing.assert_allclose(rel_points_quat, rel_points_euler, atol=1e-6)
 
     def test_convert_relative_to_absolute_se3_array(self):
-
         for quat_se3, euler_se3 in zip(self.quat_se3, self.euler_se3):
             random_euler_se3_array = self._get_random_euler_se3_array(np.random.randint(1, 10))
             random_quat_se3_array = self._convert_euler_se3_array_to_quat_se3_array(random_euler_se3_array)
@@ -300,7 +292,3 @@ class TestTransformSE3:
                 np.testing.assert_allclose(translated_quat.point_3d.array, translated_euler.point_3d.array, atol=1e-6)
                 np.testing.assert_allclose(translated_quat.rotation_matrix, translated_euler.rotation_matrix, atol=1e-6)
                 np.testing.assert_allclose(quat_se3.quaternion.array, translated_quat.quaternion.array, atol=1e-6)
-
-
-if __name__ == "__main__":
-    unittest.main()

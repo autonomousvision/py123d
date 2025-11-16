@@ -193,7 +193,6 @@ def _write_intersections(
     lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper],
     map_writer: AbstractMapWriter,
 ) -> None:
-
     def _find_lane_group_helpers_with_junction_id(junction_id: int) -> List[OpenDriveLaneGroupHelper]:
         return [
             lane_group_helper
@@ -230,7 +229,6 @@ def _write_crosswalks(object_helper_dict: Dict[int, OpenDriveObjectHelper], map_
 
 
 def _write_road_lines(lanes: List[Lane], lane_groups: List[LaneGroup], map_writer: AbstractMapWriter) -> None:
-
     # NOTE @DanielDauner: This method of extracting road lines is very simplistic and needs improvement.
     # The OpenDRIVE format provides lane boundary types that could be used here.
     # Additionally, the logic of inferring road lines is somewhat flawed, e.g, assuming constant types/colors of lines.
@@ -245,7 +243,6 @@ def _write_road_lines(lanes: List[Lane], lane_groups: List[LaneGroup], map_write
 
     running_id = 0
     for lane in lanes:
-
         on_intersection = lane_group_on_intersection.get(lane.lane_group_id, False)
         if on_intersection:
             # Skip road lines on intersections
@@ -281,7 +278,6 @@ def _write_road_edges(
     generic_drivables: List[GenericDrivable],
     map_writer: AbstractMapWriter,
 ) -> None:
-
     road_edges_ = get_road_edges_3d_from_drivable_surfaces(
         lanes=lanes,
         lane_groups=lane_groups,

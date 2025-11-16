@@ -1,11 +1,11 @@
 from typing import Union
 
-import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
-import shapely.affinity as affinity
 import shapely.geometry as geom
+from matplotlib import patches
 from matplotlib.path import Path
+from shapely import affinity
 
 from py123d.geometry import PoseSE2, PoseSE3
 from py123d.visualization.color.config import PlotConfig

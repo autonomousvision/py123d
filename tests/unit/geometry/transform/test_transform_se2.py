@@ -1,9 +1,8 @@
 import numpy as np
 import numpy.typing as npt
 
-from py123d.geometry import PoseSE2, Vector2D
-from py123d.geometry.geometry_index import PoseSE2Index
-from py123d.geometry.transform.transform_se2 import (
+from py123d.geometry import PoseSE2, PoseSE2Index, Vector2D
+from py123d.geometry.transform import (
     convert_absolute_to_relative_points_2d_array,
     convert_absolute_to_relative_se2_array,
     convert_points_2d_array_between_origins,
@@ -18,7 +17,6 @@ from py123d.geometry.transform.transform_se2 import (
 
 
 class TestTransformSE2:
-
     def setup_method(self):
         self.decimal = 6  # Decimal places for np.testing.assert_array_almost_equal
 

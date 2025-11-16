@@ -17,7 +17,7 @@ def get_dataframe_from_file(file_path: Path) -> pd.DataFrame:
 
         return pq.read_table(file_path)
     elif file_path.suffix == ".feather":
-        import pyarrow.feather as feather
+        from pyarrow import feather
 
         return feather.read_feather(file_path)
     else:

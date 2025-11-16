@@ -1,4 +1,3 @@
-import unittest
 from typing import Tuple
 
 import numpy as np
@@ -64,7 +63,6 @@ def _get_rotation_matrix_helper(euler_array: npt.NDArray[np.float64]) -> npt.NDA
 
 
 class TestRotationUtils:
-
     def setup_method(self):
         pass
 
@@ -300,7 +298,6 @@ class TestRotationUtils:
             get_q_bar_matrices(invalid_quat)
 
     def test_get_q_matrices(self):
-
         def _test_by_shape(shape: Tuple[int, ...]) -> None:
             for _ in range(10):
                 N = np.prod(shape)
@@ -397,7 +394,6 @@ class TestRotationUtils:
             get_quaternion_array_from_euler_array(invalid_euler)
 
     def test_get_quaternion_array_from_rotation_matrices(self):
-
         def _test_by_shape(shape: Tuple[int, ...]) -> None:
             for _ in range(10):
                 N = np.prod(shape)
@@ -781,7 +777,3 @@ class TestRotationUtils:
         normalized_angle = normalize_angle(angle)
         assert normalized_angle >= -np.pi - 1e-8
         assert normalized_angle <= np.pi + 1e-8
-
-
-if __name__ == "__main__":
-    unittest.main()

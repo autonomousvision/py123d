@@ -21,7 +21,6 @@ from py123d.geometry.utils.units import kmph_to_mps, mph_to_mps
 
 @dataclass
 class OpenDriveLaneHelper:
-
     lane_id: str
     open_drive_lane: XODRLane
     s_inner_offset: float
@@ -172,7 +171,6 @@ class OpenDriveLaneHelper:
 
 @dataclass
 class OpenDriveLaneGroupHelper:
-
     lane_group_id: str
     lane_helpers: List[OpenDriveLaneHelper]
 
@@ -182,7 +180,6 @@ class OpenDriveLaneGroupHelper:
     junction_id: Optional[int] = None
 
     def __post_init__(self):
-
         predecessor_lane_group_ids = []
         successor_lane_group__ids = []
         for lane_helper in self.lane_helpers:
@@ -262,7 +259,6 @@ def lane_section_to_lane_helpers(
     road_types: List[XODRRoadType],
     interpolation_step_size: float,
 ) -> Dict[str, OpenDriveLaneHelper]:
-
     lane_helpers: Dict[str, OpenDriveLaneHelper] = {}
 
     for lanes, t_sign, side in zip([lane_section.left_lanes, lane_section.right_lanes], [1.0, -1.0], ["left", "right"]):
@@ -295,7 +291,6 @@ def lane_section_to_lane_helpers(
 
 
 def _get_speed_limit_mps(s: float, road_types: List[XODRRoadType]) -> Optional[float]:
-
     # NOTE: Likely not correct way to extract speed limit from CARLA maps, but serves as a placeholder
     speed_limit_mps: Optional[float] = None
     s_road_types = [road_type.s for road_type in road_types] + [float("inf")]

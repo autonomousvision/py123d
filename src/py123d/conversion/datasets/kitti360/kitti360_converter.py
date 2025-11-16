@@ -352,7 +352,6 @@ def _get_kitti360_fisheye_mei_camera_metadata(
 
     fisheye_cam_metadatas: Dict[FisheyeMEICameraType, FisheyeMEICameraMetadata] = {}
     if dataset_converter_config.include_fisheye_mei_cameras:
-
         fisheye_camera02_path = kitti360_folders[DIR_CALIB] / "image_02.yaml"
         fisheye_camera03_path = kitti360_folders[DIR_CALIB] / "image_03.yaml"
 
@@ -362,7 +361,6 @@ def _get_kitti360_fisheye_mei_camera_metadata(
         fisheye_result = {"image_02": fisheye02, "image_03": fisheye03}
 
         for fcam_type, fcam_name in KITTI360_FISHEYE_MEI_CAMERA_TYPES.items():
-
             distortion_params = fisheye_result[fcam_name]["distortion_parameters"]
             distortion = FisheyeMEIDistortion(
                 k1=distortion_params["k1"],

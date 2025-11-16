@@ -2,7 +2,6 @@ from py123d.conversion.registry.box_detection_label_registry import BOX_DETECTIO
 
 
 class TestBoxDetectionLabelRegistry:
-
     def test_correct_type(self):
         """Test that all registered box detection labels are of correct type."""
         for label_class in BOX_DETECTION_LABEL_REGISTRY.values():

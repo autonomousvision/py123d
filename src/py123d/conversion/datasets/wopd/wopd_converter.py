@@ -277,7 +277,6 @@ def _get_wopd_lidar_metadata(
     lidar_index = WOPDLiDARIndex if keep_polar_features else DefaultLiDARIndex
     if dataset_converter_config.lidar_store_option is not None:
         for laser_calibration in initial_frame.context.laser_calibrations:
-
             lidar_type = WOPD_LIDAR_TYPES[laser_calibration.name]
             extrinsic: Optional[PoseSE3] = None
             if laser_calibration.extrinsic:
@@ -332,7 +331,6 @@ def _extract_wopd_box_detections(
     detections_token: List[str] = []
 
     for detection_idx, detection in enumerate(frame.laser_labels):
-
         detection_quaternion = EulerAngles(
             roll=DEFAULT_ROLL,
             pitch=DEFAULT_PITCH,
@@ -392,7 +390,6 @@ def _extract_wopd_cameras(
 
     camera_data_list: List[CameraData] = []
     if dataset_converter_config.include_pinhole_cameras:
-
         # NOTE @DanielDauner: The extrinsic matrix in frame.context.camera_calibration is fixed to model the ego to camera transformation.
         # The poses in frame.images[idx] are the motion compensated ego poses when the camera triggers.
         camera_extrinsic: Dict[str, PoseSE3] = {}
