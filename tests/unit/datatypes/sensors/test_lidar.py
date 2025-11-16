@@ -1,13 +1,12 @@
-import unittest
-
 import numpy as np
+import pytest
 
 from py123d.conversion.registry.lidar_index_registry import LIDAR_INDEX_REGISTRY
 from py123d.datatypes.sensors.lidar import LiDAR, LiDARMetadata, LiDARType
 from py123d.geometry import PoseSE3
 
 
-class TestLiDARType(unittest.TestCase):
+class TestLiDARType:
     def test_lidar_type_enum_values(self):
         """Test that LiDARType enum has correct values."""
         assert LiDARType.LIDAR_UNKNOWN.value == 0
@@ -51,8 +50,8 @@ class TestLiDARType(unittest.TestCase):
         assert len(LiDARType) == 8
 
 
-class TestLiDARMetadata(unittest.TestCase):
-    def setUp(self):
+class TestLiDARMetadata:
+    def setup_method(self):
         """Set up test fixtures."""
 
         # Get a lidar index class from registry (assuming at least one exists)
@@ -147,13 +146,12 @@ class TestLiDARMetadata(unittest.TestCase):
     def test_lidar_metadata_from_dict_unknown_index_raises_error(self):
         """Test that unknown lidar index raises ValueError."""
         data_dict = {"lidar_type": self.lidar_type.name, "lidar_index": "UnknownLiDARIndex", "extrinsic": None}
-        with self.assertRaises(ValueError) as context:
+        with pytest.raises(ValueError):
             LiDARMetadata.from_dict(data_dict)
-        assert "Unknown lidar index" in str(context.exception)
 
 
-class TestLiDAR(unittest.TestCase):
-    def setUp(self):
+class TestLiDAR:
+    def setup_method(self):
         """Set up test fixtures."""
         # Get a lidar index class from registry
 

@@ -1,6 +1,5 @@
-import unittest
-
 import numpy as np
+import pytest
 
 from py123d.datatypes.sensors.pinhole_camera import (
     PinholeCamera,
@@ -13,66 +12,66 @@ from py123d.datatypes.sensors.pinhole_camera import (
 from py123d.geometry import PoseSE3
 
 
-class TestPinholeCameraType(unittest.TestCase):
+class TestPinholeCameraType:
 
     def test_camera_type_values(self):
         """Test that camera type enum has expected values."""
-        self.assertEqual(PinholeCameraType.PCAM_F0, PinholeCameraType.PCAM_F0)
-        self.assertEqual(PinholeCameraType.PCAM_B0, PinholeCameraType.PCAM_B0)
-        self.assertEqual(PinholeCameraType.PCAM_L0, PinholeCameraType.PCAM_L0)
-        self.assertEqual(PinholeCameraType.PCAM_L1, PinholeCameraType.PCAM_L1)
-        self.assertEqual(PinholeCameraType.PCAM_L2, PinholeCameraType.PCAM_L2)
-        self.assertEqual(PinholeCameraType.PCAM_R0, PinholeCameraType.PCAM_R0)
-        self.assertEqual(PinholeCameraType.PCAM_R1, PinholeCameraType.PCAM_R1)
-        self.assertEqual(PinholeCameraType.PCAM_R2, PinholeCameraType.PCAM_R2)
-        self.assertEqual(PinholeCameraType.PCAM_STEREO_L, PinholeCameraType.PCAM_STEREO_L)
-        self.assertEqual(PinholeCameraType.PCAM_STEREO_R, PinholeCameraType.PCAM_STEREO_R)
+        assert PinholeCameraType.PCAM_F0 == PinholeCameraType.PCAM_F0
+        assert PinholeCameraType.PCAM_B0 == PinholeCameraType.PCAM_B0
+        assert PinholeCameraType.PCAM_L0 == PinholeCameraType.PCAM_L0
+        assert PinholeCameraType.PCAM_L1 == PinholeCameraType.PCAM_L1
+        assert PinholeCameraType.PCAM_L2 == PinholeCameraType.PCAM_L2
+        assert PinholeCameraType.PCAM_R0 == PinholeCameraType.PCAM_R0
+        assert PinholeCameraType.PCAM_R1 == PinholeCameraType.PCAM_R1
+        assert PinholeCameraType.PCAM_R2 == PinholeCameraType.PCAM_R2
+        assert PinholeCameraType.PCAM_STEREO_L == PinholeCameraType.PCAM_STEREO_L
+        assert PinholeCameraType.PCAM_STEREO_R == PinholeCameraType.PCAM_STEREO_R
 
     def test_camera_type_from_int(self):
         """Test creating camera type from integer."""
-        self.assertEqual(PinholeCameraType(0), PinholeCameraType.PCAM_F0)
-        self.assertEqual(PinholeCameraType(5), PinholeCameraType.PCAM_R0)
-        self.assertEqual(PinholeCameraType(9), PinholeCameraType.PCAM_STEREO_R)
+        assert PinholeCameraType(0) == PinholeCameraType.PCAM_F0
+        assert PinholeCameraType(5) == PinholeCameraType.PCAM_R0
+        assert PinholeCameraType(9) == PinholeCameraType.PCAM_STEREO_R
 
     def test_camera_type_count(self):
         """Test that all camera types are defined."""
         camera_types = list(PinholeCameraType)
-        self.assertEqual(len(camera_types), 10)
+        assert len(camera_types) == 10
 
     def test_camera_type_unique_values(self):
         """Test that all camera type values are unique."""
         values = [ct.value for ct in PinholeCameraType]
-        self.assertEqual(len(values), len(set(values)))
+        assert len(values) == len(set(values))
 
 
-class TestPinholeIntrinsics(unittest.TestCase):
+class TestPinholeIntrinsics:
 
     def test_intrinsics_creation(self):
         """Test creating PinholeIntrinsics instance."""
         intrinsics = PinholeIntrinsics(fx=500.0, fy=500.0, cx=320.0, cy=240.0, skew=0.0)
 
-        self.assertEqual(intrinsics.fx, 500.0)
-        self.assertEqual(intrinsics.fy, 500.0)
-        self.assertEqual(intrinsics.cx, 320.0)
-        self.assertEqual(intrinsics.cy, 240.0)
-        self.assertEqual(intrinsics.skew, 0.0)
+        assert intrinsics.fx == 500.0
+        assert intrinsics.fy == 500.0
+        assert intrinsics.cx == 320.0
+        assert intrinsics.cy == 240.0
+        assert intrinsics.skew == 0.0
 
     def test_intrinsics_default_skew(self):
         """Test that skew defaults to 0.0 when not provided."""
         intrinsics = PinholeIntrinsics(fx=500.0, fy=500.0, cx=320.0, cy=240.0)
 
-        self.assertEqual(intrinsics.skew, 0.0)
+        assert intrinsics.skew == 0.0
 
     def test_intrinsics_from_array(self):
         """Test creating intrinsics from array."""
         array = np.array([500.0, 500.0, 320.0, 240.0, 0.0], dtype=np.float64)
         intrinsics = PinholeIntrinsics.from_array(array)
 
-        self.assertEqual(intrinsics.fx, 500.0)
-        self.assertEqual(intrinsics.fy, 500.0)
-        self.assertEqual(intrinsics.cx, 320.0)
-        self.assertEqual(intrinsics.cy, 240.0)
-        self.assertEqual(intrinsics.skew, 0.0)
+        assert intrinsics.fx == 500.0
+        assert intrinsics.fy == 500.0
+        assert intrinsics.cx == 320.0
+        assert intrinsics.cy == 240.0
+        assert intrinsics.skew == 0.0
 
     def test_intrinsics_from_array_copy(self):
         """Test that from_array creates a copy by default."""
@@ -83,7 +82,7 @@ class TestPinholeIntrinsics(unittest.TestCase):
         array[0] = 1000.0
 
         # Intrinsics should still have original value
-        self.assertEqual(intrinsics.fx, 500.0)
+        assert intrinsics.fx == 500.0
 
     def test_intrinsics_from_array_no_copy(self):
         """Test that from_array can avoid copying."""
@@ -94,7 +93,7 @@ class TestPinholeIntrinsics(unittest.TestCase):
         array[0] = 1000.0
 
         # Intrinsics should reflect the change
-        self.assertEqual(intrinsics.fx, 1000.0)
+        assert intrinsics.fx == 1000.0
 
     def test_intrinsics_from_camera_matrix(self):
         """Test creating intrinsics from 3x3 camera matrix."""
@@ -102,11 +101,11 @@ class TestPinholeIntrinsics(unittest.TestCase):
 
         intrinsics = PinholeIntrinsics.from_camera_matrix(K)
 
-        self.assertEqual(intrinsics.fx, 500.0)
-        self.assertEqual(intrinsics.fy, 500.0)
-        self.assertEqual(intrinsics.cx, 320.0)
-        self.assertEqual(intrinsics.cy, 240.0)
-        self.assertEqual(intrinsics.skew, 0.5)
+        assert intrinsics.fx == 500.0
+        assert intrinsics.fy == 500.0
+        assert intrinsics.cx == 320.0
+        assert intrinsics.cy == 240.0
+        assert intrinsics.skew == 0.5
 
     def test_intrinsics_camera_matrix_property(self):
         """Test getting camera matrix from intrinsics."""
@@ -131,8 +130,8 @@ class TestPinholeIntrinsics(unittest.TestCase):
         intrinsics = PinholeIntrinsics(fx=500.0, fy=500.0, cx=320.0, cy=240.0, skew=0.5)
         array = intrinsics.array
 
-        self.assertIsInstance(array, np.ndarray)
-        self.assertEqual(array.shape, (5,))
+        assert isinstance(array, np.ndarray)
+        assert array.shape == (5,)
         np.testing.assert_array_almost_equal(array, [500.0, 500.0, 320.0, 240.0, 0.5])
 
     def test_intrinsics_from_list(self):
@@ -140,63 +139,63 @@ class TestPinholeIntrinsics(unittest.TestCase):
         intrinsics_list = [500.0, 500.0, 320.0, 240.0, 0.0]
         intrinsics = PinholeIntrinsics.from_list(intrinsics_list)
 
-        self.assertEqual(intrinsics.fx, 500.0)
-        self.assertEqual(intrinsics.fy, 500.0)
-        self.assertEqual(intrinsics.cx, 320.0)
-        self.assertEqual(intrinsics.cy, 240.0)
-        self.assertEqual(intrinsics.skew, 0.0)
+        assert intrinsics.fx == 500.0
+        assert intrinsics.fy == 500.0
+        assert intrinsics.cx == 320.0
+        assert intrinsics.cy == 240.0
+        assert intrinsics.skew == 0.0
 
     def test_intrinsics_tolist(self):
         """Test converting intrinsics to list."""
         intrinsics = PinholeIntrinsics(fx=500.0, fy=500.0, cx=320.0, cy=240.0, skew=0.5)
         intrinsics_list = intrinsics.tolist()
 
-        self.assertIsInstance(intrinsics_list, list)
-        self.assertEqual(len(intrinsics_list), 5)
-        self.assertAlmostEqual(intrinsics_list[0], 500.0)
-        self.assertAlmostEqual(intrinsics_list[1], 500.0)
-        self.assertAlmostEqual(intrinsics_list[2], 320.0)
-        self.assertAlmostEqual(intrinsics_list[3], 240.0)
-        self.assertAlmostEqual(intrinsics_list[4], 0.5)
+        assert isinstance(intrinsics_list, list)
+        assert len(intrinsics_list) == 5
+        assert intrinsics_list[0] == pytest.approx(500.0)
+        assert intrinsics_list[1] == pytest.approx(500.0)
+        assert intrinsics_list[2] == pytest.approx(320.0)
+        assert intrinsics_list[3] == pytest.approx(240.0)
+        assert intrinsics_list[4] == pytest.approx(0.5)
 
     def test_intrinsics_different_fx_fy(self):
         """Test intrinsics with different focal lengths."""
         intrinsics = PinholeIntrinsics(fx=500.0, fy=600.0, cx=320.0, cy=240.0)
 
-        self.assertEqual(intrinsics.fx, 500.0)
-        self.assertEqual(intrinsics.fy, 600.0)
-        self.assertNotEqual(intrinsics.fx, intrinsics.fy)
+        assert intrinsics.fx == 500.0
+        assert intrinsics.fy == 600.0
+        assert intrinsics.fx != intrinsics.fy
 
     def test_intrinsics_non_centered_principal_point(self):
         """Test intrinsics with non-centered principal point."""
         intrinsics = PinholeIntrinsics(fx=500.0, fy=500.0, cx=100.0, cy=100.0)
 
-        self.assertEqual(intrinsics.cx, 100.0)
-        self.assertEqual(intrinsics.cy, 100.0)
+        assert intrinsics.cx == 100.0
+        assert intrinsics.cy == 100.0
 
 
-class TestPinholeDistortion(unittest.TestCase):
+class TestPinholeDistortion:
 
     def test_distortion_creation(self):
         """Test creating PinholeDistortion instance."""
         distortion = PinholeDistortion(k1=0.1, k2=0.01, p1=0.001, p2=0.001, k3=0.001)
 
-        self.assertEqual(distortion.k1, 0.1)
-        self.assertEqual(distortion.k2, 0.01)
-        self.assertEqual(distortion.p1, 0.001)
-        self.assertEqual(distortion.p2, 0.001)
-        self.assertEqual(distortion.k3, 0.001)
+        assert distortion.k1 == 0.1
+        assert distortion.k2 == 0.01
+        assert distortion.p1 == 0.001
+        assert distortion.p2 == 0.001
+        assert distortion.k3 == 0.001
 
     def test_distortion_from_array(self):
         """Test creating distortion from array."""
         array = np.array([0.1, 0.01, 0.001, 0.001, 0.001], dtype=np.float64)
         distortion = PinholeDistortion.from_array(array)
 
-        self.assertEqual(distortion.k1, 0.1)
-        self.assertEqual(distortion.k2, 0.01)
-        self.assertEqual(distortion.p1, 0.001)
-        self.assertEqual(distortion.p2, 0.001)
-        self.assertEqual(distortion.k3, 0.001)
+        assert distortion.k1 == 0.1
+        assert distortion.k2 == 0.01
+        assert distortion.p1 == 0.001
+        assert distortion.p2 == 0.001
+        assert distortion.k3 == 0.001
 
     def test_distortion_from_array_copy(self):
         """Test that from_array creates a copy by default."""
@@ -207,7 +206,7 @@ class TestPinholeDistortion(unittest.TestCase):
         array[0] = 0.5
 
         # Distortion should still have original value
-        self.assertEqual(distortion.k1, 0.1)
+        assert distortion.k1 == 0.1
 
     def test_distortion_from_array_no_copy(self):
         """Test that from_array can avoid copying."""
@@ -218,63 +217,63 @@ class TestPinholeDistortion(unittest.TestCase):
         array[0] = 0.5
 
         # Distortion should reflect the change
-        self.assertEqual(distortion.k1, 0.5)
+        assert distortion.k1 == 0.5
 
     def test_distortion_array_property(self):
         """Test accessing the underlying array."""
         distortion = PinholeDistortion(k1=0.1, k2=0.01, p1=0.001, p2=0.001, k3=0.001)
         array = distortion.array
 
-        self.assertIsInstance(array, np.ndarray)
-        self.assertEqual(array.shape, (len(PinholeDistortionIndex),))
+        assert isinstance(array, np.ndarray)
+        assert array.shape == (len(PinholeDistortionIndex),)
         np.testing.assert_array_almost_equal(array, [0.1, 0.01, 0.001, 0.001, 0.001])
 
     def test_distortion_zero_values(self):
         """Test distortion with zero values."""
         distortion = PinholeDistortion(k1=0.0, k2=0.0, p1=0.0, p2=0.0, k3=0.0)
 
-        self.assertEqual(distortion.k1, 0.0)
-        self.assertEqual(distortion.k2, 0.0)
-        self.assertEqual(distortion.p1, 0.0)
-        self.assertEqual(distortion.p2, 0.0)
-        self.assertEqual(distortion.k3, 0.0)
+        assert distortion.k1 == 0.0
+        assert distortion.k2 == 0.0
+        assert distortion.p1 == 0.0
+        assert distortion.p2 == 0.0
+        assert distortion.k3 == 0.0
 
     def test_distortion_negative_values(self):
         """Test distortion with negative values."""
         distortion = PinholeDistortion(k1=-0.1, k2=-0.01, p1=-0.001, p2=-0.001, k3=-0.001)
 
-        self.assertEqual(distortion.k1, -0.1)
-        self.assertEqual(distortion.k2, -0.01)
-        self.assertEqual(distortion.p1, -0.001)
-        self.assertEqual(distortion.p2, -0.001)
-        self.assertEqual(distortion.k3, -0.001)
+        assert distortion.k1 == -0.1
+        assert distortion.k2 == -0.01
+        assert distortion.p1 == -0.001
+        assert distortion.p2 == -0.001
+        assert distortion.k3 == -0.001
 
     def test_distortion_from_list(self):
         """Test creating distortion from list via from_list method."""
         distortion_list = [0.1, 0.01, 0.001, 0.001, 0.001]
         distortion = PinholeDistortion.from_list(distortion_list)
 
-        self.assertEqual(distortion.k1, 0.1)
-        self.assertEqual(distortion.k2, 0.01)
-        self.assertEqual(distortion.p1, 0.001)
-        self.assertEqual(distortion.p2, 0.001)
-        self.assertEqual(distortion.k3, 0.001)
+        assert distortion.k1 == 0.1
+        assert distortion.k2 == 0.01
+        assert distortion.p1 == 0.001
+        assert distortion.p2 == 0.001
+        assert distortion.k3 == 0.001
 
     def test_distortion_tolist(self):
         """Test converting distortion to list."""
         distortion = PinholeDistortion(k1=0.1, k2=0.01, p1=0.001, p2=0.001, k3=0.001)
         distortion_list = distortion.tolist()
 
-        self.assertIsInstance(distortion_list, list)
-        self.assertEqual(len(distortion_list), 5)
-        self.assertAlmostEqual(distortion_list[0], 0.1)
-        self.assertAlmostEqual(distortion_list[1], 0.01)
-        self.assertAlmostEqual(distortion_list[2], 0.001)
-        self.assertAlmostEqual(distortion_list[3], 0.001)
-        self.assertAlmostEqual(distortion_list[4], 0.001)
+        assert isinstance(distortion_list, list)
+        assert len(distortion_list) == 5
+        assert distortion_list[0] == pytest.approx(0.1)
+        assert distortion_list[1] == pytest.approx(0.01)
+        assert distortion_list[2] == pytest.approx(0.001)
+        assert distortion_list[3] == pytest.approx(0.001)
+        assert distortion_list[4] == pytest.approx(0.001)
 
 
-class TestPinholeMetadata(unittest.TestCase):
+class TestPinholeMetadata:
 
     def test_metadata_from_dict_with_none_intrinsics(self):
         """Test creating metadata from dict with None intrinsics."""
@@ -288,11 +287,11 @@ class TestPinholeMetadata(unittest.TestCase):
 
         metadata = PinholeCameraMetadata.from_dict(data_dict)
 
-        self.assertEqual(metadata.camera_type, PinholeCameraType.PCAM_B0)
-        self.assertIsNone(metadata.intrinsics)
-        self.assertIsNotNone(metadata.distortion)
-        self.assertEqual(metadata.width, 800)
-        self.assertEqual(metadata.height, 600)
+        assert metadata.camera_type == PinholeCameraType.PCAM_B0
+        assert metadata.intrinsics is None
+        assert metadata.distortion is not None
+        assert metadata.width == 800
+        assert metadata.height == 600
 
     def test_metadata_from_dict_with_none_distortion(self):
         """Test creating metadata from dict with None distortion."""
@@ -306,9 +305,9 @@ class TestPinholeMetadata(unittest.TestCase):
 
         metadata = PinholeCameraMetadata.from_dict(data_dict)
 
-        self.assertEqual(metadata.camera_type, PinholeCameraType.PCAM_L0)
-        self.assertIsNotNone(metadata.intrinsics)
-        self.assertIsNone(metadata.distortion)
+        assert metadata.camera_type == PinholeCameraType.PCAM_L0
+        assert metadata.intrinsics is not None
+        assert metadata.distortion is None
 
     def test_metadata_different_aspect_ratios(self):
         """Test metadata with different aspect ratios."""
@@ -318,13 +317,13 @@ class TestPinholeMetadata(unittest.TestCase):
         metadata_16_9 = PinholeCameraMetadata(
             camera_type=PinholeCameraType.PCAM_F0, intrinsics=intrinsics, distortion=None, width=1920, height=1080
         )
-        self.assertAlmostEqual(metadata_16_9.aspect_ratio, 16 / 9)
+        assert metadata_16_9.aspect_ratio == pytest.approx(16 / 9)
 
         # 4:3 aspect ratio
         metadata_4_3 = PinholeCameraMetadata(
             camera_type=PinholeCameraType.PCAM_F0, intrinsics=intrinsics, distortion=None, width=640, height=480
         )
-        self.assertAlmostEqual(metadata_4_3.aspect_ratio, 4 / 3)
+        assert metadata_4_3.aspect_ratio == pytest.approx(4 / 3)
 
     def test_metadata_fov_with_different_focal_lengths(self):
         """Test FOV calculation with different focal lengths."""
@@ -339,8 +338,8 @@ class TestPinholeMetadata(unittest.TestCase):
         )
 
         # Wider focal length should result in larger FOV
-        self.assertGreater(metadata_wide.fov_x, metadata_narrow.fov_x)
-        self.assertGreater(metadata_wide.fov_y, metadata_narrow.fov_y)
+        assert metadata_wide.fov_x > metadata_narrow.fov_x
+        assert metadata_wide.fov_y > metadata_narrow.fov_y
 
     def test_metadata_to_dict_preserves_types(self):
         """Test that to_dict preserves correct types."""
@@ -353,11 +352,11 @@ class TestPinholeMetadata(unittest.TestCase):
 
         data_dict = metadata.to_dict()
 
-        self.assertIsInstance(data_dict["camera_type"], int)
-        self.assertIsInstance(data_dict["width"], int)
-        self.assertIsInstance(data_dict["height"], int)
-        self.assertIsInstance(data_dict["intrinsics"], list)
-        self.assertIsInstance(data_dict["distortion"], list)
+        assert isinstance(data_dict["camera_type"], int)
+        assert isinstance(data_dict["width"], int)
+        assert isinstance(data_dict["height"], int)
+        assert isinstance(data_dict["intrinsics"], list)
+        assert isinstance(data_dict["distortion"], list)
 
     def test_metadata_all_camera_types(self):
         """Test metadata creation with all camera types."""
@@ -367,7 +366,7 @@ class TestPinholeMetadata(unittest.TestCase):
             metadata = PinholeCameraMetadata(
                 camera_type=camera_type, intrinsics=intrinsics, distortion=None, width=640, height=480
             )
-            self.assertEqual(metadata.camera_type, camera_type)
+            assert metadata.camera_type == camera_type
 
     def test_metadata_square_image(self):
         """Test metadata with square image dimensions."""
@@ -376,8 +375,8 @@ class TestPinholeMetadata(unittest.TestCase):
             camera_type=PinholeCameraType.PCAM_F0, intrinsics=intrinsics, distortion=None, width=512, height=512
         )
 
-        self.assertEqual(metadata.aspect_ratio, 1.0)
-        self.assertAlmostEqual(metadata.fov_x, metadata.fov_y)
+        assert metadata.aspect_ratio == 1.0
+        assert metadata.fov_x == pytest.approx(metadata.fov_y)
 
     def test_metadata_non_square_pixels(self):
         """Test metadata with non-square pixels (different fx and fy)."""
@@ -389,12 +388,12 @@ class TestPinholeMetadata(unittest.TestCase):
         expected_fov_x = 2 * np.arctan(640 / (2 * 500.0))
         expected_fov_y = 2 * np.arctan(480 / (2 * 600.0))
 
-        self.assertAlmostEqual(metadata.fov_x, expected_fov_x)
-        self.assertAlmostEqual(metadata.fov_y, expected_fov_y)
-        self.assertNotAlmostEqual(metadata.fov_x, metadata.fov_y)
+        assert metadata.fov_x == pytest.approx(expected_fov_x)
+        assert metadata.fov_y == pytest.approx(expected_fov_y)
+        assert metadata.fov_x != pytest.approx(metadata.fov_y)
 
 
-class TestPinholeCamera(unittest.TestCase):
+class TestPinholeCamera:
 
     def test_pinhole_camera_creation(self):
         """Test creating PinholeCamera instance."""
@@ -408,9 +407,9 @@ class TestPinholeCamera(unittest.TestCase):
 
         camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic)
 
-        self.assertEqual(camera.metadata, metadata)
-        self.assertTrue(np.array_equal(camera.image, image))
-        self.assertEqual(camera.extrinsic, extrinsic)
+        assert camera.metadata == metadata
+        assert np.array_equal(camera.image, image)
+        assert camera.extrinsic == extrinsic
 
     def test_pinhole_camera_with_color_image(self):
         """Test PinholeCamera with color image."""
@@ -424,8 +423,8 @@ class TestPinholeCamera(unittest.TestCase):
 
         camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic)
 
-        self.assertEqual(camera.image.shape, (480, 640, 3))
-        self.assertEqual(camera.image.dtype, np.uint8)
+        assert camera.image.shape == (480, 640, 3)
+        assert camera.image.dtype == np.uint8
 
     def test_pinhole_camera_with_grayscale_image(self):
         """Test PinholeCamera with grayscale image."""
@@ -439,7 +438,7 @@ class TestPinholeCamera(unittest.TestCase):
 
         camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic)
 
-        self.assertEqual(camera.image.shape, (480, 640))
+        assert camera.image.shape == (480, 640)
 
     def test_pinhole_camera_with_distortion(self):
         """Test PinholeCamera with distortion parameters."""
@@ -458,8 +457,8 @@ class TestPinholeCamera(unittest.TestCase):
 
         camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic)
 
-        self.assertIsNotNone(camera.metadata.distortion)
-        self.assertEqual(camera.metadata.distortion.k1, 0.1)
+        assert camera.metadata.distortion is not None
+        assert camera.metadata.distortion.k1 == 0.1
 
     def test_pinhole_camera_different_types(self):
         """Test PinholeCamera with different camera types."""
@@ -478,7 +477,7 @@ class TestPinholeCamera(unittest.TestCase):
                 camera_type=camera_type, intrinsics=intrinsics, distortion=None, width=640, height=480
             )
             camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic)
-            self.assertEqual(camera.metadata.camera_type, camera_type)
+            assert camera.metadata.camera_type == camera_type
 
     def test_pinhole_camera_with_different_resolutions(self):
         """Test PinholeCamera with different image resolutions."""
@@ -498,6 +497,6 @@ class TestPinholeCamera(unittest.TestCase):
             image = np.zeros((height, width, 3), dtype=np.uint8)
             camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic)
 
-            self.assertEqual(camera.metadata.width, width)
-            self.assertEqual(camera.metadata.height, height)
-            self.assertEqual(camera.image.shape[:2], (height, width))
+            assert camera.metadata.width == width
+            assert camera.metadata.height == height
+            assert camera.image.shape[:2] == (height, width)

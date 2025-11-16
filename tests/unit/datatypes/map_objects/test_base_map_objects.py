@@ -1,6 +1,5 @@
-import unittest
-
 import numpy as np
+import pytest
 import shapely.geometry as geom
 
 from py123d.datatypes.map_objects.base_map_objects import BaseMapLineObject, BaseMapObject, BaseMapSurfaceObject
@@ -44,7 +43,7 @@ class ConcreteMapLineObject(BaseMapLineObject):
         return self._layer
 
 
-class TestBaseMapObject(unittest.TestCase):
+class TestBaseMapObject:
     """Test cases for BaseMapObject class."""
 
     def test_init_with_string_id(self):
@@ -69,11 +68,11 @@ class TestBaseMapObject(unittest.TestCase):
 
     def test_abstract_instantiation_fails(self):
         """Test that instantiating BaseMapObject directly raises TypeError."""
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             BaseMapObject("test_id")
 
 
-class TestBaseMapSurfaceObject(unittest.TestCase):
+class TestBaseMapSurfaceObject:
     """Test cases for BaseMapSurfaceObject class."""
 
     def test_init_with_polyline2d(self):
@@ -95,7 +94,7 @@ class TestBaseMapSurfaceObject(unittest.TestCase):
         assert obj.shapely_polygon.equals(polygon)
 
     def test_init_without_outline_or_polygon_raises_error(self):
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             ConcreteMapSurfaceObject("surf_4")
 
     def test_outline_property(self):
@@ -145,7 +144,7 @@ class TestBaseMapSurfaceObject(unittest.TestCase):
         assert len(mesh.faces) > 0
 
 
-class TestBaseMapLineObject(unittest.TestCase):
+class TestBaseMapLineObject:
     """Test cases for BaseMapLineObject class."""
 
     def test_init_with_polyline2d(self):

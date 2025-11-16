@@ -1,20 +1,18 @@
-import unittest
-
 from py123d.datatypes.detections import TrafficLightDetection, TrafficLightDetectionWrapper, TrafficLightStatus
 from py123d.datatypes.time.time_point import TimePoint
 
 
-class TestTrafficLightStatus(unittest.TestCase):
+class TestTrafficLightStatus:
     def test_status_values(self):
         """Test that TrafficLightStatus enum has correct values."""
-        self.assertEqual(TrafficLightStatus.GREEN.value, 0)
-        self.assertEqual(TrafficLightStatus.YELLOW.value, 1)
-        self.assertEqual(TrafficLightStatus.RED.value, 2)
-        self.assertEqual(TrafficLightStatus.OFF.value, 3)
-        self.assertEqual(TrafficLightStatus.UNKNOWN.value, 4)
+        assert TrafficLightStatus.GREEN.value == 0
+        assert TrafficLightStatus.YELLOW.value == 1
+        assert TrafficLightStatus.RED.value == 2
+        assert TrafficLightStatus.OFF.value == 3
+        assert TrafficLightStatus.UNKNOWN.value == 4
 
 
-class TestTrafficLightDetection(unittest.TestCase):
+class TestTrafficLightDetection:
     def test_creation_with_required_fields(self):
         """Test that TrafficLightDetection can be created with required fields."""
         detection = TrafficLightDetection(lane_id=1, status=TrafficLightStatus.GREEN)
@@ -35,8 +33,8 @@ class TestTrafficLightDetection(unittest.TestCase):
         assert detection.timepoint == timepoint
 
 
-class TestTrafficLightDetectionWrapper(unittest.TestCase):
-    def setUp(self):
+class TestTrafficLightDetectionWrapper:
+    def setup_method(self):
         self.detection1 = TrafficLightDetection(lane_id=1, status=TrafficLightStatus.GREEN)
         self.detection2 = TrafficLightDetection(lane_id=2, status=TrafficLightStatus.RED)
         self.detection3 = TrafficLightDetection(lane_id=3, status=TrafficLightStatus.YELLOW)

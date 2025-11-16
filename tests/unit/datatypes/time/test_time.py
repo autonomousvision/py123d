@@ -1,9 +1,9 @@
-import unittest
+import pytest
 
 from py123d.datatypes.time.time_point import TimePoint
 
 
-class TestTimePoint(unittest.TestCase):
+class TestTimePoint:
 
     def test_from_ns(self):
         """Test constructing TimePoint from nanoseconds."""
@@ -51,12 +51,12 @@ class TestTimePoint(unittest.TestCase):
 
     def test_from_ns_integer_assertion(self):
         """Test that from_ns raises AssertionError for non-integer input."""
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             TimePoint.from_ns(1000.5)
 
     def test_from_us_integer_assertion(self):
         """Test that from_us raises AssertionError for non-integer input."""
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             TimePoint.from_us(1000.5)
 
     def test_conversion_chain(self):

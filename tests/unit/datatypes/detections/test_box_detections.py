@@ -1,4 +1,4 @@
-import unittest
+import pytest
 
 from py123d.conversion.registry.box_detection_label_registry import BoxDetectionLabel, DefaultBoxDetectionLabel
 from py123d.datatypes.detections import (
@@ -34,23 +34,23 @@ sample_metadata_args = {
 }
 
 
-class TestBoxDetectionMetadata(unittest.TestCase):
+class TestBoxDetectionMetadata:
 
     def test_initialization(self):
         metadata = BoxDetectionMetadata(**sample_metadata_args)
-        self.assertIsInstance(metadata, BoxDetectionMetadata)
-        self.assertEqual(metadata.label, DummyBoxDetectionLabel.CAR)
-        self.assertEqual(metadata.track_token, "sample_token")
-        self.assertEqual(metadata.num_lidar_points, 10)
-        self.assertIsInstance(metadata.timepoint, TimePoint)
+        assert isinstance(metadata, BoxDetectionMetadata)
+        assert metadata.label == DummyBoxDetectionLabel.CAR
+        assert metadata.track_token == "sample_token"
+        assert metadata.num_lidar_points == 10
+        assert isinstance(metadata.timepoint, TimePoint)
 
     def test_default_label(self):
         metadata = BoxDetectionMetadata(**sample_metadata_args)
         label = metadata.label
         default_label = metadata.default_label
-        self.assertEqual(label, DummyBoxDetectionLabel.CAR)
-        self.assertEqual(label.to_default(), DefaultBoxDetectionLabel.VEHICLE)
-        self.assertEqual(default_label, DefaultBoxDetectionLabel.VEHICLE)
+        assert label == DummyBoxDetectionLabel.CAR
+        assert label.to_default() == DefaultBoxDetectionLabel.VEHICLE
+        assert default_label == DefaultBoxDetectionLabel.VEHICLE
 
     def test_default_label_with_default_label(self):
         sample_args = sample_metadata_args.copy()
@@ -58,8 +58,8 @@ class TestBoxDetectionMetadata(unittest.TestCase):
         metadata = BoxDetectionMetadata(**sample_args)
         label = metadata.label
         default_label = metadata.default_label
-        self.assertEqual(label, DefaultBoxDetectionLabel.PERSON)
-        self.assertEqual(default_label, DefaultBoxDetectionLabel.PERSON)
+        assert label == DefaultBoxDetectionLabel.PERSON
+        assert default_label == DefaultBoxDetectionLabel.PERSON
 
     def test_optional_args(self):
         sample_args = {
@@ -67,35 +67,35 @@ class TestBoxDetectionMetadata(unittest.TestCase):
             "track_token": "another_token",
         }
         metadata = BoxDetectionMetadata(**sample_args)
-        self.assertIsInstance(metadata, BoxDetectionMetadata)
-        self.assertEqual(metadata.label, DummyBoxDetectionLabel.BICYCLE)
-        self.assertEqual(metadata.track_token, "another_token")
-        self.assertIsNone(metadata.num_lidar_points)
-        self.assertIsNone(metadata.timepoint)
+        assert isinstance(metadata, BoxDetectionMetadata)
+        assert metadata.label == DummyBoxDetectionLabel.BICYCLE
+        assert metadata.track_token == "another_token"
+        assert metadata.num_lidar_points is None
+        assert metadata.timepoint is None
 
     def test_missing_args(self):
         sample_args = {
             "label": DummyBoxDetectionLabel.CAR,
         }
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             BoxDetectionMetadata(**sample_args)
 
         sample_args = {
             "track_token": "token_only",
         }
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             BoxDetectionMetadata(**sample_args)
 
         sample_args = {
             "timepoint": TimePoint.from_s(0.0),
         }
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             BoxDetectionMetadata(**sample_args)
 
 
-class TestBoxDetectionSE2(unittest.TestCase):
+class TestBoxDetectionSE2:
 
-    def setUp(self):
+    def setup_method(self):
         self.metadata = BoxDetectionMetadata(**sample_metadata_args)
         self.bounding_box_se2 = BoundingBoxSE2(
             center_se2=PoseSE2(x=0.0, y=0.0, yaw=0.0),
@@ -110,10 +110,10 @@ class TestBoxDetectionSE2(unittest.TestCase):
             bounding_box_se2=self.bounding_box_se2,
             velocity_2d=self.velocity,
         )
-        self.assertIsInstance(box_detection, BoxDetectionSE2)
-        self.assertEqual(box_detection.metadata, self.metadata)
-        self.assertEqual(box_detection.bounding_box_se2, self.bounding_box_se2)
-        self.assertIsNone(box_detection.velocity_2d)
+        assert isinstance(box_detection, BoxDetectionSE2)
+        assert box_detection.metadata == self.metadata
+        assert box_detection.bounding_box_se2 == self.bounding_box_se2
+        assert box_detection.velocity_2d is None
 
     def test_properties(self):
         box_detection = BoxDetectionSE2(
@@ -121,30 +121,30 @@ class TestBoxDetectionSE2(unittest.TestCase):
             bounding_box_se2=self.bounding_box_se2,
             velocity_2d=self.velocity,
         )
-        self.assertEqual(box_detection.shapely_polygon, self.bounding_box_se2.shapely_polygon)
-        self.assertEqual(box_detection.center_se2, self.bounding_box_se2.center_se2)
-        self.assertEqual(box_detection.bounding_box_se2, self.bounding_box_se2)
+        assert box_detection.shapely_polygon == self.bounding_box_se2.shapely_polygon
+        assert box_detection.center_se2 == self.bounding_box_se2.center_se2
+        assert box_detection.bounding_box_se2 == self.bounding_box_se2
 
     def test_optional_velocity(self):
         box_detection_no_velo = BoxDetectionSE2(
             metadata=self.metadata,
             bounding_box_se2=self.bounding_box_se2,
         )
-        self.assertIsInstance(box_detection_no_velo, BoxDetectionSE2)
-        self.assertIsNone(box_detection_no_velo.velocity_2d)
+        assert isinstance(box_detection_no_velo, BoxDetectionSE2)
+        assert box_detection_no_velo.velocity_2d is None
 
         box_detection_velo = BoxDetectionSE2(
             metadata=self.metadata,
             bounding_box_se2=self.bounding_box_se2,
             velocity_2d=Vector2D(x=1.0, y=0.0),
         )
-        self.assertIsInstance(box_detection_velo, BoxDetectionSE2)
-        self.assertEqual(box_detection_velo.velocity_2d, Vector2D(x=1.0, y=0.0))
+        assert isinstance(box_detection_velo, BoxDetectionSE2)
+        assert box_detection_velo.velocity_2d == Vector2D(x=1.0, y=0.0)
 
 
-class TestBoxBoxDetectionSE3(unittest.TestCase):
+class TestBoxBoxDetectionSE3:
 
-    def setUp(self):
+    def setup_method(self):
         self.metadata = BoxDetectionMetadata(**sample_metadata_args)
         self.bounding_box_se3 = BoundingBoxSE3(
             center_se3=PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
@@ -160,10 +160,10 @@ class TestBoxBoxDetectionSE3(unittest.TestCase):
             bounding_box_se3=self.bounding_box_se3,
             velocity=self.velocity,
         )
-        self.assertIsInstance(box_detection, BoxDetectionSE3)
-        self.assertEqual(box_detection.metadata, self.metadata)
-        self.assertEqual(box_detection.bounding_box_se3, self.bounding_box_se3)
-        self.assertEqual(box_detection.velocity_3d, self.velocity)
+        assert isinstance(box_detection, BoxDetectionSE3)
+        assert box_detection.metadata == self.metadata
+        assert box_detection.bounding_box_se3 == self.bounding_box_se3
+        assert box_detection.velocity_3d == self.velocity
 
     def test_properties(self):
         box_detection = BoxDetectionSE3(
@@ -171,13 +171,13 @@ class TestBoxBoxDetectionSE3(unittest.TestCase):
             bounding_box_se3=self.bounding_box_se3,
             velocity=self.velocity,
         )
-        self.assertEqual(box_detection.shapely_polygon, self.bounding_box_se3.shapely_polygon)
-        self.assertEqual(box_detection.center_se3, self.bounding_box_se3.center_se3)
-        self.assertEqual(box_detection.center_se2, self.bounding_box_se3.center_se2)
-        self.assertEqual(box_detection.bounding_box_se3, self.bounding_box_se3)
-        self.assertEqual(box_detection.bounding_box_se2, self.bounding_box_se3.bounding_box_se2)
-        self.assertEqual(box_detection.velocity_3d, self.velocity)
-        self.assertEqual(box_detection.velocity_2d, self.velocity.vector_2d)
+        assert box_detection.shapely_polygon == self.bounding_box_se3.shapely_polygon
+        assert box_detection.center_se3 == self.bounding_box_se3.center_se3
+        assert box_detection.center_se2 == self.bounding_box_se3.center_se2
+        assert box_detection.bounding_box_se3 == self.bounding_box_se3
+        assert box_detection.bounding_box_se2 == self.bounding_box_se3.bounding_box_se2
+        assert box_detection.velocity_3d == self.velocity
+        assert box_detection.velocity_2d == self.velocity.vector_2d
 
     def test_box_detection_se2_conversion(self):
         box_detection = BoxDetectionSE3(
@@ -186,10 +186,10 @@ class TestBoxBoxDetectionSE3(unittest.TestCase):
             velocity=Vector3D(x=1.0, y=0.0, z=0.0),
         )
         box_detection_se2 = box_detection.box_detection_se2
-        self.assertIsInstance(box_detection_se2, BoxDetectionSE2)
-        self.assertEqual(box_detection_se2.metadata, self.metadata)
-        self.assertEqual(box_detection_se2.bounding_box_se2, self.bounding_box_se3.bounding_box_se2)
-        self.assertEqual(box_detection_se2.velocity_2d, Vector2D(x=1.0, y=0.0))
+        assert isinstance(box_detection_se2, BoxDetectionSE2)
+        assert box_detection_se2.metadata == self.metadata
+        assert box_detection_se2.bounding_box_se2 == self.bounding_box_se3.bounding_box_se2
+        assert box_detection_se2.velocity_2d == Vector2D(x=1.0, y=0.0)
 
     def test_box_detection_se3_conversion(self):
         box_detection_se2 = BoxDetectionSE2(
@@ -202,37 +202,37 @@ class TestBoxBoxDetectionSE3(unittest.TestCase):
             bounding_box_se3=self.bounding_box_se3,
             velocity=Vector3D(x=1.0, y=0.0, z=0.0),
         )
-        self.assertIsInstance(box_detection_se3, BoxDetectionSE3)
-        self.assertEqual(box_detection_se3.metadata, box_detection_se2.metadata)
-        self.assertEqual(box_detection_se3.bounding_box_se3, self.bounding_box_se3)
-        self.assertEqual(box_detection_se3.velocity_2d, Vector2D(x=1.0, y=0.0))
+        assert isinstance(box_detection_se3, BoxDetectionSE3)
+        assert box_detection_se3.metadata == box_detection_se2.metadata
+        assert box_detection_se3.bounding_box_se3 == self.bounding_box_se3
+        assert box_detection_se3.velocity_2d == Vector2D(x=1.0, y=0.0)
 
         box_detection_se3_converted = box_detection_se3.box_detection_se2
-        self.assertIsInstance(box_detection_se3_converted, BoxDetectionSE2)
-        self.assertEqual(box_detection_se3_converted.metadata, box_detection_se2.metadata)
-        self.assertEqual(box_detection_se3_converted.bounding_box_se2, box_detection_se2.bounding_box_se2)
-        self.assertEqual(box_detection_se3_converted.velocity_2d, box_detection_se2.velocity_2d)
+        assert isinstance(box_detection_se3_converted, BoxDetectionSE2)
+        assert box_detection_se3_converted.metadata == box_detection_se2.metadata
+        assert box_detection_se3_converted.bounding_box_se2 == box_detection_se2.bounding_box_se2
+        assert box_detection_se3_converted.velocity_2d == box_detection_se2.velocity_2d
 
     def test_optional_velocity(self):
         box_detection_no_velo = BoxDetectionSE3(
             metadata=self.metadata,
             bounding_box_se3=self.bounding_box_se3,
         )
-        self.assertIsInstance(box_detection_no_velo, BoxDetectionSE3)
-        self.assertIsNone(box_detection_no_velo.velocity_3d)
+        assert isinstance(box_detection_no_velo, BoxDetectionSE3)
+        assert box_detection_no_velo.velocity_3d is None
 
         box_detection_velo = BoxDetectionSE3(
             metadata=self.metadata,
             bounding_box_se3=self.bounding_box_se3,
             velocity=Vector3D(x=1.0, y=0.0, z=0.0),
         )
-        self.assertIsInstance(box_detection_velo, BoxDetectionSE3)
-        self.assertEqual(box_detection_velo.velocity_3d, Vector3D(x=1.0, y=0.0, z=0.0))
+        assert isinstance(box_detection_velo, BoxDetectionSE3)
+        assert box_detection_velo.velocity_3d == Vector3D(x=1.0, y=0.0, z=0.0)
 
 
-class TestBoxDetectionWrapper(unittest.TestCase):
+class TestBoxDetectionWrapper:
 
-    def setUp(self):
+    def setup_method(self):
         self.metadata1 = BoxDetectionMetadata(
             label=DummyBoxDetectionLabel.CAR,
             track_token="token1",
@@ -283,80 +283,80 @@ class TestBoxDetectionWrapper(unittest.TestCase):
 
     def test_initialization(self):
         wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2])
-        self.assertIsInstance(wrapper, BoxDetectionWrapper)
-        self.assertEqual(len(wrapper.box_detections), 2)
+        assert isinstance(wrapper, BoxDetectionWrapper)
+        assert len(wrapper.box_detections) == 2
 
     def test_empty_initialization(self):
         wrapper = BoxDetectionWrapper(box_detections=[])
-        self.assertIsInstance(wrapper, BoxDetectionWrapper)
-        self.assertEqual(len(wrapper.box_detections), 0)
+        assert isinstance(wrapper, BoxDetectionWrapper)
+        assert len(wrapper.box_detections) == 0
 
     def test_getitem(self):
         wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2])
-        self.assertEqual(wrapper[0], self.box_detection1)
-        self.assertEqual(wrapper[1], self.box_detection2)
+        assert wrapper[0] == self.box_detection1
+        assert wrapper[1] == self.box_detection2
 
     def test_getitem_out_of_range(self):
         wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1])
-        with self.assertRaises(IndexError):
+        with pytest.raises(IndexError):
             _ = wrapper[1]
 
     def test_len(self):
         wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2, self.box_detection3])
-        self.assertEqual(len(wrapper), 3)
+        assert len(wrapper) == 3
 
     def test_len_empty(self):
         wrapper = BoxDetectionWrapper(box_detections=[])
-        self.assertEqual(len(wrapper), 0)
+        assert len(wrapper) == 0
 
     def test_iter(self):
         wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2])
         detections = list(wrapper)
-        self.assertEqual(len(detections), 2)
-        self.assertEqual(detections[0], self.box_detection1)
-        self.assertEqual(detections[1], self.box_detection2)
+        assert len(detections) == 2
+        assert detections[0] == self.box_detection1
+        assert detections[1] == self.box_detection2
 
     def test_get_detection_by_track_token_found(self):
         wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2, self.box_detection3])
         detection = wrapper.get_detection_by_track_token("token2")
-        self.assertIsNotNone(detection)
-        self.assertEqual(detection, self.box_detection2)
-        self.assertEqual(detection.metadata.track_token, "token2")
+        assert detection is not None
+        assert detection == self.box_detection2
+        assert detection.metadata.track_token == "token2"
 
     def test_get_detection_by_track_token_not_found(self):
         wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2])
         detection = wrapper.get_detection_by_track_token("nonexistent_token")
-        self.assertIsNone(detection)
+        assert detection is None
 
     def test_get_detection_by_track_token_empty_wrapper(self):
         wrapper = BoxDetectionWrapper(box_detections=[])
         detection = wrapper.get_detection_by_track_token("token1")
-        self.assertIsNone(detection)
+        assert detection is None
 
     def test_occupancy_map(self):
         wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2])
         occupancy_map = wrapper.occupancy_map_2d
-        self.assertIsNotNone(occupancy_map)
-        self.assertEqual(len(occupancy_map.geometries), 2)
-        self.assertEqual(len(occupancy_map.ids), 2)
-        self.assertIn("token1", occupancy_map.ids)
-        self.assertIn("token2", occupancy_map.ids)
+        assert occupancy_map is not None
+        assert len(occupancy_map.geometries) == 2
+        assert len(occupancy_map.ids) == 2
+        assert "token1" in occupancy_map.ids
+        assert "token2" in occupancy_map.ids
 
     def test_occupancy_map_cached(self):
         wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2])
         occupancy_map1 = wrapper.occupancy_map_2d
         occupancy_map2 = wrapper.occupancy_map_2d
-        self.assertIs(occupancy_map1, occupancy_map2)
+        assert occupancy_map1 is occupancy_map2
 
     def test_occupancy_map_empty(self):
         wrapper = BoxDetectionWrapper(box_detections=[])
         occupancy_map = wrapper.occupancy_map_2d
-        self.assertIsNotNone(occupancy_map)
-        self.assertEqual(len(occupancy_map.geometries), 0)
-        self.assertEqual(len(occupancy_map.ids), 0)
+        assert occupancy_map is not None
+        assert len(occupancy_map.geometries) == 0
+        assert len(occupancy_map.ids) == 0
 
     def test_mixed_detection_types(self):
         wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection3])
-        self.assertEqual(len(wrapper), 2)
-        self.assertIsInstance(wrapper[0], BoxDetectionSE2)
-        self.assertIsInstance(wrapper[1], BoxDetectionSE3)
+        assert len(wrapper) == 2
+        assert isinstance(wrapper[0], BoxDetectionSE2)
+        assert isinstance(wrapper[1], BoxDetectionSE3)

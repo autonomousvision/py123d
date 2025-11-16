@@ -1,5 +1,3 @@
-import unittest
-
 import numpy as np
 import numpy.typing as npt
 
@@ -16,9 +14,9 @@ from py123d.geometry.transform.transform_euler_se3 import (
 )
 
 
-class TestTransformEulerSE3(unittest.TestCase):
+class TestTransformEulerSE3:
 
-    def setUp(self):
+    def setup_method(self):
         self.decimal = 6  # Decimal places for np.testing.assert_array_almost_equal
         self.num_consistency_tests = 10  # Number of random test cases for consistency checks
 

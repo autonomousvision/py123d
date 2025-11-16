@@ -27,10 +27,10 @@ from py123d.geometry.transform.transform_se2 import (
 from py123d.geometry.utils.rotation_utils import get_rotation_matrices_from_euler_array
 
 
-class TestTransformConsistency(unittest.TestCase):
+class TestTransformConsistency:
     """Tests to ensure consistency between different transformation functions."""
 
-    def setUp(self):
+    def setup_method(self):
         self.decimal = 4  # Decimal places for np.testing.assert_array_almost_equal
         self.num_consistency_tests = 10  # Number of random test cases for consistency checks
 
@@ -397,8 +397,8 @@ class TestTransformConsistency(unittest.TestCase):
         result_se2_poses = convert_absolute_to_relative_se2_array(reference_se2, empty_se2_poses)
         result_2d_points = convert_absolute_to_relative_points_2d_array(reference_se2, empty_2d_points)
 
-        self.assertEqual(result_se2_poses.shape, (0, len(PoseSE2Index)))
-        self.assertEqual(result_2d_points.shape, (0, len(Point2DIndex)))
+        assert result_se2_poses.shape == (0, len(PoseSE2Index))
+        assert result_2d_points.shape == (0, len(Point2DIndex))
 
         # Test SE3 empty arrays
         empty_se3_poses = np.array([], dtype=np.float64).reshape(0, len(EulerStateSE3Index))
@@ -407,8 +407,8 @@ class TestTransformConsistency(unittest.TestCase):
         result_se3_poses = convert_absolute_to_relative_euler_se3_array(reference_se3, empty_se3_poses)
         result_3d_points = convert_absolute_to_relative_points_3d_array(reference_se3, empty_3d_points)
 
-        self.assertEqual(result_se3_poses.shape, (0, len(EulerStateSE3Index)))
-        self.assertEqual(result_3d_points.shape, (0, len(Point3DIndex)))
+        assert result_se3_poses.shape == (0, len(EulerStateSE3Index))
+        assert result_3d_points.shape == (0, len(Point3DIndex))
 
     def test_transform_identity_operations(self) -> None:
         """Test that transforms with identity reference frames work correctly"""

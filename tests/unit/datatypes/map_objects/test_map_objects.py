@@ -1,7 +1,7 @@
-import unittest
 from typing import List, Tuple
 
 import numpy as np
+import pytest
 import shapely
 import trimesh
 
@@ -184,8 +184,8 @@ def _get_linked_map_object_setup() -> Tuple[List[Lane], List[LaneGroup], List[In
     return lanes, lane_groups, intersections
 
 
-class TestLane(unittest.TestCase):
-    def setUp(self) -> None:
+class TestLane:
+    def setup_method(self) -> None:
         lanes, lane_groups, intersections = _get_linked_map_object_setup()
         self.lanes = lanes
         self.lane_groups = lane_groups
@@ -193,34 +193,34 @@ class TestLane(unittest.TestCase):
 
     def test_set_up(self):
         """Test that the setup function creates the correct number of map objects."""
-        self.assertEqual(len(self.lanes), 5)
-        self.assertEqual(len(self.lane_groups), 3)
-        self.assertEqual(len(self.intersections), 2)
+        assert len(self.lanes) == 5
+        assert len(self.lane_groups) == 3
+        assert len(self.intersections) == 2
 
     def test_properties(self):
         """Test that the properties of the Lane objects are correct."""
         lane0 = self.lanes[0]
-        self.assertEqual(lane0.layer, MapLayer.LANE)
-        self.assertEqual(lane0.lane_group_id, 0)
-        self.assertIsInstance(lane0.left_boundary, Polyline3D)
-        self.assertIsInstance(lane0.right_boundary, Polyline3D)
-        self.assertIsInstance(lane0.centerline, Polyline3D)
+        assert lane0.layer == MapLayer.LANE
+        assert lane0.lane_group_id == 0
+        assert isinstance(lane0.left_boundary, Polyline3D)
+        assert isinstance(lane0.right_boundary, Polyline3D)
+        assert isinstance(lane0.centerline, Polyline3D)
 
-        self.assertEqual(lane0.left_lane_id, 1)
-        self.assertEqual(lane0.right_lane_id, 2)
-        self.assertEqual(lane0.predecessor_ids, [3])
-        self.assertEqual(lane0.successor_ids, [4])
-        self.assertEqual(lane0.speed_limit_mps, 0.0)
-        self.assertIsInstance(lane0.trimesh_mesh, trimesh.base.Trimesh)
+        assert lane0.left_lane_id == 1
+        assert lane0.right_lane_id == 2
+        assert lane0.predecessor_ids == [3]
+        assert lane0.successor_ids == [4]
+        assert lane0.speed_limit_mps == 0.0
+        assert isinstance(lane0.trimesh_mesh, trimesh.base.Trimesh)
 
     def test_base_properties(self):
         """Test that the base_surface property of the Lane objects is correct."""
         lane0 = self.lanes[0]
-        self.assertEqual(lane0.object_id, 0)
-        self.assertIsInstance(lane0.outline, Polyline3D)
-        self.assertIsInstance(lane0.outline_2d, Polyline2D)
-        self.assertIsInstance(lane0.outline_3d, Polyline3D)
-        self.assertIsInstance(lane0.shapely_polygon, shapely.Polygon)
+        assert lane0.object_id == 0
+        assert isinstance(lane0.outline, Polyline3D)
+        assert isinstance(lane0.outline_2d, Polyline2D)
+        assert isinstance(lane0.outline_3d, Polyline3D)
+        assert isinstance(lane0.shapely_polygon, shapely.Polygon)
 
     def test_left_links(self):
         """Test that the left neighboring lanes are correctly linked."""
@@ -232,17 +232,17 @@ class TestLane(unittest.TestCase):
         )
 
         def _no_left_neighbor(lane: Lane):
-            self.assertIsNotNone(lane)
-            self.assertIsNone(lane.left_lane)
-            self.assertIsNone(lane.left_lane_id)
+            assert lane is not None
+            assert lane.left_lane is None
+            assert lane.left_lane_id is None
 
         # Middle Lane 0
         lane0: Lane = map_api.get_map_object(0, MapLayer.LANE)
-        self.assertIsNotNone(lane0)
-        self.assertIsNotNone(lane0.left_lane)
-        self.assertIsInstance(lane0.left_lane, Lane)
-        self.assertEqual(lane0.left_lane.object_id, 1)
-        self.assertEqual(lane0.left_lane.object_id, lane0.left_lane_id)
+        assert lane0 is not None
+        assert lane0.left_lane is not None
+        assert isinstance(lane0.left_lane, Lane)
+        assert lane0.left_lane.object_id == 1
+        assert lane0.left_lane.object_id == lane0.left_lane_id
 
         # Left Lane 1
         lane1: Lane = map_api.get_map_object(1, MapLayer.LANE)
@@ -250,11 +250,11 @@ class TestLane(unittest.TestCase):
 
         # Right Lane 2
         lane2: Lane = map_api.get_map_object(2, MapLayer.LANE)
-        self.assertIsNotNone(lane2)
-        self.assertIsNotNone(lane2.left_lane)
-        self.assertIsInstance(lane2.left_lane, Lane)
-        self.assertEqual(lane2.left_lane.object_id, 0)
-        self.assertEqual(lane2.left_lane.object_id, lane2.left_lane_id)
+        assert lane2 is not None
+        assert lane2.left_lane is not None
+        assert isinstance(lane2.left_lane, Lane)
+        assert lane2.left_lane.object_id == 0
+        assert lane2.left_lane.object_id == lane2.left_lane_id
 
         # Predecessor Lane 3
         lane3: Lane = map_api.get_map_object(3, MapLayer.LANE)
@@ -274,25 +274,25 @@ class TestLane(unittest.TestCase):
         )
 
         def _no_right_neighbor(lane: Lane):
-            self.assertIsNotNone(lane)
-            self.assertIsNone(lane.right_lane)
-            self.assertIsNone(lane.right_lane_id)
+            assert lane is not None
+            assert lane.right_lane is None
+            assert lane.right_lane_id is None
 
         # Middle Lane 0
         lane0: Lane = map_api.get_map_object(0, MapLayer.LANE)
-        self.assertIsNotNone(lane0)
-        self.assertIsNotNone(lane0.right_lane)
-        self.assertIsInstance(lane0.right_lane, Lane)
-        self.assertEqual(lane0.right_lane.object_id, 2)
-        self.assertEqual(lane0.right_lane.object_id, lane0.right_lane_id)
+        assert lane0 is not None
+        assert lane0.right_lane is not None
+        assert isinstance(lane0.right_lane, Lane)
+        assert lane0.right_lane.object_id == 2
+        assert lane0.right_lane.object_id == lane0.right_lane_id
 
         # Left Lane 1
         lane1: Lane = map_api.get_map_object(1, MapLayer.LANE)
-        self.assertIsNotNone(lane1)
-        self.assertIsNotNone(lane1.right_lane)
-        self.assertIsInstance(lane1.right_lane, Lane)
-        self.assertEqual(lane1.right_lane.object_id, 0)
-        self.assertEqual(lane1.right_lane.object_id, lane1.right_lane_id)
+        assert lane1 is not None
+        assert lane1.right_lane is not None
+        assert isinstance(lane1.right_lane, Lane)
+        assert lane1.right_lane.object_id == 0
+        assert lane1.right_lane.object_id == lane1.right_lane_id
 
         # Right Lane 2
         lane2: Lane = map_api.get_map_object(2, MapLayer.LANE)
@@ -316,18 +316,18 @@ class TestLane(unittest.TestCase):
         )
 
         def _no_predecessors(lane: Lane):
-            self.assertIsNotNone(lane)
-            self.assertEqual(lane.predecessors, [])
-            self.assertEqual(lane.predecessor_ids, [])
+            assert lane is not None
+            assert lane.predecessors == []
+            assert lane.predecessor_ids == []
 
         # Middle Lane 0
         lane0: Lane = map_api.get_map_object(0, MapLayer.LANE)
-        self.assertIsNotNone(lane0)
-        self.assertIsNotNone(lane0.predecessors)
-        self.assertEqual(len(lane0.predecessors), 1)
-        self.assertIsInstance(lane0.predecessors[0], Lane)
-        self.assertEqual(lane0.predecessors[0].object_id, 3)
-        self.assertEqual(lane0.predecessor_ids, [3])
+        assert lane0 is not None
+        assert lane0.predecessors is not None
+        assert len(lane0.predecessors) == 1
+        assert isinstance(lane0.predecessors[0], Lane)
+        assert lane0.predecessors[0].object_id == 3
+        assert lane0.predecessor_ids == [3]
 
         # Left Lane 1
         lane1: Lane = map_api.get_map_object(1, MapLayer.LANE)
@@ -343,12 +343,12 @@ class TestLane(unittest.TestCase):
 
         # Successor Lane 4
         lane4: Lane = map_api.get_map_object(4, MapLayer.LANE)
-        self.assertIsNotNone(lane4)
-        self.assertIsNotNone(lane4.predecessors)
-        self.assertEqual(len(lane4.predecessors), 1)
-        self.assertIsInstance(lane4.predecessors[0], Lane)
-        self.assertEqual(lane4.predecessors[0].object_id, 0)
-        self.assertEqual(lane4.predecessor_ids, [0])
+        assert lane4 is not None
+        assert lane4.predecessors is not None
+        assert len(lane4.predecessors) == 1
+        assert isinstance(lane4.predecessors[0], Lane)
+        assert lane4.predecessors[0].object_id == 0
+        assert lane4.predecessor_ids == [0]
 
     def test_successor_links(self):
         """Test that the successor lanes are correctly linked."""
@@ -360,18 +360,18 @@ class TestLane(unittest.TestCase):
         )
 
         def _no_successors(lane: Lane):
-            self.assertIsNotNone(lane)
-            self.assertEqual(lane.successors, [])
-            self.assertEqual(lane.successor_ids, [])
+            assert lane is not None
+            assert lane.successors == []
+            assert lane.successor_ids == []
 
         # Middle Lane 0
         lane0: Lane = map_api.get_map_object(0, MapLayer.LANE)
-        self.assertIsNotNone(lane0)
-        self.assertIsNotNone(lane0.successors)
-        self.assertEqual(len(lane0.successors), 1)
-        self.assertIsInstance(lane0.successors[0], Lane)
-        self.assertEqual(lane0.successors[0].object_id, 4)
-        self.assertEqual(lane0.successor_ids, [4])
+        assert lane0 is not None
+        assert lane0.successors is not None
+        assert len(lane0.successors) == 1
+        assert isinstance(lane0.successors[0], Lane)
+        assert lane0.successors[0].object_id == 4
+        assert lane0.successor_ids == [4]
 
         # Left Lane 1
         lane1: Lane = map_api.get_map_object(1, MapLayer.LANE)
@@ -383,12 +383,12 @@ class TestLane(unittest.TestCase):
 
         # Predecessor Lane 3
         lane3: Lane = map_api.get_map_object(3, MapLayer.LANE)
-        self.assertIsNotNone(lane3)
-        self.assertIsNotNone(lane3.successors)
-        self.assertEqual(len(lane3.successors), 1)
-        self.assertIsInstance(lane3.successors[0], Lane)
-        self.assertEqual(lane3.successors[0].object_id, 0)
-        self.assertEqual(lane3.successor_ids, [0])
+        assert lane3 is not None
+        assert lane3.successors is not None
+        assert len(lane3.successors) == 1
+        assert isinstance(lane3.successors[0], Lane)
+        assert lane3.successors[0].object_id == 0
+        assert lane3.successor_ids == [0]
 
         # Successor Lane 4
         lane4: Lane = map_api.get_map_object(4, MapLayer.LANE)
@@ -403,11 +403,11 @@ class TestLane(unittest.TestCase):
         )
         for lane in self.lanes:
             lane_from_api: Lane = map_api.get_map_object(lane.object_id, MapLayer.LANE)
-            self.assertIsNotNone(lane_from_api)
-            self.assertIsNone(lane_from_api.left_lane)
-            self.assertIsNone(lane_from_api.right_lane)
-            self.assertIsNone(lane_from_api.predecessors)
-            self.assertIsNone(lane_from_api.successors)
+            assert lane_from_api is not None
+            assert lane_from_api.left_lane is None
+            assert lane_from_api.right_lane is None
+            assert lane_from_api.predecessors is None
+            assert lane_from_api.successors is None
 
     def test_lane_group_links(self):
         """Test that the lane group links are correct."""
@@ -420,15 +420,15 @@ class TestLane(unittest.TestCase):
 
         for lane in self.lanes:
             lane_from_api: Lane = map_api.get_map_object(lane.object_id, MapLayer.LANE)
-            self.assertIsNotNone(lane_from_api)
-            self.assertIsNotNone(lane_from_api.lane_group)
-            self.assertIsInstance(lane_from_api.lane_group, LaneGroup)
-            self.assertEqual(lane_from_api.lane_group.object_id, lane_from_api.lane_group_id)
+            assert lane_from_api is not None
+            assert lane_from_api.lane_group is not None
+            assert isinstance(lane_from_api.lane_group, LaneGroup)
+            assert lane_from_api.lane_group.object_id == lane_from_api.lane_group_id
 
 
-class TestLaneGroup(unittest.TestCase):
+class TestLaneGroup:
 
-    def setUp(self):
+    def setup_method(self):
         lanes, lane_groups, intersections = _get_linked_map_object_setup()
         self.lanes = lanes
         self.lane_groups = lane_groups
@@ -437,23 +437,23 @@ class TestLaneGroup(unittest.TestCase):
     def test_properties(self):
         """Test that the properties of the LaneGroup objects are correct."""
         lane_group0 = self.lane_groups[0]
-        self.assertEqual(lane_group0.layer, MapLayer.LANE_GROUP)
-        self.assertEqual(lane_group0.lane_ids, [0, 1, 2])
-        self.assertIsInstance(lane_group0.left_boundary, Polyline3D)
-        self.assertIsInstance(lane_group0.right_boundary, Polyline3D)
-        self.assertEqual(lane_group0.intersection_id, None)
-        self.assertEqual(lane_group0.predecessor_ids, [1])
-        self.assertEqual(lane_group0.successor_ids, [2])
-        self.assertIsInstance(lane_group0.trimesh_mesh, trimesh.base.Trimesh)
+        assert lane_group0.layer == MapLayer.LANE_GROUP
+        assert lane_group0.lane_ids == [0, 1, 2]
+        assert isinstance(lane_group0.left_boundary, Polyline3D)
+        assert isinstance(lane_group0.right_boundary, Polyline3D)
+        assert lane_group0.intersection_id is None
+        assert lane_group0.predecessor_ids == [1]
+        assert lane_group0.successor_ids == [2]
+        assert isinstance(lane_group0.trimesh_mesh, trimesh.base.Trimesh)
 
     def test_base_properties(self):
         """Test that the base surface properties of the LaneGroup objects are correct."""
         lane_group0 = self.lane_groups[0]
-        self.assertEqual(lane_group0.object_id, 0)
-        self.assertIsInstance(lane_group0.outline, Polyline3D)
-        self.assertIsInstance(lane_group0.outline_2d, Polyline2D)
-        self.assertIsInstance(lane_group0.outline_3d, Polyline3D)
-        self.assertIsInstance(lane_group0.shapely_polygon, shapely.Polygon)
+        assert lane_group0.object_id == 0
+        assert isinstance(lane_group0.outline, Polyline3D)
+        assert isinstance(lane_group0.outline_2d, Polyline2D)
+        assert isinstance(lane_group0.outline_3d, Polyline3D)
+        assert isinstance(lane_group0.shapely_polygon, shapely.Polygon)
 
     def test_lane_links(self):
         """Test that the lanes are correctly linked to the lane group."""
@@ -466,28 +466,28 @@ class TestLaneGroup(unittest.TestCase):
 
         # Lane group 0 contains lanes 0, 1, 2
         lane_group0: LaneGroup = map_api.get_map_object(0, MapLayer.LANE_GROUP)
-        self.assertIsNotNone(lane_group0)
-        self.assertIsNotNone(lane_group0.lanes)
-        self.assertEqual(len(lane_group0.lanes), 3)
+        assert lane_group0 is not None
+        assert lane_group0.lanes is not None
+        assert len(lane_group0.lanes) == 3
         for i, lane in enumerate(lane_group0.lanes):
-            self.assertIsInstance(lane, Lane)
-            self.assertEqual(lane.object_id, i)
+            assert isinstance(lane, Lane)
+            assert lane.object_id == i
 
         # Lane group 1 contains lane 3
         lane_group1: LaneGroup = map_api.get_map_object(1, MapLayer.LANE_GROUP)
-        self.assertIsNotNone(lane_group1)
-        self.assertIsNotNone(lane_group1.lanes)
-        self.assertEqual(len(lane_group1.lanes), 1)
-        self.assertIsInstance(lane_group1.lanes[0], Lane)
-        self.assertEqual(lane_group1.lanes[0].object_id, 3)
+        assert lane_group1 is not None
+        assert lane_group1.lanes is not None
+        assert len(lane_group1.lanes) == 1
+        assert isinstance(lane_group1.lanes[0], Lane)
+        assert lane_group1.lanes[0].object_id == 3
 
         # Lane group 2 contains lane 4
         lane_group2: LaneGroup = map_api.get_map_object(2, MapLayer.LANE_GROUP)
-        self.assertIsNotNone(lane_group2)
-        self.assertIsNotNone(lane_group2.lanes)
-        self.assertEqual(len(lane_group2.lanes), 1)
-        self.assertIsInstance(lane_group2.lanes[0], Lane)
-        self.assertEqual(lane_group2.lanes[0].object_id, 4)
+        assert lane_group2 is not None
+        assert lane_group2.lanes is not None
+        assert len(lane_group2.lanes) == 1
+        assert isinstance(lane_group2.lanes[0], Lane)
+        assert lane_group2.lanes[0].object_id == 4
 
     def test_predecessor_links(self):
         """Test that the predecessor lane groups are correctly linked."""
@@ -499,18 +499,18 @@ class TestLaneGroup(unittest.TestCase):
         )
 
         def _no_predecessors(lane_group: LaneGroup):
-            self.assertIsNotNone(lane_group)
-            self.assertEqual(lane_group.predecessors, [])
-            self.assertEqual(lane_group.predecessor_ids, [])
+            assert lane_group is not None
+            assert lane_group.predecessors == []
+            assert lane_group.predecessor_ids == []
 
         # Lane group 0 has predecessor lane group 1
         lane_group0: LaneGroup = map_api.get_map_object(0, MapLayer.LANE_GROUP)
-        self.assertIsNotNone(lane_group0)
-        self.assertIsNotNone(lane_group0.predecessors)
-        self.assertEqual(len(lane_group0.predecessors), 1)
-        self.assertIsInstance(lane_group0.predecessors[0], LaneGroup)
-        self.assertEqual(lane_group0.predecessors[0].object_id, 1)
-        self.assertEqual(lane_group0.predecessor_ids, [1])
+        assert lane_group0 is not None
+        assert lane_group0.predecessors is not None
+        assert len(lane_group0.predecessors) == 1
+        assert isinstance(lane_group0.predecessors[0], LaneGroup)
+        assert lane_group0.predecessors[0].object_id == 1
+        assert lane_group0.predecessor_ids == [1]
 
         # Lane group 1 has no predecessors
         lane_group1: LaneGroup = map_api.get_map_object(1, MapLayer.LANE_GROUP)
@@ -518,12 +518,12 @@ class TestLaneGroup(unittest.TestCase):
 
         # Lane group 2 has predecessor lane group 0
         lane_group2: LaneGroup = map_api.get_map_object(2, MapLayer.LANE_GROUP)
-        self.assertIsNotNone(lane_group2)
-        self.assertIsNotNone(lane_group2.predecessors)
-        self.assertEqual(len(lane_group2.predecessors), 1)
-        self.assertIsInstance(lane_group2.predecessors[0], LaneGroup)
-        self.assertEqual(lane_group2.predecessors[0].object_id, 0)
-        self.assertEqual(lane_group2.predecessor_ids, [0])
+        assert lane_group2 is not None
+        assert lane_group2.predecessors is not None
+        assert len(lane_group2.predecessors) == 1
+        assert isinstance(lane_group2.predecessors[0], LaneGroup)
+        assert lane_group2.predecessors[0].object_id == 0
+        assert lane_group2.predecessor_ids == [0]
 
     def test_successor_links(self):
         """Test that the successor lane groups are correctly linked."""
@@ -535,27 +535,27 @@ class TestLaneGroup(unittest.TestCase):
         )
 
         def _no_successors(lane_group: LaneGroup):
-            self.assertIsNotNone(lane_group)
-            self.assertEqual(lane_group.successors, [])
-            self.assertEqual(lane_group.successor_ids, [])
+            assert lane_group is not None
+            assert lane_group.successors == []
+            assert lane_group.successor_ids == []
 
         # Lane group 0 has successor lane group 2
         lane_group0: LaneGroup = map_api.get_map_object(0, MapLayer.LANE_GROUP)
-        self.assertIsNotNone(lane_group0)
-        self.assertIsNotNone(lane_group0.successors)
-        self.assertEqual(len(lane_group0.successors), 1)
-        self.assertIsInstance(lane_group0.successors[0], LaneGroup)
-        self.assertEqual(lane_group0.successors[0].object_id, 2)
-        self.assertEqual(lane_group0.successor_ids, [2])
+        assert lane_group0 is not None
+        assert lane_group0.successors is not None
+        assert len(lane_group0.successors) == 1
+        assert isinstance(lane_group0.successors[0], LaneGroup)
+        assert lane_group0.successors[0].object_id == 2
+        assert lane_group0.successor_ids == [2]
 
         # Lane group 1 has successor lane group 0
         lane_group1: LaneGroup = map_api.get_map_object(1, MapLayer.LANE_GROUP)
-        self.assertIsNotNone(lane_group1)
-        self.assertIsNotNone(lane_group1.successors)
-        self.assertEqual(len(lane_group1.successors), 1)
-        self.assertIsInstance(lane_group1.successors[0], LaneGroup)
-        self.assertEqual(lane_group1.successors[0].object_id, 0)
-        self.assertEqual(lane_group1.successor_ids, [0])
+        assert lane_group1 is not None
+        assert lane_group1.successors is not None
+        assert len(lane_group1.successors) == 1
+        assert isinstance(lane_group1.successors[0], LaneGroup)
+        assert lane_group1.successors[0].object_id == 0
+        assert lane_group1.successor_ids == [0]
 
         # Lane group 2 has no successors
         lane_group2: LaneGroup = map_api.get_map_object(2, MapLayer.LANE_GROUP)
@@ -572,25 +572,25 @@ class TestLaneGroup(unittest.TestCase):
 
         # Lane group 0 has no intersection
         lane_group0: LaneGroup = map_api.get_map_object(0, MapLayer.LANE_GROUP)
-        self.assertIsNotNone(lane_group0)
-        self.assertIsNone(lane_group0.intersection_id)
-        self.assertIsNone(lane_group0.intersection)
+        assert lane_group0 is not None
+        assert lane_group0.intersection_id is None
+        assert lane_group0.intersection is None
 
         # Lane group 1 has intersection 0
         lane_group1: LaneGroup = map_api.get_map_object(1, MapLayer.LANE_GROUP)
-        self.assertIsNotNone(lane_group1)
-        self.assertEqual(lane_group1.intersection_id, 0)
-        self.assertIsNotNone(lane_group1.intersection)
-        self.assertIsInstance(lane_group1.intersection, Intersection)
-        self.assertEqual(lane_group1.intersection.object_id, 0)
+        assert lane_group1 is not None
+        assert lane_group1.intersection_id == 0
+        assert lane_group1.intersection is not None
+        assert isinstance(lane_group1.intersection, Intersection)
+        assert lane_group1.intersection.object_id == 0
 
         # Lane group 2 has intersection 1
         lane_group2: LaneGroup = map_api.get_map_object(2, MapLayer.LANE_GROUP)
-        self.assertIsNotNone(lane_group2)
-        self.assertEqual(lane_group2.intersection_id, 1)
-        self.assertIsNotNone(lane_group2.intersection)
-        self.assertIsInstance(lane_group2.intersection, Intersection)
-        self.assertEqual(lane_group2.intersection.object_id, 1)
+        assert lane_group2 is not None
+        assert lane_group2.intersection_id == 1
+        assert lane_group2.intersection is not None
+        assert isinstance(lane_group2.intersection, Intersection)
+        assert lane_group2.intersection.object_id == 1
 
     def test_no_links(self):
         """Test that when map_api is not provided, no links are available."""
@@ -602,16 +602,16 @@ class TestLaneGroup(unittest.TestCase):
         )
         for lane_group in self.lane_groups:
             lg_from_api: LaneGroup = map_api.get_map_object(lane_group.object_id, MapLayer.LANE_GROUP)
-            self.assertIsNotNone(lg_from_api)
-            self.assertIsNone(lg_from_api.lanes)
-            self.assertIsNone(lg_from_api.predecessors)
-            self.assertIsNone(lg_from_api.successors)
-            self.assertIsNone(lg_from_api.intersection)
+            assert lg_from_api is not None
+            assert lg_from_api.lanes is None
+            assert lg_from_api.predecessors is None
+            assert lg_from_api.successors is None
+            assert lg_from_api.intersection is None
 
 
-class TestIntersection(unittest.TestCase):
+class TestIntersection:
 
-    def setUp(self):
+    def setup_method(self):
         lanes, lane_groups, intersections = _get_linked_map_object_setup()
         self.lanes = lanes
         self.lane_groups = lane_groups
@@ -620,18 +620,18 @@ class TestIntersection(unittest.TestCase):
     def test_properties(self):
         """Test that the properties of the Intersection objects are correct."""
         intersection0 = self.intersections[0]
-        self.assertEqual(intersection0.layer, MapLayer.INTERSECTION)
-        self.assertEqual(intersection0.lane_group_ids, [1])
-        self.assertIsInstance(intersection0.outline, Polyline3D)
+        assert intersection0.layer == MapLayer.INTERSECTION
+        assert intersection0.lane_group_ids == [1]
+        assert isinstance(intersection0.outline, Polyline3D)
 
     def test_base_properties(self):
         """Test that the base surface properties of the Intersection objects are correct."""
         intersection0 = self.intersections[0]
-        self.assertEqual(intersection0.object_id, 0)
-        self.assertIsInstance(intersection0.outline, Polyline3D)
-        self.assertIsInstance(intersection0.outline_2d, Polyline2D)
-        self.assertIsInstance(intersection0.outline_3d, Polyline3D)
-        self.assertIsInstance(intersection0.shapely_polygon, shapely.Polygon)
+        assert intersection0.object_id == 0
+        assert isinstance(intersection0.outline, Polyline3D)
+        assert isinstance(intersection0.outline_2d, Polyline2D)
+        assert isinstance(intersection0.outline_3d, Polyline3D)
+        assert isinstance(intersection0.shapely_polygon, shapely.Polygon)
 
     def test_lane_group_links(self):
         """Test that the lane groups are correctly linked to the intersection."""
@@ -644,19 +644,19 @@ class TestIntersection(unittest.TestCase):
 
         # Intersection 0 contains lane group 1
         intersection0: Intersection = map_api.get_map_object(0, MapLayer.INTERSECTION)
-        self.assertIsNotNone(intersection0)
-        self.assertIsNotNone(intersection0.lane_groups)
-        self.assertEqual(len(intersection0.lane_groups), 1)
-        self.assertIsInstance(intersection0.lane_groups[0], LaneGroup)
-        self.assertEqual(intersection0.lane_groups[0].object_id, 1)
+        assert intersection0 is not None
+        assert intersection0.lane_groups is not None
+        assert len(intersection0.lane_groups) == 1
+        assert isinstance(intersection0.lane_groups[0], LaneGroup)
+        assert intersection0.lane_groups[0].object_id == 1
 
         # Intersection 1 contains lane group 2
         intersection1: Intersection = map_api.get_map_object(1, MapLayer.INTERSECTION)
-        self.assertIsNotNone(intersection1)
-        self.assertIsNotNone(intersection1.lane_groups)
-        self.assertEqual(len(intersection1.lane_groups), 1)
-        self.assertIsInstance(intersection1.lane_groups[0], LaneGroup)
-        self.assertEqual(intersection1.lane_groups[0].object_id, 2)
+        assert intersection1 is not None
+        assert intersection1.lane_groups is not None
+        assert len(intersection1.lane_groups) == 1
+        assert isinstance(intersection1.lane_groups[0], LaneGroup)
+        assert intersection1.lane_groups[0].object_id == 2
 
     def test_no_links(self):
         """Test that when map_api is not provided, no links are available."""
@@ -668,36 +668,36 @@ class TestIntersection(unittest.TestCase):
         )
         for intersection in self.intersections:
             int_from_api: Intersection = map_api.get_map_object(intersection.object_id, MapLayer.INTERSECTION)
-            self.assertIsNotNone(int_from_api)
-            self.assertIsNone(int_from_api.lane_groups)
+            assert int_from_api is not None
+            assert int_from_api.lane_groups is None
 
 
-class TestCrosswalk(unittest.TestCase):
+class TestCrosswalk:
     def test_properties(self):
         """Test that the properties of the Crosswalk object are correct."""
         outline = Polyline3D.from_array(
             np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]])
         )
         crosswalk = Crosswalk(object_id=0, outline=outline)
-        self.assertEqual(crosswalk.layer, MapLayer.CROSSWALK)
-        self.assertEqual(crosswalk.object_id, 0)
-        self.assertIsInstance(crosswalk.outline, Polyline3D)
-        self.assertIsInstance(crosswalk.shapely_polygon, shapely.Polygon)
+        assert crosswalk.layer == MapLayer.CROSSWALK
+        assert crosswalk.object_id == 0
+        assert isinstance(crosswalk.outline, Polyline3D)
+        assert isinstance(crosswalk.shapely_polygon, shapely.Polygon)
 
     def test_init_with_shapely_polygon(self):
         """Test initialization with shapely polygon."""
         shapely_polygon = shapely.Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)])
         crosswalk = Crosswalk(object_id=0, shapely_polygon=shapely_polygon)
-        self.assertEqual(crosswalk.object_id, 0)
-        self.assertIsInstance(crosswalk.shapely_polygon, shapely.Polygon)
-        self.assertIsInstance(crosswalk.outline_2d, Polyline2D)
+        assert crosswalk.object_id == 0
+        assert isinstance(crosswalk.shapely_polygon, shapely.Polygon)
+        assert isinstance(crosswalk.outline_2d, Polyline2D)
 
     def test_init_with_polyline2d(self):
         """Test initialization with Polyline2D outline."""
         outline = Polyline2D.from_array(np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]]))
         crosswalk = Crosswalk(object_id=0, outline=outline)
-        self.assertIsInstance(crosswalk.outline_2d, Polyline2D)
-        self.assertIsInstance(crosswalk.shapely_polygon, shapely.Polygon)
+        assert isinstance(crosswalk.outline_2d, Polyline2D)
+        assert isinstance(crosswalk.shapely_polygon, shapely.Polygon)
 
     def test_base_surface_properties(self):
         """Test base surface object properties."""
@@ -705,36 +705,36 @@ class TestCrosswalk(unittest.TestCase):
             np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]])
         )
         crosswalk = Crosswalk(object_id=0, outline=outline)
-        self.assertIsInstance(crosswalk.outline_3d, Polyline3D)
-        self.assertTrue(crosswalk.shapely_polygon.is_valid)
+        assert isinstance(crosswalk.outline_3d, Polyline3D)
+        assert crosswalk.shapely_polygon.is_valid
 
 
-class TestCarpark(unittest.TestCase):
+class TestCarpark:
     def test_properties(self):
         """Test that the properties of the Carpark object are correct."""
         outline = Polyline3D.from_array(
             np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0], [2.0, 2.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 0.0]])
         )
         carpark = Carpark(object_id=1, outline=outline)
-        self.assertEqual(carpark.layer, MapLayer.CARPARK)
-        self.assertEqual(carpark.object_id, 1)
-        self.assertIsInstance(carpark.outline, Polyline3D)
-        self.assertIsInstance(carpark.shapely_polygon, shapely.Polygon)
+        assert carpark.layer == MapLayer.CARPARK
+        assert carpark.object_id == 1
+        assert isinstance(carpark.outline, Polyline3D)
+        assert isinstance(carpark.shapely_polygon, shapely.Polygon)
 
     def test_init_with_shapely_polygon(self):
         """Test initialization with shapely polygon."""
         shapely_polygon = shapely.Polygon([(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)])
         carpark = Carpark(object_id=1, shapely_polygon=shapely_polygon)
-        self.assertEqual(carpark.object_id, 1)
-        self.assertIsInstance(carpark.shapely_polygon, shapely.Polygon)
-        self.assertIsInstance(carpark.outline_2d, Polyline2D)
+        assert carpark.object_id == 1
+        assert isinstance(carpark.shapely_polygon, shapely.Polygon)
+        assert isinstance(carpark.outline_2d, Polyline2D)
 
     def test_init_with_polyline2d(self):
         """Test initialization with Polyline2D outline."""
         outline = Polyline2D.from_array(np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0], [0.0, 0.0]]))
         carpark = Carpark(object_id=1, outline=outline)
-        self.assertIsInstance(carpark.outline_2d, Polyline2D)
-        self.assertIsInstance(carpark.shapely_polygon, shapely.Polygon)
+        assert isinstance(carpark.outline_2d, Polyline2D)
+        assert isinstance(carpark.shapely_polygon, shapely.Polygon)
 
     def test_polygon_area(self):
         """Test that the polygon area is calculated correctly."""
@@ -742,25 +742,25 @@ class TestCarpark(unittest.TestCase):
             np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0], [2.0, 2.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 0.0]])
         )
         carpark = Carpark(object_id=1, outline=outline)
-        self.assertAlmostEqual(carpark.shapely_polygon.area, 4.0)
+        assert carpark.shapely_polygon.area == pytest.approx(4.0)
 
 
-class TestWalkway(unittest.TestCase):
+class TestWalkway:
     def test_properties(self):
         """Test that the properties of the Walkway object are correct."""
         outline = Polyline2D.from_array(np.array([[0.0, 0.0], [3.0, 0.0], [3.0, 1.0], [0.0, 1.0], [0.0, 0.0]]))
         walkway = Walkway(object_id=2, outline=outline)
-        self.assertEqual(walkway.layer, MapLayer.WALKWAY)
-        self.assertEqual(walkway.object_id, 2)
-        self.assertIsInstance(walkway.outline_2d, Polyline2D)
-        self.assertIsInstance(walkway.shapely_polygon, shapely.Polygon)
+        assert walkway.layer == MapLayer.WALKWAY
+        assert walkway.object_id == 2
+        assert isinstance(walkway.outline_2d, Polyline2D)
+        assert isinstance(walkway.shapely_polygon, shapely.Polygon)
 
     def test_init_with_shapely_polygon(self):
         """Test initialization with shapely polygon."""
         shapely_polygon = shapely.Polygon([(0.0, 0.0), (3.0, 0.0), (3.0, 1.0), (0.0, 1.0)])
         walkway = Walkway(object_id=2, shapely_polygon=shapely_polygon)
-        self.assertEqual(walkway.object_id, 2)
-        self.assertIsInstance(walkway.shapely_polygon, shapely.Polygon)
+        assert walkway.object_id == 2
+        assert isinstance(walkway.shapely_polygon, shapely.Polygon)
 
     def test_init_with_polyline3d(self):
         """Test initialization with Polyline3D outline."""
@@ -768,42 +768,42 @@ class TestWalkway(unittest.TestCase):
             np.array([[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [3.0, 1.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]])
         )
         walkway = Walkway(object_id=2, outline=outline)
-        self.assertIsInstance(walkway.outline_3d, Polyline3D)
-        self.assertIsInstance(walkway.shapely_polygon, shapely.Polygon)
+        assert isinstance(walkway.outline_3d, Polyline3D)
+        assert isinstance(walkway.shapely_polygon, shapely.Polygon)
 
     def test_polygon_bounds(self):
         """Test that polygon bounds are correct."""
         outline = Polyline2D.from_array(np.array([[0.0, 0.0], [3.0, 0.0], [3.0, 1.0], [0.0, 1.0], [0.0, 0.0]]))
         walkway = Walkway(object_id=2, outline=outline)
         bounds = walkway.shapely_polygon.bounds
-        self.assertEqual(bounds, (0.0, 0.0, 3.0, 1.0))
+        assert bounds == (0.0, 0.0, 3.0, 1.0)
 
 
-class TestGenericDrivable(unittest.TestCase):
+class TestGenericDrivable:
     def test_properties(self):
         """Test that the properties of the GenericDrivable object are correct."""
         outline = Polyline3D.from_array(
             np.array([[0.0, 0.0, 0.0], [5.0, 0.0, 0.0], [5.0, 3.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 0.0]])
         )
         generic_drivable = GenericDrivable(object_id=3, outline=outline)
-        self.assertEqual(generic_drivable.layer, MapLayer.GENERIC_DRIVABLE)
-        self.assertEqual(generic_drivable.object_id, 3)
-        self.assertIsInstance(generic_drivable.outline, Polyline3D)
-        self.assertIsInstance(generic_drivable.shapely_polygon, shapely.Polygon)
+        assert generic_drivable.layer == MapLayer.GENERIC_DRIVABLE
+        assert generic_drivable.object_id == 3
+        assert isinstance(generic_drivable.outline, Polyline3D)
+        assert isinstance(generic_drivable.shapely_polygon, shapely.Polygon)
 
     def test_init_with_shapely_polygon(self):
         """Test initialization with shapely polygon."""
         shapely_polygon = shapely.Polygon([(0.0, 0.0), (5.0, 0.0), (5.0, 3.0), (0.0, 3.0)])
         generic_drivable = GenericDrivable(object_id=3, shapely_polygon=shapely_polygon)
-        self.assertEqual(generic_drivable.object_id, 3)
-        self.assertIsInstance(generic_drivable.shapely_polygon, shapely.Polygon)
+        assert generic_drivable.object_id == 3
+        assert isinstance(generic_drivable.shapely_polygon, shapely.Polygon)
 
     def test_init_with_polyline2d(self):
         """Test initialization with Polyline2D outline."""
         outline = Polyline2D.from_array(np.array([[0.0, 0.0], [5.0, 0.0], [5.0, 3.0], [0.0, 3.0], [0.0, 0.0]]))
         generic_drivable = GenericDrivable(object_id=3, outline=outline)
-        self.assertIsInstance(generic_drivable.outline_2d, Polyline2D)
-        self.assertIsInstance(generic_drivable.shapely_polygon, shapely.Polygon)
+        assert isinstance(generic_drivable.outline_2d, Polyline2D)
+        assert isinstance(generic_drivable.shapely_polygon, shapely.Polygon)
 
     def test_polygon_area(self):
         """Test that the polygon area is calculated correctly."""
@@ -811,18 +811,18 @@ class TestGenericDrivable(unittest.TestCase):
             np.array([[0.0, 0.0, 0.0], [5.0, 0.0, 0.0], [5.0, 3.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 0.0]])
         )
         generic_drivable = GenericDrivable(object_id=3, outline=outline)
-        self.assertAlmostEqual(generic_drivable.shapely_polygon.area, 15.0)
+        assert generic_drivable.shapely_polygon.area == pytest.approx(15.0)
 
 
-class TestStopZone(unittest.TestCase):
+class TestStopZone:
     def test_properties(self):
         """Test that the properties of the StopZone object are correct."""
         shapely_polygon = shapely.Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 0.5), (0.0, 0.5)])
         stop_zone = StopZone(object_id=4, shapely_polygon=shapely_polygon)
-        self.assertEqual(stop_zone.layer, MapLayer.STOP_ZONE)
-        self.assertEqual(stop_zone.object_id, 4)
-        self.assertIsInstance(stop_zone.shapely_polygon, shapely.Polygon)
-        self.assertIsInstance(stop_zone.outline_2d, Polyline2D)
+        assert stop_zone.layer == MapLayer.STOP_ZONE
+        assert stop_zone.object_id == 4
+        assert isinstance(stop_zone.shapely_polygon, shapely.Polygon)
+        assert isinstance(stop_zone.outline_2d, Polyline2D)
 
     def test_init_with_polyline3d(self):
         """Test initialization with Polyline3D outline."""
@@ -830,80 +830,80 @@ class TestStopZone(unittest.TestCase):
             np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.5, 0.0], [0.0, 0.5, 0.0], [0.0, 0.0, 0.0]])
         )
         stop_zone = StopZone(object_id=4, outline=outline)
-        self.assertIsInstance(stop_zone.outline, Polyline3D)
-        self.assertIsInstance(stop_zone.shapely_polygon, shapely.Polygon)
+        assert isinstance(stop_zone.outline, Polyline3D)
+        assert isinstance(stop_zone.shapely_polygon, shapely.Polygon)
 
     def test_init_with_polyline2d(self):
         """Test initialization with Polyline2D outline."""
         outline = Polyline2D.from_array(np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 0.5], [0.0, 0.5], [0.0, 0.0]]))
         stop_zone = StopZone(object_id=4, outline=outline)
-        self.assertIsInstance(stop_zone.outline_2d, Polyline2D)
-        self.assertIsInstance(stop_zone.shapely_polygon, shapely.Polygon)
+        assert isinstance(stop_zone.outline_2d, Polyline2D)
+        assert isinstance(stop_zone.shapely_polygon, shapely.Polygon)
 
     def test_polygon_area(self):
         """Test that the polygon area is calculated correctly."""
         shapely_polygon = shapely.Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 0.5), (0.0, 0.5)])
         stop_zone = StopZone(object_id=4, shapely_polygon=shapely_polygon)
-        self.assertAlmostEqual(stop_zone.shapely_polygon.area, 0.5)
+        assert stop_zone.shapely_polygon.area == pytest.approx(0.5)
 
 
-class TestRoadEdge(unittest.TestCase):
+class TestRoadEdge:
     def test_properties(self):
         """Test that the properties of the RoadEdge object are correct."""
         polyline = Polyline3D.from_array(np.array([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [20.0, 0.0, 0.0]]))
         road_edge = RoadEdge(object_id=5, road_edge_type=1, polyline=polyline)
-        self.assertEqual(road_edge.layer, MapLayer.ROAD_EDGE)
-        self.assertEqual(road_edge.object_id, 5)
-        self.assertEqual(road_edge.road_edge_type, 1)
-        self.assertIsInstance(road_edge.polyline, Polyline3D)
+        assert road_edge.layer == MapLayer.ROAD_EDGE
+        assert road_edge.object_id == 5
+        assert road_edge.road_edge_type == 1
+        assert isinstance(road_edge.polyline, Polyline3D)
 
     def test_init_with_polyline2d(self):
         """Test initialization with Polyline2D."""
         polyline = Polyline2D.from_array(np.array([[0.0, 0.0], [10.0, 0.0], [20.0, 0.0]]))
         road_edge = RoadEdge(object_id=5, road_edge_type=1, polyline=polyline)
-        self.assertIsInstance(road_edge.polyline, Polyline2D)
-        self.assertEqual(road_edge.road_edge_type, 1)
+        assert isinstance(road_edge.polyline, Polyline2D)
+        assert road_edge.road_edge_type == 1
 
     def test_polyline_length(self):
         """Test that the polyline has correct number of points."""
         polyline = Polyline3D.from_array(np.array([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [20.0, 0.0, 0.0]]))
         road_edge = RoadEdge(object_id=5, road_edge_type=1, polyline=polyline)
-        self.assertEqual(len(road_edge.polyline.array), 3)
+        assert len(road_edge.polyline.array) == 3
 
     def test_different_road_edge_types(self):
         """Test different road edge types."""
         polyline = Polyline3D.from_array(np.array([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]]))
         for edge_type in RoadEdgeType:
             road_edge = RoadEdge(object_id=5, road_edge_type=edge_type, polyline=polyline)
-            self.assertEqual(road_edge.road_edge_type, edge_type)
+            assert road_edge.road_edge_type == edge_type
 
 
-class TestRoadLine(unittest.TestCase):
+class TestRoadLine:
     def test_properties(self):
         """Test that the properties of the RoadLine object are correct."""
         polyline = Polyline2D.from_array(np.array([[0.0, 1.0], [10.0, 1.0], [20.0, 1.0]]))
         road_line = RoadLine(object_id=6, road_line_type=2, polyline=polyline)
-        self.assertEqual(road_line.layer, MapLayer.ROAD_LINE)
-        self.assertEqual(road_line.object_id, 6)
-        self.assertEqual(road_line.road_line_type, 2)
-        self.assertIsInstance(road_line.polyline, Polyline2D)
+        assert road_line.layer == MapLayer.ROAD_LINE
+        assert road_line.object_id == 6
+        assert road_line.road_line_type == 2
+        assert isinstance(road_line.polyline, Polyline2D)
 
     def test_init_with_polyline3d(self):
         """Test initialization with Polyline3D."""
         polyline = Polyline3D.from_array(np.array([[0.0, 1.0, 0.0], [10.0, 1.0, 0.0], [20.0, 1.0, 0.0]]))
         road_line = RoadLine(object_id=6, road_line_type=2, polyline=polyline)
-        self.assertIsInstance(road_line.polyline, Polyline3D)
-        self.assertEqual(road_line.road_line_type, 2)
+        assert isinstance(road_line.polyline, Polyline3D)
+        assert road_line.road_line_type == 2
 
     def test_polyline_length(self):
         """Test that the polyline has correct number of points."""
         polyline = Polyline2D.from_array(np.array([[0.0, 1.0], [10.0, 1.0], [20.0, 1.0], [30.0, 1.0]]))
         road_line = RoadLine(object_id=6, road_line_type=2, polyline=polyline)
-        self.assertEqual(len(road_line.polyline.array), 4)
+        assert len(road_line.polyline.array) == 4
 
     def test_different_road_line_types(self):
         """Test different road line types."""
         polyline = Polyline2D.from_array(np.array([[0.0, 1.0], [10.0, 1.0]]))
         for line_type in RoadLineType:
             road_line = RoadLine(object_id=6, road_line_type=line_type, polyline=polyline)
-            self.assertEqual(road_line.road_line_type, line_type)
+            assert road_line.road_line_type == line_type

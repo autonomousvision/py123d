@@ -1,5 +1,3 @@
-import unittest
-
 import numpy as np
 
 from py123d.datatypes.vehicle_state.dynamic_state import (
@@ -11,7 +9,7 @@ from py123d.datatypes.vehicle_state.dynamic_state import (
 from py123d.geometry import Vector2D, Vector3D
 
 
-class TestDynamicStateSE3(unittest.TestCase):
+class TestDynamicStateSE3:
     def test_init(self):
         velocity = Vector3D(1.0, 2.0, 3.0)
         acceleration = Vector3D(4.0, 5.0, 6.0)
@@ -64,7 +62,7 @@ class TestDynamicStateSE3(unittest.TestCase):
         assert np.isclose(state_se2.angular_velocity, 9.0)
 
 
-class TestDynamicStateSE2(unittest.TestCase):
+class TestDynamicStateSE2:
     def test_init(self):
         velocity = Vector2D(1.0, 2.0)
         acceleration = Vector2D(3.0, 4.0)

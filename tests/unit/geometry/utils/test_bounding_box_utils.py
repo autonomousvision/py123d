@@ -24,9 +24,9 @@ from py123d.geometry.utils.bounding_box_utils import (
 from py123d.geometry.vector import Vector3D
 
 
-class TestBoundingBoxUtils(unittest.TestCase):
+class TestBoundingBoxUtils:
 
-    def setUp(self):
+    def setup_method(self):
         self._num_consistency_checks = 10
         self._max_pose_xyz = 100.0
         self._max_extent = 200.0
@@ -106,7 +106,7 @@ class TestBoundingBoxUtils(unittest.TestCase):
 
         expected_polygon = shapely.geometry.Polygon(corners_array)
         np.testing.assert_allclose(polygon.area, expected_polygon.area, atol=1e-6)
-        self.assertTrue(polygon.equals(expected_polygon))
+        assert polygon.equals(expected_polygon)
 
     def test_corners_2d_array_to_polygon_array_n_dim(self):
         corners_array = np.array(
@@ -131,10 +131,10 @@ class TestBoundingBoxUtils(unittest.TestCase):
         expected_polygon_2 = shapely.geometry.Polygon(corners_array[1])
 
         np.testing.assert_allclose(polygons[0].area, expected_polygon_1.area, atol=1e-6)
-        self.assertTrue(polygons[0].equals(expected_polygon_1))
+        assert polygons[0].equals(expected_polygon_1)
 
         np.testing.assert_allclose(polygons[1].area, expected_polygon_2.area, atol=1e-6)
-        self.assertTrue(polygons[1].equals(expected_polygon_2))
+        assert polygons[1].equals(expected_polygon_2)
 
     def test_corners_2d_array_to_polygon_array_zero_dim(self):
         corners_array = np.zeros((0, 4, 2), dtype=np.float64)
@@ -154,7 +154,7 @@ class TestBoundingBoxUtils(unittest.TestCase):
         expected_polygon = shapely.geometry.Polygon(expected_corners)
 
         np.testing.assert_allclose(polygon.area, expected_polygon.area, atol=1e-6)
-        self.assertTrue(polygon.equals(expected_polygon))
+        assert polygon.equals(expected_polygon)
 
     def test_bbse2_array_to_polygon_array_n_dim(self):
         bounding_box_se2_array = np.array([1.0, 2.0, 0.0, 4.0, 2.0])
@@ -171,7 +171,7 @@ class TestBoundingBoxUtils(unittest.TestCase):
 
         for polygon in polygons:
             np.testing.assert_allclose(polygon.area, expected_polygon.area, atol=1e-6)
-            self.assertTrue(polygon.equals(expected_polygon))
+            assert polygon.equals(expected_polygon)
 
     def test_bbse2_array_to_polygon_array_zero_dim(self):
         bounding_box_se2_array = np.zeros((0, 5), dtype=np.float64)

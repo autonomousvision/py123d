@@ -1,5 +1,3 @@
-import unittest
-
 import numpy as np
 import numpy.typing as npt
 
@@ -19,9 +17,9 @@ from py123d.geometry.transform.transform_se2 import (
 )
 
 
-class TestTransformSE2(unittest.TestCase):
+class TestTransformSE2:
 
-    def setUp(self):
+    def setup_method(self):
         self.decimal = 6  # Decimal places for np.testing.assert_array_almost_equal
 
     def _get_random_se2_array(self, num_poses: int) -> npt.NDArray[np.float64]:

@@ -24,9 +24,9 @@ from py123d.geometry.utils.rotation_utils import (
 )
 
 
-class TestTransformSE3(unittest.TestCase):
+class TestTransformSE3:
 
-    def setUp(self):
+    def setup_method(self):
         euler_se3_a = EulerStateSE3(
             x=1.0,
             y=2.0,
