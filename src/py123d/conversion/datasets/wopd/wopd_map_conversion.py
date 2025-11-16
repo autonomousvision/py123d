@@ -26,7 +26,6 @@ from waymo_open_dataset import dataset_pb2
 
 
 def convert_wopd_map(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> None:
-
     # We first extract all road lines, road edges, and lanes, and write them to the map writer.
     # NOTE: road lines and edges are used needed to extract lane boundaries.
     road_lines = _write_and_get_waymo_road_lines(frame, map_writer)
@@ -89,7 +88,6 @@ def _write_and_get_waymo_road_edges(frame: dataset_pb2.Frame, map_writer: Abstra
 def _write_and_get_waymo_lanes(
     frame: dataset_pb2.Frame, road_lines: List[RoadLine], road_edges: List[RoadEdge], map_writer: AbstractMapWriter
 ) -> List[Lane]:
-
     # 1. Load lane data from Waymo frame proto
     lane_data_dict: Dict[int, WaymoLaneData] = {}
     for map_feature in frame.map_features:
@@ -127,7 +125,6 @@ def _write_and_get_waymo_lanes(
 
     lanes: List[Lane] = []
     for lane_data in lane_data_dict.values():
-
         # Skip lanes without boundaries
         if lane_data.left_boundary is None or lane_data.right_boundary is None:
             continue
@@ -154,7 +151,6 @@ def _write_and_get_waymo_lanes(
 
 
 def _write_waymo_lane_groups(lanes: List[Lane], map_writer: AbstractMapWriter) -> None:
-
     # NOTE: WOPD does not provide lane groups, so we create a lane group for each lane.
     for lane in lanes:
         map_writer.write_lane_group(
@@ -172,7 +168,6 @@ def _write_waymo_lane_groups(lanes: List[Lane], map_writer: AbstractMapWriter) -
 
 
 def _write_waymo_misc_surfaces(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> None:
-
     for map_feature in frame.map_features:
         if map_feature.HasField("driveway"):
             # NOTE: We currently only handle classify driveways as carparks.

@@ -33,7 +33,6 @@ def add_camera_frustums_to_viser_server(
     viser_config: ViserConfig,
     camera_frustum_handles: Dict[PinholeCameraType, viser.CameraFrustumHandle],
 ) -> None:
-
     if viser_config.camera_frustum_visible:
         scene_center_array = initial_ego_state.center.point_3d.array
         ego_pose = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
@@ -61,8 +60,6 @@ def add_camera_frustums_to_viser_server(
                         position=camera_position,
                         wxyz=camera_quaternion,
                     )
-
-            return None
 
         # NOTE; In order to speed up adding camera frustums, we use multithreading and resize the images.
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(viser_config.camera_frustum_types)) as executor:
@@ -118,8 +115,6 @@ def add_fisheye_frustums_to_viser_server(
                         wxyz=fcam_quaternion,
                     )
 
-            return None
-
         # NOTE; In order to speed up adding camera frustums, we use multithreading and resize the images.
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=len(viser_config.fisheye_mei_camera_frustum_types)
@@ -166,7 +161,6 @@ def add_lidar_pc_to_viser_server(
     lidar_pc_handles: Dict[LiDARType, Optional[viser.PointCloudHandle]],
 ) -> None:
     if viser_config.lidar_visible:
-
         scene_center_array = initial_ego_state.center.point_3d.array
         ego_pose = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
         ego_pose[PoseSE3Index.XYZ] -= scene_center_array
@@ -267,9 +261,6 @@ def _rescale_image(image: npt.NDArray[np.uint8], scale: float) -> npt.NDArray[np
     new_height = int(image.shape[0] * scale)
     downscaled_image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
     return downscaled_image
-
-
-import numpy as np
 
 
 def calculate_fov(metadata: FisheyeMEICameraMetadata) -> tuple[float, float]:

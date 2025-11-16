@@ -33,7 +33,6 @@ def collect_element_helpers(
     Dict[str, OpenDriveLaneGroupHelper],
     Dict[int, OpenDriveObjectHelper],
 ]:
-
     # 1. Fill the road and junction dictionaries
     road_dict: Dict[int, XODRRoad] = {road.id: road for road in opendrive.roads}
     junction_dict: Dict[int, Junction] = {junction.id: junction for junction in opendrive.junctions}
@@ -182,7 +181,6 @@ def _update_connection_from_junctions(
             connecting_road = road_dict[connection.connecting_road]
 
             for lane_link in connection.lane_links:
-
                 incoming_lane_id: Optional[str] = None
                 connecting_lane_id: Optional[str] = None
 
@@ -247,7 +245,6 @@ def _post_process_connections(
             successor_centerline = lane_helper_dict[successor_lane_id].center_polyline_se2
             distance = np.linalg.norm(centerline[-1, :2] - successor_centerline[0, :2])
             if distance > connection_distance_threshold:
-
                 logger.debug(
                     f"OpenDRIVE: Removing connection {lane_id} -> {successor_lane_id} with distance {distance}"
                 )
@@ -273,7 +270,6 @@ def _collect_lane_groups(
     junction_dict: Dict[int, Junction],
     road_dict: Dict[int, XODRRoad],
 ) -> None:
-
     lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper] = {}
 
     def _collect_lane_helper_of_id(lane_group_id: str) -> List[OpenDriveLaneHelper]:
@@ -309,7 +305,6 @@ def _collect_lane_groups(
 
 
 def _collect_crosswalks(opendrive: XODR) -> Dict[int, OpenDriveObjectHelper]:
-
     object_helper_dict: Dict[int, OpenDriveObjectHelper] = {}
     for road in opendrive.roads:
         if len(road.objects) == 0:

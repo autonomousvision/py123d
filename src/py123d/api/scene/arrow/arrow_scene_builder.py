@@ -172,7 +172,6 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
 
     scene_extraction_metadatas_ = []
     for scene_extraction_metadata in scene_metadatas:
-
         add_scene = True
         start_idx = scene_extraction_metadata.initial_idx
         if filter.pinhole_camera_types is not None:

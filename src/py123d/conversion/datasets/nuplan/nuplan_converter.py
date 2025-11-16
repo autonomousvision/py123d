@@ -203,7 +203,6 @@ class NuPlanConverter(AbstractDatasetConverter):
         if log_needs_writing:
             step_interval: float = int(TARGET_DT / NUPLAN_DEFAULT_DT)
             for nuplan_lidar_pc in nuplan_log_db.lidar_pc[::step_interval]:
-
                 lidar_pc_token: str = nuplan_lidar_pc.token
                 log_writer.write(
                     timestamp=TimePoint.from_us(nuplan_lidar_pc.timestamp),
@@ -380,7 +379,6 @@ def _extract_nuplan_cameras(
                 image = image_class[0]
                 filename_jpg = nuplan_sensor_root / image.filename_jpg
                 if filename_jpg.exists() and filename_jpg.is_file():
-
                     # NOTE: This part of the modified from the MTGS code
                     # In MTGS, a slower method is used to find the nearest ego pose.
                     # The code below uses a direct SQL query to find the nearest ego pose, in a given window.

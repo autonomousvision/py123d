@@ -15,15 +15,13 @@ def setup_dataset_paths(cfg: DictConfig) -> None:
     :return: None
     """
 
-    global _global_dataset_paths
+    global _global_dataset_paths  # noqa: PLW0603
 
     if _global_dataset_paths is None:
         # Make it immutable
         OmegaConf.set_struct(cfg, True)  # Prevents adding new keys
         OmegaConf.set_readonly(cfg, True)  # Prevents any modifications
         _global_dataset_paths = cfg
-
-    return None
 
 
 def get_dataset_paths() -> DictConfig:

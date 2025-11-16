@@ -47,7 +47,6 @@ class XODRLine(XODRGeometry):
         return cls(**args)
 
     def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
-
         interpolated_se2 = self.start_se2.copy()
         interpolated_se2[PoseSE2Index.X] += s * np.cos(self.hdg)
         interpolated_se2[PoseSE2Index.Y] += s * np.sin(self.hdg)
@@ -78,7 +77,6 @@ class XODRArc(XODRGeometry):
         return cls(**args)
 
     def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
-
         kappa = self.curvature
         radius = 1.0 / kappa if kappa != 0 else float("inf")
 
@@ -142,7 +140,6 @@ class XODRSpiral(XODRGeometry):
         return interpolated_se2
 
     def _compute_spiral_position(self, s: float, gamma: float) -> Tuple[float, float]:
-
         # Transform to normalized Fresnel spiral parameter
         # Standard Fresnel spiral has κ(u) = u, so we need to scale
         # Our spiral: κ(s) = κ₀ + γs

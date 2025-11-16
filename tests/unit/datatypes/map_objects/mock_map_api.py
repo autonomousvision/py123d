@@ -20,7 +20,6 @@ from py123d.geometry import Point2D
 
 
 class MockMapAPI(MapAPI):
-
     def __init__(
         self,
         lanes: List[Lane] = [],
@@ -35,7 +34,6 @@ class MockMapAPI(MapAPI):
         road_lines: List[RoadLine] = [],
         add_map_api_links: bool = False,
     ):
-
         self._layers: Dict[MapLayer, List[BaseMapObject]] = {
             MapLayer.LANE: lanes,
             MapLayer.LANE_GROUP: lane_groups,

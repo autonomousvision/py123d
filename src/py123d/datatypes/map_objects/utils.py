@@ -18,8 +18,7 @@ def get_trimesh_from_boundaries(
 
     def _interpolate_polyline(polyline_3d: Polyline3D, num_samples: int) -> npt.NDArray[np.float64]:
         """Helper function to interpolate a polyline to a fixed number of samples."""
-        if num_samples < 2:
-            num_samples = 2
+        num_samples = max(num_samples, 2)
         distances = np.linspace(0, polyline_3d.length, num=num_samples, endpoint=True, dtype=np.float64)
         return polyline_3d.interpolate(distances)
 

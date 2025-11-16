@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import Optional, Tuple, Union
 
-import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+from matplotlib import animation
 from tqdm import tqdm
 
 from py123d.api.scene.scene_api import SceneAPI
@@ -15,15 +15,15 @@ from py123d.visualization.matplotlib.observation import (
 
 
 def _plot_scene_on_ax(ax: plt.Axes, scene: SceneAPI, iteration: int = 0, radius: float = 80) -> plt.Axes:
-
     ego_vehicle_state = scene.get_ego_state_at_iteration(iteration)
     box_detections = scene.get_box_detections_at_iteration(iteration)
     traffic_light_detections = scene.get_traffic_light_detections_at_iteration(iteration)
     route_lane_group_ids = scene.get_route_lane_group_ids(iteration)
     map_api = scene.get_map_api()
 
-    point_2d = ego_vehicle_state.bounding_box.center.pose_se2.point_2d
+    assert ego_vehicle_state is not None, "Ego vehicle state is required to plot the scene."
     if map_api is not None:
+        point_2d = ego_vehicle_state.bounding_box_se2.center_se2.pose_se2.point_2d
         add_default_map_on_ax(ax, map_api, point_2d, radius=radius, route_lane_group_ids=route_lane_group_ids)
         if traffic_light_detections is not None:
             add_traffic_lights_to_ax(ax, traffic_light_detections, map_api)
@@ -39,7 +39,6 @@ def _plot_scene_on_ax(ax: plt.Axes, scene: SceneAPI, iteration: int = 0, radius:
 
 
 def plot_scene_at_iteration(scene: SceneAPI, iteration: int = 0, radius: float = 80) -> Tuple[plt.Figure, plt.Axes]:
-
     fig, ax = plt.subplots(figsize=(10, 10))
     _plot_scene_on_ax(ax, scene, iteration, radius)
     return fig, ax

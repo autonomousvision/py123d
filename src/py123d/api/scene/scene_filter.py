@@ -52,8 +52,7 @@ class SceneFilter:
         def _resolve_enum_arguments(
             serial_enum_cls: SerialIntEnum,
             input: Optional[List[Union[int, str, SerialIntEnum]]],
-        ) -> Optional[List[SerialIntEnum]]:
-
+        ):
             if input is None:
                 return None
             return [serial_enum_cls.from_arbitrary(value) for value in input]

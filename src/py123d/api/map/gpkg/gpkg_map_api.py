@@ -315,7 +315,6 @@ class GPKGMapAPI(MapAPI):
         lane_group: Optional[LaneGroup] = None
         lane_group_row = get_row_with_value(self._gpd_dataframes[MapLayer.LANE_GROUP], "id", id)
         if lane_group_row is not None:
-
             object_id: str = lane_group_row["id"]
             lane_ids: List[str] = ast.literal_eval(lane_group_row.lane_ids)
             left_boundary: Polyline3D = Polyline3D.from_linestring(lane_group_row["left_boundary"])
@@ -349,7 +348,6 @@ class GPKGMapAPI(MapAPI):
         intersection: Optional[Intersection] = None
         intersection_row = get_row_with_value(self._gpd_dataframes[MapLayer.INTERSECTION], "id", id)
         if intersection_row is not None:
-
             object_id: str = intersection_row["id"]
             lane_group_ids: List[str] = ast.literal_eval(intersection_row.lane_group_ids)
             outline: Optional[Polyline3D] = (
@@ -375,7 +373,6 @@ class GPKGMapAPI(MapAPI):
         crosswalk: Optional[Crosswalk] = None
         crosswalk_row = get_row_with_value(self._gpd_dataframes[MapLayer.CROSSWALK], "id", id)
         if crosswalk_row is not None:
-
             object_id: str = crosswalk_row["id"]
             outline: Polyline3D = Polyline3D.from_linestring(crosswalk_row["outline"])
             geometry: geom.Polygon = crosswalk_row["geometry"]
@@ -394,7 +391,6 @@ class GPKGMapAPI(MapAPI):
         walkway: Optional[Walkway] = None
         walkway_row = get_row_with_value(self._gpd_dataframes[MapLayer.WALKWAY], "id", id)
         if walkway_row is not None:
-
             object_id: str = walkway_row["id"]
             outline: Polyline3D = Polyline3D.from_linestring(walkway_row["outline"])
             geometry: geom.Polygon = walkway_row["geometry"]
@@ -413,7 +409,6 @@ class GPKGMapAPI(MapAPI):
         carpark: Optional[Carpark] = None
         carpark_row = get_row_with_value(self._gpd_dataframes[MapLayer.CARPARK], "id", id)
         if carpark_row is not None:
-
             object_id: str = carpark_row["id"]
             outline: Polyline3D = Polyline3D.from_linestring(carpark_row["outline"])
             geometry: geom.Polygon = carpark_row["geometry"]
@@ -432,7 +427,6 @@ class GPKGMapAPI(MapAPI):
         generic_drivable: Optional[GenericDrivable] = None
         generic_drivable_row = get_row_with_value(self._gpd_dataframes[MapLayer.GENERIC_DRIVABLE], "id", id)
         if generic_drivable_row is not None:
-
             object_id: str = generic_drivable_row["id"]
             outline: Polyline3D = Polyline3D.from_linestring(generic_drivable_row["outline"])
             geometry: geom.Polygon = generic_drivable_row["geometry"]
@@ -451,7 +445,6 @@ class GPKGMapAPI(MapAPI):
         road_edge: Optional[RoadEdge] = None
         road_edge_row = get_row_with_value(self._gpd_dataframes[MapLayer.ROAD_EDGE], "id", id)
         if road_edge_row is not None:
-
             object_id: str = road_edge_row["id"]
             polyline: Polyline3D = Polyline3D.from_linestring(road_edge_row["geometry"])
             road_edge_type: RoadEdgeType = RoadEdgeType(road_edge_row["road_edge_type"])
@@ -470,7 +463,6 @@ class GPKGMapAPI(MapAPI):
         road_line: Optional[RoadLine] = None
         road_line_row = get_row_with_value(self._gpd_dataframes[MapLayer.ROAD_LINE], "id", id)
         if road_line_row is not None:
-
             object_id: str = road_line_row["id"]
             polyline: Polyline3D = Polyline3D.from_linestring(road_line_row["geometry"])
             road_line_type: RoadLineType = RoadLineType(road_line_row["road_line_type"])

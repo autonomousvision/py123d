@@ -23,7 +23,6 @@ class XODR:
 
     @classmethod
     def parse(cls, root_element: Element) -> XODR:
-
         args = {}
         args["header"] = Header.parse(root_element.find("header"))
 
@@ -111,7 +110,6 @@ class Controller:
 
     @classmethod
     def parse(cls, controller_element: Optional[Element]) -> Junction:
-
         args = {}
         args["name"] = controller_element.get("name")
         args["id"] = float(controller_element.get("id"))

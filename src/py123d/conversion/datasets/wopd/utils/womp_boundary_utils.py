@@ -147,10 +147,8 @@ def _filter_perpendicular_hits(
     perpendicular_hits: List[PerpendicularHit],
     lane_point_3d: Point3D,
 ) -> List[PerpendicularHit]:
-
     filtered_hits = []
     for hit in perpendicular_hits:
-
         # 1. filter hits too far in the vertical direction
         z_distance = np.abs(hit.hit_point_3d.z - lane_point_3d.z)
         if z_distance > MAX_Z_DISTANCE:
@@ -226,7 +224,6 @@ def fill_lane_boundaries(
         for sign in [1.0, -1.0]:
             boundary_points_3d: List[Optional[Point3D]] = []
             for lane_query_se2, lane_query_3d in zip(lane_queries_se2, lane_queries_3d):
-
                 perpendicular_hits = _collect_perpendicular_hits(
                     lane_query_se2=lane_query_se2,
                     lane_token=current_lane_token,
@@ -250,12 +247,10 @@ def fill_lane_boundaries(
                     elif first_hit.hit_polyline_type == "road-line":
                         boundary_point_3d = first_hit.hit_point_3d
                     elif first_hit.hit_polyline_type == "lane":
-
                         for hit in perpendicular_hits:
                             if hit.hit_polyline_type == "road-edge":
                                 continue
                             if hit.hit_polyline_type == "lane":
-
                                 lane_data_dict[lane_id].predecessor_ids
 
                                 has_same_predecessor = (

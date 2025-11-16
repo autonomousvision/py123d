@@ -1,5 +1,3 @@
-import unittest
-
 import numpy as np
 import pytest
 
@@ -167,7 +165,3 @@ class TestVector3D:
         vector_dict = {self.vector: "test"}
         assert self.vector in vector_dict
         assert vector_dict[self.vector] == "test"
-
-
-if __name__ == "__main__":
-    unittest.main()

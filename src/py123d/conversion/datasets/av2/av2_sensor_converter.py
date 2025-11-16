@@ -123,7 +123,6 @@ class AV2SensorConverter(AbstractDatasetConverter):
 
         # 3. Process source log data
         if log_needs_writing:
-
             sensor_df = build_sensor_dataframe(source_log_path)
             synchronization_df = build_synchronization_dataframe(sensor_df)
 
@@ -209,7 +208,6 @@ def _get_av2_lidar_metadata(
 
     metadata: Dict[LiDARType, LiDARMetadata] = {}
     if dataset_converter_config.include_lidars:
-
         # Load calibration feather file
         calibration_file = source_log_path / "calibration" / "egovehicle_SE3_sensor.feather"
         calibration_df = pd.read_feather(calibration_file)

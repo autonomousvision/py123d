@@ -8,7 +8,6 @@ from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 
 
 class TestLogMetadata:
-
     def test_init_minimal(self):
         """Test LogMetadata initialization with minimal required fields."""
         log_metadata = LogMetadata(

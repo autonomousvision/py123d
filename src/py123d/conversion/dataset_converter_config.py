@@ -6,7 +6,6 @@ from typing import Literal
 
 @dataclass
 class DatasetConverterConfig:
-
     force_log_conversion: bool = False
     force_map_conversion: bool = False
 
@@ -41,7 +40,6 @@ class DatasetConverterConfig:
     include_route: bool = False
 
     def __post_init__(self):
-
         assert self.pinhole_camera_store_option in [
             "path",
             "jpeg_binary",

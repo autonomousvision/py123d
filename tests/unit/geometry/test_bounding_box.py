@@ -1,5 +1,3 @@
-import unittest
-
 import numpy as np
 import pytest
 import shapely.geometry as geom
@@ -213,7 +211,3 @@ class TestBoundingBoxSE3:
         assert bbox.length == 0.0
         assert bbox.width == 0.0
         assert bbox.height == 0.0
-
-
-if __name__ == "__main__":
-    unittest.main()

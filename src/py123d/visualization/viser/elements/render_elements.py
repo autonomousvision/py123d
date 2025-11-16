@@ -57,7 +57,6 @@ def get_ego_bev_view_position(
 
 
 def _pitch_se3_by_degrees(pose_se3: PoseSE3, degrees: float) -> PoseSE3:
-
     quaternion = EulerAngles(0.0, np.deg2rad(degrees), pose_se3.yaw).quaternion
 
     return PoseSE3(

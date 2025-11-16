@@ -427,7 +427,6 @@ class TestLane:
 
 
 class TestLaneGroup:
-
     def setup_method(self):
         lanes, lane_groups, intersections = _get_linked_map_object_setup()
         self.lanes = lanes
@@ -610,7 +609,6 @@ class TestLaneGroup:
 
 
 class TestIntersection:
-
     def setup_method(self):
         lanes, lane_groups, intersections = _get_linked_map_object_setup()
         self.lanes = lanes

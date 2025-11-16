@@ -262,7 +262,6 @@ def _extract_lane_group_dict(lanes: Dict[int, Any]) -> Dict[int, Any]:
         return list(set(lane_group_ids_))
 
     for lane_group_id, lane_group_set in lane_group_set_dict.items():
-
         lane_group_dict[lane_group_id] = {}
         lane_group_dict[lane_group_id]["id"] = lane_group_id
         lane_group_dict[lane_group_id]["lane_ids"] = [int(lane_id) for lane_id in lane_group_set]

@@ -6,7 +6,6 @@ from py123d.conversion.registry.lidar_index_registry import LIDAR_INDEX_REGISTRY
 
 
 class TestLiDARRegistry:
-
     def test_registered_types(self):
         """Test that all registered LiDAR types are of correct type."""
         for lidar_class in LIDAR_INDEX_REGISTRY.values():

@@ -162,7 +162,6 @@ def lift_road_edges_to_3d(
     road_edges_3d: List[Polyline3D] = []
 
     if len(road_edges_2d) >= 1 and len(boundaries) >= 1:
-
         # 1. Build comprehensive spatial index with all boundary segments
         # NOTE @DanielDauner: We split each boundary polyline into small segments.
         # The spatial indexing uses axis-aligned bounding boxes, where small geometries lead to better performance.
@@ -275,7 +274,6 @@ def _resolve_conflicting_lane_groups(
 
     road_edges_3d: List[Polyline3D] = []
     for non_conflicting_set in non_conflicting_sets:
-
         # Collect 2D polygons of non-conflicting lane group set and their neighbors
         merge_lane_group_data: Dict[MapObjectIDType, geom.Polygon] = {}
         for lane_group_id in non_conflicting_set:

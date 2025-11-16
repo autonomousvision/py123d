@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import abc
-from typing import Optional, TypeAlias, Union
+from typing import Optional, Union
 
 import numpy as np
 import shapely.geometry as geom
 import trimesh
+from typing_extensions import TypeAlias
 
 from py123d.datatypes.map_objects.map_layer_types import MapLayer
 from py123d.geometry import Point3DIndex, Polyline2D, Polyline3D

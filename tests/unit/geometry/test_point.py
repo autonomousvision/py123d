@@ -1,4 +1,3 @@
-import unittest
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -183,7 +182,3 @@ class TestPoint3D:
         assert x == self.x_coord
         assert y == self.y_coord
         assert z == self.z_coord
-
-
-if __name__ == "__main__":
-    unittest.main()

@@ -54,7 +54,6 @@ def get_row_with_value(
     geo_series: Optional[gpd.GeoSeries] = None
     matching_rows = get_all_rows_with_value(elements, column_label, desired_value)
     if matching_rows is not None:
-
         assert len(matching_rows) > 0, f"Could not find the desired key = {desired_value}"
         assert len(matching_rows) == 1, (
             f"{len(matching_rows)} matching keys found. Expected to only find one." "Try using get_all_rows_with_value"

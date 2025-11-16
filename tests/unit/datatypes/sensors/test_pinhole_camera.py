@@ -13,7 +13,6 @@ from py123d.geometry import PoseSE3
 
 
 class TestPinholeCameraType:
-
     def test_camera_type_values(self):
         """Test that camera type enum has expected values."""
         assert PinholeCameraType.PCAM_F0 == PinholeCameraType.PCAM_F0
@@ -45,7 +44,6 @@ class TestPinholeCameraType:
 
 
 class TestPinholeIntrinsics:
-
     def test_intrinsics_creation(self):
         """Test creating PinholeIntrinsics instance."""
         intrinsics = PinholeIntrinsics(fx=500.0, fy=500.0, cx=320.0, cy=240.0, skew=0.0)
@@ -175,7 +173,6 @@ class TestPinholeIntrinsics:
 
 
 class TestPinholeDistortion:
-
     def test_distortion_creation(self):
         """Test creating PinholeDistortion instance."""
         distortion = PinholeDistortion(k1=0.1, k2=0.01, p1=0.001, p2=0.001, k3=0.001)
@@ -274,7 +271,6 @@ class TestPinholeDistortion:
 
 
 class TestPinholeMetadata:
-
     def test_metadata_from_dict_with_none_intrinsics(self):
         """Test creating metadata from dict with None intrinsics."""
         data_dict = {
@@ -394,7 +390,6 @@ class TestPinholeMetadata:
 
 
 class TestPinholeCamera:
-
     def test_pinhole_camera_creation(self):
         """Test creating PinholeCamera instance."""
 

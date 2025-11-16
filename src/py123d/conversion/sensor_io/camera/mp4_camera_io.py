@@ -1,8 +1,3 @@
-# TODO: add method of handling camera mp4 io
-def load_image_from_mp4_file() -> None:
-    raise NotImplementedError
-
-
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional, Union

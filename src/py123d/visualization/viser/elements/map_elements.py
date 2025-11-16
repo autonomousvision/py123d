@@ -23,10 +23,9 @@ def add_map_to_viser_server(
     viser_config: ViserConfig,
     map_handles: Dict[MapLayer, viser.GlbHandle],
 ) -> None:
-    global last_query_position
+    global last_query_position  # noqa: PLW0603
 
     if viser_config.map_visible:
-
         map_trimesh_dict: Optional[Dict[MapLayer, trimesh.Trimesh]] = None
 
         if len(map_handles) == 0 or viser_config._force_map_update:
@@ -71,7 +70,6 @@ def _get_map_trimesh_dict(
     current_ego_state: Optional[EgoStateSE3],
     viser_config: ViserConfig,
 ) -> Dict[MapLayer, trimesh.Trimesh]:
-
     # Dictionary to hold the output trimesh meshes.
     output_trimesh_dict: Dict[MapLayer, trimesh.Trimesh] = {}
 

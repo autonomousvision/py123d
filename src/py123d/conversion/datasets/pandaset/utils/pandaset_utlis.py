@@ -66,7 +66,6 @@ def rotate_pandaset_pose_to_iso_coordinates(pose: PoseSE3) -> PoseSE3:
 
 
 def main_lidar_to_rear_axle(pose: PoseSE3) -> PoseSE3:
-
     F = np.array(
         [
             [0.0, 1.0, 0.0],  # new X = old Y (forward)

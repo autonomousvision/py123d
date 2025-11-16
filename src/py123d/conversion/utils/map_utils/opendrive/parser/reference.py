@@ -20,7 +20,6 @@ TOLERANCE: Final[float] = 1e-3
 
 @dataclass
 class XODRPlanView:
-
     geometries: List[XODRGeometry]
 
     def __post_init__(self):
@@ -72,7 +71,6 @@ class XODRPlanView:
 
 @dataclass
 class XODRReferenceLine:
-
     reference_line: Union[XODRReferenceLine, XODRPlanView]
     width_polynomials: List[XODRPolynomial]
     elevations: List[XODRElevation]
@@ -119,17 +117,15 @@ class XODRReferenceLine:
 
     @staticmethod
     def _find_polynomial(s: float, polynomials: List[XODRPolynomial], lane_section_end: bool = False) -> XODRPolynomial:
-
         out_polynomial = polynomials[-1]
         for polynomial in polynomials[::-1]:
             if lane_section_end:
                 if polynomial.s < s:
                     out_polynomial = polynomial
                     break
-            else:
-                if polynomial.s <= s:
-                    out_polynomial = polynomial
-                    break
+            elif polynomial.s <= s:
+                out_polynomial = polynomial
+                break
 
         # s_values = np.array([poly.s for poly in polynomials])
         # side = "left" if lane_section_end else "right"
@@ -139,7 +135,6 @@ class XODRReferenceLine:
         return out_polynomial
 
     def interpolate_se2(self, s: float, t: float = 0.0, lane_section_end: bool = False) -> npt.NDArray[np.float64]:
-
         width_polynomial = self._find_polynomial(s, self.width_polynomials, lane_section_end=lane_section_end)
         t_offset = width_polynomial.get_value(s - width_polynomial.s)
         se2 = self.reference_line.interpolate_se2(self.s_offset + s, t=t_offset + t, lane_section_end=lane_section_end)
@@ -147,7 +142,6 @@ class XODRReferenceLine:
         return se2
 
     def interpolate_3d(self, s: float, t: float = 0.0, lane_section_end: bool = False) -> npt.NDArray[np.float64]:
-
         se2 = self.interpolate_se2(s, t, lane_section_end=lane_section_end)
 
         elevation_polynomial = self._find_polynomial(s, self.elevations, lane_section_end=lane_section_end)

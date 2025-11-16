@@ -1,3 +1,4 @@
+import traceback
 from typing import List, Optional, Union
 
 import matplotlib.pyplot as plt
@@ -5,8 +6,6 @@ import numpy as np
 import shapely.geometry as geom
 
 from py123d.api.map.map_api import MapAPI
-from py123d.api.scene.scene_api import SceneAPI
-from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.map_objects.map_layer_types import MapLayer
@@ -72,8 +71,6 @@ def add_default_map_on_ax(
                     map_object: Lane
                     add_shapely_linestring_to_ax(ax, map_object.centerline.linestring, CENTERLINE_CONFIG)
             except Exception:
-                import traceback
-
                 print(f"Error adding map object of type {layer.name} and id {map_object.object_id}")
                 traceback.print_exc()
 
@@ -89,39 +86,6 @@ def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionWrapper) 
         add_bounding_box_to_ax(ax, box_detection.bounding_box_se2, plot_config)
 
 
-def add_box_future_detections_to_ax(ax: plt.Axes, scene: SceneAPI, iteration: int) -> None:
-
-    # TODO: Refactor this function
-    initial_agents = scene.get_box_detections_at_iteration(iteration)
-    agents_poses = {
-        agent.metadata.track_token: [agent.center_se3]
-        for agent in initial_agents
-        if agent.metadata.default_label == DefaultBoxDetectionLabel.VEHICLE
-    }
-    frequency = 1
-    for iteration in range(iteration + frequency, scene.number_of_iterations, frequency):
-        agents = scene.get_box_detections_at_iteration(iteration)
-        for agent in agents:
-            if agent.metadata.track_token in agents_poses:
-                agents_poses[agent.metadata.track_token].append(agent.center_se3)
-
-    for track_token, poses in agents_poses.items():
-        if len(poses) < 2:
-            continue
-        poses = np.array([pose.point_2d.array for pose in poses])
-        num_poses = poses.shape[0]
-        alphas = 1 - np.linspace(0.2, 1.0, num_poses)  # Start low, end high
-        for i in range(num_poses - 1):
-            ax.plot(
-                poses[i : i + 2, 0],
-                poses[i : i + 2, 1],
-                color=BOX_DETECTION_CONFIG[DefaultBoxDetectionLabel.VEHICLE].fill_color.hex,
-                alpha=alphas[i + 1],
-                linewidth=BOX_DETECTION_CONFIG[DefaultBoxDetectionLabel.VEHICLE].line_width * 5,
-                zorder=BOX_DETECTION_CONFIG[DefaultBoxDetectionLabel.VEHICLE].zorder,
-            )
-
-
 def add_ego_vehicle_to_ax(ax: plt.Axes, ego_vehicle_state: Union[EgoStateSE3, EgoStateSE2]) -> None:
     add_bounding_box_to_ax(ax, ego_vehicle_state.bounding_box, EGO_VEHICLE_CONFIG)
 
@@ -130,7 +94,8 @@ def add_traffic_lights_to_ax(
     ax: plt.Axes, traffic_light_detections: TrafficLightDetectionWrapper, map_api: MapAPI
 ) -> None:
     for traffic_light_detection in traffic_light_detections:
-        lane: Lane = map_api.get_map_object(str(traffic_light_detection.lane_id), MapLayer.LANE)
+        lane = map_api.get_map_object(traffic_light_detection.lane_id, MapLayer.LANE)
+        assert isinstance(lane, Lane), f"Lane with id {traffic_light_detection.lane_id} not found."
         if lane is not None:
             add_shapely_linestring_to_ax(
                 ax,
@@ -146,7 +111,6 @@ def add_bounding_box_to_ax(
     bounding_box: Union[BoundingBoxSE2, BoundingBoxSE3],
     plot_config: PlotConfig,
 ) -> None:
-
     add_shapely_polygon_to_ax(ax, bounding_box.shapely_polygon, plot_config)
 
     if plot_config.marker_style is not None:
@@ -169,9 +133,10 @@ def add_bounding_box_to_ax(
                 linestyle=plot_config.line_style,
             )
         elif plot_config.marker_style == "^":
-            marker_size = min(plot_config.marker_size, min(bounding_box.length, bounding_box.width))
+            min_extent = min(bounding_box.length, bounding_box.width)
+            marker_size = min(plot_config.marker_size, min_extent)
             marker_polygon = get_pose_triangle(marker_size)
-            global_marker_polygon = shapely_geometry_local_coords(marker_polygon, bounding_box.center)
+            global_marker_polygon = shapely_geometry_local_coords(marker_polygon, bounding_box.center_se2)
             add_shapely_polygon_to_ax(ax, global_marker_polygon, plot_config, disable_smoothing=True)
         else:
             raise ValueError(f"Unknown marker style: {plot_config.marker_style}")

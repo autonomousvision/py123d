@@ -68,7 +68,6 @@ def _write_nuplan_lanes(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: Abs
     all_geometries = nuplan_gdf["lanes_polygons"].geometry.to_list()
 
     for idx, lane_id in enumerate(all_ids):
-
         # 1. predecessor_ids, successor_ids
         predecessor_ids = get_all_rows_with_value(
             nuplan_gdf["lane_connectors"],
@@ -135,7 +134,6 @@ def _write_nuplan_lane_connectors(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_w
     all_speed_limits_mps = nuplan_gdf["lane_connectors"].speed_limit_mps.to_list()
 
     for idx, lane_id in enumerate(all_ids):
-
         # 1. predecessor_ids, successor_ids
         lane_connector_row = get_row_with_value(nuplan_gdf["lane_connectors"], "fid", str(lane_id))
         predecessor_ids = [lane_connector_row["entry_lane_fid"]]
@@ -186,7 +184,6 @@ def _write_nuplan_lane_groups(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_write
     # all_geometries = nuplan_gdf["lane_groups_polygons"].geometry.to_list()
 
     for lane_group_id in ids:
-
         # 1. lane_ids
         lane_ids = get_all_rows_with_value(
             nuplan_gdf["lanes_polygons"],
@@ -244,7 +241,6 @@ def _write_nuplan_lane_connector_groups(nuplan_gdf: Dict[str, gpd.GeoDataFrame],
     # all_geometries = nuplan_gdf["lane_group_connectors"].geometry.to_list()
 
     for idx, lane_group_connector_id in enumerate(ids):
-
         # 1. lane_ids
         lane_ids = get_all_rows_with_value(
             nuplan_gdf["lane_connectors"], "lane_group_connector_fid", lane_group_connector_id

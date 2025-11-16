@@ -75,7 +75,6 @@ def add_box_detections_to_camera_ax(
     ego_state_se3: EgoStateSE3,
     return_image: bool = False,
 ) -> plt.Axes:
-
     box_detection_array = np.zeros((len(box_detections.box_detections), len(BoundingBoxSE3Index)), dtype=np.float64)
     default_labels = np.array(
         [detection.metadata.default_label for detection in box_detections.box_detections], dtype=object
@@ -120,12 +119,7 @@ def add_box_detections_to_camera_ax(
     return ax
 
 
-def _transform_annotations_to_camera(
-    boxes: npt.NDArray[np.float32],
-    # sensor2lidar_rotation: npt.NDArray[np.float32],
-    # sensor2lidar_translation: npt.NDArray[np.float32],
-    extrinsic: npt.NDArray[np.float32],
-) -> npt.NDArray[np.float32]:
+def _transform_annotations_to_camera(boxes: npt.NDArray, extrinsic: npt.NDArray) -> npt.NDArray:
     """
     Helper function to transform bounding boxes into camera frame
     TODO: Refactor
@@ -187,7 +181,7 @@ def _rotation_3d_in_axis(points: npt.NDArray[np.float32], angles: npt.NDArray[np
                 np.stack([rot_sin, zeros, rot_cos]),
             ]
         )
-    elif axis == 2 or axis == -1:
+    elif axis in [2, -1]:
         rot_mat_T = np.stack(
             [
                 np.stack([rot_cos, -rot_sin, zeros]),
@@ -209,7 +203,7 @@ def _rotation_3d_in_axis(points: npt.NDArray[np.float32], angles: npt.NDArray[np
 
 
 def _plot_rect_3d_on_img(
-    image: npt.NDArray[np.float32],
+    image: npt.NDArray[np.uint8],
     box_corners: npt.NDArray[np.float32],
     labels: List[DefaultBoxDetectionLabel],
     thickness: int = 3,

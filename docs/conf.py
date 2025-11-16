@@ -10,7 +10,7 @@
 project = "py123d"
 copyright = "2025, 123D Contributors"
 author = "123D Contributors"
-release = "v0.0.7"
+release = "v0.0.8"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -23,7 +23,6 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx_copybutton",
-    "sphinx_inline_tabs",
     "sphinx_autodoc_typehints",
     "myst_parser",
 ]

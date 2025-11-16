@@ -101,12 +101,14 @@ class ViserViewer:
 
     def set_scene(self, scene: SceneAPI) -> None:
         num_frames = scene.number_of_iterations
-        initial_ego_state: EgoStateSE3 = scene.get_ego_state_at_iteration(0)
+        initial_ego_state = scene.get_ego_state_at_iteration(0)
+        assert initial_ego_state is not None and isinstance(initial_ego_state, EgoStateSE3)
+
         server_playing = True
         server_rendering = False
 
         with self._viser_server.gui.add_folder("Playback"):
-            gui_info = self._viser_server.gui.add_markdown(content=_get_scene_info_markdown(scene))
+            self._viser_server.gui.add_markdown(content=_get_scene_info_markdown(scene))
 
             gui_timestep = self._viser_server.gui.add_slider(
                 "Timestep",
@@ -395,7 +397,7 @@ class ViserViewer:
 def _get_scene_info_markdown(scene: SceneAPI) -> str:
     markdown = f"""
     - Dataset: {scene.log_metadata.split}
-    - Location: {scene.log_metadata.location if scene.log_metadata.location else 'N/A'}
+    - Location: {scene.log_metadata.location if scene.log_metadata.location else "N/A"}
     - UUID: {scene.scene_uuid}
     """
     return markdown

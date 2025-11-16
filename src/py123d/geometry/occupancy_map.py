@@ -108,6 +108,7 @@ class OccupancyMap2D:
             Literal[
                 "intersects",
                 "within",
+                "dwithin",
                 "contains",
                 "overlaps",
                 "crosses",

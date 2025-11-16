@@ -42,7 +42,7 @@ class Polyline2D(ArrayMixin):
         :return: A Polyline2D instance.
         """
         if linestring.has_z:
-            linestring_ = geom_creation.linestrings(*linestring.xy)
+            linestring_ = geom_creation.linestrings(*linestring.xy)  # pyright: ignore[reportUnknownMemberType]
         else:
             linestring_ = linestring
 
@@ -51,7 +51,7 @@ class Polyline2D(ArrayMixin):
         return instance
 
     @classmethod
-    def from_array(cls, polyline_array: npt.NDArray[np.float32]) -> Polyline2D:
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> Polyline2D:
         """Creates a :class:`Polyline2D` from a (N, 2) or (N, 3) shaped numpy array. \
             Assumes [...,:2] slices are XY coordinates.
 
@@ -60,12 +60,12 @@ class Polyline2D(ArrayMixin):
         :raises ValueError: If the input array is not of the expected shape.
         :return: A :class:`Polyline2D` instance.
         """
-        assert polyline_array.ndim == 2
+        assert array.ndim == 2
         linestring_: Optional[geom.LineString] = None
-        if polyline_array.shape[-1] == len(Point2DIndex):
-            linestring_ = geom.LineString(polyline_array)
-        elif polyline_array.shape[-1] == len(Point3DIndex):
-            linestring_ = geom.LineString(polyline_array[:, Point3DIndex.XY])
+        if array.shape[-1] == len(Point2DIndex):
+            linestring_ = geom.LineString(array)
+        elif array.shape[-1] == len(Point3DIndex):
+            linestring_ = geom.LineString(array[:, Point3DIndex.XY])  # pyright: ignore[reportUnknownMemberType]
         else:
             raise ValueError("Array must have shape (N, 2) or (N, 3) for Point2D or Point3D respectively.")
 

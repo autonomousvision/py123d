@@ -83,7 +83,8 @@ def _ray_map_items(task: Task, *item_lists: Iterable[List[Any]], log_dir: Option
     assert len(item_lists) > 0, "No map arguments received for mapping"
     assert all(isinstance(items, list) for items in item_lists), "All map arguments must be lists"
     assert all(
-        len(cast(List, items)) == len(item_lists[0]) for items in item_lists  # type: ignore
+        len(cast(List, items)) == len(item_lists[0])
+        for items in item_lists  # type: ignore
     ), "All lists must have equal size"
     fn = task.fn
     # Wrap function in remote decorator and create ray objects

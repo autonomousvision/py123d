@@ -436,7 +436,6 @@ class Carpark(BaseMapSurfaceObject):
 
 
 class Walkway(BaseMapSurfaceObject):
-
     __slots__ = ()
 
     def __init__(

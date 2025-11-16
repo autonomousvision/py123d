@@ -14,7 +14,6 @@ from py123d.geometry import PoseSE3
 
 
 class TestFisheyeMEICameraType:
-
     def test_camera_type_values(self):
         """Test that camera type enum has expected values."""
         assert FisheyeMEICameraType.FCAM_L.value == 0
@@ -39,7 +38,6 @@ class TestFisheyeMEICameraType:
 
 
 class TestFisheyeMEIDistortion:
-
     def test_distortion_initialization(self):
         """Test distortion parameter initialization."""
         distortion = FisheyeMEIDistortion(k1=0.1, k2=0.2, p1=0.3, p2=0.4)
@@ -88,7 +86,6 @@ class TestFisheyeMEIDistortion:
 
 
 class TestFisheyeMEIProjection:
-
     def test_projection_initialization(self):
         """Test projection parameter initialization."""
         projection = FisheyeMEIProjection(gamma1=1.0, gamma2=2.0, u0=3.0, v0=4.0)
@@ -137,7 +134,6 @@ class TestFisheyeMEIProjection:
 
 
 class TestFisheyeMEICameraMetadata:
-
     def test_metadata_initialization(self):
         """Test metadata initialization with all parameters."""
         distortion = FisheyeMEIDistortion(k1=0.1, k2=0.2, p1=0.3, p2=0.4)
@@ -277,7 +273,6 @@ class TestFisheyeMEICameraMetadata:
 
 
 class TestFisheyeMEICamera:
-
     def test_camera_initialization(self):
         """Test FisheyeMEICamera initialization."""
 
