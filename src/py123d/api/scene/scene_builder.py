@@ -19,4 +19,3 @@ class SceneBuilder(abc.ABC):
         :param worker: WorkerPool to parallelize the scene extraction.
         :return: Iterator over AbstractScene objects.
         """
-        raise NotImplementedError

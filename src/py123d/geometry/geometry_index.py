@@ -103,7 +103,7 @@ class QuaternionIndex(IntEnum):
         return slice(cls.QX, cls.QZ + 1)
 
 
-class EulerStateSE3Index(IntEnum):
+class EulerPoseSE3Index(IntEnum):
     """Indexing enum for array-like representations of SE3 states with Euler angles (x,y,z,roll,pitch,yaw).
 
     Notes

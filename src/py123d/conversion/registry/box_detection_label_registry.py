@@ -19,7 +19,6 @@ class BoxDetectionLabel(SerialIntEnum):
     @abc.abstractmethod
     def to_default(self) -> DefaultBoxDetectionLabel:
         """Convert to the default box detection label."""
-        raise NotImplementedError("Subclasses must implement this method.")
 
 
 @register_box_detection_label

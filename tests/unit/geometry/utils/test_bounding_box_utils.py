@@ -6,11 +6,11 @@ from py123d.geometry.geometry_index import (
     BoundingBoxSE3Index,
     Corners2DIndex,
     Corners3DIndex,
-    EulerStateSE3Index,
+    EulerPoseSE3Index,
     Point2DIndex,
     Point3DIndex,
 )
-from py123d.geometry.pose import EulerStateSE3, PoseSE3
+from py123d.geometry.pose import EulerPoseSE3, PoseSE3
 from py123d.geometry.transform.transform_se3 import translate_se3_along_body_frame
 from py123d.geometry.utils.bounding_box_utils import (
     bbse2_array_to_corners_array,
@@ -30,15 +30,15 @@ class TestBoundingBoxUtils:
 
     def _get_random_euler_se3_array(self, size: int) -> npt.NDArray[np.float64]:
         """Generate random SE3 poses"""
-        random_se3_array = np.zeros((size, len(EulerStateSE3Index)), dtype=np.float64)
-        random_se3_array[:, EulerStateSE3Index.XYZ] = np.random.uniform(
+        random_se3_array = np.zeros((size, len(EulerPoseSE3Index)), dtype=np.float64)
+        random_se3_array[:, EulerPoseSE3Index.XYZ] = np.random.uniform(
             -self._max_pose_xyz,
             self._max_pose_xyz,
             (size, len(Point3DIndex)),
         )
-        random_se3_array[:, EulerStateSE3Index.YAW] = np.random.uniform(-np.pi, np.pi, size)
-        random_se3_array[:, EulerStateSE3Index.PITCH] = np.random.uniform(-np.pi / 2, np.pi / 2, size)
-        random_se3_array[:, EulerStateSE3Index.ROLL] = np.random.uniform(-np.pi, np.pi, size)
+        random_se3_array[:, EulerPoseSE3Index.YAW] = np.random.uniform(-np.pi, np.pi, size)
+        random_se3_array[:, EulerPoseSE3Index.PITCH] = np.random.uniform(-np.pi / 2, np.pi / 2, size)
+        random_se3_array[:, EulerPoseSE3Index.ROLL] = np.random.uniform(-np.pi, np.pi, size)
 
         return random_se3_array
 
@@ -195,7 +195,7 @@ class TestBoundingBoxUtils:
 
     def test_bbse3_array_to_corners_array_one_dim_rotation(self):
         for _ in range(self._num_consistency_checks):
-            se3_state = EulerStateSE3.from_array(self._get_random_euler_se3_array(1)[0]).pose_se3
+            se3_state = EulerPoseSE3.from_array(self._get_random_euler_se3_array(1)[0]).pose_se3
             se3_array = se3_state.array
 
             # construct a bounding box
@@ -224,7 +224,7 @@ class TestBoundingBoxUtils:
         for _ in range(self._num_consistency_checks):
             N = np.random.randint(1, 20)
             se3_array = self._get_random_euler_se3_array(N)
-            se3_state_array = np.array([EulerStateSE3.from_array(arr).pose_se3.array for arr in se3_array])
+            se3_state_array = np.array([EulerPoseSE3.from_array(arr).pose_se3.array for arr in se3_array])
 
             # construct a bounding box
             bounding_box_se3_array = np.zeros((N, len(BoundingBoxSE3Index)), dtype=np.float64)

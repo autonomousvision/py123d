@@ -73,6 +73,11 @@ docs = [
 ]
 nuplan = [
     "nuplan-devkit @ git+https://github.com/motional/nuplan-devkit/@nuplan-devkit-v1.2",
+    "SQLAlchemy==1.4.27",
+    "rasterio",
+    "aioboto3",
+    "retry",
+    "cachetools",
 ]
 nuscenes = [
     "nuscenes-devkit==1.2.0",
