@@ -9,9 +9,9 @@ This section provides comprehensive documentation for various autonomous driving
    :maxdepth: 1
 
    av2
-   nuplan
-   nuscenes
    carla
    kitti-360
+   nuplan
+   nuscenes
+   pandaset
    wodp
-   template

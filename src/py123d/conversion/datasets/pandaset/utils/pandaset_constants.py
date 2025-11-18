@@ -16,7 +16,10 @@ PANDASET_CAMERA_MAPPING: Dict[str, PinholeCameraType] = {
     "right_camera": PinholeCameraType.PCAM_R1,
 }
 
-PANDASET_LIDAR_MAPPING: Dict[str, LiDARType] = {"main_pandar64": LiDARType.LIDAR_TOP, "front_gt": LiDARType.LIDAR_FRONT}
+PANDASET_LIDAR_MAPPING: Dict[str, LiDARType] = {
+    "main_pandar64": LiDARType.LIDAR_TOP,
+    "front_gt": LiDARType.LIDAR_FRONT,
+}
 
 
 PANDASET_BOX_DETECTION_FROM_STR: Dict[str, PandasetBoxDetectionLabel] = {
