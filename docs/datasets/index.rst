@@ -13,5 +13,5 @@ This section provides comprehensive documentation for various autonomous driving
    nuscenes
    carla
    kitti-360
-   wopd
+   wodp
    template

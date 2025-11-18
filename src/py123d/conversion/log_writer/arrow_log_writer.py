@@ -82,6 +82,16 @@ def _store_option_to_arrow_type(
     return data_type_map[store_option]
 
 
+def _get_uuid_arrow_type():
+    """Gets the appropriate Arrow UUID data type based on pyarrow version."""
+    # NOTE @DanielDauner: pyarrow introduced native UUID type in version 18.0.0
+    # Easiest option is to require this version or higher, but thanks to the Waymo dataset that's not possible. :(
+    if pa.__version__ >= "18.0.0":
+        return pa.uuid()
+    else:
+        return pa.binary(16)
+
+
 class ArrowLogWriter(AbstractLogWriter):
     """Log writer for Arrow-based logs. Writes log data to an Arrow IPC file format."""
 
@@ -371,7 +381,7 @@ class ArrowLogWriter(AbstractLogWriter):
         """
 
         schema_list: List[Tuple[str, pa.DataType]] = [
-            (UUID_COLUMN, pa.uuid()),
+            (UUID_COLUMN, _get_uuid_arrow_type()),
             (TIMESTAMP_US_COLUMN, pa.int64()),
         ]
 

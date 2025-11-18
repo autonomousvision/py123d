@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict, Final, List
 
@@ -7,6 +8,7 @@ import numpy as np
 import numpy.typing as npt
 import shapely
 import shapely.geometry as geom
+from pandas import isna
 
 from py123d.conversion.datasets.av2.utils.av2_constants import AV2_ROAD_LINE_TYPE_MAPPING
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
@@ -37,6 +39,9 @@ LANE_GROUP_MARK_TYPES: List[str] = [
 MAX_ROAD_EDGE_LENGTH: Final[float] = 100.0
 
 
+logger = logging.getLogger(__name__)
+
+
 def convert_av2_map(source_log_path: Path, map_writer: AbstractMapWriter) -> None:
     """Converts the AV2 map objects to the 123D objects and writes them using the provided map writer.
 
@@ -49,6 +54,15 @@ def convert_av2_map(source_log_path: Path, map_writer: AbstractMapWriter) -> Non
         polyline = np.array([[p["x"], p["y"], p["z"]] for p in data], dtype=np.float64)
         if close:
             polyline = np.vstack([polyline, polyline[0]])
+
+        # NOTE @DanielDauner: AV2 map can have NaN values in the Z axis.
+        # In this case we replace NaNs with zeros with the median (or zeros).
+        if np.isnan(polyline).any():
+            median_xyz = np.nanmedian(polyline[:, 2], axis=-1)
+            logger.warning(f"Found NaN values {source_log_path} polyline data: {polyline}. Replacing NaNs with zeros.")
+            for i in range(polyline.shape[0]):
+                if isna(polyline[i, 2]):
+                    polyline[i, 2] = median_xyz if not isna(median_xyz) else 0.0
 
         return Polyline3D.from_array(polyline)
 
@@ -118,7 +132,6 @@ def _write_av2_lanes(lanes: Dict[int, Any], map_writer: AbstractMapWriter) -> No
         num_points = int(np.ceil(max([right_boundary.length, left_boundary.length]) * points_per_meter))
         right_array = right_boundary.interpolate(np.linspace(0, right_boundary.length, num_points, endpoint=True))
         left_array = left_boundary.interpolate(np.linspace(0, left_boundary.length, num_points, endpoint=True))
-
         return Polyline3D.from_array(np.mean([right_array, left_array], axis=0))
 
     for lane_id, lane_dict in lanes.items():

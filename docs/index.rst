@@ -1,18 +1,25 @@
-.. 123d documentation master file, created by
-   sphinx-quickstart on Wed Aug 13 16:57:48 2025.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 123D Documentation
 ==================
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
+Welcome to the official documentation for 123D, a library for driving datasets in 2D and 3D.
+
+Features include:
+
+- Unified API for driving data, including sensor data, maps, and labels.
+- Support for multiple sensors storage formats.
+- Fast dataformat based on `Apache Arrow <https://arrow.apache.org/>`_
+- Visualization tools with `matplotlib <https://matplotlib.org/>`_ and `Viser <https://viser.studio/main/>`_.
+
+
+..  youtube:: Q4q29fpXnx8
+   :width: 800
+   :height: 450
+   :align: center
 
 
 .. toctree::
    :maxdepth: 1
+   :hidden:
    :caption: Overview:
 
    installation
@@ -21,6 +28,7 @@ documentation for details.
 
 .. toctree::
    :maxdepth: 2
+   :hidden:
    :caption: API Reference:
 
    api/scene/index
@@ -30,12 +38,7 @@ documentation for details.
 
 .. toctree::
    :maxdepth: 1
-   :caption: Visualization:
+   :hidden:
+   :caption: Notes
 
-   visualization
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Development:
-
-   development/index
+   notes/contributing

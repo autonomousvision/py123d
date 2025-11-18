@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from functools import cached_property
 from typing import List, Optional, Union
 
@@ -116,7 +115,6 @@ class BoxDetectionSE2:
         return self
 
 
-@dataclass
 class BoxDetectionSE3:
     """Detected, tracked, and oriented bounding box 3D space."""
 

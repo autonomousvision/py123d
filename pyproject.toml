@@ -70,6 +70,8 @@ docs = [
     "furo",
     "autoclasstoc",
     "sphinx-autodoc-typehints",
+    "sphinxcontrib-youtube",
+    "sphinx-design",
 ]
 nuplan = [
     "nuplan-devkit @ git+https://github.com/motional/nuplan-devkit/@nuplan-devkit-v1.2",
@@ -84,8 +86,7 @@ nuscenes = [
     "lanelet2",
 ]
 waymo = [
-    "tensorflow==2.13.0",
-    "waymo-open-dataset-tf-2-12-0==1.6.6",
+    "waymo-open-dataset-tf-2-12-0==1.6.7",
 ]
 ffmpeg = [
     "imageio[ffmpeg]",

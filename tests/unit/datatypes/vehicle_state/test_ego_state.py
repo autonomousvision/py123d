@@ -262,7 +262,9 @@ class TestEgoStateSE3:
 
         box_det_se2 = ego_state.box_detection_se2
         assert box_det_se2 is not None
-        assert ego_state.box_detection == box_det_se3
+        assert box_det_se2.metadata.label == DefaultBoxDetectionLabel.EGO
+        assert box_det_se2.metadata.track_token == EGO_TRACK_TOKEN
+        assert box_det_se2.metadata.timepoint == self.timepoint
 
     def test_ego_state_se2_projection(self):
         """Test projection to EgoStateSE2."""

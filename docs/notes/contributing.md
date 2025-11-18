@@ -1,5 +1,4 @@
-
-# Contributing to 123D
+# Contributing
 
 Contributions to 123D are highly encouraged! This guide will help you get started with the development process.
 

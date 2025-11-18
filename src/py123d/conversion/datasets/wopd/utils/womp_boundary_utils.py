@@ -207,19 +207,19 @@ def fill_lane_boundaries(
         lane_polyline_se2 = lane_polyline_se2_dict[current_lane_token]
 
         # 1. sample poses along centerline
-        distances_se2 = np.linspace(
-            0, lane_polyline_se2.length, int(lane_polyline_se2.length / BOUNDARY_STEP_SIZE) + 1, endpoint=True
-        )
+        num_samples = int(lane_polyline.length / BOUNDARY_STEP_SIZE) + 1
+
+        distances_se2 = np.linspace(0, lane_polyline_se2.length, num_samples, endpoint=True)
         lane_queries_se2 = [
             PoseSE2.from_array(pose_se2_array) for pose_se2_array in lane_polyline_se2.interpolate(distances_se2)
         ]
-        distances_3d = np.linspace(
-            0, lane_polyline.length, int(lane_polyline.length / BOUNDARY_STEP_SIZE) + 1, endpoint=True
-        )
+        distances_3d = np.linspace(0, lane_polyline.length, num_samples, endpoint=True)
         lane_queries_3d = [
             Point3D.from_array(point_3d_array) for point_3d_array in lane_polyline.interpolate(distances_3d)
         ]
-        assert len(lane_queries_se2) == len(lane_queries_3d)
+        assert len(lane_queries_se2) == len(
+            lane_queries_3d
+        ), f"Number of sampled SE2 poses {len(lane_queries_se2)} and 3D points {len(lane_queries_3d)} must be the same"
 
         for sign in [1.0, -1.0]:
             boundary_points_3d: List[Optional[Point3D]] = []

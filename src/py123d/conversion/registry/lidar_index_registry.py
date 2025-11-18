@@ -85,7 +85,7 @@ class Kitti360LiDARIndex(LiDARIndex):
 
 
 @register_lidar_index
-class AVSensorLiDARIndex(LiDARIndex):
+class AV2SensorLiDARIndex(LiDARIndex):
     """Argoverse 2 Sensor LiDAR Indexing Scheme."""
 
     X = 0

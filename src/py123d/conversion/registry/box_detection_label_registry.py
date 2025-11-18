@@ -173,26 +173,28 @@ class KITTI360BoxDetectionLabel(BoxDetectionLabel):
 
 @register_box_detection_label
 class NuPlanBoxDetectionLabel(BoxDetectionLabel):
-    """
-    Semantic labels for nuPlan bounding box detections.
-
-    Descriptions in `.db` files:
-    - vehicle: Includes all four or more wheeled vehicles, as well as trailers.
-    - bicycle: Includes bicycles, motorcycles and tricycles.
-    - pedestrian: All types of pedestrians, incl. strollers and wheelchairs.
-    - traffic_cone: Cones that are temporarily placed to control the flow of traffic.
-    - barrier: Solid barriers that can be either temporary or permanent.
-    - czone_sign: Temporary signs that indicate construction zones.
-    - generic_object: Animals, debris, pushable/pullable objects, permanent poles.
-    """
+    """Semantic labels for nuPlan bounding box detections."""
 
     VEHICLE = 0
+    """Includes all four or more wheeled vehicles, as well as trailers."""
+
     BICYCLE = 1
+    """Includes bicycles, motorcycles and tricycles."""
+
     PEDESTRIAN = 2
+    """All types of pedestrians, incl. strollers and wheelchairs."""
+
     TRAFFIC_CONE = 3
+    """Cones that are temporarily placed to control the flow of traffic."""
+
     BARRIER = 4
+    """Solid barriers that can be either temporary or permanent."""
+
     CZONE_SIGN = 5
+    """Temporary signs that indicate construction zones."""
+
     GENERIC_OBJECT = 6
+    """Animals, debris, pushable/pullable objects, permanent poles."""
 
     def to_default(self) -> DefaultBoxDetectionLabel:
         """Inherited, see superclass."""

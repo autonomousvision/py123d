@@ -16,7 +16,7 @@ from py123d.conversion.datasets.av2.utils.av2_helper import (
 )
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.registry import AV2SensorBoxDetectionLabel, AVSensorLiDARIndex
+from py123d.conversion.registry import AV2SensorBoxDetectionLabel, AV2SensorLiDARIndex
 from py123d.datatypes.detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.metadata import LogMetadata, MapMetadata
 from py123d.datatypes.sensors import (
@@ -218,7 +218,7 @@ def _get_av2_lidar_metadata(
         # top lidar:
         metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
             lidar_type=LiDARType.LIDAR_TOP,
-            lidar_index=AVSensorLiDARIndex,
+            lidar_index=AV2SensorLiDARIndex,
             extrinsic=_row_dict_to_pose_se3(
                 calibration_df[calibration_df["sensor_name"] == "up_lidar"].iloc[0].to_dict()
             ),
@@ -226,7 +226,7 @@ def _get_av2_lidar_metadata(
         # down lidar:
         metadata[LiDARType.LIDAR_DOWN] = LiDARMetadata(
             lidar_type=LiDARType.LIDAR_DOWN,
-            lidar_index=AVSensorLiDARIndex,
+            lidar_index=AV2SensorLiDARIndex,
             extrinsic=_row_dict_to_pose_se3(
                 calibration_df[calibration_df["sensor_name"] == "down_lidar"].iloc[0].to_dict()
             ),

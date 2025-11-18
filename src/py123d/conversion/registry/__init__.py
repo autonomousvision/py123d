@@ -11,7 +11,7 @@ from py123d.conversion.registry.box_detection_label_registry import (
 )
 from py123d.conversion.registry.lidar_index_registry import (
     LIDAR_INDEX_REGISTRY,
-    AVSensorLiDARIndex,
+    AV2SensorLiDARIndex,
     CARLALiDARIndex,
     DefaultLiDARIndex,
     Kitti360LiDARIndex,

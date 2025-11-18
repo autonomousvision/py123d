@@ -24,6 +24,8 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx_copybutton",
     "sphinx_autodoc_typehints",
+    "sphinxcontrib.youtube",
+    "sphinx_design",
     "myst_parser",
 ]
 
