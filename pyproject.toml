@@ -96,8 +96,8 @@ ffmpeg = [
 where = ["src"]
 
 [project.urls]
-"Homepage" = "https://github.com/DanielDauner/py123d"
-"Bug Tracker" = "https://github.com/DanielDauner/py123d/issues"
+"Homepage" = "https://github.com/autonomousvision/py123d"
+"Bug Tracker" = "https://github.com/autonomousvision/py123d/issues"
 
 
 [tool.ruff]

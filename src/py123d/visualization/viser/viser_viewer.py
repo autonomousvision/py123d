@@ -43,24 +43,24 @@ def _build_viser_server(viser_config: ViserConfig) -> viser.ViserServer:
         TitlebarButton(
             text="Getting Started",
             icon=None,
-            href="https://danieldauner.github.io/py123d",
+            href="https://autonomousvision.github.io/py123d",
         ),
         TitlebarButton(
             text="Github",
             icon="GitHub",
-            href="https://github.com/DanielDauner/py123d",
+            href="https://github.com/autonomousvision/py123d",
         ),
         TitlebarButton(
             text="Documentation",
             icon="Description",
-            href="https://danieldauner.github.io/py123d",
+            href="https://autonomousvision.github.io/py123d",
         ),
     )
     image = TitlebarImage(
-        image_url_light="https://danieldauner.github.io/py123d/_static/logo_black.png",
-        image_url_dark="https://danieldauner.github.io/py123d/_static/logo_white.png",
+        image_url_light="https://autonomousvision.github.io/py123d/_static/logo_black.png",
+        image_url_dark="https://autonomousvision.github.io/py123d/_static/logo_white.png",
         image_alt="123D",
-        href="https://danieldauner.github.io/py123d/",
+        href="https://autonomousvision.github.io/py123d/",
     )
     titlebar_theme = TitlebarConfig(buttons=buttons, image=image)
 

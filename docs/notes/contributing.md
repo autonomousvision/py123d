@@ -7,7 +7,7 @@ Contributions to 123D are highly encouraged! This guide will help you get starte
 ### 1. Clone the Repository
 
 ```sh
-git clone git@github.com:DanielDauner/py123d.git
+git clone git@github.com:autonomousvision/py123d.git
 cd py123d
 ```
 
