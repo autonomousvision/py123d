@@ -278,7 +278,7 @@ def _extract_av2_sensor_box_detections(
                     num_lidar_points=detections_num_lidar_points[detection_idx],
                 ),
                 bounding_box_se3=BoundingBoxSE3.from_array(detections_state[detection_idx]),
-                velocity=Vector3D.from_array(detections_velocity[detection_idx]),
+                velocity_3d=Vector3D.from_array(detections_velocity[detection_idx]),
             )
         )
 

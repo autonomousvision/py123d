@@ -17,8 +17,8 @@ class TestDynamicStateSE3:
 
         state = DynamicStateSE3(velocity, acceleration, angular_velocity)
 
-        assert np.allclose(state.velocity.array, velocity.array)
-        assert np.allclose(state.acceleration.array, acceleration.array)
+        assert np.allclose(state.velocity_3d.array, velocity.array)
+        assert np.allclose(state.acceleration_3d.array, acceleration.array)
         assert np.allclose(state.angular_velocity.array, angular_velocity.array)
 
     def test_from_array(self):
@@ -57,8 +57,8 @@ class TestDynamicStateSE3:
         state_se3 = DynamicStateSE3(velocity, acceleration, angular_velocity)
         state_se2 = state_se3.dynamic_state_se2
 
-        assert np.allclose(state_se2.velocity.array, [1.0, 2.0])
-        assert np.allclose(state_se2.acceleration.array, [4.0, 5.0])
+        assert np.allclose(state_se2.velocity_2d.array, [1.0, 2.0])
+        assert np.allclose(state_se2.acceleration_2d.array, [4.0, 5.0])
         assert np.isclose(state_se2.angular_velocity, 9.0)
 
 
@@ -70,8 +70,8 @@ class TestDynamicStateSE2:
 
         state = DynamicStateSE2(velocity, acceleration, angular_velocity)
 
-        assert np.allclose(state.velocity.array, velocity.array)
-        assert np.allclose(state.acceleration.array, acceleration.array)
+        assert np.allclose(state.velocity_2d.array, velocity.array)
+        assert np.allclose(state.acceleration_2d.array, acceleration.array)
         assert np.isclose(state.angular_velocity, angular_velocity)
         assert len(state.array) == len(DynamicStateSE2Index)
 
@@ -84,15 +84,11 @@ class TestDynamicStateSE2:
     def test_velocity_properties(self):
         velocity = Vector2D(1.0, 2.0)
         state = DynamicStateSE2(velocity, Vector2D(0, 0), 0.0)
-
-        assert np.allclose(state.velocity.array, [1.0, 2.0])
         assert np.allclose(state.velocity_2d.array, [1.0, 2.0])
 
     def test_acceleration_properties(self):
         acceleration = Vector2D(3.0, 4.0)
         state = DynamicStateSE2(Vector2D(0, 0), acceleration, 0.0)
-
-        assert np.allclose(state.acceleration.array, [3.0, 4.0])
         assert np.allclose(state.acceleration_2d.array, [3.0, 4.0])
 
     def test_angular_velocity_property(self):

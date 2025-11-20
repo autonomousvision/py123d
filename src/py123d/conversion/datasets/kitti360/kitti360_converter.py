@@ -664,7 +664,7 @@ def _extract_kitti360_box_detections_all(
             box_detection = BoxDetectionSE3(
                 metadata=detection_metadata,
                 bounding_box_se3=bounding_box_se3,
-                velocity=velocity_vector,
+                velocity_3d=velocity_vector,
             )
             box_detections.append(box_detection)
         box_detection_wrapper_all.append(BoxDetectionWrapper(box_detections=box_detections))

@@ -11,6 +11,7 @@ from py123d.datatypes.vehicle_state import (
 )
 from py123d.datatypes.vehicle_state.ego_state import EGO_TRACK_TOKEN
 from py123d.geometry import PoseSE2, PoseSE3, Vector2D, Vector3D
+from py123d.geometry.bounding_box import BoundingBoxSE2
 
 
 class TestEgoStateSE2:
@@ -80,8 +81,6 @@ class TestEgoStateSE2:
     def test_rear_axle_property(self):
         """Test rear_axle property."""
         ego_state = EgoStateSE2(rear_axle_se2=self.rear_axle_pose, vehicle_parameters=self.vehicle_params)
-
-        assert ego_state.rear_axle == self.rear_axle_pose
         assert ego_state.rear_axle_se2 == self.rear_axle_pose
 
     def test_center_property(self):
@@ -99,10 +98,11 @@ class TestEgoStateSE2:
         ego_state = EgoStateSE2(rear_axle_se2=self.rear_axle_pose, vehicle_parameters=self.vehicle_params)
 
         bbox = ego_state.bounding_box_se2
+        bbox_center = BoundingBoxSE2(ego_state.center_se2, self.vehicle_params.length, self.vehicle_params.width)
         assert bbox is not None
         assert bbox.length == self.vehicle_params.length
         assert bbox.width == self.vehicle_params.width
-        assert ego_state.bounding_box == bbox
+        assert ego_state.bounding_box_se2 == bbox_center
 
     def test_box_detection_property(self):
         """Test box detection properties."""
@@ -114,12 +114,6 @@ class TestEgoStateSE2:
         )
 
         box_det = ego_state.box_detection_se2
-        assert box_det is not None
-        assert box_det.metadata.label == DefaultBoxDetectionLabel.EGO
-        assert box_det.metadata.track_token == EGO_TRACK_TOKEN
-        assert box_det.metadata.timepoint == self.timepoint
-
-        box_det = ego_state.box_detection
         assert box_det is not None
         assert box_det.metadata.label == DefaultBoxDetectionLabel.EGO
         assert box_det.metadata.track_token == EGO_TRACK_TOKEN
@@ -229,7 +223,6 @@ class TestEgoStateSE3:
 
         center_se2 = ego_state.center_se2
         assert center_se2 is not None
-        assert ego_state.center == ego_state.center_se3
 
     def test_bounding_box_properties(self):
         """Test bounding box properties."""

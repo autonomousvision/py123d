@@ -312,7 +312,7 @@ def _extract_pandaset_box_detections(source_log_path: Path, iteration: int) -> B
                 track_token=box_uuids[box_idx],
             ),
             bounding_box_se3=BoundingBoxSE3.from_array(box_se3_array[box_idx]),
-            velocity=None,
+            velocity_3d=None,
         )
         box_detections.append(box_detection_se3)
 

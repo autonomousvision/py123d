@@ -124,17 +124,17 @@ class BoxDetectionSE3:
         self,
         metadata: BoxDetectionMetadata,
         bounding_box_se3: BoundingBoxSE3,
-        velocity: Optional[Vector3D] = None,
+        velocity_3d: Optional[Vector3D] = None,
     ) -> None:
         """Initialize a BoxDetectionSE3 instance.
 
         :param metadata: The :class:`BoxDetectionMetadata` of the detection.
         :param bounding_box_se3: The :class:`~py123d.datatypes.geometry.BoundingBoxSE3` of the detection.
-        :param velocity: Optionally, a :class:`~py123d.geometry.Vector3D` representing the velocity.
+        :param velocity_3d: Optionally, a :class:`~py123d.geometry.Vector3D` representing the velocity.
         """
         self._metadata = metadata
         self._bounding_box_se3 = bounding_box_se3
-        self._velocity = velocity
+        self._velocity = velocity_3d
 
     @property
     def metadata(self) -> BoxDetectionMetadata:

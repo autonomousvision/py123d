@@ -404,7 +404,7 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
         box_detection = BoxDetectionSE3(
             metadata=metadata,
             bounding_box_se3=bounding_box,
-            velocity=velocity_3d,
+            velocity_3d=velocity_3d,
         )
         box_detections.append(box_detection)
     return BoxDetectionWrapper(box_detections=box_detections)

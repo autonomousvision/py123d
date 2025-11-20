@@ -376,7 +376,7 @@ def _extract_wopd_box_detections(
                     track_token=detections_token[detection_idx],
                 ),
                 bounding_box_se3=BoundingBoxSE3.from_array(detections_state[detection_idx]),
-                velocity=Vector3D.from_array(detections_velocity[detection_idx]),
+                velocity_3d=Vector3D.from_array(detections_velocity[detection_idx]),
             )
         )
 

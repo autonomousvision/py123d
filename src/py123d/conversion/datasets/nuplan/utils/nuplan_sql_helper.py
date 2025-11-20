@@ -62,7 +62,7 @@ def get_box_detections_for_lidarpc_token_from_db(log_file: str, token: str) -> L
                 track_token=row["track_token"].hex(),
             ),
             bounding_box_se3=bounding_box,
-            velocity=Vector3D(x=row["vx"], y=row["vy"], z=row["vz"]),
+            velocity_3d=Vector3D(x=row["vx"], y=row["vy"], z=row["vz"]),
         )
         box_detections.append(box_detection)
 

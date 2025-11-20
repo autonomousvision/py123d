@@ -154,7 +154,7 @@ class TestBoxBoxDetectionSE3:
         box_detection = BoxDetectionSE3(
             metadata=self.metadata,
             bounding_box_se3=self.bounding_box_se3,
-            velocity=self.velocity,
+            velocity_3d=self.velocity,
         )
         assert isinstance(box_detection, BoxDetectionSE3)
         assert box_detection.metadata == self.metadata
@@ -165,7 +165,7 @@ class TestBoxBoxDetectionSE3:
         box_detection = BoxDetectionSE3(
             metadata=self.metadata,
             bounding_box_se3=self.bounding_box_se3,
-            velocity=self.velocity,
+            velocity_3d=self.velocity,
         )
         assert box_detection.shapely_polygon == self.bounding_box_se3.shapely_polygon
         assert box_detection.center_se3 == self.bounding_box_se3.center_se3
@@ -179,7 +179,7 @@ class TestBoxBoxDetectionSE3:
         box_detection = BoxDetectionSE3(
             metadata=self.metadata,
             bounding_box_se3=self.bounding_box_se3,
-            velocity=Vector3D(x=1.0, y=0.0, z=0.0),
+            velocity_3d=Vector3D(x=1.0, y=0.0, z=0.0),
         )
         box_detection_se2 = box_detection.box_detection_se2
         assert isinstance(box_detection_se2, BoxDetectionSE2)
@@ -196,7 +196,7 @@ class TestBoxBoxDetectionSE3:
         box_detection_se3 = BoxDetectionSE3(
             metadata=box_detection_se2.metadata,
             bounding_box_se3=self.bounding_box_se3,
-            velocity=Vector3D(x=1.0, y=0.0, z=0.0),
+            velocity_3d=Vector3D(x=1.0, y=0.0, z=0.0),
         )
         assert isinstance(box_detection_se3, BoxDetectionSE3)
         assert box_detection_se3.metadata == box_detection_se2.metadata
@@ -220,7 +220,7 @@ class TestBoxBoxDetectionSE3:
         box_detection_velo = BoxDetectionSE3(
             metadata=self.metadata,
             bounding_box_se3=self.bounding_box_se3,
-            velocity=Vector3D(x=1.0, y=0.0, z=0.0),
+            velocity_3d=Vector3D(x=1.0, y=0.0, z=0.0),
         )
         assert isinstance(box_detection_velo, BoxDetectionSE3)
         assert box_detection_velo.velocity_3d == Vector3D(x=1.0, y=0.0, z=0.0)
@@ -273,7 +273,7 @@ class TestBoxDetectionWrapper:
                 width=1.0,
                 height=1.5,
             ),
-            velocity=Vector3D(x=0.0, y=1.0, z=0.0),
+            velocity_3d=Vector3D(x=0.0, y=1.0, z=0.0),
         )
 
     def test_initialization(self):

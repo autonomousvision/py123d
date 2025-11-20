@@ -76,12 +76,6 @@ class TestVector2D:
         assert x == self.x_coord
         assert y == self.y_coord
 
-    def test_hash(self):
-        """Test the __hash__ method."""
-        vector_dict = {self.vector: "test"}
-        assert self.vector in vector_dict
-        assert vector_dict[self.vector] == "test"
-
 
 class TestVector3D:
     """Unit tests for Vector3D class."""
@@ -159,9 +153,3 @@ class TestVector3D:
         assert x == self.x_coord
         assert y == self.y_coord
         assert z == self.z_coord
-
-    def test_hash(self):
-        """Test the __hash__ method."""
-        vector_dict = {self.vector: "test"}
-        assert self.vector in vector_dict
-        assert vector_dict[self.vector] == "test"

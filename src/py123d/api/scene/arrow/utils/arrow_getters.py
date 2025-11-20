@@ -150,7 +150,7 @@ def get_box_detections_se3_from_arrow_table(
                         timepoint=timepoint,
                     ),
                     bounding_box_se3=BoundingBoxSE3.from_list(_bounding_box_se3),
-                    velocity=_get_optional_array_mixin(_velocity, Vector3D),
+                    velocity_3d=_get_optional_array_mixin(_velocity, Vector3D),
                 )
             )
         box_detections = BoxDetectionWrapper(box_detections=box_detections_list)

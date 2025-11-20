@@ -175,7 +175,7 @@ class EgoStateSE3:
                 num_lidar_points=None,
             ),
             bounding_box_se3=self.bounding_box_se3,
-            velocity=self.dynamic_state_se3.velocity,
+            velocity_3d=self.dynamic_state_se3.velocity_3d if self.dynamic_state_se3 else None,
         )
 
     @property
@@ -331,6 +331,6 @@ class EgoStateSE2:
                 track_token=EGO_TRACK_TOKEN,
                 num_lidar_points=None,
             ),
-            bounding_box_se2=self.bounding_box,
-            velocity_2d=self.dynamic_state_se2.velocity,
+            bounding_box_se2=self.bounding_box_se2,
+            velocity_2d=self.dynamic_state_se2.velocity_2d if self.dynamic_state_se2 else None,
         )
