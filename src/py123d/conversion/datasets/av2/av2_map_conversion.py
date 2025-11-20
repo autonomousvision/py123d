@@ -406,15 +406,27 @@ def _extract_intersection_dict(
             lane_group_intersection_dict[lane_group_id] = lane_group
 
     # 2. Merge polygons of lane groups that are marked as intersections.
-    lane_group_intersection_geometry = {
-        lane_group_id: shapely.Polygon(lane_group["outline"].array[:, Point3DIndex.XY])
-        for lane_group_id, lane_group in lane_group_intersection_dict.items()
-    }
+    # lane_group_intersection_geometry = {
+    #     lane_group_id: shapely.Polygon(lane_group["outline"].array[:, Point3DIndex.XY])
+    #     for lane_group_id, lane_group in lane_group_intersection_dict.items()
+    # }
+    lane_group_intersection_geometry = {}
+    for lane_group_id, lane_group in lane_group_intersection_dict.items():
+        lane_group_polygon_2d = shapely.Polygon(lane_group["outline"].array[:, Point3DIndex.XY])
+        if lane_group_polygon_2d.is_valid:
+            lane_group_intersection_geometry[lane_group_id] = lane_group_polygon_2d
+
     intersection_polygons = gpd.GeoSeries(lane_group_intersection_geometry).union_all()
 
     # 3. Collect all intersection polygons and their lane group IDs.
+    geometries = []
+    if isinstance(intersection_polygons, geom.Polygon):
+        geometries.append(intersection_polygons)
+    elif isinstance(intersection_polygons, geom.MultiPolygon):
+        geometries.extend(intersection_polygons.geoms)
+
     intersection_dict = {}
-    for intersection_idx, intersection_polygon in enumerate(intersection_polygons.geoms):
+    for intersection_idx, intersection_polygon in enumerate(geometries):
         if intersection_polygon.is_empty:
             continue
         lane_group_ids = [
@@ -438,23 +450,24 @@ def _extract_intersection_dict(
         segment_coords_boundary = np.concatenate([coords[:-1], coords[1:]], axis=1)
         boundary_segments.append(segment_coords_boundary)
 
-    boundary_segments = np.concatenate(boundary_segments, axis=0)
-    boundary_segment_linestrings = shapely.creation.linestrings(boundary_segments)
-    occupancy_map = OccupancyMap2D(boundary_segment_linestrings)
+    if len(boundary_segments) >= 1:
+        boundary_segments = np.concatenate(boundary_segments, axis=0)
+        boundary_segment_linestrings = shapely.creation.linestrings(boundary_segments)
+        occupancy_map = OccupancyMap2D(boundary_segment_linestrings)
 
-    for intersection_id, intersection_data in intersection_dict.items():
-        points_2d = intersection_data["outline_2d"].array
-        points_3d = np.zeros((len(points_2d), 3), dtype=np.float64)
-        points_3d[:, :2] = points_2d
+        for intersection_id, intersection_data in intersection_dict.items():
+            points_2d = intersection_data["outline_2d"].array
+            points_3d = np.zeros((len(points_2d), 3), dtype=np.float64)
+            points_3d[:, :2] = points_2d
 
-        query_points = shapely.creation.points(points_2d)
-        results = occupancy_map.query_nearest(query_points, max_distance=max_distance, exclusive=True)
-        for query_idx, geometry_idx in zip(*results):
-            query_point = query_points[query_idx]
-            segment_coords = boundary_segments[geometry_idx]
-            best_z = _interpolate_z_on_segment(query_point, segment_coords)
-            points_3d[query_idx, 2] = best_z
+            query_points = shapely.creation.points(points_2d)
+            results = occupancy_map.query_nearest(query_points, max_distance=max_distance, exclusive=True)
+            for query_idx, geometry_idx in zip(*results):
+                query_point = query_points[query_idx]
+                segment_coords = boundary_segments[geometry_idx]
+                best_z = _interpolate_z_on_segment(query_point, segment_coords)
+                points_3d[query_idx, 2] = best_z
 
-        intersection_dict[intersection_id]["outline_3d"] = Polyline3D.from_array(points_3d)
+            intersection_dict[intersection_id]["outline_3d"] = Polyline3D.from_array(points_3d)
 
     return intersection_dict

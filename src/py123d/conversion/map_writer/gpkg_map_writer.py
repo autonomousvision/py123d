@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Union
@@ -28,6 +29,8 @@ from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.geometry.polyline import Polyline3D
 
 MAP_OBJECT_DATA = Dict[str, List[Union[str, int, float, bool, geom.base.BaseGeometry]]]
+
+logging.getLogger("pyogrio._io").disabled = True
 
 
 class GPKGMapWriter(AbstractMapWriter):

@@ -1,4 +1,4 @@
-from typing import Final, List
+from typing import Dict, Final, List
 
 from py123d.conversion.registry.box_detection_label_registry import NuScenesBoxDetectionLabel
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
@@ -47,6 +47,14 @@ NUSCENES_DETECTION_NAME_DICT = {
     "animal": NuScenesBoxDetectionLabel.ANIMAL,
 }
 
+
+NUSCENES_DATABASE_VERSION_MAPPING: Dict[str, str] = {
+    "nuscenes_train": "v1.0-trainval",
+    "nuscenes_val": "v1.0-trainval",
+    "nuscenes_test": "v1.0-test",
+    "nuscenes-mini_train": "v1.0-mini",
+    "nuscenes-mini_val": "v1.0-mini",
+}
 
 NUSCENES_CAMERA_TYPES = {
     PinholeCameraType.PCAM_F0: "CAM_FRONT",

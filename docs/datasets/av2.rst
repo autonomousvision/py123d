@@ -115,6 +115,7 @@ Next, you can run the following bash script to download the dataset:
 
   mkdir -p "$AV2_SENSOR_ROOT"
   s5cmd --no-sign-request cp "s3://argoverse/datasets/av2/$DATASET_NAME/*" "$AV2_SENSOR_ROOT"
+  # or: s5cmd --no-sign-request sync "s3://argoverse/datasets/av2/$DATASET_NAME/*" "$AV2_SENSOR_ROOT"
 
 
 The downloaded dataset should have the following structure:

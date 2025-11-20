@@ -1,6 +1,6 @@
 import gc
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 from pyquaternion import Quaternion
@@ -8,18 +8,32 @@ from pyquaternion import Quaternion
 from py123d.common.utils.dependencies import check_dependencies
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
-from py123d.conversion.datasets.nuscenes.nuscenes_map_conversion import NUSCENES_MAPS, write_nuscenes_map
+from py123d.conversion.datasets.nuscenes.nuscenes_map_conversion import (
+    NUSCENES_MAPS,
+    write_nuscenes_map,
+)
 from py123d.conversion.datasets.nuscenes.utils.nuscenes_constants import (
     NUSCENES_CAMERA_TYPES,
     NUSCENES_DATA_SPLITS,
+    NUSCENES_DATABASE_VERSION_MAPPING,
     NUSCENES_DETECTION_NAME_DICT,
     NUSCENES_DT,
 )
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
+from py123d.conversion.log_writer.abstract_log_writer import (
+    AbstractLogWriter,
+    CameraData,
+    LiDARData,
+)
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.registry.box_detection_label_registry import NuScenesBoxDetectionLabel
+from py123d.conversion.registry.box_detection_label_registry import (
+    NuScenesBoxDetectionLabel,
+)
 from py123d.conversion.registry.lidar_index_registry import NuScenesLiDARIndex
-from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
+from py123d.datatypes.detections.box_detections import (
+    BoxDetectionMetadata,
+    BoxDetectionSE3,
+    BoxDetectionWrapper,
+)
 from py123d.datatypes.metadata import LogMetadata, MapMetadata
 from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
 from py123d.datatypes.sensors.pinhole_camera import (
@@ -30,7 +44,9 @@ from py123d.datatypes.sensors.pinhole_camera import (
 )
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
-from py123d.datatypes.vehicle_state.vehicle_parameters import get_nuscenes_renault_zoe_parameters
+from py123d.datatypes.vehicle_state.vehicle_parameters import (
+    get_nuscenes_renault_zoe_parameters,
+)
 from py123d.geometry import BoundingBoxSE3, PoseSE3
 from py123d.geometry.vector import Vector3D
 
@@ -52,7 +68,7 @@ class NuScenesConverter(AbstractDatasetConverter):
         nuscenes_lanelet2_root: Union[Path, str],
         use_lanelet2: bool,
         dataset_converter_config: DatasetConverterConfig,
-        version: str = "v1.0-mini",
+        nuscenes_dbs: Optional[Dict[str, NuScenes]] = None,
     ) -> None:
         """Initializes the :class:`NuScenesConverter`.
 
@@ -62,7 +78,6 @@ class NuScenesConverter(AbstractDatasetConverter):
         :param nuscenes_lanelet2_root: Path to the root directory of the nuScenes Lanelet2 data
         :param use_lanelet2: Whether to use Lanelet2 data for map conversion
         :param dataset_converter_config: Configuration for the dataset converter
-        :param version: Version of the nuScenes dataset, defaults to "v1.0-mini"
         """
         super().__init__(dataset_converter_config)
 
@@ -78,17 +93,30 @@ class NuScenesConverter(AbstractDatasetConverter):
         self._nuscenes_data_root: Path = Path(nuscenes_data_root)
         self._nuscenes_map_root: Path = Path(nuscenes_map_root)
         self._nuscenes_lanelet2_root: Path = Path(nuscenes_lanelet2_root)
-
         self._use_lanelet2 = use_lanelet2
-        self._version = version
+
+        self._nuscenes_dbs: Dict[str, NuScenes] = nuscenes_dbs if nuscenes_dbs is not None else {}
         self._scene_tokens_per_split: Dict[str, List[str]] = self._collect_scene_tokens()
+
+    def __reduce__(self):
+        return (
+            self.__class__,
+            (
+                self._splits,
+                self._nuscenes_data_root,
+                self._nuscenes_map_root,
+                self._nuscenes_lanelet2_root,
+                self._use_lanelet2,
+                self.dataset_converter_config,
+                self._nuscenes_dbs,
+            ),
+        )
 
     def _collect_scene_tokens(self) -> Dict[str, List[str]]:
         """Collects scene tokens for the specified splits."""
 
         scene_tokens_per_split: Dict[str, List[str]] = {}
-        nusc = NuScenes(version=self._version, dataroot=str(self._nuscenes_data_root), verbose=False)
-
+        # Conversion from nuScenes internal split names to our split names
         nuscenes_split_name_mapping = {
             "nuscenes_train": "train",
             "nuscenes_val": "val",
@@ -97,17 +125,28 @@ class NuScenesConverter(AbstractDatasetConverter):
             "nuscenes-mini_val": "mini_val",
         }
 
+        # Loads the mapping from split names to scene names in nuScenes
         scene_splits = create_splits_scenes()
-        available_scenes = [scene for scene in nusc.scene]
 
+        # Iterate over split names,
         for split in self._splits:
+            database_version = NUSCENES_DATABASE_VERSION_MAPPING[split]
+            nusc = self._nuscenes_dbs.get(database_version)
+            if nusc is None:
+                nusc = NuScenes(
+                    version=database_version,
+                    dataroot=str(self._nuscenes_data_root),
+                    verbose=False,
+                )
+                self._nuscenes_dbs[database_version] = nusc
+
+            available_scenes = [scene for scene in nusc.scene]
             nuscenes_split = nuscenes_split_name_mapping[split]
             scene_names = scene_splits.get(nuscenes_split, [])
 
             # get token
             scene_tokens = [scene["token"] for scene in available_scenes if scene["name"] in scene_names]
             scene_tokens_per_split[split] = scene_tokens
-
         return scene_tokens_per_split
 
     def get_number_of_maps(self) -> int:
@@ -148,7 +187,8 @@ class NuScenesConverter(AbstractDatasetConverter):
 
         split, scene_token = all_scene_tokens[log_index]
 
-        nusc = NuScenes(version=self._version, dataroot=str(self._nuscenes_data_root), verbose=False)
+        database_version = NUSCENES_DATABASE_VERSION_MAPPING[split]
+        nusc = self._nuscenes_dbs[database_version]
         scene = nusc.get("scene", scene_token)
         log_record = nusc.get("log", scene["log_token"])
 
@@ -398,7 +438,6 @@ def _extract_nuscenes_cameras(
 
             cam_path = nuscenes_data_root / str(cam_data["filename"])
             if cam_path.exists() and cam_path.is_file():
-                # camera_dict[camera_type] = (camera_data, extrinsic)
                 camera_data_list.append(
                     CameraData(
                         camera_type=camera_type,

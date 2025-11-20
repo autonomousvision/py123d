@@ -167,8 +167,10 @@ def _get_av2_sensor_map_metadata(split: str, source_log_path: Path) -> MapMetada
     """Helper to get map metadata for AV2 sensor dataset."""
     # NOTE: We need to get the city name from the map folder.
     # see: https://github.com/argoverse/av2-api/blob/main/src/av2/datasets/sensor/av2_sensor_dataloader.py#L163
+
     map_folder = source_log_path / "map"
-    log_map_archive_path = next(map_folder.glob("log_map_archive_*.json"))
+    log_map_archive_path = next(map_folder.glob("log_map_archive_*.json"), None)
+    assert log_map_archive_path is not None, f"Log map archive file not found in {map_folder}."
     location = log_map_archive_path.name.split("____")[1].split("_")[0]
     return MapMetadata(
         dataset="av2-sensor",
