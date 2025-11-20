@@ -10,8 +10,9 @@ if __name__ == "__main__":
     # splits = ["nuplan_private_test"]
     # splits = ["carla_test"]
     # splits = ["wopd_val"]
-    splits = ["nuscenes_train"]
+    # splits = ["nuscenes_train"]
     # splits = ["av2-sensor_test", "av2-sensor_train", "av2-sensor_val"]
+    splits = ["av2-sensor_val"]
     # splits = ["pandaset_test", "pandaset_val", "pandaset_train"]
     # log_names = ["2021.08.24.13.12.55_veh-45_00386_00472"]
     # log_names = ["2013_05_28_drive_0000_sync"]
@@ -23,9 +24,9 @@ if __name__ == "__main__":
         split_names=splits,
         log_names=log_names,
         scene_uuids=scene_uuids,
-        duration_s=5.0,
+        duration_s=15.0,
         history_s=0.0,
-        timestamp_threshold_s=5.0,
+        timestamp_threshold_s=15.0,
         shuffle=True,
         # pinhole_camera_types=[PinholeCameraType.PCAM_F0],
     )

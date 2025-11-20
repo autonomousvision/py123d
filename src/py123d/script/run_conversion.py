@@ -1,5 +1,6 @@
 import gc
 import logging
+import traceback
 from functools import partial
 from typing import Dict, List
 
@@ -13,7 +14,7 @@ from py123d.script.builders.writer_builder import build_log_writer, build_map_wr
 from py123d.script.utils.dataset_path_utils import setup_dataset_paths
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 CONFIG_PATH = "config/conversion"
 CONFIG_NAME = "default_conversion"
@@ -54,26 +55,34 @@ def main(cfg: DictConfig) -> None:
 
 
 def _convert_maps(args: List[Dict[str, int]], cfg: DictConfig, dataset_converter: AbstractDatasetConverter) -> List:
+    setup_dataset_paths(cfg.dataset_paths)
     map_writer = build_map_writer(cfg.map_writer)
     for arg in args:
-        dataset_converter.convert_map(arg["map_index"], map_writer)
+        try:
+            dataset_converter.convert_map(arg["map_index"], map_writer)
+        except Exception as e:
+            logger.error(f"Error converting map index {arg['map_index']}: {e}")
+            logger.error(traceback.format_exc())  # noqa: F821
+            map_writer.close()
+            gc.collect()
+            if cfg.terminate_on_failure:
+                raise e
     return []
 
 
-def _convert_logs(args: List[Dict[str, int]], cfg: DictConfig, dataset_converter: AbstractDatasetConverter) -> None:
+def _convert_logs(args: List[Dict[str, int]], cfg: DictConfig, dataset_converter: AbstractDatasetConverter) -> List:
     setup_dataset_paths(cfg.dataset_paths)
-
-    def _internal_convert_log(args: Dict[str, int], dataset_converter_: AbstractDatasetConverter) -> int:
-        # for i2 in tqdm(range(300), leave=False)
-        log_writer = build_log_writer(cfg.log_writer)
-        for arg in args:
-            dataset_converter_.convert_log(arg["log_index"], log_writer)
-        del log_writer
-        gc.collect()
-
-    # for arg in :
-    _internal_convert_log(args, dataset_converter)
-    gc.collect()
+    log_writer = build_log_writer(cfg.log_writer)
+    for arg in args:
+        try:
+            dataset_converter.convert_log(arg["log_index"], log_writer)
+        except Exception as e:
+            logger.error(f"Error converting log index {arg['log_index']}: {e}")
+            logger.error(traceback.format_exc())  # noqa: F821
+            log_writer.close()
+            gc.collect()
+            if cfg.terminate_on_failure:
+                raise e
     return []
 
 
