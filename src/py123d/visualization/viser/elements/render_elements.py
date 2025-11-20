@@ -12,7 +12,7 @@ def get_ego_3rd_person_view_position(
     iteration: int,
     initial_ego_state: EgoStateSE3,
 ) -> PoseSE3:
-    scene_center_array = initial_ego_state.center.point_3d.array
+    scene_center_array = initial_ego_state.center_se3.point_3d.array
     ego_pose = scene.get_ego_state_at_iteration(iteration).rear_axle_se3.array
     ego_pose[PoseSE3Index.XYZ] -= scene_center_array
     ego_pose_se3 = PoseSE3.from_array(ego_pose)
@@ -37,8 +37,8 @@ def get_ego_bev_view_position(
     iteration: int,
     initial_ego_state: EgoStateSE3,
 ) -> PoseSE3:
-    scene_center_array = initial_ego_state.center.point_3d.array
-    ego_center = scene.get_ego_state_at_iteration(iteration).center.array
+    scene_center_array = initial_ego_state.center_se3.point_3d.array
+    ego_center = scene.get_ego_state_at_iteration(iteration).center_se3.array
     ego_center[PoseSE3Index.XYZ] -= scene_center_array
     ego_center_planar = PoseSE3.from_array(ego_center)
 

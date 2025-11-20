@@ -76,6 +76,11 @@ class PoseSE2(ArrayMixin):
         return self._array
 
     @property
+    def pose_se2(self) -> PoseSE2:
+        """Returns self to match interface of other pose classes."""
+        return self
+
+    @property
     def point_2d(self) -> Point2D:
         """The :class:`~py123d.geometry.Point2D` of the pose, i.e. the translation part."""
         return Point2D.from_array(self.array[PoseSE2Index.XY])
@@ -100,11 +105,6 @@ class PoseSE2(ArrayMixin):
     def shapely_point(self) -> geom.Point:
         """The Shapely point representation of the pose."""
         return geom.Point(self.x, self.y)
-
-    @property
-    def pose_se2(self) -> PoseSE2:
-        """Returns self to match interface of other pose classes."""
-        return self
 
 
 class PoseSE3(ArrayMixin):
@@ -219,6 +219,11 @@ class PoseSE3(ArrayMixin):
         """The numpy array representation of the pose with shape (7,), \
             indexed by :class:`~py123d.geometry.geometry_index.PoseSE3Index`"""
         return self._array
+
+    @property
+    def pose_se3(self) -> PoseSE3:
+        """The :class:`PoseSE3` itself."""
+        return self
 
     @property
     def pose_se2(self) -> PoseSE2:

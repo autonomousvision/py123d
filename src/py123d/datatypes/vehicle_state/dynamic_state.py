@@ -106,14 +106,9 @@ class DynamicStateSE3(ArrayMixin):
         return instance
 
     @property
-    def velocity(self) -> Vector3D:
-        """3D velocity vector."""
-        return Vector3D.from_array(self._array[DynamicStateSE3Index.VELOCITY_3D], copy=False)
-
-    @property
     def velocity_3d(self) -> Vector3D:
         """3D velocity vector."""
-        return self.velocity
+        return Vector3D.from_array(self._array[DynamicStateSE3Index.VELOCITY_3D], copy=False)
 
     @property
     def velocity_2d(self) -> Vector2D:
@@ -121,14 +116,9 @@ class DynamicStateSE3(ArrayMixin):
         return Vector2D.from_array(self._array[DynamicStateSE3Index.VELOCITY_2D], copy=False)
 
     @property
-    def acceleration(self) -> Vector3D:
-        """3D acceleration vector."""
-        return Vector3D.from_array(self._array[DynamicStateSE3Index.ACCELERATION_3D], copy=False)
-
-    @property
     def acceleration_3d(self) -> Vector3D:
         """3D acceleration vector."""
-        return self.acceleration
+        return Vector3D.from_array(self._array[DynamicStateSE3Index.ACCELERATION_3D], copy=False)
 
     @property
     def acceleration_2d(self) -> Vector2D:
@@ -229,24 +219,14 @@ class DynamicStateSE2(ArrayMixin):
         return instance
 
     @property
-    def velocity(self) -> Vector2D:
+    def velocity_2d(self) -> Vector2D:
         """2D velocity vector."""
         return Vector2D.from_array(self._array[DynamicStateSE2Index.VELOCITY_2D], copy=False)
 
     @property
-    def velocity_2d(self) -> Vector2D:
-        """2D velocity vector."""
-        return self.velocity
-
-    @property
-    def acceleration(self) -> Vector2D:
-        """2D acceleration vector."""
-        return Vector2D.from_array(self._array[DynamicStateSE2Index.ACCELERATION_2D], copy=False)
-
-    @property
     def acceleration_2d(self) -> Vector2D:
         """2D acceleration vector."""
-        return self.acceleration
+        return Vector2D.from_array(self._array[DynamicStateSE2Index.ACCELERATION_2D], copy=False)
 
     @property
     def angular_velocity(self) -> float:

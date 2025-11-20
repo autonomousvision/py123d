@@ -137,6 +137,11 @@ class Point3D(ArrayMixin):
         return self._array
 
     @property
+    def point_3d(self) -> Point3D:
+        """Returns the :class:`Point3D` instance itself."""
+        return self
+
+    @property
     def point_2d(self) -> Point2D:
         """The 2D projection of the 3D point as a :class:`Point2D` instance."""
         return Point2D.from_array(self.array[Point3DIndex.XY], copy=False)
@@ -145,8 +150,3 @@ class Point3D(ArrayMixin):
     def shapely_point(self) -> geom.Point:
         """The shapely point representation of the 3D point."""
         return geom.Point(self.x, self.y, self.z)
-
-    @property
-    def point_3d(self) -> Point3D:
-        """Returns the :class:`Point3D` instance itself."""
-        return self

@@ -259,7 +259,9 @@ class Kitti360Converter(AbstractDatasetConverter):
         if log_needs_writing:
             ts_list: List[TimePoint] = _read_timestamps(log_name, self._kitti360_folders)
             ego_state_all, valid_timestamp = _extract_ego_state_all(log_name, self._kitti360_folders)
-            ego_states_xyz = np.array([ego_state.center.array[:3] for ego_state in ego_state_all], dtype=np.float64)
+            ego_states_xyz = np.array(
+                [ego_state.center_se3.point_3d.array[:3] for ego_state in ego_state_all], dtype=np.float64
+            )
             box_detection_wrapper_all = _extract_kitti360_box_detections_all(
                 log_name,
                 len(ts_list),

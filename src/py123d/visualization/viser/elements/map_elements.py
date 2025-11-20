@@ -74,9 +74,9 @@ def _get_map_trimesh_dict(
     output_trimesh_dict: Dict[MapLayer, trimesh.Trimesh] = {}
 
     # Unpack scene center for translation of map objects.
-    scene_center: Point3D = initial_ego_state.center.point_3d
+    scene_center: Point3D = initial_ego_state.center_se3.point_3d
     scene_center_array = scene_center.array
-    scene_query_position = current_ego_state.center.point_3d
+    scene_query_position = current_ego_state.center_se3.point_3d
 
     # Load map objects within a certain radius around the scene center.
     map_layers = [

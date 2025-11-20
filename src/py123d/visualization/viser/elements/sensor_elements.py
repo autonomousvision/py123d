@@ -34,7 +34,7 @@ def add_camera_frustums_to_viser_server(
     camera_frustum_handles: Dict[PinholeCameraType, viser.CameraFrustumHandle],
 ) -> None:
     if viser_config.camera_frustum_visible:
-        scene_center_array = initial_ego_state.center.point_3d.array
+        scene_center_array = initial_ego_state.center_se3.point_3d.array
         ego_pose = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
         ego_pose[PoseSE3Index.XYZ] -= scene_center_array
 
@@ -86,7 +86,7 @@ def add_fisheye_frustums_to_viser_server(
     fisheye_frustum_handles: Dict[FisheyeMEICameraType, viser.CameraFrustumHandle],
 ) -> None:
     if viser_config.fisheye_frustum_visible:
-        scene_center_array = initial_ego_state.center.point_3d.array
+        scene_center_array = initial_ego_state.center_se3.point_3d.array
         ego_pose = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
         ego_pose[PoseSE3Index.XYZ] -= scene_center_array
 
@@ -161,7 +161,7 @@ def add_lidar_pc_to_viser_server(
     lidar_pc_handles: Dict[LiDARType, Optional[viser.PointCloudHandle]],
 ) -> None:
     if viser_config.lidar_visible:
-        scene_center_array = initial_ego_state.center.point_3d.array
+        scene_center_array = initial_ego_state.center_se3.point_3d.array
         ego_pose = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
         ego_pose[PoseSE3Index.XYZ] -= scene_center_array
 

@@ -137,11 +137,6 @@ class EgoStateSE3:
         return self._tire_steering_angle
 
     @property
-    def center(self) -> PoseSE3:
-        """The :class:`~py123d.geometry.PoseSE3` of the vehicle center in SE3."""
-        return self.center_se3
-
-    @property
     def center_se3(self) -> PoseSE3:
         """The :class:`~py123d.geometry.PoseSE3` of the vehicle center in SE3."""
         return rear_axle_se3_to_center_se3(
@@ -168,11 +163,6 @@ class EgoStateSE3:
     def bounding_box_se2(self) -> BoundingBoxSE2:
         """The :class:`~py123d.geometry.BoundingBoxSE2` of the ego vehicle."""
         return self.bounding_box_se3.bounding_box_se2
-
-    @property
-    def box_detection(self) -> BoxDetectionSE3:
-        """The :class:`~py123d.datatypes.detections.BoxDetectionSE3` projection of the ego vehicle."""
-        return self.box_detection_se3
 
     @property
     def box_detection_se3(self) -> BoxDetectionSE3:
@@ -293,11 +283,6 @@ class EgoStateSE2:
         )
 
     @property
-    def rear_axle(self) -> PoseSE2:
-        """The :class:`~py123d.geometry.PoseSE2` of the rear axle in SE2."""
-        return self.rear_axle_se2
-
-    @property
     def rear_axle_se2(self) -> PoseSE2:
         """The :class:`~py123d.geometry.PoseSE2` of the rear axle in SE2."""
         return self._rear_axle_se2
@@ -323,19 +308,9 @@ class EgoStateSE2:
         return self._tire_steering_angle
 
     @property
-    def center(self) -> PoseSE3:
-        """The :class:`~py123d.geometry.PoseSE2` of the center in SE2."""
-        return self.center_se2
-
-    @property
     def center_se2(self) -> PoseSE2:
         """The :class:`~py123d.geometry.PoseSE2` of the center in SE2."""
         return rear_axle_se2_to_center_se2(rear_axle_se2=self.rear_axle_se2, vehicle_parameters=self.vehicle_parameters)
-
-    @property
-    def bounding_box(self) -> BoundingBoxSE2:
-        """The :class:`~py123d.geometry.BoundingBoxSE2` of the ego vehicle."""
-        return self.bounding_box_se2
 
     @property
     def bounding_box_se2(self) -> BoundingBoxSE2:
@@ -345,11 +320,6 @@ class EgoStateSE2:
             length=self.vehicle_parameters.length,
             width=self.vehicle_parameters.width,
         )
-
-    @property
-    def box_detection(self) -> BoxDetectionSE2:
-        """The :class:`~py123d.datatypes.detections.BoxDetectionSE2` projection of the ego vehicle."""
-        return self.box_detection_se2
 
     @property
     def box_detection_se2(self) -> BoxDetectionSE2:
