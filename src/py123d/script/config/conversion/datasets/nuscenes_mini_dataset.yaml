@@ -1,4 +1,4 @@
-nuscenes_dataset:
+nuscenes_mini_dataset:
   _target_: py123d.conversion.datasets.nuscenes.nuscenes_converter.NuScenesConverter
   _convert_: 'all'
 

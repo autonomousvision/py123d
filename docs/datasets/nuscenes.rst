@@ -88,7 +88,19 @@ Available Modalities
 Download
 ~~~~~~~~
 
-You need to install the nuScenes dataset from the `official website <https://www.nuscenes.org/download>`_.
+You need to download the nuScenes dataset from the `official website <https://www.nuscenes.org/download>`_.
+From there, you need the following parts:
+
+* CAN bus expansion pack
+* Map expansion pack (v1.3)
+* Full dataset (v1.0)
+
+  * Mini dataset (v1.0-mini) (for quick testing)
+  * Train/Val split (v1.0-trainval) (for the complete dataset)
+  * Test split (v1.0-test) (for the complete dataset)
+
+
+
 The 123D conversion expects the following directory structure:
 
 .. code-block:: none

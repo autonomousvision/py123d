@@ -10,15 +10,13 @@ if __name__ == "__main__":
     # splits = ["nuplan_private_test"]
     # splits = ["carla_test"]
     # splits = ["wopd_val"]
-    # splits = ["av2-sensor_train"]
-    splits = ["av2-sensor_test", "av2-sensor_train", "av2-sensor_val"]
+    splits = ["nuscenes_train"]
+    # splits = ["av2-sensor_test", "av2-sensor_train", "av2-sensor_val"]
     # splits = ["pandaset_test", "pandaset_val", "pandaset_train"]
     # log_names = ["2021.08.24.13.12.55_veh-45_00386_00472"]
     # log_names = ["2013_05_28_drive_0000_sync"]
     # log_names = ["2013_05_28_drive_0000_sync"]
     log_names = None
-    # splits = None
-    # scene_uuids = ["87bf69e4-f2fb-5491-99fa-8b7e89fb697c"]
     scene_uuids = None
 
     scene_filter = SceneFilter(
