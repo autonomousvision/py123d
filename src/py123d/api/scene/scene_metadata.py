@@ -34,3 +34,10 @@ class SceneMetadata:
     def end_idx(self) -> int:
         """Index of the end frame of the scene."""
         return self.initial_idx + self.number_of_iterations
+
+    def __repr__(self) -> str:
+        return (
+            f"SceneMetadata(initial_uuid={self.initial_uuid}, initial_idx={self.initial_idx}, "
+            f"duration_s={self.duration_s}, history_s={self.history_s}, "
+            f"iteration_duration_s={self.iteration_duration_s})"
+        )

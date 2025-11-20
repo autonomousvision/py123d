@@ -58,7 +58,12 @@ def add_default_map_on_ax(
                     if route_lane_group_ids is not None and int(map_object.object_id) in route_lane_group_ids:
                         add_shapely_polygon_to_ax(ax, map_object.shapely_polygon, ROUTE_CONFIG)
                     else:
-                        add_shapely_polygon_to_ax(ax, map_object.shapely_polygon, MAP_SURFACE_CONFIG[layer])
+                        add_shapely_polygon_to_ax(
+                            ax,
+                            map_object.shapely_polygon,
+                            MAP_SURFACE_CONFIG[layer],
+                            label=layer.serialize(),
+                        )
                 if layer in [
                     MapLayer.GENERIC_DRIVABLE,
                     MapLayer.CARPARK,
@@ -66,10 +71,20 @@ def add_default_map_on_ax(
                     MapLayer.INTERSECTION,
                     MapLayer.WALKWAY,
                 ]:
-                    add_shapely_polygon_to_ax(ax, map_object.shapely_polygon, MAP_SURFACE_CONFIG[layer])
+                    add_shapely_polygon_to_ax(
+                        ax,
+                        map_object.shapely_polygon,
+                        MAP_SURFACE_CONFIG[layer],
+                        label=layer.serialize(),
+                    )
                 if layer in [MapLayer.LANE]:
                     map_object: Lane
-                    add_shapely_linestring_to_ax(ax, map_object.centerline.linestring, CENTERLINE_CONFIG)
+                    add_shapely_linestring_to_ax(
+                        ax,
+                        map_object.centerline.linestring,
+                        CENTERLINE_CONFIG,
+                        label=layer.serialize(),
+                    )
             except Exception:
                 print(f"Error adding map object of type {layer.name} and id {map_object.object_id}")
                 traceback.print_exc()

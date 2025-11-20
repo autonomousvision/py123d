@@ -81,6 +81,15 @@ MAP_SURFACE_CONFIG: Dict[MapLayer, PlotConfig] = {
         line_style="-",
         zorder=1,
     ),
+    MapLayer.STOP_ZONE: PlotConfig(
+        fill_color=TAB_10[3],
+        fill_color_alpha=1.0,
+        line_color=TAB_10[3],
+        line_color_alpha=0.0,
+        line_width=1.0,
+        line_style="-",
+        zorder=1,
+    ),
 }
 
 

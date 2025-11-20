@@ -16,6 +16,7 @@ def add_shapely_polygon_to_ax(
     polygon: geom.Polygon,
     plot_config: PlotConfig,
     disable_smoothing: bool = False,
+    label: str = None,
 ) -> plt.Axes:
     """
     Adds shapely polygon to birds-eye-view visualization with proper hole handling
@@ -59,6 +60,7 @@ def add_shapely_polygon_to_ax(
             edgecolor=plot_config.line_color.hex,
             linewidth=plot_config.line_width,
             zorder=plot_config.zorder,
+            label=label,
         )
         ax.add_patch(patch)
 
@@ -77,6 +79,7 @@ def add_shapely_linestring_to_ax(
     ax: plt.Axes,
     linestring: geom.LineString,
     plot_config: PlotConfig,
+    label: str = None,
 ) -> plt.Axes:
     """
     Adds shapely linestring (polyline) to birds-eye-view visualization
@@ -95,6 +98,7 @@ def add_shapely_linestring_to_ax(
         linewidth=plot_config.line_width,
         linestyle=plot_config.line_style,
         zorder=plot_config.zorder,
+        label=label,
     )
     return ax
 

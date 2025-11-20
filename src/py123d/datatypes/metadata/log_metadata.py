@@ -211,3 +211,15 @@ class LogMetadata:
         data_dict["lidar_metadata"] = {key.serialize(): value.to_dict() for key, value in self.lidar_metadata.items()}
         data_dict["map_metadata"] = self.map_metadata.to_dict() if self.map_metadata else None
         return data_dict
+
+    def __repr__(self) -> str:
+        return (
+            f"LogMetadata(dataset={self.dataset}, split={self.split}, log_name={self.log_name}, "
+            f"location={self.location}, timestep_seconds={self.timestep_seconds}, "
+            f"vehicle_parameters={self.vehicle_parameters}, "
+            f"box_detection_label_class={self.box_detection_label_class}, "
+            f"pinhole_camera_metadata={self.pinhole_camera_metadata}, "
+            f"fisheye_mei_camera_metadata={self.fisheye_mei_camera_metadata}, "
+            f"lidar_metadata={self.lidar_metadata}, map_metadata={self.map_metadata}, "
+            f"version={self.version})"
+        )

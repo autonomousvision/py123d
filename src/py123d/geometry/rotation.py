@@ -4,7 +4,7 @@ import numpy as np
 import numpy.typing as npt
 import pyquaternion
 
-from py123d.common.utils.mixin import ArrayMixin
+from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
 from py123d.geometry.geometry_index import EulerAnglesIndex, QuaternionIndex
 from py123d.geometry.utils.rotation_utils import (
     get_euler_array_from_quaternion_array,
@@ -116,6 +116,10 @@ class EulerAngles(ArrayMixin):
     def rotation_matrix(self) -> npt.NDArray[np.float64]:
         """Returns the 3x3 rotation matrix representation of the Euler angles."""
         return get_rotation_matrix_from_euler_array(self.array)
+
+    def __repr__(self) -> str:
+        """String representation of :class:`EulerAngles`."""
+        return indexed_array_repr(self, EulerAnglesIndex)
 
 
 class Quaternion(ArrayMixin):
@@ -234,3 +238,7 @@ class Quaternion(ArrayMixin):
     def rotation_matrix(self) -> npt.NDArray[np.float64]:
         """Returns the 3x3 rotation matrix representation of the quaternion."""
         return get_rotation_matrix_from_quaternion_array(self.array)
+
+    def __repr__(self) -> str:
+        """String representation of :class:`Quaternion`."""
+        return indexed_array_repr(self, QuaternionIndex)

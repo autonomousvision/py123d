@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
-from py123d.common.utils.mixin import ArrayMixin
+from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
 from py123d.geometry.geometry_index import Vector2DIndex, Vector3DIndex
 
 
@@ -108,6 +108,10 @@ class Vector2D(ArrayMixin):
         :return: A new Vector2D instance representing the divided vector.
         """
         return Vector2D(self.x / scalar, self.y / scalar)
+
+    def __repr__(self) -> str:
+        """String representation of :class:`Vector2D`."""
+        return indexed_array_repr(self, Vector2DIndex)
 
 
 class Vector3D(ArrayMixin):
@@ -219,3 +223,7 @@ class Vector3D(ArrayMixin):
         :return: A new Vector3D instance representing the divided vector.
         """
         return Vector3D(self.x / scalar, self.y / scalar, self.z / scalar)
+
+    def __repr__(self) -> str:
+        """String representation of :class:`Vector3D`."""
+        return indexed_array_repr(self, Vector3DIndex)

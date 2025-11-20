@@ -90,3 +90,16 @@ class MapMetadata:
         :return: A dictionary representation of the MapMetadata instance.
         """
         return {slot.lstrip("_"): getattr(self, slot) for slot in self.__slots__}
+
+    def __repr__(self) -> str:
+        return (
+            f"MapMetadata("
+            f"dataset={self.dataset!r}, "
+            f"split={self.split!r}, "
+            f"log_name={self.log_name!r}, "
+            f"location={self.location!r}, "
+            f"map_has_z={self.map_has_z}, "
+            f"map_is_local={self.map_is_local}, "
+            f"version={self.version!r}"
+            f")"
+        )

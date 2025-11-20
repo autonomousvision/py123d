@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from enum import IntEnum
+
 import numpy as np
 import numpy.typing as npt
 from typing_extensions import Self
@@ -85,3 +87,16 @@ class ArrayMixin:
     def __repr__(self) -> str:
         """String representation of the ArrayMixin instance."""
         return f"{self.__class__.__name__}(array={self.array})"
+
+
+def indexed_array_repr(array_mixin: ArrayMixin, indexing: IntEnum) -> str:
+    """Generate a string representation of an ArrayMixin instance using an indexing enum.
+
+    :param array_mixin: An instance of ArrayMixin.
+    :param indexing: An IntEnum used for indexing the array.
+    :return: A string representation of the ArrayMixin instance with named fields.
+    """
+    args = ", ".join(
+        f"{index.name.lower()}={array_mixin.array[index.value]}" for index in indexing.__members__.values()
+    )
+    return f"{array_mixin.__class__.__name__}({args})"

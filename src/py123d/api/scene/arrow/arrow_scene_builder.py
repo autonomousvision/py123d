@@ -116,8 +116,10 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
         else len(recording_table)
     )
 
-    # 1. Filter location
-    if (
+    # 1. Filter location & whether map API is required
+    if filter.map_api_required and log_metadata.map_metadata is None:
+        pass
+    elif (
         filter.locations is not None
         and log_metadata.map_metadata is not None
         and log_metadata.map_metadata.location not in filter.locations

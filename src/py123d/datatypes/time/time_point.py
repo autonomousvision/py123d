@@ -72,3 +72,7 @@ class TimePoint:
     def time_s(self) -> float:
         """The timepoint in seconds [s]."""
         return self._time_us / 1e6
+
+    def __repr__(self):
+        """String representation of :class:`TimePoint`."""
+        return f"TimePoint(time_us={self._time_us})"

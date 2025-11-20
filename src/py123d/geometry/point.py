@@ -4,7 +4,7 @@ import numpy as np
 import numpy.typing as npt
 import shapely.geometry as geom
 
-from py123d.common.utils.mixin import ArrayMixin
+from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
 from py123d.geometry.geometry_index import Point2DIndex, Point3DIndex
 
 
@@ -72,6 +72,10 @@ class Point2D(ArrayMixin):
     def point_2d(self) -> Point2D:
         """Returns the :class:`Point2D` instance itself."""
         return self
+
+    def __repr__(self) -> str:
+        """String representation of :class:`Point2D`."""
+        return indexed_array_repr(self, Point2DIndex)
 
 
 class Point3D(ArrayMixin):
@@ -150,3 +154,7 @@ class Point3D(ArrayMixin):
     def shapely_point(self) -> geom.Point:
         """The shapely point representation of the 3D point."""
         return geom.Point(self.x, self.y, self.z)
+
+    def __repr__(self) -> str:
+        """String representation of :class:`Point3D`."""
+        return indexed_array_repr(self, Point3DIndex)

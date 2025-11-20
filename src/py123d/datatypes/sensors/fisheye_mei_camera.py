@@ -8,7 +8,7 @@ import numpy as np
 import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
-from py123d.common.utils.mixin import ArrayMixin
+from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
 from py123d.geometry.pose import PoseSE3
 
 
@@ -134,6 +134,10 @@ class FisheyeMEIDistortion(ArrayMixin):
         """Tangential distortion coefficient."""
         return self._array[FisheyeMEIDistortionIndex.P2]
 
+    def __repr__(self) -> str:
+        """String representation of :class:`FisheyeMEIDistortion`."""
+        return indexed_array_repr(self, FisheyeMEIDistortionIndex)
+
 
 class FisheyeMEIProjectionIndex(IntEnum):
     """Indexing for fisheye MEI projection parameters."""
@@ -211,6 +215,10 @@ class FisheyeMEIProjection(ArrayMixin):
     def v0(self) -> float:
         """Principal point y-coordinate."""
         return self._array[FisheyeMEIProjectionIndex.V0]
+
+    def __repr__(self) -> str:
+        """String representation of :class:`FisheyeMEIProjection`."""
+        return indexed_array_repr(self, FisheyeMEIProjectionIndex)
 
 
 @dataclass

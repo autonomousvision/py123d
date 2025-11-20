@@ -7,7 +7,7 @@ import numpy as np
 import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
-from py123d.common.utils.mixin import ArrayMixin
+from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
 from py123d.geometry import PoseSE3
 
 
@@ -197,6 +197,10 @@ class PinholeIntrinsics(ArrayMixin):
         )
         return K
 
+    def __repr__(self) -> str:
+        """String representation of :class:`PinholeIntrinsics`."""
+        return indexed_array_repr(self, PinholeIntrinsicsIndex)
+
 
 class PinholeDistortionIndex(IntEnum):
     """Enumeration of pinhole camera distortion parameters."""
@@ -283,6 +287,10 @@ class PinholeDistortion(ArrayMixin):
     def k3(self) -> float:
         """Radial distortion coefficient k3."""
         return self._array[PinholeDistortionIndex.K3]
+
+    def __repr__(self) -> str:
+        """String representation of :class:`PinholeDistortion`."""
+        return indexed_array_repr(self, PinholeDistortionIndex)
 
 
 class PinholeCameraMetadata:

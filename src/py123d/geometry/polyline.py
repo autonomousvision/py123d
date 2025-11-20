@@ -352,7 +352,7 @@ class Polyline3D(ArrayMixin):
     @property
     def polyline_se2(self) -> PolylineSE2:
         """The :class:`~py123d.geometry.PolylineSE2` representation of the 3D polyline."""
-        return PolylineSE2.from_linestring(self.linestring)  # type: ignore
+        return PolylineSE2.from_linestring(self.linestring)  # type: ignore\
 
     @property
     def length(self) -> float:

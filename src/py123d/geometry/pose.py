@@ -4,7 +4,7 @@ import numpy as np
 import numpy.typing as npt
 import shapely.geometry as geom
 
-from py123d.common.utils.mixin import ArrayMixin
+from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
 from py123d.geometry.geometry_index import EulerPoseSE3Index, Point3DIndex, PoseSE2Index, PoseSE3Index
 from py123d.geometry.point import Point2D, Point3D
 from py123d.geometry.rotation import EulerAngles, Quaternion
@@ -105,6 +105,10 @@ class PoseSE2(ArrayMixin):
     def shapely_point(self) -> geom.Point:
         """The Shapely point representation of the pose."""
         return geom.Point(self.x, self.y)
+
+    def __repr__(self) -> str:
+        """String representation of :class:`PoseSE2`."""
+        return indexed_array_repr(self, PoseSE2Index)
 
 
 class PoseSE3(ArrayMixin):
@@ -282,6 +286,10 @@ class PoseSE3(ArrayMixin):
         transformation_matrix[:3, :3] = self.rotation_matrix
         transformation_matrix[:3, 3] = self.array[PoseSE3Index.XYZ]
         return transformation_matrix
+
+    def __repr__(self) -> str:
+        """String representation of :class:`PoseSE3`."""
+        return indexed_array_repr(self, PoseSE3Index)
 
 
 class EulerPoseSE3(ArrayMixin):
@@ -478,3 +486,7 @@ class EulerPoseSE3(ArrayMixin):
         :return: A Quaternion instance representing the state's orientation.
         """
         return Quaternion.from_euler_angles(self.euler_angles)
+
+    def __repr__(self) -> str:
+        """String representation of :class:`EulerPoseSE3`."""
+        return indexed_array_repr(self, EulerPoseSE3Index)

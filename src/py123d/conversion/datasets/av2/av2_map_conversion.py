@@ -141,8 +141,8 @@ def _write_av2_lanes(lanes: Dict[int, Any], map_writer: AbstractMapWriter) -> No
         )
 
         # NOTE @DanielDauner: Some neighbor lane IDs might not be present in the dataset.
-        left_lane_id = lane_dict["left_neighbor_id"] if lane_dict["left_neighbor_id"] in lanes else None
-        right_lane_id = lane_dict["right_neighbor_id"] if lane_dict["right_neighbor_id"] in lanes else None
+        left_lane_id = lane_dict["left_neighbor_id"] if str(lane_dict["left_neighbor_id"]) in lanes else None
+        right_lane_id = lane_dict["right_neighbor_id"] if str(lane_dict["right_neighbor_id"]) in lanes else None
 
         map_writer.write_lane(
             Lane(

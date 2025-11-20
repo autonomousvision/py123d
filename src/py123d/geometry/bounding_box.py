@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 import shapely.geometry as geom
 
-from py123d.common.utils.mixin import ArrayMixin
+from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
 from py123d.geometry.geometry_index import BoundingBoxSE2Index, BoundingBoxSE3Index, Corners2DIndex, Corners3DIndex
 from py123d.geometry.point import Point2D, Point3D
 from py123d.geometry.pose import PoseSE2, PoseSE3
@@ -103,6 +103,10 @@ class BoundingBoxSE2(ArrayMixin):
     def bounding_box_se2(self) -> BoundingBoxSE2:
         """The :class:`BoundingBoxSE2` instance itself."""
         return self
+
+    def __repr__(self) -> str:
+        """String representation of :class:`BoundingBoxSE2`."""
+        return indexed_array_repr(self, BoundingBoxSE2Index)
 
 
 class BoundingBoxSE3(ArrayMixin):
@@ -211,6 +215,10 @@ class BoundingBoxSE3(ArrayMixin):
     def shapely_polygon(self) -> geom.Polygon:
         """The shapely polygon representation of the SE2 projection of the bounding box."""
         return self.bounding_box_se2.shapely_polygon
+
+    def __repr__(self) -> str:
+        """String representation of :class:`BoundingBoxSE3`."""
+        return indexed_array_repr(self, BoundingBoxSE3Index)
 
 
 BoundingBox = Union[BoundingBoxSE2, BoundingBoxSE3]

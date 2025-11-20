@@ -45,6 +45,9 @@ class SceneFilter:
     max_num_scenes: Optional[int] = None
     """Maximum number of scenes to return."""
 
+    map_api_required: bool = False
+    """Whether to only include scenes with an available map API."""
+
     shuffle: bool = False
     """Whether to shuffle the returned scenes."""
 
