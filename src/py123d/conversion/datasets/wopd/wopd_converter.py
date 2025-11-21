@@ -89,9 +89,9 @@ class WOPDConverter(AbstractDatasetConverter):
 
         super().__init__(dataset_converter_config)
         for split in splits:
-            assert (
-                split in WOPD_AVAILABLE_SPLITS
-            ), f"Split {split} is not available. Available splits: {WOPD_AVAILABLE_SPLITS}"
+            assert split in WOPD_AVAILABLE_SPLITS, (
+                f"Split {split} is not available. Available splits: {WOPD_AVAILABLE_SPLITS}"
+            )
 
         self._splits: List[str] = splits
         self._wopd_data_root: Path = Path(wopd_data_root)

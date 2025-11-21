@@ -29,9 +29,9 @@ def validate_type(instantiated_class: Any, desired_type: Type[Any]) -> None:
     :param instantiated_class: class that was created
     :param desired_type: type that the created class should have
     """
-    assert isinstance(
-        instantiated_class, desired_type
-    ), f"Class to be of type {desired_type}, but is {type(instantiated_class)}!"
+    assert isinstance(instantiated_class, desired_type), (
+        f"Class to be of type {desired_type}, but is {type(instantiated_class)}!"
+    )
 
 
 def are_the_same_type(lhs: Any, rhs: Any) -> None:

@@ -288,9 +288,9 @@ def _extract_av2_sensor_box_detections(
 def _extract_av2_sensor_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_timestamp_ns: int) -> EgoStateSE3:
     """Extract ego state from AV2 sensor dataset city_SE3_egovehicle dataframe."""
     ego_state_slice = get_slice_with_timestamp_ns(city_se3_egovehicle_df, lidar_timestamp_ns)
-    assert (
-        len(ego_state_slice) == 1
-    ), f"Expected exactly one ego state for timestamp {lidar_timestamp_ns}, got {len(ego_state_slice)}."
+    assert len(ego_state_slice) == 1, (
+        f"Expected exactly one ego state for timestamp {lidar_timestamp_ns}, got {len(ego_state_slice)}."
+    )
 
     ego_pose_dict = ego_state_slice.iloc[0].to_dict()
     rear_axle_pose = _row_dict_to_pose_se3(ego_pose_dict)

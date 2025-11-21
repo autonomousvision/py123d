@@ -89,7 +89,7 @@ def _update_connection_from_links(
     :param road_dict: Dictionary of roads indexed by road id.
     """
 
-    for lane_id in lane_helper_dict.keys():
+    for lane_id in lane_helper_dict.keys():  # noqa: PLC0206
         road_idx, lane_section_idx, _, lane_idx = lane_id.split("_")
         road_idx, lane_section_idx, lane_idx = int(road_idx), int(lane_section_idx), int(lane_idx)
 
@@ -216,7 +216,7 @@ def _flip_and_set_connections(lane_helper_dict: Dict[str, OpenDriveLaneHelper]) 
     :param lane_helper_dict: Dictionary mapping lane ids to their helper objects.
     """
 
-    for lane_id in lane_helper_dict.keys():
+    for lane_id in lane_helper_dict.keys():  # noqa: PLC0206
         if lane_helper_dict[lane_id].id > 0:
             successors_temp = lane_helper_dict[lane_id].successor_lane_ids
             lane_helper_dict[lane_id].successor_lane_ids = lane_helper_dict[lane_id].predecessor_lane_ids
@@ -235,7 +235,7 @@ def _post_process_connections(
     :param connection_distance_threshold: Threshold distance for valid connections.
     """
 
-    for lane_id in lane_helper_dict.keys():
+    for lane_id in lane_helper_dict.keys():  # noqa: PLC0206
         lane_helper_dict[lane_id]
 
         centerline = lane_helper_dict[lane_id].center_polyline_se2

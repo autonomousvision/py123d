@@ -41,7 +41,7 @@ class MP4Writer:
             self.writer = cv2.VideoWriter(self.output_path, fourcc, self.fps, self.frame_size)
 
         if frame.shape[:2][::-1] != self.frame_size:
-            raise ValueError(f"Frame size {frame.shape[:2][::-1]} doesn't match " f"video size {self.frame_size}")
+            raise ValueError(f"Frame size {frame.shape[:2][::-1]} doesn't match video size {self.frame_size}")
 
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         self.writer.write(frame)
@@ -101,7 +101,7 @@ class MP4Reader:
         """
 
         if frame_index < 0 or frame_index >= self.frame_count:
-            raise IndexError(f"Frame index {frame_index} out of range " f"[0, {len(self.frames)})")
+            raise IndexError(f"Frame index {frame_index} out of range [0, {len(self.frames)})")
 
         if self.read_all:
             return self.frames[frame_index]

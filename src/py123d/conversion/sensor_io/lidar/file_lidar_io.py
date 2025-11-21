@@ -41,9 +41,9 @@ def load_lidar_pcs_from_file(
 
     assert relative_path is not None, "Relative path to LiDAR file must be provided."
     if sensor_root is None:
-        assert (
-            log_metadata.dataset in DATASET_SENSOR_ROOT.keys()
-        ), f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}."
+        assert log_metadata.dataset in DATASET_SENSOR_ROOT.keys(), (
+            f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}."
+        )
         sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
         assert sensor_root is not None, f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}"
 

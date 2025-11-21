@@ -11,6 +11,12 @@ Features include:
 - Visualization tools with `matplotlib <https://matplotlib.org/>`_ and `Viser <https://viser.studio/main/>`_.
 
 
+.. warning::
+
+   This library is under active development and not stable. The API and features may change in future releases.
+   Please report issues, feature requests, or other feedback by opening an issue on the project's GitHub repository.
+
+
 ..  youtube:: Q4q29fpXnx8
    :width: 800
    :height: 450
@@ -41,4 +47,5 @@ Features include:
    :hidden:
    :caption: Notes
 
-   notes/contributing
+   notes/conventions
+   contributing

@@ -17,9 +17,9 @@ def batch_matmul(A: npt.NDArray[np.float64], B: npt.NDArray[np.float64]) -> npt.
     :return: Array of shape (..., M, P) resulting from batch matrix multiplication of A and B.
     """
     assert A.ndim >= 2 and B.ndim >= 2
-    assert (
-        A.shape[-1] == B.shape[-2]
-    ), f"Inner dimensions must match for matrix multiplication, got {A.shape} and {B.shape}"
+    assert A.shape[-1] == B.shape[-2], (
+        f"Inner dimensions must match for matrix multiplication, got {A.shape} and {B.shape}"
+    )
     return np.einsum("...ij,...jk->...ik", A, B)
 
 

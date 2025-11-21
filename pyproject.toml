@@ -130,5 +130,6 @@ lint.ignore = [
     "PLW0642",  # Reassigned self in instance method.
 ]
 
+exclude = ["__init__.py"]
 fixable = ["ALL"]
 unfixable = []

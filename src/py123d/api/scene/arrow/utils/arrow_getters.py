@@ -204,9 +204,9 @@ def get_camera_from_arrow_table(
     :return: The constructed camera object, or None if not available.
     """
 
-    assert isinstance(
-        camera_type, (PinholeCameraType, FisheyeMEICameraType)
-    ), f"camera_type must be PinholeCameraType or FisheyeMEICameraType, got {type(camera_type)}"
+    assert isinstance(camera_type, (PinholeCameraType, FisheyeMEICameraType)), (
+        f"camera_type must be PinholeCameraType or FisheyeMEICameraType, got {type(camera_type)}"
+    )
 
     camera: Optional[Union[PinholeCamera, FisheyeMEICamera]] = None
 
@@ -230,9 +230,9 @@ def get_camera_from_arrow_table(
 
             if isinstance(table_data, str):
                 sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
-                assert (
-                    sensor_root is not None
-                ), f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}"
+                assert sensor_root is not None, (
+                    f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}"
+                )
                 full_image_path = Path(sensor_root) / table_data
                 assert full_image_path.exists(), f"Camera file not found: {full_image_path}"
 

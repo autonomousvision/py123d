@@ -1,6 +1,9 @@
 KITTI-360
 ---------
 
+The KITTI-360 dataset is an extension of the popular KITTI dataset, designed for various perception tasks in autonomous driving.
+The dataset includes 9 logs (called "sequences") of varying length with stereo cameras, fisheye cameras, LiDAR data, 3D primitives, and semantic annotations.
+
 .. dropdown:: Quick Links
   :open:
 
@@ -35,91 +38,148 @@ Available Modalities
      - **Available**
      - **Description**
    * - Ego Vehicle
-     - ✓ / (✓) / X
-     - ..., see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
+     - ✓
+     - State of the ego vehicle, including poses, dynamic state, and vehicle parameters, see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
    * - Map
-     - ✓ / (✓) / X
-     - ..., see :class:`~py123d.api.MapAPI`.
+     - ✓
+     - The maps are in 3D vector format and defined per log, see :class:`~py123d.api.MapAPI`. The map does not include lane-level information.
    * - Bounding Boxes
-     - ✓ / (✓) / X
-     - ..., see :class:`~py123d.datatypes.detections.BoxDetectionWrapper`.
+     - ✓
+     - The bounding boxes are available and labeled with :class:`~py123d.conversion.registry.KITTI360BoxDetectionLabel`. For further information, see :class:`~py123d.datatypes.detections.BoxDetectionWrapper`.
    * - Traffic Lights
-     - ✓ / (✓) / X
-     - ..., see :class:`~py123d.datatypes.detections.TrafficLightDetectionWrapper`.
+     - X
+     - n/a
    * - Pinhole Cameras
-     - ✓ / (✓) / X
-     - ..., see :class:`~py123d.datatypes.sensors.PinholeCamera`.
+     - ✓
+     - The dataset has two :class:`~py123d.datatypes.sensors.PinholeCamera` in a stereo setup:
+
+       - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_STEREO_L` (image_00)
+       - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_STEREO_R` (image_01)
+
    * - Fisheye Cameras
-     - ✓ / (✓) / X
-     - ..., see :class:`~py123d.datatypes.sensors.FisheyeCamera`.
+     - ✓
+     - The dataset has two :class:`~py123d.datatypes.sensors.FisheyeMEICamera`:
+
+       - :class:`~py123d.datatypes.sensors.FisheyeMEICameraType.FCAM_L` (image_02)
+       - :class:`~py123d.datatypes.sensors.FisheyeMEICameraType.FCAM_R` (image_03)
    * - LiDARs
-     - ✓ / (✓) / X
-     - ..., see :class:`~py123d.datatypes.sensors.LiDAR`.
+     - ✓
+     - The dataset has :class:`~py123d.datatypes.sensors.LiDAR` mounted on the roof:
+
+       - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_TOP` (velodyne_points)
+
+.. dropdown:: Dataset Specific
+
+  .. autoclass:: py123d.conversion.registry.KITTI360BoxDetectionLabel
+    :members:
+    :no-index:
+    :no-inherited-members:
+
+  .. autoclass:: py123d.conversion.registry.KITTI360LiDARIndex
+    :members:
+    :no-index:
+    :no-inherited-members:
 
 
 Download
 ~~~~~~~~
 
-...
+You can download the KITTI-360 dataset from the `official website <https://www.cvlibs.net/datasets/kitti-360/>`_. Please follow the instructions provided there to obtain the data.
+The 123D library supports expect the dataset in the following directory structure:
 
-The 123D conversion expects the following directory structure:
+.. code-block:: text
+
+  $KITTI360_DATA_ROOT/
+  ├── calibration/
+  │   ├── calib_cam_to_pose.txt
+  │   ├── calib_cam_to_velo.txt
+  │   ├── calib_sick_to_velo.txt
+  │   ├── image_02.yaml
+  │   ├── image_03.yaml
+  │   └── perspective.txt
+  ├── data_2d_raw/
+  │   ├── 2013_05_28_drive_0000_sync/
+  │   │   ├── image_00/
+  │   │   │   ├── data_rect
+  │   │   │   │   ├── 0000000000.png
+  │   │   │   │   ├── ...
+  │   │   │   │   └── 0000011517.png
+  │   │   │   └── timestamps.txt
+  │   │   ├── image_01/
+  │   │   │   └── ...
+  │   │   ├── image_02/
+  │   │   │   ├── data_rgb
+  │   │   │   │   ├── 0000000000.png
+  │   │   │   │   ├── ...
+  │   │   │   │   └── 0000011517.png
+  │   │   │   └── timestamps.txt
+  │   │   └── image_03/
+  │   │       └── ...
+  │   ├── ...
+  │   └── 2013_05_28_drive_0018_sync/
+  │       └── ...
+  ├── data_2d_semantics/ (not yet supported)
+  │   └── ...
+  ├── data_3d_bboxes/
+  │   ├── train
+  │   │   ├── 2013_05_28_drive_0000_sync.xml
+  │   │   ├── ...
+  │   │   └── 2013_05_28_drive_0010_sync.xml
+  │   └── train_full
+  │       ├── 2013_05_28_drive_0000_sync.xml
+  │       ├── ...
+  │       └── 2013_05_28_drive_0010_sync.xml
+  ├── data_3d_raw/
+  │   ├── 2013_05_28_drive_0000_sync/
+  │   │   └── velodyne_points/
+  │   │       ├── data
+  │   │       │   ├── 0000000000.bin
+  │   │       │   ├── ...
+  │   │       │   └── 0000011517.bin
+  │   │       └── timestamps.txt
+  │   ├── ...
+  │   └── 2013_05_28_drive_0018_sync/
+  │       └── ...
+  ├── data_3d_semantics/ (not yet supported)
+  │   └── ...
+  └── data_poses/
+      ├── 2013_05_28_drive_0000_sync/
+      │   ├── cam0_to_world.txt
+      │   ├── oxts/
+      │   │   └── ...
+      │   └── poses.txt
+      ├── ...
+      └── 2013_05_28_drive_0018_sync/
+          └── ...
+
+Note that not all data modalities are currently supported in 123D. For example, semantic 2D and 3D data are not yet integrated.
+
 
 Installation
 ~~~~~~~~~~~~
 
-For *Template*, additional installation that are included as optional dependencies in ``py123d`` are required. You can install them via:
+No additional installation steps are required beyond the standard `py123d`` installation.
+
+
+Conversion
+~~~~~~~~~~
+
+You can convert the KITTI-360 dataset by running:
 
 .. code-block:: bash
 
-  pip install py123d[template]
-
-Or if you are installing from source:
-
-.. code-block:: bash
-
-  pip install -e .[template]
+  py123d-conversion datasets=["kitti360_dataset"]
 
 
-Dataset Specific
-~~~~~~~~~~~~~~~~
-
-.. dropdown:: Box Detection Labels
-
-  .. autoclass:: py123d.conversion.registry.DefaultBoxDetectionLabel
-    :members:
-    :no-inherited-members:
-
-.. dropdown:: LiDAR Index
-
-  .. autoclass:: py123d.conversion.registry.DefaultLiDARIndex
-    :members:
-    :no-inherited-members:
-
+Note, that you can assign the logs of KITTI-360 to different splits (e.g., "train", "val", "test") in the ``kitti360_dataset.yaml`` config.
 
 
 Dataset Issues
 ~~~~~~~~~~~~~~
 
-[Document any known issues, limitations, or considerations when using this dataset]
-
-* Issue 1: Description
-* Issue 2: Description
-* Issue 3: Description
-
-
-Citation
-~~~~~~~~
-
-If you use *Template* in your research, please cite:
-
-.. code-block:: bibtex
-
-  @article{AuthorYearConference,
-    title={Template: Some Dataset for Autonomous Driving},
-    author={},
-    booktitle={},
-    year={}
-  }
+* **Ego Vehicle:** The vehicle parameters from the VW station wagon are partially estimated and may be subject to inaccuracies.
+* **Map:** The ground primitives in KITTI-360 only cover surfaces, e.g. of the road, but not lane-level information. Drivable areas, road edges, walkways, driveways are included.
+* **Bounding Boxes:** Bounding boxes in KITTI-360 annotated globally. We therefore determine which boxes are visible in each frame on the number of LiDAR points contained in the box.
 
 
 Citation

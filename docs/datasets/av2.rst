@@ -149,27 +149,27 @@ The downloaded dataset should have the following structure:
 Installation
 ~~~~~~~~~~~~
 
-No additional installation steps are required beyond the standard ``py123d`` installation.
+No additional installation steps are required beyond the standard `py123d`` installation.
 
 
 Conversion
 ~~~~~~~~~~
 
-To run the conversion, you either need to set the environment variable ``$AV2_SENSOR_ROOT`` or ``$AV2_SENSOR_ROOT``.
+To run the conversion, you either need to set the environment variable ``$AV2_DATA_ROOT`` or ``$AV2_SENSOR_ROOT``.
 You can also override the file path and run:
 
 .. code-block:: bash
 
   py123d-conversion datasets=["av2_sensor_dataset"] \
-  dataset_paths.av2_sensor_data_root=$AV2_SENSOR_ROOT # optional if env variable is set
-
+  dataset_paths.av2_data_root=$AV2_DATA_ROOT # optional if env variable is set
 
 
 
 Dataset Issues
 ~~~~~~~~~~~~~~
 
-n/a
+- **Ego Vehicle:** The vehicle parameters are partially estimated and may be subject to inaccuracies.
+
 
 
 Citation

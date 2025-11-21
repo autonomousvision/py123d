@@ -14,7 +14,7 @@ from py123d.conversion.registry.lidar_index_registry import (
     AV2SensorLiDARIndex,
     CARLALiDARIndex,
     DefaultLiDARIndex,
-    Kitti360LiDARIndex,
+    KITTI360LiDARIndex,
     LiDARIndex,
     NuPlanLiDARIndex,
     NuScenesLiDARIndex,

@@ -100,9 +100,9 @@ class NuPlanConverter(AbstractDatasetConverter):
         assert nuplan_maps_root is not None, "The variable `nuplan_maps_root` must be provided."
         assert nuplan_sensor_root is not None, "The variable `nuplan_sensor_root` must be provided."
         for split in splits:
-            assert (
-                split in NUPLAN_DATA_SPLITS
-            ), f"Split {split} is not available. Available splits: {NUPLAN_DATA_SPLITS}"
+            assert split in NUPLAN_DATA_SPLITS, (
+                f"Split {split} is not available. Available splits: {NUPLAN_DATA_SPLITS}"
+            )
 
         self._splits: List[str] = splits
         self._nuplan_data_root: Path = Path(nuplan_data_root)

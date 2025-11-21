@@ -75,7 +75,7 @@ class WOPDLiDARIndex(LiDARIndex):
 
 
 @register_lidar_index
-class Kitti360LiDARIndex(LiDARIndex):
+class KITTI360LiDARIndex(LiDARIndex):
     """KITTI-360 LiDAR Indexing Scheme."""
 
     X = 0

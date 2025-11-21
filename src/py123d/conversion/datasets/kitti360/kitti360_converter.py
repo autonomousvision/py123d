@@ -26,7 +26,7 @@ from py123d.conversion.datasets.kitti360.utils.kitti360_labels import (
 from py123d.conversion.datasets.kitti360.utils.preprocess_detection import process_detection
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.registry import KITTI360BoxDetectionLabel, Kitti360LiDARIndex
+from py123d.conversion.registry import KITTI360BoxDetectionLabel, KITTI360LiDARIndex
 from py123d.datatypes.detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.metadata import LogMetadata, MapMetadata
 from py123d.datatypes.sensors import (
@@ -439,7 +439,7 @@ def _get_kitti360_lidar_metadata(
         extrinsic_pose_se3 = _extrinsic_from_imu_to_rear_axle(extrinsic_pose_se3)
         metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
             lidar_type=LiDARType.LIDAR_TOP,
-            lidar_index=Kitti360LiDARIndex,
+            lidar_index=KITTI360LiDARIndex,
             extrinsic=extrinsic_pose_se3,
         )
     return metadata

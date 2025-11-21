@@ -71,9 +71,9 @@ def add_box_detections_to_camera_ax(
         [detection.metadata.default_label for detection in box_detections.box_detections], dtype=object
     )
     for idx, box_detection in enumerate(box_detections.box_detections):
-        assert isinstance(
-            box_detection, BoxDetectionSE3
-        ), f"Box detection must be of type BoxDetectionSE3, got {type(box_detection)}"
+        assert isinstance(box_detection, BoxDetectionSE3), (
+            f"Box detection must be of type BoxDetectionSE3, got {type(box_detection)}"
+        )
         box_detection_array[idx] = box_detection.bounding_box_se3.array
 
     # FIXME

@@ -88,6 +88,10 @@ class ArrayMixin:
         """String representation of the ArrayMixin instance."""
         return f"{self.__class__.__name__}(array={self.array})"
 
+    def __hash__(self):
+        """Hash based on the array values."""
+        return hash(self.array.tobytes())
+
 
 def indexed_array_repr(array_mixin: ArrayMixin, indexing: IntEnum) -> str:
     """Generate a string representation of an ArrayMixin instance using an indexing enum.

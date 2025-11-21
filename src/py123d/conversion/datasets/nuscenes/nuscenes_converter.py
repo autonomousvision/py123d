@@ -84,9 +84,9 @@ class NuScenesConverter(AbstractDatasetConverter):
         assert nuscenes_data_root is not None, "The variable `nuscenes_data_root` must be provided."
         assert nuscenes_map_root is not None, "The variable `nuscenes_map_root` must be provided."
         for split in splits:
-            assert (
-                split in NUSCENES_DATA_SPLITS
-            ), f"Split {split} is not available. Available splits: {NUSCENES_DATA_SPLITS}"
+            assert split in NUSCENES_DATA_SPLITS, (
+                f"Split {split} is not available. Available splits: {NUSCENES_DATA_SPLITS}"
+            )
 
         self._splits: List[str] = splits
 

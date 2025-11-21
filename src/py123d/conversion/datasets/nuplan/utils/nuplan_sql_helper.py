@@ -116,7 +116,7 @@ def get_nearest_ego_pose_for_timestamp_from_db(
             INNER JOIN lidar_pc AS lpc
                 ON  ep.timestamp <= lpc.timestamp + ?
                 AND ep.timestamp >= lpc.timestamp - ?
-            WHERE lpc.token IN ({('?,'*len(tokens))[:-1]})
+            WHERE lpc.token IN ({("?," * len(tokens))[:-1]})
         ORDER BY ABS(ep.timestamp - ?)
         LIMIT 1
     """  # noqa: E226

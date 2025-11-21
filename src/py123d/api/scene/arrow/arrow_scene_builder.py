@@ -60,9 +60,9 @@ class ArrowSceneBuilder(SceneBuilder):
 
 def _discover_split_names(logs_root: Path, split_types: Set[str]) -> Set[str]:
     """Discovers split names in the logs root directory based on the specified split types."""
-    assert set(split_types).issubset(
-        {"train", "val", "test"}
-    ), f"Invalid split types: {split_types}. Valid split types are 'train', 'val', 'test'."
+    assert set(split_types).issubset({"train", "val", "test"}), (
+        f"Invalid split types: {split_types}. Valid split types are 'train', 'val', 'test'."
+    )
     split_names: List[str] = []
     for split in logs_root.iterdir():
         split_name = split.name

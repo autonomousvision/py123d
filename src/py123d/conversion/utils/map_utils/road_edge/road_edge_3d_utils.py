@@ -301,9 +301,9 @@ def _resolve_conflicting_lane_groups(
 
 def _get_nearest_z_from_points_3d(points_3d: npt.NDArray[np.float64], query_point: npt.NDArray[np.float64]) -> float:
     """Helpers function to get the Z-value of the nearest 3D point to a query point."""
-    assert points_3d.ndim == 2 and points_3d.shape[1] == len(
-        Point3DIndex
-    ), "points_3d must be a 2D array with shape (N, 3)"
+    assert points_3d.ndim == 2 and points_3d.shape[1] == len(Point3DIndex), (
+        "points_3d must be a 2D array with shape (N, 3)"
+    )
     distances = np.linalg.norm(points_3d[..., Point3DIndex.XY] - query_point[..., Point3DIndex.XY], axis=1)
     closest_point = points_3d[np.argmin(distances)]
     return closest_point[2]

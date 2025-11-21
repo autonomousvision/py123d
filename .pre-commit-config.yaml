@@ -19,12 +19,12 @@ repos:
         args: ['--no-sort-keys', "--autofix"]
 
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.2
+    rev: v0.14.6
     hooks:
-      - id: ruff
+      - id: ruff-check  # Run the linter.
         args: [--fix]
         exclude: __init__.py$
-      - id: ruff-format
+      - id: ruff-format  # Run the formatter.
         exclude: __init__.py$
 -   repo: https://github.com/kynan/nbstripout
     rev: 0.8.1

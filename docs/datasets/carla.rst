@@ -3,6 +3,7 @@ CARLA
 
 CARLA is an open-source simulator for autonomous driving research.
 As such CARLA data is synthetic and can be generated with varying sensor and environmental conditions.
+The following documentation is largely incomplete and merely describes the provided demo data.
 
 .. dropdown:: Quick Links
   :open:
@@ -46,7 +47,7 @@ Available Modalities
      - Depending on the collected dataset. For further information, see :class:`~py123d.datatypes.detections.BoxDetectionWrapper`.
    * - Traffic Lights
      - X
-     - TODO
+     - n/a
    * - Pinhole Cameras
      - ✓
      - Depending on the collected dataset. For further information, see :class:`~py123d.datatypes.sensors.PinholeCamera`.
@@ -90,12 +91,7 @@ Dataset Specific
 Dataset Issues
 ~~~~~~~~~~~~~~
 
-[Document any known issues, limitations, or considerations when using this dataset]
-
-* Issue 1: Description
-* Issue 2: Description
-* Issue 3: Description
-
+n/a
 
 Citation
 ~~~~~~~~

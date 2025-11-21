@@ -56,7 +56,7 @@ def get_row_with_value(
     if matching_rows is not None:
         assert len(matching_rows) > 0, f"Could not find the desired key = {desired_value}"
         assert len(matching_rows) == 1, (
-            f"{len(matching_rows)} matching keys found. Expected to only find one." "Try using get_all_rows_with_value"
+            f"{len(matching_rows)} matching keys found. Expected to only find one.Try using get_all_rows_with_value"
         )
         geo_series = matching_rows.iloc[0]
     return geo_series

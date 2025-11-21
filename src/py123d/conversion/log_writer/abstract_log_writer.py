@@ -85,9 +85,9 @@ class LiDARData:
     point_cloud: Optional[npt.NDArray[np.float32]] = None
 
     def __post_init__(self):
-        assert (
-            self.has_file_path or self.has_point_cloud
-        ), "Either file path (dataset_root and relative_path) or point_cloud must be provided for LiDARData."
+        assert self.has_file_path or self.has_point_cloud, (
+            "Either file path (dataset_root and relative_path) or point_cloud must be provided for LiDARData."
+        )
 
     @property
     def has_file_path(self) -> bool:
@@ -112,9 +112,9 @@ class CameraData:
     relative_path: Optional[Union[str, Path]] = None
 
     def __post_init__(self):
-        assert (
-            self.has_file_path or self.has_jpeg_binary or self.has_numpy_image
-        ), "Either file path (dataset_root and relative_path) or jpeg_binary or numpy_image must be provided for CameraData."
+        assert self.has_file_path or self.has_jpeg_binary or self.has_numpy_image, (
+            "Either file path (dataset_root and relative_path) or jpeg_binary or numpy_image must be provided for CameraData."
+        )
 
         if self.has_file_path:
             absolute_path = Path(self.dataset_root) / self.relative_path

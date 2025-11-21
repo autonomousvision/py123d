@@ -217,9 +217,9 @@ def fill_lane_boundaries(
         lane_queries_3d = [
             Point3D.from_array(point_3d_array) for point_3d_array in lane_polyline.interpolate(distances_3d)
         ]
-        assert len(lane_queries_se2) == len(
-            lane_queries_3d
-        ), f"Number of sampled SE2 poses {len(lane_queries_se2)} and 3D points {len(lane_queries_3d)} must be the same"
+        assert len(lane_queries_se2) == len(lane_queries_3d), (
+            f"Number of sampled SE2 poses {len(lane_queries_se2)} and 3D points {len(lane_queries_3d)} must be the same"
+        )
 
         for sign in [1.0, -1.0]:
             boundary_points_3d: List[Optional[Point3D]] = []
