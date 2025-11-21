@@ -1,6 +1,6 @@
 import pickle
 from pathlib import Path
-from typing import Dict, Final, List, Optional, Tuple, Union
+from typing import Dict, Final, List, Tuple, Union
 
 import numpy as np
 import yaml
@@ -24,28 +24,28 @@ from py123d.conversion.datasets.nuplan.utils.nuplan_sql_helper import (
 )
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.registry.box_detection_label_registry import NuPlanBoxDetectionLabel
-from py123d.conversion.registry.lidar_index_registry import NuPlanLiDARIndex
-from py123d.datatypes.detections.box_detections import BoxDetectionSE3, BoxDetectionWrapper
-from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetection, TrafficLightDetectionWrapper
-from py123d.datatypes.maps.map_metadata import MapMetadata
-from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
-from py123d.datatypes.sensors.pinhole_camera import (
+from py123d.conversion.registry import NuPlanBoxDetectionLabel, NuPlanLiDARIndex
+from py123d.datatypes.detections import (
+    BoxDetectionSE3,
+    BoxDetectionWrapper,
+    TrafficLightDetection,
+    TrafficLightDetectionWrapper,
+)
+from py123d.datatypes.metadata import LogMetadata, MapMetadata
+from py123d.datatypes.sensors import (
+    LiDARMetadata,
+    LiDARType,
     PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
 )
-from py123d.datatypes.time.time_point import TimePoint
-from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
-from py123d.datatypes.vehicle_state.vehicle_parameters import (
-    get_nuplan_chrysler_pacifica_parameters,
-    rear_axle_se3_to_center_se3,
-)
-from py123d.geometry import StateSE3, Vector3D
+from py123d.datatypes.time import TimePoint
+from py123d.datatypes.vehicle_state import DynamicStateSE3, EgoStateSE3
+from py123d.datatypes.vehicle_state.vehicle_parameters import get_nuplan_chrysler_pacifica_parameters
+from py123d.geometry import PoseSE3, Vector3D
 
-check_dependencies(["nuplan", "sqlalchemy"], "nuplan")
+check_dependencies(["nuplan"], "nuplan")
 from nuplan.database.nuplan_db.nuplan_scenario_queries import get_cameras, get_images_from_lidar_tokens
 from nuplan.database.nuplan_db_orm.lidar_pc import LidarPc
 from nuplan.database.nuplan_db_orm.nuplandb import NuPlanDB
@@ -76,6 +76,8 @@ def create_splits_logs() -> Dict[str, List[str]]:
 
 
 class NuPlanConverter(AbstractDatasetConverter):
+    """Converter class for the nuPlan dataset."""
+
     def __init__(
         self,
         splits: List[str],
@@ -84,27 +86,38 @@ class NuPlanConverter(AbstractDatasetConverter):
         nuplan_sensor_root: Union[Path, str],
         dataset_converter_config: DatasetConverterConfig,
     ) -> None:
+        """Initializes the NuPlanConverter.
+
+        :param splits: List of splits to convert, i.e., ["nuplan_train", "nuplan_val", "nuplan_test"]
+        :param nuplan_data_root: Root directory of the nuPlan data.
+        :param nuplan_maps_root: Root directory of the nuPlan maps.
+        :param nuplan_sensor_root: Root directory of the nuPlan sensor data.
+        :param dataset_converter_config: Configuration for the dataset converter.
+        """
+
         super().__init__(dataset_converter_config)
         assert nuplan_data_root is not None, "The variable `nuplan_data_root` must be provided."
         assert nuplan_maps_root is not None, "The variable `nuplan_maps_root` must be provided."
         assert nuplan_sensor_root is not None, "The variable `nuplan_sensor_root` must be provided."
         for split in splits:
-            assert (
-                split in NUPLAN_DATA_SPLITS
-            ), f"Split {split} is not available. Available splits: {NUPLAN_DATA_SPLITS}"
+            assert split in NUPLAN_DATA_SPLITS, (
+                f"Split {split} is not available. Available splits: {NUPLAN_DATA_SPLITS}"
+            )
 
         self._splits: List[str] = splits
         self._nuplan_data_root: Path = Path(nuplan_data_root)
         self._nuplan_maps_root: Path = Path(nuplan_maps_root)
         self._nuplan_sensor_root: Path = Path(nuplan_sensor_root)
 
-        self._split_log_path_pairs: List[Tuple[str, List[Path]]] = self._collect_split_log_path_pairs()
+        self._split_log_path_pairs: List[Tuple[str, Path]] = self._collect_split_log_path_pairs()
 
-    def _collect_split_log_path_pairs(self) -> List[Tuple[str, List[Path]]]:
+    def _collect_split_log_path_pairs(self) -> List[Tuple[str, Path]]:
+        """Collects the (split, log_path) pairs for the specified splits."""
+
         # NOTE: the nuplan mini folder has an internal train, val, test structure, all stored in "mini".
         # The complete dataset is saved in the "trainval" folder (train and val), or in the "test" folder (for test).
         # Thus, we need filter the logs in a split, based on the internal nuPlan configuration.
-        split_log_path_pairs: List[Tuple[str, List[Path]]] = []
+        split_log_path_pairs: List[Tuple[str, Path]] = []
         log_names_per_split = create_splits_logs()
 
         for split in self._splits:
@@ -117,20 +130,13 @@ class NuPlanConverter(AbstractDatasetConverter):
                 nuplan_split_folder = self._nuplan_data_root / "nuplan-v1.1" / "splits" / "test"
             elif split in ["nuplan-mini_train", "nuplan-mini_val", "nuplan-mini_test"]:
                 nuplan_split_folder = self._nuplan_data_root / "nuplan-v1.1" / "splits" / "mini"
-            elif split == "nuplan-private_test":
-                # TODO: Remove private split
-                nuplan_split_folder = self._nuplan_data_root / "nuplan-v1.1" / "splits" / "private_test"
+            else:
+                raise ValueError(f"Unknown nuPlan split: {split}")
 
             all_log_files_in_path = [log_file for log_file in nuplan_split_folder.glob("*.db")]
-
-            # TODO: Remove private split
-            if split == "nuplan-private_test":
-                valid_log_names = [str(log_file.stem) for log_file in all_log_files_in_path]
-            else:
-                all_log_files_in_path = [log_file for log_file in nuplan_split_folder.glob("*.db")]
-                all_log_names = set([str(log_file.stem) for log_file in all_log_files_in_path])
-                log_names_in_split = set(log_names_per_split[split_type])
-                valid_log_names = list(all_log_names & log_names_in_split)
+            all_log_names = set([str(log_file.stem) for log_file in all_log_files_in_path])
+            log_names_in_split = set(log_names_per_split[split_type])
+            valid_log_names = list(all_log_names & log_names_in_split)
 
             for log_name in valid_log_names:
                 log_path = nuplan_split_folder / f"{log_name}.db"
@@ -166,9 +172,7 @@ class NuPlanConverter(AbstractDatasetConverter):
         """Inherited, see superclass."""
 
         split, source_log_path = self._split_log_path_pairs[log_index]
-
-        nuplan_log_db = NuPlanDB(self._nuplan_data_root, str(source_log_path), None)
-
+        nuplan_log_db = NuPlanDB(str(self._nuplan_data_root), str(source_log_path), None)
         log_name = nuplan_log_db.log_name
 
         # 1. Initialize log metadata
@@ -181,10 +185,14 @@ class NuPlanConverter(AbstractDatasetConverter):
             vehicle_parameters=get_nuplan_chrysler_pacifica_parameters(),
             box_detection_label_class=NuPlanBoxDetectionLabel,
             pinhole_camera_metadata=_get_nuplan_camera_metadata(
-                source_log_path, self._nuplan_sensor_root, self.dataset_converter_config
+                source_log_path,
+                self._nuplan_sensor_root,
+                self.dataset_converter_config,
             ),
             lidar_metadata=_get_nuplan_lidar_metadata(
-                self._nuplan_sensor_root, log_name, self.dataset_converter_config
+                self._nuplan_sensor_root,
+                log_name,
+                self.dataset_converter_config,
             ),
             map_metadata=_get_nuplan_map_metadata(nuplan_log_db.log.map_version),
         )
@@ -195,7 +203,6 @@ class NuPlanConverter(AbstractDatasetConverter):
         if log_needs_writing:
             step_interval: float = int(TARGET_DT / NUPLAN_DEFAULT_DT)
             for nuplan_lidar_pc in nuplan_log_db.lidar_pc[::step_interval]:
-
                 lidar_pc_token: str = nuplan_lidar_pc.token
                 log_writer.write(
                     timestamp=TimePoint.from_us(nuplan_lidar_pc.timestamp),
@@ -229,6 +236,7 @@ class NuPlanConverter(AbstractDatasetConverter):
 
 
 def _get_nuplan_map_metadata(location: str) -> MapMetadata:
+    """Gets the nuPlan map metadata for a given location."""
     return MapMetadata(
         dataset="nuplan",
         split=None,
@@ -244,6 +252,7 @@ def _get_nuplan_camera_metadata(
     nuplan_sensor_root: Path,
     dataset_converter_config: DatasetConverterConfig,
 ) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
+    """Extracts the nuPlan camera metadata for a given log."""
 
     def _get_camera_metadata(camera_type: PinholeCameraType) -> PinholeCameraMetadata:
         cam = list(get_cameras(source_log_path, [str(NUPLAN_CAMERA_MAPPING[camera_type].value)]))[0]
@@ -278,10 +287,9 @@ def _get_nuplan_lidar_metadata(
     log_name: str,
     dataset_converter_config: DatasetConverterConfig,
 ) -> Dict[LiDARType, LiDARMetadata]:
-
+    """Extracts the nuPlan LiDAR metadata for a given log."""
     metadata: Dict[LiDARType, LiDARMetadata] = {}
     log_lidar_folder = nuplan_sensor_root / log_name / "MergedPointCloud"
-
     # NOTE: We first need to check if the LiDAR folder exists, as not all logs have LiDAR data
     if log_lidar_folder.exists() and log_lidar_folder.is_dir() and dataset_converter_config.include_lidars:
         for lidar_type in NUPLAN_LIDAR_DICT.values():
@@ -294,9 +302,10 @@ def _get_nuplan_lidar_metadata(
 
 
 def _extract_nuplan_ego_state(nuplan_lidar_pc: LidarPc) -> EgoStateSE3:
+    """Extracts the nuPlan ego state from a given LidarPc database objects."""
 
     vehicle_parameters = get_nuplan_chrysler_pacifica_parameters()
-    rear_axle_pose = StateSE3(
+    rear_axle_pose = PoseSE3(
         x=nuplan_lidar_pc.ego_pose.x,
         y=nuplan_lidar_pc.ego_pose.y,
         z=nuplan_lidar_pc.ego_pose.z,
@@ -305,8 +314,7 @@ def _extract_nuplan_ego_state(nuplan_lidar_pc: LidarPc) -> EgoStateSE3:
         qy=nuplan_lidar_pc.ego_pose.qy,
         qz=nuplan_lidar_pc.ego_pose.qz,
     )
-    center = rear_axle_se3_to_center_se3(rear_axle_se3=rear_axle_pose, vehicle_parameters=vehicle_parameters)
-    dynamic_state = DynamicStateSE3(
+    dynamic_state_se3 = DynamicStateSE3(
         velocity=Vector3D(
             x=nuplan_lidar_pc.ego_pose.vx,
             y=nuplan_lidar_pc.ego_pose.vy,
@@ -323,22 +331,23 @@ def _extract_nuplan_ego_state(nuplan_lidar_pc: LidarPc) -> EgoStateSE3:
             z=nuplan_lidar_pc.ego_pose.angular_rate_z,
         ),
     )
-    return EgoStateSE3(
-        center_se3=center,
-        dynamic_state_se3=dynamic_state,
+    return EgoStateSE3.from_rear_axle(
+        rear_axle_se3=rear_axle_pose,
         vehicle_parameters=vehicle_parameters,
-        timepoint=None,  # NOTE: Timepoint is not needed during writing, set to None
+        dynamic_state_se3=dynamic_state_se3,
     )
 
 
 def _extract_nuplan_box_detections(lidar_pc: LidarPc, source_log_path: Path) -> BoxDetectionWrapper:
-    box_detections: List[BoxDetectionSE3] = list(
-        get_box_detections_for_lidarpc_token_from_db(source_log_path, lidar_pc.token)
+    """Extracts the nuPlan box detections from a given LidarPc database objects."""
+    box_detections: List[BoxDetectionSE3] = get_box_detections_for_lidarpc_token_from_db(
+        str(source_log_path), lidar_pc.token
     )
     return BoxDetectionWrapper(box_detections=box_detections)
 
 
 def _extract_nuplan_traffic_lights(log_db: NuPlanDB, lidar_pc_token: str) -> TrafficLightDetectionWrapper:
+    """Extracts the nuPlan traffic light detections from a given LidarPc database objects."""
     traffic_lights_detections: List[TrafficLightDetection] = [
         TrafficLightDetection(
             timepoint=None,  # NOTE: Timepoint is not needed during writing, set to None
@@ -357,22 +366,19 @@ def _extract_nuplan_cameras(
     nuplan_sensor_root: Path,
     dataset_converter_config: DatasetConverterConfig,
 ) -> List[CameraData]:
-
+    """Extracts the nuPlan camera data from a given LidarPc database objects."""
     camera_data_list: List[CameraData] = []
-
     if dataset_converter_config.include_pinhole_cameras:
         log_cam_infos = {camera.token: camera for camera in nuplan_log_db.log.cameras}
         for camera_type, camera_channel in NUPLAN_CAMERA_MAPPING.items():
-            camera_data: Optional[Union[str, bytes]] = None
             image_class = list(
-                get_images_from_lidar_tokens(source_log_path, [nuplan_lidar_pc.token], [str(camera_channel.value)])
+                get_images_from_lidar_tokens(str(source_log_path), [nuplan_lidar_pc.token], [str(camera_channel.value)])
             )
 
             if len(image_class) != 0:
                 image = image_class[0]
                 filename_jpg = nuplan_sensor_root / image.filename_jpg
                 if filename_jpg.exists() and filename_jpg.is_file():
-
                     # NOTE: This part of the modified from the MTGS code
                     # In MTGS, a slower method is used to find the nearest ego pose.
                     # The code below uses a direct SQL query to find the nearest ego pose, in a given window.
@@ -393,7 +399,7 @@ def _extract_nuplan_cameras(
                     cam_info = log_cam_infos[image.camera_token]
                     c2img_e = cam_info.trans_matrix
                     c2e = img_e2e @ c2img_e
-                    extrinsic = StateSE3.from_transformation_matrix(c2e)
+                    extrinsic = PoseSE3.from_transformation_matrix(c2e)
 
                     # Store in dictionary
                     camera_data_list.append(
@@ -404,7 +410,6 @@ def _extract_nuplan_cameras(
                             relative_path=filename_jpg.relative_to(nuplan_sensor_root),
                         )
                     )
-
     return camera_data_list
 
 
@@ -413,10 +418,9 @@ def _extract_nuplan_lidars(
     nuplan_sensor_root: Path,
     dataset_converter_config: DatasetConverterConfig,
 ) -> List[LiDARData]:
-
+    """Extracts the nuPlan LiDAR data from a given LidarPc database objects."""
     lidars: List[LiDARData] = []
     if dataset_converter_config.include_lidars:
-
         lidar_full_path = nuplan_sensor_root / nuplan_lidar_pc.filename
         if lidar_full_path.exists() and lidar_full_path.is_file():
             lidars.append(
@@ -426,11 +430,11 @@ def _extract_nuplan_lidars(
                     relative_path=nuplan_lidar_pc.filename,
                 )
             )
-
     return lidars
 
 
 def _extract_nuplan_scenario_tag(nuplan_log_db: NuPlanDB, lidar_pc_token: str) -> List[str]:
+    """Extracts the nuPlan scenario tags from a given LidarPc database objects."""
     scenario_tags = [
         scenario_tag.type for scenario_tag in nuplan_log_db.scenario_tag.select_many(lidar_pc_token=lidar_pc_token)
     ]
@@ -440,6 +444,7 @@ def _extract_nuplan_scenario_tag(nuplan_log_db: NuPlanDB, lidar_pc_token: str) -
 
 
 def _extract_nuplan_route_lane_group_ids(nuplan_lidar_pc: LidarPc) -> List[int]:
+    """Extracts the nuPlan route lane group IDs from a given LidarPc database objects."""
     return [
         int(roadblock_id)
         for roadblock_id in str(nuplan_lidar_pc.scene.roadblock_ids).split(" ")

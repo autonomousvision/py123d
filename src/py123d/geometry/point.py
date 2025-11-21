@@ -1,22 +1,34 @@
 from __future__ import annotations
 
-from typing import Iterable
-
 import numpy as np
 import numpy.typing as npt
 import shapely.geometry as geom
 
-from py123d.common.utils.mixin import ArrayMixin
+from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
 from py123d.geometry.geometry_index import Point2DIndex, Point3DIndex
 
 
 class Point2D(ArrayMixin):
-    """Class to represents 2D points."""
+    """Class presenting a 2D point.
 
+    Example:
+        >>> from py123d.geometry import Point2D
+        >>> point_2d = Point2D(1.0, 2.0)
+        >>> point_2d.x, point_2d.y
+        (1.0, 2.0)
+        >>> point_2d.array
+        array([1., 2.])
+    """
+
+    __slots__ = ("_array",)
     _array: npt.NDArray[np.float64]
 
     def __init__(self, x: float, y: float):
-        """Initialize StateSE2 with x, y, yaw coordinates."""
+        """Initializes :class:`Point2D` with x, y coordinates.
+
+        :param x: The x coordinate.
+        :param y: The y coordinate.
+        """
         array = np.zeros(len(Point2DIndex), dtype=np.float64)
         array[Point2DIndex.X] = x
         array[Point2DIndex.Y] = y
@@ -24,10 +36,9 @@ class Point2D(ArrayMixin):
 
     @classmethod
     def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> Point2D:
-        """Constructs a Point2D from a numpy array.
+        """Creates a :class:`Point2D` from a (2,) shaped numpy array, indexed by :class:`~py123d.geometry.Point2DIndex`.
 
-        :param array: Array of shape (2,) representing the point coordinates [x, y], indexed by \
-            :class:`~py123d.geometry.Point2DIndex`.
+        :param array: A (2,) shaped numpy array representing the point coordinates (x,y).
         :param copy: Whether to copy the input array. Defaults to True.
         :return: A Point2D instance.
         """
@@ -39,53 +50,57 @@ class Point2D(ArrayMixin):
 
     @property
     def x(self) -> float:
-        """The x coordinate of the point.
-
-        :return: The x coordinate of the point.
-        """
+        """The x coordinate of the point."""
         return self._array[Point2DIndex.X]
 
     @property
     def y(self) -> float:
-        """The y coordinate of the point.
-
-        :return: The y coordinate of the point.
-        """
+        """The y coordinate of the point."""
         return self._array[Point2DIndex.Y]
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
-        """The array representation of the point.
-
-        :return: A numpy array of shape (2,) containing the point coordinates [x, y], indexed by \
-            :class:`~py123d.geometry.Point2DIndex`.
-        """
+        """The array representation of shape (2,), indexed by :class:`~py123d.geometry.Point2DIndex`."""
         return self._array
 
     @property
     def shapely_point(self) -> geom.Point:
-        """The Shapely Point representation of the 2D point.
-
-        :return: A Shapely Point representation of the 2D point.
-        """
+        """The shapely point representation of the 2D point."""
         return geom.Point(self.x, self.y)
 
-    def __iter__(self) -> Iterable[float]:
-        """Iterator over point coordinates."""
-        return iter((self.x, self.y))
+    @property
+    def point_2d(self) -> Point2D:
+        """Returns the :class:`Point2D` instance itself."""
+        return self
 
-    def __hash__(self) -> int:
-        """Hash method"""
-        return hash((self.x, self.y))
+    def __repr__(self) -> str:
+        """String representation of :class:`Point2D`."""
+        return indexed_array_repr(self, Point2DIndex)
 
 
 class Point3D(ArrayMixin):
-    """Class to represents 3D points."""
+    """Class presenting a 3D point.
 
+    Example:
+        >>> from py123d.geometry import Point3D
+        >>> point_3d = Point3D(1.0, 2.0, 3.0)
+        >>> point_3d.x, point_3d.y, point_3d.z
+        (1.0, 2.0, 3.0)
+        >>> point_3d.array
+        array([1., 2., 3.])
+
+    """
+
+    __slots__ = ("_array",)
     _array: npt.NDArray[np.float64]
 
     def __init__(self, x: float, y: float, z: float):
-        """Initialize Point3D with x, y, z coordinates."""
+        """Initializes :class:`Point3D` with x, y, z coordinates.
+
+        :param x: The x coordinate.
+        :param y: The y coordinate.
+        :param z: The z coordinate.
+        """
         array = np.zeros(len(Point3DIndex), dtype=np.float64)
         array[Point3DIndex.X] = x
         array[Point3DIndex.Y] = y
@@ -94,12 +109,10 @@ class Point3D(ArrayMixin):
 
     @classmethod
     def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> Point3D:
-        """Constructs a Point3D from a numpy array.
+        """Creates a :class:`Point3D` from a (3,) shaped numpy array, indexed by :class:`~py123d.geometry.Point3DIndex`.
 
-        :param array: Array of shape (3,) representing the point coordinates [x, y, z], indexed by \
-            :class:`~py123d.geometry.Point3DIndex`.
+        :param array: A (3,) shaped numpy array representing the point coordinates (x,y,z).
         :param copy: Whether to copy the input array. Defaults to True.
-        :return: A Point3D instance.
         """
         assert array.ndim == 1
         assert array.shape[0] == len(Point3DIndex)
@@ -108,59 +121,40 @@ class Point3D(ArrayMixin):
         return instance
 
     @property
-    def array(self) -> npt.NDArray[np.float64]:
-        """The array representation of the point.
-
-        :return: A numpy array of shape (3,) containing the point coordinates [x, y, z], indexed by \
-            :class:`~py123d.geometry.Point3DIndex`.
-        """
-        return self._array
-
-    @property
     def x(self) -> float:
-        """The x coordinate of the point.
-
-        :return: The x coordinate of the point.
-        """
+        """The x coordinate of the point."""
         return self._array[Point3DIndex.X]
 
     @property
     def y(self) -> float:
-        """The y coordinate of the point.
-
-        :return: The y coordinate of the point.
-        """
+        """The y coordinate of the point."""
         return self._array[Point3DIndex.Y]
 
     @property
     def z(self) -> float:
-        """The z coordinate of the point.
-
-        :return: The z coordinate of the point.
-        """
+        """The z coordinate of the point."""
         return self._array[Point3DIndex.Z]
 
     @property
-    def point_2d(self) -> Point2D:
-        """The 2D projection of the 3D point.
+    def array(self) -> npt.NDArray[np.float64]:
+        """The array representation of shape (3,), indexed by :class:`~py123d.geometry.Point3DIndex`."""
+        return self._array
 
-        :return: A Point2D instance representing the 2D projection of the 3D point.
-        """
+    @property
+    def point_3d(self) -> Point3D:
+        """Returns the :class:`Point3D` instance itself."""
+        return self
+
+    @property
+    def point_2d(self) -> Point2D:
+        """The 2D projection of the 3D point as a :class:`Point2D` instance."""
         return Point2D.from_array(self.array[Point3DIndex.XY], copy=False)
 
     @property
     def shapely_point(self) -> geom.Point:
-        """The Shapely Point representation of the 3D point. \
-            This geometry contains the z-coordinate, but many Shapely operations ignore it.
-
-        :return: A Shapely Point representation of the 3D point.
-        """
+        """The shapely point representation of the 3D point."""
         return geom.Point(self.x, self.y, self.z)
 
-    def __iter__(self) -> Iterable[float]:
-        """Iterator over the point coordinates (x, y, z)."""
-        return iter((self.x, self.y, self.z))
-
-    def __hash__(self) -> int:
-        """Hash method"""
-        return hash((self.x, self.y, self.z))
+    def __repr__(self) -> str:
+        """String representation of :class:`Point3D`."""
+        return indexed_array_repr(self, Point3DIndex)

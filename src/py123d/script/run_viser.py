@@ -18,7 +18,6 @@ CONFIG_NAME = "default_viser"
 
 @hydra.main(config_path=CONFIG_PATH, config_name=CONFIG_NAME, version_base=None)
 def main(cfg: DictConfig) -> None:
-
     # Initialize dataset paths
     setup_dataset_paths(cfg.dataset_paths)
 

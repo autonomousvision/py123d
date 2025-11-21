@@ -3,7 +3,7 @@ name: docs
 on:
   push:
     branches:
-      - main # Change this to your branch name (e.g., docs, dev, etc.)
+      - main
   workflow_dispatch:  # Allows manual triggering
 
 permissions:

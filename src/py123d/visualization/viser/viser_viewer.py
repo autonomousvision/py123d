@@ -8,8 +8,8 @@ import viser
 from tqdm import tqdm
 from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
 
-from py123d.datatypes.maps.map_datatypes import MapLayer
-from py123d.datatypes.scene.abstract_scene import AbstractScene
+from py123d.api.scene.scene_api import SceneAPI
+from py123d.datatypes.map_objects.map_layer_types import MapLayer
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraType
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
@@ -43,24 +43,24 @@ def _build_viser_server(viser_config: ViserConfig) -> viser.ViserServer:
         TitlebarButton(
             text="Getting Started",
             icon=None,
-            href="https://danieldauner.github.io/py123d",
+            href="https://autonomousvision.github.io/py123d",
         ),
         TitlebarButton(
             text="Github",
             icon="GitHub",
-            href="https://github.com/DanielDauner/py123d",
+            href="https://github.com/autonomousvision/py123d",
         ),
         TitlebarButton(
             text="Documentation",
             icon="Description",
-            href="https://danieldauner.github.io/py123d",
+            href="https://autonomousvision.github.io/py123d",
         ),
     )
     image = TitlebarImage(
-        image_url_light="https://danieldauner.github.io/py123d/_static/logo_black.png",
-        image_url_dark="https://danieldauner.github.io/py123d/_static/logo_white.png",
+        image_url_light="https://autonomousvision.github.io/py123d/_static/123D_logo_transparent_black.svg",
+        image_url_dark="https://autonomousvision.github.io/py123d/_static/123D_logo_transparent_white.svg",
         image_alt="123D",
-        href="https://danieldauner.github.io/py123d/",
+        href="https://autonomousvision.github.io/py123d/",
     )
     titlebar_theme = TitlebarConfig(buttons=buttons, image=image)
 
@@ -79,7 +79,7 @@ def _build_viser_server(viser_config: ViserConfig) -> viser.ViserServer:
 class ViserViewer:
     def __init__(
         self,
-        scenes: List[AbstractScene],
+        scenes: List[SceneAPI],
         viser_config: ViserConfig = ViserConfig(),
         scene_index: int = 0,
     ) -> None:
@@ -99,14 +99,16 @@ class ViserViewer:
         self._scene_index = (self._scene_index + 1) % len(self._scenes)
         self.set_scene(self._scenes[self._scene_index])
 
-    def set_scene(self, scene: AbstractScene) -> None:
+    def set_scene(self, scene: SceneAPI) -> None:
         num_frames = scene.number_of_iterations
-        initial_ego_state: EgoStateSE3 = scene.get_ego_state_at_iteration(0)
+        initial_ego_state = scene.get_ego_state_at_iteration(0)
+        assert initial_ego_state is not None and isinstance(initial_ego_state, EgoStateSE3)
+
         server_playing = True
         server_rendering = False
 
         with self._viser_server.gui.add_folder("Playback"):
-            gui_info = self._viser_server.gui.add_markdown(content=_get_scene_info_markdown(scene))
+            self._viser_server.gui.add_markdown(content=_get_scene_info_markdown(scene))
 
             gui_timestep = self._viser_server.gui.add_slider(
                 "Timestep",
@@ -316,7 +318,7 @@ class ViserViewer:
             elif format == "mp4":
                 iio.imwrite(buffer, images, extension=".mp4", fps=20)
             content = buffer.getvalue()
-            scene_name = f"{scene.log_metadata.split}_{scene.uuid}"
+            scene_name = f"{scene.log_metadata.split}_{scene.scene_uuid}"
             client.send_file_download(f"{scene_name}.{format}", content, save_immediately=True)
             server_rendering = False
 
@@ -382,6 +384,8 @@ class ViserViewer:
         while server_playing:
             if gui_playing.value and not server_rendering:
                 gui_timestep.value = (gui_timestep.value + 1) % num_frames
+            else:
+                time.sleep(0.1)
 
             # update config
             self._viser_config.playback_speed = gui_speed.value
@@ -390,10 +394,11 @@ class ViserViewer:
         self.next()
 
 
-def _get_scene_info_markdown(scene: AbstractScene) -> str:
+def _get_scene_info_markdown(scene: SceneAPI) -> str:
     markdown = f"""
     - Dataset: {scene.log_metadata.split}
-    - Location: {scene.log_metadata.location if scene.log_metadata.location else 'N/A'}
-    - UUID: {scene.uuid}
+    - Location: {scene.log_metadata.location if scene.log_metadata.location else "N/A"}
+    - Log: {scene.log_metadata.log_name}
+    - UUID: {scene.scene_uuid}
     """
     return markdown

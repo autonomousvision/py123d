@@ -11,12 +11,13 @@ from py123d.conversion.datasets.av2.utils.av2_constants import (
 
 
 def get_dataframe_from_file(file_path: Path) -> pd.DataFrame:
+    """Get a Pandas DataFrame from parquet or feather files."""
     if file_path.suffix == ".parquet":
         import pyarrow.parquet as pq
 
         return pq.read_table(file_path)
     elif file_path.suffix == ".feather":
-        import pyarrow.feather as feather
+        from pyarrow import feather
 
         return feather.read_feather(file_path)
     else:
@@ -29,6 +30,7 @@ def get_slice_with_timestamp_ns(dataframe: pd.DataFrame, timestamp_ns: int):
 
 
 def build_sensor_dataframe(source_log_path: Path) -> pd.DataFrame:
+    """Builds a sensor dataframe from the AV2 source log path."""
 
     # https://github.com/argoverse/av2-api/blob/main/src/av2/datasets/sensor/sensor_dataloader.py#L209
 
@@ -64,6 +66,12 @@ def build_synchronization_dataframe(
     sensor_dataframe: pd.DataFrame,
     matching_criterion: Literal["nearest", "forward"] = "nearest",
 ) -> pd.DataFrame:
+    """Builds a synchronization dataframe, between sensors observations in a log.
+
+    :param sensor_dataframe: DataFrame containing sensor data.
+    :param matching_criterion: Criterion for matching timestamps, defaults to "nearest"
+    :return: DataFrame containing synchronized sensor data.
+    """
 
     # https://github.com/argoverse/av2-api/blob/main/src/av2/datasets/sensor/sensor_dataloader.py#L382
 
@@ -113,6 +121,7 @@ def build_synchronization_dataframe(
 
 
 def populate_sensor_records(sensor_path: Path, split: str, log_id: str) -> pd.DataFrame:
+    """Populate sensor records from a sensor path."""
 
     sensor_name = sensor_path.name
     sensor_files = list(sensor_path.iterdir())

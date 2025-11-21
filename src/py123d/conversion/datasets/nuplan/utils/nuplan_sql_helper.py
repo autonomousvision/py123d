@@ -3,7 +3,7 @@ from typing import List
 from py123d.common.utils.dependencies import check_dependencies
 from py123d.conversion.datasets.nuplan.utils.nuplan_constants import NUPLAN_DETECTION_NAME_DICT
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3
-from py123d.geometry import BoundingBoxSE3, EulerAngles, StateSE3, Vector3D
+from py123d.geometry import BoundingBoxSE3, EulerAngles, PoseSE3, Vector3D
 from py123d.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 
 check_dependencies(modules=["nuplan"], optional_name="nuplan")
@@ -11,6 +11,7 @@ from nuplan.database.nuplan_db.query_session import execute_many, execute_one
 
 
 def get_box_detections_for_lidarpc_token_from_db(log_file: str, token: str) -> List[BoxDetectionSE3]:
+    """Gets the box detections for a given LiDAR point cloud token from the NuPlan database."""
 
     query = """
         SELECT  c.name AS category_name,
@@ -42,7 +43,7 @@ def get_box_detections_for_lidarpc_token_from_db(log_file: str, token: str) -> L
     for row in execute_many(query, (bytearray.fromhex(token),), log_file):
         quaternion = EulerAngles(roll=DEFAULT_ROLL, pitch=DEFAULT_PITCH, yaw=row["yaw"]).quaternion
         bounding_box = BoundingBoxSE3(
-            center=StateSE3(
+            center_se3=PoseSE3(
                 x=row["x"],
                 y=row["y"],
                 z=row["z"],
@@ -61,14 +62,15 @@ def get_box_detections_for_lidarpc_token_from_db(log_file: str, token: str) -> L
                 track_token=row["track_token"].hex(),
             ),
             bounding_box_se3=bounding_box,
-            velocity=Vector3D(x=row["vx"], y=row["vy"], z=row["vz"]),
+            velocity_3d=Vector3D(x=row["vx"], y=row["vy"], z=row["vz"]),
         )
         box_detections.append(box_detection)
 
     return box_detections
 
 
-def get_ego_pose_for_timestamp_from_db(log_file: str, timestamp: int) -> StateSE3:
+def get_ego_pose_for_timestamp_from_db(log_file: str, timestamp: int) -> PoseSE3:
+    """Gets the ego pose for a given timestamp from the NuPlan database."""
 
     query = """
         SELECT  ep.x,
@@ -89,10 +91,8 @@ def get_ego_pose_for_timestamp_from_db(log_file: str, timestamp: int) -> StateSE
     """
 
     row = execute_one(query, (timestamp,), log_file)
-    if row is None:
-        return None
-
-    return StateSE3(x=row["x"], y=row["y"], z=row["z"], qw=row["qw"], qx=row["qx"], qy=row["qy"], qz=row["qz"])
+    assert row is not None, f"No ego pose found for timestamp {timestamp} in log file {log_file}"
+    return PoseSE3(x=row["x"], y=row["y"], z=row["z"], qw=row["qw"], qx=row["qx"], qy=row["qy"], qz=row["qz"])
 
 
 def get_nearest_ego_pose_for_timestamp_from_db(
@@ -101,7 +101,8 @@ def get_nearest_ego_pose_for_timestamp_from_db(
     tokens: List[str],
     lookahead_window_us: int = 50000,
     lookback_window_us: int = 50000,
-) -> StateSE3:
+) -> PoseSE3:
+    """Gets the nearest ego pose for a given timestamp from the NuPlan database within a lookahead and lookback window."""
 
     query = f"""
         SELECT  ep.x,
@@ -115,7 +116,7 @@ def get_nearest_ego_pose_for_timestamp_from_db(
             INNER JOIN lidar_pc AS lpc
                 ON  ep.timestamp <= lpc.timestamp + ?
                 AND ep.timestamp >= lpc.timestamp - ?
-            WHERE lpc.token IN ({('?,'*len(tokens))[:-1]})
+            WHERE lpc.token IN ({("?," * len(tokens))[:-1]})
         ORDER BY ABS(ep.timestamp - ?)
         LIMIT 1
     """  # noqa: E226
@@ -125,4 +126,4 @@ def get_nearest_ego_pose_for_timestamp_from_db(
     args += [timestamp]
 
     for row in execute_many(query, args, log_file):
-        return StateSE3(x=row["x"], y=row["y"], z=row["z"], qw=row["qw"], qx=row["qx"], qy=row["qy"], qz=row["qz"])
+        return PoseSE3(x=row["x"], y=row["y"], z=row["z"], qw=row["qw"], qx=row["qx"], qy=row["qy"], qz=row["qz"])

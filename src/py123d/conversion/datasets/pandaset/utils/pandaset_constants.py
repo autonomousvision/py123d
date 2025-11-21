@@ -3,7 +3,7 @@ from typing import Dict, List
 from py123d.conversion.registry.box_detection_label_registry import PandasetBoxDetectionLabel
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType, PinholeDistortion, PinholeIntrinsics
-from py123d.geometry import StateSE3
+from py123d.geometry import PoseSE3
 
 PANDASET_SPLITS: List[str] = ["pandaset_train", "pandaset_val", "pandaset_test"]
 
@@ -16,7 +16,10 @@ PANDASET_CAMERA_MAPPING: Dict[str, PinholeCameraType] = {
     "right_camera": PinholeCameraType.PCAM_R1,
 }
 
-PANDASET_LIDAR_MAPPING: Dict[str, LiDARType] = {"main_pandar64": LiDARType.LIDAR_TOP, "front_gt": LiDARType.LIDAR_FRONT}
+PANDASET_LIDAR_MAPPING: Dict[str, LiDARType] = {
+    "main_pandar64": LiDARType.LIDAR_TOP,
+    "front_gt": LiDARType.LIDAR_FRONT,
+}
 
 
 PANDASET_BOX_DETECTION_FROM_STR: Dict[str, PandasetBoxDetectionLabel] = {
@@ -51,8 +54,8 @@ PANDASET_BOX_DETECTION_FROM_STR: Dict[str, PandasetBoxDetectionLabel] = {
 
 
 # https://github.com/scaleapi/pandaset-devkit/blob/master/docs/static_extrinsic_calibration.yaml
-PANDASET_LIDAR_EXTRINSICS: Dict[str, StateSE3] = {
-    "front_gt": StateSE3(
+PANDASET_LIDAR_EXTRINSICS: Dict[str, PoseSE3] = {
+    "front_gt": PoseSE3(
         x=-0.000451117754,
         y=-0.605646431446,
         z=-0.301525235176,
@@ -61,12 +64,12 @@ PANDASET_LIDAR_EXTRINSICS: Dict[str, StateSE3] = {
         qy=0.01134678181520767,
         qz=0.9997028534282365,
     ),
-    "main_pandar64": StateSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
+    "main_pandar64": PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
 }
 
 # https://github.com/scaleapi/pandaset-devkit/blob/master/docs/static_extrinsic_calibration.yaml
-PANDASET_CAMERA_EXTRINSICS: Dict[str, StateSE3] = {
-    "back_camera": StateSE3(
+PANDASET_CAMERA_EXTRINSICS: Dict[str, PoseSE3] = {
+    "back_camera": PoseSE3(
         x=-0.0004217634029916384,
         y=-0.21683144949675118,
         z=-1.0553445472201475,
@@ -75,7 +78,7 @@ PANDASET_CAMERA_EXTRINSICS: Dict[str, StateSE3] = {
         qy=-0.001595758695393934,
         qz=-0.0005330311533742299,
     ),
-    "front_camera": StateSE3(
+    "front_camera": PoseSE3(
         x=0.0002585796504896516,
         y=-0.03907777167811011,
         z=-0.0440125762408362,
@@ -84,7 +87,7 @@ PANDASET_CAMERA_EXTRINSICS: Dict[str, StateSE3] = {
         qy=0.7114721800418571,
         qz=-0.7025205466606356,
     ),
-    "front_left_camera": StateSE3(
+    "front_left_camera": PoseSE3(
         x=-0.25842240863267835,
         y=-0.3070654284505582,
         z=-0.9244245686318884,
@@ -93,7 +96,7 @@ PANDASET_CAMERA_EXTRINSICS: Dict[str, StateSE3] = {
         qy=-0.6283486651480494,
         qz=0.6206973014480826,
     ),
-    "front_right_camera": StateSE3(
+    "front_right_camera": PoseSE3(
         x=0.2546935700219631,
         y=-0.24929449717803095,
         z=-0.8686597280810242,
@@ -102,7 +105,7 @@ PANDASET_CAMERA_EXTRINSICS: Dict[str, StateSE3] = {
         qy=0.6120314641083645,
         qz=-0.6150170047424814,
     ),
-    "left_camera": StateSE3(
+    "left_camera": PoseSE3(
         x=0.23864835336611942,
         y=-0.2801448284013492,
         z=-0.5376795959387791,
@@ -111,7 +114,7 @@ PANDASET_CAMERA_EXTRINSICS: Dict[str, StateSE3] = {
         qy=-0.4989265501075421,
         qz=0.503409565706149,
     ),
-    "right_camera": StateSE3(
+    "right_camera": PoseSE3(
         x=-0.23097163411257893,
         y=-0.30843497058841024,
         z=-0.6850441215571058,

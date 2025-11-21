@@ -4,9 +4,9 @@ import numpy as np
 import trimesh
 import viser
 
-from py123d.datatypes.maps.abstract_map import MapLayer
-from py123d.datatypes.maps.abstract_map_objects import AbstractSurfaceMapObject
-from py123d.datatypes.scene.abstract_scene import AbstractScene
+from py123d.api import SceneAPI
+from py123d.datatypes.map_objects.base_map_objects import BaseMapSurfaceObject
+from py123d.datatypes.map_objects.map_layer_types import MapLayer
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import Point3D, Point3DIndex
 from py123d.visualization.color.default import MAP_SURFACE_CONFIG
@@ -16,17 +16,16 @@ last_query_position: Optional[Point3D] = None
 
 
 def add_map_to_viser_server(
-    scene: AbstractScene,
+    scene: SceneAPI,
     iteration: int,
     initial_ego_state: EgoStateSE3,
     viser_server: viser.ViserServer,
     viser_config: ViserConfig,
     map_handles: Dict[MapLayer, viser.GlbHandle],
 ) -> None:
-    global last_query_position
+    global last_query_position  # noqa: PLW0603
 
     if viser_config.map_visible:
-
         map_trimesh_dict: Optional[Dict[MapLayer, trimesh.Trimesh]] = None
 
         if len(map_handles) == 0 or viser_config._force_map_update:
@@ -66,19 +65,18 @@ def add_map_to_viser_server(
 
 
 def _get_map_trimesh_dict(
-    scene: AbstractScene,
+    scene: SceneAPI,
     initial_ego_state: EgoStateSE3,
     current_ego_state: Optional[EgoStateSE3],
     viser_config: ViserConfig,
 ) -> Dict[MapLayer, trimesh.Trimesh]:
-
     # Dictionary to hold the output trimesh meshes.
     output_trimesh_dict: Dict[MapLayer, trimesh.Trimesh] = {}
 
     # Unpack scene center for translation of map objects.
-    scene_center: Point3D = initial_ego_state.center.point_3d
+    scene_center: Point3D = initial_ego_state.center_se3.point_3d
     scene_center_array = scene_center.array
-    scene_query_position = current_ego_state.center.point_3d
+    scene_query_position = current_ego_state.center_se3.point_3d
 
     # Load map objects within a certain radius around the scene center.
     map_layers = [
@@ -91,7 +89,7 @@ def _get_map_trimesh_dict(
     ]
     map_api = scene.get_map_api()
     if map_api is not None:
-        map_objects_dict = map_api.get_proximal_map_objects(
+        map_objects_dict = map_api.get_map_objects_in_radius(
             scene_query_position.point_2d,
             radius=viser_config.map_radius,
             layers=map_layers,
@@ -101,7 +99,7 @@ def _get_map_trimesh_dict(
         for map_layer in map_objects_dict.keys():
             surface_meshes = []
             for map_surface in map_objects_dict[map_layer]:
-                map_surface: AbstractSurfaceMapObject
+                map_surface: BaseMapSurfaceObject
 
                 trimesh_mesh = map_surface.trimesh_mesh
                 trimesh_mesh.vertices -= scene_center_array

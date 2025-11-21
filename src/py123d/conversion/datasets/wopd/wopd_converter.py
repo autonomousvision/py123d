@@ -16,32 +16,33 @@ from py123d.conversion.datasets.wopd.utils.wopd_constants import (
     WOPD_DETECTION_NAME_DICT,
     WOPD_LIDAR_TYPES,
 )
-from py123d.conversion.datasets.wopd.waymo_map_utils.wopd_map_utils import convert_wopd_map
+from py123d.conversion.datasets.wopd.wopd_map_conversion import convert_wopd_map
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.box_detection_label_registry import WOPDBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import DefaultLiDARIndex, WOPDLiDARIndex
 from py123d.conversion.utils.sensor_utils.camera_conventions import CameraConvention, convert_camera_convention
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
-from py123d.datatypes.maps.map_metadata import MapMetadata
-from py123d.datatypes.scene.scene_metadata import LogMetadata
-from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
-from py123d.datatypes.sensors.pinhole_camera import (
+from py123d.datatypes.metadata.log_metadata import LogMetadata
+from py123d.datatypes.metadata.map_metadata import MapMetadata
+from py123d.datatypes.sensors import (
+    LiDARMetadata,
+    LiDARType,
     PinholeCameraMetadata,
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
 )
 from py123d.datatypes.time.time_point import TimePoint
-from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
+from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_wopd_chrysler_pacifica_parameters
 from py123d.geometry import (
     BoundingBoxSE3,
     BoundingBoxSE3Index,
     EulerAngles,
     EulerAnglesIndex,
-    StateSE3,
-    StateSE3Index,
+    PoseSE3,
+    PoseSE3Index,
     Vector3D,
     Vector3DIndex,
 )
@@ -65,6 +66,8 @@ logger = logging.getLogger(__name__)
 
 
 class WOPDConverter(AbstractDatasetConverter):
+    """Converter for the Waymo Open Perception Dataset (WOPD)."""
+
     def __init__(
         self,
         splits: List[str],
@@ -74,24 +77,34 @@ class WOPDConverter(AbstractDatasetConverter):
         add_map_pose_offset: bool,
         dataset_converter_config: DatasetConverterConfig,
     ) -> None:
+        """Initializes the :class:`WOPDConverter`.
+
+        :param splits: List of splits to convert, i.e. ``["wopd_train", "wopd_val", "wopd_test"]``.
+        :param wopd_data_root: Path to the root directory of the WOPD dataset
+        :param zero_roll_pitch: Whether to zero out roll and pitch angles in the vehicle pose
+        :param keep_polar_features: Whether to keep polar features in the LiDAR point clouds
+        :param add_map_pose_offset: Whether to add a pose offset to the map
+        :param dataset_converter_config: Configuration for the dataset converter
+        """
+
         super().__init__(dataset_converter_config)
         for split in splits:
-            assert (
-                split in WOPD_AVAILABLE_SPLITS
-            ), f"Split {split} is not available. Available splits: {WOPD_AVAILABLE_SPLITS}"
+            assert split in WOPD_AVAILABLE_SPLITS, (
+                f"Split {split} is not available. Available splits: {WOPD_AVAILABLE_SPLITS}"
+            )
 
         self._splits: List[str] = splits
         self._wopd_data_root: Path = Path(wopd_data_root)
         self._zero_roll_pitch: bool = zero_roll_pitch
         self._keep_polar_features: bool = keep_polar_features
-        self._add_map_pose_offset: bool = add_map_pose_offset  # TODO: Implement this feature
+        self._add_map_pose_offset: bool = add_map_pose_offset
 
-        self._split_tf_record_pairs: List[Tuple[str, List[Path]]] = self._collect_split_tf_record_pairs()
+        self._split_tf_record_pairs: List[Tuple[str, Path]] = self._collect_split_tf_record_pairs()
 
-    def _collect_split_tf_record_pairs(self) -> Dict[str, List[Path]]:
+    def _collect_split_tf_record_pairs(self) -> List[Tuple[str, Path]]:
         """Helper to collect the pairings of the split names and the corresponding tf record file."""
 
-        split_tf_record_pairs: List[Tuple[str, List[Path]]] = []
+        split_tf_record_pairs: List[Tuple[str, Path]] = []
         split_name_mapping: Dict[str, str] = {
             "wopd_train": "training",
             "wopd_val": "validation",
@@ -201,6 +214,8 @@ def _get_initial_frame_from_tfrecord(
     tf_record_path: Path,
     keep_dataset: bool = False,
 ) -> Union[dataset_pb2.Frame, Tuple[dataset_pb2.Frame, tf.data.TFRecordDataset]]:
+    """Helper to get the initial frame from a tf record file."""
+
     dataset = tf.data.TFRecordDataset(tf_record_path, compression_type="")
     for data in dataset:
         initial_frame = dataset_pb2.Frame()
@@ -215,25 +230,23 @@ def _get_initial_frame_from_tfrecord(
 
 
 def _get_wopd_map_metadata(initial_frame: dataset_pb2.Frame, split: str) -> MapMetadata:
-
+    """Gets the WOPD map metadata from the initial frame."""
     map_metadata = MapMetadata(
         dataset="wopd",
         split=split,
         log_name=str(initial_frame.context.name),
         location=None,  # TODO: Add location information.
         map_has_z=True,
-        map_is_local=True,  # True, if map is per log
+        map_is_local=True,
     )
-
     return map_metadata
 
 
 def _get_wopd_camera_metadata(
     initial_frame: dataset_pb2.Frame, dataset_converter_config: DatasetConverterConfig
 ) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
-
+    """Get the WOPD camera metadata from the initial frame."""
     camera_metadata_dict: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
-
     if dataset_converter_config.pinhole_camera_store_option is not None:
         for calibration in initial_frame.context.camera_calibrations:
             camera_type = WOPD_CAMERA_TYPES[calibration.name]
@@ -250,7 +263,6 @@ def _get_wopd_camera_metadata(
                     intrinsics=intrinsics,
                     distortion=distortion,
                 )
-
     return camera_metadata_dict
 
 
@@ -259,20 +271,17 @@ def _get_wopd_lidar_metadata(
     keep_polar_features: bool,
     dataset_converter_config: DatasetConverterConfig,
 ) -> Dict[LiDARType, LiDARMetadata]:
+    """Get the WOPD LiDAR metadata from the initial frame."""
 
     laser_metadatas: Dict[LiDARType, LiDARMetadata] = {}
-
-    # NOTE: Using
     lidar_index = WOPDLiDARIndex if keep_polar_features else DefaultLiDARIndex
     if dataset_converter_config.lidar_store_option is not None:
         for laser_calibration in initial_frame.context.laser_calibrations:
-
             lidar_type = WOPD_LIDAR_TYPES[laser_calibration.name]
-
-            extrinsic: Optional[StateSE3] = None
+            extrinsic: Optional[PoseSE3] = None
             if laser_calibration.extrinsic:
                 extrinsic_transform = np.array(laser_calibration.extrinsic.transform, dtype=np.float64).reshape(4, 4)
-                extrinsic = StateSE3.from_transformation_matrix(extrinsic_transform)
+                extrinsic = PoseSE3.from_transformation_matrix(extrinsic_transform)
 
             laser_metadatas[lidar_type] = LiDARMetadata(
                 lidar_type=lidar_type,
@@ -283,36 +292,35 @@ def _get_wopd_lidar_metadata(
     return laser_metadatas
 
 
-def _get_ego_pose_se3(frame: dataset_pb2.Frame, map_pose_offset: Vector3D) -> StateSE3:
+def _get_ego_pose_se3(frame: dataset_pb2.Frame, map_pose_offset: Vector3D) -> PoseSE3:
+    """Helper to get the ego pose SE3 from a WOPD frame."""
     ego_pose_matrix = np.array(frame.pose.transform, dtype=np.float64).reshape(4, 4)
-    ego_pose_se3 = StateSE3.from_transformation_matrix(ego_pose_matrix)
-    ego_pose_se3.array[StateSE3Index.XYZ] += map_pose_offset.array[Vector3DIndex.XYZ]
+    ego_pose_se3 = PoseSE3.from_transformation_matrix(ego_pose_matrix)
+    ego_pose_se3.array[PoseSE3Index.XYZ] += map_pose_offset.array[Vector3DIndex.XYZ]
     return ego_pose_se3
 
 
 def _extract_wopd_ego_state(frame: dataset_pb2.Frame, map_pose_offset: Vector3D) -> List[float]:
+    """Extracts the ego state from a WOPD frame."""
     rear_axle_pose = _get_ego_pose_se3(frame, map_pose_offset)
 
     vehicle_parameters = get_wopd_chrysler_pacifica_parameters()
     # FIXME: Find dynamic state in waymo open perception dataset
     # https://github.com/waymo-research/waymo-open-dataset/issues/55#issuecomment-546152290
-    dynamic_state = DynamicStateSE3(
-        velocity=Vector3D(*np.zeros(3)),
-        acceleration=Vector3D(*np.zeros(3)),
-        angular_velocity=Vector3D(*np.zeros(3)),
-    )
+    dynamic_state_se3 = None
 
     return EgoStateSE3.from_rear_axle(
         rear_axle_se3=rear_axle_pose,
-        dynamic_state_se3=dynamic_state,
+        dynamic_state_se3=dynamic_state_se3,
         vehicle_parameters=vehicle_parameters,
-        time_point=None,
+        timepoint=None,
     )
 
 
 def _extract_wopd_box_detections(
     frame: dataset_pb2.Frame, map_pose_offset: Vector3D, zero_roll_pitch: bool = True
 ) -> BoxDetectionWrapper:
+    """Extracts the box detections from a WOPD frame."""
 
     ego_pose_se3 = _get_ego_pose_se3(frame, map_pose_offset)
 
@@ -323,7 +331,6 @@ def _extract_wopd_box_detections(
     detections_token: List[str] = []
 
     for detection_idx, detection in enumerate(frame.laser_labels):
-
         detection_quaternion = EulerAngles(
             roll=DEFAULT_ROLL,
             pitch=DEFAULT_PITCH,
@@ -350,8 +357,8 @@ def _extract_wopd_box_detections(
         detections_types.append(WOPD_DETECTION_NAME_DICT[detection.type])
         detections_token.append(str(detection.id))
 
-    detections_state[:, BoundingBoxSE3Index.STATE_SE3] = convert_relative_to_absolute_se3_array(
-        origin=ego_pose_se3, se3_array=detections_state[:, BoundingBoxSE3Index.STATE_SE3]
+    detections_state[:, BoundingBoxSE3Index.SE3] = convert_relative_to_absolute_se3_array(
+        origin=ego_pose_se3, se3_array=detections_state[:, BoundingBoxSE3Index.SE3]
     )
     if zero_roll_pitch:
         euler_array = get_euler_array_from_quaternion_array(detections_state[:, BoundingBoxSE3Index.QUATERNION])
@@ -367,10 +374,9 @@ def _extract_wopd_box_detections(
                     label=detections_types[detection_idx],
                     timepoint=None,
                     track_token=detections_token[detection_idx],
-                    confidence=None,
                 ),
                 bounding_box_se3=BoundingBoxSE3.from_array(detections_state[detection_idx]),
-                velocity=Vector3D.from_array(detections_velocity[detection_idx]),
+                velocity_3d=Vector3D.from_array(detections_velocity[detection_idx]),
             )
         )
 
@@ -380,19 +386,17 @@ def _extract_wopd_box_detections(
 def _extract_wopd_cameras(
     frame: dataset_pb2.Frame, dataset_converter_config: DatasetConverterConfig
 ) -> List[CameraData]:
+    """Extracts the camera data from a WOPD frame."""
 
     camera_data_list: List[CameraData] = []
-
     if dataset_converter_config.include_pinhole_cameras:
-
         # NOTE @DanielDauner: The extrinsic matrix in frame.context.camera_calibration is fixed to model the ego to camera transformation.
         # The poses in frame.images[idx] are the motion compensated ego poses when the camera triggers.
-        # TODO: Verify if this is correct.
-        camera_extrinsic: Dict[str, StateSE3] = {}
+        camera_extrinsic: Dict[str, PoseSE3] = {}
         for calibration in frame.context.camera_calibrations:
             camera_type = WOPD_CAMERA_TYPES[calibration.name]
             camera_transform = np.array(calibration.extrinsic.transform, dtype=np.float64).reshape(4, 4)
-            camera_pose = StateSE3.from_transformation_matrix(camera_transform)
+            camera_pose = PoseSE3.from_transformation_matrix(camera_transform)
             # NOTE: WOPD uses a different camera convention than py123d
             # https://arxiv.org/pdf/1912.04838 (Figure 1.)
             camera_pose = convert_camera_convention(
@@ -423,11 +427,10 @@ def _extract_wopd_lidars(
     absolute_tf_record_path: Path,
     wopd_data_root: Path,
 ) -> Dict[LiDARType, npt.NDArray[np.float32]]:
+    """Extracts the LiDAR data from a WOPD frame."""
 
     lidars: List[LiDARData] = []
-
     if dataset_converter_config.include_lidars:
-
         relative_path = absolute_tf_record_path.relative_to(wopd_data_root)
         lidars.append(
             LiDARData(
@@ -437,5 +440,4 @@ def _extract_wopd_lidars(
                 relative_path=relative_path,
             )
         )
-
     return lidars

@@ -1,11 +1,11 @@
 from typing import Dict, Final, Set
 
-from py123d.datatypes.maps.map_datatypes import RoadLineType
-from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
+from py123d.datatypes.map_objects import RoadLineType
+from py123d.datatypes.sensors import PinholeCameraType
 
 AV2_SENSOR_SPLITS: Set[str] = {"av2-sensor_train", "av2-sensor_val", "av2-sensor_test"}
 
-
+# Mapping from AV2 camera names to PinholeCameraType enums.
 AV2_CAMERA_TYPE_MAPPING: Dict[str, PinholeCameraType] = {
     "ring_front_center": PinholeCameraType.PCAM_F0,
     "ring_front_left": PinholeCameraType.PCAM_L0,
@@ -18,9 +18,7 @@ AV2_CAMERA_TYPE_MAPPING: Dict[str, PinholeCameraType] = {
     "stereo_front_right": PinholeCameraType.PCAM_STEREO_R,
 }
 
-# AV2_LIDAR_TYPES: Dict[str, str] = {
-
-
+# Mapping from AV2 road line types to RoadLineType enums.
 AV2_ROAD_LINE_TYPE_MAPPING: Dict[str, RoadLineType] = {
     "NONE": RoadLineType.NONE,
     "UNKNOWN": RoadLineType.UNKNOWN,

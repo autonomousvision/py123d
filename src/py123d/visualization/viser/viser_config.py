@@ -33,7 +33,6 @@ all_lidar_types: List[LiDARType] = [
 
 @dataclass
 class ViserConfig:
-
     # Server
     server_host: str = "localhost"
     server_port: int = 8080
@@ -79,7 +78,7 @@ class ViserConfig:
     # -> Frustum
     fisheye_frustum_visible: bool = True
     fisheye_mei_camera_frustum_visible: bool = True
-    fisheye_mei_camera_frustum_types: List[PinholeCameraType] = field(
+    fisheye_mei_camera_frustum_types: List[FisheyeMEICameraType] = field(
         default_factory=lambda: [fcam for fcam in FisheyeMEICameraType]
     )
     fisheye_frustum_scale: float = 1.0
@@ -98,7 +97,6 @@ class ViserConfig:
         def _resolve_enum_arguments(
             serial_enum_cls: SerialIntEnum, input: Optional[List[Union[int, str, SerialIntEnum]]]
         ) -> List[SerialIntEnum]:
-
             if input is None:
                 return None
             assert isinstance(input, list), f"input must be a list of {serial_enum_cls.__name__}"
@@ -109,7 +107,7 @@ class ViserConfig:
             self.camera_frustum_types,
         )
         self.camera_gui_types = _resolve_enum_arguments(
-            FisheyeMEICameraType,
+            PinholeCameraType,
             self.camera_gui_types,
         )
         self.fisheye_mei_camera_frustum_types = _resolve_enum_arguments(

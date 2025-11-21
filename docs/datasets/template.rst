@@ -1,70 +1,103 @@
 Template
 --------
+...
 
-.. sidebar:: Dataset Name
+.. dropdown:: Quick Links
+  :open:
 
-  .. image:: https://www.nuplan.org/static/media/nuPlan_final.3fde7586.png
-    :alt: Dataset sample image
-    :width: 290px
+  .. list-table::
+    :header-rows: 0
+    :widths: 20 60
 
-  | **Paper:** `Name of Paper <https://example.com/paper>`_
-  | **Download:** `Documentation <https://example.com/paper>`_
-  | **Code:** [Code]
-  | **Documentation:** [License type]
-  | **License:** [License type]
-  | **Duration:** [Duration here]
-  | **Supported Versions:** [Yes/No/Conditions]
-  | **Redistribution:** [Yes/No/Conditions]
+    * -
+      -
+    * - :octicon:`file` Paper
+      - ...
+    * - :octicon:`download` Download
+      - ...
+    * - :octicon:`mark-github` Code
+      - ...
+    * - :octicon:`law` License
+      - ...
+    * - :octicon:`database` Available splits
+      - ...
 
-Description
-~~~~~~~~~~~
 
-[Provide a detailed description of the dataset here, including its purpose, collection methodology, and key characteristics.]
-
-Installation
-~~~~~~~~~~~~
-
-[Instructions for installing or accessing the dataset]
-
-.. code-block:: bash
-
-   # Example installation commands
-   pip install py123d[dataset_name]
-   # or
-   wget https://example.com/dataset.zip
-
-Available Data
-~~~~~~~~~~~~~~
+Available Modalities
+~~~~~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
    :widths: 30 5 70
 
-
    * - **Name**
      - **Available**
      - **Description**
    * - Ego Vehicle
-     - X
-     - [Description of ego vehicle data]
+     - ✓ / (✓) / X
+     - ..., see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
    * - Map
-     - X
-     - [Description of ego vehicle data]
+     - ✓ / (✓) / X
+     - ..., see :class:`~py123d.api.MapAPI`.
    * - Bounding Boxes
-     - X
-     - [Description of ego vehicle data]
+     - ✓ / (✓) / X
+     - ..., see :class:`~py123d.datatypes.detections.BoxDetectionWrapper`.
    * - Traffic Lights
-     - X
-     - [Description of ego vehicle data]
-   * - Cameras
-     - X
-     - [Description of ego vehicle data]
+     - ✓ / (✓) / X
+     - ..., see :class:`~py123d.datatypes.detections.TrafficLightDetectionWrapper`.
+   * - Pinhole Cameras
+     - ✓ / (✓) / X
+     - ..., see :class:`~py123d.datatypes.sensors.PinholeCamera`.
+   * - Fisheye Cameras
+     - ✓ / (✓) / X
+     - ..., see :class:`~py123d.datatypes.sensors.FisheyeCamera`.
    * - LiDARs
-     - X
-     - [Description of ego vehicle data]
+     - ✓ / (✓) / X
+     - ..., see :class:`~py123d.datatypes.sensors.LiDAR`.
 
-Dataset Specific Issues
-~~~~~~~~~~~~~~~~~~~~~~~
+
+Download
+~~~~~~~~
+
+...
+
+The 123D conversion expects the following directory structure:
+
+Installation
+~~~~~~~~~~~~
+
+For *Template*, additional installation that are included as optional dependencies in ``py123d`` are required. You can install them via:
+
+.. code-block:: bash
+
+  pip install py123d[template]
+
+Or if you are installing from source:
+
+.. code-block:: bash
+
+  pip install -e .[template]
+
+
+Dataset Specific
+~~~~~~~~~~~~~~~~
+
+.. dropdown:: Box Detection Labels
+
+  .. autoclass:: py123d.conversion.registry.DefaultBoxDetectionLabel
+    :members:
+    :no-inherited-members:
+
+.. dropdown:: LiDAR Index
+
+  .. autoclass:: py123d.conversion.registry.DefaultLiDARIndex
+    :members:
+    :no-inherited-members:
+
+
+
+Dataset Issues
+~~~~~~~~~~~~~~
 
 [Document any known issues, limitations, or considerations when using this dataset]
 
@@ -72,19 +105,17 @@ Dataset Specific Issues
 * Issue 2: Description
 * Issue 3: Description
 
+
 Citation
 ~~~~~~~~
 
-If you use this dataset in your research, please cite:
+If you use *Template* in your research, please cite:
 
 .. code-block:: bibtex
 
-   @article{AuthorYearConference,
-       title={Dataset Title},
-       author={Author, First and Author, Second},
-       journal={Journal Name},
-       year={2023},
-       volume={1},
-       pages={1-10},
-       doi={10.1000/example}
-   }
+  @article{AuthorYearConference,
+    title={Template: Some Dataset for Autonomous Driving},
+    author={},
+    booktitle={},
+    year={}
+  }

@@ -1,8 +1,8 @@
-import unittest
 from typing import Tuple
 
 import numpy as np
 import numpy.typing as npt
+import pytest
 from pyquaternion import Quaternion as PyQuaternion
 
 from py123d.geometry.geometry_index import EulerAnglesIndex, QuaternionIndex
@@ -62,9 +62,8 @@ def _get_rotation_matrix_helper(euler_array: npt.NDArray[np.float64]) -> npt.NDA
     return R_z @ R_y @ R_x
 
 
-class TestRotationUtils(unittest.TestCase):
-
-    def setUp(self):
+class TestRotationUtils:
+    def setup_method(self):
         pass
 
     def _get_random_quaternion(self) -> npt.NDArray[np.float64]:
@@ -135,11 +134,11 @@ class TestRotationUtils(unittest.TestCase):
         _test_by_shape((0,))
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((0,))  # Zero quaternion (invalid)
             conjugate_quaternion_array(invalid_quat)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((len(QuaternionIndex), 8))  # Zero quaternion (invalid)
             conjugate_quaternion_array(invalid_quat)
 
@@ -177,11 +176,11 @@ class TestRotationUtils(unittest.TestCase):
         _test_by_shape((0,))
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((0,))  # Zero quaternion (invalid)
             get_euler_array_from_quaternion_array(invalid_quat)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((len(QuaternionIndex), 8))  # Zero quaternion (invalid)
             get_euler_array_from_quaternion_array(invalid_quat)
 
@@ -221,11 +220,11 @@ class TestRotationUtils(unittest.TestCase):
         _test_by_shape((0,))
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_rot = np.zeros((0, 3))  # (0, 3) rotation matrix shape (invalid)
             get_euler_array_from_rotation_matrices(invalid_rot)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_rot = np.zeros((3, 3, 8))  # (3, 3, 8) rotation matrix shape (invalid)
             get_euler_array_from_rotation_matrices(invalid_rot)
 
@@ -246,11 +245,11 @@ class TestRotationUtils(unittest.TestCase):
             )
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_rot = np.zeros((3,))  # (0, 3) rotation matrix shape (invalid)
             get_euler_array_from_rotation_matrix(invalid_rot)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_rot = np.zeros((3, 8))  # (3, 8) rotation matrix shape (invalid)
             get_euler_array_from_rotation_matrix(invalid_rot)
 
@@ -290,16 +289,15 @@ class TestRotationUtils(unittest.TestCase):
         _test_by_shape((0,))
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((0,))  # Zero quaternion (invalid)
             get_q_bar_matrices(invalid_quat)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((len(QuaternionIndex), 8))  # Zero quaternion (invalid)
             get_q_bar_matrices(invalid_quat)
 
     def test_get_q_matrices(self):
-
         def _test_by_shape(shape: Tuple[int, ...]) -> None:
             for _ in range(10):
                 N = np.prod(shape)
@@ -333,11 +331,11 @@ class TestRotationUtils(unittest.TestCase):
         _test_by_shape((0,))
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((0,))  # Zero quaternion (invalid)
             get_q_matrices(invalid_quat)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((len(QuaternionIndex), 8))  # Zero quaternion (invalid)
             get_q_matrices(invalid_quat)
 
@@ -387,16 +385,15 @@ class TestRotationUtils(unittest.TestCase):
         _test_by_shape((0,))
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_euler = np.zeros((0,))  # Zero euler angles (invalid)
             get_quaternion_array_from_euler_array(invalid_euler)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_euler = np.zeros((3, 8))  # Zero euler angles (invalid)
             get_quaternion_array_from_euler_array(invalid_euler)
 
     def test_get_quaternion_array_from_rotation_matrices(self):
-
         def _test_by_shape(shape: Tuple[int, ...]) -> None:
             for _ in range(10):
                 N = np.prod(shape)
@@ -436,11 +433,11 @@ class TestRotationUtils(unittest.TestCase):
         _test_by_shape((0,))
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_rot = np.zeros((0, 3))  # (0, 3) rotation matrix shape (invalid)
             get_quaternion_array_from_rotation_matrices(invalid_rot)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_rot = np.zeros((3, 3, 8))  # (3, 3, 8) rotation matrix shape (invalid)
             get_quaternion_array_from_rotation_matrices(invalid_rot)
 
@@ -465,11 +462,11 @@ class TestRotationUtils(unittest.TestCase):
             )
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_rot = np.zeros((3,))  # (0, 3) rotation matrix shape (invalid)
             get_quaternion_array_from_rotation_matrix(invalid_rot)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_rot = np.zeros((3, 8))  # (3, 8) rotation matrix shape (invalid)
             get_quaternion_array_from_rotation_matrix(invalid_rot)
 
@@ -504,11 +501,11 @@ class TestRotationUtils(unittest.TestCase):
         _test_by_shape((0,))
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((0,))  # Zero quaternion (invalid)
             normalize_quaternion_array(invalid_quat)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((len(QuaternionIndex), 8))  # Zero quaternion (invalid)
             normalize_quaternion_array(invalid_quat)
 
@@ -545,11 +542,11 @@ class TestRotationUtils(unittest.TestCase):
         _test_by_shape((0,))
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_euler = np.zeros((0, 5))  # Zero euler angles (invalid)
             get_rotation_matrices_from_euler_array(invalid_euler)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_euler = np.zeros((3, 8))  # Zero euler angles (invalid)
             get_rotation_matrices_from_euler_array(invalid_euler)
 
@@ -589,11 +586,11 @@ class TestRotationUtils(unittest.TestCase):
         _test_by_shape((0,))
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((0,))  # Zero quaternion (invalid)
             get_rotation_matrices_from_quaternion_array(invalid_quat)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((len(QuaternionIndex), 8))  # Zero quaternion (invalid)
             get_rotation_matrices_from_quaternion_array(invalid_quat)
 
@@ -615,11 +612,11 @@ class TestRotationUtils(unittest.TestCase):
             )
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_euler = np.zeros((0,))  # Zero euler angles (invalid)
             get_rotation_matrix_from_euler_array(invalid_euler)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_euler = np.zeros((8,))  # Zero euler angles (invalid)
             get_rotation_matrix_from_euler_array(invalid_euler)
 
@@ -641,11 +638,11 @@ class TestRotationUtils(unittest.TestCase):
             )
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((0,))  # Zero quaternion (invalid)
             get_rotation_matrix_from_quaternion_array(invalid_quat)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((8,))  # Zero quaternion (invalid)
             get_rotation_matrix_from_quaternion_array(invalid_quat)
 
@@ -686,11 +683,11 @@ class TestRotationUtils(unittest.TestCase):
         _test_by_shape((0,))
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((0,))  # Zero quaternion (invalid)
             invert_quaternion_array(invalid_quat)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat = np.zeros((len(QuaternionIndex), 8))  # Zero quaternion (invalid)
             invert_quaternion_array(invalid_quat)
 
@@ -735,12 +732,12 @@ class TestRotationUtils(unittest.TestCase):
         _test_by_shape((0,))
 
         # Test invalid input
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat1 = np.zeros((0,))  # Zero quaternion (invalid)
             invalid_quat2 = np.zeros((0,))  # Zero quaternion (invalid)
             multiply_quaternion_arrays(invalid_quat1, invalid_quat2)
 
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             invalid_quat1 = np.zeros((len(QuaternionIndex), 8))  # Zero quaternion (invalid)
             invalid_quat2 = np.zeros((len(QuaternionIndex), 4))  # Zero quaternion (invalid)
             multiply_quaternion_arrays(invalid_quat1, invalid_quat2)
@@ -762,8 +759,8 @@ class TestRotationUtils(unittest.TestCase):
                 # Check if each angle is within [-pi, pi]
                 for i in range(N):
                     angle = normalized_angles_flat[i]
-                    self.assertGreaterEqual(angle, -np.pi - 1e-8)
-                    self.assertLessEqual(angle, np.pi + 1e-8)
+                    assert angle >= -np.pi - 1e-8
+                    assert angle <= np.pi + 1e-8
 
         # Test single-dim shape
         _test_by_shape((1,))
@@ -776,12 +773,7 @@ class TestRotationUtils(unittest.TestCase):
         _test_by_shape((0,))
 
         # Test float
-        with self.subTest("Test float input"):
-            angle = 4 * np.pi
-            normalized_angle = normalize_angle(angle)
-            self.assertGreaterEqual(normalized_angle, -np.pi - 1e-8)
-            self.assertLessEqual(normalized_angle, np.pi + 1e-8)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        angle = 4 * np.pi
+        normalized_angle = normalize_angle(angle)
+        assert normalized_angle >= -np.pi - 1e-8
+        assert normalized_angle <= np.pi + 1e-8

@@ -1,10 +1,10 @@
 from typing import Dict, Final, List, Set
 
-from py123d.conversion.registry.box_detection_label_registry import NuPlanBoxDetectionLabel
-from py123d.datatypes.detections.traffic_light_detections import TrafficLightStatus
-from py123d.datatypes.maps.map_datatypes import RoadLineType
-from py123d.datatypes.sensors.lidar import LiDARType
-from py123d.datatypes.time.time_point import TimePoint
+from py123d.conversion.registry import NuPlanBoxDetectionLabel
+from py123d.datatypes.detections import TrafficLightStatus
+from py123d.datatypes.map_objects import RoadLineType
+from py123d.datatypes.sensors import LiDARType
+from py123d.datatypes.time import TimePoint
 
 NUPLAN_DEFAULT_DT: Final[float] = 0.05
 

@@ -20,11 +20,11 @@ pandaset_dataset:
 
     # Pinhole Cameras
     include_pinhole_cameras: true
-    pinhole_camera_store_option: "binary"
+    pinhole_camera_store_option: ${pinhole_camera_store_option}  # "path", "jpeg_binary", "png_binary", "mp4"
 
     # LiDARs
     include_lidars: true
-    lidar_store_option: "binary"
+    lidar_store_option: ${lidar_store_option} # "path", "path_merged", "laz_binary", "draco_binary"
 
     # Not available:
     include_map: false

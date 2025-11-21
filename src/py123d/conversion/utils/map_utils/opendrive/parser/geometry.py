@@ -8,11 +8,11 @@ import numpy as np
 import numpy.typing as npt
 from scipy.special import fresnel
 
-from py123d.geometry import StateSE2Index
+from py123d.geometry import PoseSE2Index
 
 
 @dataclass
-class Geometry:
+class XODRGeometry:
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/09_geometries/09_02_road_reference_line.html
     """
@@ -25,10 +25,10 @@ class Geometry:
 
     @property
     def start_se2(self) -> npt.NDArray[np.float64]:
-        start_se2 = np.zeros(len(StateSE2Index), dtype=np.float64)
-        start_se2[StateSE2Index.X] = self.x
-        start_se2[StateSE2Index.Y] = self.y
-        start_se2[StateSE2Index.YAW] = self.hdg
+        start_se2 = np.zeros(len(PoseSE2Index), dtype=np.float64)
+        start_se2[PoseSE2Index.X] = self.x
+        start_se2[PoseSE2Index.Y] = self.y
+        start_se2[PoseSE2Index.YAW] = self.hdg
         return start_se2
 
     def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
@@ -36,31 +36,30 @@ class Geometry:
 
 
 @dataclass
-class Line(Geometry):
+class XODRLine(XODRGeometry):
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/09_geometries/09_03_straight_line.html
     """
 
     @classmethod
-    def parse(cls, geometry_element: Element) -> Geometry:
+    def parse(cls, geometry_element: Element) -> XODRGeometry:
         args = {key: float(geometry_element.get(key)) for key in ["s", "x", "y", "hdg", "length"]}
         return cls(**args)
 
     def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
-
         interpolated_se2 = self.start_se2.copy()
-        interpolated_se2[StateSE2Index.X] += s * np.cos(self.hdg)
-        interpolated_se2[StateSE2Index.Y] += s * np.sin(self.hdg)
+        interpolated_se2[PoseSE2Index.X] += s * np.cos(self.hdg)
+        interpolated_se2[PoseSE2Index.Y] += s * np.sin(self.hdg)
 
         if t != 0.0:
-            interpolated_se2[StateSE2Index.X] += t * np.cos(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
-            interpolated_se2[StateSE2Index.Y] += t * np.sin(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
+            interpolated_se2[PoseSE2Index.X] += t * np.cos(interpolated_se2[PoseSE2Index.YAW] + np.pi / 2)
+            interpolated_se2[PoseSE2Index.Y] += t * np.sin(interpolated_se2[PoseSE2Index.YAW] + np.pi / 2)
 
         return interpolated_se2
 
 
 @dataclass
-class Arc(Geometry):
+class XODRArc(XODRGeometry):
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/09_geometries/09_05_arc.html
     """
@@ -72,13 +71,12 @@ class Arc(Geometry):
             raise ValueError("Curvature cannot be zero for Arc geometry.")
 
     @classmethod
-    def parse(cls, geometry_element: Element) -> Geometry:
+    def parse(cls, geometry_element: Element) -> XODRGeometry:
         args = {key: float(geometry_element.get(key)) for key in ["s", "x", "y", "hdg", "length"]}
         args["curvature"] = float(geometry_element.find("arc").get("curvature"))
         return cls(**args)
 
     def interpolate_se2(self, s: float, t: float = 0.0) -> npt.NDArray[np.float64]:
-
         kappa = self.curvature
         radius = 1.0 / kappa if kappa != 0 else float("inf")
 
@@ -90,19 +88,19 @@ class Arc(Geometry):
         dy = -radius * (np.cos(final_heading) - np.cos(initial_heading))
 
         interpolated_se2 = self.start_se2.copy()
-        interpolated_se2[StateSE2Index.X] += dx
-        interpolated_se2[StateSE2Index.Y] += dy
-        interpolated_se2[StateSE2Index.YAW] = final_heading
+        interpolated_se2[PoseSE2Index.X] += dx
+        interpolated_se2[PoseSE2Index.Y] += dy
+        interpolated_se2[PoseSE2Index.YAW] = final_heading
 
         if t != 0.0:
-            interpolated_se2[StateSE2Index.X] += t * np.cos(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
-            interpolated_se2[StateSE2Index.Y] += t * np.sin(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
+            interpolated_se2[PoseSE2Index.X] += t * np.cos(interpolated_se2[PoseSE2Index.YAW] + np.pi / 2)
+            interpolated_se2[PoseSE2Index.Y] += t * np.sin(interpolated_se2[PoseSE2Index.YAW] + np.pi / 2)
 
         return interpolated_se2
 
 
 @dataclass
-class Spiral(Geometry):
+class XODRSpiral(XODRGeometry):
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/09_geometries/09_04_spiral.html
     https://en.wikipedia.org/wiki/Euler_spiral
@@ -117,7 +115,7 @@ class Spiral(Geometry):
             raise ValueError("Curvature change is too small, cannot define a valid spiral.")
 
     @classmethod
-    def parse(cls, geometry_element: Element) -> Geometry:
+    def parse(cls, geometry_element: Element) -> XODRGeometry:
         args = {key: float(geometry_element.get(key)) for key in ["s", "x", "y", "hdg", "length"]}
         spiral_element = geometry_element.find("spiral")
         args["curvature_start"] = float(spiral_element.get("curvStart"))
@@ -131,18 +129,17 @@ class Spiral(Geometry):
 
         dx, dy = self._compute_spiral_position(s, gamma)
 
-        interpolated_se2[StateSE2Index.X] += dx
-        interpolated_se2[StateSE2Index.Y] += dy
-        interpolated_se2[StateSE2Index.YAW] += gamma * s**2 / 2 + self.curvature_start * s
+        interpolated_se2[PoseSE2Index.X] += dx
+        interpolated_se2[PoseSE2Index.Y] += dy
+        interpolated_se2[PoseSE2Index.YAW] += gamma * s**2 / 2 + self.curvature_start * s
 
         if t != 0.0:
-            interpolated_se2[StateSE2Index.X] += t * np.cos(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
-            interpolated_se2[StateSE2Index.Y] += t * np.sin(interpolated_se2[StateSE2Index.YAW] + np.pi / 2)
+            interpolated_se2[PoseSE2Index.X] += t * np.cos(interpolated_se2[PoseSE2Index.YAW] + np.pi / 2)
+            interpolated_se2[PoseSE2Index.Y] += t * np.sin(interpolated_se2[PoseSE2Index.YAW] + np.pi / 2)
 
         return interpolated_se2
 
     def _compute_spiral_position(self, s: float, gamma: float) -> Tuple[float, float]:
-
         # Transform to normalized Fresnel spiral parameter
         # Standard Fresnel spiral has κ(u) = u, so we need to scale
         # Our spiral: κ(s) = κ₀ + γs

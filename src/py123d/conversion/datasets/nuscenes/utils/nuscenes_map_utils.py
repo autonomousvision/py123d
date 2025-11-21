@@ -158,7 +158,6 @@ def order_lanes_left_to_right(polylines: List[Polyline2D]) -> List[int]:
     # Step 1: Compute the average direction vector across all lanes
     all_directions = []
     for polyline in polylines:
-
         polyline_array = polyline.array
         if len(polyline_array) < 2:
             continue

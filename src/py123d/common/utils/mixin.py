@@ -1,21 +1,46 @@
 from __future__ import annotations
 
+from enum import IntEnum
+
 import numpy as np
 import numpy.typing as npt
-
-# import pyarrow as pa
+from typing_extensions import Self
 
 
 class ArrayMixin:
-    """Mixin class for object entities."""
+    """Mixin class to provide array-like behavior for classes.
+
+    Example:
+    >>> import numpy as np
+    >>> from py123d.common.utils.mixin import ArrayMixin
+    >>> class MyVector(ArrayMixin):
+    ...     def __init__(self, x: float, y: float):
+    ...         self._array = np.array([x, y], dtype=np.float64)
+    ...     @property
+    ...     def array(self) -> npt.NDArray[np.float64]:
+    ...         return self._array
+    ...     @classmethod
+    ...     def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> MyVector:
+    ...         if copy:
+    ...             array = array.copy()
+    ...         return cls(array[0], array[1])
+    >>> vec = MyVector(1.0, 2.0)
+    >>> print(vec)
+    MyVector(array=[1. 2.])
+    >>> np.array(vec, dtype=np.float32)
+    array([1., 2.], dtype=float32)
+
+    """
+
+    __slots__ = ()
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> ArrayMixin:
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> Self:
         """Create an instance from a NumPy array."""
         raise NotImplementedError
 
     @classmethod
-    def from_list(cls, values: list) -> ArrayMixin:
+    def from_list(cls, values: list) -> Self:
         """Create an instance from a list of values."""
         return cls.from_array(np.array(values, dtype=np.float64), copy=False)
 
@@ -24,7 +49,7 @@ class ArrayMixin:
         """The array representation of the geometric entity."""
         raise NotImplementedError
 
-    def __array__(self, dtype: npt.DtypeLike = None, copy: bool = False) -> npt.NDArray:
+    def __array__(self, dtype: npt.DTypeLike = None, copy: bool = False) -> npt.NDArray:
         array = self.array
         return array if dtype is None else array.astype(dtype=dtype, copy=copy)
 
@@ -51,6 +76,10 @@ class ArrayMixin:
         """Convert the array to a Python list."""
         return self.array.tolist()
 
+    def to_list(self) -> list:
+        """Convert the array to a Python list."""
+        return self.array.tolist()
+
     def copy(self) -> ArrayMixin:
         """Return a copy of the object with a copied array."""
         return self.__class__.from_array(self.array, copy=True)
@@ -58,3 +87,20 @@ class ArrayMixin:
     def __repr__(self) -> str:
         """String representation of the ArrayMixin instance."""
         return f"{self.__class__.__name__}(array={self.array})"
+
+    def __hash__(self):
+        """Hash based on the array values."""
+        return hash(self.array.tobytes())
+
+
+def indexed_array_repr(array_mixin: ArrayMixin, indexing: IntEnum) -> str:
+    """Generate a string representation of an ArrayMixin instance using an indexing enum.
+
+    :param array_mixin: An instance of ArrayMixin.
+    :param indexing: An IntEnum used for indexing the array.
+    :return: A string representation of the ArrayMixin instance with named fields.
+    """
+    args = ", ".join(
+        f"{index.name.lower()}={array_mixin.array[index.value]}" for index in indexing.__members__.values()
+    )
+    return f"{array_mixin.__class__.__name__}({args})"

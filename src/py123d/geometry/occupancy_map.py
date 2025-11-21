@@ -12,10 +12,12 @@ from py123d.geometry.geometry_index import Point2DIndex
 
 
 class OccupancyMap2D:
+    """Class to represent a 2D occupancy map of shapely geometries using an str-tree for efficient spatial queries."""
+
     def __init__(
         self,
         geometries: Sequence[BaseGeometry],
-        ids: Optional[Union[List[str], List[int]]] = None,
+        ids: Optional[Union[Sequence[str], Sequence[int]]] = None,
         node_capacity: int = 10,
     ):
         """Constructs a 2D occupancy map of shapely geometries using an str-tree for efficient spatial queries.
@@ -26,10 +28,10 @@ class OccupancyMap2D:
         """
 
         assert ids is None or len(ids) == len(geometries), "Length of ids must match length of geometries"
+        if ids is not None:
+            assert all(isinstance(id, (str, int)) for id in ids), "IDs must be either strings or integers"
 
-        self._ids: Union[List[str], List[int]] = (
-            ids if ids is not None else [str(idx) for idx in range(len(geometries))]
-        )
+        self._ids: Sequence[Union[str, int]] = ids if ids is not None else [str(idx) for idx in range(len(geometries))]
         self._id_to_idx: Dict[Union[str, int], int] = {id: idx for idx, id in enumerate(self._ids)}
 
         self._geometries = geometries
@@ -37,7 +39,11 @@ class OccupancyMap2D:
         self._str_tree = STRtree(self._geometries, node_capacity)
 
     @classmethod
-    def from_dict(cls, geometry_dict: Dict[Union[str, int], BaseGeometry], node_capacity: int = 10) -> OccupancyMap2D:
+    def from_dict(
+        cls,
+        geometry_dict: Union[Dict[str, BaseGeometry], Dict[int, BaseGeometry]],
+        node_capacity: int = 10,
+    ) -> OccupancyMap2D:
         """Constructs a 2D occupancy map from a dictionary of geometries.
 
         :param geometry_dict: Dictionary mapping geometry identifiers to shapely geometries
@@ -102,6 +108,7 @@ class OccupancyMap2D:
             Literal[
                 "intersects",
                 "within",
+                "dwithin",
                 "contains",
                 "overlaps",
                 "crosses",
@@ -153,7 +160,10 @@ class OccupancyMap2D:
 
     def contains_vectorized(self, points: npt.NDArray[np.float64]) -> npt.NDArray[np.bool_]:
         """Determines wether input-points are in geometries (i.e. polygons) of the occupancy map.
-        NOTE: This function can be significantly faster than using the str-tree, if the number of geometries is
+
+        Notes
+        -----
+        This function can be significantly faster than using the str-tree, if the number of geometries is
         relatively small compared to the number of input-points.
 
         :param points: array of shape (num_points, 2), indexed by :class:`~py123d.geometry.Point2DIndex`.

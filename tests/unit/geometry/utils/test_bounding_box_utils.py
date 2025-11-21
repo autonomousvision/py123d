@@ -1,5 +1,3 @@
-import unittest
-
 import numpy as np
 import numpy.typing as npt
 import shapely
@@ -8,11 +6,11 @@ from py123d.geometry.geometry_index import (
     BoundingBoxSE3Index,
     Corners2DIndex,
     Corners3DIndex,
-    EulerStateSE3Index,
+    EulerPoseSE3Index,
     Point2DIndex,
     Point3DIndex,
 )
-from py123d.geometry.se import EulerStateSE3, StateSE3
+from py123d.geometry.pose import EulerPoseSE3, PoseSE3
 from py123d.geometry.transform.transform_se3 import translate_se3_along_body_frame
 from py123d.geometry.utils.bounding_box_utils import (
     bbse2_array_to_corners_array,
@@ -24,24 +22,23 @@ from py123d.geometry.utils.bounding_box_utils import (
 from py123d.geometry.vector import Vector3D
 
 
-class TestBoundingBoxUtils(unittest.TestCase):
-
-    def setUp(self):
+class TestBoundingBoxUtils:
+    def setup_method(self):
         self._num_consistency_checks = 10
         self._max_pose_xyz = 100.0
         self._max_extent = 200.0
 
     def _get_random_euler_se3_array(self, size: int) -> npt.NDArray[np.float64]:
         """Generate random SE3 poses"""
-        random_se3_array = np.zeros((size, len(EulerStateSE3Index)), dtype=np.float64)
-        random_se3_array[:, EulerStateSE3Index.XYZ] = np.random.uniform(
+        random_se3_array = np.zeros((size, len(EulerPoseSE3Index)), dtype=np.float64)
+        random_se3_array[:, EulerPoseSE3Index.XYZ] = np.random.uniform(
             -self._max_pose_xyz,
             self._max_pose_xyz,
             (size, len(Point3DIndex)),
         )
-        random_se3_array[:, EulerStateSE3Index.YAW] = np.random.uniform(-np.pi, np.pi, size)
-        random_se3_array[:, EulerStateSE3Index.PITCH] = np.random.uniform(-np.pi / 2, np.pi / 2, size)
-        random_se3_array[:, EulerStateSE3Index.ROLL] = np.random.uniform(-np.pi, np.pi, size)
+        random_se3_array[:, EulerPoseSE3Index.YAW] = np.random.uniform(-np.pi, np.pi, size)
+        random_se3_array[:, EulerPoseSE3Index.PITCH] = np.random.uniform(-np.pi / 2, np.pi / 2, size)
+        random_se3_array[:, EulerPoseSE3Index.ROLL] = np.random.uniform(-np.pi, np.pi, size)
 
         return random_se3_array
 
@@ -106,7 +103,7 @@ class TestBoundingBoxUtils(unittest.TestCase):
 
         expected_polygon = shapely.geometry.Polygon(corners_array)
         np.testing.assert_allclose(polygon.area, expected_polygon.area, atol=1e-6)
-        self.assertTrue(polygon.equals(expected_polygon))
+        assert polygon.equals(expected_polygon)
 
     def test_corners_2d_array_to_polygon_array_n_dim(self):
         corners_array = np.array(
@@ -131,10 +128,10 @@ class TestBoundingBoxUtils(unittest.TestCase):
         expected_polygon_2 = shapely.geometry.Polygon(corners_array[1])
 
         np.testing.assert_allclose(polygons[0].area, expected_polygon_1.area, atol=1e-6)
-        self.assertTrue(polygons[0].equals(expected_polygon_1))
+        assert polygons[0].equals(expected_polygon_1)
 
         np.testing.assert_allclose(polygons[1].area, expected_polygon_2.area, atol=1e-6)
-        self.assertTrue(polygons[1].equals(expected_polygon_2))
+        assert polygons[1].equals(expected_polygon_2)
 
     def test_corners_2d_array_to_polygon_array_zero_dim(self):
         corners_array = np.zeros((0, 4, 2), dtype=np.float64)
@@ -154,7 +151,7 @@ class TestBoundingBoxUtils(unittest.TestCase):
         expected_polygon = shapely.geometry.Polygon(expected_corners)
 
         np.testing.assert_allclose(polygon.area, expected_polygon.area, atol=1e-6)
-        self.assertTrue(polygon.equals(expected_polygon))
+        assert polygon.equals(expected_polygon)
 
     def test_bbse2_array_to_polygon_array_n_dim(self):
         bounding_box_se2_array = np.array([1.0, 2.0, 0.0, 4.0, 2.0])
@@ -171,7 +168,7 @@ class TestBoundingBoxUtils(unittest.TestCase):
 
         for polygon in polygons:
             np.testing.assert_allclose(polygon.area, expected_polygon.area, atol=1e-6)
-            self.assertTrue(polygon.equals(expected_polygon))
+            assert polygon.equals(expected_polygon)
 
     def test_bbse2_array_to_polygon_array_zero_dim(self):
         bounding_box_se2_array = np.zeros((0, 5), dtype=np.float64)
@@ -198,14 +195,14 @@ class TestBoundingBoxUtils(unittest.TestCase):
 
     def test_bbse3_array_to_corners_array_one_dim_rotation(self):
         for _ in range(self._num_consistency_checks):
-            se3_state = EulerStateSE3.from_array(self._get_random_euler_se3_array(1)[0]).state_se3
+            se3_state = EulerPoseSE3.from_array(self._get_random_euler_se3_array(1)[0]).pose_se3
             se3_array = se3_state.array
 
             # construct a bounding box
             bounding_box_se3_array = np.zeros((len(BoundingBoxSE3Index),), dtype=np.float64)
             length, width, height = np.random.uniform(0.0, self._max_extent, size=3)
 
-            bounding_box_se3_array[BoundingBoxSE3Index.STATE_SE3] = se3_array
+            bounding_box_se3_array[BoundingBoxSE3Index.SE3] = se3_array
             bounding_box_se3_array[BoundingBoxSE3Index.LENGTH] = length
             bounding_box_se3_array[BoundingBoxSE3Index.WIDTH] = width
             bounding_box_se3_array[BoundingBoxSE3Index.HEIGHT] = height
@@ -227,13 +224,13 @@ class TestBoundingBoxUtils(unittest.TestCase):
         for _ in range(self._num_consistency_checks):
             N = np.random.randint(1, 20)
             se3_array = self._get_random_euler_se3_array(N)
-            se3_state_array = np.array([EulerStateSE3.from_array(arr).state_se3.array for arr in se3_array])
+            se3_state_array = np.array([EulerPoseSE3.from_array(arr).pose_se3.array for arr in se3_array])
 
             # construct a bounding box
             bounding_box_se3_array = np.zeros((N, len(BoundingBoxSE3Index)), dtype=np.float64)
             lengths, widths, heights = np.random.uniform(0.0, self._max_extent, size=(3, N))
 
-            bounding_box_se3_array[:, BoundingBoxSE3Index.STATE_SE3] = se3_state_array
+            bounding_box_se3_array[:, BoundingBoxSE3Index.SE3] = se3_state_array
             bounding_box_se3_array[:, BoundingBoxSE3Index.LENGTH] = lengths
             bounding_box_se3_array[:, BoundingBoxSE3Index.WIDTH] = widths
             bounding_box_se3_array[:, BoundingBoxSE3Index.HEIGHT] = heights
@@ -249,7 +246,7 @@ class TestBoundingBoxUtils(unittest.TestCase):
                     np.testing.assert_allclose(
                         corners_array[obj_idx, corner_idx],
                         translate_se3_along_body_frame(
-                            StateSE3.from_array(bounding_box_se3_array[obj_idx, BoundingBoxSE3Index.STATE_SE3]),
+                            PoseSE3.from_array(bounding_box_se3_array[obj_idx, BoundingBoxSE3Index.SE3]),
                             body_translate_vector,
                         ).point_3d.array,
                         atol=1e-6,
@@ -260,7 +257,3 @@ class TestBoundingBoxUtils(unittest.TestCase):
         corners_array = bbse3_array_to_corners_array(bounding_box_se3_array)
         expected_corners = np.zeros((0, 8, 3), dtype=np.float64)
         np.testing.assert_allclose(corners_array, expected_corners, atol=1e-6)
-
-
-if __name__ == "__main__":
-    unittest.main()

@@ -4,35 +4,35 @@ from dataclasses import dataclass
 from typing import List, Optional
 from xml.etree.ElementTree import Element
 
-from py123d.conversion.utils.map_utils.opendrive.parser.polynomial import Polynomial
+from py123d.conversion.utils.map_utils.opendrive.parser.polynomial import XODRPolynomial
 
 
 @dataclass
-class Lanes:
+class XODRLanes:
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/11_lanes/11_01_introduction.html
     """
 
-    lane_offsets: List[LaneOffset]
-    lane_sections: List[LaneSection]
+    lane_offsets: List[XODRLaneOffset]
+    lane_sections: List[XODRLaneSection]
 
     def __post_init__(self):
         self.lane_offsets.sort(key=lambda x: x.s, reverse=False)
         self.lane_sections.sort(key=lambda x: x.s, reverse=False)
 
     @classmethod
-    def parse(cls, lanes_element: Optional[Element]) -> Lanes:
+    def parse(cls, lanes_element: Optional[Element]) -> XODRLanes:
         args = {}
-        lane_offsets: List[LaneOffset] = []
+        lane_offsets: List[XODRLaneOffset] = []
         for lane_offset_element in lanes_element.findall("laneOffset"):
-            lane_offsets.append(LaneOffset.parse(lane_offset_element))
+            lane_offsets.append(XODRLaneOffset.parse(lane_offset_element))
         args["lane_offsets"] = lane_offsets
 
-        lane_sections: List[LaneSection] = []
+        lane_sections: List[XODRLaneSection] = []
         for lane_section_element in lanes_element.findall("laneSection"):
-            lane_sections.append(LaneSection.parse(lane_section_element))
+            lane_sections.append(XODRLaneSection.parse(lane_section_element))
         args["lane_sections"] = lane_sections
-        return Lanes(**args)
+        return XODRLanes(**args)
 
     @property
     def num_lane_sections(self) -> int:
@@ -44,7 +44,7 @@ class Lanes:
 
 
 @dataclass
-class LaneOffset(Polynomial):
+class XODRLaneOffset(XODRPolynomial):
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/11_lanes/11_04_lane_offset.html
 
@@ -53,15 +53,15 @@ class LaneOffset(Polynomial):
 
 
 @dataclass
-class LaneSection:
+class XODRLaneSection:
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/11_lanes/11_03_lane_sections.html
     """
 
     s: float
-    left_lanes: List[Lane]
-    center_lanes: List[Lane]
-    right_lanes: List[Lane]
+    left_lanes: List[XODRLane]
+    center_lanes: List[XODRLane]
+    right_lanes: List[XODRLane]
 
     def __post_init__(self):
         self.left_lanes.sort(key=lambda x: x.id, reverse=False)
@@ -69,33 +69,33 @@ class LaneSection:
         # NOTE: added assertion/filtering to check for element type or consistency
 
     @classmethod
-    def parse(cls, lane_section_element: Optional[Element]) -> LaneSection:
+    def parse(cls, lane_section_element: Optional[Element]) -> XODRLaneSection:
         args = {}
         args["s"] = float(lane_section_element.get("s"))
 
-        left_lanes: List[Lane] = []
+        left_lanes: List[XODRLane] = []
         if lane_section_element.find("left") is not None:
             for lane_element in lane_section_element.find("left").findall("lane"):
-                left_lanes.append(Lane.parse(lane_element))
+                left_lanes.append(XODRLane.parse(lane_element))
         args["left_lanes"] = left_lanes
 
-        center_lanes: List[Lane] = []
+        center_lanes: List[XODRLane] = []
         if lane_section_element.find("center") is not None:
             for lane_element in lane_section_element.find("center").findall("lane"):
-                center_lanes.append(Lane.parse(lane_element))
+                center_lanes.append(XODRLane.parse(lane_element))
         args["center_lanes"] = center_lanes
 
-        right_lanes: List[Lane] = []
+        right_lanes: List[XODRLane] = []
         if lane_section_element.find("right") is not None:
             for lane_element in lane_section_element.find("right").findall("lane"):
-                right_lanes.append(Lane.parse(lane_element))
+                right_lanes.append(XODRLane.parse(lane_element))
         args["right_lanes"] = right_lanes
 
-        return LaneSection(**args)
+        return XODRLaneSection(**args)
 
 
 @dataclass
-class Lane:
+class XODRLane:
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/11_lanes/11_05_lane_link.html
     """
@@ -104,8 +104,8 @@ class Lane:
     type: str
     level: bool
 
-    widths: List[Width]
-    road_marks: List[RoadMark]
+    widths: List[XODRWidth]
+    road_marks: List[XODRRoadMark]
 
     predecessor: Optional[int] = None
     successor: Optional[int] = None
@@ -115,7 +115,7 @@ class Lane:
         # NOTE: added assertion/filtering to check for element type or consistency
 
     @classmethod
-    def parse(cls, lane_element: Optional[Element]) -> Lane:
+    def parse(cls, lane_element: Optional[Element]) -> XODRLane:
         args = {}
         args["id"] = int(lane_element.get("id"))
         args["type"] = lane_element.get("type")
@@ -127,21 +127,21 @@ class Lane:
             if lane_element.find("link").find("successor") is not None:
                 args["successor"] = int(lane_element.find("link").find("successor").get("id"))
 
-        widths: List[Width] = []
+        widths: List[XODRWidth] = []
         for width_element in lane_element.findall("width"):
-            widths.append(Width.parse(width_element))
+            widths.append(XODRWidth.parse(width_element))
         args["widths"] = widths
 
-        road_marks: List[Width] = []
+        road_marks: List[XODRWidth] = []
         for road_mark_element in lane_element.findall("roadMark"):
-            road_marks.append(RoadMark.parse(road_mark_element))
+            road_marks.append(XODRRoadMark.parse(road_mark_element))
         args["road_marks"] = road_marks
 
-        return Lane(**args)
+        return XODRLane(**args)
 
 
 @dataclass
-class Width:
+class XODRWidth:
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/11_lanes/11_06_lane_geometry.html#sec-8d8ac2e0-b3d6-4048-a9ed-d5191af5c74b
     """
@@ -153,20 +153,20 @@ class Width:
     d: Optional[float] = None
 
     @classmethod
-    def parse(cls, width_element: Optional[Element]) -> Width:
+    def parse(cls, width_element: Optional[Element]) -> XODRWidth:
         args = {}
         args["s_offset"] = float(width_element.get("sOffset"))
         args["a"] = float(width_element.get("a"))
         args["b"] = float(width_element.get("b"))
         args["c"] = float(width_element.get("c"))
         args["d"] = float(width_element.get("d"))
-        return Width(**args)
+        return XODRWidth(**args)
 
-    def get_polynomial(self, t_sign: float = 1.0) -> Polynomial:
+    def get_polynomial(self, t_sign: float = 1.0) -> XODRPolynomial:
         """
         Returns the polynomial representation of the width.
         """
-        return Polynomial(
+        return XODRPolynomial(
             s=self.s_offset,
             a=self.a * t_sign,
             b=self.b * t_sign,
@@ -176,7 +176,7 @@ class Width:
 
 
 @dataclass
-class RoadMark:
+class XODRRoadMark:
     """
     https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/latest/specification/11_lanes/11_08_road_markings.html
     """
@@ -193,7 +193,7 @@ class RoadMark:
         pass
 
     @classmethod
-    def parse(cls, road_mark_element: Optional[Element]) -> RoadMark:
+    def parse(cls, road_mark_element: Optional[Element]) -> XODRRoadMark:
         args = {}
         args["s_offset"] = float(road_mark_element.get("sOffset"))
         args["type"] = road_mark_element.get("type")
@@ -202,4 +202,4 @@ class RoadMark:
         if road_mark_element.get("width") is not None:
             args["width"] = float(road_mark_element.get("width"))
         args["lane_change"] = road_mark_element.get("lane_change")
-        return RoadMark(**args)
+        return XODRRoadMark(**args)

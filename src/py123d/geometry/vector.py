@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Iterable
-
 import numpy as np
 import numpy.typing as npt
 
-from py123d.common.utils.mixin import ArrayMixin
+from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
 from py123d.geometry.geometry_index import Vector2DIndex, Vector3DIndex
 
 
@@ -15,6 +12,7 @@ class Vector2D(ArrayMixin):
     Class to represents 2D vectors, in x, y direction.
 
     Example:
+        >>> from py123d.geometry import Vector2D
         >>> v1 = Vector2D(3.0, 4.0)
         >>> v2 = Vector2D(1.0, 2.0)
         >>> v3 = v1 + v2
@@ -26,6 +24,7 @@ class Vector2D(ArrayMixin):
         5.0
     """
 
+    __slots__ = ("_array",)
     _array: npt.NDArray[np.float64]
 
     def __init__(self, x: float, y: float):
@@ -37,10 +36,10 @@ class Vector2D(ArrayMixin):
 
     @classmethod
     def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> Vector2D:
-        """Constructs a Vector2D from a numpy array.
+        """Constructs a :class:`Vector2D` from a numpy array of shape (2,), \
+            indexed by :class:`~py123d.geometry.geometry_index.Vector2DIndex`.
 
-        :param array: Array of shape (2,) representing the vector components [x, y], indexed by \
-            :class:`~py123d.geometry.Vector2DIndex`.
+        :param array: The array of shape (2,) with the x,y components.
         :param copy: Whether to copy the input array. Defaults to True.
         :return: A Vector2D instance.
         """
@@ -52,27 +51,17 @@ class Vector2D(ArrayMixin):
 
     @property
     def x(self) -> float:
-        """The x component of the vector.
-
-        :return: The x component of the vector.
-        """
+        """The x component of the vector."""
         return self._array[Vector2DIndex.X]
 
     @property
     def y(self) -> float:
-        """The y component of the vector.
-
-        :return: The y component of the vector.
-        """
+        """The y component of the vector."""
         return self._array[Vector2DIndex.Y]
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
-        """The array representation of the 2D vector.
-
-        :return: A numpy array of shape (2,) containing the vector components [x, y], indexed by \
-            :class:`~py123d.geometry.Vector2DIndex`.
-        """
+        """The vector as array of shape (2,), indexed by :class:`~py123d.geometry.Vector2DIndex`."""
         array = np.zeros(len(Vector2DIndex), dtype=np.float64)
         array[Vector2DIndex.X] = self.x
         array[Vector2DIndex.Y] = self.y
@@ -80,18 +69,12 @@ class Vector2D(ArrayMixin):
 
     @property
     def magnitude(self) -> float:
-        """Calculates the magnitude (length) of the 2D vector.
-
-        :return: The magnitude of the vector.
-        """
+        """The magnitude (length) of the 2D vector."""
         return float(np.linalg.norm(self.array))
 
     @property
     def vector_2d(self) -> Vector2D:
-        """The 2D vector itself. Handy for polymorphism.
-
-        :return: A Vector2D instance representing the 2D vector.
-        """
+        """The :class:`Vector2D` itself."""
         return self
 
     def __add__(self, other: Vector2D) -> Vector2D:
@@ -126,21 +109,17 @@ class Vector2D(ArrayMixin):
         """
         return Vector2D(self.x / scalar, self.y / scalar)
 
-    def __iter__(self) -> Iterable[float]:
-        """Iterator over vector components."""
-        return iter((self.x, self.y))
-
-    def __hash__(self) -> int:
-        """Hash method"""
-        return hash((self.x, self.y))
+    def __repr__(self) -> str:
+        """String representation of :class:`Vector2D`."""
+        return indexed_array_repr(self, Vector2DIndex)
 
 
-@dataclass
 class Vector3D(ArrayMixin):
     """
     Class to represents 3D vectors, in x, y, z direction.
 
     Example:
+        >>> from py123d.geometry import Vector3D
         >>> v1 = Vector3D(1.0, 2.0, 3.0)
         >>> v2 = Vector3D(4.0, 5.0, 6.0)
         >>> v3 = v1 + v2
@@ -152,6 +131,7 @@ class Vector3D(ArrayMixin):
         3.7416573867739413
     """
 
+    __slots__ = ("_array",)
     _array: npt.NDArray[np.float64]
 
     def __init__(self, x: float, y: float, z: float):
@@ -164,9 +144,10 @@ class Vector3D(ArrayMixin):
 
     @classmethod
     def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> Vector3D:
-        """Constructs a Vector3D from a numpy array.
+        """Constructs a :class:`Vector3D` from a numpy array of shape (3,), \
+            indexed by :class:`~py123d.geometry.geometry_index.Vector3DIndex`.
 
-        :param array: Array of shape (3,), indexed by :class:`~py123d.geometry.geometry_index.Vector3DIndex`.
+        :param array: The array of shape (3,) with the x,y,z components.
         :param copy: Whether to copy the input array. Defaults to True.
         :return: A Vector3D instance.
         """
@@ -178,52 +159,37 @@ class Vector3D(ArrayMixin):
 
     @property
     def x(self) -> float:
-        """The x component of the vector.
-
-        :return: The x component of the vector.
-        """
+        """The x component of the vector."""
         return self._array[Vector3DIndex.X]
 
     @property
     def y(self) -> float:
-        """The y component of the vector.
-
-        :return: The y component of the vector.
-        """
+        """The y component of the vector."""
         return self._array[Vector3DIndex.Y]
 
     @property
     def z(self) -> float:
-        """The z component of the vector.
-
-        :return: The z component of the vector.
-        """
+        """The z component of the vector."""
         return self._array[Vector3DIndex.Z]
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
-        """
-        Returns the vector components as a numpy array
-
-        :return: A numpy array representing the vector components [x, y, z], indexed by \
-            :class:`~py123d.geometry.geometry_index.Vector3DIndex`.
-        """
+        """The vector as array of shape (3,), indexed by :class:`~py123d.geometry.Vector3DIndex`."""
         return self._array
 
     @property
     def magnitude(self) -> float:
-        """Calculates the magnitude (length) of the 3D vector.
-
-        :return: The magnitude of the vector.
-        """
+        """The magnitude (length) of the 3D vector."""
         return float(np.linalg.norm(self.array))
 
     @property
-    def vector_2d(self) -> Vector2D:
-        """Returns the 2D vector projection (x, y) of the 3D vector.
+    def vector_3d(self) -> Vector3D:
+        """The :class:`Vector3D` itself."""
+        return self
 
-        :return: A Vector2D instance representing the 2D projection.
-        """
+    @property
+    def vector_2d(self) -> Vector2D:
+        """The 2D vector projection (x, y) of the 3D vector."""
         return Vector2D(self.x, self.y)
 
     def __add__(self, other: Vector3D) -> Vector3D:
@@ -258,10 +224,6 @@ class Vector3D(ArrayMixin):
         """
         return Vector3D(self.x / scalar, self.y / scalar, self.z / scalar)
 
-    def __iter__(self) -> Iterable[float]:
-        """Iterator over vector components."""
-        return iter((self.x, self.y, self.z))
-
-    def __hash__(self) -> int:
-        """Hash method"""
-        return hash((self.x, self.y, self.z))
+    def __repr__(self) -> str:
+        """String representation of :class:`Vector3D`."""
+        return indexed_array_repr(self, Vector3DIndex)

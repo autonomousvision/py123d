@@ -5,10 +5,10 @@ import numpy as np
 import numpy.typing as npt
 import shapely
 
-from py123d.conversion.utils.map_utils.opendrive.parser.objects import Object
-from py123d.conversion.utils.map_utils.opendrive.parser.reference import ReferenceLine
-from py123d.geometry import Point3D, Point3DIndex, StateSE2, Vector2D
-from py123d.geometry.geometry_index import StateSE2Index
+from py123d.conversion.utils.map_utils.opendrive.parser.objects import XODRObject
+from py123d.conversion.utils.map_utils.opendrive.parser.reference import XODRReferenceLine
+from py123d.geometry import Point3D, Point3DIndex, PoseSE2, Vector2D
+from py123d.geometry.geometry_index import PoseSE2Index
 from py123d.geometry.polyline import Polyline3D
 from py123d.geometry.transform.transform_se2 import translate_se2_along_body_frame
 from py123d.geometry.utils.rotation_utils import normalize_angle
@@ -16,7 +16,6 @@ from py123d.geometry.utils.rotation_utils import normalize_angle
 
 @dataclass
 class OpenDriveObjectHelper:
-
     object_id: int
     outline_3d: npt.NDArray[np.float64]
 
@@ -33,18 +32,17 @@ class OpenDriveObjectHelper:
         return shapely.geometry.Polygon(self.outline_3d[:, Point3DIndex.XY])
 
 
-def get_object_helper(object: Object, reference_line: ReferenceLine) -> OpenDriveObjectHelper:
-
+def get_object_helper(object: XODRObject, reference_line: XODRReferenceLine) -> OpenDriveObjectHelper:
     object_helper: Optional[OpenDriveObjectHelper] = None
 
     # 1. Extract object position in frenet frame of the reference line
 
-    object_se2: StateSE2 = StateSE2.from_array(reference_line.interpolate_se2(s=object.s, t=object.t))
+    object_se2: PoseSE2 = PoseSE2.from_array(reference_line.interpolate_se2(s=object.s, t=object.t))
     object_3d: Point3D = Point3D.from_array(reference_line.interpolate_3d(s=object.s, t=object.t))
 
     # Adjust yaw angle from object data
     # TODO: Consider adding setters to StateSE2 to make this cleaner
-    object_se2._array[StateSE2Index.YAW] = normalize_angle(object_se2.yaw + object.hdg)
+    object_se2._array[PoseSE2Index.YAW] = normalize_angle(object_se2.yaw + object.hdg)
 
     if len(object.outline) == 0:
         outline_3d = np.zeros((4, len(Point3DIndex)), dtype=np.float64)

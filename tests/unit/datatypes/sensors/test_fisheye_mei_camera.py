@@ -1,0 +1,368 @@
+import numpy as np
+import pytest
+
+from py123d.datatypes.sensors.fisheye_mei_camera import (
+    FisheyeMEICamera,
+    FisheyeMEICameraMetadata,
+    FisheyeMEICameraType,
+    FisheyeMEIDistortion,
+    FisheyeMEIDistortionIndex,
+    FisheyeMEIProjection,
+    FisheyeMEIProjectionIndex,
+)
+from py123d.geometry import PoseSE3
+
+
+class TestFisheyeMEICameraType:
+    def test_camera_type_values(self):
+        """Test that camera type enum has expected values."""
+        assert FisheyeMEICameraType.FCAM_L.value == 0
+        assert FisheyeMEICameraType.FCAM_R.value == 1
+
+    def test_camera_type_from_int(self):
+        """Test creating camera type from integer values."""
+        assert FisheyeMEICameraType(0) == FisheyeMEICameraType.FCAM_L
+        assert FisheyeMEICameraType(1) == FisheyeMEICameraType.FCAM_R
+
+    def test_camera_type_members(self):
+        """Test that all expected members exist."""
+        members = list(FisheyeMEICameraType)
+        assert len(members) == 2
+        assert FisheyeMEICameraType.FCAM_L in members
+        assert FisheyeMEICameraType.FCAM_R in members
+
+    def test_camera_type_comparison(self):
+        """Test comparison between camera types."""
+        assert FisheyeMEICameraType.FCAM_L != FisheyeMEICameraType.FCAM_R
+        assert FisheyeMEICameraType.FCAM_L == FisheyeMEICameraType.FCAM_L
+
+
+class TestFisheyeMEIDistortion:
+    def test_distortion_initialization(self):
+        """Test distortion parameter initialization."""
+        distortion = FisheyeMEIDistortion(k1=0.1, k2=0.2, p1=0.3, p2=0.4)
+        assert distortion.k1 == 0.1
+        assert distortion.k2 == 0.2
+        assert distortion.p1 == 0.3
+        assert distortion.p2 == 0.4
+
+    def test_distortion_from_array(self):
+        """Test creating distortion from array."""
+        array = np.array([0.1, 0.2, 0.3, 0.4])
+        distortion = FisheyeMEIDistortion.from_array(array)
+        assert distortion.k1 == 0.1
+        assert distortion.k2 == 0.2
+        assert distortion.p1 == 0.3
+        assert distortion.p2 == 0.4
+
+    def test_distortion_from_array_copy(self):
+        """Test that from_array copies data by default."""
+        array = np.array([0.1, 0.2, 0.3, 0.4])
+        distortion = FisheyeMEIDistortion.from_array(array, copy=True)
+        array[0] = 999.0
+        assert distortion.k1 == 0.1
+
+    def test_distortion_from_array_no_copy(self):
+        """Test that from_array can avoid copying."""
+        array = np.array([0.1, 0.2, 0.3, 0.4])
+        distortion = FisheyeMEIDistortion.from_array(array, copy=False)
+        array[0] = 999.0
+        assert distortion.k1 == 999.0
+
+    def test_distortion_array_property(self):
+        """Test array property returns correct values."""
+        distortion = FisheyeMEIDistortion(k1=0.1, k2=0.2, p1=0.3, p2=0.4)
+        array = distortion.array
+        assert len(array) == 4
+        np.testing.assert_array_equal(array, [0.1, 0.2, 0.3, 0.4])
+
+    def test_distortion_index_mapping(self):
+        """Test that distortion indices map correctly."""
+        distortion = FisheyeMEIDistortion(k1=0.1, k2=0.2, p1=0.3, p2=0.4)
+        assert distortion.array[FisheyeMEIDistortionIndex.K1] == 0.1
+        assert distortion.array[FisheyeMEIDistortionIndex.K2] == 0.2
+        assert distortion.array[FisheyeMEIDistortionIndex.P1] == 0.3
+        assert distortion.array[FisheyeMEIDistortionIndex.P2] == 0.4
+
+
+class TestFisheyeMEIProjection:
+    def test_projection_initialization(self):
+        """Test projection parameter initialization."""
+        projection = FisheyeMEIProjection(gamma1=1.0, gamma2=2.0, u0=3.0, v0=4.0)
+        assert projection.gamma1 == 1.0
+        assert projection.gamma2 == 2.0
+        assert projection.u0 == 3.0
+        assert projection.v0 == 4.0
+
+    def test_projection_from_array(self):
+        """Test creating projection from array."""
+        array = np.array([1.0, 2.0, 3.0, 4.0])
+        projection = FisheyeMEIProjection.from_array(array)
+        assert projection.gamma1 == 1.0
+        assert projection.gamma2 == 2.0
+        assert projection.u0 == 3.0
+        assert projection.v0 == 4.0
+
+    def test_projection_from_array_copy(self):
+        """Test that from_array copies data by default."""
+        array = np.array([1.0, 2.0, 3.0, 4.0])
+        projection = FisheyeMEIProjection.from_array(array, copy=True)
+        array[0] = 999.0
+        assert projection.gamma1 == 1.0
+
+    def test_projection_from_array_no_copy(self):
+        """Test that from_array can avoid copying."""
+        array = np.array([1.0, 2.0, 3.0, 4.0])
+        projection = FisheyeMEIProjection.from_array(array, copy=False)
+        array[0] = 999.0
+        assert projection.gamma1 == 999.0
+
+    def test_projection_array_property(self):
+        """Test array property returns correct values."""
+        projection = FisheyeMEIProjection(gamma1=1.0, gamma2=2.0, u0=3.0, v0=4.0)
+        array = projection.array
+        assert len(array) == 4
+        np.testing.assert_array_equal(array, [1.0, 2.0, 3.0, 4.0])
+
+    def test_projection_index_mapping(self):
+        """Test that projection indices map correctly."""
+        projection = FisheyeMEIProjection(gamma1=1.0, gamma2=2.0, u0=3.0, v0=4.0)
+        assert projection.array[FisheyeMEIProjectionIndex.GAMMA1] == 1.0
+        assert projection.array[FisheyeMEIProjectionIndex.GAMMA2] == 2.0
+        assert projection.array[FisheyeMEIProjectionIndex.U0] == 3.0
+        assert projection.array[FisheyeMEIProjectionIndex.V0] == 4.0
+
+
+class TestFisheyeMEICameraMetadata:
+    def test_metadata_initialization(self):
+        """Test metadata initialization with all parameters."""
+        distortion = FisheyeMEIDistortion(k1=0.1, k2=0.2, p1=0.3, p2=0.4)
+        projection = FisheyeMEIProjection(gamma1=1.0, gamma2=2.0, u0=3.0, v0=4.0)
+        metadata = FisheyeMEICameraMetadata(
+            camera_type=FisheyeMEICameraType.FCAM_L,
+            mirror_parameter=0.5,
+            distortion=distortion,
+            projection=projection,
+            width=1920,
+            height=1080,
+        )
+        assert metadata.camera_type == FisheyeMEICameraType.FCAM_L
+        assert metadata.mirror_parameter == 0.5
+        assert metadata.distortion == distortion
+        assert metadata.projection == projection
+        assert metadata.aspect_ratio == 1920 / 1080
+
+    def test_metadata_initialization_with_none(self):
+        """Test metadata initialization with None distortion and projection."""
+        metadata = FisheyeMEICameraMetadata(
+            camera_type=FisheyeMEICameraType.FCAM_R,
+            mirror_parameter=None,
+            distortion=None,
+            projection=None,
+            width=640,
+            height=480,
+        )
+        assert metadata.camera_type == FisheyeMEICameraType.FCAM_R
+        assert metadata.mirror_parameter is None
+        assert metadata.distortion is None
+        assert metadata.projection is None
+        assert metadata.aspect_ratio == 640 / 480
+
+    def test_metadata_to_dict(self):
+        """Test converting metadata to dictionary."""
+        distortion = FisheyeMEIDistortion(k1=0.1, k2=0.2, p1=0.3, p2=0.4)
+        projection = FisheyeMEIProjection(gamma1=1.0, gamma2=2.0, u0=3.0, v0=4.0)
+        metadata = FisheyeMEICameraMetadata(
+            camera_type=FisheyeMEICameraType.FCAM_L,
+            mirror_parameter=0.5,
+            distortion=distortion,
+            projection=projection,
+            width=1920,
+            height=1080,
+        )
+        result = metadata.to_dict()
+        assert result["camera_type"] == 0
+        assert result["mirror_parameter"] == 0.5
+        assert result["distortion"] == [0.1, 0.2, 0.3, 0.4]
+        assert result["projection"] == [1.0, 2.0, 3.0, 4.0]
+        assert result["width"] == 1920
+        assert result["height"] == 1080
+
+    def test_metadata_to_dict_with_none(self):
+        """Test converting metadata with None values to dictionary."""
+        metadata = FisheyeMEICameraMetadata(
+            camera_type=FisheyeMEICameraType.FCAM_R,
+            mirror_parameter=None,
+            distortion=None,
+            projection=None,
+            width=640,
+            height=480,
+        )
+        result = metadata.to_dict()
+        assert result["camera_type"] == 1
+        assert result["mirror_parameter"] is None
+        assert result["distortion"] is None
+        assert result["projection"] is None
+        assert result["width"] == 640
+        assert result["height"] == 480
+
+    def test_metadata_from_dict(self):
+        """Test creating metadata from dictionary."""
+        data = {
+            "camera_type": 0,
+            "mirror_parameter": 0.5,
+            "distortion": [0.1, 0.2, 0.3, 0.4],
+            "projection": [1.0, 2.0, 3.0, 4.0],
+            "width": 1920,
+            "height": 1080,
+        }
+        metadata = FisheyeMEICameraMetadata.from_dict(data)
+        assert metadata.camera_type == FisheyeMEICameraType.FCAM_L
+        assert metadata.mirror_parameter == 0.5
+        assert metadata.distortion.k1 == 0.1
+        assert metadata.projection.gamma1 == 1.0
+        assert metadata.aspect_ratio == 1920 / 1080
+
+    def test_metadata_from_dict_with_none(self):
+        """Test creating metadata from dictionary with None values."""
+        data = {
+            "camera_type": 1,
+            "mirror_parameter": None,
+            "distortion": None,
+            "projection": None,
+            "width": 640,
+            "height": 480,
+        }
+        metadata = FisheyeMEICameraMetadata.from_dict(data)
+        assert metadata.camera_type == FisheyeMEICameraType.FCAM_R
+        assert metadata.mirror_parameter is None
+        assert metadata.distortion is None
+        assert metadata.projection is None
+
+    def test_metadata_roundtrip(self):
+        """Test that to_dict and from_dict are inverses."""
+        distortion = FisheyeMEIDistortion(k1=0.1, k2=0.2, p1=0.3, p2=0.4)
+        projection = FisheyeMEIProjection(gamma1=1.0, gamma2=2.0, u0=3.0, v0=4.0)
+        metadata = FisheyeMEICameraMetadata(
+            camera_type=FisheyeMEICameraType.FCAM_L,
+            mirror_parameter=0.5,
+            distortion=distortion,
+            projection=projection,
+            width=1920,
+            height=1080,
+        )
+        data_dict = metadata.to_dict()
+        metadata_restored = FisheyeMEICameraMetadata.from_dict(data_dict)
+        assert metadata.camera_type == metadata_restored.camera_type
+        assert metadata.mirror_parameter == metadata_restored.mirror_parameter
+        np.testing.assert_array_equal(metadata.distortion.array, metadata_restored.distortion.array)
+        np.testing.assert_array_equal(metadata.projection.array, metadata_restored.projection.array)
+        assert metadata.aspect_ratio == metadata_restored.aspect_ratio
+
+    def test_aspect_ratio_calculation(self):
+        """Test aspect ratio calculation."""
+        metadata = FisheyeMEICameraMetadata(
+            camera_type=FisheyeMEICameraType.FCAM_L,
+            mirror_parameter=0.5,
+            distortion=None,
+            projection=None,
+            width=1920,
+            height=1080,
+        )
+        assert metadata.aspect_ratio == pytest.approx(16 / 9, abs=1e-05)
+
+
+class TestFisheyeMEICamera:
+    def test_camera_initialization(self):
+        """Test FisheyeMEICamera initialization."""
+
+        metadata = FisheyeMEICameraMetadata(
+            camera_type=FisheyeMEICameraType.FCAM_L,
+            mirror_parameter=0.5,
+            distortion=FisheyeMEIDistortion(k1=0.1, k2=0.2, p1=0.3, p2=0.4),
+            projection=FisheyeMEIProjection(gamma1=1.0, gamma2=2.0, u0=3.0, v0=4.0),
+            width=1920,
+            height=1080,
+        )
+        image = np.zeros((1080, 1920), dtype=np.uint8)
+        extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
+
+        camera = FisheyeMEICamera(metadata=metadata, image=image, extrinsic=extrinsic)
+
+        assert camera.metadata == metadata
+        np.testing.assert_array_equal(camera.image, image)
+        assert camera.extrinsic == extrinsic
+
+    def test_camera_metadata_property(self):
+        """Test that metadata property returns correct metadata."""
+
+        metadata = FisheyeMEICameraMetadata(
+            camera_type=FisheyeMEICameraType.FCAM_R,
+            mirror_parameter=0.8,
+            distortion=None,
+            projection=None,
+            width=640,
+            height=480,
+        )
+        image = np.ones((480, 640), dtype=np.uint8)
+        extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
+
+        camera = FisheyeMEICamera(metadata=metadata, image=image, extrinsic=extrinsic)
+
+        assert camera.metadata is metadata
+        assert camera.metadata.camera_type == FisheyeMEICameraType.FCAM_R
+
+    def test_camera_image_property(self):
+        """Test that image property returns correct image."""
+
+        metadata = FisheyeMEICameraMetadata(
+            camera_type=FisheyeMEICameraType.FCAM_L,
+            mirror_parameter=0.5,
+            distortion=None,
+            projection=None,
+            width=640,
+            height=480,
+        )
+        image = np.random.randint(0, 255, (480, 640), dtype=np.uint8)
+        extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
+
+        camera = FisheyeMEICamera(metadata=metadata, image=image, extrinsic=extrinsic)
+
+        np.testing.assert_array_equal(camera.image, image)
+        assert camera.image.dtype == np.uint8
+
+    def test_camera_extrinsic_property(self):
+        """Test that extrinsic property returns correct pose."""
+
+        metadata = FisheyeMEICameraMetadata(
+            camera_type=FisheyeMEICameraType.FCAM_L,
+            mirror_parameter=0.5,
+            distortion=None,
+            projection=None,
+            width=640,
+            height=480,
+        )
+        image = np.zeros((480, 640), dtype=np.uint8)
+        extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
+
+        camera = FisheyeMEICamera(metadata=metadata, image=image, extrinsic=extrinsic)
+
+        assert camera.extrinsic is extrinsic
+
+    def test_camera_with_color_image(self):
+        """Test camera with color (3-channel) image."""
+
+        metadata = FisheyeMEICameraMetadata(
+            camera_type=FisheyeMEICameraType.FCAM_L,
+            mirror_parameter=0.5,
+            distortion=None,
+            projection=None,
+            width=640,
+            height=480,
+        )
+        image = np.zeros((480, 640, 3), dtype=np.uint8)
+        extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
+
+        camera = FisheyeMEICamera(metadata=metadata, image=image, extrinsic=extrinsic)
+
+        assert camera.image.shape == (480, 640, 3)

@@ -3,9 +3,9 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from py123d.conversion.utils.map_utils.opendrive.parser.opendrive import Junction, OpenDrive
-from py123d.conversion.utils.map_utils.opendrive.parser.reference import ReferenceLine
-from py123d.conversion.utils.map_utils.opendrive.parser.road import Road
+from py123d.conversion.utils.map_utils.opendrive.parser.opendrive import XODR, Junction
+from py123d.conversion.utils.map_utils.opendrive.parser.reference import XODRReferenceLine
+from py123d.conversion.utils.map_utils.opendrive.parser.road import XODRRoad
 from py123d.conversion.utils.map_utils.opendrive.utils.id_system import (
     build_lane_id,
     derive_lane_section_id,
@@ -23,25 +23,24 @@ logger = logging.getLogger(__name__)
 
 
 def collect_element_helpers(
-    opendrive: OpenDrive,
+    opendrive: XODR,
     interpolation_step_size: float,
     connection_distance_threshold: float,
 ) -> Tuple[
-    Dict[int, Road],
+    Dict[int, XODRRoad],
     Dict[int, Junction],
     Dict[str, OpenDriveLaneHelper],
     Dict[str, OpenDriveLaneGroupHelper],
     Dict[int, OpenDriveObjectHelper],
 ]:
-
     # 1. Fill the road and junction dictionaries
-    road_dict: Dict[int, Road] = {road.id: road for road in opendrive.roads}
+    road_dict: Dict[int, XODRRoad] = {road.id: road for road in opendrive.roads}
     junction_dict: Dict[int, Junction] = {junction.id: junction for junction in opendrive.junctions}
 
     # 2. Create lane helpers from the roads
     lane_helper_dict: Dict[str, OpenDriveLaneHelper] = {}
     for road in opendrive.roads:
-        reference_line = ReferenceLine.from_plan_view(
+        reference_line = XODRReferenceLine.from_plan_view(
             road.plan_view,
             road.lanes.lane_offsets,
             road.elevation_profile.elevations,
@@ -81,14 +80,16 @@ def collect_element_helpers(
     return (road_dict, junction_dict, lane_helper_dict, lane_group_helper_dict, crosswalk_dict)
 
 
-def _update_connection_from_links(lane_helper_dict: Dict[str, OpenDriveLaneHelper], road_dict: Dict[int, Road]) -> None:
+def _update_connection_from_links(
+    lane_helper_dict: Dict[str, OpenDriveLaneHelper], road_dict: Dict[int, XODRRoad]
+) -> None:
     """
     Uses the links of the roads to update the connections between lane helpers.
     :param lane_helper_dict: Dictionary of lane helpers indexed by lane id.
     :param road_dict: Dictionary of roads indexed by road id.
     """
 
-    for lane_id in lane_helper_dict.keys():
+    for lane_id in lane_helper_dict.keys():  # noqa: PLC0206
         road_idx, lane_section_idx, _, lane_idx = lane_id.split("_")
         road_idx, lane_section_idx, lane_idx = int(road_idx), int(lane_section_idx), int(lane_idx)
 
@@ -164,7 +165,7 @@ def _update_connection_from_links(lane_helper_dict: Dict[str, OpenDriveLaneHelpe
 def _update_connection_from_junctions(
     lane_helper_dict: Dict[str, OpenDriveLaneHelper],
     junction_dict: Dict[int, Junction],
-    road_dict: Dict[int, Road],
+    road_dict: Dict[int, XODRRoad],
 ) -> None:
     """
     Helper function to update the lane connections based on junctions.
@@ -180,7 +181,6 @@ def _update_connection_from_junctions(
             connecting_road = road_dict[connection.connecting_road]
 
             for lane_link in connection.lane_links:
-
                 incoming_lane_id: Optional[str] = None
                 connecting_lane_id: Optional[str] = None
 
@@ -216,7 +216,7 @@ def _flip_and_set_connections(lane_helper_dict: Dict[str, OpenDriveLaneHelper]) 
     :param lane_helper_dict: Dictionary mapping lane ids to their helper objects.
     """
 
-    for lane_id in lane_helper_dict.keys():
+    for lane_id in lane_helper_dict.keys():  # noqa: PLC0206
         if lane_helper_dict[lane_id].id > 0:
             successors_temp = lane_helper_dict[lane_id].successor_lane_ids
             lane_helper_dict[lane_id].successor_lane_ids = lane_helper_dict[lane_id].predecessor_lane_ids
@@ -235,7 +235,7 @@ def _post_process_connections(
     :param connection_distance_threshold: Threshold distance for valid connections.
     """
 
-    for lane_id in lane_helper_dict.keys():
+    for lane_id in lane_helper_dict.keys():  # noqa: PLC0206
         lane_helper_dict[lane_id]
 
         centerline = lane_helper_dict[lane_id].center_polyline_se2
@@ -245,7 +245,6 @@ def _post_process_connections(
             successor_centerline = lane_helper_dict[successor_lane_id].center_polyline_se2
             distance = np.linalg.norm(centerline[-1, :2] - successor_centerline[0, :2])
             if distance > connection_distance_threshold:
-
                 logger.debug(
                     f"OpenDRIVE: Removing connection {lane_id} -> {successor_lane_id} with distance {distance}"
                 )
@@ -269,9 +268,8 @@ def _post_process_connections(
 def _collect_lane_groups(
     lane_helper_dict: Dict[str, OpenDriveLaneHelper],
     junction_dict: Dict[int, Junction],
-    road_dict: Dict[int, Road],
+    road_dict: Dict[int, XODRRoad],
 ) -> None:
-
     lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper] = {}
 
     def _collect_lane_helper_of_id(lane_group_id: str) -> List[OpenDriveLaneHelper]:
@@ -306,13 +304,12 @@ def _collect_lane_groups(
     return lane_group_helper_dict
 
 
-def _collect_crosswalks(opendrive: OpenDrive) -> Dict[int, OpenDriveObjectHelper]:
-
+def _collect_crosswalks(opendrive: XODR) -> Dict[int, OpenDriveObjectHelper]:
     object_helper_dict: Dict[int, OpenDriveObjectHelper] = {}
     for road in opendrive.roads:
         if len(road.objects) == 0:
             continue
-        reference_line = ReferenceLine.from_plan_view(
+        reference_line = XODRReferenceLine.from_plan_view(
             road.plan_view,
             road.lanes.lane_offsets,
             road.elevation_profile.elevations,

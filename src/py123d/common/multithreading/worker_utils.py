@@ -1,3 +1,8 @@
+"""
+Multi-threading execution code.
+Code is adapted from the nuplan-devkit: https://github.com/motional/nuplan-devkit
+"""
+
 from typing import Any, Callable, List, Optional
 
 import numpy as np

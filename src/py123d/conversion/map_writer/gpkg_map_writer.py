@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Union
@@ -9,39 +10,41 @@ import shapely.geometry as geom
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.map_writer.utils.gpkg_utils import IntIDMapping
-from py123d.datatypes.maps.abstract_map_objects import (
-    AbstractCarpark,
-    AbstractCrosswalk,
-    AbstractGenericDrivable,
-    AbstractIntersection,
-    AbstractLane,
-    AbstractLaneGroup,
-    AbstractLineMapObject,
-    AbstractRoadEdge,
-    AbstractRoadLine,
-    AbstractStopLine,
-    AbstractSurfaceMapObject,
-    AbstractWalkway,
+from py123d.datatypes.map_objects.map_layer_types import MapLayer
+from py123d.datatypes.map_objects.map_objects import (
+    BaseMapLineObject,
+    BaseMapSurfaceObject,
+    Carpark,
+    Crosswalk,
+    GenericDrivable,
+    Intersection,
+    Lane,
+    LaneGroup,
+    RoadEdge,
+    RoadLine,
+    StopZone,
+    Walkway,
 )
-from py123d.datatypes.maps.map_datatypes import MapLayer
-from py123d.datatypes.maps.map_metadata import MapMetadata
+from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.geometry.polyline import Polyline3D
 
 MAP_OBJECT_DATA = Dict[str, List[Union[str, int, float, bool, geom.base.BaseGeometry]]]
+
+logging.getLogger("pyogrio._io").disabled = True
 
 
 class GPKGMapWriter(AbstractMapWriter):
     """Abstract base class for map writers."""
 
-    def __init__(self, maps_root: Union[str, Path], remap_ids: bool = False) -> None:
+    def __init__(self, maps_root: Union[str, Path]) -> None:
         self._maps_root = Path(maps_root)
         self._crs: str = "EPSG:4326"  # WGS84
-        self._remap_ids = remap_ids
 
         # Data to be written to the map for each object type
         self._map_data: Optional[Dict[MapLayer, MAP_OBJECT_DATA]] = None
         self._map_file: Optional[Path] = None
         self._map_metadata: Optional[MapMetadata] = None
+        self._remap_map_ids: Optional[bool] = None
 
     def reset(self, dataset_converter_config: DatasetConverterConfig, map_metadata: MapMetadata) -> bool:
         """Inherited, see superclass."""
@@ -62,10 +65,11 @@ class GPKGMapWriter(AbstractMapWriter):
                 self._map_data = {map_layer: defaultdict(list) for map_layer in MapLayer}
                 self._map_file = map_file
                 self._map_metadata = map_metadata
+                self._remap_map_ids = dataset_converter_config.remap_map_ids
 
         return map_needs_writing
 
-    def write_lane(self, lane: AbstractLane) -> None:
+    def write_lane(self, lane: Lane) -> None:
         """Inherited, see superclass."""
         self._write_surface_layer(MapLayer.LANE, lane)
         self._map_data[MapLayer.LANE]["lane_group_id"].append(lane.lane_group_id)
@@ -78,7 +82,7 @@ class GPKGMapWriter(AbstractMapWriter):
         self._map_data[MapLayer.LANE]["successor_ids"].append(lane.successor_ids)
         self._map_data[MapLayer.LANE]["speed_limit_mps"].append(lane.speed_limit_mps)
 
-    def write_lane_group(self, lane_group: AbstractLaneGroup) -> None:
+    def write_lane_group(self, lane_group: LaneGroup) -> None:
         """Inherited, see superclass."""
         self._write_surface_layer(MapLayer.LANE_GROUP, lane_group)
         self._map_data[MapLayer.LANE_GROUP]["lane_ids"].append(lane_group.lane_ids)
@@ -88,41 +92,41 @@ class GPKGMapWriter(AbstractMapWriter):
         self._map_data[MapLayer.LANE_GROUP]["left_boundary"].append(lane_group.left_boundary.linestring)
         self._map_data[MapLayer.LANE_GROUP]["right_boundary"].append(lane_group.right_boundary.linestring)
 
-    def write_intersection(self, intersection: AbstractIntersection) -> None:
+    def write_intersection(self, intersection: Intersection) -> None:
         """Inherited, see superclass."""
         self._write_surface_layer(MapLayer.INTERSECTION, intersection)
         self._map_data[MapLayer.INTERSECTION]["lane_group_ids"].append(intersection.lane_group_ids)
 
-    def write_crosswalk(self, crosswalk: AbstractCrosswalk) -> None:
+    def write_crosswalk(self, crosswalk: Crosswalk) -> None:
         """Inherited, see superclass."""
         self._write_surface_layer(MapLayer.CROSSWALK, crosswalk)
 
-    def write_carpark(self, carpark: AbstractCarpark) -> None:
+    def write_carpark(self, carpark: Carpark) -> None:
         """Inherited, see superclass."""
         self._write_surface_layer(MapLayer.CARPARK, carpark)
 
-    def write_walkway(self, walkway: AbstractWalkway) -> None:
+    def write_walkway(self, walkway: Walkway) -> None:
         """Inherited, see superclass."""
         self._write_surface_layer(MapLayer.WALKWAY, walkway)
 
-    def write_generic_drivable(self, obj: AbstractGenericDrivable) -> None:
+    def write_generic_drivable(self, obj: GenericDrivable) -> None:
         """Inherited, see superclass."""
         self._write_surface_layer(MapLayer.GENERIC_DRIVABLE, obj)
 
-    def write_stop_line(self, stop_line: AbstractStopLine) -> None:
+    def write_stop_zone(self, stop_zone: StopZone) -> None:
         """Inherited, see superclass."""
         # self._write_line_layer(MapLayer.STOP_LINE, stop_line)
-        raise NotImplementedError("Stop lines are not yet supported in GPKG maps.")
+        raise NotImplementedError("Stop zones are not yet supported in GPKG maps.")
 
-    def write_road_edge(self, road_edge: AbstractRoadEdge) -> None:
+    def write_road_edge(self, road_edge: RoadEdge) -> None:
         """Inherited, see superclass."""
         self._write_line_layer(MapLayer.ROAD_EDGE, road_edge)
-        self._map_data[MapLayer.ROAD_EDGE]["road_edge_type"].append(road_edge.road_edge_type)
+        self._map_data[MapLayer.ROAD_EDGE]["road_edge_type"].append(int(road_edge.road_edge_type))
 
-    def write_road_line(self, road_line: AbstractRoadLine) -> None:
+    def write_road_line(self, road_line: RoadLine) -> None:
         """Inherited, see superclass."""
         self._write_line_layer(MapLayer.ROAD_LINE, road_line)
-        self._map_data[MapLayer.ROAD_LINE]["road_line_type"].append(road_line.road_line_type)
+        self._map_data[MapLayer.ROAD_LINE]["road_line_type"].append(int(road_line.road_line_type))
 
     def close(self) -> None:
         """Inherited, see superclass."""
@@ -143,7 +147,7 @@ class GPKGMapWriter(AbstractMapWriter):
                     )
 
             # Optionally remap string IDs to integers
-            if self._remap_ids:
+            if self._remap_map_ids:
                 _map_ids_to_integer(map_gdf)
 
             # Write each map layer to the GPKG file
@@ -163,8 +167,9 @@ class GPKGMapWriter(AbstractMapWriter):
         assert self._map_data is not None, "Call reset() before writing data."
         assert self._map_file is not None, "Call reset() before writing data."
         assert self._map_metadata is not None, "Call reset() before writing data."
+        assert self._remap_map_ids is not None, "Call reset() before writing data."
 
-    def _write_surface_layer(self, layer: MapLayer, surface_object: AbstractSurfaceMapObject) -> None:
+    def _write_surface_layer(self, layer: MapLayer, surface_object: BaseMapSurfaceObject) -> None:
         """Helper to write surface map objects.
 
         :param layer: map layer of surface object
@@ -177,7 +182,7 @@ class GPKGMapWriter(AbstractMapWriter):
             self._map_data[layer]["outline"].append(surface_object.outline.linestring)
         self._map_data[layer]["geometry"].append(surface_object.shapely_polygon)
 
-    def _write_line_layer(self, layer: MapLayer, line_object: AbstractLineMapObject) -> None:
+    def _write_line_layer(self, layer: MapLayer, line_object: BaseMapLineObject) -> None:
         """Helper to write line map objects.
 
         :param layer: map layer of line object

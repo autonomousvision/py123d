@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict, Final, List
 
@@ -7,6 +8,7 @@ import numpy as np
 import numpy.typing as npt
 import shapely
 import shapely.geometry as geom
+from pandas import isna
 
 from py123d.conversion.datasets.av2.utils.av2_constants import AV2_ROAD_LINE_TYPE_MAPPING
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
@@ -15,16 +17,16 @@ from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     split_line_geometry_by_max_length,
 )
 from py123d.conversion.utils.map_utils.road_edge.road_edge_3d_utils import lift_road_edges_to_3d
-from py123d.datatypes.maps.cache.cache_map_objects import (
-    CacheCrosswalk,
-    CacheGenericDrivable,
-    CacheIntersection,
-    CacheLane,
-    CacheLaneGroup,
-    CacheRoadEdge,
-    CacheRoadLine,
+from py123d.datatypes.map_objects.map_layer_types import RoadEdgeType
+from py123d.datatypes.map_objects.map_objects import (
+    Crosswalk,
+    GenericDrivable,
+    Intersection,
+    Lane,
+    LaneGroup,
+    RoadEdge,
+    RoadLine,
 )
-from py123d.datatypes.maps.map_datatypes import RoadEdgeType
 from py123d.geometry import OccupancyMap2D, Point3DIndex, Polyline2D, Polyline3D
 
 LANE_GROUP_MARK_TYPES: List[str] = [
@@ -34,15 +36,33 @@ LANE_GROUP_MARK_TYPES: List[str] = [
     "SOLID_DASH_WHITE",
     "SOLID_WHITE",
 ]
-MAX_ROAD_EDGE_LENGTH: Final[float] = 100.0  # TODO: Add to config
+MAX_ROAD_EDGE_LENGTH: Final[float] = 100.0
+
+
+logger = logging.getLogger(__name__)
 
 
 def convert_av2_map(source_log_path: Path, map_writer: AbstractMapWriter) -> None:
+    """Converts the AV2 map objects to the 123D objects and writes them using the provided map writer.
+
+    :param source_log_path: Path to the AV2 source log folder.
+    :param map_writer: An instance of AbstractMapWriter to write the converted map objects.
+    """
 
     def _extract_polyline(data: List[Dict[str, float]], close: bool = False) -> Polyline3D:
+        """Helper to instantiate a Polyline3D from AV2 coordinate dicts."""
         polyline = np.array([[p["x"], p["y"], p["z"]] for p in data], dtype=np.float64)
         if close:
             polyline = np.vstack([polyline, polyline[0]])
+
+        # NOTE @DanielDauner: AV2 map can have NaN values in the Z axis.
+        # In this case we replace NaNs with zeros with the median (or zeros).
+        if np.isnan(polyline).any():
+            median_xyz = np.nanmedian(polyline[:, 2], axis=-1)
+            logger.warning(f"Found NaN values {source_log_path} polyline data: {polyline}. Replacing NaNs with zeros.")
+            for i in range(polyline.shape[0]):
+                if isna(polyline[i, 2]):
+                    polyline[i, 2] = median_xyz if not isna(median_xyz) else 0.0
 
         return Polyline3D.from_array(polyline)
 
@@ -57,27 +77,31 @@ def convert_av2_map(source_log_path: Path, map_writer: AbstractMapWriter) -> Non
         # keys: ["area_boundary", "id"]
         drivable_areas[int(drivable_area_id)] = _extract_polyline(drivable_area_dict["area_boundary"], close=True)
 
-    for lane_segment_id, lane_segment_dict in log_map_archive["lane_segments"].items():
-        # keys = [
-        #     "id",
-        #     "is_intersection",
-        #     "lane_type",
-        #     "left_lane_boundary",
-        #     "left_lane_mark_type",
-        #     "right_lane_boundary",
-        #     "right_lane_mark_type",
-        #     "successors",
-        #     "predecessors",
-        #     "right_neighbor_id",
-        #     "left_neighbor_id",
-        # ]
+    for _, lane_segment_dict in log_map_archive["lane_segments"].items():
+        # Available keys:
+        # - "id",
+        # - "is_intersection",
+        # - "lane_type",
+        # - "left_lane_boundary",
+        # - "left_lane_mark_type",
+        # - "right_lane_boundary",
+        # - "right_lane_mark_type",
+        # - "successors",
+        # - "predecessors",
+        # - "right_neighbor_id",
+        # - "left_neighbor_id",
+
+        # Convert polyline dicts to Polyline3D objects.
         lane_segment_dict["left_lane_boundary"] = _extract_polyline(lane_segment_dict["left_lane_boundary"])
         lane_segment_dict["right_lane_boundary"] = _extract_polyline(lane_segment_dict["right_lane_boundary"])
 
-    for crosswalk_id, crosswalk_dict in log_map_archive["pedestrian_crossings"].items():
-        # keys = ["id", "outline"]
-        # https://github.com/argoverse/av2-api/blob/6b22766247eda941cb1953d6a58e8d5631c561da/src/av2/map/pedestrian_crossing.py
+    for _, crosswalk_dict in log_map_archive["pedestrian_crossings"].items():
+        # Available keys:
+        # - "id"
+        # - "edge1"
+        # - "edge2"
 
+        # Convert edge dicts to Polyline3D objects.
         p1, p2 = np.array([[p["x"], p["y"], p["z"]] for p in crosswalk_dict["edge1"]], dtype=np.float64)
         p3, p4 = np.array([[p["x"], p["y"], p["z"]] for p in crosswalk_dict["edge2"]], dtype=np.float64)
         crosswalk_dict["outline"] = Polyline3D.from_array(np.array([p1, p2, p4, p3, p1], dtype=np.float64))
@@ -95,16 +119,19 @@ def convert_av2_map(source_log_path: Path, map_writer: AbstractMapWriter) -> Non
 
 
 def _write_av2_lanes(lanes: Dict[int, Any], map_writer: AbstractMapWriter) -> None:
+    """Helper to write lanes to map writer."""
 
     def _get_centerline_from_boundaries(
-        left_boundary: Polyline3D, right_boundary: Polyline3D, resolution: float = 0.1
+        left_boundary: Polyline3D,
+        right_boundary: Polyline3D,
+        resolution: float = 0.1,
     ) -> Polyline3D:
+        """Helper to compute centerline from left and right lane boundaries."""
 
         points_per_meter = 1 / resolution
         num_points = int(np.ceil(max([right_boundary.length, left_boundary.length]) * points_per_meter))
         right_array = right_boundary.interpolate(np.linspace(0, right_boundary.length, num_points, endpoint=True))
         left_array = left_boundary.interpolate(np.linspace(0, left_boundary.length, num_points, endpoint=True))
-
         return Polyline3D.from_array(np.mean([right_array, left_array], axis=0))
 
     for lane_id, lane_dict in lanes.items():
@@ -114,11 +141,11 @@ def _write_av2_lanes(lanes: Dict[int, Any], map_writer: AbstractMapWriter) -> No
         )
 
         # NOTE @DanielDauner: Some neighbor lane IDs might not be present in the dataset.
-        left_lane_id = lane_dict["left_neighbor_id"] if lane_dict["left_neighbor_id"] in lanes else None
-        right_lane_id = lane_dict["right_neighbor_id"] if lane_dict["right_neighbor_id"] in lanes else None
+        left_lane_id = lane_dict["left_neighbor_id"] if str(lane_dict["left_neighbor_id"]) in lanes else None
+        right_lane_id = lane_dict["right_neighbor_id"] if str(lane_dict["right_neighbor_id"]) in lanes else None
 
         map_writer.write_lane(
-            CacheLane(
+            Lane(
                 object_id=lane_id,
                 lane_group_id=lane_dict["lane_group_id"],
                 left_boundary=lane_dict["left_lane_boundary"],
@@ -130,17 +157,16 @@ def _write_av2_lanes(lanes: Dict[int, Any], map_writer: AbstractMapWriter) -> No
                 successor_ids=lane_dict["successors"],
                 speed_limit_mps=None,
                 outline=None,  # Inferred from boundaries
-                geometry=None,
+                shapely_polygon=None,
             )
         )
 
 
 def _write_av2_lane_group(lane_group_dict: Dict[int, Any], map_writer: AbstractMapWriter) -> None:
-
+    """Helper to write lane groups to map writer."""
     for lane_group_id, lane_group_values in lane_group_dict.items():
-
         map_writer.write_lane_group(
-            CacheLaneGroup(
+            LaneGroup(
                 object_id=lane_group_id,
                 lane_ids=lane_group_values["lane_ids"],
                 left_boundary=lane_group_values["left_boundary"],
@@ -149,15 +175,16 @@ def _write_av2_lane_group(lane_group_dict: Dict[int, Any], map_writer: AbstractM
                 predecessor_ids=lane_group_values["predecessor_ids"],
                 successor_ids=lane_group_values["successor_ids"],
                 outline=None,
-                geometry=None,
+                shapely_polygon=None,
             )
         )
 
 
 def _write_av2_intersections(intersection_dict: Dict[int, Any], map_writer: AbstractMapWriter) -> None:
+    """Helper to write intersections to map writer."""
     for intersection_id, intersection_values in intersection_dict.items():
         map_writer.write_intersection(
-            CacheIntersection(
+            Intersection(
                 object_id=intersection_id,
                 lane_group_ids=intersection_values["lane_group_ids"],
                 outline=intersection_values["outline_3d"],
@@ -166,9 +193,10 @@ def _write_av2_intersections(intersection_dict: Dict[int, Any], map_writer: Abst
 
 
 def _write_av2_crosswalks(crosswalks: Dict[int, npt.NDArray[np.float64]], map_writer: AbstractMapWriter) -> None:
+    """Helper to write crosswalks to map writer."""
     for cross_walk_id, crosswalk_dict in crosswalks.items():
         map_writer.write_crosswalk(
-            CacheCrosswalk(
+            Crosswalk(
                 object_id=cross_walk_id,
                 outline=crosswalk_dict["outline"],
             )
@@ -176,9 +204,10 @@ def _write_av2_crosswalks(crosswalks: Dict[int, npt.NDArray[np.float64]], map_wr
 
 
 def _write_av2_generic_drivable(drivable_areas: Dict[int, Polyline3D], map_writer: AbstractMapWriter) -> None:
+    """Helper to write generic drivable areas to map writer."""
     for drivable_area_id, drivable_area_outline in drivable_areas.items():
         map_writer.write_generic_drivable(
-            CacheGenericDrivable(
+            GenericDrivable(
                 object_id=drivable_area_id,
                 outline=drivable_area_outline,
             )
@@ -186,10 +215,10 @@ def _write_av2_generic_drivable(drivable_areas: Dict[int, Polyline3D], map_write
 
 
 def _write_av2_road_edge(drivable_areas: Dict[int, Polyline3D], map_writer: AbstractMapWriter) -> None:
+    """Helper to write road edges to map writer."""
 
     # NOTE @DanielDauner: We merge all drivable areas in 2D and lift the outlines to 3D.
     # Currently the method assumes that the drivable areas do not overlap and all road surfaces are included.
-
     drivable_polygons = [geom.Polygon(drivable_area.array[:, :2]) for drivable_area in drivable_areas.values()]
     road_edges_2d = get_road_edge_linear_rings(drivable_polygons)
     non_conflicting_road_edges = lift_road_edges_to_3d(road_edges_2d, list(drivable_areas.values()))
@@ -197,10 +226,9 @@ def _write_av2_road_edge(drivable_areas: Dict[int, Polyline3D], map_writer: Abst
     road_edges = split_line_geometry_by_max_length(non_conflicting_road_edges_linestrings, MAX_ROAD_EDGE_LENGTH)
 
     for idx, road_edge in enumerate(road_edges):
-
         # TODO @DanielDauner: Figure out if other road edge types should/could be assigned here.
         map_writer.write_road_edge(
-            CacheRoadEdge(
+            RoadEdge(
                 object_id=idx,
                 road_edge_type=RoadEdgeType.ROAD_EDGE_BOUNDARY,
                 polyline=Polyline3D.from_linestring(road_edge),
@@ -209,30 +237,33 @@ def _write_av2_road_edge(drivable_areas: Dict[int, Polyline3D], map_writer: Abst
 
 
 def _write_av2_road_lines(lanes: Dict[int, Any], map_writer: AbstractMapWriter) -> None:
-
+    """Helper to write road lines to map writer."""
     running_road_line_id = 0
     for lane in lanes.values():
         for side in ["left", "right"]:
             # NOTE @DanielDauner: We currently ignore lane markings that are NONE in the AV2 dataset.
             if lane[f"{side}_lane_mark_type"] == "NONE":
                 continue
-
             map_writer.write_road_line(
-                CacheRoadLine(
+                RoadLine(
                     object_id=running_road_line_id,
                     road_line_type=AV2_ROAD_LINE_TYPE_MAPPING[lane[f"{side}_lane_mark_type"]],
                     polyline=lane[f"{side}_lane_boundary"],
                 )
             )
-
             running_road_line_id += 1
 
 
-def _extract_lane_group_dict(lanes: Dict[int, Any]) -> gpd.GeoDataFrame:
+def _extract_lane_group_dict(lanes: Dict[int, Any]) -> Dict[int, Any]:
+    """Collect lane groups from neighboring lanes. This function first extracts lane groups by traversing
+    neighboring lanes and then builds a dictionary with lane group information, e.g. boundaries,
+    predecessors, successors.
 
+    :param lanes: Dictionary of lane information, e.g. boundaries, and neighboring lanes.
+    :return: Dictionary of lane group information.
+    """
     lane_group_sets = _extract_lane_group(lanes)
     lane_group_set_dict = {i: lane_group for i, lane_group in enumerate(lane_group_sets)}
-
     lane_group_dict: Dict[int, Dict[str, Any]] = {}
 
     def _get_lane_group_ids_of_lanes_ids(lane_ids: List[str]) -> List[int]:
@@ -244,7 +275,6 @@ def _extract_lane_group_dict(lanes: Dict[int, Any]) -> gpd.GeoDataFrame:
         return list(set(lane_group_ids_))
 
     for lane_group_id, lane_group_set in lane_group_set_dict.items():
-
         lane_group_dict[lane_group_id] = {}
         lane_group_dict[lane_group_id]["id"] = lane_group_id
         lane_group_dict[lane_group_id]["lane_ids"] = [int(lane_id) for lane_id in lane_group_set]
@@ -279,6 +309,11 @@ def _extract_lane_group_dict(lanes: Dict[int, Any]) -> gpd.GeoDataFrame:
 
 
 def _extract_lane_group(lanes) -> List[List[str]]:
+    """Extract lane groups by traversing neighboring lanes.
+
+    :param lanes: Dictionary of lane information, e.g. boundaries, and neighboring lanes.
+    :return: List of lane groups, where each lane group is a list of lane IDs
+    """
 
     visited = set()
     lane_groups = []
@@ -331,8 +366,17 @@ def _extract_lane_group(lanes) -> List[List[str]]:
 
 
 def _extract_intersection_dict(
-    lanes: Dict[int, Any], lane_group_dict: Dict[int, Any], max_distance: float = 0.01
+    lanes: Dict[int, Any],
+    lane_group_dict: Dict[int, Any],
+    max_distance: float = 0.01,
 ) -> Dict[str, Any]:
+    """Extract intersection outlines from lane groups.
+
+    :param lanes: Dictionary of lane information, e.g. boundaries, and whether lane is part of intersection.
+    :param lane_group_dict: Dictionary of lane group information.
+    :param max_distance: Maximum distance to consider for intersection boundaries, defaults to 0.01
+    :return: Dictionary of intersection information.
+    """
 
     def _interpolate_z_on_segment(point: shapely.Point, segment_coords: npt.NDArray[np.float64]) -> float:
         """Interpolate Z coordinate along a 3D line segment."""
@@ -362,15 +406,27 @@ def _extract_intersection_dict(
             lane_group_intersection_dict[lane_group_id] = lane_group
 
     # 2. Merge polygons of lane groups that are marked as intersections.
-    lane_group_intersection_geometry = {
-        lane_group_id: shapely.Polygon(lane_group["outline"].array[:, Point3DIndex.XY])
-        for lane_group_id, lane_group in lane_group_intersection_dict.items()
-    }
+    # lane_group_intersection_geometry = {
+    #     lane_group_id: shapely.Polygon(lane_group["outline"].array[:, Point3DIndex.XY])
+    #     for lane_group_id, lane_group in lane_group_intersection_dict.items()
+    # }
+    lane_group_intersection_geometry = {}
+    for lane_group_id, lane_group in lane_group_intersection_dict.items():
+        lane_group_polygon_2d = shapely.Polygon(lane_group["outline"].array[:, Point3DIndex.XY])
+        if lane_group_polygon_2d.is_valid:
+            lane_group_intersection_geometry[lane_group_id] = lane_group_polygon_2d
+
     intersection_polygons = gpd.GeoSeries(lane_group_intersection_geometry).union_all()
 
     # 3. Collect all intersection polygons and their lane group IDs.
+    geometries = []
+    if isinstance(intersection_polygons, geom.Polygon):
+        geometries.append(intersection_polygons)
+    elif isinstance(intersection_polygons, geom.MultiPolygon):
+        geometries.extend(intersection_polygons.geoms)
+
     intersection_dict = {}
-    for intersection_idx, intersection_polygon in enumerate(intersection_polygons.geoms):
+    for intersection_idx, intersection_polygon in enumerate(geometries):
         if intersection_polygon.is_empty:
             continue
         lane_group_ids = [
@@ -394,23 +450,24 @@ def _extract_intersection_dict(
         segment_coords_boundary = np.concatenate([coords[:-1], coords[1:]], axis=1)
         boundary_segments.append(segment_coords_boundary)
 
-    boundary_segments = np.concatenate(boundary_segments, axis=0)
-    boundary_segment_linestrings = shapely.creation.linestrings(boundary_segments)
-    occupancy_map = OccupancyMap2D(boundary_segment_linestrings)
+    if len(boundary_segments) >= 1:
+        boundary_segments = np.concatenate(boundary_segments, axis=0)
+        boundary_segment_linestrings = shapely.creation.linestrings(boundary_segments)
+        occupancy_map = OccupancyMap2D(boundary_segment_linestrings)
 
-    for intersection_id, intersection_data in intersection_dict.items():
-        points_2d = intersection_data["outline_2d"].array
-        points_3d = np.zeros((len(points_2d), 3), dtype=np.float64)
-        points_3d[:, :2] = points_2d
+        for intersection_id, intersection_data in intersection_dict.items():
+            points_2d = intersection_data["outline_2d"].array
+            points_3d = np.zeros((len(points_2d), 3), dtype=np.float64)
+            points_3d[:, :2] = points_2d
 
-        query_points = shapely.creation.points(points_2d)
-        results = occupancy_map.query_nearest(query_points, max_distance=max_distance, exclusive=True)
-        for query_idx, geometry_idx in zip(*results):
-            query_point = query_points[query_idx]
-            segment_coords = boundary_segments[geometry_idx]
-            best_z = _interpolate_z_on_segment(query_point, segment_coords)
-            points_3d[query_idx, 2] = best_z
+            query_points = shapely.creation.points(points_2d)
+            results = occupancy_map.query_nearest(query_points, max_distance=max_distance, exclusive=True)
+            for query_idx, geometry_idx in zip(*results):
+                query_point = query_points[query_idx]
+                segment_coords = boundary_segments[geometry_idx]
+                best_z = _interpolate_z_on_segment(query_point, segment_coords)
+                points_3d[query_idx, 2] = best_z
 
-        intersection_dict[intersection_id]["outline_3d"] = Polyline3D.from_array(points_3d)
+            intersection_dict[intersection_id]["outline_3d"] = Polyline3D.from_array(points_3d)
 
     return intersection_dict

@@ -5,7 +5,7 @@ import numpy as np
 import numpy.typing as npt
 from omegaconf import DictConfig
 
-from py123d.datatypes.scene.scene_metadata import LogMetadata
+from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
@@ -26,12 +26,24 @@ def load_lidar_pcs_from_file(
     index: Optional[int] = None,
     sensor_root: Optional[Union[str, Path]] = None,
 ) -> Dict[LiDARType, npt.NDArray[np.float32]]:
-    assert relative_path is not None, "Relative path to LiDAR file must be provided."
+    """Loads LiDAR point clouds from a file, based on the dataset specified in the log metadata.
 
+    :param relative_path: Relative path to the LiDAR file.
+    :param log_metadata: Metadata containing dataset information.
+    :param index: Optional index for datasets that require it, defaults to None
+    :param sensor_root: Optional root path for sensor data, defaults to None
+    :raises NotImplementedError: If the dataset is not supported
+    :return: Dictionary mapping LiDAR types to their point cloud numpy arrays
+    """
+    # NOTE @DanielDauner: This function is designed s.t. it can load multiple lidar types at the same time.
+    # Several datasets (e.g., PandaSet, nuScenes) have multiple LiDAR sensors stored in one file.
+    # Returning this as a dict allows us to handle this case without unnucessary io overhead.
+
+    assert relative_path is not None, "Relative path to LiDAR file must be provided."
     if sensor_root is None:
-        assert (
-            log_metadata.dataset in DATASET_SENSOR_ROOT.keys()
-        ), f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}."
+        assert log_metadata.dataset in DATASET_SENSOR_ROOT.keys(), (
+            f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}."
+        )
         sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
         assert sensor_root is not None, f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}"
 
@@ -50,7 +62,7 @@ def load_lidar_pcs_from_file(
         lidar_pcs_dict = load_av2_sensor_lidar_pcs_from_file(full_lidar_path)
 
     elif log_metadata.dataset == "wopd":
-        from py123d.conversion.datasets.wopd.waymo_sensor_io import load_wopd_lidar_pcs_from_file
+        from py123d.conversion.datasets.wopd.wopd_sensor_io import load_wopd_lidar_pcs_from_file
 
         lidar_pcs_dict = load_wopd_lidar_pcs_from_file(full_lidar_path, index, keep_polar_features=False)
 

@@ -1,13 +1,13 @@
-from typing import Union
+from typing import Optional, Union
 
-import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
-import shapely.affinity as affinity
 import shapely.geometry as geom
+from matplotlib import patches
 from matplotlib.path import Path
+from shapely import affinity
 
-from py123d.geometry import StateSE2, StateSE3
+from py123d.geometry import PoseSE2, PoseSE3
 from py123d.visualization.color.config import PlotConfig
 
 
@@ -16,9 +16,10 @@ def add_shapely_polygon_to_ax(
     polygon: geom.Polygon,
     plot_config: PlotConfig,
     disable_smoothing: bool = False,
+    label: Optional[str] = None,
 ) -> plt.Axes:
-    """
-    Adds shapely polygon to birds-eye-view visualization with proper hole handling
+    """Adds shapely polygon to birds-eye-view visualization with proper hole handling
+
     :param ax: matplotlib ax object
     :param polygon: shapely Polygon
     :param plot_config: dictionary containing plot parameters
@@ -59,6 +60,7 @@ def add_shapely_polygon_to_ax(
             edgecolor=plot_config.line_color.hex,
             linewidth=plot_config.line_width,
             zorder=plot_config.zorder,
+            label=label,
         )
         ax.add_patch(patch)
 
@@ -77,12 +79,13 @@ def add_shapely_linestring_to_ax(
     ax: plt.Axes,
     linestring: geom.LineString,
     plot_config: PlotConfig,
+    label: Optional[str] = None,
 ) -> plt.Axes:
-    """
-    Adds shapely linestring (polyline) to birds-eye-view visualization
+    """Adds shapely linestring (polyline) to birds-eye-view visualization
+
     :param ax: matplotlib ax object
     :param linestring: shapely LineString
-    :param config: dictionary containing plot parameters
+    :param plot_config: dictionary containing plot parameters
     :return: ax with plot
     """
 
@@ -95,6 +98,7 @@ def add_shapely_linestring_to_ax(
         linewidth=plot_config.line_width,
         linestyle=plot_config.line_style,
         zorder=plot_config.zorder,
+        label=label,
     )
     return ax
 
@@ -113,7 +117,7 @@ def get_pose_triangle(size: float) -> geom.Polygon:
 
 
 def shapely_geometry_local_coords(
-    geometry: geom.base.BaseGeometry, origin: Union[StateSE2, StateSE3]
+    geometry: geom.base.BaseGeometry, origin: Union[PoseSE2, PoseSE3]
 ) -> geom.base.BaseGeometry:
     """Helper for transforming shapely geometry in coord-frame"""
     # TODO: move somewhere else for general use

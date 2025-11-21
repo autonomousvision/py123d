@@ -6,30 +6,30 @@ from typing import List
 import numpy as np
 import shapely.geometry as geom
 
-from py123d.conversion.datasets.kitti360.utils.kitti360_helper import KITTI360_MAP_Bbox3D
+from py123d.conversion.datasets.kitti360.utils.kitti360_helper import (
+    KITTI360_MAP_Bbox3D,
+)
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     get_road_edge_linear_rings,
     split_line_geometry_by_max_length,
 )
-from py123d.conversion.utils.map_utils.road_edge.road_edge_3d_utils import lift_road_edges_to_3d
-from py123d.datatypes.maps.cache.cache_map_objects import (
-    CacheCarpark,
-    CacheGenericDrivable,
-    CacheRoadEdge,
-    CacheWalkway,
+from py123d.conversion.utils.map_utils.road_edge.road_edge_3d_utils import (
+    lift_road_edges_to_3d,
 )
-from py123d.datatypes.maps.map_datatypes import RoadEdgeType
+from py123d.datatypes.map_objects.map_layer_types import RoadEdgeType
+from py123d.datatypes.map_objects.map_objects import (
+    Carpark,
+    GenericDrivable,
+    RoadEdge,
+    Walkway,
+)
 from py123d.geometry.polyline import Polyline3D
 
 MAX_ROAD_EDGE_LENGTH = 100.0  # meters, used to filter out very long road edges
-
 KITTI360_DATA_ROOT = Path(os.environ["KITTI360_DATA_ROOT"])
-
 DIR_3D_BBOX = "data_3d_bboxes"
-
 PATH_3D_BBOX_ROOT: Path = KITTI360_DATA_ROOT / DIR_3D_BBOX
-
 KITTI360_MAP_BBOX = [
     "road",
     "sidewalk",
@@ -40,8 +40,7 @@ KITTI360_MAP_BBOX = [
 
 
 def convert_kitti360_map_with_writer(log_name: str, map_writer: AbstractMapWriter) -> None:
-    """
-    Convert KITTI-360 map data using the provided map writer.
+    """Convert KITTI-360 map data using the provided map writer.
     This function extracts map data from KITTI-360 XML files and writes them using the map writer interface.
 
     :param log_name: The name of the log to convert
@@ -71,7 +70,7 @@ def convert_kitti360_map_with_writer(log_name: str, map_writer: AbstractMapWrite
     for obj in objs:
         if obj.label == "road":
             map_writer.write_generic_drivable(
-                CacheGenericDrivable(
+                GenericDrivable(
                     object_id=obj.id,
                     outline=obj.vertices,
                     geometry=geom.Polygon(obj.vertices.array[:, :3]),
@@ -81,7 +80,7 @@ def convert_kitti360_map_with_writer(log_name: str, map_writer: AbstractMapWrite
             road_outlines_3d.append(Polyline3D.from_array(road_outline_array))
         elif obj.label == "sidewalk":
             map_writer.write_walkway(
-                CacheWalkway(
+                Walkway(
                     object_id=obj.id,
                     outline=obj.vertices,
                     geometry=geom.Polygon(obj.vertices.array[:, :3]),
@@ -89,7 +88,7 @@ def convert_kitti360_map_with_writer(log_name: str, map_writer: AbstractMapWrite
             )
         elif obj.label == "driveway":
             map_writer.write_carpark(
-                CacheCarpark(
+                Carpark(
                     object_id=obj.id,
                     outline=obj.vertices,
                     geometry=geom.Polygon(obj.vertices.array[:, :3]),
@@ -108,7 +107,7 @@ def convert_kitti360_map_with_writer(log_name: str, map_writer: AbstractMapWrite
 
     for idx in range(len(road_edges_linestrings_3d)):
         map_writer.write_road_edge(
-            CacheRoadEdge(
+            RoadEdge(
                 object_id=idx,
                 road_edge_type=RoadEdgeType.ROAD_EDGE_BOUNDARY,
                 polyline=Polyline3D.from_linestring(road_edges_linestrings_3d[idx]),

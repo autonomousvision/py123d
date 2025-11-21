@@ -11,8 +11,9 @@ from py123d.datatypes.sensors.fisheye_mei_camera import (
     FisheyeMEICameraType,
     FisheyeMEICamera,
     FisheyeMEIDistortionIndex,
-    FisheyeMEIProjectionIndex,
+    FisheyeMEIDistortion,
     FisheyeMEIProjection,
+    FisheyeMEIProjectionIndex,
     FisheyeMEICameraMetadata,
 )
 from py123d.datatypes.sensors.lidar import (

@@ -6,12 +6,17 @@ import numpy as np
 import numpy.typing as npt
 import viser
 
-from py123d.datatypes.scene.abstract_scene import AbstractScene
-from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraMetadata, FisheyeMEICameraType
-from py123d.datatypes.sensors.lidar import LiDARType
-from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraType
+from py123d.api.scene.scene_api import SceneAPI
+from py123d.datatypes.sensors import (
+    FisheyeMEICamera,
+    FisheyeMEICameraMetadata,
+    FisheyeMEICameraType,
+    LiDARType,
+    PinholeCamera,
+    PinholeCameraType,
+)
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
-from py123d.geometry import StateSE3Index
+from py123d.geometry import PoseSE3Index
 from py123d.geometry.transform.transform_se3 import (
     convert_relative_to_absolute_points_3d_array,
     convert_relative_to_absolute_se3_array,
@@ -21,18 +26,17 @@ from py123d.visualization.viser.viser_config import ViserConfig
 
 
 def add_camera_frustums_to_viser_server(
-    scene: AbstractScene,
+    scene: SceneAPI,
     scene_interation: int,
     initial_ego_state: EgoStateSE3,
     viser_server: viser.ViserServer,
     viser_config: ViserConfig,
     camera_frustum_handles: Dict[PinholeCameraType, viser.CameraFrustumHandle],
 ) -> None:
-
     if viser_config.camera_frustum_visible:
-        scene_center_array = initial_ego_state.center.point_3d.array
+        scene_center_array = initial_ego_state.center_se3.point_3d.array
         ego_pose = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
-        ego_pose[StateSE3Index.XYZ] -= scene_center_array
+        ego_pose[PoseSE3Index.XYZ] -= scene_center_array
 
         def _add_camera_frustums_to_viser_server(camera_type: PinholeCameraType) -> None:
             camera = scene.get_pinhole_camera_at_iteration(scene_interation, camera_type)
@@ -57,8 +61,6 @@ def add_camera_frustums_to_viser_server(
                         wxyz=camera_quaternion,
                     )
 
-            return None
-
         # NOTE; In order to speed up adding camera frustums, we use multithreading and resize the images.
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(viser_config.camera_frustum_types)) as executor:
             future_to_camera = {
@@ -76,7 +78,7 @@ def add_camera_frustums_to_viser_server(
 
 
 def add_fisheye_frustums_to_viser_server(
-    scene: AbstractScene,
+    scene: SceneAPI,
     scene_interation: int,
     initial_ego_state: EgoStateSE3,
     viser_server: viser.ViserServer,
@@ -84,9 +86,9 @@ def add_fisheye_frustums_to_viser_server(
     fisheye_frustum_handles: Dict[FisheyeMEICameraType, viser.CameraFrustumHandle],
 ) -> None:
     if viser_config.fisheye_frustum_visible:
-        scene_center_array = initial_ego_state.center.point_3d.array
+        scene_center_array = initial_ego_state.center_se3.point_3d.array
         ego_pose = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
-        ego_pose[StateSE3Index.XYZ] -= scene_center_array
+        ego_pose[PoseSE3Index.XYZ] -= scene_center_array
 
         def _add_fisheye_frustums_to_viser_server(fisheye_camera_type: FisheyeMEICameraType) -> None:
             camera = scene.get_fisheye_mei_camera_at_iteration(scene_interation, fisheye_camera_type)
@@ -113,8 +115,6 @@ def add_fisheye_frustums_to_viser_server(
                         wxyz=fcam_quaternion,
                     )
 
-            return None
-
         # NOTE; In order to speed up adding camera frustums, we use multithreading and resize the images.
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=len(viser_config.fisheye_mei_camera_frustum_types)
@@ -130,7 +130,7 @@ def add_fisheye_frustums_to_viser_server(
 
 
 def add_camera_gui_to_viser_server(
-    scene: AbstractScene,
+    scene: SceneAPI,
     scene_interation: int,
     viser_server: viser.ViserServer,
     viser_config: ViserConfig,
@@ -153,7 +153,7 @@ def add_camera_gui_to_viser_server(
 
 
 def add_lidar_pc_to_viser_server(
-    scene: AbstractScene,
+    scene: SceneAPI,
     scene_interation: int,
     initial_ego_state: EgoStateSE3,
     viser_server: viser.ViserServer,
@@ -161,10 +161,9 @@ def add_lidar_pc_to_viser_server(
     lidar_pc_handles: Dict[LiDARType, Optional[viser.PointCloudHandle]],
 ) -> None:
     if viser_config.lidar_visible:
-
-        scene_center_array = initial_ego_state.center.point_3d.array
+        scene_center_array = initial_ego_state.center_se3.point_3d.array
         ego_pose = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
-        ego_pose[StateSE3Index.XYZ] -= scene_center_array
+        ego_pose[PoseSE3Index.XYZ] -= scene_center_array
 
         def _load_lidar_points(lidar_type: LiDARType) -> npt.NDArray[np.float32]:
             lidar = scene.get_lidar_at_iteration(scene_interation, lidar_type)
@@ -202,8 +201,8 @@ def add_lidar_pc_to_viser_server(
 
         # viser_server.scene.add_frame(
         #     "lidar_frame",
-        #     position=lidar_extrinsic[StateSE3Index.XYZ],
-        #     wxyz=lidar_extrinsic[StateSE3Index.QUATERNION],
+        #     position=lidar_extrinsic[PoseSE3Index.XYZ],
+        #     wxyz=lidar_extrinsic[PoseSE3Index.QUATERNION],
         # )
 
         if lidar_pc_handles[LiDARType.LIDAR_MERGED] is not None:
@@ -226,13 +225,13 @@ def _get_camera_values(
     ego_pose: npt.NDArray[np.float64],
     resize_factor: Optional[float] = None,
 ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.uint8]]:
-    assert ego_pose.ndim == 1 and len(ego_pose) == len(StateSE3Index)
+    assert ego_pose.ndim == 1 and len(ego_pose) == len(PoseSE3Index)
 
     rel_camera_pose = camera.extrinsic.array
     abs_camera_pose = convert_relative_to_absolute_se3_array(origin=ego_pose, se3_array=rel_camera_pose)
 
-    camera_position = abs_camera_pose[StateSE3Index.XYZ]
-    camera_rotation = abs_camera_pose[StateSE3Index.QUATERNION]
+    camera_position = abs_camera_pose[PoseSE3Index.XYZ]
+    camera_rotation = abs_camera_pose[PoseSE3Index.QUATERNION]
 
     camera_image = _rescale_image(camera.image, resize_factor)
     return camera_position, camera_rotation, camera_image
@@ -243,13 +242,13 @@ def _get_fisheye_camera_values(
     ego_pose: npt.NDArray[np.float64],
     resize_factor: Optional[float] = None,
 ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.uint8]]:
-    assert ego_pose.ndim == 1 and len(ego_pose) == len(StateSE3Index)
+    assert ego_pose.ndim == 1 and len(ego_pose) == len(PoseSE3Index)
 
     rel_camera_pose = camera.extrinsic.array
     abs_camera_pose = convert_relative_to_absolute_se3_array(origin=ego_pose, se3_array=rel_camera_pose)
 
-    camera_position = abs_camera_pose[StateSE3Index.XYZ]
-    camera_rotation = abs_camera_pose[StateSE3Index.QUATERNION]
+    camera_position = abs_camera_pose[PoseSE3Index.XYZ]
+    camera_rotation = abs_camera_pose[PoseSE3Index.QUATERNION]
 
     camera_image = _rescale_image(camera.image, resize_factor)
     return camera_position, camera_rotation, camera_image
@@ -262,9 +261,6 @@ def _rescale_image(image: npt.NDArray[np.uint8], scale: float) -> npt.NDArray[np
     new_height = int(image.shape[0] * scale)
     downscaled_image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
     return downscaled_image
-
-
-import numpy as np
 
 
 def calculate_fov(metadata: FisheyeMEICameraMetadata) -> tuple[float, float]:

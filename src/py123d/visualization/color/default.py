@@ -2,7 +2,7 @@ from typing import Dict
 
 from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightStatus
-from py123d.datatypes.maps.map_datatypes import MapLayer
+from py123d.datatypes.map_objects.map_layer_types import MapLayer
 from py123d.visualization.color.color import (
     BLACK,
     DARKER_GREY,
@@ -46,9 +46,9 @@ MAP_SURFACE_CONFIG: Dict[MapLayer, PlotConfig] = {
         zorder=1,
     ),
     MapLayer.CROSSWALK: PlotConfig(
-        fill_color=Color("#c69fbb"),
+        fill_color=Color("#d0b9ca"),
         fill_color_alpha=1.0,
-        line_color=Color("#c69fbb"),
+        line_color=Color("#d0b9ca"),
         line_color_alpha=0.0,
         line_width=1.0,
         line_style="-",
@@ -81,11 +81,32 @@ MAP_SURFACE_CONFIG: Dict[MapLayer, PlotConfig] = {
         line_style="-",
         zorder=1,
     ),
+    MapLayer.STOP_ZONE: PlotConfig(
+        fill_color=TAB_10[3],
+        fill_color_alpha=1.0,
+        line_color=TAB_10[3],
+        line_color_alpha=0.0,
+        line_width=1.0,
+        line_style="-",
+        zorder=1,
+    ),
 }
 
+
 BOX_DETECTION_CONFIG: Dict[DefaultBoxDetectionLabel, PlotConfig] = {
+    # Vehicles
+    DefaultBoxDetectionLabel.EGO: PlotConfig(
+        fill_color=Color("#DE7061"),
+        fill_color_alpha=1.0,
+        line_color=BLACK,
+        line_color_alpha=1.0,
+        line_width=1.0,
+        line_style="-",
+        marker_style=HEADING_MARKER_STYLE,
+        zorder=4,
+    ),
     DefaultBoxDetectionLabel.VEHICLE: PlotConfig(
-        fill_color=ELLIS_5[4],
+        fill_color=Color("#699CDB"),
         fill_color_alpha=1.0,
         line_color=BLACK,
         line_color_alpha=1.0,
@@ -95,19 +116,20 @@ BOX_DETECTION_CONFIG: Dict[DefaultBoxDetectionLabel, PlotConfig] = {
         marker_size=1.0,
         zorder=3,
     ),
-    DefaultBoxDetectionLabel.PEDESTRIAN: PlotConfig(
-        fill_color=NEW_TAB_10[6],
+    DefaultBoxDetectionLabel.TRAIN: PlotConfig(
+        fill_color=Color("#76b7b2"),
         fill_color_alpha=1.0,
         line_color=BLACK,
         line_color_alpha=1.0,
         line_width=1.0,
         line_style="-",
-        marker_style=None,
+        marker_style=HEADING_MARKER_STYLE,
         marker_size=1.0,
-        zorder=2,
+        zorder=3,
     ),
+    # VRUs
     DefaultBoxDetectionLabel.BICYCLE: PlotConfig(
-        fill_color=ELLIS_5[3],
+        fill_color=Color("#4e79a7"),
         fill_color_alpha=1.0,
         line_color=BLACK,
         line_color_alpha=1.0,
@@ -117,8 +139,41 @@ BOX_DETECTION_CONFIG: Dict[DefaultBoxDetectionLabel, PlotConfig] = {
         marker_size=1.0,
         zorder=2,
     ),
+    DefaultBoxDetectionLabel.PERSON: PlotConfig(
+        fill_color=Color("#b07aa1"),
+        fill_color_alpha=1.0,
+        line_color=BLACK,
+        line_color_alpha=1.0,
+        line_width=1.0,
+        line_style="-",
+        marker_style=None,
+        marker_size=1.0,
+        zorder=2,
+    ),
+    DefaultBoxDetectionLabel.ANIMAL: PlotConfig(
+        fill_color=Color("#9467bd"),
+        fill_color_alpha=1.0,
+        line_color=BLACK,
+        line_color_alpha=1.0,
+        line_width=1.0,
+        line_style="-",
+        marker_style=None,
+        marker_size=1.0,
+        zorder=2,
+    ),
+    # Traffic Control
+    DefaultBoxDetectionLabel.TRAFFIC_SIGN: PlotConfig(
+        fill_color=Color("#E38C47"),
+        fill_color_alpha=1.0,
+        line_color=BLACK,
+        line_color_alpha=1.0,
+        line_width=1.0,
+        line_style="-",
+        marker_style=None,
+        zorder=2,
+    ),
     DefaultBoxDetectionLabel.TRAFFIC_CONE: PlotConfig(
-        fill_color=NEW_TAB_10[5],
+        fill_color=Color("#E38C47"),
         fill_color_alpha=1.0,
         line_color=BLACK,
         line_color_alpha=1.0,
@@ -127,17 +182,18 @@ BOX_DETECTION_CONFIG: Dict[DefaultBoxDetectionLabel, PlotConfig] = {
         marker_style=None,
         zorder=2,
     ),
+    DefaultBoxDetectionLabel.TRAFFIC_LIGHT: PlotConfig(
+        fill_color=Color("#E38C47"),
+        fill_color_alpha=1.0,
+        line_color=BLACK,
+        line_color_alpha=1.0,
+        line_width=1.0,
+        line_style="-",
+        marker_style=None,
+        zorder=2,
+    ),
+    # Other Obstacles
     DefaultBoxDetectionLabel.BARRIER: PlotConfig(
-        fill_color=NEW_TAB_10[5],
-        fill_color_alpha=1.0,
-        line_color=BLACK,
-        line_color_alpha=1.0,
-        line_width=1.0,
-        line_style="-",
-        marker_style=None,
-        zorder=2,
-    ),
-    DefaultBoxDetectionLabel.CZONE_SIGN: PlotConfig(
         fill_color=NEW_TAB_10[5],
         fill_color_alpha=1.0,
         line_color=BLACK,
@@ -156,26 +212,6 @@ BOX_DETECTION_CONFIG: Dict[DefaultBoxDetectionLabel, PlotConfig] = {
         line_style="-",
         marker_style=None,
         zorder=2,
-    ),
-    DefaultBoxDetectionLabel.SIGN: PlotConfig(
-        fill_color=NEW_TAB_10[8],
-        fill_color_alpha=1.0,
-        line_color=BLACK,
-        line_color_alpha=1.0,
-        line_width=1.0,
-        line_style="-",
-        marker_style=None,
-        zorder=2,
-    ),
-    DefaultBoxDetectionLabel.EGO: PlotConfig(
-        fill_color=ELLIS_5[0],
-        fill_color_alpha=1.0,
-        line_color=BLACK,
-        line_color_alpha=1.0,
-        line_width=1.0,
-        line_style="-",
-        marker_style=HEADING_MARKER_STYLE,
-        zorder=4,
     ),
 }
 
@@ -199,6 +235,7 @@ CENTERLINE_CONFIG: PlotConfig = PlotConfig(
     line_style="--",
     zorder=3,
 )
+
 ROUTE_CONFIG: PlotConfig = PlotConfig(
     fill_color=Color("#f2c6c0ff"),
     fill_color_alpha=1.0,

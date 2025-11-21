@@ -28,7 +28,7 @@ from typing import Union
 
 import numpy as np
 
-from py123d.geometry import StateSE3
+from py123d.geometry import PoseSE3
 
 
 class CameraConvention(Enum):
@@ -47,17 +47,17 @@ class CameraConvention(Enum):
 
 
 def convert_camera_convention(
-    from_pose: StateSE3,
+    from_pose: PoseSE3,
     from_convention: Union[CameraConvention, str],
     to_convention: Union[CameraConvention, str],
-) -> StateSE3:
+) -> PoseSE3:
     """Convert camera pose between different conventions.
     123D default is pZmYpX (+Z forward, -Y up, +X right).
 
-    :param from_pose: StateSE3 representing the camera pose to convert
+    :param from_pose: PoseSE3 representing the camera pose to convert
     :param from_convention: CameraConvention representing the current convention of the pose
     :param to_convention: CameraConvention representing the target convention to convert to
-    :return: StateSE3 representing the converted camera pose
+    :return: PoseSE3 representing the converted camera pose
     """
     # TODO: Write tests for this function
     # TODO: Create function over batch/array of poses
@@ -92,4 +92,4 @@ def convert_camera_convention(
     pose_transformation = from_pose.transformation_matrix.copy()
     F = flip_matrices[(from_convention, to_convention)]
     pose_transformation[:3, :3] = pose_transformation[:3, :3] @ F
-    return StateSE3.from_transformation_matrix(pose_transformation)
+    return PoseSE3.from_transformation_matrix(pose_transformation)

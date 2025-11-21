@@ -24,6 +24,7 @@
 *.log
 *.mp4
 exp/
+.coverage
 
 # Sphinx documentation
 docs/_build/
@@ -31,4 +32,6 @@ docs/build/
 _build/
 .doctrees/
 
-jbwang_*
+
+# ruff
+.ruff_cache/*

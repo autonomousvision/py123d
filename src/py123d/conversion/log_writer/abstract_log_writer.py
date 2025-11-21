@@ -11,13 +11,13 @@ import numpy.typing as npt
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
-from py123d.datatypes.scene.scene_metadata import LogMetadata
+from py123d.datatypes.metadata import LogMetadata
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraType
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
-from py123d.geometry import StateSE3
+from py123d.geometry import PoseSE3
 
 
 class AbstractLogWriter(abc.ABC):
@@ -32,9 +32,12 @@ class AbstractLogWriter(abc.ABC):
         self,
         dataset_converter_config: DatasetConverterConfig,
         log_metadata: LogMetadata,
-    ) -> None:
-        """
-        Reset the log writer for a new log.
+    ) -> bool:
+        """Resets the log writer to start writing a new log according to the provided configuration and metadata.
+
+        :param dataset_converter_config: The dataset converter configuration.
+        :param log_metadata: The metadata for the log.
+        :return: True if the current logs needs to be written, False otherwise.
         """
 
     @abc.abstractmethod
@@ -51,15 +54,27 @@ class AbstractLogWriter(abc.ABC):
         route_lane_group_ids: Optional[List[int]] = None,
         **kwargs,
     ) -> None:
-        pass
+        """Writes a single iteration of data to the log.
+
+        :param timestamp: Required, the timestamp of the iteration.
+        :param ego_state: Optional, the ego state of the vehicle, defaults to None.
+        :param box_detections: Optional, the box detections, defaults to None
+        :param traffic_lights: Optional, the traffic light detections, defaults to None
+        :param pinhole_cameras: Optional, the pinhole camera data, defaults to None
+        :param fisheye_mei_cameras: Optional, the fisheye MEI camera data, defaults to None
+        :param lidars: Optional, the LiDAR data, defaults to None
+        :param scenario_tags: Optional, the scenario tags, defaults to None
+        :param route_lane_group_ids: Optional, the route lane group IDs, defaults to None
+        """
 
     @abc.abstractmethod
     def close(self) -> None:
-        pass
+        """Closes the log writer and finalizes the log io operations."""
 
 
 @dataclass
 class LiDARData:
+    """Helper dataclass to pass LiDAR data to log writers."""
 
     lidar_type: LiDARType
 
@@ -70,9 +85,9 @@ class LiDARData:
     point_cloud: Optional[npt.NDArray[np.float32]] = None
 
     def __post_init__(self):
-        assert (
-            self.has_file_path or self.has_point_cloud
-        ), "Either file path (dataset_root and relative_path) or point_cloud must be provided for LiDARData."
+        assert self.has_file_path or self.has_point_cloud, (
+            "Either file path (dataset_root and relative_path) or point_cloud must be provided for LiDARData."
+        )
 
     @property
     def has_file_path(self) -> bool:
@@ -85,9 +100,10 @@ class LiDARData:
 
 @dataclass
 class CameraData:
+    """Helper dataclass to pass Camera data to log writers."""
 
     camera_type: Union[PinholeCameraType, FisheyeMEICameraType]
-    extrinsic: StateSE3
+    extrinsic: PoseSE3
 
     timestamp: Optional[TimePoint] = None
     jpeg_binary: Optional[bytes] = None
@@ -96,9 +112,9 @@ class CameraData:
     relative_path: Optional[Union[str, Path]] = None
 
     def __post_init__(self):
-        assert (
-            self.has_file_path or self.has_jpeg_binary or self.has_numpy_image
-        ), "Either file path (dataset_root and relative_path) or jpeg_binary or numpy_image must be provided for CameraData."
+        assert self.has_file_path or self.has_jpeg_binary or self.has_numpy_image, (
+            "Either file path (dataset_root and relative_path) or jpeg_binary or numpy_image must be provided for CameraData."
+        )
 
         if self.has_file_path:
             absolute_path = Path(self.dataset_root) / self.relative_path
@@ -107,6 +123,14 @@ class CameraData:
     @property
     def has_file_path(self) -> bool:
         return self.dataset_root is not None and self.relative_path is not None
+
+    @property
+    def has_jpeg_file_path(self) -> bool:
+        return self.relative_path is not None and str(self.relative_path).lower().endswith((".jpg", ".jpeg"))
+
+    @property
+    def has_png_file_path(self) -> bool:
+        return self.relative_path is not None and str(self.relative_path).lower().endswith((".png",))
 
     @property
     def has_jpeg_binary(self) -> bool:
