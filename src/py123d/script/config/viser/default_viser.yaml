@@ -12,6 +12,7 @@ defaults:
   - default_common
   - default_dataset_paths
   - override scene_filter: viser_scenes
+  - override worker: single_machine_thread_pool
   - _self_
 
 viser_config:
@@ -56,7 +57,7 @@ viser_config:
 
   # -> GUI
   camera_gui_visible: true
-  camera_gui_types: []
+  # camera_gui_types: null # Loads front camera by default
   camera_gui_image_scale: 0.25
 
   # Fisheye MEI Cameras

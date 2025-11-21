@@ -9,7 +9,6 @@ log_names: null
 locations: null
 scene_uuids: null
 timestamp_threshold_s: null
-ego_displacement_minimum_m: null
 
 duration_s: null
 history_s: null

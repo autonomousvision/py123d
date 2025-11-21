@@ -47,7 +47,6 @@ dependencies = [
     "omegaconf",
     "typing-extensions",
     "requests",
-    "s5cmd",
 ]
 
 [project.scripts]

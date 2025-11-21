@@ -25,6 +25,6 @@
 
 ## Changelog
 
-- **`[2025/11/21]`** v0.0.8 (silent release)
+- **`[2025-11-21]`** v0.0.8 (silent release)
   - Release of package and documentation.
   - Demo data for tutorials.

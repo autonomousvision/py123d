@@ -57,8 +57,8 @@ def _build_viser_server(viser_config: ViserConfig) -> viser.ViserServer:
         ),
     )
     image = TitlebarImage(
-        image_url_light="https://autonomousvision.github.io/py123d/_static/logo_black.png",
-        image_url_dark="https://autonomousvision.github.io/py123d/_static/logo_white.png",
+        image_url_light="https://autonomousvision.github.io/py123d/_static/123D_logo_transparent_black.svg",
+        image_url_dark="https://autonomousvision.github.io/py123d/_static/123D_logo_transparent_white.svg",
         image_alt="123D",
         href="https://autonomousvision.github.io/py123d/",
     )

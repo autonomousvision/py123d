@@ -1,3 +1,5 @@
+.. _av2_sensor:
+
 Argoverse 2 - Sensor
 --------------------
 
@@ -99,7 +101,12 @@ Download
 ~~~~~~~~
 
 You can download the Argoverse 2 Sensor dataset from the `Argoverse website <https://www.argoverse.org/>`_.
-You can also use directly the dataset from AWS.
+You can also use directly the dataset from AWS. For that, you first need to install `s5cmd <https://github.com/peak/s5cmd>`_:
+
+.. code-block:: bash
+
+  pip install s5cmd
+
 
 Next, you can run the following bash script to download the dataset:
 
