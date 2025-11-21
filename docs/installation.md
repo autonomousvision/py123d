@@ -53,3 +53,10 @@ $PY123D_DATA_ROOT
     │   └── ...
     └── ...
 ```
+
+You can download some demo data using:
+
+<!-- ```bash
+mkdir $PY123D_DATA_ROOT
+s5cmd --no-sign-request sync "s3://argoverse/datasets/av2/$DATASET_NAME/*" "$AV2_SENSOR_ROOT"
+``` -->
