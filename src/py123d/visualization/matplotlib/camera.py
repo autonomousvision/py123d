@@ -71,9 +71,9 @@ def add_box_detections_to_camera_ax(
         [detection.metadata.default_label for detection in box_detections.box_detections], dtype=object
     )
     for idx, box_detection in enumerate(box_detections.box_detections):
-        assert isinstance(box_detection, BoxDetectionSE3), (
-            f"Box detection must be of type BoxDetectionSE3, got {type(box_detection)}"
-        )
+        assert isinstance(
+            box_detection, BoxDetectionSE3
+        ), f"Box detection must be of type BoxDetectionSE3, got {type(box_detection)}"
         box_detection_array[idx] = box_detection.bounding_box_se3.array
 
     # FIXME
@@ -150,23 +150,29 @@ def _rotation_3d_in_axis(points: npt.NDArray[np.float32], angles: npt.NDArray[np
     ones = np.ones_like(rot_cos)
     zeros = np.zeros_like(rot_cos)
     if axis == 1:
-        rot_mat_T = np.stack([
-            np.stack([rot_cos, zeros, -rot_sin]),
-            np.stack([zeros, ones, zeros]),
-            np.stack([rot_sin, zeros, rot_cos]),
-        ])
+        rot_mat_T = np.stack(
+            [
+                np.stack([rot_cos, zeros, -rot_sin]),
+                np.stack([zeros, ones, zeros]),
+                np.stack([rot_sin, zeros, rot_cos]),
+            ]
+        )
     elif axis in [2, -1]:
-        rot_mat_T = np.stack([
-            np.stack([rot_cos, -rot_sin, zeros]),
-            np.stack([rot_sin, rot_cos, zeros]),
-            np.stack([zeros, zeros, ones]),
-        ])
+        rot_mat_T = np.stack(
+            [
+                np.stack([rot_cos, -rot_sin, zeros]),
+                np.stack([rot_sin, rot_cos, zeros]),
+                np.stack([zeros, zeros, ones]),
+            ]
+        )
     elif axis == 0:
-        rot_mat_T = np.stack([
-            np.stack([zeros, rot_cos, -rot_sin]),
-            np.stack([zeros, rot_sin, rot_cos]),
-            np.stack([ones, zeros, zeros]),
-        ])
+        rot_mat_T = np.stack(
+            [
+                np.stack([zeros, rot_cos, -rot_sin]),
+                np.stack([zeros, rot_sin, rot_cos]),
+                np.stack([ones, zeros, zeros]),
+            ]
+        )
     else:
         raise ValueError(f"axis should in range [0, 1, 2], got {axis}")
     return np.einsum("aij,jka->aik", points, rot_mat_T)

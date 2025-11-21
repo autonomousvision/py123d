@@ -106,12 +106,14 @@ def add_shapely_linestring_to_ax(
 def get_pose_triangle(size: float) -> geom.Polygon:
     """Create a triangle shape for the pose."""
     half_size = size / 2
-    return geom.Polygon([
-        [-half_size, -half_size],
-        [half_size, 0],
-        [-half_size, half_size],
-        [-size / 4, 0],
-    ])
+    return geom.Polygon(
+        [
+            [-half_size, -half_size],
+            [half_size, 0],
+            [-half_size, half_size],
+            [-size / 4, 0],
+        ]
+    )
 
 
 def shapely_geometry_local_coords(

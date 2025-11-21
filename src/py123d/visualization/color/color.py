@@ -43,11 +43,13 @@ class Color:
     def set_brightness(self, factor: float) -> Color:
         """Return a new Color with adjusted brightness."""
         r, g, b = self.rgb
-        return Color.from_rgb((
-            max(min(int(r * factor), 255), 0),
-            max(min(int(g * factor), 255), 0),
-            max(min(int(b * factor), 255), 0),
-        ))
+        return Color.from_rgb(
+            (
+                max(min(int(r * factor), 255), 0),
+                max(min(int(g * factor), 255), 0),
+                max(min(int(b * factor), 255), 0),
+            )
+        )
 
     def __str__(self) -> str:
         """Return the string representation of the color."""
