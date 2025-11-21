@@ -2,7 +2,7 @@ name: pytest
 
 on:
   push:
-    branches: [dev_v0.0.8]
+    branches: [main]
 
 jobs:
   build:
