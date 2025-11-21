@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,10 +16,10 @@ def add_shapely_polygon_to_ax(
     polygon: geom.Polygon,
     plot_config: PlotConfig,
     disable_smoothing: bool = False,
-    label: str = None,
+    label: Optional[str] = None,
 ) -> plt.Axes:
-    """
-    Adds shapely polygon to birds-eye-view visualization with proper hole handling
+    """Adds shapely polygon to birds-eye-view visualization with proper hole handling
+
     :param ax: matplotlib ax object
     :param polygon: shapely Polygon
     :param plot_config: dictionary containing plot parameters
@@ -79,13 +79,13 @@ def add_shapely_linestring_to_ax(
     ax: plt.Axes,
     linestring: geom.LineString,
     plot_config: PlotConfig,
-    label: str = None,
+    label: Optional[str] = None,
 ) -> plt.Axes:
-    """
-    Adds shapely linestring (polyline) to birds-eye-view visualization
+    """Adds shapely linestring (polyline) to birds-eye-view visualization
+
     :param ax: matplotlib ax object
     :param linestring: shapely LineString
-    :param config: dictionary containing plot parameters
+    :param plot_config: dictionary containing plot parameters
     :return: ax with plot
     """
 
@@ -106,14 +106,12 @@ def add_shapely_linestring_to_ax(
 def get_pose_triangle(size: float) -> geom.Polygon:
     """Create a triangle shape for the pose."""
     half_size = size / 2
-    return geom.Polygon(
-        [
-            [-half_size, -half_size],
-            [half_size, 0],
-            [-half_size, half_size],
-            [-size / 4, 0],
-        ]
-    )
+    return geom.Polygon([
+        [-half_size, -half_size],
+        [half_size, 0],
+        [-half_size, half_size],
+        [-size / 4, 0],
+    ])
 
 
 def shapely_geometry_local_coords(

@@ -65,7 +65,7 @@ class LiDARMetadata:
         return self._lidar_type
 
     @property
-    def lidar_index(self) -> Type[LiDARIndex]:
+    def lidar_index(self) -> LiDARIndex:
         """The indexing schema of the LiDAR point cloud."""
         return self._lidar_index
 

@@ -24,30 +24,30 @@ class Color:
         return ImageColor.getcolor(self.hex, "RGB")
 
     @property
-    def rgba(self) -> Tuple[int, int, int]:
+    def rgba(self) -> Tuple[int, int, int, int]:
         """The RGBA representation of the color."""
         return ImageColor.getcolor(self.hex, "RGBA")
 
     @property
     def rgb_norm(self) -> Tuple[float, float, float]:
         """The normalized RGB representation of the color."""
-        return tuple([c / 255 for c in self.rgb])
+        r, g, b = self.rgb
+        return (r / 255, g / 255, b / 255)
 
     @property
-    def rgba_norm(self) -> Tuple[float, float, float]:
+    def rgba_norm(self) -> Tuple[float, float, float, float]:
         """The normalized RGBA representation of the color."""
-        return tuple([c / 255 for c in self.rgba])
+        r, g, b, a = self.rgba
+        return (r / 255, g / 255, b / 255, a / 255)
 
     def set_brightness(self, factor: float) -> Color:
         """Return a new Color with adjusted brightness."""
         r, g, b = self.rgb
-        return Color.from_rgb(
-            (
-                max(min(int(r * factor), 255), 0),
-                max(min(int(g * factor), 255), 0),
-                max(min(int(b * factor), 255), 0),
-            )
-        )
+        return Color.from_rgb((
+            max(min(int(r * factor), 255), 0),
+            max(min(int(g * factor), 255), 0),
+            max(min(int(b * factor), 255), 0),
+        ))
 
     def __str__(self) -> str:
         """Return the string representation of the color."""
@@ -55,7 +55,8 @@ class Color:
 
     def __repr__(self) -> str:
         """Return the official string representation of the color."""
-        return f"Color(hex='{self.hex}')"
+        r, g, b = self.rgb
+        return f"Color(hex='\x1b[48;2;{r};{g};{b}m{self.hex}\x1b[0m')"
 
 
 BLACK: Color = Color("#000000")

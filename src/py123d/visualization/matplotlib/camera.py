@@ -1,71 +1,54 @@
-# from typing import List, Optional, Tuple
-
 from typing import List, Optional, Tuple
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-
-# from PIL import ImageColor
 from pyquaternion import Quaternion
 
-from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
-from py123d.datatypes.detections.box_detections import BoxDetectionSE3, BoxDetectionWrapper
-from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeIntrinsics
-from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
+from py123d.conversion.registry import DefaultBoxDetectionLabel, LiDARIndex
+from py123d.datatypes.detections import BoxDetectionSE3, BoxDetectionWrapper
+from py123d.datatypes.sensors import LiDAR, PinholeCamera, PinholeIntrinsics
+from py123d.datatypes.vehicle_state import EgoStateSE3
 from py123d.geometry import BoundingBoxSE3Index, Corners3DIndex
-from py123d.geometry.transform.transform_se3 import convert_absolute_to_relative_se3_array
+from py123d.geometry.transform import convert_absolute_to_relative_se3_array
 from py123d.visualization.color.default import BOX_DETECTION_CONFIG
-
-# from navsim.common.dataclasses import Annotations, Camera, Lidar
-# from navsim.common.enums import BoundingBoxIndex, LidarIndex
-# from navsim.planning.scenario_builder.navsim_scenario_utils import tracked_object_types
-# from navsim.visualization.config import AGENT_CONFIG
-# from navsim.visualization.lidar import filter_lidar_pc, get_lidar_pc_color
+from py123d.visualization.matplotlib.lidar import get_lidar_pc_color
 
 
-def add_camera_ax(ax: plt.Axes, camera: PinholeCamera) -> plt.Axes:
+def add_pinhole_camera_ax(ax: plt.Axes, pinhole_camera: PinholeCamera) -> plt.Axes:
+    """Add pinhole camera image to matplotlib axis
+
+    :param ax: matplotlib axis
+    :param pinhole_camera: pinhole camera object
+    :return: matplotlib axis with image
     """
-    Adds camera image to matplotlib ax object
-    :param ax: matplotlib ax object
-    :param camera: navsim camera dataclass
-    :return: ax object with image
-    """
-    ax.imshow(camera.image)
+    ax.imshow(pinhole_camera.image)
     return ax
 
 
-# FIXME:
-# def add_lidar_to_camera_ax(ax: plt.Axes, camera: Camera, lidar: Lidar) -> plt.Axes:
-#     """
-#     Adds camera image with lidar point cloud on matplotlib ax object
-#     :param ax: matplotlib ax object
-#     :param camera: navsim camera dataclass
-#     :param lidar: navsim lidar dataclass
-#     :return: ax object with image
-#     """
+def add_lidar_to_camera_ax(ax: plt.Axes, camera: PinholeCamera, lidar: LiDAR) -> plt.Axes:
+    """Add lidar point cloud to camera image on matplotlib axis
 
-#     image, lidar_pc = camera.image.copy(), lidar.lidar_pc.copy()
-#     image_height, image_width = image.shape[:2]
+    :param ax: matplotlib axis
+    :param camera: pinhole camera object
+    :param lidar: lidar object
+    :return: matplotlib axis with lidar points overlaid on camera image
+    """
 
-#     lidar_pc = filter_lidar_pc(lidar_pc)
-#     lidar_pc_colors = np.array(get_lidar_pc_color(lidar_pc))
+    image, lidar_pc = camera.image.copy(), lidar.point_cloud.copy()
+    lidar_index = lidar.metadata.lidar_index
 
-#     pc_in_cam, pc_in_fov_mask = _transform_pcs_to_images(
-#         lidar_pc,
-#         camera.sensor2lidar_rotation,
-#         camera.sensor2lidar_translation,
-#         camera.intrinsics,
-#         img_shape=(image_height, image_width),
-#     )
+    # lidar_pc = filter_lidar_pc(lidar_pc)
+    lidar_pc_colors = np.array(get_lidar_pc_color(lidar_pc, lidar_index, feature="distance"))
+    pc_in_cam, pc_in_fov_mask = _transform_pcs_to_images(lidar_pc, lidar_index, camera)
 
-#     for (x, y), color in zip(pc_in_cam[pc_in_fov_mask], lidar_pc_colors[pc_in_fov_mask]):
-#         color = (int(color[0]), int(color[1]), int(color[2]))
-#         cv2.circle(image, (int(x), int(y)), 5, color, -1)
+    for (x, y), color in zip(pc_in_cam[pc_in_fov_mask], lidar_pc_colors[pc_in_fov_mask]):
+        color = (int(color[0]), int(color[1]), int(color[2]))
+        cv2.circle(image, (int(x), int(y)), 5, color, -1)
 
-#     ax.imshow(image)
-#     return ax
+    ax.imshow(image)
+    return ax
 
 
 def add_box_detections_to_camera_ax(
@@ -73,16 +56,24 @@ def add_box_detections_to_camera_ax(
     camera: PinholeCamera,
     box_detections: BoxDetectionWrapper,
     ego_state_se3: EgoStateSE3,
-    return_image: bool = False,
 ) -> plt.Axes:
+    """Add box detections to camera image on matplotlib axis
+
+    :param ax: matplotlib axis
+    :param camera: pinhole camera object
+    :param box_detections: box detection wrapper object
+    :param ego_state_se3: ego state object
+    :return: matplotlib axis with box detections overlaid on camera image
+    """
+
     box_detection_array = np.zeros((len(box_detections.box_detections), len(BoundingBoxSE3Index)), dtype=np.float64)
     default_labels = np.array(
         [detection.metadata.default_label for detection in box_detections.box_detections], dtype=object
     )
     for idx, box_detection in enumerate(box_detections.box_detections):
-        assert isinstance(
-            box_detection, BoxDetectionSE3
-        ), f"Box detection must be of type BoxDetectionSE3, got {type(box_detection)}"
+        assert isinstance(box_detection, BoxDetectionSE3), (
+            f"Box detection must be of type BoxDetectionSE3, got {type(box_detection)}"
+        )
         box_detection_array[idx] = box_detection.bounding_box_se3.array
 
     # FIXME
@@ -111,22 +102,16 @@ def add_box_detections_to_camera_ax(
     box_corners, default_labels = box_corners[valid_corners], default_labels[valid_corners]
     image = _plot_rect_3d_on_img(camera.image.copy(), box_corners, default_labels)
 
-    if return_image:
-        # ax.imshow(image)
-        return ax, image
-
     ax.imshow(image)
     return ax
 
 
 def _transform_annotations_to_camera(boxes: npt.NDArray, extrinsic: npt.NDArray) -> npt.NDArray:
-    """
-    Helper function to transform bounding boxes into camera frame
-    TODO: Refactor
-    :param boxes: array representation of bounding boxes
-    :param sensor2lidar_rotation: camera rotation
-    :param sensor2lidar_translation: camera translation
-    :return: bounding boxes in camera coordinates
+    """Transforms the box annotations from sensor frame to camera frame.
+
+    :param boxes: array of bounding box parameters.
+    :param extrinsic: The (4x4) transformation matrix from ego to camera frame.
+    :return: transformed bounding box parameters in camera frame.
     """
     sensor2lidar_rotation = extrinsic[:3, :3]
     sensor2lidar_translation = extrinsic[:3, 3]
@@ -159,44 +144,29 @@ def _transform_annotations_to_camera(boxes: npt.NDArray, extrinsic: npt.NDArray)
 
 
 def _rotation_3d_in_axis(points: npt.NDArray[np.float32], angles: npt.NDArray[np.float32], axis: int = 0):
-    """
-    Rotate 3D points by angles according to axis.
-    TODO: Refactor
-    :param points: array of points
-    :param angles: array of angles
-    :param axis: axis to perform rotation, defaults to 0
-    :raises value: _description_
-    :raises ValueError: if axis invalid
-    :return: rotated points
-    """
+    """Rotate points in 3D along specific axis."""
     rot_sin = np.sin(angles)
     rot_cos = np.cos(angles)
     ones = np.ones_like(rot_cos)
     zeros = np.zeros_like(rot_cos)
     if axis == 1:
-        rot_mat_T = np.stack(
-            [
-                np.stack([rot_cos, zeros, -rot_sin]),
-                np.stack([zeros, ones, zeros]),
-                np.stack([rot_sin, zeros, rot_cos]),
-            ]
-        )
+        rot_mat_T = np.stack([
+            np.stack([rot_cos, zeros, -rot_sin]),
+            np.stack([zeros, ones, zeros]),
+            np.stack([rot_sin, zeros, rot_cos]),
+        ])
     elif axis in [2, -1]:
-        rot_mat_T = np.stack(
-            [
-                np.stack([rot_cos, -rot_sin, zeros]),
-                np.stack([rot_sin, rot_cos, zeros]),
-                np.stack([zeros, zeros, ones]),
-            ]
-        )
+        rot_mat_T = np.stack([
+            np.stack([rot_cos, -rot_sin, zeros]),
+            np.stack([rot_sin, rot_cos, zeros]),
+            np.stack([zeros, zeros, ones]),
+        ])
     elif axis == 0:
-        rot_mat_T = np.stack(
-            [
-                np.stack([zeros, rot_cos, -rot_sin]),
-                np.stack([zeros, rot_sin, rot_cos]),
-                np.stack([ones, zeros, zeros]),
-            ]
-        )
+        rot_mat_T = np.stack([
+            np.stack([zeros, rot_cos, -rot_sin]),
+            np.stack([zeros, rot_sin, rot_cos]),
+            np.stack([ones, zeros, zeros]),
+        ])
     else:
         raise ValueError(f"axis should in range [0, 1, 2], got {axis}")
     return np.einsum("aij,jka->aik", points, rot_mat_T)
@@ -208,15 +178,16 @@ def _plot_rect_3d_on_img(
     labels: List[DefaultBoxDetectionLabel],
     thickness: int = 3,
 ) -> npt.NDArray[np.uint8]:
-    """
-    Plot the boundary lines of 3D rectangular on 2D images.
+    """Plot 3D bounding boxes on image
+
     TODO: refactor
-    :param image:  The numpy array of image.
-    :param box_corners: Coordinates of the corners of 3D, shape of [N, 8, 2].
-    :param box_labels: labels of boxes for coloring
-    :param thickness: pixel width of liens, defaults to 3
-    :return: image with 3D bounding boxes
+    :param image: The image to plot on
+    :param box_corners: The corners of the boxes to plot
+    :param labels: The labels of the boxes to plot
+    :param thickness: The thickness of the lines, defaults to 3
+    :return: The image with 3D bounding boxes plotted
     """
+
     line_indices = (
         (0, 1),
         (0, 3),
@@ -252,8 +223,8 @@ def _transform_points_to_image(
     image_shape: Optional[Tuple[int, int]] = None,
     eps: float = 1e-3,
 ) -> Tuple[npt.NDArray[np.float32], npt.NDArray[np.bool_]]:
-    """
-    Transforms points in camera frame to image pixel coordinates
+    """Transforms points in camera frame to image pixel coordinates
+
     TODO: refactor
     :param points: points in camera frame
     :param intrinsic: camera intrinsics
@@ -286,50 +257,49 @@ def _transform_points_to_image(
     return pc_img, cur_pc_in_fov
 
 
-# def _transform_pcs_to_images(
-#     lidar_pc: npt.NDArray[np.float32],
-#     sensor2lidar_rotation: npt.NDArray[np.float32],
-#     sensor2lidar_translation: npt.NDArray[np.float32],
-#     intrinsic: npt.NDArray[np.float32],
-#     img_shape: Optional[Tuple[int, int]] = None,
-#     eps: float = 1e-3,
-# ) -> Tuple[npt.NDArray[np.float32], npt.NDArray[np.bool_]]:
-#     """
-#     Transforms points in camera frame to image pixel coordinates
-#     TODO: refactor
-#     :param lidar_pc: lidar point cloud
-#     :param sensor2lidar_rotation: camera rotation
-#     :param sensor2lidar_translation: camera translation
-#     :param intrinsic: camera intrinsics
-#     :param img_shape: image shape in pixels, defaults to None
-#     :param eps: threshold for lidar pc height, defaults to 1e-3
-#     :return: lidar pc in pixel coordinates, mask of values in frame
-#     """
-#     pc_xyz = lidar_pc[LidarIndex.POSITION, :].T
+def _transform_pcs_to_images(
+    lidar_pc: npt.NDArray[np.float32],
+    lidar_index: LiDARIndex,
+    camera: PinholeCamera,
+    eps: float = 1e-3,
+) -> Tuple[npt.NDArray[np.float32], npt.NDArray[np.bool_]]:
+    """Transforms lidar point cloud to image pixel coordinates
 
-#     lidar2cam_r = np.linalg.inv(sensor2lidar_rotation)
-#     lidar2cam_t = sensor2lidar_translation @ lidar2cam_r.T
-#     lidar2cam_rt = np.eye(4)
-#     lidar2cam_rt[:3, :3] = lidar2cam_r.T
-#     lidar2cam_rt[3, :3] = -lidar2cam_t
+    TODO: refactor
+    :param lidar_pc: lidar point cloud
+    :param lidar_index: lidar index
+    :param camera: pinhole camera
+    :param eps: lower threshold of points, defaults to 1e-3
+    :return: points in pixel coordinates, mask of values in frame
+    """
 
-#     viewpad = np.eye(4)
-#     viewpad[: intrinsic.shape[0], : intrinsic.shape[1]] = intrinsic
-#     lidar2img_rt = viewpad @ lidar2cam_rt.T
+    pc_xyz = lidar_pc[..., lidar_index.XYZ]
 
-#     cur_pc_xyz = np.concatenate([pc_xyz, np.ones_like(pc_xyz)[:, :1]], -1)
-#     cur_pc_cam = lidar2img_rt @ cur_pc_xyz.T
-#     cur_pc_cam = cur_pc_cam.T
-#     cur_pc_in_fov = cur_pc_cam[:, 2] > eps
-#     cur_pc_cam = cur_pc_cam[..., 0:2] / np.maximum(cur_pc_cam[..., 2:3], np.ones_like(cur_pc_cam[..., 2:3]) * eps)
+    lidar2cam_r = np.linalg.inv(camera.extrinsic.rotation_matrix)
+    lidar2cam_t = camera.extrinsic.point_3d @ lidar2cam_r.T
+    lidar2cam_rt = np.eye(4)
+    lidar2cam_rt[:3, :3] = lidar2cam_r.T
+    lidar2cam_rt[3, :3] = -lidar2cam_t
 
-#     if img_shape is not None:
-#         img_h, img_w = img_shape
-#         cur_pc_in_fov = (
-#             cur_pc_in_fov
-#             & (cur_pc_cam[:, 0] < (img_w - 1))
-#             & (cur_pc_cam[:, 0] > 0)
-#             & (cur_pc_cam[:, 1] < (img_h - 1))
-#             & (cur_pc_cam[:, 1] > 0)
-#         )
-#     return cur_pc_cam, cur_pc_in_fov
+    camera_matrix = camera.metadata.intrinsics.camera_matrix
+    viewpad = np.eye(4)
+    viewpad[: camera_matrix.shape[0], : camera_matrix.shape[1]] = camera_matrix
+    lidar2img_rt = viewpad @ lidar2cam_rt.T
+    img_shape = camera.image.shape[:2]
+
+    cur_pc_xyz = np.concatenate([pc_xyz, np.ones_like(pc_xyz)[:, :1]], -1)
+    cur_pc_cam = lidar2img_rt @ cur_pc_xyz.T
+    cur_pc_cam = cur_pc_cam.T
+    cur_pc_in_fov = cur_pc_cam[:, 2] > eps
+    cur_pc_cam = cur_pc_cam[..., 0:2] / np.maximum(cur_pc_cam[..., 2:3], np.ones_like(cur_pc_cam[..., 2:3]) * eps)
+
+    if img_shape is not None:
+        img_h, img_w = img_shape
+        cur_pc_in_fov = (
+            cur_pc_in_fov
+            & (cur_pc_cam[:, 0] < (img_w - 1))
+            & (cur_pc_cam[:, 0] > 0)
+            & (cur_pc_cam[:, 1] < (img_h - 1))
+            & (cur_pc_cam[:, 1] > 0)
+        )
+    return cur_pc_cam, cur_pc_in_fov

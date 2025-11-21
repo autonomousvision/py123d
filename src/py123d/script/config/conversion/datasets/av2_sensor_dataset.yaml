@@ -14,6 +14,7 @@ av2_sensor_dataset:
 
     # Map
     include_map: true
+    remap_map_ids: true
 
     # Ego
     include_ego: true

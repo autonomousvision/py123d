@@ -11,6 +11,7 @@ class DatasetConverterConfig:
 
     # Map
     include_map: bool = False
+    remap_map_ids: bool = False
 
     # Ego
     include_ego: bool = False

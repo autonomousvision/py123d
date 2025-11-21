@@ -36,15 +36,15 @@ logging.getLogger("pyogrio._io").disabled = True
 class GPKGMapWriter(AbstractMapWriter):
     """Abstract base class for map writers."""
 
-    def __init__(self, maps_root: Union[str, Path], remap_ids: bool = False) -> None:
+    def __init__(self, maps_root: Union[str, Path]) -> None:
         self._maps_root = Path(maps_root)
         self._crs: str = "EPSG:4326"  # WGS84
-        self._remap_ids = remap_ids
 
         # Data to be written to the map for each object type
         self._map_data: Optional[Dict[MapLayer, MAP_OBJECT_DATA]] = None
         self._map_file: Optional[Path] = None
         self._map_metadata: Optional[MapMetadata] = None
+        self._remap_map_ids: Optional[bool] = None
 
     def reset(self, dataset_converter_config: DatasetConverterConfig, map_metadata: MapMetadata) -> bool:
         """Inherited, see superclass."""
@@ -65,6 +65,7 @@ class GPKGMapWriter(AbstractMapWriter):
                 self._map_data = {map_layer: defaultdict(list) for map_layer in MapLayer}
                 self._map_file = map_file
                 self._map_metadata = map_metadata
+                self._remap_map_ids = dataset_converter_config.remap_map_ids
 
         return map_needs_writing
 
@@ -146,7 +147,7 @@ class GPKGMapWriter(AbstractMapWriter):
                     )
 
             # Optionally remap string IDs to integers
-            if self._remap_ids:
+            if self._remap_map_ids:
                 _map_ids_to_integer(map_gdf)
 
             # Write each map layer to the GPKG file
@@ -166,6 +167,7 @@ class GPKGMapWriter(AbstractMapWriter):
         assert self._map_data is not None, "Call reset() before writing data."
         assert self._map_file is not None, "Call reset() before writing data."
         assert self._map_metadata is not None, "Call reset() before writing data."
+        assert self._remap_map_ids is not None, "Call reset() before writing data."
 
     def _write_surface_layer(self, layer: MapLayer, surface_object: BaseMapSurfaceObject) -> None:
         """Helper to write surface map objects.
