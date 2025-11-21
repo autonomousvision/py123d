@@ -398,6 +398,7 @@ def _get_scene_info_markdown(scene: SceneAPI) -> str:
     markdown = f"""
     - Dataset: {scene.log_metadata.split}
     - Location: {scene.log_metadata.location if scene.log_metadata.location else "N/A"}
+    - Log: {scene.log_metadata.log_name}
     - UUID: {scene.scene_uuid}
     """
     return markdown

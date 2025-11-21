@@ -111,7 +111,6 @@ def _extract_and_write_lanes(
                 successor_ids=lane_helper.successor_lane_ids,
                 speed_limit_mps=lane_helper.speed_limit_mps,
                 outline=lane_helper.outline_polyline_3d,
-                geometry=None,
             )
             lanes.append(lane)
             map_writer.write_lane(lane)

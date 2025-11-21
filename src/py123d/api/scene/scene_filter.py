@@ -33,7 +33,7 @@ class SceneFilter:
     duration_s: Optional[float] = 10.0
     """Duration of each scene in seconds."""
 
-    history_s: Optional[float] = 3.0
+    history_s: Optional[float] = 0.0
     """History duration of each scene in seconds."""
 
     pinhole_camera_types: Optional[List[PinholeCameraType]] = None

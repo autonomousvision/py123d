@@ -37,8 +37,8 @@ def add_scene_on_ax(ax: plt.Axes, scene: SceneAPI, iteration: int = 0, radius: f
     map_api = scene.get_map_api()
 
     assert ego_vehicle_state is not None, "Ego vehicle state is required to plot the scene."
+    point_2d = ego_vehicle_state.bounding_box_se2.center_se2.pose_se2.point_2d
     if map_api is not None:
-        point_2d = ego_vehicle_state.bounding_box_se2.center_se2.pose_se2.point_2d
         add_default_map_on_ax(ax, map_api, point_2d, radius=radius)
         if traffic_light_detections is not None:
             add_traffic_lights_to_ax(ax, traffic_light_detections, map_api)
