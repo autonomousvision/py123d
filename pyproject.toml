@@ -16,7 +16,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
 ]
 name = "py123d"
-version = "v0.0.8"
+version = "0.0.8"
 authors = [{ name = "Daniel Dauner", email = "daniel.dauner@gmail.com" }]
 description = "A Library for Driving Datasets."
 readme = "README.md"
