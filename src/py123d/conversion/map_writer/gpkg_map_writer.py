@@ -9,7 +9,7 @@ import shapely.geometry as geom
 
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.map_writer.utils.gpkg_utils import IntIDMapping
+from py123d.conversion.map_writer.utils.id_utils import IntIDMapping
 from py123d.datatypes.map_objects.map_layer_types import MapLayer
 from py123d.datatypes.map_objects.map_objects import (
     BaseMapLineObject,

@@ -18,9 +18,9 @@ classifiers = [
 name = "py123d"
 version = "v0.0.8"
 authors = [{ name = "Daniel Dauner", email = "daniel.dauner@gmail.com" }]
-description = "TODO"
+description = "A Library for Driving Datasets."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = {text = "Apache-2.0"}
 dependencies = [
     "geopandas",
@@ -94,6 +94,9 @@ ffmpeg = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+py123d = ["script/**/*.yaml", "script/**/*.yml"]
 
 [project.urls]
 "Homepage" = "https://github.com/autonomousvision/py123d"
