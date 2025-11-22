@@ -241,7 +241,8 @@ Or configure the config ``py123d/script/config/common/default_dataset_paths.yaml
 Installation
 ~~~~~~~~~~~~
 
-For nuPlan, additional installation that are included as optional dependencies in ``py123d`` are required. You can install them via:
+For nuPlan, you need to additionally install the `nuplan-devkit <https://github.com/motional/nuplan-devkit>`_ and optional dependencies in ``py123d``.
+You can install both either from PyPI or from source:
 
 .. tab-set::
 
@@ -250,12 +251,15 @@ For nuPlan, additional installation that are included as optional dependencies i
     .. code-block:: bash
 
       pip install py123d[nuplan]
+      pip install "nuplan-devkit @ git+https://github.com/motional/nuplan-devkit/@nuplan-devkit-v1.2"
 
   .. tab-item:: Source
 
     .. code-block:: bash
 
       pip install -e .[nuplan]
+      pip install "nuplan-devkit @ git+https://github.com/motional/nuplan-devkit/@nuplan-devkit-v1.2"
+
 
 Conversion
 ~~~~~~~~~~~~
