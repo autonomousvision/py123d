@@ -17,7 +17,7 @@ def load_gdf_with_geometry_columns(gdf: gpd.GeoDataFrame, geometry_column_names:
     for col in geometry_column_names:
         if col in gdf.columns and len(gdf) > 0 and isinstance(gdf[col].iloc[0], str):
             try:
-                gdf[col] = gdf[col].apply(lambda x: wkt.loads(x) if isinstance(x, str) else x)
+                gdf[col] = gdf[col].apply(lambda x: wkt.loads(x) if isinstance(x, str) else x)  # type: ignore
             except Exception as e:
                 print(f"Warning: Could not convert column {col} to geometry: {str(e)}")
 
@@ -35,12 +35,12 @@ def get_all_rows_with_value(
     if desired_value is None or pd.isna(desired_value):
         return None
 
-    return elements.iloc[np.where(elements[column_label].to_numpy().astype(int) == int(desired_value))]
+    return elements.iloc[np.where(elements[column_label].to_numpy().astype(int) == int(desired_value))]  # type: ignore
 
 
 def get_row_with_value(
     elements: gpd.geodataframe.GeoDataFrame, column_label: str, desired_value: str
-) -> Optional[gpd.GeoSeries]:
+) -> Optional[pd.Series]:
     """Extract a matching element.
 
     :param elements: data frame from MapsDb.
@@ -49,9 +49,9 @@ def get_row_with_value(
     :return row from GeoDataFrame.
     """
     if column_label == "fid":
-        return elements.loc[desired_value]
+        return elements.loc[desired_value]  # pyright: ignore[reportReturnType]
 
-    geo_series: Optional[gpd.GeoSeries] = None
+    geo_series: Optional[pd.Series] = None
     matching_rows = get_all_rows_with_value(elements, column_label, desired_value)
     if matching_rows is not None:
         assert len(matching_rows) > 0, f"Could not find the desired key = {desired_value}"

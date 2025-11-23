@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import geopandas as gpd
 import pandas as pd
@@ -28,7 +28,7 @@ from py123d.datatypes.map_objects.map_objects import (
 from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.geometry.polyline import Polyline3D
 
-MAP_OBJECT_DATA = Dict[str, List[Union[str, int, float, bool, geom.base.BaseGeometry]]]
+MAP_OBJECT_DATA = Dict[str, List[Union[str, int, float, bool, geom.base.BaseGeometry, Any]]]
 
 logging.getLogger("pyogrio._io").disabled = True
 
@@ -41,7 +41,7 @@ class GPKGMapWriter(AbstractMapWriter):
         self._crs: str = "EPSG:4326"  # WGS84
 
         # Data to be written to the map for each object type
-        self._map_data: Optional[Dict[MapLayer, MAP_OBJECT_DATA]] = None
+        self._map_data: Dict[MapLayer, MAP_OBJECT_DATA] = {}
         self._map_file: Optional[Path] = None
         self._map_metadata: Optional[MapMetadata] = None
         self._remap_map_ids: Optional[bool] = None
@@ -54,9 +54,11 @@ class GPKGMapWriter(AbstractMapWriter):
         if dataset_converter_config.include_map:
             if map_metadata.map_is_local:
                 split, log_name = map_metadata.split, map_metadata.log_name
+                assert split is not None, "For local maps, split must be provided in map metadata."
                 map_file = self._maps_root / split / f"{log_name}.gpkg"
             else:
                 dataset, location = map_metadata.dataset, map_metadata.location
+                assert location is not None, "For global maps, location must be provided in map metadata."
                 map_file = self._maps_root / dataset / f"{dataset}_{location}.gpkg"
 
             map_needs_writing = dataset_converter_config.force_map_conversion or not map_file.exists()
@@ -132,6 +134,9 @@ class GPKGMapWriter(AbstractMapWriter):
         """Inherited, see superclass."""
 
         if self._map_file is not None or self._map_data is not None:
+            assert isinstance(self._map_file, Path), "Map file path is not set."
+            assert isinstance(self._map_metadata, MapMetadata), "Map metadata is not set."
+
             if not self._map_file.parent.exists():
                 self._map_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -160,11 +165,11 @@ class GPKGMapWriter(AbstractMapWriter):
 
         del self._map_file, self._map_data, self._map_metadata
         self._map_file = None
-        self._map_data = None
+        self._map_data = {}
         self._map_metadata = None
 
     def _assert_initialized(self) -> None:
-        assert self._map_data is not None, "Call reset() before writing data."
+        assert len(self._map_data) > 0, "Call reset() before writing data."
         assert self._map_file is not None, "Call reset() before writing data."
         assert self._map_metadata is not None, "Call reset() before writing data."
         assert self._remap_map_ids is not None, "Call reset() before writing data."

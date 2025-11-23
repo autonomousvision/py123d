@@ -136,6 +136,7 @@ def _write_nuplan_lane_connectors(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_w
     for idx, lane_id in enumerate(all_ids):
         # 1. predecessor_ids, successor_ids
         lane_connector_row = get_row_with_value(nuplan_gdf["lane_connectors"], "fid", str(lane_id))
+        assert lane_connector_row is not None, f"Could not find lane connector with id {lane_id}"
         predecessor_ids = [lane_connector_row["entry_lane_fid"]]
         successor_ids = [lane_connector_row["exit_lane_fid"]]
 
@@ -143,6 +144,7 @@ def _write_nuplan_lane_connectors(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_w
         lane_connector_polygons_row = get_row_with_value(
             nuplan_gdf["gen_lane_connectors_scaled_width_polygons"], "lane_connector_fid", str(lane_id)
         )
+        assert lane_connector_polygons_row is not None, f"Could not find lane connector polygon with id {lane_id}"
         left_boundary_fid = lane_connector_polygons_row["left_boundary_fid"]
         left_boundary = get_row_with_value(nuplan_gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
 

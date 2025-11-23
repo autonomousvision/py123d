@@ -69,7 +69,7 @@ class GPKGMapAPI(MapAPI):
         }
 
         # loaded during `.initialize()`
-        self._gpd_dataframes: Dict[MapLayer, gpd.GeoDataFrame] = {}
+        self._gpd_dataframes: Dict[MapLayer, Optional[gpd.GeoDataFrame]] = {}
         self._map_metadata: Optional[MapMetadata] = None
 
     def _initialize(self) -> None:

@@ -29,7 +29,7 @@ class AbstractMapWriter(abc.ABC):
         """Write a lane to the map."""
 
     @abstractmethod
-    def write_lane_group(self, lane: LaneGroup) -> None:
+    def write_lane_group(self, lane_group: LaneGroup) -> None:
         """Write a group of lanes to the map."""
 
     @abstractmethod
