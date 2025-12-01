@@ -408,16 +408,16 @@ class ArrowMapAPI(MapAPI):
 def get_global_map_api(dataset: str, location: str) -> ArrowMapAPI:
     """Get the global map API for a given dataset and location."""
     PY123D_MAPS_ROOT: Path = Path(get_dataset_paths().py123d_maps_root)
-    gpkg_path = PY123D_MAPS_ROOT / dataset / f"{dataset}_{location}.arrow"
-    assert gpkg_path.is_file(), f"{dataset}_{location}.arrow not found in {str(PY123D_MAPS_ROOT)}."
-    map_api = ArrowMapAPI(gpkg_path)
+    arrow_path = PY123D_MAPS_ROOT / dataset / f"{dataset}_{location}.arrow"
+    assert arrow_path.is_file(), f"{dataset}_{location}.arrow not found in {str(PY123D_MAPS_ROOT)}."
+    map_api = ArrowMapAPI(arrow_path)
     return map_api
 
 
 def get_local_map_api(split_name: str, log_name: str) -> ArrowMapAPI:
     """Get the local map API for a given split name and log name."""
     PY123D_MAPS_ROOT: Path = Path(get_dataset_paths().py123d_maps_root)
-    gpkg_path = PY123D_MAPS_ROOT / split_name / f"{log_name}.arrow"
-    assert gpkg_path.is_file(), f"{log_name}.arrow not found in {str(PY123D_MAPS_ROOT)}."
-    map_api = ArrowMapAPI(gpkg_path)
+    arrow_path = PY123D_MAPS_ROOT / split_name / f"{log_name}.arrow"
+    assert arrow_path.is_file(), f"{log_name}.arrow not found in {str(PY123D_MAPS_ROOT)}."
+    map_api = ArrowMapAPI(arrow_path)
     return map_api

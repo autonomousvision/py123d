@@ -24,7 +24,7 @@ which can be added to your `~/.bashrc` or to your bash scripts. Optionally, you 
 
 The 123D conversion includes:
 - **Logs:** The logs store continuous driving recordings in a single file, including modalities such as timestamps, ego states, bounding boxes, and sensor references. Logs are stored as `.arrow` files.
-- **Maps:** The maps are static and store our unified HD-Map API. Maps can either be defined per-log (e.g. in AV2, Waymo) or globally for a certain location (e.g. nuPlan, nuScenes, CARLA). In the current implementation, we store maps as `.gpkg` files.
+- **Maps:** The maps are static and store our unified HD-Map API. Maps can either be defined per-log (e.g. in AV2, Waymo) or globally for a certain location (e.g. nuPlan, nuScenes, CARLA). We also use `.arrow` files to store maps.
 - **Sensors:** There are multiple options to store sensor data. Cameras and LiDAR point clouds can either (1) be read from the original dataset or (2) stored within the log file. For cameras, we also support (3) compression with MP4 files, which are written into the `/sensors` directory.
 
 For example, when converting `nuplan-mini` with MP4 compression and using `PY123D_DATA_ROOT="$HOME/py123d_workspace/data"`, the file structure would look the following way:
@@ -43,9 +43,9 @@ For example, when converting `nuplan-mini` with MP4 compression and using `PY123
 │   │   └── ...
 │   ├── maps
 │   │   ├── nuplan
-│   │   │   ├── nuplan_sg-one-north.gpkg
+│   │   │   ├── nuplan_sg-one-north.arrow
 │   │   │   ├── ...
-│   │   │   └── nuplan_us-pa-pittsburgh-hazelwood.gpkg
+│   │   │   └── nuplan_us-pa-pittsburgh-hazelwood.arrow
 │   │   └── ...
 │   └── sensors
 │       ├── nuplan-mini_test
