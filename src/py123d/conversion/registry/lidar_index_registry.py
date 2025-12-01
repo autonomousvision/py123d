@@ -63,8 +63,8 @@ class CARLALiDARIndex(LiDARIndex):
 
 
 @register_lidar_index
-class WOPDLiDARIndex(LiDARIndex):
-    """Waymo Open Perception Dataset (WOPD) LiDAR Indexing Scheme, with polar features."""
+class WODPLiDARIndex(LiDARIndex):
+    """Waymo Open Dataset - Perception (WODP) LiDAR Indexing Scheme, with polar features."""
 
     RANGE = 0
     INTENSITY = 1

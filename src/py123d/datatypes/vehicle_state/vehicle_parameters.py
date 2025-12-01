@@ -109,13 +109,13 @@ def get_carla_lincoln_mkz_2020_parameters() -> VehicleParameters:
     )
 
 
-def get_wopd_chrysler_pacifica_parameters() -> VehicleParameters:
-    """Helper function to get WOPD Chrysler Pacifica vehicle parameters."""
-    # NOTE: These parameters are estimates based on the vehicle model used in the WOPD dataset.
+def get_wodp_chrysler_pacifica_parameters() -> VehicleParameters:
+    """Helper function to get Waymo Open Dataset Perception Chrysler Pacifica vehicle parameters."""
+    # NOTE: These parameters are estimates based on the vehicle model used in the WODP dataset.
     # The vehicle should be the same (or a similar) vehicle model to nuPlan and PandaSet [1].
     # [1] https://en.wikipedia.org/wiki/Chrysler_Pacifica_(minivan)
     return VehicleParameters(
-        vehicle_name="wopd_chrysler_pacifica",
+        vehicle_name="wodp_chrysler_pacifica",
         width=2.297,
         length=5.176,
         height=1.777,

@@ -1,27 +1,23 @@
 from typing import Dict, List
 
-from py123d.conversion.registry.box_detection_label_registry import WOPDBoxDetectionLabel
+from py123d.conversion.registry.box_detection_label_registry import WODPBoxDetectionLabel
 from py123d.datatypes.map_objects.map_layer_types import LaneType, RoadEdgeType, RoadLineType
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 
-WOPD_AVAILABLE_SPLITS: List[str] = [
-    "wopd_train",
-    "wopd_val",
-    "wopd_test",
-]
+WODP_AVAILABLE_SPLITS: List[str] = ["wodp_train", "wodp_val", "wodp_test"]
 
 # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/label.proto#L63
-WOPD_DETECTION_NAME_DICT: Dict[int, WOPDBoxDetectionLabel] = {
-    0: WOPDBoxDetectionLabel.TYPE_UNKNOWN,
-    1: WOPDBoxDetectionLabel.TYPE_VEHICLE,
-    2: WOPDBoxDetectionLabel.TYPE_PEDESTRIAN,
-    3: WOPDBoxDetectionLabel.TYPE_SIGN,
-    4: WOPDBoxDetectionLabel.TYPE_CYCLIST,
+WODP_DETECTION_NAME_DICT: Dict[int, WODPBoxDetectionLabel] = {
+    0: WODPBoxDetectionLabel.TYPE_UNKNOWN,
+    1: WODPBoxDetectionLabel.TYPE_VEHICLE,
+    2: WODPBoxDetectionLabel.TYPE_PEDESTRIAN,
+    3: WODPBoxDetectionLabel.TYPE_SIGN,
+    4: WODPBoxDetectionLabel.TYPE_CYCLIST,
 }
 
 # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L50
-WOPD_CAMERA_TYPES: Dict[int, PinholeCameraType] = {
+WODP_CAMERA_TYPES: Dict[int, PinholeCameraType] = {
     1: PinholeCameraType.PCAM_F0,  # front_camera
     2: PinholeCameraType.PCAM_L0,  # front_left_camera
     3: PinholeCameraType.PCAM_R0,  # front_right_camera
@@ -30,7 +26,7 @@ WOPD_CAMERA_TYPES: Dict[int, PinholeCameraType] = {
 }
 
 # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L66
-WOPD_LIDAR_TYPES: Dict[int, LiDARType] = {
+WODP_LIDAR_TYPES: Dict[int, LiDARType] = {
     0: LiDARType.LIDAR_UNKNOWN,  # UNKNOWN
     1: LiDARType.LIDAR_TOP,  # TOP
     2: LiDARType.LIDAR_FRONT,  # FRONT

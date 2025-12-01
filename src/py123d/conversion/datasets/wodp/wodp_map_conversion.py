@@ -3,8 +3,8 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from py123d.common.utils.dependencies import check_dependencies
-from py123d.conversion.datasets.wopd.utils.womp_boundary_utils import WaymoLaneData, fill_lane_boundaries
-from py123d.conversion.datasets.wopd.utils.wopd_constants import (
+from py123d.conversion.datasets.wodp.utils.wod_boundary_utils import WaymoLaneData, fill_lane_boundaries
+from py123d.conversion.datasets.wodp.utils.wodp_constants import (
     WAYMO_LANE_TYPE_CONVERSION,
     WAYMO_ROAD_EDGE_TYPE_CONVERSION,
     WAYMO_ROAD_LINE_TYPE_CONVERSION,
@@ -25,7 +25,7 @@ from waymo_open_dataset import dataset_pb2
 # - Implement intersections and lane group logic
 
 
-def convert_wopd_map(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> None:
+def convert_wod_map(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> None:
     # We first extract all road lines, road edges, and lanes, and write them to the map writer.
     # NOTE: road lines and edges are used needed to extract lane boundaries.
     road_lines = _write_and_get_waymo_road_lines(frame, map_writer)
@@ -151,7 +151,7 @@ def _write_and_get_waymo_lanes(
 
 
 def _write_waymo_lane_groups(lanes: List[Lane], map_writer: AbstractMapWriter) -> None:
-    # NOTE: WOPD does not provide lane groups, so we create a lane group for each lane.
+    # NOTE: WODP does not provide lane groups, so we create a lane group for each lane.
     for lane in lanes:
         map_writer.write_lane_group(
             LaneGroup(

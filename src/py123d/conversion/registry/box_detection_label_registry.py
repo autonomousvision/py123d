@@ -341,7 +341,7 @@ class PandasetBoxDetectionLabel(BoxDetectionLabel):
 
 
 @register_box_detection_label
-class WOPDBoxDetectionLabel(BoxDetectionLabel):
+class WODPBoxDetectionLabel(BoxDetectionLabel):
     """
     Semantic labels for Waymo Open Dataset bounding box detections.
     [1] https://github.com/waymo-research/waymo-open-dataset/blob/master/docs/labeling_specifications.md
@@ -357,10 +357,10 @@ class WOPDBoxDetectionLabel(BoxDetectionLabel):
     def to_default(self) -> DefaultBoxDetectionLabel:
         """Inherited, see superclass."""
         mapping = {
-            WOPDBoxDetectionLabel.TYPE_UNKNOWN: DefaultBoxDetectionLabel.GENERIC_OBJECT,
-            WOPDBoxDetectionLabel.TYPE_VEHICLE: DefaultBoxDetectionLabel.VEHICLE,
-            WOPDBoxDetectionLabel.TYPE_PEDESTRIAN: DefaultBoxDetectionLabel.PERSON,
-            WOPDBoxDetectionLabel.TYPE_SIGN: DefaultBoxDetectionLabel.TRAFFIC_SIGN,
-            WOPDBoxDetectionLabel.TYPE_CYCLIST: DefaultBoxDetectionLabel.BICYCLE,
+            WODPBoxDetectionLabel.TYPE_UNKNOWN: DefaultBoxDetectionLabel.GENERIC_OBJECT,
+            WODPBoxDetectionLabel.TYPE_VEHICLE: DefaultBoxDetectionLabel.VEHICLE,
+            WODPBoxDetectionLabel.TYPE_PEDESTRIAN: DefaultBoxDetectionLabel.PERSON,
+            WODPBoxDetectionLabel.TYPE_SIGN: DefaultBoxDetectionLabel.TRAFFIC_SIGN,
+            WODPBoxDetectionLabel.TYPE_CYCLIST: DefaultBoxDetectionLabel.BICYCLE,
         }
         return mapping[self]

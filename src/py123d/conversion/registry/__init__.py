@@ -7,7 +7,7 @@ from py123d.conversion.registry.box_detection_label_registry import (
     NuPlanBoxDetectionLabel,
     NuScenesBoxDetectionLabel,
     PandasetBoxDetectionLabel,
-    WOPDBoxDetectionLabel,
+    WODPBoxDetectionLabel,
 )
 from py123d.conversion.registry.lidar_index_registry import (
     LIDAR_INDEX_REGISTRY,
@@ -19,5 +19,5 @@ from py123d.conversion.registry.lidar_index_registry import (
     NuPlanLiDARIndex,
     NuScenesLiDARIndex,
     PandasetLiDARIndex,
-    WOPDLiDARIndex,
+    WODPLiDARIndex,
 )
