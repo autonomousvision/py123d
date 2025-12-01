@@ -16,7 +16,6 @@ nuplan_mini_dataset:
 
     # Map
     include_map: true
-    remap_map_ids: false
 
     # Ego
     include_ego: true
@@ -34,6 +33,7 @@ nuplan_mini_dataset:
     # LiDARs
     include_lidars: true
     lidar_store_option: ${lidar_store_option} # "path", "path_merged", "laz_binary", "draco_binary"
+
     # Scenario tag / Route
     include_scenario_tags: true
     include_route: true

@@ -16,7 +16,6 @@ nuplan_dataset:
 
     # Map
     include_map: true
-    remap_map_ids: false
 
     # Ego
     include_ego: true

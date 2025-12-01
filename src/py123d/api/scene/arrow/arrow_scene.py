@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 
 import pyarrow as pa
 
-from py123d.api.map.gpkg.gpkg_map_api import get_global_map_api, get_local_map_api
+from py123d.api.map.arrow_map_api import get_global_map_api, get_local_map_api
 from py123d.api.map.map_api import MapAPI
 from py123d.api.scene.arrow.utils.arrow_getters import (
     get_box_detections_se3_from_arrow_table,
@@ -153,12 +153,14 @@ class ArrowSceneAPI(SceneAPI):
         """Inherited, see superclass."""
         pinhole_camera: Optional[PinholeCamera] = None
         if camera_type in self.available_pinhole_camera_types:
-            pinhole_camera = get_camera_from_arrow_table(
+            pinhole_camera_ = get_camera_from_arrow_table(
                 self._get_recording_table(),
                 self._get_table_index(iteration),
                 camera_type,
                 self.log_metadata,
             )
+            assert isinstance(pinhole_camera_, PinholeCamera) or pinhole_camera_ is None
+            pinhole_camera = pinhole_camera_
         return pinhole_camera
 
     def get_fisheye_mei_camera_at_iteration(
@@ -167,12 +169,14 @@ class ArrowSceneAPI(SceneAPI):
         """Inherited, see superclass."""
         fisheye_mei_camera: Optional[FisheyeMEICamera] = None
         if camera_type in self.available_fisheye_mei_camera_types:
-            fisheye_mei_camera = get_camera_from_arrow_table(
+            fisheye_mei_camera_ = get_camera_from_arrow_table(
                 self._get_recording_table(),
                 self._get_table_index(iteration),
                 camera_type,
                 self.log_metadata,
             )
+            assert isinstance(fisheye_mei_camera_, FisheyeMEICamera) or fisheye_mei_camera_ is None
+            fisheye_mei_camera = fisheye_mei_camera_
         return fisheye_mei_camera
 
     def get_lidar_at_iteration(self, iteration: int, lidar_type: LiDARType) -> Optional[LiDAR]:

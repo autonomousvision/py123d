@@ -14,7 +14,7 @@ defaults:
   - default_common
   - default_dataset_paths
   - log_writer: arrow_log_writer
-  - map_writer: gpkg_map_writer
+  - map_writer: arrow_map_writer
   - datasets:
       - av2_sensor_dataset
   - _self_

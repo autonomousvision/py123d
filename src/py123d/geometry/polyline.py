@@ -317,7 +317,7 @@ class Polyline3D(ArrayMixin):
         return Polyline3D(array, linestring_)
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64]) -> Polyline3D:
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> Polyline3D:
         """Creates a :class:`Polyline3D` from a numpy array.
 
         :param array: A numpy array of shape (N, 3) representing 3D points, e.g. indexed by \
@@ -329,7 +329,7 @@ class Polyline3D(ArrayMixin):
             array = np.hstack((array, np.full((array.shape[0], 1), DEFAULT_Z)))
         elif array.shape[1] != len(Point3DIndex):
             raise ValueError("Array must have shape (N, 3) for Point3D.")
-        return Polyline3D(array)
+        return Polyline3D(array.copy() if copy else array)
 
     @property
     def linestring(self) -> geom.LineString:

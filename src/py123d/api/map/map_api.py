@@ -3,12 +3,12 @@ from __future__ import annotations
 import abc
 from typing import Dict, Iterable, List, Literal, Optional, Union
 
-import shapely
+import shapely.geometry as geom
 
 from py123d.datatypes.map_objects import BaseMapObject, MapLayer
+from py123d.datatypes.map_objects.base_map_objects import MapObjectIDType
 from py123d.datatypes.metadata import MapMetadata
-from py123d.geometry import Point2D
-from py123d.geometry.point import Point3D
+from py123d.geometry import Point2D, Point3D
 
 
 class MapAPI(abc.ABC):
@@ -33,7 +33,7 @@ class MapAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_map_object(self, object_id: Union[str, int], layer: MapLayer) -> Optional[BaseMapObject]:
+    def get_map_object(self, object_id: MapObjectIDType, layer: MapLayer) -> Optional[BaseMapObject]:
         """Returns a :class:`~p123d.datatypes.map_objects.base_map_object.BaseMapObject` by its ID
             and :class:`~p123d.datatypes.map_objects.map_layer_types.MapLayer`.
 
@@ -62,7 +62,7 @@ class MapAPI(abc.ABC):
     @abc.abstractmethod
     def query(
         self,
-        geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
+        geometry: Union[geom.base.BaseGeometry, Iterable[geom.base.BaseGeometry]],
         layers: List[MapLayer],
         predicate: Optional[
             Literal[
@@ -78,51 +78,60 @@ class MapAPI(abc.ABC):
                 "dwithin",
             ]
         ] = None,
-        sort: bool = False,
         distance: Optional[float] = None,
     ) -> Dict[MapLayer, Union[List[BaseMapObject], Dict[int, List[BaseMapObject]]]]:
         """Queries geometries against the map objects in the specified layers using an optional spatial predicate.
 
         Notes
         -----
-        The implementation is aligned with the geopandas spatial index query method [1]_,
-        used in the :class:`GPKGMapAPI`. It is likely this method will be removed or improved in
-        future versions of 123D.
+        The syntax is aligned with STRtree implementation of shapely and the corresponding ``query`` function [1].
 
         References
         ----------
-        [1] https://geopandas.org/en/stable/docs/reference/api/geopandas.sindex.SpatialIndex.query.html
+        [1] https://shapely.readthedocs.io/en/latest/strtree.html#shapely.STRtree.query
 
         :param geometry: A shapely geometry or an iterable of shapely geometries to query against.
         :param layers: The map layers to query against.
         :param predicate: An optional spatial predicate to filter the results.
-        :param sort: Whether to sort the results by distance, defaults to False.
         :param distance: An optional maximum distance to filter the results, defaults to None.
-        :return: A dictionary mapping each layer to a list of map objects or a dictionary of indices to
-            lists of map objects.
+        :return:
+            If geometry is a single geometry, a dictionary mapping each layer to a list of map objects.
+
+            If geometry is an iterable of geometries, a dictionary mapping each layer to a dictionary of indices
+            (of the input geometries) to lists of map objects (found in map).
         """
 
     @abc.abstractmethod
     def query_object_ids(
         self,
-        geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
+        geometry: Union[geom.base.BaseGeometry, Iterable[geom.base.BaseGeometry]],
         layers: List[MapLayer],
-        predicate: Optional[str] = None,
-        sort: bool = False,
+        predicate: Optional[
+            Literal[
+                "contains",
+                "contains_properly",
+                "covered_by",
+                "covers",
+                "crosses",
+                "intersects",
+                "overlaps",
+                "touches",
+                "within",
+                "dwithin",
+            ]
+        ] = None,
         distance: Optional[float] = None,
-    ) -> Dict[MapLayer, Union[List[int], Dict[int, List[int]]]]:
+    ) -> Dict[MapLayer, Union[List[MapObjectIDType], Dict[int, List[MapObjectIDType]]]]:
         """Queries geometries against the map objects in the specified layers using an optional spatial predicate.
-        Instead of returning the map objects, it returns their IDs only.
+        Only output the IDs of the matching map objects.
 
         Notes
         -----
-        The implementation is aligned with the geopandas spatial index query method [1]_,
-        used in the :class:`GPKGMapAPI`. It is likely this method will be removed or improved in
-        future versions of 123D.
+        The syntax is aligned with STRtree implementation of shapely and the corresponding ``query`` function [1].
 
         References
         ----------
-        [1] https://geopandas.org/en/stable/docs/reference/api/geopandas.sindex.SpatialIndex.query.html
+        [1] https://shapely.readthedocs.io/en/latest/strtree.html#shapely.STRtree.query
 
 
         :param geometry: A shapely geometry or an iterable of shapely geometries to query against.
@@ -130,40 +139,11 @@ class MapAPI(abc.ABC):
         :param predicate: An optional spatial predicate to filter the results.
         :param sort: Whether to sort the results by distance, defaults to False.
         :param distance: An optional maximum distance to filter the results, defaults to None.
-        :return: A dictionary mapping each layer to a list of map object IDs or a dictionary of indices to
-            lists of map object IDs.
-        """
+        :return:
+            If geometry is a single geometry, a dictionary mapping each layer to a list of map object ids.
 
-    @abc.abstractmethod
-    def query_nearest(
-        self,
-        geometry: Union[shapely.Geometry, Iterable[shapely.Geometry]],
-        layers: List[MapLayer],
-        return_all: bool = True,
-        max_distance: Optional[float] = None,
-        return_distance: bool = False,
-        exclusive: bool = False,
-    ) -> Dict[MapLayer, Union[List[BaseMapObject], Dict[int, List[BaseMapObject]]]]:
-        """Return the nearest map objects in a spatial tree for each input geometry in
-
-        Notes
-        -----
-        The implementation is aligned with the geopandas spatial index nearest method [1]_,
-        used in the :class:`GPKGMapAPI`. It is likely this method will be removed or improved in
-        future versions of 123D.
-
-        References
-        ----------
-        [1] https://geopandas.org/en/stable/docs/reference/api/geopandas.sindex.SpatialIndex.nearest.html
-
-        :param geometry: A shapely geometry or an iterable of shapely geometries to query against.
-        :param layers: The map layers to query against.
-        :param return_all: Whether to return all matching objects or just the closest one, defaults to True.
-        :param max_distance: An optional maximum distance to filter the results, defaults to None.
-        :param return_distance: Whether to return the distance to the nearest object, defaults to False.
-        :param exclusive: Whether to exclude the input geometries from the results, defaults to False.
-        :return: A dictionary mapping each layer to a list of nearest map objects or a dictionary of indices to
-            lists of nearest map objects.
+            If geometry is an iterable of geometries, a dictionary mapping each layer to a dictionary of indices
+            (of the input geometries) to lists of map object ids (found in map).
         """
 
     # Syntactic Sugar / Properties, for easier access to common attributes
