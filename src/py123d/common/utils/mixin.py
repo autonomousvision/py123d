@@ -93,7 +93,7 @@ class ArrayMixin:
         return hash(self.array.tobytes())
 
 
-def indexed_array_repr(array_mixin: ArrayMixin, indexing: IntEnum) -> str:
+def indexed_array_repr(array_mixin: ArrayMixin, indexing: type[IntEnum]) -> str:
     """Generate a string representation of an ArrayMixin instance using an indexing enum.
 
     :param array_mixin: An instance of ArrayMixin.

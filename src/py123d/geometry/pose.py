@@ -341,14 +341,14 @@ class EulerPoseSE3(ArrayMixin):
         assert transformation_matrix.shape == (4, 4)
         translation = transformation_matrix[:3, 3]
         rotation = transformation_matrix[:3, :3]
-        roll, pitch, yaw = EulerAngles.from_rotation_matrix(rotation)
+        euler_angles = EulerAngles.from_rotation_matrix(rotation)
         return EulerPoseSE3(
             x=translation[Point3DIndex.X],
             y=translation[Point3DIndex.Y],
             z=translation[Point3DIndex.Z],
-            roll=roll,
-            pitch=pitch,
-            yaw=yaw,
+            roll=euler_angles.roll,
+            pitch=euler_angles.pitch,
+            yaw=euler_angles.yaw,
         )
 
     @property

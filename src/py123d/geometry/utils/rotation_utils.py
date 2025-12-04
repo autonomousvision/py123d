@@ -5,8 +5,6 @@ import numpy.typing as npt
 
 from py123d.geometry.geometry_index import EulerAnglesIndex, QuaternionIndex
 
-# import pyquaternion
-
 
 def batch_matmul(A: npt.NDArray[np.float64], B: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     """Batch matrix multiplication for arrays of matrices.

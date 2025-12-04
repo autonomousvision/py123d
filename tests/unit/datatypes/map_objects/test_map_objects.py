@@ -406,8 +406,8 @@ class TestLane:
             assert lane_from_api is not None
             assert lane_from_api.left_lane is None
             assert lane_from_api.right_lane is None
-            assert lane_from_api.predecessors is None
-            assert lane_from_api.successors is None
+            assert lane_from_api.predecessors == []
+            assert lane_from_api.successors == []
 
     def test_lane_group_links(self):
         """Test that the lane group links are correct."""
@@ -602,9 +602,9 @@ class TestLaneGroup:
         for lane_group in self.lane_groups:
             lg_from_api: LaneGroup = map_api.get_map_object(lane_group.object_id, MapLayer.LANE_GROUP)
             assert lg_from_api is not None
-            assert lg_from_api.lanes is None
-            assert lg_from_api.predecessors is None
-            assert lg_from_api.successors is None
+            assert lg_from_api.lanes == []
+            assert lg_from_api.predecessors == []
+            assert lg_from_api.successors == []
             assert lg_from_api.intersection is None
 
 
@@ -667,7 +667,7 @@ class TestIntersection:
         for intersection in self.intersections:
             int_from_api: Intersection = map_api.get_map_object(intersection.object_id, MapLayer.INTERSECTION)
             assert int_from_api is not None
-            assert int_from_api.lane_groups is None
+            assert int_from_api.lane_groups == []
 
 
 class TestCrosswalk:
