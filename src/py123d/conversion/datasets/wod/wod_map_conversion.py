@@ -3,8 +3,8 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from py123d.common.utils.dependencies import check_dependencies
-from py123d.conversion.datasets.wodp.utils.wod_boundary_utils import WaymoLaneData, fill_lane_boundaries
-from py123d.conversion.datasets.wodp.utils.wodp_constants import (
+from py123d.conversion.datasets.wod.utils.wod_boundary_utils import WaymoLaneData, fill_lane_boundaries
+from py123d.conversion.datasets.wod.utils.wod_constants import (
     WAYMO_LANE_TYPE_CONVERSION,
     WAYMO_ROAD_EDGE_TYPE_CONVERSION,
     WAYMO_ROAD_LINE_TYPE_CONVERSION,
@@ -16,7 +16,7 @@ from py123d.geometry import Polyline3D
 from py123d.geometry.utils.units import mph_to_mps
 
 check_dependencies(modules=["waymo_open_dataset"], optional_name="waymo")
-from waymo_open_dataset import dataset_pb2
+from waymo_open_dataset.protos import map_pb2
 
 # TODO:
 # - Implement stop signs
@@ -25,25 +25,27 @@ from waymo_open_dataset import dataset_pb2
 # - Implement intersections and lane group logic
 
 
-def convert_wod_map(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> None:
+def convert_wod_map(map_features: List[map_pb2.MapFeature], map_writer: AbstractMapWriter) -> None:
     # We first extract all road lines, road edges, and lanes, and write them to the map writer.
     # NOTE: road lines and edges are used needed to extract lane boundaries.
-    road_lines = _write_and_get_waymo_road_lines(frame, map_writer)
-    road_edges = _write_and_get_waymo_road_edges(frame, map_writer)
-    lanes = _write_and_get_waymo_lanes(frame, road_lines, road_edges, map_writer)
+    road_lines = _write_and_get_waymo_road_lines(map_features, map_writer)
+    road_edges = _write_and_get_waymo_road_edges(map_features, map_writer)
+    lanes = _write_and_get_waymo_lanes(map_features, road_lines, road_edges, map_writer)
 
     # Write lane groups based on the extracted lanes
     _write_waymo_lane_groups(lanes, map_writer)
 
     # Write miscellaneous surfaces (carparks, crosswalks, stop zones, etc.) directly from the Waymo frame proto
-    _write_waymo_misc_surfaces(frame, map_writer)
+    _write_waymo_misc_surfaces(map_features, map_writer)
 
 
-def _write_and_get_waymo_road_lines(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> List[RoadLine]:
+def _write_and_get_waymo_road_lines(
+    map_features: List[map_pb2.MapFeature], map_writer: AbstractMapWriter
+) -> List[RoadLine]:
     """Helper function to extract road lines from a Waymo frame proto."""
 
     road_lines: List[RoadLine] = []
-    for map_feature in frame.map_features:
+    for map_feature in map_features:
         if map_feature.HasField("road_line"):
             polyline = _extract_polyline_waymo_proto(map_feature.road_line)
             if polyline is not None:
@@ -62,11 +64,13 @@ def _write_and_get_waymo_road_lines(frame: dataset_pb2.Frame, map_writer: Abstra
     return road_lines
 
 
-def _write_and_get_waymo_road_edges(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> List[RoadEdge]:
+def _write_and_get_waymo_road_edges(
+    map_features: List[map_pb2.MapFeature], map_writer: AbstractMapWriter
+) -> List[RoadEdge]:
     """Helper function to extract road edges from a Waymo frame proto."""
 
     road_edges: List[RoadEdge] = []
-    for map_feature in frame.map_features:
+    for map_feature in map_features:
         if map_feature.HasField("road_edge"):
             polyline = _extract_polyline_waymo_proto(map_feature.road_edge)
             if polyline is not None:
@@ -86,11 +90,14 @@ def _write_and_get_waymo_road_edges(frame: dataset_pb2.Frame, map_writer: Abstra
 
 
 def _write_and_get_waymo_lanes(
-    frame: dataset_pb2.Frame, road_lines: List[RoadLine], road_edges: List[RoadEdge], map_writer: AbstractMapWriter
+    map_features: List[map_pb2.MapFeature],
+    road_lines: List[RoadLine],
+    road_edges: List[RoadEdge],
+    map_writer: AbstractMapWriter,
 ) -> List[Lane]:
     # 1. Load lane data from Waymo frame proto
     lane_data_dict: Dict[int, WaymoLaneData] = {}
-    for map_feature in frame.map_features:
+    for map_feature in map_features:
         if map_feature.HasField("lane"):
             centerline = _extract_polyline_waymo_proto(map_feature.lane)
 
@@ -167,8 +174,8 @@ def _write_waymo_lane_groups(lanes: List[Lane], map_writer: AbstractMapWriter) -
         )
 
 
-def _write_waymo_misc_surfaces(frame: dataset_pb2.Frame, map_writer: AbstractMapWriter) -> None:
-    for map_feature in frame.map_features:
+def _write_waymo_misc_surfaces(map_features: List[map_pb2.MapFeature], map_writer: AbstractMapWriter) -> None:
+    for map_feature in map_features:
         if map_feature.HasField("driveway"):
             # NOTE: We currently only handle classify driveways as carparks.
             outline = _extract_outline_from_waymo_proto(map_feature.driveway)

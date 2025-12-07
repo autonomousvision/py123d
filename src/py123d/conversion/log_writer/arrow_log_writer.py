@@ -120,7 +120,7 @@ class ArrowLogWriter(AbstractLogWriter):
         self._log_metadata: Optional[LogMetadata] = None
         self._schema: Optional[LogMetadata] = None
         self._source: Optional[pa.NativeFile] = None
-        self._record_batch_writer: Optional[pa.ipc.RecordBatchWriter] = None
+        self._record_batch_writer: Optional[pa.ipc.RecordBatchWriter] = None  # pyright: ignore[reportAttributeAccessIssue]
         self._pinhole_mp4_writers: Dict[str, MP4Writer] = {}
         self._fisheye_mei_mp4_writers: Dict[str, MP4Writer] = {}
 

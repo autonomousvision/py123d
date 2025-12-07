@@ -160,7 +160,7 @@ class MapAPI(abc.ABC):
         return self.map_metadata.dataset
 
     @property
-    def location(self) -> str:
+    def location(self) -> Optional[str]:
         """The location from the map metadata."""
         return self.map_metadata.location
 

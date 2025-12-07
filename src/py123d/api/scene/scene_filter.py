@@ -60,5 +60,5 @@ class SceneFilter:
                 return None
             return [serial_enum_cls.from_arbitrary(value) for value in input]
 
-        self.pinhole_camera_types = _resolve_enum_arguments(PinholeCameraType, self.pinhole_camera_types)
-        self.fisheye_mei_camera_types = _resolve_enum_arguments(FisheyeMEICameraType, self.fisheye_mei_camera_types)
+        self.pinhole_camera_types = _resolve_enum_arguments(PinholeCameraType, self.pinhole_camera_types)  # type: ignore
+        self.fisheye_mei_camera_types = _resolve_enum_arguments(FisheyeMEICameraType, self.fisheye_mei_camera_types)  # type: ignore

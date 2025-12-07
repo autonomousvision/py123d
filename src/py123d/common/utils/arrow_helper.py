@@ -20,6 +20,18 @@ def open_arrow_table(arrow_file_path: Union[str, Path]) -> pa.Table:
     return table
 
 
+def read_arrow_table(arrow_file_path: Union[str, Path]) -> pa.Table:
+    """Reads an arrow table from the file path.
+
+    :param arrow_file_path: The file path, defined as string or Path.
+    :return: The arrow table.
+    """
+
+    with pa.OSFile(str(arrow_file_path), "rb") as source:
+        table: pa.Table = pa.ipc.open_file(source).read_all()
+    return table
+
+
 def write_arrow_table(table: pa.Table, arrow_file_path: Union[str, Path]) -> None:
     """Writes an arrow table to the file path.
 

@@ -1,8 +1,8 @@
-wodp_dataset:
-  _target_: py123d.conversion.datasets.wodp.wodp_converter.WODPConverter
+wod_perception_dataset:
+  _target_: py123d.conversion.datasets.wod.wod_perception_converter.WODPerceptionConverter
   _convert_: 'all'
 
-  splits: ["wodp_val"] # Which splits to convert. Options: ["wodp_train", "wodp_val", "wodp_test"]
+  splits: ["wod-perception_val"] # Which splits to convert. Options: ["wod-perception_train", "wod-perception_val", "wod-perception_test"]
   wodp_data_root: ${dataset_paths.wodp_data_root}
   zero_roll_pitch: true # Whether to zero the roll and pitch of the box detections in global frame.
   keep_polar_features: false # Add lidar polar features (range, azimuth, elevation) in addition to XYZ. (slow if true)

@@ -125,6 +125,18 @@ def get_wodp_chrysler_pacifica_parameters() -> VehicleParameters:
     )
 
 
+def get_wod_motion_chrysler_pacifica_parameters() -> VehicleParameters:
+    return VehicleParameters(
+        vehicle_name="wod-motion_chrysler_pacifica",
+        width=2.3320000171661377,
+        length=5.285999774932861,
+        height=2.3299999237060547,
+        wheel_base=3.089,
+        rear_axle_to_center_vertical=2.3299999237060547 / 2,
+        rear_axle_to_center_longitudinal=1.461,
+    )
+
+
 def get_kitti360_vw_passat_parameters() -> VehicleParameters:
     """Helper function to get KITTI-360 VW Passat vehicle parameters."""
     # NOTE: The parameters in KITTI-360 are estimates based on the vehicle model used in the dataset

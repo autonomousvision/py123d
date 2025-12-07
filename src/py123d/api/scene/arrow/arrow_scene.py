@@ -19,14 +19,18 @@ from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.common.utils.arrow_column_names import UUID_COLUMN
 from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
-from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
-from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
+from py123d.datatypes.detections import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from py123d.datatypes.metadata.log_metadata import LogMetadata
-from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
-from py123d.datatypes.sensors.lidar import LiDAR, LiDARType
-from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraType
-from py123d.datatypes.time.time_point import TimePoint
-from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
+from py123d.datatypes.sensors import (
+    FisheyeMEICamera,
+    FisheyeMEICameraType,
+    LiDAR,
+    LiDARType,
+    PinholeCamera,
+    PinholeCameraType,
+)
+from py123d.datatypes.time import TimePoint
+from py123d.datatypes.vehicle_state import EgoStateSE3
 
 
 def _get_complete_log_scene_metadata(arrow_file_path: Union[Path, str], log_metadata: LogMetadata) -> SceneMetadata:

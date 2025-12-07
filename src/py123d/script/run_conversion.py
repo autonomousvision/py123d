@@ -65,8 +65,8 @@ def _convert_maps(args: List[Dict[str, int]], cfg: DictConfig, dataset_converter
             logger.error(traceback.format_exc())  # noqa: F821
             map_writer.close()
             gc.collect()
-            if cfg.terminate_on_failure:
-                raise e
+            # if cfg.terminate_on_failure:
+            #     raise e
     return []
 
 
@@ -81,8 +81,8 @@ def _convert_logs(args: List[Dict[str, int]], cfg: DictConfig, dataset_converter
             logger.error(traceback.format_exc())  # noqa: F821
             log_writer.close()
             gc.collect()
-            if cfg.terminate_on_failure:
-                raise e
+            # if cfg.terminate_on_failure:
+            #     raise e
     return []
 
 

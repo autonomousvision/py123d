@@ -22,14 +22,14 @@ class LiDARIndex(IntEnum):
         """
         Returns a slice for the XY coordinates of the LiDAR point cloud.
         """
-        return slice(self.X, self.Y + 1)
+        return slice(self.X, self.Y + 1)  # pyright: ignore[reportAttributeAccessIssue]
 
     @classproperty
     def XYZ(self) -> slice:
         """
         Returns a slice for the XYZ coordinates of the LiDAR point cloud.
         """
-        return slice(self.X, self.Z + 1)
+        return slice(self.X, self.Z + 1)  # pyright: ignore[reportAttributeAccessIssue]
 
 
 @register_lidar_index

@@ -59,8 +59,12 @@ class ArrowMapWriter(AbstractMapWriter):
             if map_needs_writing:
                 # Reset all map layers and update map file / metadata
                 self._map_data = {map_layer: defaultdict(list) for map_layer in MapLayer}
-                self._map_file = map_file
+                self._map_file = Path(map_file)
                 self._map_metadata = map_metadata
+        else:
+            self._map_file = None
+            self._map_metadata = None
+            self._map_metadata = None
 
         return map_needs_writing
 
@@ -127,7 +131,7 @@ class ArrowMapWriter(AbstractMapWriter):
     def close(self) -> None:
         """Inherited, see superclass."""
 
-        if self._map_file is not None or self._map_data is not None:
+        if self._map_file is not None and self._map_data is not None:
             assert isinstance(self._map_file, Path), "Map file path is not set."
             assert isinstance(self._map_metadata, MapMetadata), "Map metadata is not set."
 
@@ -419,6 +423,7 @@ class ArrowMapWriter(AbstractMapWriter):
             # Create final table and write to file
             object_ids_ = pa.array(all_object_ids, type=object_id_type)
             map_layers_ = pa.array(all_map_layers, type=pa.int8())
+
             features_array_ = pa.UnionArray.from_dense(
                 pa.array(all_types, type=pa.int8()),
                 pa.array(all_offsets, type=pa.int32()),

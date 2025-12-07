@@ -62,7 +62,7 @@ def load_lidar_pcs_from_file(
         lidar_pcs_dict = load_av2_sensor_lidar_pcs_from_file(full_lidar_path)
 
     elif log_metadata.dataset == "wodp":
-        from py123d.conversion.datasets.wodp.wodp_sensor_io import load_wodp_lidar_pcs_from_file
+        from py123d.conversion.datasets.wod.wod_perception_sensor_io import load_wodp_lidar_pcs_from_file
 
         assert index is not None, "Index must be provided for WODP LiDAR loading."
         lidar_pcs_dict = load_wodp_lidar_pcs_from_file(full_lidar_path, index, keep_polar_features=False)

@@ -1,9 +1,10 @@
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 import shapely.geometry as geom
 from matplotlib import patches
+from matplotlib.collections import LineCollection, PatchCollection
 from matplotlib.path import Path
 from shapely import affinity
 
@@ -75,6 +76,98 @@ def add_shapely_polygon_to_ax(
     return ax
 
 
+def add_shapely_polygons_to_ax(
+    ax: plt.Axes,
+    polygons: List[geom.Polygon],
+    plot_config: PlotConfig,
+    disable_smoothing: bool = False,
+    label: Optional[str] = None,
+) -> plt.Axes:
+    """Adds multiple shapely polygons to birds-eye-view visualization with batching
+
+    :param ax: matplotlib ax object
+    :param polygons: list of shapely Polygons (can include MultiPolygons)
+    :param plot_config: dictionary containing plot parameters
+    :param disable_smoothing: whether to overwrite smoothing of the polygon
+    :param label: optional label for the polygons
+    :return: ax with plot
+    """
+
+    if not polygons:
+        return ax
+
+    def flatten_polygons(polygon_list):
+        """Flatten list of Polygons and MultiPolygons into single list of Polygons"""
+        flattened = []
+        for poly in polygon_list:
+            if isinstance(poly, geom.Polygon):
+                flattened.append(poly)
+            elif isinstance(poly, geom.MultiPolygon):
+                flattened.extend(poly.geoms)
+            else:
+                raise TypeError(f"Expected Polygon or MultiPolygon, got {type(poly)}")
+        return flattened
+
+    def create_polygon_path(polygon):
+        """Create matplotlib Path from shapely Polygon with holes"""
+        # Get exterior coordinates (only first 2 dimensions)
+        exterior_coords = np.asarray(polygon.exterior.coords)[:, :2]
+
+        # Start with exterior ring
+        vertices_list = [exterior_coords]
+        codes_list = [np.array([Path.MOVETO] + [Path.LINETO] * (len(exterior_coords) - 2) + [Path.CLOSEPOLY])]
+
+        # Add interior rings (holes)
+        for interior in polygon.interiors:
+            interior_coords = np.asarray(interior.coords)[:, :2]
+            vertices_list.append(interior_coords)
+            codes_list.append(np.array([Path.MOVETO] + [Path.LINETO] * (len(interior_coords) - 2) + [Path.CLOSEPOLY]))
+
+        # Concatenate all vertices and codes
+        vertices_2d = np.vstack(vertices_list)
+        codes = np.concatenate(codes_list)
+
+        return Path(vertices_2d, codes)
+
+    # Flatten MultiPolygons into individual Polygons
+    flat_polygons = flatten_polygons(polygons)
+
+    if not flat_polygons:
+        return ax
+
+    # Apply smoothing if needed (batch operation)
+    if plot_config.smoothing_radius is not None and not disable_smoothing:
+        flat_polygons = [
+            poly.buffer(-plot_config.smoothing_radius).buffer(plot_config.smoothing_radius) for poly in flat_polygons
+        ]
+        # Filter out empty geometries that might result from smoothing
+        flat_polygons = [poly for poly in flat_polygons if not poly.is_empty]
+
+    if not flat_polygons:
+        return ax
+
+    # Create paths for all polygons
+    paths = [create_polygon_path(poly) for poly in flat_polygons]
+
+    # Create PathPatch objects
+    patch_list = [patches.PathPatch(path, linewidth=plot_config.line_width) for path in paths]
+
+    # Use PatchCollection for efficient batch rendering
+    collection = PatchCollection(
+        patch_list,
+        facecolors=plot_config.fill_color.hex,
+        alpha=plot_config.fill_color_alpha,
+        edgecolors=plot_config.line_color.hex,
+        linewidths=plot_config.line_width,
+        zorder=plot_config.zorder,
+        label=label,
+    )
+
+    ax.add_collection(collection)
+
+    return ax
+
+
 def add_shapely_linestring_to_ax(
     ax: plt.Axes,
     linestring: geom.LineString,
@@ -100,6 +193,40 @@ def add_shapely_linestring_to_ax(
         zorder=plot_config.zorder,
         label=label,
     )
+    return ax
+
+
+def add_shapely_linestrings_to_ax(
+    ax: plt.Axes,
+    linestrings: List[geom.LineString],
+    plot_config: PlotConfig,
+    label: Optional[str] = None,
+) -> plt.Axes:
+    """Adds multiple shapely linestrings (polylines) to birds-eye-view visualization
+
+    :param ax: matplotlib ax object
+    :param linestrings: list of shapely LineStrings
+    :param plot_config: dictionary containing plot parameters
+    :param label: optional label for the linestrings
+    :return: ax with plot
+    """
+
+    if len(linestrings) >= 1:
+        # Extract coordinates from all linestrings
+        lines = [np.column_stack(linestring.xy) for linestring in linestrings]
+
+        # Create LineCollection for efficient batch rendering
+        line_collection = LineCollection(
+            lines,
+            colors=plot_config.line_color.hex,
+            alpha=plot_config.line_color_alpha,
+            linewidths=plot_config.line_width,
+            linestyles=plot_config.line_style,
+            zorder=plot_config.zorder,
+            label=label,
+        )
+
+        ax.add_collection(line_collection)
     return ax
 
 

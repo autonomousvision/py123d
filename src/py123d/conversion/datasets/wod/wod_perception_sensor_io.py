@@ -4,8 +4,8 @@ from typing import Dict, Optional
 import numpy as np
 
 from py123d.common.utils.dependencies import check_dependencies
-from py123d.conversion.datasets.wodp.utils.wodp_constants import WODP_CAMERA_TYPES, WODP_LIDAR_TYPES
-from py123d.conversion.datasets.wodp.utils.wodp_utils import parse_range_image_and_camera_projection
+from py123d.conversion.datasets.wod.utils.wod_constants import WODP_CAMERA_TYPES, WODP_LIDAR_TYPES
+from py123d.conversion.datasets.wod.utils.wod_range_image_utils import parse_range_image_and_camera_projection
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 

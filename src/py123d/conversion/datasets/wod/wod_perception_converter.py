@@ -10,16 +10,15 @@ import numpy.typing as npt
 from py123d.common.utils.dependencies import check_dependencies
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
-from py123d.conversion.datasets.wodp.utils.wodp_constants import (
+from py123d.conversion.datasets.wod.utils.wod_constants import (
     WODP_AVAILABLE_SPLITS,
     WODP_CAMERA_TYPES,
-    WODP_DETECTION_NAME_DICT,
     WODP_LIDAR_TYPES,
 )
-from py123d.conversion.datasets.wodp.wodp_map_conversion import convert_wod_map
+from py123d.conversion.datasets.wod.wod_map_conversion import convert_wod_map
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.registry.box_detection_label_registry import WODPBoxDetectionLabel
+from py123d.conversion.registry.box_detection_label_registry import WODPerceptionBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import DefaultLiDARIndex, WODPLiDARIndex
 from py123d.conversion.utils.sensor_utils.camera_conventions import CameraConvention, convert_camera_convention
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
@@ -65,8 +64,8 @@ tf.config.set_visible_devices(tf.config.list_physical_devices("CPU"))
 logger = logging.getLogger(__name__)
 
 
-class WODPConverter(AbstractDatasetConverter):
-    """Converter for the Waymo Open Perception Dataset (WODP)."""
+class WODPerceptionConverter(AbstractDatasetConverter):
+    """Converter for the Waymo Open Dataset - Perception."""
 
     def __init__(
         self,
@@ -157,7 +156,7 @@ class WODPConverter(AbstractDatasetConverter):
             location=str(initial_frame.context.stats.location),
             timestep_seconds=0.1,
             vehicle_parameters=get_wodp_chrysler_pacifica_parameters(),
-            box_detection_label_class=WODPBoxDetectionLabel,
+            box_detection_label_class=WODPerceptionBoxDetectionLabel,
             pinhole_camera_metadata=_get_wodp_camera_metadata(
                 initial_frame,
                 self.dataset_converter_config,
@@ -327,7 +326,7 @@ def _extract_wodp_box_detections(
     num_detections = len(frame.laser_labels)
     detections_state = np.zeros((num_detections, len(BoundingBoxSE3Index)), dtype=np.float64)
     detections_velocity = np.zeros((num_detections, len(Vector3DIndex)), dtype=np.float64)
-    detections_types: List[int] = []
+    detections_types: List[WODPerceptionBoxDetectionLabel] = []
     detections_token: List[str] = []
 
     for detection_idx, detection in enumerate(frame.laser_labels):
@@ -354,7 +353,7 @@ def _extract_wodp_box_detections(
         ).array
 
         # 3. Type and track token
-        detections_types.append(WODP_DETECTION_NAME_DICT[detection.type])
+        detections_types.append(WODPerceptionBoxDetectionLabel(detection.type))
         detections_token.append(str(detection.id))
 
     detections_state[:, BoundingBoxSE3Index.SE3] = convert_relative_to_absolute_se3_array(

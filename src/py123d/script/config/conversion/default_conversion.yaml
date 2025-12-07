@@ -22,7 +22,7 @@ defaults:
 
 terminate_on_exception: True
 
-force_map_conversion: True
+force_map_conversion: False
 force_log_conversion: True
 
 pinhole_camera_store_option: "jpeg_binary"  # "path", "jpeg_binary", "png_binary", "mp4"

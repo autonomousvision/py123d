@@ -13,7 +13,7 @@ from py123d.geometry.utils.rotation_utils import normalize_angle
 MAX_LANE_WIDTH = 25.0  # meters
 MIN_LANE_WIDTH = 2.0
 DEFAULT_LANE_WIDTH = 3.7
-BOUNDARY_STEP_SIZE = 0.1  # meters
+BOUNDARY_STEP_SIZE = 0.25  # meters
 MAX_Z_DISTANCE = 1.0  # meters
 
 PERP_START_OFFSET = 0.1  # meters

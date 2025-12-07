@@ -183,10 +183,8 @@ class ArrowMapAPI(MapAPI):
         """Helper method to query a single layer."""
         if layer not in self._occupancy_maps.keys():
             return {} if not isinstance(geometry, Iterable) else []
-
         occupancy_map = self._occupancy_maps[layer]
         query_result = occupancy_map.query(geometry, predicate=predicate, distance=distance)  # type: ignore
-
         if query_result.ndim == 2:
             query_dict: Dict[int, List[BaseMapObject]] = defaultdict(list)
             for geometry_idx, occ_idx in zip(query_result[0], query_result[1]):
@@ -206,7 +204,6 @@ class ArrowMapAPI(MapAPI):
                     f"Queried map object should exist. Cannot find object {map_object_id} in layer {layer.name}"
                 )
                 query_list.append(map_object)
-
             return query_list
 
     def _query_layer_objects_ids(
@@ -233,11 +230,11 @@ class ArrowMapAPI(MapAPI):
             query_list = [occupancy_map.ids[idx] for idx in query_result]
             return query_list
 
+    @lru_cache(maxsize=1000)
     def _get_lane(self, object_id: MapObjectIDType) -> Optional[Lane]:
         """Helper method for getting a lane by its ID."""
         lane: Optional[Lane] = None
         table_row_idx = self._object_ids_to_row_idx[MapLayer.LANE].get(object_id, None)
-
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.LANE].ids:
             lane_features = self._get_map_table()["features"][table_row_idx].as_py()
             lane_polygon = self._occupancy_maps[MapLayer.LANE][object_id]
@@ -259,6 +256,7 @@ class ArrowMapAPI(MapAPI):
             )
         return lane
 
+    @lru_cache(maxsize=1000)
     def _get_lane_group(self, object_id: MapObjectIDType) -> Optional[LaneGroup]:
         """Helper method for getting a lane group by its ID."""
         lane_group: Optional[LaneGroup] = None
@@ -281,6 +279,7 @@ class ArrowMapAPI(MapAPI):
             )
         return lane_group
 
+    @lru_cache(maxsize=1000)
     def _get_intersection(self, object_id: MapObjectIDType) -> Optional[Intersection]:
         """Helper method for getting an intersection by its ID."""
         intersection: Optional[Intersection] = None
@@ -298,6 +297,7 @@ class ArrowMapAPI(MapAPI):
             )
         return intersection
 
+    @lru_cache(maxsize=1000)
     def _get_crosswalk(self, object_id: MapObjectIDType) -> Optional[Crosswalk]:
         """Helper method for getting a crosswalk by its ID."""
         crosswalk: Optional[Crosswalk] = None
@@ -313,6 +313,7 @@ class ArrowMapAPI(MapAPI):
             )
         return crosswalk
 
+    @lru_cache(maxsize=1000)
     def _get_carpark(self, object_id: MapObjectIDType) -> Optional[Carpark]:
         """Helper method for getting a carpark by its ID."""
         carpark: Optional[Carpark] = None
@@ -328,6 +329,7 @@ class ArrowMapAPI(MapAPI):
             )
         return carpark
 
+    @lru_cache(maxsize=1000)
     def _get_walkway(self, object_id: MapObjectIDType) -> Optional[Walkway]:
         """Helper method for getting a walkway by its ID."""
         walkway: Optional[Walkway] = None
@@ -343,6 +345,7 @@ class ArrowMapAPI(MapAPI):
             )
         return walkway
 
+    @lru_cache(maxsize=1000)
     def _get_generic_drivable(self, object_id: MapObjectIDType) -> Optional[GenericDrivable]:
         """Helper method for getting a generic drivable area by its ID."""
         generic_drivable: Optional[GenericDrivable] = None
@@ -358,6 +361,7 @@ class ArrowMapAPI(MapAPI):
             )
         return generic_drivable
 
+    @lru_cache(maxsize=1000)
     def _get_stop_zone(self, object_id: MapObjectIDType) -> Optional[StopZone]:
         """Helper method for getting a stop zone area by its ID."""
         stop_zone: Optional[StopZone] = None
@@ -373,6 +377,7 @@ class ArrowMapAPI(MapAPI):
             )
         return stop_zone
 
+    @lru_cache(maxsize=1000)
     def _get_road_edge(self, object_id: MapObjectIDType) -> Optional[RoadEdge]:
         """Helper method for getting a road edge by its ID."""
         road_edge: Optional[RoadEdge] = None
@@ -388,6 +393,7 @@ class ArrowMapAPI(MapAPI):
             )
         return road_edge
 
+    @lru_cache(maxsize=1000)
     def _get_road_line(self, object_id: MapObjectIDType) -> Optional[RoadLine]:
         """Helper method for getting a road line by its ID."""
         road_line: Optional[RoadLine] = None
