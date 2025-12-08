@@ -19,6 +19,7 @@ from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.common.utils.arrow_column_names import UUID_COLUMN
 from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
+from py123d.common.utils.uuid_utils import convert_to_str_uuid
 from py123d.datatypes.detections import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.sensors import (
@@ -36,7 +37,7 @@ from py123d.datatypes.vehicle_state import EgoStateSE3
 def _get_complete_log_scene_metadata(arrow_file_path: Union[Path, str], log_metadata: LogMetadata) -> SceneMetadata:
     """Helper function to get the scene metadata for a complete log of an Arrow file."""
     table = get_lru_cached_arrow_table(arrow_file_path)
-    initial_uuid = table[UUID_COLUMN][0].as_py()
+    initial_uuid = convert_to_str_uuid(table[UUID_COLUMN][0].as_py())
     num_rows = table.num_rows
     return SceneMetadata(
         initial_uuid=initial_uuid,

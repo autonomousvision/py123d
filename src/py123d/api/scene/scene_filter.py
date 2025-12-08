@@ -12,11 +12,14 @@ from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 class SceneFilter:
     """Class to filter scenes when building scenes from logs."""
 
+    datasets: Optional[List[str]] = None
+    """List of dataset names to filter scenes by."""
+
     split_types: Optional[List[str]] = None
     """List of split types to filter scenes by (e.g. `train`, `val`, `test`)."""
 
     split_names: Optional[List[str]] = None
-    """List of split names to filter scenes by (in the form `{dataset_name}_{split_type}`)."""
+    """List of split names to filter scenes by (in the form `{dataset-name}_{split_type}`)."""
 
     log_names: Optional[List[str]] = None
     """Name of logs to include scenes from."""
