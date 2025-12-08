@@ -27,7 +27,7 @@ def read_arrow_table(arrow_file_path: Union[str, Path]) -> pa.Table:
     :return: The arrow table.
     """
 
-    with pa.OSFile(str(arrow_file_path), "rb") as source:
+    with pa.OSFile(str(arrow_file_path), "r") as source:
         table: pa.Table = pa.ipc.open_file(source).read_all()
     return table
 

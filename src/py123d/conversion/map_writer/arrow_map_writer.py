@@ -3,6 +3,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+import msgpack
 import pyarrow as pa
 
 from py123d.common.utils.arrow_helper import write_arrow_table
@@ -143,296 +144,150 @@ class ArrowMapWriter(AbstractMapWriter):
             # the benefits are unclear.
             _map_ids_to_integer(self._map_data)
             object_id_type = pa.int64()
-            point_type = (
-                pa.list_(pa.float64(), len(Point3DIndex))
-                if self._map_metadata.map_has_z
-                else pa.list_(pa.float64(), len(Point2DIndex))
-            )
 
             all_object_ids = []
             all_wkbs: List[bytes] = []
             all_map_layers: List[int] = []
             all_types: List[int] = []
-            all_offsets: List[int] = []
-            all_features = []
+            all_features: List[bytes] = []
             type_idx = 0
 
             # 1. Lanes
-            lane_struct = pa.struct(
-                [
-                    ("lane_group_id", object_id_type),
-                    ("left_boundary", pa.list_(point_type)),
-                    ("right_boundary", pa.list_(point_type)),
-                    ("centerline", pa.list_(point_type)),
-                    ("left_lane_id", object_id_type),
-                    ("right_lane_id", object_id_type),
-                    ("predecessor_ids", pa.list_(object_id_type)),
-                    ("successor_ids", pa.list_(object_id_type)),
-                    ("speed_limit_mps", pa.float64()),
-                    ("outline", pa.list_(point_type)),
-                ]
-            )
-            lanes_struct_data: List[Dict[str, Any]] = []
+            # lanes_struct_data: List[Dict[str, Any]] = []
             for idx in range(len(self._map_data[MapLayer.LANE]["id"])):
                 all_object_ids.append(self._map_data[MapLayer.LANE]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.LANE]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.LANE))
                 all_types.append(type_idx)
-                lanes_struct_data.append(
-                    {
-                        "lane_group_id": self._map_data[MapLayer.LANE]["lane_group_id"][idx],
-                        "left_boundary": self._map_data[MapLayer.LANE]["left_boundary"][idx].tolist(),
-                        "right_boundary": self._map_data[MapLayer.LANE]["right_boundary"][idx].tolist(),
-                        "centerline": self._map_data[MapLayer.LANE]["centerline"][idx].tolist(),
-                        "left_lane_id": self._map_data[MapLayer.LANE]["left_lane_id"][idx],
-                        "right_lane_id": self._map_data[MapLayer.LANE]["right_lane_id"][idx],
-                        "predecessor_ids": self._map_data[MapLayer.LANE]["predecessor_ids"][idx],
-                        "successor_ids": self._map_data[MapLayer.LANE]["successor_ids"][idx],
-                        "speed_limit_mps": self._map_data[MapLayer.LANE]["speed_limit_mps"][idx],
-                        "outline": self._map_data[MapLayer.LANE]["outline"][idx].tolist(),
-                    }
-                )
-                all_offsets.append(idx)
-
-            if len(lanes_struct_data) > 0:
-                lane_array = pa.array(lanes_struct_data, type=lane_struct)
-                all_features.append(lane_array)
-                type_idx += 1
+                lane_dict = {
+                    "lane_group_id": self._map_data[MapLayer.LANE]["lane_group_id"][idx],
+                    "left_boundary": self._map_data[MapLayer.LANE]["left_boundary"][idx].tolist(),
+                    "right_boundary": self._map_data[MapLayer.LANE]["right_boundary"][idx].tolist(),
+                    "centerline": self._map_data[MapLayer.LANE]["centerline"][idx].tolist(),
+                    "left_lane_id": self._map_data[MapLayer.LANE]["left_lane_id"][idx],
+                    "right_lane_id": self._map_data[MapLayer.LANE]["right_lane_id"][idx],
+                    "predecessor_ids": self._map_data[MapLayer.LANE]["predecessor_ids"][idx],
+                    "successor_ids": self._map_data[MapLayer.LANE]["successor_ids"][idx],
+                    "speed_limit_mps": self._map_data[MapLayer.LANE]["speed_limit_mps"][idx],
+                    "outline": self._map_data[MapLayer.LANE]["outline"][idx].tolist(),
+                }
+                all_features.append(msgpack.packb(lane_dict))  # type: ignore
 
             # 2. Lane groups
-            lane_group_struct = pa.struct(
-                [
-                    ("lane_ids", pa.list_(object_id_type)),
-                    ("intersection_id", object_id_type),
-                    ("predecessor_ids", pa.list_(object_id_type)),
-                    ("successor_ids", pa.list_(object_id_type)),
-                    ("left_boundary", pa.list_(point_type)),
-                    ("right_boundary", pa.list_(point_type)),
-                    ("outline", pa.list_(point_type)),
-                ]
-            )
-            lane_groups_struct_data: List[Dict[str, Any]] = []
             for idx in range(len(self._map_data[MapLayer.LANE_GROUP]["id"])):
                 all_object_ids.append(self._map_data[MapLayer.LANE_GROUP]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.LANE_GROUP]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.LANE_GROUP))
                 all_types.append(type_idx)
-                lane_groups_struct_data.append(
-                    {
-                        "lane_ids": self._map_data[MapLayer.LANE_GROUP]["lane_ids"][idx],
-                        "left_boundary": self._map_data[MapLayer.LANE_GROUP]["left_boundary"][idx].tolist(),
-                        "right_boundary": self._map_data[MapLayer.LANE_GROUP]["right_boundary"][idx].tolist(),
-                        "intersection_id": self._map_data[MapLayer.LANE_GROUP]["intersection_id"][idx],
-                        "predecessor_ids": self._map_data[MapLayer.LANE_GROUP]["predecessor_ids"][idx],
-                        "successor_ids": self._map_data[MapLayer.LANE_GROUP]["successor_ids"][idx],
-                        "outline": self._map_data[MapLayer.LANE_GROUP]["outline"][idx].tolist(),
-                    }
-                )
-                all_offsets.append(idx)
-            if len(lane_groups_struct_data) > 0:
-                lane_group_array = pa.array(lane_groups_struct_data, type=lane_group_struct)
-                all_features.append(lane_group_array)
-                type_idx += 1
+                lane_group_dict = {
+                    "lane_ids": self._map_data[MapLayer.LANE_GROUP]["lane_ids"][idx],
+                    "left_boundary": self._map_data[MapLayer.LANE_GROUP]["left_boundary"][idx].tolist(),
+                    "right_boundary": self._map_data[MapLayer.LANE_GROUP]["right_boundary"][idx].tolist(),
+                    "intersection_id": self._map_data[MapLayer.LANE_GROUP]["intersection_id"][idx],
+                    "predecessor_ids": self._map_data[MapLayer.LANE_GROUP]["predecessor_ids"][idx],
+                    "successor_ids": self._map_data[MapLayer.LANE_GROUP]["successor_ids"][idx],
+                    "outline": self._map_data[MapLayer.LANE_GROUP]["outline"][idx].tolist(),
+                }
+                all_features.append(msgpack.packb(lane_group_dict))  # type: ignore
 
             # 3. Intersections
-            intersection_struct = pa.struct(
-                [
-                    ("lane_group_ids", pa.list_(object_id_type)),
-                    ("outline", pa.list_(point_type)),
-                ]
-            )
-            intersections_struct_data: List[Dict[str, Any]] = []
             for idx in range(len(self._map_data[MapLayer.INTERSECTION]["id"])):
                 all_object_ids.append(self._map_data[MapLayer.INTERSECTION]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.INTERSECTION]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.INTERSECTION))
                 all_types.append(type_idx)
-                intersections_struct_data.append(
-                    {
-                        "lane_group_ids": self._map_data[MapLayer.INTERSECTION]["lane_group_ids"][idx],
-                        "outline": self._map_data[MapLayer.INTERSECTION]["outline"][idx].tolist(),
-                    }
-                )
-                all_offsets.append(idx)
-            if len(intersections_struct_data) > 0:
-                intersection_array = pa.array(intersections_struct_data, type=intersection_struct)
-                all_features.append(intersection_array)
-                type_idx += 1
+                intersection_dict = {
+                    "lane_group_ids": self._map_data[MapLayer.INTERSECTION]["lane_group_ids"][idx],
+                    "outline": self._map_data[MapLayer.INTERSECTION]["outline"][idx].tolist(),
+                }
+                all_features.append(msgpack.packb(intersection_dict))  # type: ignore
 
             # 4. Crosswalks
-            crosswalk_struct = pa.struct(
-                [
-                    ("outline", pa.list_(point_type)),
-                ]
-            )
-            crosswalks_struct_data: List[Dict[str, Any]] = []
             for idx in range(len(self._map_data[MapLayer.CROSSWALK]["id"])):
                 all_object_ids.append(self._map_data[MapLayer.CROSSWALK]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.CROSSWALK]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.CROSSWALK))
                 all_types.append(type_idx)
-                crosswalks_struct_data.append(
-                    {
-                        "outline": self._map_data[MapLayer.CROSSWALK]["outline"][idx].tolist(),
-                    }
-                )
-                all_offsets.append(idx)
-            if len(crosswalks_struct_data) > 0:
-                crosswalk_array = pa.array(crosswalks_struct_data, type=crosswalk_struct)
-                all_features.append(crosswalk_array)
-                type_idx += 1
+                crosswalk_dict = {
+                    "outline": self._map_data[MapLayer.CROSSWALK]["outline"][idx].tolist(),
+                }
+                all_features.append(msgpack.packb(crosswalk_dict))  # type: ignore
 
             # 5. Carparks
-            carpark_struct = pa.struct(
-                [
-                    ("outline", pa.list_(point_type)),
-                ]
-            )
-            carparks_struct_data: List[Dict[str, Any]] = []
             for idx in range(len(self._map_data[MapLayer.CARPARK]["id"])):
                 all_object_ids.append(self._map_data[MapLayer.CARPARK]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.CARPARK]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.CARPARK))
                 all_types.append(type_idx)
-                carparks_struct_data.append(
-                    {
-                        "outline": self._map_data[MapLayer.CARPARK]["outline"][idx].tolist(),
-                    }
-                )
-                all_offsets.append(idx)
-            if len(carparks_struct_data) > 0:
-                carpark_array = pa.array(carparks_struct_data, type=carpark_struct)
-                all_features.append(carpark_array)
-                type_idx += 1
+
+                carpark_dict = {
+                    "outline": self._map_data[MapLayer.CARPARK]["outline"][idx].tolist(),
+                }
+                all_features.append(msgpack.packb(carpark_dict))  # type: ignore
 
             # 6. Walkways
-            walkway_struct = pa.struct(
-                [
-                    ("outline", pa.list_(point_type)),
-                ]
-            )
-            walkways_struct_data: List[Dict[str, Any]] = []
             for idx in range(len(self._map_data[MapLayer.WALKWAY]["id"])):
                 all_object_ids.append(self._map_data[MapLayer.WALKWAY]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.WALKWAY]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.WALKWAY))
                 all_types.append(type_idx)
-                walkways_struct_data.append(
-                    {
-                        "outline": self._map_data[MapLayer.WALKWAY]["outline"][idx].tolist(),
-                    }
-                )
-                all_offsets.append(idx)
-            if len(walkways_struct_data) > 0:
-                walkway_array = pa.array(walkways_struct_data, type=walkway_struct)
-                all_features.append(walkway_array)
-                type_idx += 1
+                walkway_dict = {
+                    "outline": self._map_data[MapLayer.WALKWAY]["outline"][idx].tolist(),
+                }
+                all_features.append(msgpack.packb(walkway_dict))  # type: ignore
 
             # 7. Generic Drivables
-            generic_drivable_struct = pa.struct(
-                [
-                    ("outline", pa.list_(point_type)),
-                ]
-            )
-            generic_drivables_struct_data: List[Dict[str, Any]] = []
             for idx in range(len(self._map_data[MapLayer.GENERIC_DRIVABLE]["id"])):
                 all_object_ids.append(self._map_data[MapLayer.GENERIC_DRIVABLE]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.GENERIC_DRIVABLE]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.GENERIC_DRIVABLE))
                 all_types.append(type_idx)
-                generic_drivables_struct_data.append(
-                    {
-                        "outline": self._map_data[MapLayer.GENERIC_DRIVABLE]["outline"][idx].tolist(),
-                    }
-                )
-                all_offsets.append(idx)
-            if len(generic_drivables_struct_data) > 0:
-                generic_drivable_array = pa.array(generic_drivables_struct_data, type=generic_drivable_struct)
-                all_features.append(generic_drivable_array)
-                type_idx += 1
+                generic_drivable_dict = {
+                    "outline": self._map_data[MapLayer.GENERIC_DRIVABLE]["outline"][idx].tolist(),
+                }
+                all_features.append(msgpack.packb(generic_drivable_dict))  # type: ignore
 
             # 8. Stop zones
-            stop_zone_struct = pa.struct(
-                [
-                    ("outline", pa.list_(point_type)),
-                ]
-            )
-            stop_zones_struct_data: List[Dict[str, Any]] = []
             for idx in range(len(self._map_data[MapLayer.STOP_ZONE]["id"])):
                 all_object_ids.append(self._map_data[MapLayer.STOP_ZONE]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.STOP_ZONE]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.STOP_ZONE))
                 all_types.append(type_idx)
-                stop_zones_struct_data.append(
-                    {
-                        "outline": self._map_data[MapLayer.STOP_ZONE]["outline"][idx].tolist(),
-                    }
-                )
-                all_offsets.append(idx)
-            if len(stop_zones_struct_data) > 0:
-                stop_zone_array = pa.array(stop_zones_struct_data, type=stop_zone_struct)
-                all_features.append(stop_zone_array)
-                type_idx += 1
+                stop_zone_dict = {
+                    "outline": self._map_data[MapLayer.STOP_ZONE]["outline"][idx].tolist(),
+                }
+                all_features.append(msgpack.packb(stop_zone_dict))  # type: ignore
 
             # 8. Road edges
-            road_edge_struct = pa.struct(
-                [
-                    ("road_edge_type", pa.int16()),
-                ]
-            )
-            road_edges_struct_data: List[Dict[str, Any]] = []
             for idx in range(len(self._map_data[MapLayer.ROAD_EDGE]["id"])):
                 all_object_ids.append(self._map_data[MapLayer.ROAD_EDGE]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.ROAD_EDGE]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.ROAD_EDGE))
                 all_types.append(type_idx)
-                road_edges_struct_data.append(
-                    {
-                        "road_edge_type": self._map_data[MapLayer.ROAD_EDGE]["road_edge_type"][idx],
-                    }
-                )
-                all_offsets.append(idx)
-            if len(road_edges_struct_data) > 0:
-                road_edge_array = pa.array(road_edges_struct_data, type=road_edge_struct)
-                all_features.append(road_edge_array)
-                type_idx += 1
+                road_edge_dict = {
+                    "road_edge_type": self._map_data[MapLayer.ROAD_EDGE]["road_edge_type"][idx],
+                }
+                all_features.append(msgpack.packb(road_edge_dict))  # type: ignore
 
             # 9. Road lines
-            road_line_struct = pa.struct(
-                [
-                    ("road_line_type", pa.int16()),
-                ]
-            )
-            road_lines_struct_data: List[Dict[str, Any]] = []
             for idx in range(len(self._map_data[MapLayer.ROAD_LINE]["id"])):
                 all_object_ids.append(self._map_data[MapLayer.ROAD_LINE]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.ROAD_LINE]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.ROAD_LINE))
                 all_types.append(type_idx)
-                road_lines_struct_data.append(
-                    {
-                        "road_line_type": self._map_data[MapLayer.ROAD_LINE]["road_line_type"][idx],
-                    }
-                )
-                all_offsets.append(idx)
-            if len(road_lines_struct_data) > 0:
-                road_line_array = pa.array(road_lines_struct_data, type=road_line_struct)
-                all_features.append(road_line_array)
-                type_idx += 1
+                road_line_dict = {
+                    "road_line_type": self._map_data[MapLayer.ROAD_LINE]["road_line_type"][idx],
+                }
+                all_features.append(msgpack.packb(road_line_dict))  # type: ignore
 
             # Create final table and write to file
             object_ids_ = pa.array(all_object_ids, type=object_id_type)
             map_layers_ = pa.array(all_map_layers, type=pa.int8())
-
-            features_array_ = pa.UnionArray.from_dense(
-                pa.array(all_types, type=pa.int8()),
-                pa.array(all_offsets, type=pa.int32()),
-                all_features,
-            )
+            features_ = pa.array(all_features, type=pa.binary())
             wkbs_ = pa.array(all_wkbs, type=pa.binary())
 
             table = pa.Table.from_arrays(
-                [object_ids_, map_layers_, features_array_, wkbs_],
+                [object_ids_, map_layers_, features_, wkbs_],
                 names=["object_id", "map_layer", "features", "wkb"],
             )
             # Add metadata to the table and write to file

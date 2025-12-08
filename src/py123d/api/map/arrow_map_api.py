@@ -5,6 +5,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Dict, Final, Iterable, List, Literal, Optional, Tuple, Union
 
+import msgpack
+import numpy as np
 import pyarrow as pa
 import shapely
 import shapely.geometry as geom
@@ -32,6 +34,7 @@ from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
 # TODO: add to some configs
 MAX_LRU_CACHED_TABLES: Final[int] = 128
+MAP_OBJECT_CACHE_SIZE: Final[int] = 10_000
 
 
 def _load_map_layers_from_arrow_table(
@@ -39,29 +42,27 @@ def _load_map_layers_from_arrow_table(
 ) -> Tuple[Dict[MapLayer, OccupancyMap2D], Dict[MapLayer, Dict[MapObjectIDType, int]]]:
     """Helper function to load map layers from an Arrow table into occupancy maps and object ID mappings."""
 
-    all_object_ids = arrow_table.column("object_id").to_pylist()
-    all_map_layers = arrow_table.column("map_layer").to_pylist()
-    all_wkbs = arrow_table.column("wkb").to_pylist()
+    all_object_ids = arrow_table.column("object_id").to_numpy()
+    all_map_layers = arrow_table.column("map_layer").to_numpy()
+    all_wkbs = arrow_table.column("wkb").to_numpy()
+    geometries = shapely.from_wkb(all_wkbs)
 
     occupancy_map_dict: Dict[MapLayer, OccupancyMap2D] = {}
     object_ids_to_row_idx: Dict[MapLayer, Dict[MapObjectIDType, int]] = {}
 
+    layer_indices = {}
     for layer in MapLayer:
-        object_ids_to_row_idx[layer] = {}
+        layer_mask = all_map_layers == int(layer)
+        layer_idx = np.where(layer_mask)[0]
+        if len(layer_idx) > 0:
+            layer_indices[layer] = layer_idx
 
-        layer_object_ids: List[MapObjectIDType] = []
-        layer_geometries: List[shapely.Geometry] = []
-
-        for row_idx, (obj_id, map_layer, wkb) in enumerate(zip(all_object_ids, all_map_layers, all_wkbs)):
-            if map_layer == int(layer):
-                layer_object_ids.append(obj_id)
-                layer_geometries.append(shapely.from_wkb(wkb))
-                if obj_id not in object_ids_to_row_idx[layer]:
-                    object_ids_to_row_idx[layer][obj_id] = row_idx
-
-        if len(layer_object_ids) > 0:
-            occupancy_map = OccupancyMap2D(geometries=layer_geometries, ids=layer_object_ids)  # type: ignore
-            occupancy_map_dict[layer] = occupancy_map
+    for layer, indices in layer_indices.items():
+        layer_object_ids = all_object_ids[indices].tolist()
+        layer_geometries = geometries[indices].tolist()
+        object_ids_to_row_idx[layer] = {obj_id: idx for obj_id, idx in zip(layer_object_ids, indices)}
+        occupancy_map = OccupancyMap2D(geometries=layer_geometries, ids=layer_object_ids)
+        occupancy_map_dict[layer] = occupancy_map
 
     return occupancy_map_dict, object_ids_to_row_idx
 
@@ -89,10 +90,10 @@ class ArrowMapAPI(MapAPI):
 
         _map_table = get_lru_cached_arrow_table(str(self._file_path))
         self._map_metadata: MapMetadata = get_map_metadata_from_arrow_table(_map_table)
-
         _occupancy_maps, _object_ids_to_row_idx = _load_map_layers_from_arrow_table(_map_table)
         self._occupancy_maps: Dict[MapLayer, OccupancyMap2D] = _occupancy_maps
         self._object_ids_to_row_idx: Dict[MapLayer, Dict[MapObjectIDType, int]] = _object_ids_to_row_idx
+        self._features = _map_table["features"].to_numpy()
 
     def get_map_metadata(self):
         """Inherited, see superclass."""
@@ -230,13 +231,14 @@ class ArrowMapAPI(MapAPI):
             query_list = [occupancy_map.ids[idx] for idx in query_result]
             return query_list
 
-    @lru_cache(maxsize=1000)
+    @lru_cache(maxsize=MAP_OBJECT_CACHE_SIZE)
     def _get_lane(self, object_id: MapObjectIDType) -> Optional[Lane]:
         """Helper method for getting a lane by its ID."""
         lane: Optional[Lane] = None
         table_row_idx = self._object_ids_to_row_idx[MapLayer.LANE].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.LANE].ids:
-            lane_features = self._get_map_table()["features"][table_row_idx].as_py()
+            lane_features_binary = self._features[table_row_idx]
+            lane_features = msgpack.unpackb(lane_features_binary)
             lane_polygon = self._occupancy_maps[MapLayer.LANE][object_id]
             assert isinstance(lane_polygon, geom.Polygon)
             lane = Lane(
@@ -256,13 +258,14 @@ class ArrowMapAPI(MapAPI):
             )
         return lane
 
-    @lru_cache(maxsize=1000)
+    @lru_cache(maxsize=MAP_OBJECT_CACHE_SIZE)
     def _get_lane_group(self, object_id: MapObjectIDType) -> Optional[LaneGroup]:
         """Helper method for getting a lane group by its ID."""
         lane_group: Optional[LaneGroup] = None
         table_row_idx = self._object_ids_to_row_idx[MapLayer.LANE_GROUP].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.LANE_GROUP].ids:
-            lane_group_features = self._get_map_table()["features"][table_row_idx].as_py()
+            lane_group_features_binary = self._features[table_row_idx]
+            lane_group_features = msgpack.unpackb(lane_group_features_binary)
             lane_group_polygon = self._occupancy_maps[MapLayer.LANE_GROUP][object_id]
             assert isinstance(lane_group_polygon, geom.Polygon)
             lane_group = LaneGroup(
@@ -279,13 +282,14 @@ class ArrowMapAPI(MapAPI):
             )
         return lane_group
 
-    @lru_cache(maxsize=1000)
+    @lru_cache(maxsize=MAP_OBJECT_CACHE_SIZE)
     def _get_intersection(self, object_id: MapObjectIDType) -> Optional[Intersection]:
         """Helper method for getting an intersection by its ID."""
         intersection: Optional[Intersection] = None
         table_row_idx = self._object_ids_to_row_idx[MapLayer.INTERSECTION].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.INTERSECTION].ids:
-            intersection_features = self._get_map_table()["features"][table_row_idx].as_py()
+            intersection_features_binary = self._features[table_row_idx]
+            intersection_features = msgpack.unpackb(intersection_features_binary)
             intersection_polygon = self._occupancy_maps[MapLayer.INTERSECTION][object_id]
             assert isinstance(intersection_polygon, geom.Polygon)
             intersection = Intersection(
@@ -297,13 +301,14 @@ class ArrowMapAPI(MapAPI):
             )
         return intersection
 
-    @lru_cache(maxsize=1000)
+    @lru_cache(maxsize=MAP_OBJECT_CACHE_SIZE)
     def _get_crosswalk(self, object_id: MapObjectIDType) -> Optional[Crosswalk]:
         """Helper method for getting a crosswalk by its ID."""
         crosswalk: Optional[Crosswalk] = None
         table_row_idx = self._object_ids_to_row_idx[MapLayer.CROSSWALK].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.CROSSWALK].ids:
-            crosswalk_features = self._get_map_table()["features"][table_row_idx].as_py()
+            crosswalk_features_binary = self._features[table_row_idx]
+            crosswalk_features = msgpack.unpackb(crosswalk_features_binary)
             crosswalk_polygon = self._occupancy_maps[MapLayer.CROSSWALK][object_id]
             assert isinstance(crosswalk_polygon, geom.Polygon)
             crosswalk = Crosswalk(
@@ -313,13 +318,14 @@ class ArrowMapAPI(MapAPI):
             )
         return crosswalk
 
-    @lru_cache(maxsize=1000)
+    @lru_cache(maxsize=MAP_OBJECT_CACHE_SIZE)
     def _get_carpark(self, object_id: MapObjectIDType) -> Optional[Carpark]:
         """Helper method for getting a carpark by its ID."""
         carpark: Optional[Carpark] = None
         table_row_idx = self._object_ids_to_row_idx[MapLayer.CARPARK].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.CARPARK].ids:
-            carpark_features = self._get_map_table()["features"][table_row_idx].as_py()
+            carpark_features_binary = self._features[table_row_idx]
+            carpark_features = msgpack.unpackb(carpark_features_binary)
             carpark_polygon = self._occupancy_maps[MapLayer.CARPARK][object_id]
             assert isinstance(carpark_polygon, geom.Polygon)
             carpark = Carpark(
@@ -329,13 +335,14 @@ class ArrowMapAPI(MapAPI):
             )
         return carpark
 
-    @lru_cache(maxsize=1000)
+    @lru_cache(maxsize=MAP_OBJECT_CACHE_SIZE)
     def _get_walkway(self, object_id: MapObjectIDType) -> Optional[Walkway]:
         """Helper method for getting a walkway by its ID."""
         walkway: Optional[Walkway] = None
         table_row_idx = self._object_ids_to_row_idx[MapLayer.WALKWAY].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.WALKWAY].ids:
-            walkway_features = self._get_map_table()["features"][table_row_idx].as_py()
+            walkway_features_binary = self._features[table_row_idx]
+            walkway_features = msgpack.unpackb(walkway_features_binary)
             walkway_polygon = self._occupancy_maps[MapLayer.WALKWAY][object_id]
             assert isinstance(walkway_polygon, geom.Polygon)
             walkway = Walkway(
@@ -345,13 +352,14 @@ class ArrowMapAPI(MapAPI):
             )
         return walkway
 
-    @lru_cache(maxsize=1000)
+    @lru_cache(maxsize=MAP_OBJECT_CACHE_SIZE)
     def _get_generic_drivable(self, object_id: MapObjectIDType) -> Optional[GenericDrivable]:
         """Helper method for getting a generic drivable area by its ID."""
         generic_drivable: Optional[GenericDrivable] = None
         table_row_idx = self._object_ids_to_row_idx[MapLayer.GENERIC_DRIVABLE].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.GENERIC_DRIVABLE].ids:
-            generic_drivable_features = self._get_map_table()["features"][table_row_idx].as_py()
+            generic_drivable_features_binary = self._features[table_row_idx]
+            generic_drivable_features = msgpack.unpackb(generic_drivable_features_binary)
             generic_drivable_polygon = self._occupancy_maps[MapLayer.GENERIC_DRIVABLE][object_id]
             assert isinstance(generic_drivable_polygon, geom.Polygon)
             generic_drivable = GenericDrivable(
@@ -361,13 +369,14 @@ class ArrowMapAPI(MapAPI):
             )
         return generic_drivable
 
-    @lru_cache(maxsize=1000)
+    @lru_cache(maxsize=MAP_OBJECT_CACHE_SIZE)
     def _get_stop_zone(self, object_id: MapObjectIDType) -> Optional[StopZone]:
         """Helper method for getting a stop zone area by its ID."""
         stop_zone: Optional[StopZone] = None
         table_row_idx = self._object_ids_to_row_idx[MapLayer.STOP_ZONE].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.STOP_ZONE].ids:
-            stop_zone_features = self._get_map_table()["features"][table_row_idx].as_py()
+            stop_zone_features_binary = self._features[table_row_idx]
+            stop_zone_features = msgpack.unpackb(stop_zone_features_binary)
             stop_zone_polygon = self._occupancy_maps[MapLayer.STOP_ZONE][object_id]
             assert isinstance(stop_zone_polygon, geom.Polygon)
             stop_zone = StopZone(
@@ -377,13 +386,14 @@ class ArrowMapAPI(MapAPI):
             )
         return stop_zone
 
-    @lru_cache(maxsize=1000)
+    @lru_cache(maxsize=MAP_OBJECT_CACHE_SIZE)
     def _get_road_edge(self, object_id: MapObjectIDType) -> Optional[RoadEdge]:
         """Helper method for getting a road edge by its ID."""
         road_edge: Optional[RoadEdge] = None
         table_row_idx = self._object_ids_to_row_idx[MapLayer.ROAD_EDGE].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.ROAD_EDGE].ids:
-            road_edge_features = self._get_map_table()["features"][table_row_idx].as_py()
+            road_edge_features_binary = self._features[table_row_idx]
+            road_edge_features = msgpack.unpackb(road_edge_features_binary)
             road_edge_linestring = self._occupancy_maps[MapLayer.ROAD_EDGE][object_id]
             assert isinstance(road_edge_linestring, geom.LineString)
             road_edge = RoadEdge(
@@ -393,13 +403,14 @@ class ArrowMapAPI(MapAPI):
             )
         return road_edge
 
-    @lru_cache(maxsize=1000)
+    @lru_cache(maxsize=MAP_OBJECT_CACHE_SIZE)
     def _get_road_line(self, object_id: MapObjectIDType) -> Optional[RoadLine]:
         """Helper method for getting a road line by its ID."""
         road_line: Optional[RoadLine] = None
         table_row_idx = self._object_ids_to_row_idx[MapLayer.ROAD_LINE].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.ROAD_LINE].ids:
-            road_line_features = self._get_map_table()["features"][table_row_idx].as_py()
+            road_line_features_binary = self._features[table_row_idx]
+            road_line_features = msgpack.unpackb(road_line_features_binary)
             road_line_linestring = self._occupancy_maps[MapLayer.ROAD_LINE][object_id]
             assert isinstance(road_line_linestring, geom.LineString)
             road_line = RoadLine(
