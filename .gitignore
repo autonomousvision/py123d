@@ -26,6 +26,9 @@
 exp/
 .coverage
 
+# internal
+benchmarks/*
+
 # Sphinx documentation
 docs/_build/
 docs/build/

@@ -3,10 +3,10 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-import msgpack
 import pyarrow as pa
 
 from py123d.common.utils.arrow_helper import write_arrow_table
+from py123d.common.utils.msgpack_utils import msgpack_encode_with_numpy
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.map_writer.utils.id_utils import ToIntMapping
@@ -72,11 +72,10 @@ class ArrowMapWriter(AbstractMapWriter):
     def write_lane(self, lane: Lane) -> None:
         """Inherited, see superclass."""
         self._write_surface_layer(MapLayer.LANE, lane)
-        point_slice = self._get_point_slice()
         self._map_data[MapLayer.LANE]["lane_group_id"].append(lane.lane_group_id)
-        self._map_data[MapLayer.LANE]["left_boundary"].append(lane.left_boundary.array[..., point_slice])
-        self._map_data[MapLayer.LANE]["right_boundary"].append(lane.right_boundary.array[..., point_slice])
-        self._map_data[MapLayer.LANE]["centerline"].append(lane.centerline.array[..., point_slice])
+        self._map_data[MapLayer.LANE]["left_boundary"].append(lane.left_boundary.array)
+        self._map_data[MapLayer.LANE]["right_boundary"].append(lane.right_boundary.array)
+        self._map_data[MapLayer.LANE]["centerline"].append(lane.centerline.array)
         self._map_data[MapLayer.LANE]["left_lane_id"].append(lane.left_lane_id)
         self._map_data[MapLayer.LANE]["right_lane_id"].append(lane.right_lane_id)
         self._map_data[MapLayer.LANE]["predecessor_ids"].append(lane.predecessor_ids)
@@ -86,13 +85,12 @@ class ArrowMapWriter(AbstractMapWriter):
     def write_lane_group(self, lane_group: LaneGroup) -> None:
         """Inherited, see superclass."""
         self._write_surface_layer(MapLayer.LANE_GROUP, lane_group)
-        point_slice = self._get_point_slice()
         self._map_data[MapLayer.LANE_GROUP]["lane_ids"].append(lane_group.lane_ids)
         self._map_data[MapLayer.LANE_GROUP]["intersection_id"].append(lane_group.intersection_id)
         self._map_data[MapLayer.LANE_GROUP]["predecessor_ids"].append(lane_group.predecessor_ids)
         self._map_data[MapLayer.LANE_GROUP]["successor_ids"].append(lane_group.successor_ids)
-        self._map_data[MapLayer.LANE_GROUP]["left_boundary"].append(lane_group.left_boundary.array[..., point_slice])
-        self._map_data[MapLayer.LANE_GROUP]["right_boundary"].append(lane_group.right_boundary.array[..., point_slice])
+        self._map_data[MapLayer.LANE_GROUP]["left_boundary"].append(lane_group.left_boundary.array)
+        self._map_data[MapLayer.LANE_GROUP]["right_boundary"].append(lane_group.right_boundary.array)
 
     def write_intersection(self, intersection: Intersection) -> None:
         """Inherited, see superclass."""
@@ -161,17 +159,17 @@ class ArrowMapWriter(AbstractMapWriter):
                 all_types.append(type_idx)
                 lane_dict = {
                     "lane_group_id": self._map_data[MapLayer.LANE]["lane_group_id"][idx],
-                    "left_boundary": self._map_data[MapLayer.LANE]["left_boundary"][idx].tolist(),
-                    "right_boundary": self._map_data[MapLayer.LANE]["right_boundary"][idx].tolist(),
-                    "centerline": self._map_data[MapLayer.LANE]["centerline"][idx].tolist(),
+                    "left_boundary": self._map_data[MapLayer.LANE]["left_boundary"][idx],
+                    "right_boundary": self._map_data[MapLayer.LANE]["right_boundary"][idx],
+                    "centerline": self._map_data[MapLayer.LANE]["centerline"][idx],
                     "left_lane_id": self._map_data[MapLayer.LANE]["left_lane_id"][idx],
                     "right_lane_id": self._map_data[MapLayer.LANE]["right_lane_id"][idx],
                     "predecessor_ids": self._map_data[MapLayer.LANE]["predecessor_ids"][idx],
                     "successor_ids": self._map_data[MapLayer.LANE]["successor_ids"][idx],
                     "speed_limit_mps": self._map_data[MapLayer.LANE]["speed_limit_mps"][idx],
-                    "outline": self._map_data[MapLayer.LANE]["outline"][idx].tolist(),
+                    "outline": self._map_data[MapLayer.LANE]["outline"][idx],
                 }
-                all_features.append(msgpack.packb(lane_dict))  # type: ignore
+                all_features.append(msgpack_encode_with_numpy(lane_dict))  # type: ignore
 
             # 2. Lane groups
             for idx in range(len(self._map_data[MapLayer.LANE_GROUP]["id"])):
@@ -181,14 +179,14 @@ class ArrowMapWriter(AbstractMapWriter):
                 all_types.append(type_idx)
                 lane_group_dict = {
                     "lane_ids": self._map_data[MapLayer.LANE_GROUP]["lane_ids"][idx],
-                    "left_boundary": self._map_data[MapLayer.LANE_GROUP]["left_boundary"][idx].tolist(),
-                    "right_boundary": self._map_data[MapLayer.LANE_GROUP]["right_boundary"][idx].tolist(),
+                    "left_boundary": self._map_data[MapLayer.LANE_GROUP]["left_boundary"][idx],
+                    "right_boundary": self._map_data[MapLayer.LANE_GROUP]["right_boundary"][idx],
                     "intersection_id": self._map_data[MapLayer.LANE_GROUP]["intersection_id"][idx],
                     "predecessor_ids": self._map_data[MapLayer.LANE_GROUP]["predecessor_ids"][idx],
                     "successor_ids": self._map_data[MapLayer.LANE_GROUP]["successor_ids"][idx],
-                    "outline": self._map_data[MapLayer.LANE_GROUP]["outline"][idx].tolist(),
+                    "outline": self._map_data[MapLayer.LANE_GROUP]["outline"][idx],
                 }
-                all_features.append(msgpack.packb(lane_group_dict))  # type: ignore
+                all_features.append(msgpack_encode_with_numpy(lane_group_dict))  # type: ignore
 
             # 3. Intersections
             for idx in range(len(self._map_data[MapLayer.INTERSECTION]["id"])):
@@ -198,9 +196,9 @@ class ArrowMapWriter(AbstractMapWriter):
                 all_types.append(type_idx)
                 intersection_dict = {
                     "lane_group_ids": self._map_data[MapLayer.INTERSECTION]["lane_group_ids"][idx],
-                    "outline": self._map_data[MapLayer.INTERSECTION]["outline"][idx].tolist(),
+                    "outline": self._map_data[MapLayer.INTERSECTION]["outline"][idx],
                 }
-                all_features.append(msgpack.packb(intersection_dict))  # type: ignore
+                all_features.append(msgpack_encode_with_numpy(intersection_dict))  # type: ignore
 
             # 4. Crosswalks
             for idx in range(len(self._map_data[MapLayer.CROSSWALK]["id"])):
@@ -209,9 +207,9 @@ class ArrowMapWriter(AbstractMapWriter):
                 all_map_layers.append(int(MapLayer.CROSSWALK))
                 all_types.append(type_idx)
                 crosswalk_dict = {
-                    "outline": self._map_data[MapLayer.CROSSWALK]["outline"][idx].tolist(),
+                    "outline": self._map_data[MapLayer.CROSSWALK]["outline"][idx],
                 }
-                all_features.append(msgpack.packb(crosswalk_dict))  # type: ignore
+                all_features.append(msgpack_encode_with_numpy(crosswalk_dict))  # type: ignore
 
             # 5. Carparks
             for idx in range(len(self._map_data[MapLayer.CARPARK]["id"])):
@@ -221,9 +219,9 @@ class ArrowMapWriter(AbstractMapWriter):
                 all_types.append(type_idx)
 
                 carpark_dict = {
-                    "outline": self._map_data[MapLayer.CARPARK]["outline"][idx].tolist(),
+                    "outline": self._map_data[MapLayer.CARPARK]["outline"][idx],
                 }
-                all_features.append(msgpack.packb(carpark_dict))  # type: ignore
+                all_features.append(msgpack_encode_with_numpy(carpark_dict))  # type: ignore
 
             # 6. Walkways
             for idx in range(len(self._map_data[MapLayer.WALKWAY]["id"])):
@@ -232,9 +230,9 @@ class ArrowMapWriter(AbstractMapWriter):
                 all_map_layers.append(int(MapLayer.WALKWAY))
                 all_types.append(type_idx)
                 walkway_dict = {
-                    "outline": self._map_data[MapLayer.WALKWAY]["outline"][idx].tolist(),
+                    "outline": self._map_data[MapLayer.WALKWAY]["outline"][idx],
                 }
-                all_features.append(msgpack.packb(walkway_dict))  # type: ignore
+                all_features.append(msgpack_encode_with_numpy(walkway_dict))  # type: ignore
 
             # 7. Generic Drivables
             for idx in range(len(self._map_data[MapLayer.GENERIC_DRIVABLE]["id"])):
@@ -243,9 +241,9 @@ class ArrowMapWriter(AbstractMapWriter):
                 all_map_layers.append(int(MapLayer.GENERIC_DRIVABLE))
                 all_types.append(type_idx)
                 generic_drivable_dict = {
-                    "outline": self._map_data[MapLayer.GENERIC_DRIVABLE]["outline"][idx].tolist(),
+                    "outline": self._map_data[MapLayer.GENERIC_DRIVABLE]["outline"][idx],
                 }
-                all_features.append(msgpack.packb(generic_drivable_dict))  # type: ignore
+                all_features.append(msgpack_encode_with_numpy(generic_drivable_dict))  # type: ignore
 
             # 8. Stop zones
             for idx in range(len(self._map_data[MapLayer.STOP_ZONE]["id"])):
@@ -254,9 +252,9 @@ class ArrowMapWriter(AbstractMapWriter):
                 all_map_layers.append(int(MapLayer.STOP_ZONE))
                 all_types.append(type_idx)
                 stop_zone_dict = {
-                    "outline": self._map_data[MapLayer.STOP_ZONE]["outline"][idx].tolist(),
+                    "outline": self._map_data[MapLayer.STOP_ZONE]["outline"][idx],
                 }
-                all_features.append(msgpack.packb(stop_zone_dict))  # type: ignore
+                all_features.append(msgpack_encode_with_numpy(stop_zone_dict))  # type: ignore
 
             # 8. Road edges
             for idx in range(len(self._map_data[MapLayer.ROAD_EDGE]["id"])):
@@ -267,7 +265,7 @@ class ArrowMapWriter(AbstractMapWriter):
                 road_edge_dict = {
                     "road_edge_type": self._map_data[MapLayer.ROAD_EDGE]["road_edge_type"][idx],
                 }
-                all_features.append(msgpack.packb(road_edge_dict))  # type: ignore
+                all_features.append(msgpack_encode_with_numpy(road_edge_dict))  # type: ignore
 
             # 9. Road lines
             for idx in range(len(self._map_data[MapLayer.ROAD_LINE]["id"])):
@@ -278,7 +276,7 @@ class ArrowMapWriter(AbstractMapWriter):
                 road_line_dict = {
                     "road_line_type": self._map_data[MapLayer.ROAD_LINE]["road_line_type"][idx],
                 }
-                all_features.append(msgpack.packb(road_line_dict))  # type: ignore
+                all_features.append(msgpack_encode_with_numpy(road_line_dict))  # type: ignore
 
             # Create final table and write to file
             object_ids_ = pa.array(all_object_ids, type=object_id_type)
@@ -311,11 +309,10 @@ class ArrowMapWriter(AbstractMapWriter):
         :param surface_object: surface map object to write
         """
         self._assert_initialized()
-        point_slice = self._get_point_slice()
         self._map_data[layer]["id"].append(surface_object.object_id)
         # NOTE: if the outline has a z-coordinate, we store it, otherwise we infer from the outline from the polygon
         if isinstance(surface_object.outline, Polyline3D):
-            self._map_data[layer]["outline"].append(surface_object.outline.array[..., point_slice])
+            self._map_data[layer]["outline"].append(surface_object.outline.array)
         self._map_data[layer]["wkb"].append(surface_object.shapely_polygon.wkb)
 
     def _write_line_layer(self, layer: MapLayer, line_object: BaseMapLineObject) -> None:

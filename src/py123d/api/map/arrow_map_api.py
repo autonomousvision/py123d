@@ -5,7 +5,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Dict, Final, Iterable, List, Literal, Optional, Tuple, Union
 
-import msgpack
 import numpy as np
 import pyarrow as pa
 import shapely
@@ -14,6 +13,7 @@ import shapely.geometry as geom
 from py123d.api.map.map_api import MapAPI
 from py123d.api.scene.arrow.utils.arrow_metadata_utils import get_map_metadata_from_arrow_table
 from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
+from py123d.common.utils.msgpack_utils import msgpack_decode_with_numpy
 from py123d.datatypes.map_objects.base_map_objects import BaseMapObject, MapObjectIDType
 from py123d.datatypes.map_objects.map_layer_types import MapLayer, RoadEdgeType, RoadLineType
 from py123d.datatypes.map_objects.map_objects import (
@@ -114,8 +114,9 @@ class ArrowMapAPI(MapAPI):
         layers: List[MapLayer],
     ) -> Dict[MapLayer, List[BaseMapObject]]:
         """Inherited, see superclass."""
-        center_point = point.shapely_point
-        patch = center_point.buffer(radius)
+        x_min, x_max = point.x - radius, point.x + radius
+        y_min, y_max = point.y - radius, point.y + radius
+        patch = geom.box(x_min, y_min, x_max, y_max)
         return self.query(geometry=patch, layers=layers, predicate="intersects")  # type: ignore
 
     def query(
@@ -197,12 +198,11 @@ class ArrowMapAPI(MapAPI):
                 query_dict[int(geometry_idx)].append(map_object)
             return query_dict
         else:
-            map_object_ids = [occupancy_map.ids[idx] for idx in query_result]
             query_list: List[BaseMapObject] = []
-            for map_object_id in map_object_ids:
-                map_object = self.get_map_object(map_object_id, layer)
+            for idx in query_result:
+                map_object = self._map_object_getter[layer](occupancy_map.ids[idx])
                 assert map_object is not None, (
-                    f"Queried map object should exist. Cannot find object {map_object_id} in layer {layer.name}"
+                    f"Queried map object should exist. Cannot find object {occupancy_map.ids[idx]} in layer {layer.name}"
                 )
                 query_list.append(map_object)
             return query_list
@@ -238,21 +238,21 @@ class ArrowMapAPI(MapAPI):
         table_row_idx = self._object_ids_to_row_idx[MapLayer.LANE].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.LANE].ids:
             lane_features_binary = self._features[table_row_idx]
-            lane_features = msgpack.unpackb(lane_features_binary)
+            lane_features = msgpack_decode_with_numpy(lane_features_binary)
             lane_polygon = self._occupancy_maps[MapLayer.LANE][object_id]
             assert isinstance(lane_polygon, geom.Polygon)
             lane = Lane(
                 object_id=object_id,
                 lane_group_id=lane_features["lane_group_id"],
-                left_boundary=Polyline3D.from_list(lane_features["left_boundary"]),
-                right_boundary=Polyline3D.from_list(lane_features["right_boundary"]),
-                centerline=Polyline3D.from_list(lane_features["centerline"]),
+                left_boundary=Polyline3D.from_array(lane_features["left_boundary"], copy=False),
+                right_boundary=Polyline3D.from_array(lane_features["right_boundary"], copy=False),
+                centerline=Polyline3D.from_array(lane_features["centerline"], copy=False),
                 left_lane_id=lane_features["left_lane_id"],
                 right_lane_id=lane_features["right_lane_id"],
                 predecessor_ids=lane_features["predecessor_ids"],
                 successor_ids=lane_features["successor_ids"],
                 speed_limit_mps=lane_features["speed_limit_mps"],
-                outline=Polyline3D.from_list(lane_features["outline"]),
+                outline=Polyline3D.from_array(lane_features["outline"], copy=False),
                 shapely_polygon=lane_polygon,
                 map_api=self,
             )
@@ -265,18 +265,18 @@ class ArrowMapAPI(MapAPI):
         table_row_idx = self._object_ids_to_row_idx[MapLayer.LANE_GROUP].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.LANE_GROUP].ids:
             lane_group_features_binary = self._features[table_row_idx]
-            lane_group_features = msgpack.unpackb(lane_group_features_binary)
+            lane_group_features = msgpack_decode_with_numpy(lane_group_features_binary)
             lane_group_polygon = self._occupancy_maps[MapLayer.LANE_GROUP][object_id]
             assert isinstance(lane_group_polygon, geom.Polygon)
             lane_group = LaneGroup(
                 object_id=object_id,
                 lane_ids=lane_group_features["lane_ids"],
-                left_boundary=Polyline3D.from_list(lane_group_features["left_boundary"]),
-                right_boundary=Polyline3D.from_list(lane_group_features["right_boundary"]),
+                left_boundary=Polyline3D.from_array(lane_group_features["left_boundary"], copy=False),
+                right_boundary=Polyline3D.from_array(lane_group_features["right_boundary"], copy=False),
                 intersection_id=lane_group_features["intersection_id"],
                 predecessor_ids=lane_group_features["predecessor_ids"],
                 successor_ids=lane_group_features["successor_ids"],
-                outline=Polyline3D.from_list(lane_group_features["outline"]),
+                outline=Polyline3D.from_array(lane_group_features["outline"], copy=False),
                 shapely_polygon=lane_group_polygon,
                 map_api=self,
             )
@@ -289,13 +289,13 @@ class ArrowMapAPI(MapAPI):
         table_row_idx = self._object_ids_to_row_idx[MapLayer.INTERSECTION].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.INTERSECTION].ids:
             intersection_features_binary = self._features[table_row_idx]
-            intersection_features = msgpack.unpackb(intersection_features_binary)
+            intersection_features = msgpack_decode_with_numpy(intersection_features_binary)
             intersection_polygon = self._occupancy_maps[MapLayer.INTERSECTION][object_id]
             assert isinstance(intersection_polygon, geom.Polygon)
             intersection = Intersection(
                 object_id=object_id,
                 lane_group_ids=intersection_features["lane_group_ids"],
-                outline=Polyline3D.from_list(intersection_features["outline"]),
+                outline=Polyline3D.from_array(intersection_features["outline"], copy=False),
                 shapely_polygon=intersection_polygon,
                 map_api=self,
             )
@@ -308,12 +308,12 @@ class ArrowMapAPI(MapAPI):
         table_row_idx = self._object_ids_to_row_idx[MapLayer.CROSSWALK].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.CROSSWALK].ids:
             crosswalk_features_binary = self._features[table_row_idx]
-            crosswalk_features = msgpack.unpackb(crosswalk_features_binary)
+            crosswalk_features = msgpack_decode_with_numpy(crosswalk_features_binary)
             crosswalk_polygon = self._occupancy_maps[MapLayer.CROSSWALK][object_id]
             assert isinstance(crosswalk_polygon, geom.Polygon)
             crosswalk = Crosswalk(
                 object_id=object_id,
-                outline=Polyline3D.from_list(crosswalk_features["outline"]),
+                outline=Polyline3D.from_array(crosswalk_features["outline"], copy=False),
                 shapely_polygon=crosswalk_polygon,
             )
         return crosswalk
@@ -325,12 +325,12 @@ class ArrowMapAPI(MapAPI):
         table_row_idx = self._object_ids_to_row_idx[MapLayer.CARPARK].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.CARPARK].ids:
             carpark_features_binary = self._features[table_row_idx]
-            carpark_features = msgpack.unpackb(carpark_features_binary)
+            carpark_features = msgpack_decode_with_numpy(carpark_features_binary)
             carpark_polygon = self._occupancy_maps[MapLayer.CARPARK][object_id]
             assert isinstance(carpark_polygon, geom.Polygon)
             carpark = Carpark(
                 object_id=object_id,
-                outline=Polyline3D.from_list(carpark_features["outline"]),
+                outline=Polyline3D.from_array(carpark_features["outline"], copy=False),
                 shapely_polygon=carpark_polygon,
             )
         return carpark
@@ -342,12 +342,12 @@ class ArrowMapAPI(MapAPI):
         table_row_idx = self._object_ids_to_row_idx[MapLayer.WALKWAY].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.WALKWAY].ids:
             walkway_features_binary = self._features[table_row_idx]
-            walkway_features = msgpack.unpackb(walkway_features_binary)
+            walkway_features = msgpack_decode_with_numpy(walkway_features_binary)
             walkway_polygon = self._occupancy_maps[MapLayer.WALKWAY][object_id]
             assert isinstance(walkway_polygon, geom.Polygon)
             walkway = Walkway(
                 object_id=object_id,
-                outline=Polyline3D.from_list(walkway_features["outline"]),
+                outline=Polyline3D.from_array(walkway_features["outline"], copy=False),
                 shapely_polygon=walkway_polygon,
             )
         return walkway
@@ -359,12 +359,12 @@ class ArrowMapAPI(MapAPI):
         table_row_idx = self._object_ids_to_row_idx[MapLayer.GENERIC_DRIVABLE].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.GENERIC_DRIVABLE].ids:
             generic_drivable_features_binary = self._features[table_row_idx]
-            generic_drivable_features = msgpack.unpackb(generic_drivable_features_binary)
+            generic_drivable_features = msgpack_decode_with_numpy(generic_drivable_features_binary)
             generic_drivable_polygon = self._occupancy_maps[MapLayer.GENERIC_DRIVABLE][object_id]
             assert isinstance(generic_drivable_polygon, geom.Polygon)
             generic_drivable = GenericDrivable(
                 object_id=object_id,
-                outline=Polyline3D.from_list(generic_drivable_features["outline"]),
+                outline=Polyline3D.from_array(generic_drivable_features["outline"], copy=False),
                 shapely_polygon=generic_drivable_polygon,
             )
         return generic_drivable
@@ -376,12 +376,12 @@ class ArrowMapAPI(MapAPI):
         table_row_idx = self._object_ids_to_row_idx[MapLayer.STOP_ZONE].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.STOP_ZONE].ids:
             stop_zone_features_binary = self._features[table_row_idx]
-            stop_zone_features = msgpack.unpackb(stop_zone_features_binary)
+            stop_zone_features = msgpack_decode_with_numpy(stop_zone_features_binary)
             stop_zone_polygon = self._occupancy_maps[MapLayer.STOP_ZONE][object_id]
             assert isinstance(stop_zone_polygon, geom.Polygon)
             stop_zone = StopZone(
                 object_id=object_id,
-                outline=Polyline3D.from_list(stop_zone_features["outline"]),
+                outline=Polyline3D.from_array(stop_zone_features["outline"], copy=False),
                 shapely_polygon=stop_zone_polygon,
             )
         return stop_zone
@@ -393,7 +393,7 @@ class ArrowMapAPI(MapAPI):
         table_row_idx = self._object_ids_to_row_idx[MapLayer.ROAD_EDGE].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.ROAD_EDGE].ids:
             road_edge_features_binary = self._features[table_row_idx]
-            road_edge_features = msgpack.unpackb(road_edge_features_binary)
+            road_edge_features = msgpack_decode_with_numpy(road_edge_features_binary)
             road_edge_linestring = self._occupancy_maps[MapLayer.ROAD_EDGE][object_id]
             assert isinstance(road_edge_linestring, geom.LineString)
             road_edge = RoadEdge(
@@ -410,7 +410,7 @@ class ArrowMapAPI(MapAPI):
         table_row_idx = self._object_ids_to_row_idx[MapLayer.ROAD_LINE].get(object_id, None)
         if table_row_idx is not None and object_id in self._occupancy_maps[MapLayer.ROAD_LINE].ids:
             road_line_features_binary = self._features[table_row_idx]
-            road_line_features = msgpack.unpackb(road_line_features_binary)
+            road_line_features = msgpack_decode_with_numpy(road_line_features_binary)
             road_line_linestring = self._occupancy_maps[MapLayer.ROAD_LINE][object_id]
             assert isinstance(road_line_linestring, geom.LineString)
             road_line = RoadLine(
