@@ -1,3 +1,5 @@
+from typing import Any
+
 import msgpack
 import numpy as np
 
@@ -8,13 +10,13 @@ def encode_numpy(obj):
     return obj
 
 
-def decode_numpy(obj: dict):
+def decode_numpy(obj: Any) -> Any:
     if isinstance(obj, dict) and b"__ndarray__" in obj:
         return np.frombuffer(obj[b"data"], dtype=obj[b"dtype"]).reshape(obj[b"shape"])
     return obj
 
 
-def msgpack_encode_with_numpy(data: dict) -> bytes:
+def msgpack_encode_with_numpy(data: Any) -> bytes:
     """Serialize a dictionary containing numpy arrays using msgpack.
 
     :param data: The dictionary to serialize.
