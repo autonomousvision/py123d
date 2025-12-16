@@ -172,9 +172,7 @@ class PolylineSE2(ArrayMixin):
         self._array = array
         self._array[:, PoseSE2Index.YAW] = np.unwrap(self._array[:, PoseSE2Index.YAW], axis=0)
         self._progress = get_path_progress_2d(self._array)
-        self._linestring = (
-            geom_creation.linestrings(self._array[..., PoseSE2Index.XY]) if linestring is None else linestring
-        )
+        self._linestring = geom.LineString(self._array[..., PoseSE2Index.XY]) if linestring is None else linestring
 
     @classmethod
     def from_linestring(cls, linestring: geom.LineString) -> PolylineSE2:
@@ -363,8 +361,11 @@ class Polyline3D(ArrayMixin):
     @property
     def length(self) -> float:
         """Returns the length of the 3D polyline."""
-        array = self.array
-        return np.linalg.norm(array[:-1, :] - array[1:, :], axis=1).sum()
+        if self._progress is None:
+            object.__setattr__(self, "_progress", get_path_progress_3d(self._array[:, Point3DIndex.XYZ]))
+
+        assert self._progress is not None, "Progress should have been initialized."
+        return float(self._progress[-1])
 
     def interpolate(
         self,

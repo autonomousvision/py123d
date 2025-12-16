@@ -1,19 +1,16 @@
-from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-import numpy.typing as npt
-import shapely
 import shapely.geometry as geom
 
 from py123d.datatypes.map_objects.map_layer_types import LaneType
 from py123d.datatypes.map_objects.map_objects import RoadEdge, RoadLine
 from py123d.geometry import OccupancyMap2D, Point3D, Polyline3D, PolylineSE2, PoseSE2, Vector2D
-from py123d.geometry.geometry_index import PoseSE2Index
-from py123d.geometry.transform.transform_se2 import translate_2d_along_body_frame, translate_se2_along_body_frame
+from py123d.geometry.transform.transform_se2 import translate_se2_along_body_frame
+from py123d.geometry.utils.rotation_utils import normalize_angle
 
-MAX_LANE_WIDTH = 20.0  # meters
+MAX_LANE_WIDTH = 25.0  # meters
 MIN_LANE_WIDTH = 2.0
 DEFAULT_LANE_WIDTH = 3.7
 BOUNDARY_STEP_SIZE = 0.25  # meters
@@ -82,116 +79,68 @@ class PerpendicularHit:
         return get_type_and_id_from_token(self.hit_polyline_token)[0]
 
 
-def _collect_all_perpendicular_hits(
-    ray_starts_se2: npt.NDArray[np.float64],
+def _collect_perpendicular_hits(
+    lane_query_se2: PoseSE2,
     lane_token: str,
     polyline_dict: Dict[str, Dict[int, Polyline3D]],
     lane_polyline_se2_dict: Dict[int, PolylineSE2],
     occupancy_2d: OccupancyMap2D,
     sign: float,
-) -> Dict[int, List[PerpendicularHit]]:
+) -> List[PerpendicularHit]:
     assert sign in [1.0, -1.0], "Sign must be either 1.0 (left) or -1.0 (right)"
-    assert ray_starts_se2.shape[1] == len(PoseSE2Index), "Ray starts must be of shape (n, 3)"
-
-    ray_end_points_2d = translate_2d_along_body_frame(
-        points_2d=ray_starts_se2[..., PoseSE2Index.XY],
-        yaws=ray_starts_se2[..., PoseSE2Index.YAW],
-        x_translate=0.0,  # type: ignore
-        y_translate=sign * MAX_LANE_WIDTH / 2.0,  # type: ignore
-    )
-    rays_array = np.concatenate([ray_starts_se2[:, None, PoseSE2Index.XY], ray_end_points_2d[:, None, :]], axis=1)
-    ray_linestrings = shapely.creation.linestrings(rays_array)  # type: ignore
+    # perp_start_point = translate_along_yaw(lane_query_se2, Vector2D(0.0, sign * PERP_START_OFFSET))
+    perp_start_point = lane_query_se2
+    perp_end_point = translate_se2_along_body_frame(lane_query_se2, Vector2D(0.0, sign * MAX_LANE_WIDTH / 2.0))
+    perp_linestring = geom.LineString([[perp_start_point.x, perp_start_point.y], [perp_end_point.x, perp_end_point.y]])
 
     lane_linestring = occupancy_2d.geometries[occupancy_2d.id_to_idx[lane_token]]
-    ray_indices, intersecting_indices = occupancy_2d.query(ray_linestrings, predicate="intersects")
 
-    ray_perpendicular_tokens: Dict[int, List[str]] = defaultdict(list)
-    for ray_idx, geometry_idx in zip(ray_indices, intersecting_indices):
-        intersecting_token = occupancy_2d.ids[geometry_idx]
-        ray_perpendicular_tokens[ray_idx].append(intersecting_token)
+    # 1. find intersecting lines, compute 3D distance
+    intersecting_tokens = occupancy_2d.intersects(perp_linestring)
 
-    ray_perpendicular_hits: Dict[int, List[PerpendicularHit]] = defaultdict(list)
+    perpendicular_hits: List[PerpendicularHit] = []
+    for intersecting_token in intersecting_tokens:
+        intersecting_polyline_3d = get_polyline_from_token(polyline_dict, intersecting_token)
+        intersecting_linestring = occupancy_2d.geometries[occupancy_2d.id_to_idx[intersecting_token]]
+        centerline_hit_crossing: bool = (
+            lane_linestring.intersects(intersecting_linestring) if intersecting_token.startswith("lane_") else False
+        )
 
-    for ray_idx, intersecting_tokens in ray_perpendicular_tokens.items():
-        ray_start_se2 = ray_starts_se2[ray_idx]
-        ray_linestring: geom.LineString = ray_linestrings[ray_idx]  # type: ignore
+        intersecting_geom_points: List[geom.Point] = []
+        intersecting_geometries = perp_linestring.intersection(intersecting_linestring)
+        if isinstance(intersecting_geometries, geom.Point):
+            intersecting_geom_points.append(intersecting_geometries)
+        elif isinstance(intersecting_geometries, geom.MultiPoint):
+            intersecting_geom_points.extend([geom for geom in intersecting_geometries.geoms])
 
-        intersecting_linetrings = []
-        for intersecting_token in intersecting_tokens:
-            intersecting_linestring = occupancy_2d.geometries[occupancy_2d.id_to_idx[intersecting_token]]  # type: ignore
-            intersecting_linetrings.append(intersecting_linestring)
+        for intersecting_geom_point in intersecting_geom_points:
+            distance_along_perp_2d = perp_linestring.project(intersecting_geom_point)
 
-        intersecting_geometries = shapely.intersection(ray_linestring, intersecting_linetrings)
-        perpendicular_hits: List[PerpendicularHit] = []
-
-        for intersecting_token, intersecting_geometry in zip(intersecting_tokens, intersecting_geometries):
-            intersecting_linestring = occupancy_2d.geometries[occupancy_2d.id_to_idx[intersecting_token]]  # type: ignore
-
-            centerline_hit_crossing: bool = (
-                lane_linestring.intersects(intersecting_linestring) if intersecting_token.startswith("lane_") else False
+            distance_along_intersecting_norm = intersecting_linestring.project(intersecting_geom_point, normalized=True)
+            intersecting_point_3d = intersecting_polyline_3d.interpolate(
+                distance_along_intersecting_norm * intersecting_polyline_3d.length
             )
 
-            intersecting_geom_points: List[geom.Point] = []
-            # intersecting_geometries = ray_linestring.intersection(intersecting_linestring)
-            if isinstance(intersecting_geometry, geom.Point):
-                intersecting_geom_points.append(intersecting_geometry)
-            elif isinstance(intersecting_geometry, geom.MultiPoint):
-                intersecting_geom_points.extend([geom for geom in intersecting_geometry.geoms])
+            heading_error = None
+            if intersecting_token.startswith("lane_"):
+                # Compute heading error if the intersecting token is a lane
+                intersecting_polyline_se2 = lane_polyline_se2_dict[intersecting_token]
+                lane_heading = intersecting_polyline_se2.interpolate(
+                    distance_along_intersecting_norm * intersecting_polyline_se2.length
+                )
+                heading_error = normalize_angle(lane_query_se2.yaw - lane_heading.yaw)
 
-            intersecting_points_2d = np.array(
-                [[point.x, point.y] for point in intersecting_geom_points], dtype=np.float64
+            perpendicular_hits.append(
+                PerpendicularHit(
+                    distance_along_perp_2d=distance_along_perp_2d,
+                    hit_point_3d=intersecting_point_3d,
+                    hit_polyline_token=intersecting_token,
+                    centerline_hit_crossing=centerline_hit_crossing,
+                    heading_error=heading_error,
+                )
             )
 
-            distances_along_ray = np.linalg.norm(ray_start_se2[None, PoseSE2Index.XY] - intersecting_points_2d, axis=-1)
-
-            for intersecting_point_idx, intersecting_geom_point in enumerate(intersecting_geom_points):
-                intersecting_linestring: geom.LineString
-
-                hit_point_3d = Point3D(
-                    x=intersecting_geom_point.x,
-                    y=intersecting_geom_point.y,
-                    z=intersecting_geom_point.z,
-                )
-
-                perpendicular_hits.append(
-                    PerpendicularHit(
-                        distance_along_perp_2d=float(distances_along_ray[intersecting_point_idx]),
-                        hit_point_3d=hit_point_3d,
-                        hit_polyline_token=intersecting_token,
-                        centerline_hit_crossing=centerline_hit_crossing,
-                        heading_error=0.0,
-                    )
-                )
-
-        ray_perpendicular_hits[ray_idx] = perpendicular_hits
-
-    return ray_perpendicular_hits
-
-
-def _create_ray_starts(
-    polyline_dict, lane_polyline_se2_dict: Dict[int, PolylineSE2]
-) -> Tuple[Dict[int, npt.NDArray[np.float64]], Dict[int, npt.NDArray[np.float64]]]:
-    ray_starts_se2_dict: Dict[int, npt.NDArray[np.float64]] = {}
-    ray_starts_3d_dict: Dict[int, npt.NDArray[np.float64]] = {}
-
-    for lane_id, lane_polyline in polyline_dict["lane"].items():
-        assert isinstance(lane_polyline, Polyline3D), "Lane polyline must be of type Polyline3D"
-
-        if lane_id not in lane_polyline_se2_dict:
-            lane_polyline_se2_dict[lane_id] = lane_polyline.polyline_se2
-
-        num_samples = int(lane_polyline.length / BOUNDARY_STEP_SIZE) + 1
-        distance_norm = np.linspace(0, 1.0, num_samples, endpoint=True)
-
-        poses_se2 = lane_polyline_se2_dict[lane_id].interpolate(distances=distance_norm, normalized=True)
-        assert isinstance(poses_se2, np.ndarray), "Interpolated poses must be a numpy array"
-        ray_starts_se2_dict[lane_id] = poses_se2
-
-        points_3d = lane_polyline.interpolate(distances=distance_norm, normalized=True)
-        assert isinstance(points_3d, np.ndarray), "Interpolated points must be a numpy array"
-        ray_starts_3d_dict[lane_id] = points_3d
-
-    return ray_starts_se2_dict, ray_starts_3d_dict
+    return perpendicular_hits
 
 
 def _filter_perpendicular_hits(
@@ -218,9 +167,7 @@ def _filter_perpendicular_hits(
 
 
 def fill_lane_boundaries(
-    lane_data_dict: Dict[int, WaymoLaneData],
-    road_lines: List[RoadLine],
-    road_edges: List[RoadEdge],
+    lane_data_dict: Dict[int, WaymoLaneData], road_lines: List[RoadLine], road_edges: List[RoadEdge]
 ) -> Tuple[Dict[str, Polyline3D], Dict[str, Polyline3D]]:
     """Welcome to insanity.
 
@@ -235,21 +182,19 @@ def fill_lane_boundaries(
 
     for lane_id, lane in lane_data_dict.items():
         polyline_dict["lane"][lane_id] = lane.centerline
-        lane_polyline_se2_dict[lane_id] = lane.centerline.polyline_se2
+        lane_polyline_se2_dict[f"lane_{lane_id}"] = lane.centerline.polyline_se2
 
     # for road_line in road_lines:
     #     polyline_dict["road-line"][road_line.object_id] = road_line.polyline_3d
 
     for road_edge in road_edges:
-        polyline_dict["road-edge"][road_edge.object_id] = road_edge.polyline_3d  # type: ignore
-
-    ray_starts_se2_dict, ray_starts_3d_dict = _create_ray_starts(polyline_dict, lane_polyline_se2_dict)
+        polyline_dict["road-edge"][road_edge.object_id] = road_edge.polyline_3d
 
     geometries = []
     tokens = []
     for line_type, polylines in polyline_dict.items():
         for polyline_id, polyline in polylines.items():
-            geometries.append(polyline.linestring)
+            geometries.append(polyline.polyline_2d.linestring)
             tokens.append(f"{line_type}_{polyline_id}")
 
     occupancy_2d = OccupancyMap2D(geometries, tokens)
@@ -258,29 +203,37 @@ def fill_lane_boundaries(
     right_boundaries = {}
 
     for lane_id, lane_polyline in polyline_dict["lane"].items():
+        current_lane_token = f"lane_{lane_id}"
+        lane_polyline_se2 = lane_polyline_se2_dict[current_lane_token]
+
+        # 1. sample poses along centerline
+        num_samples = int(lane_polyline.length / BOUNDARY_STEP_SIZE) + 1
+
+        distances_se2 = np.linspace(0, lane_polyline_se2.length, num_samples, endpoint=True)
+        lane_queries_se2 = [
+            PoseSE2.from_array(pose_se2_array) for pose_se2_array in lane_polyline_se2.interpolate(distances_se2)
+        ]
+        distances_3d = np.linspace(0, lane_polyline.length, num_samples, endpoint=True)
+        lane_queries_3d = [
+            Point3D.from_array(point_3d_array) for point_3d_array in lane_polyline.interpolate(distances_3d)
+        ]
+        assert len(lane_queries_se2) == len(lane_queries_3d), (
+            f"Number of sampled SE2 poses {len(lane_queries_se2)} and 3D points {len(lane_queries_3d)} must be the same"
+        )
+
         for sign in [1.0, -1.0]:
             boundary_points_3d: List[Optional[Point3D]] = []
-            lane_queries_se2 = ray_starts_se2_dict[lane_id]
-            lane_queries_3d = ray_starts_3d_dict[lane_id]
-            current_lane_token = f"lane_{lane_id}"
-
-            ray_perpendicular_hits = _collect_all_perpendicular_hits(
-                ray_starts_se2=lane_queries_se2,
-                lane_token=current_lane_token,
-                polyline_dict=polyline_dict,
-                lane_polyline_se2_dict=lane_polyline_se2_dict,
-                occupancy_2d=occupancy_2d,
-                sign=sign,
-            )
-
-            for ray_idx, (lane_query_se2_, lane_query_3d_) in enumerate(zip(lane_queries_se2, lane_queries_3d)):
-                lane_query_se2 = PoseSE2.from_array(lane_query_se2_, copy=False)
-                lane_query_3d = Point3D.from_array(lane_query_3d_, copy=False)
-
-                perpendicular_hits = ray_perpendicular_hits[ray_idx]
+            for lane_query_se2, lane_query_3d in zip(lane_queries_se2, lane_queries_3d):
+                perpendicular_hits = _collect_perpendicular_hits(
+                    lane_query_se2=lane_query_se2,
+                    lane_token=current_lane_token,
+                    polyline_dict=polyline_dict,
+                    lane_polyline_se2_dict=lane_polyline_se2_dict,
+                    occupancy_2d=occupancy_2d,
+                    sign=sign,
+                )
                 perpendicular_hits = _filter_perpendicular_hits(
-                    perpendicular_hits=perpendicular_hits,
-                    lane_point_3d=lane_query_3d,
+                    perpendicular_hits=perpendicular_hits, lane_point_3d=lane_query_3d
                 )
 
                 boundary_point_3d: Optional[Point3D] = None
@@ -343,23 +296,20 @@ def fill_lane_boundaries(
                 return Point3D(boundary_point_se2.x, boundary_point_se2.y, lane_query_3d.z)
 
             if no_boundary_ratio > 0.8:
-                for lane_query_se2_, lane_query_3d_ in zip(lane_queries_se2, lane_queries_3d):
-                    lane_query_se2 = PoseSE2.from_array(lane_query_se2_, copy=False)
-                    lane_query_3d = Point3D.from_array(lane_query_3d_, copy=False)
+                for lane_query_se2, lane_query_3d in zip(lane_queries_se2, lane_queries_3d):
                     boundary_point_3d = _get_default_boundary_point_3d(lane_query_se2, lane_query_3d, sign)
                     final_boundary_points_3d.append(boundary_point_3d.array)
 
             else:
-                for boundary_idx, (lane_query_se2_, lane_query_3d_) in enumerate(
-                    zip(lane_queries_se2, lane_queries_3d)
-                ):
-                    lane_query_se2 = PoseSE2.from_array(lane_query_se2_, copy=False)
-                    lane_query_3d = Point3D.from_array(lane_query_3d_, copy=False)
+                for boundary_idx, (lane_query_se2, lane_query_3d) in enumerate(zip(lane_queries_se2, lane_queries_3d)):
                     if boundary_points_3d[boundary_idx] is None:
                         boundary_point_3d = _get_default_boundary_point_3d(lane_query_se2, lane_query_3d, sign)
                     else:
                         boundary_point_3d = boundary_points_3d[boundary_idx]
                     final_boundary_points_3d.append(boundary_point_3d.array)
+
+                # # 2. If no boundary point was found, use the lane query point as the boundary point
+                # if boundary_point_3d is None:
 
             if len(final_boundary_points_3d) > 1:
                 if sign == 1.0:

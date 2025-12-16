@@ -21,7 +21,7 @@ def get_lidar_pc_color(
 
     lidar_xyz = lidar_pc[:, lidar_index.XYZ]
     if feature == "none":
-        colors_rgb = np.zeros((len(lidar_xyz), 3), dtype=np.uin8)
+        colors_rgb = np.zeros((len(lidar_xyz), 3), dtype=np.uint8)
     else:
         if feature == "distance":
             color_intensities = np.linalg.norm(lidar_xyz, axis=-1)
