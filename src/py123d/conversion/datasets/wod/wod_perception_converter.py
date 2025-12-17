@@ -105,9 +105,9 @@ class WODPerceptionConverter(AbstractDatasetConverter):
 
         split_tf_record_pairs: List[Tuple[str, Path]] = []
         split_name_mapping: Dict[str, str] = {
-            "wodp_train": "training",
-            "wodp_val": "validation",
-            "wodp_test": "testing",
+            "wod-perception_train": "training",
+            "wod-perception_val": "validation",
+            "wod-perception_test": "testing",
         }
 
         for split in self._splits:
@@ -135,7 +135,7 @@ class WODPerceptionConverter(AbstractDatasetConverter):
         map_metadata = _get_wodp_map_metadata(initial_frame, split)
         map_needs_writing = map_writer.reset(self.dataset_converter_config, map_metadata)
         if map_needs_writing:
-            convert_wod_map(initial_frame, map_writer)
+            convert_wod_map(initial_frame.map_features, map_writer)  # type: ignore
 
         map_writer.close()
 
@@ -189,9 +189,9 @@ class WODPerceptionConverter(AbstractDatasetConverter):
 
                     log_writer.write(
                         timestamp=TimePoint.from_us(frame.timestamp_micros),
-                        ego_state=_extract_wodp_ego_state(frame, map_pose_offset),  #  type: ignore
+                        ego_state=_extract_wodp_ego_state(frame, map_pose_offset),
                         box_detections=_extract_wodp_box_detections(frame, map_pose_offset, self._zero_roll_pitch),
-                        traffic_lights=None,  # TODO: Check if WODP has traffic light information
+                        traffic_lights=None,  # NOTE: traffic lights are in the map proto, but only found in motion dataset.
                         pinhole_cameras=_extract_wodp_cameras(frame, self.dataset_converter_config),
                         lidars=_extract_wodp_lidars(
                             frame,
@@ -256,6 +256,7 @@ def _get_wodp_camera_metadata(
             distortion = PinholeDistortion(k1=k1, k2=k2, p1=p1, p2=p2, k3=k3)
             if camera_type in WODP_CAMERA_TYPES.values():
                 camera_metadata_dict[camera_type] = PinholeCameraMetadata(
+                    camera_name=str(calibration.name),
                     camera_type=camera_type,
                     width=calibration.width,
                     height=calibration.height,
@@ -283,6 +284,7 @@ def _get_wodp_lidar_metadata(
                 extrinsic = PoseSE3.from_transformation_matrix(extrinsic_transform)
 
             laser_metadatas[lidar_type] = LiDARMetadata(
+                lidar_name=str(laser_calibration.name),
                 lidar_type=lidar_type,
                 lidar_index=lidar_index,
                 extrinsic=extrinsic,
@@ -299,7 +301,7 @@ def _get_ego_pose_se3(frame: dataset_pb2.Frame, map_pose_offset: Vector3D) -> Po
     return ego_pose_se3
 
 
-def _extract_wodp_ego_state(frame: dataset_pb2.Frame, map_pose_offset: Vector3D) -> List[float]:
+def _extract_wodp_ego_state(frame: dataset_pb2.Frame, map_pose_offset: Vector3D) -> EgoStateSE3:
     """Extracts the ego state from a WODP frame."""
     rear_axle_pose = _get_ego_pose_se3(frame, map_pose_offset)
 
@@ -391,7 +393,7 @@ def _extract_wodp_cameras(
     if dataset_converter_config.include_pinhole_cameras:
         # NOTE @DanielDauner: The extrinsic matrix in frame.context.camera_calibration is fixed to model the ego to camera transformation.
         # The poses in frame.images[idx] are the motion compensated ego poses when the camera triggers.
-        camera_extrinsic: Dict[str, PoseSE3] = {}
+        camera_extrinsic: Dict[PinholeCameraType, PoseSE3] = {}
         for calibration in frame.context.camera_calibrations:
             camera_type = WODP_CAMERA_TYPES[calibration.name]
             camera_transform = np.array(calibration.extrinsic.transform, dtype=np.float64).reshape(4, 4)
@@ -407,11 +409,16 @@ def _extract_wodp_cameras(
 
         for image_proto in frame.images:
             camera_type = WODP_CAMERA_TYPES[image_proto.name]
+
+            # NOTE @DanielDauner: We store the pose_timestamp of each camera. WOD-Perception also provides:
+            # {shutter, camera_trigger_time, camera_readout_done_time}
             camera_data_list.append(
                 CameraData(
+                    camera_name=str(image_proto.name),
                     camera_type=camera_type,
                     extrinsic=camera_extrinsic[camera_type],
                     jpeg_binary=image_proto.image,
+                    timestamp=TimePoint.from_s(image_proto.pose_timestamp),
                 )
             )
 
@@ -425,7 +432,7 @@ def _extract_wodp_lidars(
     dataset_converter_config: DatasetConverterConfig,
     absolute_tf_record_path: Path,
     wodp_data_root: Path,
-) -> Dict[LiDARType, npt.NDArray[np.float32]]:
+) -> List[LiDARData]:
     """Extracts the LiDAR data from a WODP frame."""
 
     lidars: List[LiDARData] = []
@@ -433,6 +440,7 @@ def _extract_wodp_lidars(
         relative_path = absolute_tf_record_path.relative_to(wodp_data_root)
         lidars.append(
             LiDARData(
+                lidar_name=LiDARType.LIDAR_MERGED.serialize(),
                 lidar_type=LiDARType.LIDAR_MERGED,
                 iteration=frame_idx,
                 dataset_root=wodp_data_root,

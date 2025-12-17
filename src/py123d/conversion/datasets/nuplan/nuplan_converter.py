@@ -39,6 +39,7 @@ from py123d.datatypes.sensors import (
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
+    lidar,
 )
 from py123d.datatypes.time import TimePoint
 from py123d.datatypes.vehicle_state import DynamicStateSE3, EgoStateSE3
@@ -255,23 +256,24 @@ def _get_nuplan_camera_metadata(
     """Extracts the nuPlan camera metadata for a given log."""
 
     def _get_camera_metadata(camera_type: PinholeCameraType) -> PinholeCameraMetadata:
-        cam = list(get_cameras(source_log_path, [str(NUPLAN_CAMERA_MAPPING[camera_type].value)]))[0]
+        cam = list(get_cameras(str(source_log_path), [str(NUPLAN_CAMERA_MAPPING[camera_type].value)]))[0]
 
-        intrinsics_camera_matrix = np.array(pickle.loads(cam.intrinsic), dtype=np.float64)  # array of shape (3, 3)
+        intrinsics_camera_matrix = np.array(pickle.loads(cam.intrinsic), dtype=np.float64)  # type: ignore  # array of shape (3, 3)
         intrinsic = PinholeIntrinsics.from_camera_matrix(intrinsics_camera_matrix)
 
-        distortion_array = np.array(pickle.loads(cam.distortion), dtype=np.float64)  # array of shape (5,)
+        distortion_array = np.array(pickle.loads(cam.distortion), dtype=np.float64)  # type: ignore  # array of shape (5,)
         distortion = PinholeDistortion.from_array(distortion_array, copy=False)
 
         return PinholeCameraMetadata(
+            camera_name=str(NUPLAN_CAMERA_MAPPING[camera_type].value),
             camera_type=camera_type,
-            width=cam.width,
-            height=cam.height,
+            width=cam.width,  # type: ignore
+            height=cam.height,  # type: ignore
             intrinsics=intrinsic,
             distortion=distortion,
         )
 
-    camera_metadata: Dict[str, PinholeCameraMetadata] = {}
+    camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
     if dataset_converter_config.include_pinhole_cameras:
         log_name = source_log_path.stem
         for camera_type, nuplan_camera_type in NUPLAN_CAMERA_MAPPING.items():
@@ -294,6 +296,7 @@ def _get_nuplan_lidar_metadata(
     if log_lidar_folder.exists() and log_lidar_folder.is_dir() and dataset_converter_config.include_lidars:
         for lidar_type in NUPLAN_LIDAR_DICT.values():
             metadata[lidar_type] = LiDARMetadata(
+                lidar_name=lidar_type.serialize(),  # NOTE: nuPlan does not have specific names for the LiDARs
                 lidar_type=lidar_type,
                 lidar_index=NuPlanLiDARIndex,
                 extrinsic=None,  # NOTE: LiDAR extrinsic are unknown
@@ -343,7 +346,7 @@ def _extract_nuplan_box_detections(lidar_pc: LidarPc, source_log_path: Path) -> 
     box_detections: List[BoxDetectionSE3] = get_box_detections_for_lidarpc_token_from_db(
         str(source_log_path), lidar_pc.token
     )
-    return BoxDetectionWrapper(box_detections=box_detections)
+    return BoxDetectionWrapper(box_detections=box_detections)  # type: ignore
 
 
 def _extract_nuplan_traffic_lights(log_db: NuPlanDB, lidar_pc_token: str) -> TrafficLightDetectionWrapper:
@@ -404,10 +407,12 @@ def _extract_nuplan_cameras(
                     # Store in dictionary
                     camera_data_list.append(
                         CameraData(
+                            camera_name=str(camera_channel.value),
                             camera_type=camera_type,
                             extrinsic=extrinsic,
                             dataset_root=nuplan_sensor_root,
                             relative_path=filename_jpg.relative_to(nuplan_sensor_root),
+                            timestamp=TimePoint.from_us(image.timestamp),  # type: ignore
                         )
                     )
     return camera_data_list
@@ -425,6 +430,7 @@ def _extract_nuplan_lidars(
         if lidar_full_path.exists() and lidar_full_path.is_file():
             lidars.append(
                 LiDARData(
+                    lidar_name=LiDARType.LIDAR_MERGED.serialize(),
                     lidar_type=LiDARType.LIDAR_MERGED,
                     dataset_root=nuplan_sensor_root,
                     relative_path=nuplan_lidar_pc.filename,

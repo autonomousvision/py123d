@@ -18,9 +18,11 @@ from py123d.common.utils.arrow_column_names import (
     EGO_STATE_SE3_COLUMNS,
     FISHEYE_CAMERA_DATA_COLUMN,
     FISHEYE_CAMERA_EXTRINSIC_COLUMN,
+    FISHEYE_CAMERA_TIMESTAMP_COLUMN,
     LIDAR_DATA_COLUMN,
     PINHOLE_CAMERA_DATA_COLUMN,
     PINHOLE_CAMERA_EXTRINSIC_COLUMN,
+    PINHOLE_CAMERA_TIMESTAMP_COLUMN,
     ROUTE_LANE_GROUP_IDS_COLUMN,
     SCENARIO_TAGS_COLUMN,
     TIMESTAMP_US_COLUMN,
@@ -216,13 +218,16 @@ def get_camera_from_arrow_table(
     if is_pinhole:
         camera_data_column = PINHOLE_CAMERA_DATA_COLUMN(camera_name)
         camera_extrinsic_column = PINHOLE_CAMERA_EXTRINSIC_COLUMN(camera_name)
+        camera_timestamp_column = PINHOLE_CAMERA_TIMESTAMP_COLUMN(camera_name)
     else:
         camera_data_column = FISHEYE_CAMERA_DATA_COLUMN(camera_name)
         camera_extrinsic_column = FISHEYE_CAMERA_EXTRINSIC_COLUMN(camera_name)
+        camera_timestamp_column = FISHEYE_CAMERA_TIMESTAMP_COLUMN(camera_name)
 
-    if _all_columns_in_schema(arrow_table, [camera_data_column, camera_extrinsic_column]):
+    if _all_columns_in_schema(arrow_table, [camera_data_column, camera_extrinsic_column, camera_timestamp_column]):
         table_data = arrow_table[camera_data_column][index].as_py()
         extrinsic_data = arrow_table[camera_extrinsic_column][index].as_py()
+        timestamp_data = arrow_table[camera_timestamp_column][index].as_py()
 
         if table_data is not None and extrinsic_data is not None:
             extrinsic = PoseSE3.from_list(extrinsic_data)
@@ -258,6 +263,7 @@ def get_camera_from_arrow_table(
                     metadata=camera_metadata,
                     image=image,
                     extrinsic=extrinsic,
+                    timestamp=TimePoint.from_us(timestamp_data),
                 )
             else:
                 camera_metadata = log_metadata.fisheye_mei_camera_metadata[camera_type]
@@ -265,6 +271,7 @@ def get_camera_from_arrow_table(
                     metadata=camera_metadata,
                     image=image,
                     extrinsic=extrinsic,
+                    timestamp=TimePoint.from_us(timestamp_data),
                 )
 
     return camera
@@ -307,6 +314,7 @@ def get_lidar_from_arrow_table(
                 merged_pc = np.vstack(list(lidar_pc_dict.values()))
                 lidar = LiDAR(
                     metadata=LiDARMetadata(
+                        lidar_name=LiDARType.LIDAR_MERGED.serialize(),
                         lidar_type=LiDARType.LIDAR_MERGED,
                         lidar_index=DefaultLiDARIndex,
                         extrinsic=None,

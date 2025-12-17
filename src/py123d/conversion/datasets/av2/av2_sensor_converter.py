@@ -194,6 +194,7 @@ def _get_av2_pinhole_camera_metadata(
             row = row.to_dict()
             camera_type = AV2_CAMERA_TYPE_MAPPING[row["sensor_name"]]
             pinhole_camera_metadata[camera_type] = PinholeCameraMetadata(
+                camera_name=str(row["sensor_name"]),
                 camera_type=camera_type,
                 width=row["width_px"],
                 height=row["height_px"],
@@ -219,6 +220,7 @@ def _get_av2_lidar_metadata(
 
         # top lidar:
         metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
+            lidar_name="up_lidar",
             lidar_type=LiDARType.LIDAR_TOP,
             lidar_index=AV2SensorLiDARIndex,
             extrinsic=_row_dict_to_pose_se3(
@@ -227,6 +229,7 @@ def _get_av2_lidar_metadata(
         )
         # down lidar:
         metadata[LiDARType.LIDAR_DOWN] = LiDARMetadata(
+            lidar_name="down_lidar",
             lidar_type=LiDARType.LIDAR_DOWN,
             lidar_index=AV2SensorLiDARIndex,
             extrinsic=_row_dict_to_pose_se3(
@@ -260,7 +263,7 @@ def _extract_av2_sensor_box_detections(
         detections_state[detection_idx, BoundingBoxSE3Index.XYZ] = [row["tx_m"], row["ty_m"], row["tz_m"]]
         detections_state[detection_idx, BoundingBoxSE3Index.QUATERNION] = [row["qw"], row["qx"], row["qy"], row["qz"]]
         detections_state[detection_idx, BoundingBoxSE3Index.EXTENT] = [row["length_m"], row["width_m"], row["height_m"]]
-        detections_labels.append(AV2SensorBoxDetectionLabel.deserialize(row["category"]))
+        detections_labels.append(AV2SensorBoxDetectionLabel.deserialize(row["category"]))  # type: ignore
         detections_num_lidar_points.append(int(row["num_interior_pts"]))
 
     detections_state[:, BoundingBoxSE3Index.SE3] = convert_relative_to_absolute_se3_array(
@@ -282,7 +285,7 @@ def _extract_av2_sensor_box_detections(
             )
         )
 
-    return BoxDetectionWrapper(box_detections=box_detections)
+    return BoxDetectionWrapper(box_detections=box_detections)  # type: ignore
 
 
 def _extract_av2_sensor_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_timestamp_ns: int) -> EgoStateSE3:
@@ -343,9 +346,12 @@ def _extract_av2_sensor_pinhole_cameras(
             if relative_image_path is not None:
                 absolute_image_path = av2_sensor_data_root / relative_image_path
                 assert absolute_image_path.exists()
+                timestamp_ns_str = absolute_image_path.stem
 
                 camera_data = CameraData(
+                    camera_name=str(pinhole_camera_name),
                     camera_type=pinhole_camera_type,
+                    timestamp=TimePoint.from_ns(int(timestamp_ns_str)),
                     extrinsic=_row_dict_to_pose_se3(row),
                     dataset_root=av2_sensor_data_root,
                     relative_path=relative_image_path,
@@ -370,6 +376,7 @@ def _extract_av2_sensor_lidars(
         assert lidar_feather_path.exists(), f"LiDAR feather file not found: {lidar_feather_path}"
 
         lidar_data = LiDARData(
+            lidar_name=LiDARType.LIDAR_MERGED.serialize(),
             lidar_type=LiDARType.LIDAR_MERGED,
             dataset_root=av2_sensor_data_root,
             relative_path=relative_feather_path,

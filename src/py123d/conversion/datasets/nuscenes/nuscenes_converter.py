@@ -265,6 +265,7 @@ def _get_nuscenes_pinhole_camera_metadata(
             intrinsic = PinholeIntrinsics.from_camera_matrix(intrinsic_matrix)
             distortion = PinholeDistortion.from_array(np.zeros(5), copy=False)
             camera_metadata[camera_type] = PinholeCameraMetadata(
+                camera_name=camera_channel,
                 camera_type=camera_type,
                 width=cam_data["width"],
                 height=cam_data["height"],
@@ -294,6 +295,7 @@ def _get_nuscenes_lidar_metadata(
         extrinsic[:3, 3] = translation
         extrinsic = PoseSE3.from_transformation_matrix(extrinsic)
         metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
+            lidar_name="LIDAR_TOP",
             lidar_type=LiDARType.LIDAR_TOP,
             lidar_index=NuScenesLiDARIndex,
             extrinsic=extrinsic,
@@ -407,7 +409,7 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
             velocity_3d=velocity_3d,
         )
         box_detections.append(box_detection)
-    return BoxDetectionWrapper(box_detections=box_detections)
+    return BoxDetectionWrapper(box_detections=box_detections)  # type: ignore
 
 
 def _extract_nuscenes_cameras(
@@ -440,10 +442,12 @@ def _extract_nuscenes_cameras(
             if cam_path.exists() and cam_path.is_file():
                 camera_data_list.append(
                     CameraData(
+                        camera_name=camera_channel,
                         camera_type=camera_type,
                         extrinsic=extrinsic,
                         relative_path=cam_path.relative_to(nuscenes_data_root),
                         dataset_root=nuscenes_data_root,
+                        timestamp=TimePoint.from_us(cam_data["timestamp"]),
                     )
                 )
 
@@ -464,6 +468,7 @@ def _extract_nuscenes_lidars(
         absolute_lidar_path = nuscenes_data_root / lidar_data["filename"]
         if absolute_lidar_path.exists() and absolute_lidar_path.is_file():
             lidar = LiDARData(
+                lidar_name="LIDAR_TOP",
                 lidar_type=LiDARType.LIDAR_TOP,
                 relative_path=absolute_lidar_path.relative_to(nuscenes_data_root),
                 dataset_root=nuscenes_data_root,

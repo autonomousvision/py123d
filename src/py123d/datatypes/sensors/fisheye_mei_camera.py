@@ -9,6 +9,7 @@ import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
+from py123d.datatypes.time import TimePoint
 from py123d.geometry.pose import PoseSE3
 
 
@@ -25,13 +26,14 @@ class FisheyeMEICameraType(SerialIntEnum):
 class FisheyeMEICamera:
     """Fisheye MEI camera data structure."""
 
-    __slots__ = ("_metadata", "_image", "_extrinsic")
+    __slots__ = ("_metadata", "_image", "_extrinsic", "_timestamp")
 
     def __init__(
         self,
         metadata: FisheyeMEICameraMetadata,
         image: npt.NDArray[np.uint8],
         extrinsic: PoseSE3,
+        timestamp: Optional[TimePoint] = None,
     ) -> None:
         """Initialize a Fisheye MEI camera.
 
@@ -42,6 +44,7 @@ class FisheyeMEICamera:
         self._metadata = metadata
         self._image = image
         self._extrinsic = extrinsic
+        self._timestamp = timestamp
 
     @property
     def metadata(self) -> FisheyeMEICameraMetadata:
@@ -57,6 +60,11 @@ class FisheyeMEICamera:
     def extrinsic(self) -> PoseSE3:
         """Extrinsic :class:`~py123d.geometry.PoseSE3` of the camera."""
         return self._extrinsic
+
+    @property
+    def timestamp(self) -> Optional[TimePoint]:
+        """Timestamp of the camera image."""
+        return self._timestamp
 
 
 class FisheyeMEIDistortionIndex(IntEnum):
@@ -225,10 +233,11 @@ class FisheyeMEIProjection(ArrayMixin):
 class FisheyeMEICameraMetadata:
     """Metadata for a fisheye MEI camera."""
 
-    __slots__ = ("_camera_type", "_mirror_parameter", "_distortion", "_projection", "_width", "_height")
+    __slots__ = ("_camera_name", "_camera_type", "_mirror_parameter", "_distortion", "_projection", "_width", "_height")
 
     def __init__(
         self,
+        camera_name: str,
         camera_type: FisheyeMEICameraType,
         mirror_parameter: Optional[float],
         distortion: Optional[FisheyeMEIDistortion],
@@ -238,6 +247,7 @@ class FisheyeMEICameraMetadata:
     ) -> None:
         """Initialize the fisheye MEI camera metadata.
 
+        :param camera_name: Name of the fisheye MEI camera, according to the dataset naming convention.
         :param camera_type: Type of the fisheye MEI camera.
         :param mirror_parameter: Mirror parameter of the camera model.
         :param distortion: Distortion parameters of the camera.
@@ -245,6 +255,7 @@ class FisheyeMEICameraMetadata:
         :param width: Width of the camera image in pixels.
         :param height: Height of the camera image in pixels.
         """
+        self._camera_name = camera_name
         self._camera_type = camera_type
         self._mirror_parameter = mirror_parameter
         self._distortion = distortion
@@ -271,6 +282,11 @@ class FisheyeMEICameraMetadata:
             else None
         )
         return FisheyeMEICameraMetadata(**data_dict)
+
+    @property
+    def camera_name(self) -> str:
+        """The name of the fisheye MEI camera, according to the dataset naming convention."""
+        return self._camera_name
 
     @property
     def camera_type(self) -> FisheyeMEICameraType:
@@ -303,8 +319,9 @@ class FisheyeMEICameraMetadata:
         :return: A dictionary representation of the camera metadata.
         """
         data_dict: Dict[str, Any] = {}
-        data_dict["mirror_parameter"] = self._mirror_parameter
+        data_dict["camera_name"] = self._camera_name
         data_dict["camera_type"] = int(self._camera_type)
+        data_dict["mirror_parameter"] = self._mirror_parameter
         data_dict["distortion"] = self._distortion.array.tolist() if self._distortion is not None else None
         data_dict["projection"] = self._projection.array.tolist() if self._projection is not None else None
         data_dict["width"] = self._width
@@ -344,4 +361,4 @@ class FisheyeMEICameraMetadata:
         x = gamma1 * x + u0
         y = gamma2 * y + v0
 
-        return x, y, norm * points_3d[:, 2] / np.abs(points_3d[:, 2])
+        return x, y, norm * points_3d[:, 2] / np.abs(points_3d[:, 2])  # type: ignore

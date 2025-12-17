@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Dict
+from typing import Dict, Type
 
 from py123d.common.utils.enums import classproperty
 
-LIDAR_INDEX_REGISTRY: Dict[str, LiDARIndex] = {}
+LIDAR_INDEX_REGISTRY: Dict[str, Type[LiDARIndex]] = {}
 
 
 def register_lidar_index(enum_class):

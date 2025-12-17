@@ -3,7 +3,7 @@ from typing import Callable, Final, List
 # Essential Columns
 # ----------------------------------------------------------------------------------------------------------------------
 UUID_COLUMN: Final[str] = "uuid"
-TIMESTAMP_US_COLUMN: Final[str] = "timestamp.us"
+TIMESTAMP_US_COLUMN: Final[str] = "timestamp_us"
 
 # Ego State SE3
 # ----------------------------------------------------------------------------------------------------------------------
@@ -49,6 +49,7 @@ TRAFFIC_LIGHTS_COLUMNS: Final[List[str]] = [
 PINHOLE_PREFIX: Final[str] = "pinhole"
 PINHOLE_CAMERA_DATA_COLUMN: Callable[[str], str] = lambda name: f"{PINHOLE_PREFIX}.{name}.data"
 PINHOLE_CAMERA_EXTRINSIC_COLUMN: Callable[[str], str] = lambda name: f"{PINHOLE_PREFIX}.{name}.state_se3"
+PINHOLE_CAMERA_TIMESTAMP_COLUMN: Callable[[str], str] = lambda name: f"{PINHOLE_PREFIX}.{name}.timestamp_us"
 
 PINHOLE_CAMERA_COLUMNS: Callable[[str], List[str]] = lambda name: [
     PINHOLE_CAMERA_DATA_COLUMN(name),
@@ -61,6 +62,7 @@ PINHOLE_CAMERA_COLUMNS: Callable[[str], List[str]] = lambda name: [
 FISHEYE_PREFIX: Final[str] = "fisheye_mei"
 FISHEYE_CAMERA_DATA_COLUMN: Callable[[str], str] = lambda name: f"{FISHEYE_PREFIX}.{name}.data"
 FISHEYE_CAMERA_EXTRINSIC_COLUMN: Callable[[str], str] = lambda name: f"{FISHEYE_PREFIX}.{name}.state_se3"
+FISHEYE_CAMERA_TIMESTAMP_COLUMN: Callable[[str], str] = lambda name: f"{FISHEYE_PREFIX}.{name}.timestamp_us"
 
 FISHEYE_CAMERA_COLUMNS: Callable[[str], List[str]] = lambda name: [
     FISHEYE_CAMERA_DATA_COLUMN(name),
