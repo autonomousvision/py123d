@@ -64,8 +64,8 @@ def collect_element_helpers(
     _update_connection_from_links(lane_helper_dict, road_dict)
     # 3.2. From junctions
     _update_connection_from_junctions(lane_helper_dict, junction_dict, road_dict)
-    # 3.3. Flip the connections to align to the lane direction
-    _flip_and_set_connections(lane_helper_dict)
+    # 3.3. Deduplicate connections
+    _deduplicate_connections(lane_helper_dict)
     # 3.4. Remove invalid connections based on centerline distances
     _post_process_connections(lane_helper_dict, connection_distance_threshold)
 
@@ -94,6 +94,7 @@ def _update_connection_from_links(
         road_idx, lane_section_idx, lane_idx = int(road_idx), int(lane_section_idx), int(lane_idx)
 
         road = road_dict[road_idx]
+        is_positive_lane = lane_idx > 0
 
         successor_lane_idx = lane_helper_dict[lane_id].open_drive_lane.successor
         if successor_lane_idx is not None:
@@ -123,9 +124,15 @@ def _update_connection_from_links(
 
             # assert successor_lane_id in lane_helper_dict.keys()
             if successor_lane_id is None or successor_lane_id not in lane_helper_dict.keys():
-                continue
-            lane_helper_dict[lane_id].successor_lane_ids.append(successor_lane_id)
-            lane_helper_dict[successor_lane_id].predecessor_lane_ids.append(lane_id)
+                pass  # No valid successor, continue to predecessor check
+            elif is_positive_lane:
+                # Positive lanes travel opposite to s, so s-successor is traffic-predecessor
+                lane_helper_dict[lane_id].predecessor_lane_ids.append(successor_lane_id)
+                lane_helper_dict[successor_lane_id].successor_lane_ids.append(lane_id)
+            else:
+                # Negative lanes travel in s direction, so s-successor is traffic-successor
+                lane_helper_dict[lane_id].successor_lane_ids.append(successor_lane_id)
+                lane_helper_dict[successor_lane_id].predecessor_lane_ids.append(lane_id)
 
         predecessor_lane_idx = lane_helper_dict[lane_id].open_drive_lane.predecessor
         if predecessor_lane_idx is not None:
@@ -157,9 +164,15 @@ def _update_connection_from_links(
 
             # assert predecessor_lane_id in lane_helper_dict.keys()
             if predecessor_lane_id is None or predecessor_lane_id not in lane_helper_dict.keys():
-                continue
-            lane_helper_dict[lane_id].predecessor_lane_ids.append(predecessor_lane_id)
-            lane_helper_dict[predecessor_lane_id].successor_lane_ids.append(lane_id)
+                pass  # No valid predecessor
+            elif is_positive_lane:
+                # Positive lanes travel opposite to s, so s-predecessor is traffic-successor
+                lane_helper_dict[lane_id].successor_lane_ids.append(predecessor_lane_id)
+                lane_helper_dict[predecessor_lane_id].predecessor_lane_ids.append(lane_id)
+            else:
+                # Negative lanes travel in s direction, so s-predecessor is traffic-predecessor
+                lane_helper_dict[lane_id].predecessor_lane_ids.append(predecessor_lane_id)
+                lane_helper_dict[predecessor_lane_id].successor_lane_ids.append(lane_id)
 
 
 def _update_connection_from_junctions(
@@ -210,17 +223,13 @@ def _update_connection_from_junctions(
                 lane_helper_dict[connecting_lane_id].predecessor_lane_ids.append(incoming_lane_id)
 
 
-def _flip_and_set_connections(lane_helper_dict: Dict[str, OpenDriveLaneHelper]) -> None:
+def _deduplicate_connections(lane_helper_dict: Dict[str, OpenDriveLaneHelper]) -> None:
     """
-    Helper function to flip the connections of the lane helpers, to align them with the lane direction
+    Helper function to deduplicate connections.
     :param lane_helper_dict: Dictionary mapping lane ids to their helper objects.
     """
 
     for lane_id in lane_helper_dict.keys():  # noqa: PLC0206
-        if lane_helper_dict[lane_id].id > 0:
-            successors_temp = lane_helper_dict[lane_id].successor_lane_ids
-            lane_helper_dict[lane_id].successor_lane_ids = lane_helper_dict[lane_id].predecessor_lane_ids
-            lane_helper_dict[lane_id].predecessor_lane_ids = successors_temp
         lane_helper_dict[lane_id].successor_lane_ids = list(set(lane_helper_dict[lane_id].successor_lane_ids))
         lane_helper_dict[lane_id].predecessor_lane_ids = list(set(lane_helper_dict[lane_id].predecessor_lane_ids))
 
