@@ -7,6 +7,8 @@ from py123d.geometry import PoseSE3
 
 
 class TestLiDARType:
+    """Test LiDARType enum functionality."""
+
     def test_lidar_type_enum_values(self):
         """Test that LiDARType enum has correct values."""
         assert LiDARType.LIDAR_UNKNOWN.value == 0
@@ -51,8 +53,12 @@ class TestLiDARType:
 
 
 class TestLiDARMetadata:
+    """Test LiDARMetadata functionality."""
+
     def setup_method(self):
         """Set up test fixtures."""
+
+        self.lidar_name = "TestLiDAR"
 
         # Get a lidar index class from registry (assuming at least one exists)
         self.lidar_index_class = next(iter(LIDAR_INDEX_REGISTRY.values()))
@@ -62,6 +68,7 @@ class TestLiDARMetadata:
     def test_lidar_metadata_creation_with_extrinsic(self):
         """Test creating LiDARMetadata with extrinsic."""
         metadata = LiDARMetadata(
+            lidar_name=self.lidar_name,
             lidar_type=self.lidar_type,
             lidar_index=self.lidar_index_class,
             extrinsic=self.extrinsic,
@@ -72,7 +79,11 @@ class TestLiDARMetadata:
 
     def test_lidar_metadata_creation_without_extrinsic(self):
         """Test creating LiDARMetadata without extrinsic."""
-        metadata = LiDARMetadata(lidar_type=self.lidar_type, lidar_index=self.lidar_index_class)
+        metadata = LiDARMetadata(
+            lidar_name=self.lidar_name,
+            lidar_type=self.lidar_type,
+            lidar_index=self.lidar_index_class,
+        )
         assert metadata.lidar_type == self.lidar_type
         assert metadata.lidar_index == self.lidar_index_class
         assert metadata.extrinsic is None
@@ -80,6 +91,7 @@ class TestLiDARMetadata:
     def test_lidar_metadata_to_dict_with_extrinsic(self):
         """Test serializing LiDARMetadata to dict with extrinsic."""
         metadata = LiDARMetadata(
+            lidar_name=self.lidar_name,
             lidar_type=self.lidar_type,
             lidar_index=self.lidar_index_class,
             extrinsic=self.extrinsic,
@@ -92,7 +104,11 @@ class TestLiDARMetadata:
 
     def test_lidar_metadata_to_dict_without_extrinsic(self):
         """Test serializing LiDARMetadata to dict without extrinsic."""
-        metadata = LiDARMetadata(lidar_type=self.lidar_type, lidar_index=self.lidar_index_class)
+        metadata = LiDARMetadata(
+            lidar_name=self.lidar_name,
+            lidar_type=self.lidar_type,
+            lidar_index=self.lidar_index_class,
+        )
         data_dict = metadata.to_dict()
         assert data_dict["lidar_type"] == self.lidar_type.name
         assert data_dict["lidar_index"] == self.lidar_index_class.__name__
@@ -101,6 +117,7 @@ class TestLiDARMetadata:
     def test_lidar_metadata_from_dict_with_extrinsic(self):
         """Test deserializing LiDARMetadata from dict with extrinsic."""
         data_dict = {
+            "lidar_name": self.lidar_name,
             "lidar_type": self.lidar_type.name,
             "lidar_index": self.lidar_index_class.__name__,
             "extrinsic": [1.0, 2.0, 3.0, 0.0, 0.0, 0.0, 1.0],
@@ -113,6 +130,7 @@ class TestLiDARMetadata:
     def test_lidar_metadata_from_dict_without_extrinsic(self):
         """Test deserializing LiDARMetadata from dict without extrinsic."""
         data_dict = {
+            "lidar_name": self.lidar_name,
             "lidar_type": self.lidar_type.name,
             "lidar_index": self.lidar_index_class.__name__,
             "extrinsic": None,
@@ -125,6 +143,7 @@ class TestLiDARMetadata:
     def test_lidar_metadata_roundtrip_with_extrinsic(self):
         """Test roundtrip serialization/deserialization with extrinsic."""
         metadata = LiDARMetadata(
+            lidar_name=self.lidar_name,
             lidar_type=self.lidar_type,
             lidar_index=self.lidar_index_class,
             extrinsic=self.extrinsic,
@@ -136,7 +155,11 @@ class TestLiDARMetadata:
 
     def test_lidar_metadata_roundtrip_without_extrinsic(self):
         """Test roundtrip serialization/deserialization without extrinsic."""
-        metadata = LiDARMetadata(lidar_type=self.lidar_type, lidar_index=self.lidar_index_class)
+        metadata = LiDARMetadata(
+            lidar_name=self.lidar_name,
+            lidar_type=self.lidar_type,
+            lidar_index=self.lidar_index_class,
+        )
         data_dict = metadata.to_dict()
         restored_metadata = LiDARMetadata.from_dict(data_dict)
         assert restored_metadata.lidar_type == metadata.lidar_type
@@ -151,6 +174,8 @@ class TestLiDARMetadata:
 
 
 class TestLiDAR:
+    """Test LiDAR functionality."""
+
     def setup_method(self):
         """Set up test fixtures."""
         # Get a lidar index class from registry
@@ -160,6 +185,7 @@ class TestLiDAR:
 
         for lidar_index_name, lidar_index_class in LIDAR_INDEX_REGISTRY.items():
             metadata = LiDARMetadata(
+                lidar_name=lidar_index_name,
                 lidar_type=LiDARType.LIDAR_TOP,
                 lidar_index=lidar_index_class,
                 extrinsic=self.extrinsic,
@@ -249,6 +275,7 @@ class TestLiDAR:
         """Test LiDAR with empty point cloud."""
         for lidar_index_class in LIDAR_INDEX_REGISTRY.values():
             metadata = LiDARMetadata(
+                lidar_name="EmptyLiDAR",
                 lidar_type=LiDARType.LIDAR_TOP,
                 lidar_index=lidar_index_class,
                 extrinsic=self.extrinsic,
@@ -262,6 +289,7 @@ class TestLiDAR:
         """Test LiDAR with single point."""
         for lidar_index_class in LIDAR_INDEX_REGISTRY.values():
             metadata = LiDARMetadata(
+                lidar_name="SinglePointLiDAR",
                 lidar_type=LiDARType.LIDAR_TOP,
                 lidar_index=lidar_index_class,
                 extrinsic=self.extrinsic,
