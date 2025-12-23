@@ -39,7 +39,6 @@ from py123d.datatypes.sensors import (
     PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
-    lidar,
 )
 from py123d.datatypes.time import TimePoint
 from py123d.datatypes.vehicle_state import DynamicStateSE3, EgoStateSE3
