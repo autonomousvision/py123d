@@ -5,7 +5,7 @@ import re
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, Final, List, Optional, Tuple, Union
+from typing import Any, Dict, Final, List, Tuple, Union
 
 import numpy as np
 import yaml
@@ -48,6 +48,8 @@ from py123d.geometry import BoundingBoxSE3, PoseSE3, Quaternion, Vector3D
 from py123d.geometry.transform import convert_se3_array_between_origins, translate_se3_along_body_frame
 
 KITTI360_DT: Final[float] = 0.1
+
+KITTI360_LIDAR_NAME: Final[str] = "velodyne_points"
 
 KITTI360_PINHOLE_CAMERA_TYPES = {
     PinholeCameraType.PCAM_STEREO_L: "image_00",
@@ -257,14 +259,19 @@ class Kitti360Converter(AbstractDatasetConverter):
         log_needs_writing = log_writer.reset(self.dataset_converter_config, log_metadata)
 
         if log_needs_writing:
-            ts_list: List[TimePoint] = _read_timestamps(log_name, self._kitti360_folders)
+            timestamps_dict: Dict[str, List[TimePoint]] = _read_timestamps(log_name, self._kitti360_folders)
+
+            # NOTE: We use the LiDAR timestamps as reference timestamps for the log
+            assert KITTI360_LIDAR_NAME in timestamps_dict, "LiDAR timestamps must be available."
+            lidar_timestamps = timestamps_dict[KITTI360_LIDAR_NAME]
+
             ego_state_all, valid_timestamp = _extract_ego_state_all(log_name, self._kitti360_folders)
             ego_states_xyz = np.array(
                 [ego_state.center_se3.point_3d.array[:3] for ego_state in ego_state_all], dtype=np.float64
             )
             box_detection_wrapper_all = _extract_kitti360_box_detections_all(
                 log_name,
-                len(ts_list),
+                len(lidar_timestamps),
                 ego_states_xyz,
                 valid_timestamp,
                 self._kitti360_folders,
@@ -281,6 +288,7 @@ class Kitti360Converter(AbstractDatasetConverter):
                     log_name,
                     valid_idx,
                     camera_calibration,
+                    timestamps_dict,
                     self._kitti360_folders,
                     self.dataset_converter_config,
                 )
@@ -288,6 +296,7 @@ class Kitti360Converter(AbstractDatasetConverter):
                     log_name,
                     valid_idx,
                     camera_calibration,
+                    timestamps_dict,
                     self._kitti360_folders,
                     self.dataset_converter_config,
                 )
@@ -299,7 +308,7 @@ class Kitti360Converter(AbstractDatasetConverter):
                 )
 
                 log_writer.write(
-                    timestamp=ts_list[valid_idx],
+                    timestamp=lidar_timestamps[valid_idx],
                     ego_state=ego_state_all[idx],
                     box_detections=box_detection_wrapper_all[valid_idx],
                     pinhole_cameras=pinhole_cameras,
@@ -336,6 +345,7 @@ def _get_kitti360_pinhole_camera_metadata(
 
         for pcam_type, pcam_name in KITTI360_PINHOLE_CAMERA_TYPES.items():
             pinhole_cam_metadatas[pcam_type] = PinholeCameraMetadata(
+                camera_name=pcam_name,
                 camera_type=pcam_type,
                 width=persp_result[pcam_name]["wh"][0],
                 height=persp_result[pcam_name]["wh"][1],
@@ -380,6 +390,7 @@ def _get_kitti360_fisheye_mei_camera_metadata(
             )
 
             fisheye_cam_metadatas[fcam_type] = FisheyeMEICameraMetadata(
+                camera_name=fcam_name,
                 camera_type=fcam_type,
                 width=fisheye_result[fcam_name]["image_width"],
                 height=fisheye_result[fcam_name]["image_height"],
@@ -438,6 +449,7 @@ def _get_kitti360_lidar_metadata(
         extrinsic_pose_se3 = PoseSE3.from_transformation_matrix(extrinsic)
         extrinsic_pose_se3 = _extrinsic_from_imu_to_rear_axle(extrinsic_pose_se3)
         metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
+            lidar_name=KITTI360_LIDAR_NAME,
             lidar_type=LiDARType.LIDAR_TOP,
             lidar_index=KITTI360LiDARIndex,
             extrinsic=extrinsic_pose_se3,
@@ -445,18 +457,23 @@ def _get_kitti360_lidar_metadata(
     return metadata
 
 
-def _read_timestamps(log_name: str, kitti360_folders: Dict[str, Path]) -> Optional[List[TimePoint]]:
+def _read_timestamps(log_name: str, kitti360_folders: Dict[str, Path]) -> Dict[str, List[TimePoint]]:
     """Read KITTI-360 timestamps for the given sequence and return Unix epoch timestamps."""
-    ts_files = [
-        kitti360_folders[DIR_3D_RAW] / log_name / "velodyne_points" / "timestamps.txt",
-        kitti360_folders[DIR_2D_RAW] / log_name / "image_00" / "timestamps.txt",
-        kitti360_folders[DIR_2D_RAW] / log_name / "image_01" / "timestamps.txt",
-    ]
 
-    if log_name == "2013_05_28_drive_0002_sync":
-        ts_files = ts_files[1:]
+    ts_files = {
+        "velodyne_points": kitti360_folders[DIR_3D_RAW] / log_name / "velodyne_points" / "timestamps.txt",
+        "image_00": kitti360_folders[DIR_2D_RAW] / log_name / "image_00" / "timestamps.txt",
+        "image_01": kitti360_folders[DIR_2D_RAW] / log_name / "image_01" / "timestamps.txt",
+        "image_02": kitti360_folders[DIR_2D_RAW] / log_name / "image_02" / "timestamps.txt",
+        "image_03": kitti360_folders[DIR_2D_RAW] / log_name / "image_03" / "timestamps.txt",
+    }
 
-    for ts_file in ts_files:
+    # if log_name == "2013_05_28_drive_0002_sync":
+    #     ts_files = ts_files[1:]  # FIXME: Why is this needed?
+
+    timestamps: Dict[str, List[TimePoint]] = {}
+
+    for modality, ts_file in ts_files.items():
         if ts_file.exists():
             tps: List[TimePoint] = []
             with open(ts_file, "r") as f:
@@ -473,8 +490,9 @@ def _read_timestamps(log_name: str, kitti360_folders: Dict[str, Path]) -> Option
                     us_from_ns = ns_value // 1000
                     total_us = int(total_seconds * 1_000_000) + us_from_ns
                     tps.append(TimePoint.from_us(total_us))
-            return tps
-    return None
+            # return tps
+            timestamps[modality] = tps
+    return timestamps
 
 
 def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> Tuple[List[EgoStateSE3], List[int]]:
@@ -689,6 +707,7 @@ def _extract_kitti360_lidar(
         if lidar_full_path.exists():
             lidars.append(
                 LiDARData(
+                    lidar_name=KITTI360_LIDAR_NAME,
                     lidar_type=LiDARType.LIDAR_TOP,
                     timestamp=None,
                     iteration=idx,
@@ -706,6 +725,7 @@ def _extract_kitti360_pinhole_cameras(
     log_name: str,
     idx: int,
     camera_calibration: Dict[str, PoseSE3],
+    timestamps_dict: Dict[str, List[TimePoint]],
     kitti360_folders: Dict[str, Path],
     data_converter_config: DatasetConverterConfig,
 ) -> List[CameraData]:
@@ -713,14 +733,17 @@ def _extract_kitti360_pinhole_cameras(
 
     pinhole_camera_data_list: List[CameraData] = []
     if data_converter_config.include_pinhole_cameras:
-        for camera_type, cam_dir_name in KITTI360_PINHOLE_CAMERA_TYPES.items():
-            img_path_png = kitti360_folders[DIR_2D_RAW] / log_name / cam_dir_name / "data_rect" / f"{idx:010d}.png"
-            camera_extrinsic = camera_calibration[cam_dir_name]
+        for camera_type, camera_name in KITTI360_PINHOLE_CAMERA_TYPES.items():
+            img_path_png = kitti360_folders[DIR_2D_RAW] / log_name / camera_name / "data_rect" / f"{idx:010d}.png"
+            camera_extrinsic = camera_calibration[camera_name]
+            camera_timestamp = timestamps_dict[camera_name][idx]
             if img_path_png.exists():
                 pinhole_camera_data_list.append(
                     CameraData(
+                        camera_name=camera_name,
                         camera_type=camera_type,
                         extrinsic=camera_extrinsic,
+                        timestamp=camera_timestamp,
                         dataset_root=kitti360_folders[DIR_ROOT],
                         relative_path=img_path_png.relative_to(kitti360_folders[DIR_ROOT]),
                     )
@@ -733,6 +756,7 @@ def _extract_kitti360_fisheye_mei_cameras(
     log_name: str,
     idx: int,
     camera_calibration: Dict[str, PoseSE3],
+    timestamps_dict: Dict[str, List[TimePoint]],
     kitti360_folders: Dict[str, Path],
     data_converter_config: DatasetConverterConfig,
 ) -> List[CameraData]:
@@ -742,11 +766,14 @@ def _extract_kitti360_fisheye_mei_cameras(
         for camera_type, cam_dir_name in KITTI360_FISHEYE_MEI_CAMERA_TYPES.items():
             img_path_png = kitti360_folders[DIR_2D_RAW] / log_name / cam_dir_name / "data_rgb" / f"{idx:010d}.png"
             camera_extrinsic = camera_calibration[cam_dir_name]
+            camera_timestamp = timestamps_dict[cam_dir_name][idx]
             if img_path_png.exists():
                 fisheye_camera_data_list.append(
                     CameraData(
+                        camera_name=cam_dir_name,
                         camera_type=camera_type,
                         extrinsic=camera_extrinsic,
+                        timestamp=camera_timestamp,
                         dataset_root=kitti360_folders[DIR_ROOT],
                         relative_path=img_path_png.relative_to(kitti360_folders[DIR_ROOT]),
                     )

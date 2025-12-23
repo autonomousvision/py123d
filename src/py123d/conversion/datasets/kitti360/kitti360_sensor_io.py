@@ -22,10 +22,12 @@ def load_kitti360_lidar_pcs_from_file(filepath: Path, log_metadata: LogMetadata)
     lidar_pc = np.fromfile(filepath, dtype=np.float32)
     lidar_pc = np.reshape(lidar_pc, [-1, len(KITTI360LiDARIndex)])
 
+    assert lidar_extrinsic is not None, "LiDAR extrinsic must be available in log metadata."
+
     lidar_pc[..., KITTI360LiDARIndex.XYZ] = convert_points_3d_array_between_origins(
         from_origin=lidar_extrinsic,
         to_origin=PoseSE3(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0),
-        points_3d_array=lidar_pc[..., KITTI360LiDARIndex.XYZ],
+        points_3d_array=lidar_pc[..., KITTI360LiDARIndex.XYZ],  # type: ignore
     )
 
     return {LiDARType.LIDAR_TOP: lidar_pc}

@@ -73,7 +73,7 @@ def convert_kitti360_map_with_writer(log_name: str, map_writer: AbstractMapWrite
                 GenericDrivable(
                     object_id=obj.id,
                     outline=obj.vertices,
-                    geometry=geom.Polygon(obj.vertices.array[:, :3]),
+                    shapely_polygon=geom.Polygon(obj.vertices.array[:, :3]),
                 )
             )
             road_outline_array = np.concatenate([obj.vertices.array[:, :3], obj.vertices.array[0:, :3]])
@@ -83,7 +83,7 @@ def convert_kitti360_map_with_writer(log_name: str, map_writer: AbstractMapWrite
                 Walkway(
                     object_id=obj.id,
                     outline=obj.vertices,
-                    geometry=geom.Polygon(obj.vertices.array[:, :3]),
+                    shapely_polygon=geom.Polygon(obj.vertices.array[:, :3]),
                 )
             )
         elif obj.label == "driveway":
@@ -91,7 +91,7 @@ def convert_kitti360_map_with_writer(log_name: str, map_writer: AbstractMapWrite
                 Carpark(
                     object_id=obj.id,
                     outline=obj.vertices,
-                    geometry=geom.Polygon(obj.vertices.array[:, :3]),
+                    shapely_polygon=geom.Polygon(obj.vertices.array[:, :3]),
                 )
             )
 
