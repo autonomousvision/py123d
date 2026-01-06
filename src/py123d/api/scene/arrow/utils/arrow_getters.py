@@ -277,6 +277,39 @@ def get_camera_from_arrow_table(
     return camera
 
 
+def get_camera_timestamp_from_arrow_table(
+    arrow_table: pa.Table,
+    index: int,
+    camera_type: Union[PinholeCameraType, FisheyeMEICameraType],
+) -> Optional[TimePoint]:
+    """Gets the camera timestamp from an Arrow table at a given index.
+
+    :param arrow_table: The Arrow table containing the camera timestamp data.
+    :param index: The index to extract the camera timestamp from.
+    :param camera_type: The type of camera (Pinhole or FisheyeMEI).
+    :return: The camera timestamp at the given index, or None if not available.
+    """
+
+    assert isinstance(camera_type, (PinholeCameraType, FisheyeMEICameraType)), (
+        f"camera_type must be PinholeCameraType or FisheyeMEICameraType, got {type(camera_type)}"
+    )
+
+    camera_timestamp: Optional[TimePoint] = None
+    camera_name = camera_type.serialize()
+
+    if isinstance(camera_type, PinholeCameraType):
+        camera_timestamp_column = PINHOLE_CAMERA_TIMESTAMP_COLUMN(camera_name)
+    else:
+        camera_timestamp_column = FISHEYE_CAMERA_TIMESTAMP_COLUMN(camera_name)
+
+    if camera_timestamp_column in arrow_table.schema.names:
+        timestamp_data = arrow_table[camera_timestamp_column][index].as_py()
+        if timestamp_data is not None:
+            camera_timestamp = TimePoint.from_us(timestamp_data)
+
+    return camera_timestamp
+
+
 def get_lidar_from_arrow_table(
     arrow_table: pa.Table,
     index: int,

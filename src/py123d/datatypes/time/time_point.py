@@ -26,7 +26,7 @@ class TimePoint:
         :param t_us: Time in microseconds.
         :return: TimePoint.
         """
-        assert isinstance(t_us, int), "Microseconds must be an integer!"
+        assert isinstance(t_us, int), f"Microseconds must be an integer, got {type(t_us)}!"
         instance = object.__new__(cls)
         object.__setattr__(instance, "_time_us", t_us)
         return instance

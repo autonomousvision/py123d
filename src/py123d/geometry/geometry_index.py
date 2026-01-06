@@ -265,6 +265,18 @@ class Corners3DIndex(IntEnum):
     Indexes the corners of a BoundingBoxSE3 in the order: \
         front-left-bottom, front-right-bottom, back-right-bottom, back-left-bottom,\
             front-left-top, front-right-top, back-right-top, back-left-top.
+
+            4------5
+            |\\    |\\
+            | \\   | \\
+            0--\\--1  \\
+            \\  \\  \\ \\
+        l    \\  7-------6    h
+         e    \\ ||   \\ ||   e
+          n    \\||    \\||   i
+           g    \\3------2    g
+            t      width.     h
+             h.               t.
     """
 
     FRONT_LEFT_BOTTOM = 0
