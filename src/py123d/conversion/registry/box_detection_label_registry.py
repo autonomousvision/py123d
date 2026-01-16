@@ -40,8 +40,8 @@ class DefaultBoxDetectionLabel(BoxDetectionLabel):
     TRAFFIC_CONE = 7
 
     # Other Obstacles
-    BARRIER = 9
-    GENERIC_OBJECT = 10
+    BARRIER = 8
+    GENERIC_OBJECT = 9
 
     def to_default(self) -> DefaultBoxDetectionLabel:
         """Inherited, see superclass."""
