@@ -38,7 +38,6 @@ class DefaultBoxDetectionLabel(BoxDetectionLabel):
     # Traffic Control
     TRAFFIC_SIGN = 6
     TRAFFIC_CONE = 7
-    TRAFFIC_LIGHT = 8
 
     # Other Obstacles
     BARRIER = 9
@@ -160,7 +159,7 @@ class KITTI360BoxDetectionLabel(BoxDetectionLabel):
             KITTI360BoxDetectionLabel.RIDER: DefaultBoxDetectionLabel.PERSON,
             KITTI360BoxDetectionLabel.SMALLPOLE: DefaultBoxDetectionLabel.GENERIC_OBJECT,
             KITTI360BoxDetectionLabel.STOP: DefaultBoxDetectionLabel.TRAFFIC_SIGN,
-            KITTI360BoxDetectionLabel.TRAFFIC_LIGHT: DefaultBoxDetectionLabel.TRAFFIC_LIGHT,
+            KITTI360BoxDetectionLabel.TRAFFIC_LIGHT: DefaultBoxDetectionLabel.TRAFFIC_SIGN,
             KITTI360BoxDetectionLabel.TRAFFIC_SIGN: DefaultBoxDetectionLabel.TRAFFIC_SIGN,
             KITTI360BoxDetectionLabel.TRAILER: DefaultBoxDetectionLabel.VEHICLE,
             KITTI360BoxDetectionLabel.TRAIN: DefaultBoxDetectionLabel.VEHICLE,

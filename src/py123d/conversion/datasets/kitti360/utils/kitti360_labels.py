@@ -198,7 +198,7 @@ KITTI360_DETECTION_NAME_DICT = {
     "rider": KITTI360BoxDetectionLabel.RIDER,
     "smallpole": KITTI360BoxDetectionLabel.SMALLPOLE,
     "stop": KITTI360BoxDetectionLabel.STOP,
-    "traffic light": KITTI360BoxDetectionLabel.TRAFFIC_LIGHT,
+    "traffic light": KITTI360BoxDetectionLabel.TRAFFIC_SIGN,
     "traffic sign": KITTI360BoxDetectionLabel.TRAFFIC_SIGN,
     "trailer": KITTI360BoxDetectionLabel.TRAILER,
     "train": KITTI360BoxDetectionLabel.TRAIN,
