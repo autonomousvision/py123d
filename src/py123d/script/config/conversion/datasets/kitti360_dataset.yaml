@@ -46,20 +46,16 @@ kitti360_dataset:
     include_route: false
     include_scenario_tags: false
 
-  train_sequences:
+  train_sequences: 
     - "2013_05_28_drive_0000_sync"
     - "2013_05_28_drive_0002_sync"
     - "2013_05_28_drive_0003_sync"
-
-
-  val_sequences:
     - "2013_05_28_drive_0004_sync"
     - "2013_05_28_drive_0005_sync"
     - "2013_05_28_drive_0006_sync"
     - "2013_05_28_drive_0007_sync"
-
-  test_sequences:
-    - "2013_05_28_drive_0008_sync"
     - "2013_05_28_drive_0009_sync"
     - "2013_05_28_drive_0010_sync"
-    - "2013_05_28_drive_0018_sync"
+
+  val_sequences: [] 
+  test_sequences: []

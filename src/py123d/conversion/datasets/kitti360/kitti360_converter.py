@@ -509,8 +509,7 @@ def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> 
     oxts_path = kitti360_folders[DIR_POSES] / log_name / "oxts" / "data"
 
     for idx in range(len(valid_timestamp)):
-        oxts_path_file = oxts_path / f"{int(valid_timestamp[idx]):010d}.txt"
-        oxts_data = np.loadtxt(oxts_path_file)
+
 
         vehicle_parameters = get_kitti360_vw_passat_parameters()
 
@@ -542,11 +541,17 @@ def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> 
             Vector3D(0.05, -0.32, 0.0),
         )
 
-        dynamic_state_se3 = DynamicStateSE3(
-            velocity=Vector3D(x=oxts_data[8], y=oxts_data[9], z=oxts_data[10]),
-            acceleration=Vector3D(x=oxts_data[14], y=oxts_data[15], z=oxts_data[16]),
-            angular_velocity=Vector3D(x=oxts_data[20], y=oxts_data[21], z=oxts_data[22]),
-        )
+        oxts_path_file = oxts_path / f"{int(valid_timestamp[idx]):010d}.txt"
+        if oxts_path_file.exists():
+            # NOTE: "2013_05_28_drive_0009_sync" is missing oxts files
+            oxts_data = np.loadtxt(oxts_path_file)
+            dynamic_state_se3 = DynamicStateSE3(
+                velocity=Vector3D(x=oxts_data[8], y=oxts_data[9], z=oxts_data[10]),
+                acceleration=Vector3D(x=oxts_data[14], y=oxts_data[15], z=oxts_data[16]),
+                angular_velocity=Vector3D(x=oxts_data[20], y=oxts_data[21], z=oxts_data[22]),
+            )
+        else:
+            dynamic_state_se3 = None
         ego_state_all.append(
             EgoStateSE3.from_rear_axle(
                 rear_axle_se3=rear_axle_se3,
