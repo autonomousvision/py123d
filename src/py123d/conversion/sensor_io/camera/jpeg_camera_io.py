@@ -27,7 +27,7 @@ def encode_image_as_jpeg_binary(image: npt.NDArray[np.uint8]) -> bytes:
 def decode_image_from_jpeg_binary(jpeg_binary: bytes) -> npt.NDArray[np.uint8]:
     """Decodes a numpy image from JPEG binary."""
     image = cv2.imdecode(np.frombuffer(jpeg_binary, np.uint8), cv2.IMREAD_UNCHANGED)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image = image[:, :, ::-1]  # cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     return image
 
 

@@ -45,7 +45,7 @@ def add_lidar_to_camera_ax(ax: plt.Axes, camera: PinholeCamera, lidar: LiDAR) ->
 
     for (x, y), color in zip(pc_in_cam[pc_in_fov_mask], lidar_pc_colors[pc_in_fov_mask]):
         color = (int(color[0]), int(color[1]), int(color[2]))
-        cv2.circle(image, (int(x), int(y)), 1, color, -1)
+        cv2.circle(image, (int(x), int(y)), 5, color, -1)
 
     ax.imshow(image)
     return ax
