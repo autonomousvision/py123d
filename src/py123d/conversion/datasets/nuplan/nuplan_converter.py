@@ -1,3 +1,5 @@
+from logging import warning
+import logging
 import pickle
 from pathlib import Path
 from typing import Dict, Final, List, Tuple, Union
@@ -64,6 +66,8 @@ NUPLAN_CAMERA_MAPPING = {
 }
 
 TARGET_DT: Final[float] = 0.1  # TODO: make configurable
+
+logger = logging.getLogger(__name__)
 
 
 def create_splits_logs() -> Dict[str, List[str]]:
@@ -425,7 +429,7 @@ def _extract_nuplan_lidars(
     """Extracts the nuPlan LiDAR data from a given LidarPc database objects."""
     lidars: List[LiDARData] = []
     if dataset_converter_config.include_lidars:
-        lidar_full_path = nuplan_sensor_root / nuplan_lidar_pc.filename
+        lidar_full_path: Path = nuplan_sensor_root / nuplan_lidar_pc.filename
         if lidar_full_path.exists() and lidar_full_path.is_file():
             lidars.append(
                 LiDARData(
@@ -435,6 +439,8 @@ def _extract_nuplan_lidars(
                     relative_path=nuplan_lidar_pc.filename,
                 )
             )
+        else:
+            logger.warning(f"LiDAR file not found: {lidar_full_path}")
     return lidars
 
 

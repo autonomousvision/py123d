@@ -1,3 +1,4 @@
+from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -14,7 +15,10 @@ from py123d.api.scene.arrow.utils.arrow_getters import (
     get_timepoint_from_arrow_table,
     get_traffic_light_detections_from_arrow_table,
 )
-from py123d.api.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow_file
+from py123d.api.scene.arrow.utils.arrow_metadata_utils import (
+    get_log_metadata_from_arrow_file,
+    get_log_metadata_from_arrow_table,
+)
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.common.utils.arrow_column_names import UUID_COLUMN
@@ -48,6 +52,13 @@ def _get_complete_log_scene_metadata(arrow_file_path: Union[Path, str], log_meta
     )
 
 
+@lru_cache(maxsize=1_000)
+def _get_lru_cached_log_metadata(arrow_file_path: Union[Path, str]) -> LogMetadata:
+    """Helper function to get the LRU cached log metadata from an Arrow file."""
+    table = get_lru_cached_arrow_table(arrow_file_path)
+    return get_log_metadata_from_arrow_table(table)
+
+
 class ArrowSceneAPI(SceneAPI):
     """Scene API for Arrow-based scenes. Provides access to all data modalities in an Arrow scene."""
 
@@ -63,12 +74,7 @@ class ArrowSceneAPI(SceneAPI):
         """
 
         self._arrow_file_path: Path = Path(arrow_file_path)
-        self._log_metadata: LogMetadata = get_log_metadata_from_arrow_file(str(arrow_file_path))
-        self._scene_metadata: SceneMetadata = (
-            scene_metadata
-            if scene_metadata is not None
-            else _get_complete_log_scene_metadata(arrow_file_path, self._log_metadata)
-        )
+        self._scene_metadata: Optional[SceneMetadata] = scene_metadata
 
         # NOTE: Lazy load a log-specific map API, and keep reference.
         # Global maps are LRU cached internally.
@@ -94,7 +100,7 @@ class ArrowSceneAPI(SceneAPI):
     def _get_table_index(self, iteration: int) -> int:
         """Helper function to get the table index for a given iteration."""
         assert -self.number_of_history_iterations <= iteration < self.number_of_iterations, "Iteration out of bounds"
-        table_index = self._scene_metadata.initial_idx + iteration
+        table_index = self.get_scene_metadata().initial_idx + iteration
         return table_index
 
     # Implementation of abstract methods
@@ -102,10 +108,13 @@ class ArrowSceneAPI(SceneAPI):
 
     def get_log_metadata(self) -> LogMetadata:
         """Inherited, see superclass."""
-        return self._log_metadata
+        return _get_lru_cached_log_metadata(self._arrow_file_path)
 
     def get_scene_metadata(self) -> SceneMetadata:
         """Inherited, see superclass."""
+        if self._scene_metadata is None:
+            log_metadata = self.get_log_metadata()
+            self._scene_metadata = _get_complete_log_scene_metadata(self._arrow_file_path, log_metadata)
         return self._scene_metadata
 
     def get_map_api(self) -> Optional[MapAPI]:

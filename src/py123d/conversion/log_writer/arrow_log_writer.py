@@ -335,11 +335,14 @@ class ArrowLogWriter(AbstractLogWriter):
                 # NOTE @DanielDauner: The path_merged option is necessary for datasets, that natively store multiple
                 # LiDAR point clouds in a single file. In this case, writing the file path several times is wasteful.
                 # Instead, we store the file path once, and divide the point clouds during reading.
-                assert len(lidars) == 1, "Exactly one LiDAR data must be provided for merged LiDAR storage."
-                assert lidars[0].has_file_path, "LiDAR data must provide file path for merged LiDAR storage."
-                merged_lidar_data: Optional[str] = str(lidars[0].relative_path)
-                lidar_name = LiDARType.LIDAR_MERGED.serialize()
+                assert len(lidars) <= 1, "Exactly one LiDAR data must be provided for merged LiDAR storage."
 
+                if len(lidars) == 0:
+                    merged_lidar_data: Optional[str] = None
+                else:
+                    assert lidars[0].has_file_path, "LiDAR data must provide file path for merged LiDAR storage."
+                    merged_lidar_data: Optional[str] = str(lidars[0].relative_path)
+                lidar_name = LiDARType.LIDAR_MERGED.serialize()
                 record_batch_data[LIDAR_DATA_COLUMN(lidar_name)] = [merged_lidar_data]
 
             else:
@@ -408,52 +411,46 @@ class ArrowLogWriter(AbstractLogWriter):
         # Ego State
         # --------------------------------------------------------------------------------------------------------------
         if dataset_converter_config.include_ego:
-            schema_list.extend(
-                [
-                    (EGO_REAR_AXLE_SE3_COLUMN, pa.list_(pa.float64(), len(PoseSE3Index))),
-                    (EGO_DYNAMIC_STATE_SE3_COLUMN, pa.list_(pa.float64(), len(DynamicStateSE3Index))),
-                ]
-            )
+            schema_list.extend([
+                (EGO_REAR_AXLE_SE3_COLUMN, pa.list_(pa.float64(), len(PoseSE3Index))),
+                (EGO_DYNAMIC_STATE_SE3_COLUMN, pa.list_(pa.float64(), len(DynamicStateSE3Index))),
+            ])
 
         # --------------------------------------------------------------------------------------------------------------
         # Box Detections
         # --------------------------------------------------------------------------------------------------------------
         if dataset_converter_config.include_box_detections:
-            schema_list.extend(
-                [
-                    (
-                        BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN,
-                        pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index))),
-                    ),
-                    (
-                        BOX_DETECTIONS_TOKEN_COLUMN,
-                        pa.list_(pa.string()),
-                    ),
-                    (
-                        BOX_DETECTIONS_LABEL_COLUMN,
-                        pa.list_(pa.int16()),
-                    ),
-                    (
-                        BOX_DETECTIONS_VELOCITY_3D_COLUMN,
-                        pa.list_(pa.list_(pa.float64(), len(Vector3DIndex))),
-                    ),
-                    (
-                        BOX_DETECTIONS_NUM_LIDAR_POINTS_COLUMN,
-                        pa.list_(pa.int64()),
-                    ),
-                ]
-            )
+            schema_list.extend([
+                (
+                    BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN,
+                    pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index))),
+                ),
+                (
+                    BOX_DETECTIONS_TOKEN_COLUMN,
+                    pa.list_(pa.string()),
+                ),
+                (
+                    BOX_DETECTIONS_LABEL_COLUMN,
+                    pa.list_(pa.int16()),
+                ),
+                (
+                    BOX_DETECTIONS_VELOCITY_3D_COLUMN,
+                    pa.list_(pa.list_(pa.float64(), len(Vector3DIndex))),
+                ),
+                (
+                    BOX_DETECTIONS_NUM_LIDAR_POINTS_COLUMN,
+                    pa.list_(pa.int64()),
+                ),
+            ])
 
         # --------------------------------------------------------------------------------------------------------------
         # Traffic Lights
         # --------------------------------------------------------------------------------------------------------------
         if dataset_converter_config.include_traffic_lights:
-            schema_list.extend(
-                [
-                    (TRAFFIC_LIGHTS_LANE_ID_COLUMN, pa.list_(pa.int64())),
-                    (TRAFFIC_LIGHTS_STATUS_COLUMN, pa.list_(pa.int16())),
-                ]
-            )
+            schema_list.extend([
+                (TRAFFIC_LIGHTS_LANE_ID_COLUMN, pa.list_(pa.int64())),
+                (TRAFFIC_LIGHTS_STATUS_COLUMN, pa.list_(pa.int16())),
+            ])
 
         # --------------------------------------------------------------------------------------------------------------
         # Pinhole Cameras
@@ -461,22 +458,20 @@ class ArrowLogWriter(AbstractLogWriter):
         if dataset_converter_config.include_pinhole_cameras:
             for pinhole_camera_type in log_metadata.pinhole_camera_metadata.keys():
                 pinhole_camera_name = pinhole_camera_type.serialize()
-                schema_list.extend(
-                    [
-                        (
-                            PINHOLE_CAMERA_DATA_COLUMN(pinhole_camera_name),
-                            _store_option_to_arrow_type(dataset_converter_config.pinhole_camera_store_option),
-                        ),
-                        (
-                            PINHOLE_CAMERA_EXTRINSIC_COLUMN(pinhole_camera_name),
-                            pa.list_(pa.float64(), len(PoseSE3Index)),
-                        ),
-                        (
-                            PINHOLE_CAMERA_TIMESTAMP_COLUMN(pinhole_camera_name),
-                            pa.int64(),
-                        ),
-                    ]
-                )
+                schema_list.extend([
+                    (
+                        PINHOLE_CAMERA_DATA_COLUMN(pinhole_camera_name),
+                        _store_option_to_arrow_type(dataset_converter_config.pinhole_camera_store_option),
+                    ),
+                    (
+                        PINHOLE_CAMERA_EXTRINSIC_COLUMN(pinhole_camera_name),
+                        pa.list_(pa.float64(), len(PoseSE3Index)),
+                    ),
+                    (
+                        PINHOLE_CAMERA_TIMESTAMP_COLUMN(pinhole_camera_name),
+                        pa.int64(),
+                    ),
+                ])
 
         # --------------------------------------------------------------------------------------------------------------
         # Fisheye MEI Cameras
@@ -484,22 +479,20 @@ class ArrowLogWriter(AbstractLogWriter):
         if dataset_converter_config.include_fisheye_mei_cameras:
             for fisheye_mei_camera_type in log_metadata.fisheye_mei_camera_metadata.keys():
                 fisheye_mei_camera_name = fisheye_mei_camera_type.serialize()
-                schema_list.extend(
-                    [
-                        (
-                            FISHEYE_CAMERA_DATA_COLUMN(fisheye_mei_camera_name),
-                            _store_option_to_arrow_type(dataset_converter_config.fisheye_mei_camera_store_option),
-                        ),
-                        (
-                            FISHEYE_CAMERA_EXTRINSIC_COLUMN(fisheye_mei_camera_name),
-                            pa.list_(pa.float64(), len(PoseSE3Index)),
-                        ),
-                        (
-                            FISHEYE_CAMERA_TIMESTAMP_COLUMN(fisheye_mei_camera_name),
-                            pa.int64(),
-                        ),
-                    ]
-                )
+                schema_list.extend([
+                    (
+                        FISHEYE_CAMERA_DATA_COLUMN(fisheye_mei_camera_name),
+                        _store_option_to_arrow_type(dataset_converter_config.fisheye_mei_camera_store_option),
+                    ),
+                    (
+                        FISHEYE_CAMERA_EXTRINSIC_COLUMN(fisheye_mei_camera_name),
+                        pa.list_(pa.float64(), len(PoseSE3Index)),
+                    ),
+                    (
+                        FISHEYE_CAMERA_TIMESTAMP_COLUMN(fisheye_mei_camera_name),
+                        pa.int64(),
+                    ),
+                ])
 
         # --------------------------------------------------------------------------------------------------------------
         # LiDARs
@@ -511,12 +504,10 @@ class ArrowLogWriter(AbstractLogWriter):
             else:
                 for lidar_type in log_metadata.lidar_metadata.keys():
                     lidar_name = lidar_type.serialize()
-                    schema_list.append(
-                        (
-                            LIDAR_DATA_COLUMN(lidar_name),
-                            _store_option_to_arrow_type(dataset_converter_config.lidar_store_option),
-                        )
-                    )
+                    schema_list.append((
+                        LIDAR_DATA_COLUMN(lidar_name),
+                        _store_option_to_arrow_type(dataset_converter_config.lidar_store_option),
+                    ))
 
         # --------------------------------------------------------------------------------------------------------------
         # Miscellaneous (Scenario Tags / Route)

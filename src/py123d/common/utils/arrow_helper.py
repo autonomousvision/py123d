@@ -5,7 +5,7 @@ from typing import Final, Union
 import pyarrow as pa
 
 # TODO: Tune Parameters and add to config?
-MAX_LRU_CACHED_TABLES: Final[int] = 50_000
+MAX_LRU_CACHED_TABLES: Final[int] = 1_000
 
 
 def open_arrow_table(arrow_file_path: Union[str, Path]) -> pa.Table:
@@ -18,6 +18,17 @@ def open_arrow_table(arrow_file_path: Union[str, Path]) -> pa.Table:
     with pa.memory_map(str(arrow_file_path), "rb") as source:
         table: pa.Table = pa.ipc.open_file(source).read_all()
     return table
+
+
+def open_arrow_schema(arrow_file_path: Union[str, Path]) -> pa.Schema:
+    """Loads an `.arrow` file schema.
+
+    :param arrow_file_path: The file path, defined as string or Path.
+    :return: The memory-mapped arrow schema.
+    """
+    with pa.memory_map(str(arrow_file_path), "rb") as source:
+        schema: pa.Schema = pa.ipc.open_file(source).schema
+    return schema
 
 
 def read_arrow_table(arrow_file_path: Union[str, Path]) -> pa.Table:
