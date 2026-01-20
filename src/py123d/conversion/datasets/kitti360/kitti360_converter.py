@@ -262,8 +262,8 @@ class Kitti360Converter(AbstractDatasetConverter):
             timestamps_dict: Dict[str, List[TimePoint]] = _read_timestamps(log_name, self._kitti360_folders)
 
             # NOTE: We use the LiDAR timestamps as reference timestamps for the log
-            assert KITTI360_LIDAR_NAME in timestamps_dict, "LiDAR timestamps must be available."
-            lidar_timestamps = timestamps_dict[KITTI360_LIDAR_NAME]
+            assert "oxts" in timestamps_dict, "LiDAR timestamps must be available."
+            reference_timestamps = timestamps_dict["oxts"]
 
             ego_state_all, valid_timestamp = _extract_ego_state_all(log_name, self._kitti360_folders)
             ego_states_xyz = np.array(
@@ -271,7 +271,7 @@ class Kitti360Converter(AbstractDatasetConverter):
             )
             box_detection_wrapper_all = _extract_kitti360_box_detections_all(
                 log_name,
-                len(lidar_timestamps),
+                len(reference_timestamps),
                 ego_states_xyz,
                 valid_timestamp,
                 self._kitti360_folders,
@@ -308,7 +308,7 @@ class Kitti360Converter(AbstractDatasetConverter):
                 )
 
                 log_writer.write(
-                    timestamp=lidar_timestamps[valid_idx],
+                    timestamp=reference_timestamps[valid_idx],
                     ego_state=ego_state_all[idx],
                     box_detections=box_detection_wrapper_all[valid_idx],
                     pinhole_cameras=pinhole_cameras,
@@ -461,6 +461,7 @@ def _read_timestamps(log_name: str, kitti360_folders: Dict[str, Path]) -> Dict[s
     """Read KITTI-360 timestamps for the given sequence and return Unix epoch timestamps."""
 
     ts_files = {
+        "oxts": kitti360_folders[DIR_POSES] / log_name / "oxts" / "timestamps.txt",
         "velodyne_points": kitti360_folders[DIR_3D_RAW] / log_name / "velodyne_points" / "timestamps.txt",
         "image_00": kitti360_folders[DIR_2D_RAW] / log_name / "image_00" / "timestamps.txt",
         "image_01": kitti360_folders[DIR_2D_RAW] / log_name / "image_01" / "timestamps.txt",
@@ -508,8 +509,7 @@ def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> 
     oxts_path = kitti360_folders[DIR_POSES] / log_name / "oxts" / "data"
 
     for idx in range(len(valid_timestamp)):
-        oxts_path_file = oxts_path / f"{int(valid_timestamp[idx]):010d}.txt"
-        oxts_data = np.loadtxt(oxts_path_file)
+
 
         vehicle_parameters = get_kitti360_vw_passat_parameters()
 
@@ -541,11 +541,17 @@ def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> 
             Vector3D(0.05, -0.32, 0.0),
         )
 
-        dynamic_state_se3 = DynamicStateSE3(
-            velocity=Vector3D(x=oxts_data[8], y=oxts_data[9], z=oxts_data[10]),
-            acceleration=Vector3D(x=oxts_data[14], y=oxts_data[15], z=oxts_data[16]),
-            angular_velocity=Vector3D(x=oxts_data[20], y=oxts_data[21], z=oxts_data[22]),
-        )
+        oxts_path_file = oxts_path / f"{int(valid_timestamp[idx]):010d}.txt"
+        if oxts_path_file.exists():
+            # NOTE: "2013_05_28_drive_0009_sync" is missing oxts files
+            oxts_data = np.loadtxt(oxts_path_file)
+            dynamic_state_se3 = DynamicStateSE3(
+                velocity=Vector3D(x=oxts_data[8], y=oxts_data[9], z=oxts_data[10]),
+                acceleration=Vector3D(x=oxts_data[14], y=oxts_data[15], z=oxts_data[16]),
+                angular_velocity=Vector3D(x=oxts_data[20], y=oxts_data[21], z=oxts_data[22]),
+            )
+        else:
+            dynamic_state_se3 = None
         ego_state_all.append(
             EgoStateSE3.from_rear_axle(
                 rear_axle_se3=rear_axle_se3,
