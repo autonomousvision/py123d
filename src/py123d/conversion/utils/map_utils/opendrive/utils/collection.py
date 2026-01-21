@@ -249,8 +249,6 @@ def _post_process_connections(
     """
 
     for lane_id in lane_helper_dict.keys():  # noqa: PLC0206
-        lane_helper_dict[lane_id]
-
         centerline = lane_helper_dict[lane_id].center_polyline_se2
 
         valid_successor_lane_ids: List[str] = []
@@ -271,7 +269,7 @@ def _post_process_connections(
             distance = np.linalg.norm(centerline[0, :2] - predecessor_centerline[-1, :2])
             if distance > connection_distance_threshold:
                 logger.debug(
-                    f"OpenDRIVE: Removing connection {predecessor_lane_id} -> {successor_lane_id} with distance {distance}"
+                    f"OpenDRIVE: Removing connection {predecessor_lane_id} -> {lane_id} with distance {distance}"
                 )
             else:
                 valid_predecessor_lane_ids.append(predecessor_lane_id)
