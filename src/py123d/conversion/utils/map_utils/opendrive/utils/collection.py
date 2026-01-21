@@ -40,6 +40,10 @@ def collect_element_helpers(
     # 2. Create lane helpers from the roads
     lane_helper_dict: Dict[str, OpenDriveLaneHelper] = {}
     for road in opendrive.roads:
+        # Skip roads without predecessor or successor links - (such as car parks in houses)
+        if road.link.predecessor is None or road.link.successor is None:
+            continue
+
         reference_line = XODRReferenceLine.from_plan_view(
             road.plan_view,
             road.lanes.lane_offsets,
