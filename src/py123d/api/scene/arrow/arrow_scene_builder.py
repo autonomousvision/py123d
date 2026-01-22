@@ -4,14 +4,14 @@ from pathlib import Path
 from typing import List, Optional, Union
 
 from py123d.api.scene.arrow.arrow_scene import ArrowSceneAPI
-from py123d.api.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow_table
+from py123d.api.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow_schema
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_builder import SceneBuilder
 from py123d.api.scene.scene_filter import SceneFilter
 from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.common.multithreading.worker_utils import WorkerPool, worker_map
 from py123d.common.utils.arrow_column_names import FISHEYE_CAMERA_DATA_COLUMN, PINHOLE_CAMERA_DATA_COLUMN, UUID_COLUMN
-from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
+from py123d.common.utils.arrow_helper import open_arrow_table
 from py123d.common.utils.uuid_utils import convert_to_str_uuid
 from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
@@ -107,16 +107,21 @@ def _extract_scenes_from_logs(log_paths: List[Path], filter: SceneFilter) -> Lis
 
 
 def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFilter) -> List[SceneMetadata]:
-    """Gets the scene metadatas from a log file based on the given filter."""
+    """Gets the scene metadatas from a log file based on the given filter.
+
+    TODO: This needs refactoring, clean-up, and tests. It's a mess.
+    """
+
     scene_metadatas: List[SceneMetadata] = []
-    recording_table = get_lru_cached_arrow_table(str(log_path))
-    log_metadata = get_log_metadata_from_arrow_table(recording_table)
+    recording_table = open_arrow_table(str(log_path))
+    log_metadata = get_log_metadata_from_arrow_schema(recording_table.schema)
+    num_log_iterations = len(recording_table)
 
     start_idx = int(filter.history_s / log_metadata.timestep_seconds) if filter.history_s is not None else 0
     end_idx = (
-        len(recording_table) - int(filter.duration_s / log_metadata.timestep_seconds)
+        num_log_iterations - int(filter.duration_s / log_metadata.timestep_seconds)
         if filter.duration_s is not None
-        else len(recording_table)
+        else num_log_iterations
     )
 
     # 1. Filter location & whether map API is required
@@ -209,6 +214,7 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
 
         if add_scene:
             scene_extraction_metadatas_.append(scene_extraction_metadata)
+        # scene_extraction_metadata = scene_extraction_metadatas_
 
-    # scene_extraction_metadata = scene_extraction_metadatas_
+    del recording_table
     return scene_extraction_metadatas_
