@@ -46,7 +46,7 @@ def get_road_edges_3d_from_drivable_surfaces(
 
     # 2. Extract road edges in 2D (including conflicting lane groups)
     drivable_polygons: List[shapely.Polygon] = []
-    for map_surface in lane_groups  + generic_drivables:
+    for map_surface in lane_groups + generic_drivables:
         map_surface: BaseMapSurfaceObject
         drivable_polygons.append(map_surface.shapely_polygon)
     road_edges_2d = get_road_edge_linear_rings(drivable_polygons)

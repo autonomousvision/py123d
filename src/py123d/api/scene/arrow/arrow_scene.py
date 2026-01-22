@@ -16,7 +16,6 @@ from py123d.api.scene.arrow.utils.arrow_getters import (
     get_traffic_light_detections_from_arrow_table,
 )
 from py123d.api.scene.arrow.utils.arrow_metadata_utils import (
-    get_log_metadata_from_arrow_file,
     get_log_metadata_from_arrow_table,
 )
 from py123d.api.scene.scene_api import SceneAPI
