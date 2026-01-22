@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from py123d.conversion.utils.map_utils.opendrive.parser.lane import XODRRoadMark
 from py123d.conversion.utils.map_utils.opendrive.parser.opendrive import XODR, Junction
 from py123d.conversion.utils.map_utils.opendrive.parser.reference import XODRReferenceLine
 from py123d.conversion.utils.map_utils.opendrive.parser.road import XODRRoad
@@ -32,13 +33,15 @@ def collect_element_helpers(
     Dict[str, OpenDriveLaneHelper],
     Dict[str, OpenDriveLaneGroupHelper],
     Dict[int, OpenDriveObjectHelper],
+    Dict[str, List[XODRRoadMark]],
 ]:
     # 1. Fill the road and junction dictionaries
     road_dict: Dict[int, XODRRoad] = {road.id: road for road in opendrive.roads}
     junction_dict: Dict[int, Junction] = {junction.id: junction for junction in opendrive.junctions}
 
-    # 2. Create lane helpers from the roads
+    # 2. Create lane helpers from the roads and collect center lane road marks
     lane_helper_dict: Dict[str, OpenDriveLaneHelper] = {}
+    center_lane_marks_dict: Dict[str, List[XODRRoadMark]] = {}
     for road in opendrive.roads:
         # Skip roads without predecessor or successor links - (such as car parks in houses)
         if road.link.predecessor is None or road.link.successor is None:
@@ -63,6 +66,11 @@ def collect_element_helpers(
             )
             lane_helper_dict.update(lane_helpers_)
 
+            # Collect center lane road marks (id=0)
+            for center_lane in lane_section.center_lanes:
+                if center_lane.id == 0 and center_lane.road_marks:
+                    center_lane_marks_dict[lane_section_id] = center_lane.road_marks
+
     # 3. Update the connections and fill the lane helpers:
     # 3.1. From links of the roads
     _update_connection_from_links(lane_helper_dict, road_dict)
@@ -81,7 +89,7 @@ def collect_element_helpers(
     # 5. Collect objects, i.e. crosswalks
     crosswalk_dict = _collect_crosswalks(opendrive)
 
-    return (road_dict, junction_dict, lane_helper_dict, lane_group_helper_dict, crosswalk_dict)
+    return (road_dict, junction_dict, lane_helper_dict, lane_group_helper_dict, crosswalk_dict, center_lane_marks_dict)
 
 
 def _update_connection_from_links(
