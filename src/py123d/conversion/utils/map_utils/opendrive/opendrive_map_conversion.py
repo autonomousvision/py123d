@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Dict, Final, List
+from typing import Dict, Final, List, Tuple
 
 import numpy as np
 import shapely
@@ -119,16 +119,18 @@ def _extract_and_write_lanes(
 
 
 def _extract_and_write_lane_groups(
-    lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper], map_writer: AbstractMapWriter
+    lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper],
+    map_writer: AbstractMapWriter,
+    lane_group_lane_ids: Dict[str, List[str]],
 ) -> List[LaneGroup]:
     """Extracts lane groups from lane group helpers and writes them using the map writer."""
 
     lane_groups: List[LaneGroup] = []
     for lane_group_helper in lane_group_helper_dict.values():
-        lane_group_helper: OpenDriveLaneGroupHelper
+        lane_ids = lane_group_lane_ids.get(lane_group_helper.lane_group_id, [])
         lane_group = LaneGroup(
             object_id=lane_group_helper.lane_group_id,
-            lane_ids=[lane_helper.lane_id for lane_helper in lane_group_helper.lane_helpers],
+            lane_ids=lane_ids,
             left_boundary=lane_group_helper.inner_polyline_3d,
             right_boundary=lane_group_helper.outer_polyline_3d,
             intersection_id=lane_group_helper.junction_id,
@@ -177,7 +179,7 @@ def _extract_and_write_generic_drivables(
 
     generic_drivables: List[GenericDrivable] = []
     for lane_helper in lane_helper_dict.values():
-        if lane_helper.type in ["none", "border", "bidirectional"]:
+        if lane_helper.type in ["border", "bidirectional"]:
             generic_drivable = GenericDrivable(
                 object_id=lane_helper.lane_id,
                 outline=lane_helper.outline_polyline_3d,
@@ -284,7 +286,7 @@ def _write_road_edges(
         generic_drivables=generic_drivables,
     )
     road_edge_linestrings = split_line_geometry_by_max_length(
-        [road_edges.linestring for road_edges in road_edges_], MAX_ROAD_EDGE_LENGTH
+        [road_edge.linestring for road_edge in road_edges_], MAX_ROAD_EDGE_LENGTH
     )
 
     running_id = 0
@@ -300,18 +302,14 @@ def _write_road_edges(
         running_id += 1
 
 
-def _extract_intersection_outline(lane_group_helpers: List[OpenDriveLaneGroupHelper], junction_id: str) -> Polyline3D:
+def _extract_intersection_outline(lane_group_helpers: List[OpenDriveLaneGroupHelper], junction_id: int) -> Polyline3D:
     """Helper method to extract intersection outline in 3D from lane group helpers."""
 
     # 1. Extract the intersection outlines in 2D
     intersection_polygons: List[shapely.Polygon] = [
         lane_group_helper.shapely_polygon for lane_group_helper in lane_group_helpers
     ]
-    intersection_edges = get_road_edge_linear_rings(
-        intersection_polygons,
-        buffer_distance=0.25,
-        add_interiors=False,
-    )
+    intersection_edges = get_road_edge_linear_rings(intersection_polygons, buffer_distance=0.25, add_interiors=False)
 
     # 2. Lift the 2D outlines to 3D
     lane_group_outlines: List[Polyline3D] = [
@@ -323,7 +321,7 @@ def _extract_intersection_outline(lane_group_helpers: List[OpenDriveLaneGroupHel
     # For now, we return the longest outline.
     valid_outlines = [outline for outline in intersection_outlines if outline.array.shape[0] > 2]
     if len(valid_outlines) == 0:
-        logging.warning(
+        logger.warning(
             f"Could not extract valid outline for intersection {junction_id} with {len(intersection_edges)} edges!"
         )
         longest_outline_2d = max(intersection_edges, key=lambda outline: outline.length)
