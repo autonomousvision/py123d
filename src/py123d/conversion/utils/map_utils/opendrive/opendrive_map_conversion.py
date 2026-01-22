@@ -6,8 +6,10 @@ import numpy as np
 import shapely
 
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.conversion.utils.map_utils.opendrive.parser.lane import XODRRoadMark
 from py123d.conversion.utils.map_utils.opendrive.parser.opendrive import XODR, Junction
 from py123d.conversion.utils.map_utils.opendrive.utils.collection import collect_element_helpers
+from py123d.conversion.utils.map_utils.opendrive.utils.id_system import lane_section_id_from_lane_group_id
 from py123d.conversion.utils.map_utils.opendrive.utils.lane_helper import (
     OpenDriveLaneGroupHelper,
     OpenDriveLaneHelper,
@@ -47,6 +49,7 @@ def convert_xodr_map(
     map_writer: AbstractMapWriter,
     interpolation_step_size: float = 1.0,
     connection_distance_threshold: float = 0.1,
+    internal_only: bool = True,
 ) -> None:
     """Converts an OpenDRIVE map file and the map objects to an 123D map using a map writer.
 
@@ -54,13 +57,19 @@ def convert_xodr_map(
     :param map_writer: Map writer to write the extracted map objects.
     :param interpolation_step_size: Step size for interpolating polylines, defaults to 1.0
     :param connection_distance_threshold: Distance threshold for connecting road elements, defaults to 0.1
+    :param internal_only: If True, only write internal road lines (center + between lanes), defaults to True
     """
 
     opendrive = XODR.parse_from_file(xordr_file)
 
-    _, junction_dict, lane_helper_dict, lane_group_helper_dict, object_helper_dict = collect_element_helpers(
-        opendrive, interpolation_step_size, connection_distance_threshold
-    )
+    (
+        _,
+        junction_dict,
+        lane_helper_dict,
+        lane_group_helper_dict,
+        object_helper_dict,
+        center_lane_marks_dict,
+    ) = collect_element_helpers(opendrive, interpolation_step_size, connection_distance_threshold)
 
     # Collect data frames and store (needed for road edge/line extraction)
     lanes = _extract_and_write_lanes(lane_group_helper_dict, map_writer)
@@ -74,7 +83,7 @@ def convert_xodr_map(
     _write_crosswalks(object_helper_dict, map_writer)
 
     # Extract polyline elements that are inferred of other road surfaces.
-    _write_road_lines(lanes, lane_groups, map_writer)
+    _write_road_lines(lane_helper_dict, lane_groups, center_lane_marks_dict, map_writer, internal_only)
     _write_road_edges(
         lanes=lanes,
         lane_groups=lane_groups,
@@ -177,7 +186,7 @@ def _extract_and_write_generic_drivables(
 
     generic_drivables: List[GenericDrivable] = []
     for lane_helper in lane_helper_dict.values():
-        if lane_helper.type in ["none", "border", "bidirectional"]:
+        if lane_helper.type in ["border", "bidirectional"]:
             generic_drivable = GenericDrivable(
                 object_id=lane_helper.lane_id,
                 outline=lane_helper.outline_polyline_3d,
@@ -227,47 +236,148 @@ def _write_crosswalks(object_helper_dict: Dict[int, OpenDriveObjectHelper], map_
         )
 
 
-def _write_road_lines(lanes: List[Lane], lane_groups: List[LaneGroup], map_writer: AbstractMapWriter) -> None:
-    # NOTE @DanielDauner: This method of extracting road lines is very simplistic and needs improvement.
-    # The OpenDRIVE format provides lane boundary types that could be used here.
-    # Additionally, the logic of inferring road lines is somewhat flawed, e.g, assuming constant types/colors of lines.
+def _map_road_mark_to_type(mark_type: str, color: str) -> RoadLineType:
+    # TODO: Verify that "none" doesn't mean something different in OpenDRIVE spec.
+    if mark_type == "none":
+        mark_type = "dashed"
 
-    lane_group_on_intersection: Dict[str, bool] = {
-        lane_group.object_id: lane_group.intersection_id is not None for lane_group in lane_groups
+    if color == "standard":
+        color = "white"
+
+    mapping = {
+        ("solid", "white"): RoadLineType.SOLID_WHITE,
+        ("solid", "yellow"): RoadLineType.SOLID_YELLOW,
+        ("broken", "white"): RoadLineType.DASHED_WHITE,
+        ("broken", "yellow"): RoadLineType.DASHED_YELLOW,
+        ("solid solid", "white"): RoadLineType.DOUBLE_SOLID_WHITE,
+        ("solid solid", "yellow"): RoadLineType.DOUBLE_SOLID_YELLOW,
+        ("broken broken", "white"): RoadLineType.DOUBLE_DASH_WHITE,
+        ("broken broken", "yellow"): RoadLineType.DOUBLE_DASH_YELLOW,
+        ("solid broken", "white"): RoadLineType.SOLID_DASH_WHITE,
+        ("solid broken", "yellow"): RoadLineType.SOLID_DASH_YELLOW,
+        ("broken solid", "white"): RoadLineType.DASH_SOLID_WHITE,
+        ("broken solid", "yellow"): RoadLineType.DASH_SOLID_YELLOW,
     }
+    return mapping.get((mark_type.lower(), (color or "white").lower()), RoadLineType.DASHED_WHITE)
 
-    ids: List[int] = []
-    road_line_types: List[RoadLineType] = []
-    polylines: List[Polyline3D] = []
+
+def _extract_polyline_segment(
+    polyline: Polyline3D,
+    lane_length: float,
+    s_start: float,
+    s_end: float,
+    step_size: float = 1.0,
+) -> Polyline3D | None:
+    """Extract segment of polyline between s_start and s_end (relative to lane section)."""
+    total_length = polyline.length
+    scale = total_length / lane_length if lane_length > 0 else 1.0
+    dist_start = max(0.0, s_start * scale)
+    dist_end = min(total_length, s_end * scale)
+
+    if dist_end - dist_start < 0.1:
+        return None
+
+    num_points = max(2, int((dist_end - dist_start) / step_size) + 1)
+    distances = np.linspace(dist_start, dist_end, num_points)
+    points = polyline.interpolate(distances)
+    return Polyline3D.from_array(points)
+
+
+def _write_road_lines(
+    lane_helper_dict: Dict[str, OpenDriveLaneHelper],
+    lane_groups: List[LaneGroup],
+    center_lane_marks_dict: Dict[str, List[XODRRoadMark]],
+    map_writer: AbstractMapWriter,
+    internal_only: bool = False,
+) -> None:
+    """Write road lines from OpenDRIVE road mark data.
+
+    Road lines are created from:
+    - Center lines: using center lane (id=0) road marks at lane_group.left_boundary
+    - Lane boundaries: using lane road marks at lane.right_boundary
+    """
+    lane_group_on_intersection = {lg.object_id: lg.intersection_id is not None for lg in lane_groups}
+    lane_group_dict = {lg.object_id: lg for lg in lane_groups}
 
     running_id = 0
-    for lane in lanes:
-        on_intersection = lane_group_on_intersection.get(lane.lane_group_id, False)
-        if on_intersection:
-            # Skip road lines on intersections
+
+    # A. Center lines (separating opposite directions)
+    processed_lane_sections = set()
+    for lane_group in lane_groups:
+        if lane_group_on_intersection.get(lane_group.object_id, False):
             continue
 
-        if lane.right_lane_id is None:
-            # This is a boundary lane, e.g. a border or sidewalk
-            ids.append(running_id)
-            road_line_types.append(RoadLineType.SOLID_WHITE)
-            polylines.append(lane.right_boundary)
-            running_id += 1
-        else:
-            # This is a regular lane
-            ids.append(running_id)
-            road_line_types.append(RoadLineType.DASHED_WHITE)
-            polylines.append(lane.right_boundary)
-            running_id += 1
-        if lane.left_lane_id is None:
-            # This is a boundary lane, e.g. a border or sidewalk
-            ids.append(running_id)
-            road_line_types.append(RoadLineType.DASHED_WHITE)
-            polylines.append(lane.left_boundary)
+        lane_section_id = lane_section_id_from_lane_group_id(lane_group.object_id)
+        if lane_section_id in processed_lane_sections:
+            continue
+        processed_lane_sections.add(lane_section_id)
+
+        center_marks = center_lane_marks_dict.get(lane_section_id, [])
+        if not center_marks:
+            continue
+
+        polyline = lane_group.left_boundary
+        lane_length = polyline.length
+
+        for i, mark in enumerate(center_marks):
+            s_start = mark.s_offset
+            s_end = center_marks[i + 1].s_offset if i + 1 < len(center_marks) else lane_length
+
+            segment = _extract_polyline_segment(polyline, lane_length, s_start, s_end)
+            if segment is None:
+                continue
+
+            road_line_type = _map_road_mark_to_type(mark.type, mark.color)
+            map_writer.write_road_line(RoadLine(object_id=running_id, road_line_type=road_line_type, polyline=segment))
             running_id += 1
 
-    for object_id, road_line_type, polyline in zip(ids, road_line_types, polylines):
-        map_writer.write_road_line(RoadLine(object_id=object_id, road_line_type=road_line_type, polyline=polyline))
+    # B. Lane boundaries (between lanes in same group)
+    for lane_id, lane_helper in lane_helper_dict.items():
+        if lane_helper.type != "driving":
+            continue
+
+        lane_group_id = lane_id.rsplit("_", 1)[0]
+        if lane_group_on_intersection.get(lane_group_id, False):
+            continue
+
+        lane_group = lane_group_dict.get(lane_group_id)
+        if lane_group is None:
+            continue
+
+        # Find lane in lane_group to check adjacency
+        lane_idx_in_group = None
+        for idx, lid in enumerate(lane_group.lane_ids):
+            if lid == lane_id:
+                lane_idx_in_group = idx
+                break
+        if lane_idx_in_group is None:
+            continue
+
+        num_lanes = len(lane_group.lane_ids)
+        has_right_neighbor = lane_idx_in_group < num_lanes - 1
+        is_internal = has_right_neighbor
+
+        if internal_only and not is_internal:
+            continue
+
+        road_marks = lane_helper.open_drive_lane.road_marks
+        if not road_marks:
+            continue
+
+        polyline = lane_helper.outer_polyline_3d
+        lane_length = lane_helper.s_range[1] - lane_helper.s_range[0]
+
+        for i, mark in enumerate(road_marks):
+            s_start = mark.s_offset
+            s_end = road_marks[i + 1].s_offset if i + 1 < len(road_marks) else lane_length
+
+            segment = _extract_polyline_segment(polyline, lane_length, s_start, s_end)
+            if segment is None:
+                continue
+
+            road_line_type = _map_road_mark_to_type(mark.type or "none", mark.color or "white")
+            map_writer.write_road_line(RoadLine(object_id=running_id, road_line_type=road_line_type, polyline=segment))
+            running_id += 1
 
 
 def _write_road_edges(
@@ -323,7 +433,7 @@ def _extract_intersection_outline(lane_group_helpers: List[OpenDriveLaneGroupHel
     # For now, we return the longest outline.
     valid_outlines = [outline for outline in intersection_outlines if outline.array.shape[0] > 2]
     if len(valid_outlines) == 0:
-        logging.warning(
+        logger.warning(
             f"Could not extract valid outline for intersection {junction_id} with {len(intersection_edges)} edges!"
         )
         longest_outline_2d = max(intersection_edges, key=lambda outline: outline.length)

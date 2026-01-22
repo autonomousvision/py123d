@@ -509,8 +509,6 @@ def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> 
     oxts_path = kitti360_folders[DIR_POSES] / log_name / "oxts" / "data"
 
     for idx in range(len(valid_timestamp)):
-
-
         vehicle_parameters = get_kitti360_vw_passat_parameters()
 
         pos = idx
