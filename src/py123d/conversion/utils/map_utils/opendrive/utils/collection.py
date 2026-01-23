@@ -81,6 +81,9 @@ def collect_element_helpers(
     # 3.4. Remove invalid connections based on centerline distances
     _post_process_connections(lane_helper_dict, connection_distance_threshold)
 
+    # 3.5. Propagate speed limits to junction lanes (they often lack <type> elements)
+    _propagate_speed_limits_to_junction_lanes(lane_helper_dict, road_dict)
+
     # 4. Collect lane groups from lane helpers
     lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper] = _collect_lane_groups(
         lane_helper_dict, junction_dict, road_dict
@@ -282,6 +285,39 @@ def _post_process_connections(
             else:
                 valid_predecessor_lane_ids.append(predecessor_lane_id)
         lane_helper_dict[lane_id].predecessor_lane_ids = valid_predecessor_lane_ids
+
+
+def _propagate_speed_limits_to_junction_lanes(
+    lane_helper_dict: Dict[str, OpenDriveLaneHelper],
+    road_dict: Dict[int, XODRRoad],
+) -> None:
+    """
+    Propagate speed limits from predecessor/successor lanes to junction road lanes.
+    Junction roads in XODR often lack <type> elements with speed info.
+    """
+    for lane_id, lane_helper in lane_helper_dict.items():
+        if lane_helper.speed_limit_mps is not None:
+            continue
+
+        road_id = int(lane_id.split("_")[0])
+        road = road_dict.get(road_id)
+        if road is None or road.junction is None:
+            continue
+
+        # Try predecessor first
+        for pred_id in lane_helper.predecessor_lane_ids:
+            pred_helper = lane_helper_dict.get(pred_id)
+            if pred_helper and pred_helper.speed_limit_mps is not None:
+                lane_helper.speed_limit_mps = pred_helper.speed_limit_mps
+                break
+
+        # Fallback to successor
+        if lane_helper.speed_limit_mps is None:
+            for succ_id in lane_helper.successor_lane_ids:
+                succ_helper = lane_helper_dict.get(succ_id)
+                if succ_helper and succ_helper.speed_limit_mps is not None:
+                    lane_helper.speed_limit_mps = succ_helper.speed_limit_mps
+                    break
 
 
 def _collect_lane_groups(
