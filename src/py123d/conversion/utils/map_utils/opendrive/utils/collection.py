@@ -1,7 +1,9 @@
 import logging
+from copy import deepcopy
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+from scipy.interpolate import splev, splprep
 
 from py123d.conversion.utils.map_utils.opendrive.parser.lane import XODRRoadMark
 from py123d.conversion.utils.map_utils.opendrive.parser.opendrive import XODR, Junction
@@ -19,6 +21,8 @@ from py123d.conversion.utils.map_utils.opendrive.utils.lane_helper import (
     lane_section_to_lane_helpers,
 )
 from py123d.conversion.utils.map_utils.opendrive.utils.objects_helper import OpenDriveObjectHelper, get_object_helper
+from py123d.geometry.polyline import Polyline3D, PolylineSE2
+from py123d.geometry.utils.polyline_utils import get_points_2d_yaws, offset_points_perpendicular
 
 logger = logging.getLogger(__name__)
 
@@ -80,9 +84,10 @@ def collect_element_helpers(
     _deduplicate_connections(lane_helper_dict)
     # 3.4. Remove invalid connections based on centerline distances
     _post_process_connections(lane_helper_dict, connection_distance_threshold)
-
     # 3.5. Propagate speed limits to junction lanes (they often lack <type> elements)
     _propagate_speed_limits_to_junction_lanes(lane_helper_dict, road_dict)
+    # 3.6. Correct lanes with no connections
+    _correct_lanes_with_no_connections(lane_helper_dict)
 
     # 4. Collect lane groups from lane helpers
     lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper] = _collect_lane_groups(
@@ -318,6 +323,82 @@ def _propagate_speed_limits_to_junction_lanes(
                 if succ_helper and succ_helper.speed_limit_mps is not None:
                     lane_helper.speed_limit_mps = succ_helper.speed_limit_mps
                     break
+
+
+def _extend_lane_with_shoulder(
+    lane_helper: OpenDriveLaneHelper,
+    shoulder_helper: OpenDriveLaneHelper,
+    driving_helper: OpenDriveLaneHelper,
+    is_predecessor: bool,
+) -> OpenDriveLaneHelper:
+    """
+    Extend lane polylines using shoulder curve and add driving lane as connection.
+
+    :param lane_helper: The lane to extend
+    :param shoulder_helper: Adjacent shoulder lane providing the extension curve
+    :param driving_helper: Adjacent driving lane to add as predecessor/successor
+    :param is_predecessor: True = no predecessor (merge lane), False = no successor (exit lane)
+    :return: New OpenDriveLaneHelper with extended polylines
+    """
+    pass
+
+
+def _correct_lanes_with_no_connections(lane_helper_dict: Dict[str, OpenDriveLaneHelper]) -> None:
+    """
+    Correct merge/exit lanes that have no predecessor or successor connections.
+    Extends polylines using adjacent shoulder curve and adds adjacent driving lane as connection.
+
+    :param lane_helper_dict: Dictionary mapping lane ids to their helper objects (modified in-place).
+    """
+    lanes_to_update: Dict[str, OpenDriveLaneHelper] = {}
+
+    for lane_id, lane_helper in lane_helper_dict.items():
+        if lane_helper.type != "driving":
+            continue
+
+        road_idx, lane_section_idx, _, lane_idx = lane_id.split("_")
+        road_idx, lane_section_idx, lane_idx = int(road_idx), int(lane_section_idx), int(lane_idx)
+
+        right_lane_id = build_lane_id(road_idx, lane_section_idx, lane_idx + 1)
+        left_lane_id = build_lane_id(road_idx, lane_section_idx, lane_idx - 1)
+
+        right_lane = lane_helper_dict.get(right_lane_id)
+        left_lane = lane_helper_dict.get(left_lane_id)
+
+        # Identify shoulder and driving lanes from adjacent
+        shoulder, driving = None, None
+        if left_lane and left_lane.type == "shoulder":
+            shoulder = left_lane
+        if right_lane and right_lane.type == "shoulder":
+            shoulder = right_lane
+        if left_lane and left_lane.type == "driving":
+            driving = left_lane
+        if right_lane and right_lane.type == "driving":
+            driving = right_lane
+
+        no_predecessor = len(lane_helper.predecessor_lane_ids) == 0
+        no_successor = len(lane_helper.successor_lane_ids) == 0
+
+        if no_predecessor and driving:
+            if shoulder:
+                new_helper = _extend_lane_with_shoulder(lane_helper, shoulder, driving, is_predecessor=True)
+                lanes_to_update[lane_id] = new_helper
+            else:
+                print(f"Lane {lane_id} no predecessor: added {driving.lane_id}, no shoulder to extend")
+                continue
+
+        if no_successor and driving:
+            # Use existing updated helper if we already created one for predecessor
+            base_helper = lanes_to_update.get(lane_id, lane_helper)
+            if shoulder:
+                new_helper = _extend_lane_with_shoulder(base_helper, shoulder, driving, is_predecessor=False)
+                lanes_to_update[lane_id] = new_helper
+            else:
+                print(f"Lane {lane_id} no successor: added {driving.lane_id}, no shoulder to extend")
+                continue
+
+    # Apply updates
+    lane_helper_dict.update(lanes_to_update)
 
 
 def _collect_lane_groups(
