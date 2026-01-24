@@ -1,7 +1,9 @@
 import logging
+from copy import deepcopy
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+from scipy.interpolate import splev, splprep
 
 from py123d.conversion.utils.map_utils.opendrive.parser.lane import XODRRoadMark
 from py123d.conversion.utils.map_utils.opendrive.parser.opendrive import XODR, Junction
@@ -19,6 +21,8 @@ from py123d.conversion.utils.map_utils.opendrive.utils.lane_helper import (
     lane_section_to_lane_helpers,
 )
 from py123d.conversion.utils.map_utils.opendrive.utils.objects_helper import OpenDriveObjectHelper, get_object_helper
+from py123d.geometry.polyline import Polyline3D, PolylineSE2
+from py123d.geometry.utils.polyline_utils import get_points_2d_yaws, offset_points_perpendicular
 
 logger = logging.getLogger(__name__)
 
@@ -80,9 +84,10 @@ def collect_element_helpers(
     _deduplicate_connections(lane_helper_dict)
     # 3.4. Remove invalid connections based on centerline distances
     _post_process_connections(lane_helper_dict, connection_distance_threshold)
-
     # 3.5. Propagate speed limits to junction lanes (they often lack <type> elements)
     _propagate_speed_limits_to_junction_lanes(lane_helper_dict, road_dict)
+    # 3.6. Correct lanes with no connections
+    _correct_lanes_with_no_connections(lane_helper_dict)
 
     # 4. Collect lane groups from lane helpers
     lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper] = _collect_lane_groups(
@@ -320,11 +325,182 @@ def _propagate_speed_limits_to_junction_lanes(
                     break
 
 
+def _extend_lane_with_shoulder(
+    lane_helper: OpenDriveLaneHelper,
+    shoulder_helper: OpenDriveLaneHelper,
+    is_predecessor: bool,
+) -> OpenDriveLaneHelper:
+    """
+    Extend lane polylines using shoulder curve and add driving lane as connection.
+
+    :param lane_helper: The lane to extend
+    :param shoulder_helper: Adjacent shoulder lane providing the extension curve
+    :param driving_helper: Adjacent driving lane to add as predecessor/successor
+    :param is_predecessor: True = no predecessor, False = no successor
+    :return: New OpenDriveLaneHelper with extended polylines
+    """
+    lane_center = lane_helper.center_polyline_se2.array
+    if lane_center.shape[0] < 2:
+        return lane_helper
+
+    def _sample_polyline_se2(polyline: PolylineSE2, count: int) -> np.ndarray:
+        if count <= 1:
+            return polyline.array[:count].copy()
+        distances = np.linspace(0.0, polyline.length, num=count, dtype=np.float64)
+        return np.array(polyline.interpolate(distances), dtype=np.float64)
+
+    def _signed_offsets(base_xy: np.ndarray, target_xy: np.ndarray, base_yaws: np.ndarray) -> np.ndarray:
+        normals = np.stack(
+            [np.cos(base_yaws + np.pi / 2.0), np.sin(base_yaws + np.pi / 2.0)],
+            axis=-1,
+        )
+        return np.einsum("ij,ij->i", target_xy - base_xy, normals)
+
+    count = lane_center.shape[0]
+    stable_count = max(int(round(count * 0.3)), 2)
+    stable_count = min(stable_count, count)
+    stable_slice = slice(count - stable_count, count) if is_predecessor else slice(0, stable_count)
+
+    shoulder_inner = _sample_polyline_se2(shoulder_helper.inner_polyline_se2, count)
+    shoulder_outer = _sample_polyline_se2(shoulder_helper.outer_polyline_se2, count)
+    lane_center_xy = lane_center[:, :2]
+
+    inner_dist = np.mean(np.linalg.norm(shoulder_inner[:, :2] - lane_center_xy, axis=1))
+    outer_dist = np.mean(np.linalg.norm(shoulder_outer[:, :2] - lane_center_xy, axis=1))
+    shoulder_sample = shoulder_inner if inner_dist <= outer_dist else shoulder_outer
+
+    shoulder_yaws = shoulder_sample[:, 2]
+    shoulder_xy = shoulder_sample[:, :2]
+    offsets = _signed_offsets(shoulder_xy, lane_center_xy, shoulder_yaws)
+    offset_mean = float(np.mean(offsets[stable_slice]))
+    if np.isclose(offset_mean, 0.0):
+        offset_mean = float(np.mean(offsets))
+
+    shoulder_offset_xy = offset_points_perpendicular(shoulder_sample, offset=offset_mean)
+
+    t = np.linspace(0.0, 1.0, count, dtype=np.float64)
+    smooth = 3.0 * t**2 - 2.0 * t**3
+    weight = 1.0 - smooth if is_predecessor else smooth
+    new_center_xy = (weight[:, None] * shoulder_offset_xy) + ((1.0 - weight)[:, None] * lane_center_xy)
+    new_center_xy = new_center_xy.astype(np.float64, copy=False)
+
+    if count >= 4 and np.sum(np.linalg.norm(np.diff(new_center_xy, axis=0), axis=1)) > 1e-6:
+        tck, _ = splprep(new_center_xy.T, s=0.0, k=min(3, count - 1))
+        u_new = np.linspace(0.0, 1.0, count, dtype=np.float64)
+        new_center_xy = np.array(splev(u_new, tck), dtype=np.float64).T
+
+    new_center_yaws = get_points_2d_yaws(new_center_xy)
+    new_center_se2 = np.column_stack([new_center_xy, new_center_yaws]).astype(np.float64, copy=False)
+
+    inner_xy = lane_helper.inner_polyline_se2.array[:, :2]
+    outer_xy = lane_helper.outer_polyline_se2.array[:, :2]
+    widths = np.linalg.norm(inner_xy - outer_xy, axis=1)
+    width_mean = float(np.mean(widths[stable_slice]))
+    if width_mean <= 1e-6:
+        width_mean = float(np.mean(widths))
+
+    center_yaws = lane_center[:, 2]
+    inner_offsets = _signed_offsets(lane_center_xy, inner_xy, center_yaws)
+    inner_offset_mean = float(np.mean(inner_offsets[stable_slice]))
+    if np.isclose(inner_offset_mean, 0.0):
+        inner_offset_mean = float(np.mean(inner_offsets))
+    inner_sign = 1.0 if np.isclose(inner_offset_mean, 0.0) else float(np.sign(inner_offset_mean))
+
+    inner_offset = inner_sign * width_mean / 2.0
+    outer_offset = -inner_offset
+
+    new_inner_xy = offset_points_perpendicular(new_center_se2, offset=inner_offset)
+    new_outer_xy = offset_points_perpendicular(new_center_se2, offset=outer_offset)
+
+    inner_yaws = get_points_2d_yaws(new_inner_xy)
+    outer_yaws = get_points_2d_yaws(new_outer_xy)
+    new_inner_se2 = np.column_stack([new_inner_xy, inner_yaws])
+    new_outer_se2 = np.column_stack([new_outer_xy, outer_yaws])
+
+    inner_z = lane_helper.inner_polyline_3d.array[:, 2]
+    outer_z = lane_helper.outer_polyline_3d.array[:, 2]
+    new_inner_3d = np.column_stack([new_inner_xy, inner_z])
+    new_outer_3d = np.column_stack([new_outer_xy, outer_z])
+
+    new_helper = deepcopy(lane_helper)
+    new_helper.__dict__["inner_polyline_se2"] = PolylineSE2.from_array(new_inner_se2)
+    new_helper.__dict__["outer_polyline_se2"] = PolylineSE2.from_array(new_outer_se2)
+    new_helper.__dict__["inner_polyline_3d"] = Polyline3D.from_array(new_inner_3d)
+    new_helper.__dict__["outer_polyline_3d"] = Polyline3D.from_array(new_outer_3d)
+    return new_helper
+
+
+def _correct_lanes_with_no_connections(lane_helper_dict: Dict[str, OpenDriveLaneHelper]) -> None:
+    """
+    Correct merge/exit lanes that have no predecessor or successor connections.
+    Extends polylines using adjacent shoulder curve and adds adjacent driving lane as connection.
+
+    :param lane_helper_dict: Dictionary mapping lane ids to their helper objects (modified in-place).
+    """
+    lanes_to_update: Dict[str, OpenDriveLaneHelper] = {}
+
+    for lane_id, lane_helper in lane_helper_dict.items():
+        if lane_helper.type != "driving":
+            continue
+
+        road_idx, lane_section_idx, _, lane_idx = lane_id.split("_")
+        road_idx, lane_section_idx, lane_idx = int(road_idx), int(lane_section_idx), int(lane_idx)
+
+        right_lane_id = build_lane_id(road_idx, lane_section_idx, lane_idx + 1)
+        left_lane_id = build_lane_id(road_idx, lane_section_idx, lane_idx - 1)
+
+        right_lane = lane_helper_dict.get(right_lane_id)
+        left_lane = lane_helper_dict.get(left_lane_id)
+
+        # Identify shoulder and driving lanes from adjacent
+        shoulder, driving = None, None
+        if left_lane and left_lane.type == "shoulder":
+            shoulder = left_lane
+        if right_lane and right_lane.type == "shoulder":
+            shoulder = right_lane
+        if left_lane and left_lane.type == "driving":
+            driving = left_lane
+        if right_lane and right_lane.type == "driving":
+            driving = right_lane
+
+        no_predecessor = len(lane_helper.predecessor_lane_ids) == 0
+        no_successor = len(lane_helper.successor_lane_ids) == 0
+
+        if no_predecessor and driving:
+            if shoulder:
+                new_helper = _extend_lane_with_shoulder(lane_helper, shoulder, is_predecessor=True)
+                new_helper.predecessor_lane_ids = driving.predecessor_lane_ids
+                for pred_id in new_helper.predecessor_lane_ids:
+                    pred_helper = lane_helper_dict.get(pred_id)
+                    pred_helper.successor_lane_ids.append(lane_id)
+                lanes_to_update[lane_id] = new_helper
+            else:
+                print(f"Lane {lane_id} no predecessor: added {driving.lane_id}, no shoulder to extend")
+                continue
+
+        if no_successor and driving:
+            # Use existing updated helper if we already created one for predecessor
+            base_helper = lanes_to_update.get(lane_id, lane_helper)
+            if shoulder:
+                new_helper = _extend_lane_with_shoulder(base_helper, shoulder, is_predecessor=False)
+                new_helper.successor_lane_ids = driving.successor_lane_ids
+                for succ_id in new_helper.successor_lane_ids:
+                    succ_helper = lane_helper_dict.get(succ_id)
+                    succ_helper.predecessor_lane_ids.append(lane_id)
+                lanes_to_update[lane_id] = new_helper
+            else:
+                print(f"Lane {lane_id} no successor: added {driving.lane_id}, no shoulder to extend")
+                continue
+
+    # Apply updates
+    lane_helper_dict.update(lanes_to_update)
+
+
 def _collect_lane_groups(
     lane_helper_dict: Dict[str, OpenDriveLaneHelper],
     junction_dict: Dict[int, Junction],
     road_dict: Dict[int, XODRRoad],
-) -> None:
+) -> Dict[str, OpenDriveLaneGroupHelper]:
     lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper] = {}
 
     def _collect_lane_helper_of_id(lane_group_id: str) -> List[OpenDriveLaneHelper]:
