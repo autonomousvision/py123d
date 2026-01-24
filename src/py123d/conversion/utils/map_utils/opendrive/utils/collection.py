@@ -468,7 +468,11 @@ def _correct_lanes_with_no_connections(lane_helper_dict: Dict[str, OpenDriveLane
 
         if no_predecessor and driving:
             if shoulder:
-                new_helper = _extend_lane_with_shoulder(lane_helper, shoulder, driving, is_predecessor=True)
+                new_helper = _extend_lane_with_shoulder(lane_helper, shoulder, is_predecessor=True)
+                new_helper.predecessor_lane_ids = driving.predecessor_lane_ids
+                for pred_id in new_helper.predecessor_lane_ids:
+                    pred_helper = lane_helper_dict.get(pred_id)
+                    pred_helper.successor_lane_ids.append(lane_id)
                 lanes_to_update[lane_id] = new_helper
             else:
                 print(f"Lane {lane_id} no predecessor: added {driving.lane_id}, no shoulder to extend")
@@ -478,7 +482,11 @@ def _correct_lanes_with_no_connections(lane_helper_dict: Dict[str, OpenDriveLane
             # Use existing updated helper if we already created one for predecessor
             base_helper = lanes_to_update.get(lane_id, lane_helper)
             if shoulder:
-                new_helper = _extend_lane_with_shoulder(base_helper, shoulder, driving, is_predecessor=False)
+                new_helper = _extend_lane_with_shoulder(base_helper, shoulder, is_predecessor=False)
+                new_helper.successor_lane_ids = driving.successor_lane_ids
+                for succ_id in new_helper.successor_lane_ids:
+                    succ_helper = lane_helper_dict.get(succ_id)
+                    succ_helper.predecessor_lane_ids.append(lane_id)
                 lanes_to_update[lane_id] = new_helper
             else:
                 print(f"Lane {lane_id} no successor: added {driving.lane_id}, no shoulder to extend")
