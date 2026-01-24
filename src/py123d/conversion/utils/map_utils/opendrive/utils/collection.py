@@ -438,6 +438,7 @@ def _correct_lanes_with_no_connections(lane_helper_dict: Dict[str, OpenDriveLane
     :param lane_helper_dict: Dictionary mapping lane ids to their helper objects (modified in-place).
     """
     lanes_to_update: Dict[str, OpenDriveLaneHelper] = {}
+    lanes_to_delete: List[str] = []
 
     for lane_id, lane_helper in lane_helper_dict.items():
         if lane_helper.type != "driving":
@@ -475,7 +476,8 @@ def _correct_lanes_with_no_connections(lane_helper_dict: Dict[str, OpenDriveLane
                     pred_helper.successor_lane_ids.append(lane_id)
                 lanes_to_update[lane_id] = new_helper
             else:
-                print(f"Lane {lane_id} no predecessor: added {driving.lane_id}, no shoulder to extend")
+                lanes_to_delete.append(lane_id)
+                logger.warning(f"Removing lane {lane_id} no predecessor: added {driving.lane_id}, no shoulder to extend")
                 continue
 
         if no_successor and driving:
@@ -489,11 +491,15 @@ def _correct_lanes_with_no_connections(lane_helper_dict: Dict[str, OpenDriveLane
                     succ_helper.predecessor_lane_ids.append(lane_id)
                 lanes_to_update[lane_id] = new_helper
             else:
-                print(f"Lane {lane_id} no successor: added {driving.lane_id}, no shoulder to extend")
+                lanes_to_delete.append(lane_id)
+                logger.warning(f"Removing lane {lane_id} no successor: added {driving.lane_id}, no shoulder to extend")
                 continue
 
     # Apply updates
     lane_helper_dict.update(lanes_to_update)
+    # Apply deletions
+    for lane_id in lanes_to_delete:
+        del lane_helper_dict[lane_id]
 
 
 def _collect_lane_groups(
