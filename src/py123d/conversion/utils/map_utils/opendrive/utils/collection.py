@@ -336,7 +336,7 @@ def _extend_lane_with_shoulder(
     :param lane_helper: The lane to extend
     :param shoulder_helper: Adjacent shoulder lane providing the extension curve
     :param driving_helper: Adjacent driving lane to add as predecessor/successor
-    :param is_predecessor: True = no predecessor (merge lane), False = no successor (exit lane)
+    :param is_predecessor: True = no predecessor, False = no successor
     :return: New OpenDriveLaneHelper with extended polylines
     """
     lane_center = lane_helper.center_polyline_se2.array
