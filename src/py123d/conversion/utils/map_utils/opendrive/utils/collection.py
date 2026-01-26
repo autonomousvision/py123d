@@ -527,7 +527,9 @@ def _correct_lanes_with_no_connections(lane_helper_dict: Dict[str, OpenDriveLane
             else:
                 # No shoulder to guide extension -> remove lane entirely
                 lanes_to_delete.append(lane_id)
-                logger.warning(f"Removing lane {lane_id} no predecessor: added {driving.lane_id}, no shoulder to extend")
+                logger.warning(
+                    f"Removing lane {lane_id} no predecessor: added {driving.lane_id}, no shoulder to extend"
+                )
                 continue
 
         # --- Handle missing successor (lane ends abruptly) ---
