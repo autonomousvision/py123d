@@ -3,6 +3,7 @@ from typing import List, Optional, Union
 
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraType
+from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
 
 # TODO: Add more filter options (e.g. scene tags, ego movement, or whatever appropriate)
@@ -33,10 +34,10 @@ class SceneFilter:
     timestamp_threshold_s: Optional[float] = None
     """Minimum time between the start timestamps of two consecutive scenes."""
 
-    duration_s: Optional[float] = 10.0
+    duration_s: Optional[float] = None
     """Duration of each scene in seconds."""
 
-    history_s: Optional[float] = 0.0
+    history_s: Optional[float] = None
     """History duration of each scene in seconds."""
 
     pinhole_camera_types: Optional[List[PinholeCameraType]] = None
@@ -44,6 +45,9 @@ class SceneFilter:
 
     fisheye_mei_camera_types: Optional[List[FisheyeMEICameraType]] = None
     """List of :class:`FisheyeMEICameraType` to include in the scenes."""
+
+    lidar_types: Optional[List[LiDARType]] = None
+    """List of :class:`LiDARType` to include in the scenes."""
 
     max_num_scenes: Optional[int] = None
     """Maximum number of scenes to return."""
@@ -65,3 +69,4 @@ class SceneFilter:
 
         self.pinhole_camera_types = _resolve_enum_arguments(PinholeCameraType, self.pinhole_camera_types)  # type: ignore
         self.fisheye_mei_camera_types = _resolve_enum_arguments(FisheyeMEICameraType, self.fisheye_mei_camera_types)  # type: ignore
+        self.lidar_types = _resolve_enum_arguments(LiDARType, self.lidar_types)  # type: ignore

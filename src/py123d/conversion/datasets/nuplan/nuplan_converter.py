@@ -340,6 +340,7 @@ def _extract_nuplan_ego_state(nuplan_lidar_pc: LidarPc) -> EgoStateSE3:
         rear_axle_se3=rear_axle_pose,
         vehicle_parameters=vehicle_parameters,
         dynamic_state_se3=dynamic_state_se3,
+        timepoint=TimePoint.from_us(nuplan_lidar_pc.ego_pose.timestamp),  # type: ignore
     )
 
 
