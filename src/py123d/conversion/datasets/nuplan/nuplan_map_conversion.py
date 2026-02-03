@@ -448,8 +448,10 @@ def get_all_rows_with_value(
     if desired_value is None or pd.isna(desired_value):
         return None
 
-    return elements.iloc[np.where(elements[column_label].to_numpy().astype(int) == int(desired_value))]  # type: ignore
+    mask = elements[column_label].notna()
+    valid_elements = elements[mask]
 
+    return valid_elements.iloc[np.where(valid_elements[column_label].to_numpy().astype(int) == int(desired_value))]
 
 def get_row_with_value(
     elements: gpd.geodataframe.GeoDataFrame, column_label: str, desired_value: str
