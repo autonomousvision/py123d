@@ -36,6 +36,15 @@ class TestPoseSE2:
         array[0] = 99.0
         assert pose.x == 99.0
 
+    def test_from_identity(self):
+        """Test creation of identity pose."""
+        pose = PoseSE2.identity()
+        assert pose.x == 0.0
+        assert pose.y == 0.0
+        assert pose.yaw == 0.0
+        transformation_matrix = pose.transformation_matrix
+        np.testing.assert_allclose(transformation_matrix, np.eye(3), atol=1e-10)
+
     def test_properties(self):
         """Test access to individual pose component properties."""
         pose = PoseSE2(x=3.0, y=4.0, yaw=np.pi / 4)
@@ -79,7 +88,7 @@ class TestPoseSE2:
         pose = PoseSE2(x=1.0, y=2.0, yaw=0.0)
         trans_mat = pose.transformation_matrix
         assert trans_mat.shape == (3, 3)
-        expected = np.array([[1.0, 0.0, 1.0], [0.0, 1.0, 2.0], [0.0, 0.0, 0.0]])
+        expected = np.array([[1.0, 0.0, 1.0], [0.0, 1.0, 2.0], [0.0, 0.0, 1.0]])
         np.testing.assert_allclose(trans_mat, expected)
 
     def test_shapely_point(self):
@@ -157,6 +166,15 @@ class TestPoseSE3:
         assert pose.qx == 0.0
         assert pose.qy == 0.0
         assert pose.qz == 0.0
+
+    def test_from_identity(self):
+        """Test creation of identity pose."""
+        pose = PoseSE3.identity()
+        np.testing.assert_allclose(pose.array, np.array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]), atol=1e-10)
+        np.testing.assert_allclose(pose.transformation_matrix, np.eye(4), atol=1e-10)
+        assert pose.yaw == 0.0
+        assert pose.pitch == 0.0
+        assert pose.roll == 0.0
 
     def test_properties(self):
         """Test access to individual pose component properties."""

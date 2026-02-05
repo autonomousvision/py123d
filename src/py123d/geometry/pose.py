@@ -55,6 +55,14 @@ class PoseSE2(ArrayMixin):
         object.__setattr__(instance, "_array", array.copy() if copy else array)
         return instance
 
+    @classmethod
+    def identity(cls) -> PoseSE2:
+        """Constructs an identity PoseSE2.
+
+        :return: An identity PoseSE2 instance.
+        """
+        return PoseSE2(x=0.0, y=0.0, yaw=0.0)
+
     @property
     def x(self) -> float:
         """The x-coordinate of the pose."""
@@ -95,7 +103,7 @@ class PoseSE2(ArrayMixin):
     @property
     def transformation_matrix(self) -> npt.NDArray[np.float64]:
         """The 3x3 transformation matrix representation of the pose."""
-        matrix = np.zeros((3, 3), dtype=np.float64)
+        matrix = np.eye(3, dtype=np.float64)
         matrix[:2, :2] = self.rotation_matrix
         matrix[0, 2] = self.x
         matrix[1, 2] = self.y
@@ -181,6 +189,16 @@ class PoseSE3(ArrayMixin):
         array = np.zeros(len(PoseSE3Index), dtype=np.float64)
         array[PoseSE3Index.XYZ] = transformation_matrix[:3, 3]
         array[PoseSE3Index.QUATERNION] = Quaternion.from_rotation_matrix(transformation_matrix[:3, :3])
+        return PoseSE3.from_array(array, copy=False)
+
+    @classmethod
+    def identity(cls) -> PoseSE3:
+        """Constructs an identity :class:`PoseSE3`.
+
+        :return: An identity :class:`PoseSE3` instance.
+        """
+        array = np.zeros(len(PoseSE3Index), dtype=np.float64)
+        array[PoseSE3Index.QW] = 1.0
         return PoseSE3.from_array(array, copy=False)
 
     @property
