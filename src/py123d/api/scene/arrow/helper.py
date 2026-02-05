@@ -10,7 +10,7 @@ from py123d.common.multithreading.worker_pool import WorkerPool
 
 def get_filtered_scenes(
     scene_filter: SceneFilter,
-    py123d_data_root: Optional[Union[str, Path]] = None,
+    data_root: Optional[Union[str, Path]] = None,
     worker: Optional[WorkerPool] = None,
 ) -> List[SceneAPI]:
     """Retrieve a list of scenes that match the given filter criteria.
@@ -24,12 +24,12 @@ def get_filtered_scenes(
     if worker is None:
         worker = SingleMachineParallelExecutor()
 
-    if py123d_data_root is not None:
-        py123d_data_root = Path(py123d_data_root)
+    if data_root is not None:
+        data_root = Path(data_root)
 
     scenes = ArrowSceneBuilder(
-        logs_root=py123d_data_root / "logs" if py123d_data_root is not None else None,
-        maps_root=py123d_data_root / "maps" if py123d_data_root is not None else None,
+        logs_root=data_root / "logs" if data_root is not None else None,
+        maps_root=data_root / "maps" if data_root is not None else None,
     ).get_scenes(filter=scene_filter, worker=worker)
 
     return scenes

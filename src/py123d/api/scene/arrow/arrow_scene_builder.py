@@ -10,7 +10,12 @@ from py123d.api.scene.scene_builder import SceneBuilder
 from py123d.api.scene.scene_filter import SceneFilter
 from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.common.multithreading.worker_utils import WorkerPool, worker_map
-from py123d.common.utils.arrow_column_names import FISHEYE_CAMERA_DATA_COLUMN, PINHOLE_CAMERA_DATA_COLUMN, UUID_COLUMN
+from py123d.common.utils.arrow_column_names import (
+    FISHEYE_CAMERA_DATA_COLUMN,
+    LIDAR_DATA_COLUMN,
+    PINHOLE_CAMERA_DATA_COLUMN,
+    UUID_COLUMN,
+)
 from py123d.common.utils.arrow_helper import open_arrow_table
 from py123d.common.utils.uuid_utils import convert_to_str_uuid
 from py123d.script.utils.dataset_path_utils import get_dataset_paths
@@ -212,6 +217,12 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
                     add_scene = False
                     break
 
+        if filter.lidar_types is not None:
+            for lidar_type in filter.lidar_types:
+                column_name = LIDAR_DATA_COLUMN(lidar_type.serialize())
+                if lidar_type not in log_metadata.lidar_metadata and column_name not in recording_table.schema.names:
+                    add_scene = False
+                    break
         if add_scene:
             scene_extraction_metadatas_.append(scene_extraction_metadata)
         # scene_extraction_metadata = scene_extraction_metadatas_

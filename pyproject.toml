@@ -130,6 +130,7 @@ lint.ignore = [
     "PLW0603",  # Global statement updates are discouraged.
     "PLW2901",  # For loop variable overwritten.
     "PLW0642",  # Reassigned self in instance method.
+    "PLR0904",  # Checks for classes with too many public methods
 ]
 
 exclude = ["__init__.py"]
