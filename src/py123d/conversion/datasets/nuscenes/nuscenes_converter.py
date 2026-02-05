@@ -44,9 +44,7 @@ from py123d.datatypes.sensors.pinhole_camera import (
 )
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
-from py123d.datatypes.vehicle_state.vehicle_parameters import (
-    get_nuscenes_renault_zoe_parameters,
-)
+from py123d.datatypes.vehicle_state.vehicle_parameters import get_nuscenes_renault_zoe_parameters
 from py123d.geometry import BoundingBoxSE3, PoseSE3
 from py123d.geometry.vector import Vector3D
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import numpy as np
+
 
 class TimePoint:
     """Time instance in a time series."""
@@ -14,7 +16,7 @@ class TimePoint:
         :param t_ns: Time in nanoseconds.
         :return: TimePoint.
         """
-        assert isinstance(t_ns, int), "Nanoseconds must be an integer!"
+        assert isinstance(t_ns, (int, np.integer)), "Nanoseconds must be an integer!"
         instance = object.__new__(cls)
         object.__setattr__(instance, "_time_us", t_ns // 1000)
         return instance
@@ -26,7 +28,7 @@ class TimePoint:
         :param t_us: Time in microseconds.
         :return: TimePoint.
         """
-        assert isinstance(t_us, int), f"Microseconds must be an integer, got {type(t_us)}!"
+        assert isinstance(t_us, (int, np.integer)), f"Microseconds must be an integer, got {type(t_us)}!"
         instance = object.__new__(cls)
         object.__setattr__(instance, "_time_us", t_us)
         return instance

@@ -262,8 +262,8 @@ class Kitti360Converter(AbstractDatasetConverter):
             timestamps_dict: Dict[str, List[TimePoint]] = _read_timestamps(log_name, self._kitti360_folders)
 
             # NOTE: We use the LiDAR timestamps as reference timestamps for the log
-            assert "oxts" in timestamps_dict, "LiDAR timestamps must be available."
-            reference_timestamps = timestamps_dict["oxts"]
+            assert KITTI360_LIDAR_NAME in timestamps_dict, "LiDAR timestamps must be available, as main reference."
+            reference_timestamps = timestamps_dict[KITTI360_LIDAR_NAME]
 
             ego_state_all, valid_timestamp = _extract_ego_state_all(log_name, self._kitti360_folders)
             ego_states_xyz = np.array(

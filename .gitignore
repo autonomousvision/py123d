@@ -28,6 +28,7 @@ exp/
 
 # internal
 benchmarks/*
+notebooks/*
 
 # Sphinx documentation
 docs/_build/
