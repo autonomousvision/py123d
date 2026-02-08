@@ -1,4 +1,4 @@
-nuplan_dataset:
+nuplan:
   _target_: py123d.conversion.datasets.nuplan.nuplan_converter.NuPlanConverter
   _convert_: 'all'
 

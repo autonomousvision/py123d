@@ -1,4 +1,4 @@
-pandaset_dataset:
+pandaset:
   _target_: py123d.conversion.datasets.pandaset.pandaset_converter.PandasetConverter
   _convert_: 'all'
 

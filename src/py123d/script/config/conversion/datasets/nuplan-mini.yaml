@@ -1,4 +1,4 @@
-nuplan_mini_dataset:
+nuplan-mini:
   _target_: py123d.conversion.datasets.nuplan.nuplan_converter.NuPlanConverter
   _convert_: 'all'
 

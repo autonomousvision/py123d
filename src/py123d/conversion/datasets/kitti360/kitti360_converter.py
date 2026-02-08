@@ -157,6 +157,9 @@ class Kitti360Converter(AbstractDatasetConverter):
         self._total_maps = len(self._log_names_and_split)  # Each log has its own map
         self._total_logs = len(self._log_names_and_split)
 
+        # NOTE: camera calibration is shared across all sequences, so we can load it once here and reuse for all logs
+        self._camera_calibration = _load_kitti_360_calibration(self._kitti360_data_root)
+
     def _collect_valid_logs(self) -> List[Tuple[str, str]]:
         """Helper function to collect valid KITTI sequences ("logs") from the dataset root
 
@@ -243,10 +246,12 @@ class Kitti360Converter(AbstractDatasetConverter):
             vehicle_parameters=get_kitti360_vw_passat_parameters(),
             pinhole_camera_metadata=_get_kitti360_pinhole_camera_metadata(
                 self._kitti360_folders,
+                self._camera_calibration,
                 self.dataset_converter_config,
             ),
             fisheye_mei_camera_metadata=_get_kitti360_fisheye_mei_camera_metadata(
                 self._kitti360_folders,
+                self._camera_calibration,
                 self.dataset_converter_config,
             ),
             lidar_metadata=_get_kitti360_lidar_metadata(
@@ -278,7 +283,7 @@ class Kitti360Converter(AbstractDatasetConverter):
                 self._detection_cache_root,
                 self._detection_radius,
             )
-            camera_calibration = _load_kitti_360_calibration(self._kitti360_data_root)
+
             logging.info(f"Number of valid timestamps with ego states: {len(valid_timestamp)}")
 
             for idx in range(len(valid_timestamp)):
@@ -287,7 +292,7 @@ class Kitti360Converter(AbstractDatasetConverter):
                 pinhole_cameras = _extract_kitti360_pinhole_cameras(
                     log_name,
                     valid_idx,
-                    camera_calibration,
+                    self._camera_calibration,
                     timestamps_dict,
                     self._kitti360_folders,
                     self.dataset_converter_config,
@@ -295,7 +300,7 @@ class Kitti360Converter(AbstractDatasetConverter):
                 fisheye_cameras = _extract_kitti360_fisheye_mei_cameras(
                     log_name,
                     valid_idx,
-                    camera_calibration,
+                    self._camera_calibration,
                     timestamps_dict,
                     self._kitti360_folders,
                     self.dataset_converter_config,
@@ -321,6 +326,7 @@ class Kitti360Converter(AbstractDatasetConverter):
 
 def _get_kitti360_pinhole_camera_metadata(
     kitti360_folders: Dict[str, Path],
+    camera_calibration: Dict[str, PoseSE3],
     dataset_converter_config: DatasetConverterConfig,
 ) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
     """Gets the KITTI-360 pinhole camera metadata from calibration files."""
@@ -344,6 +350,7 @@ def _get_kitti360_pinhole_camera_metadata(
                     persp_result[f"image_{cam_id}"]["distortion"] = [float(x) for x in value.split()]
 
         for pcam_type, pcam_name in KITTI360_PINHOLE_CAMERA_TYPES.items():
+            assert pcam_name in camera_calibration.keys(), f"Camera calibration missing for {pcam_name}"
             pinhole_cam_metadatas[pcam_type] = PinholeCameraMetadata(
                 camera_name=pcam_name,
                 camera_type=pcam_type,
@@ -351,6 +358,7 @@ def _get_kitti360_pinhole_camera_metadata(
                 height=persp_result[pcam_name]["wh"][1],
                 intrinsics=PinholeIntrinsics.from_camera_matrix(np.array(persp_result[pcam_name]["intrinsic"])),
                 distortion=PinholeDistortion.from_array(np.array(persp_result[pcam_name]["distortion"])),
+                static_extrinsic=camera_calibration[pcam_name],
             )
 
     return pinhole_cam_metadatas
@@ -358,6 +366,7 @@ def _get_kitti360_pinhole_camera_metadata(
 
 def _get_kitti360_fisheye_mei_camera_metadata(
     kitti360_folders: Dict[str, Path],
+    camera_calibration: Dict[str, PoseSE3],
     dataset_converter_config: DatasetConverterConfig,
 ) -> Dict[FisheyeMEICameraType, FisheyeMEICameraMetadata]:
     """Gets the KITTI-360 fisheye MEI camera metadata from calibration files."""
@@ -367,12 +376,13 @@ def _get_kitti360_fisheye_mei_camera_metadata(
         fisheye_camera02_path = kitti360_folders[DIR_CALIB] / "image_02.yaml"
         fisheye_camera03_path = kitti360_folders[DIR_CALIB] / "image_03.yaml"
 
-        assert fisheye_camera02_path.exists() and fisheye_camera03_path.exists()
         fisheye02 = _readYAMLFile(fisheye_camera02_path)
         fisheye03 = _readYAMLFile(fisheye_camera03_path)
         fisheye_result = {"image_02": fisheye02, "image_03": fisheye03}
 
         for fcam_type, fcam_name in KITTI360_FISHEYE_MEI_CAMERA_TYPES.items():
+            assert fcam_name in camera_calibration.keys(), f"Camera calibration missing for {fcam_name}"
+
             distortion_params = fisheye_result[fcam_name]["distortion_parameters"]
             distortion = FisheyeMEIDistortion(
                 k1=distortion_params["k1"],
@@ -397,6 +407,7 @@ def _get_kitti360_fisheye_mei_camera_metadata(
                 mirror_parameter=float(fisheye_result[fcam_name]["mirror_parameters"]["xi"]),
                 distortion=distortion,
                 projection=projection,
+                static_extrinsic=camera_calibration[fcam_name],
             )
 
     return fisheye_cam_metadatas

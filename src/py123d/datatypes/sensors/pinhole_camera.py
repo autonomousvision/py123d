@@ -312,6 +312,7 @@ class PinholeCameraMetadata:
         "_distortion",
         "_width",
         "_height",
+        "_static_extrinsic",
     )
 
     def __init__(
@@ -322,6 +323,7 @@ class PinholeCameraMetadata:
         distortion: Optional[PinholeDistortion],
         width: int,
         height: int,
+        static_extrinsic: Optional[PoseSE3] = None,
     ) -> None:
         """Initialize a :class:`PinholeCameraMetadata` instance.
 
@@ -331,6 +333,7 @@ class PinholeCameraMetadata:
         :param distortion: The :class:`PinholeDistortion` of the pinhole camera.
         :param width: The image width in pixels.
         :param height: The image height in pixels.
+        :param static_extrinsic: The static extrinsic :class:`~py123d.geometry.PoseSE3` of the pinhole camera, if available.
         """
         self._camera_name = camera_name
         self._camera_type = camera_type
@@ -338,6 +341,7 @@ class PinholeCameraMetadata:
         self._distortion = distortion
         self._width = width
         self._height = height
+        self._static_extrinsic = static_extrinsic
 
     @classmethod
     def from_dict(cls, data_dict: Dict[str, Any]) -> PinholeCameraMetadata:
@@ -353,6 +357,9 @@ class PinholeCameraMetadata:
         data_dict["distortion"] = (
             PinholeDistortion.from_list(data_dict["distortion"]) if data_dict["distortion"] is not None else None
         )
+        data_dict["static_extrinsic"] = (
+            PoseSE3.from_list(data_dict["static_extrinsic"]) if data_dict["static_extrinsic"] is not None else None
+        )
         return PinholeCameraMetadata(**data_dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -367,6 +374,7 @@ class PinholeCameraMetadata:
         data_dict["distortion"] = self.distortion.tolist() if self.distortion is not None else None
         data_dict["width"] = self.width
         data_dict["height"] = self.height
+        data_dict["static_extrinsic"] = self.static_extrinsic.tolist() if self.static_extrinsic is not None else None
         return data_dict
 
     @property
@@ -398,6 +406,11 @@ class PinholeCameraMetadata:
     def height(self) -> int:
         """The image height in pixels."""
         return self._height
+
+    @property
+    def static_extrinsic(self) -> Optional[PoseSE3]:
+        """The static extrinsic :class:`~py123d.geometry.PoseSE3` of the pinhole camera, if available."""
+        return self._static_extrinsic
 
     @property
     def aspect_ratio(self) -> float:

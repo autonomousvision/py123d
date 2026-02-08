@@ -33,7 +33,7 @@ dependencies = [
     "pyarrow",
     "pyogrio",
     "pyquaternion",
-    "ray",
+    "ray[default]",
     "scipy",
     "shapely>=2.0.0",
     "tqdm",

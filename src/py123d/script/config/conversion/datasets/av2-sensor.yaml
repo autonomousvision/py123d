@@ -1,12 +1,9 @@
-nuscenes_dataset:
-  _target_: py123d.conversion.datasets.nuscenes.nuscenes_converter.NuScenesConverter
+av2-sensor:
+  _target_: py123d.conversion.datasets.av2.av2_sensor_converter.AV2SensorConverter
   _convert_: 'all'
 
-  splits: ["nuscenes_train", "nuscenes_val", "nuscenes_test"]
-  nuscenes_data_root: ${dataset_paths.nuscenes_data_root}
-  nuscenes_map_root: ${dataset_paths.nuscenes_data_root}
-  nuscenes_lanelet2_root: ${dataset_paths.nuscenes_data_root}/lanelet2
-  use_lanelet2: False
+  splits: ["av2-sensor_val"] # ["av2-sensor_train", "av2-sensor_val", "av2-sensor_test"]
+  av2_data_root: ${dataset_paths.av2_data_root}
 
   dataset_converter_config:
     _target_: py123d.conversion.dataset_converter_config.DatasetConverterConfig
@@ -26,14 +23,13 @@ nuscenes_dataset:
 
     # Pinhole Cameras
     include_pinhole_cameras: true
-    pinhole_camera_store_option: ${pinhole_camera_store_option}  # "path", "jpeg_binary", "png_binary", "mp4"
+    pinhole_camera_store_option: ${pinhole_camera_store_option} # "path", "jpeg_binary", "png_binary", "mp4"
 
     # LiDARs
     include_lidars: true
     lidar_store_option: ${lidar_store_option}  # "path", "path_merged", "laz_binary", "draco_binary"
-
     # Not available:
-    include_fisheye_mei_cameras: false
     include_traffic_lights: false
     include_scenario_tags: false
     include_route: false
+    include_fisheye_mei_cameras: false

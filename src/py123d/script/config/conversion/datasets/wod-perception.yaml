@@ -1,4 +1,4 @@
-wod_perception_dataset:
+wod-perception:
   _target_: py123d.conversion.datasets.wod.wod_perception_converter.WODPerceptionConverter
   _convert_: 'all'
 

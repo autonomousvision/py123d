@@ -9,6 +9,7 @@ from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.conversion.datasets.pandaset.utils.pandaset_constants import (
     PANDASET_BOX_DETECTION_FROM_STR,
     PANDASET_CAMERA_DISTORTIONS,
+    PANDASET_CAMERA_EXTRINSICS,
     PANDASET_CAMERA_MAPPING,
     PANDASET_LIDAR_EXTRINSICS,
     PANDASET_LIDAR_MAPPING,
@@ -200,6 +201,7 @@ def _get_pandaset_camera_metadata(
                     cy=intrinsics_data["cy"],
                 ),
                 distortion=PANDASET_CAMERA_DISTORTIONS[camera_name],
+                static_extrinsic=main_lidar_to_rear_axle(PANDASET_CAMERA_EXTRINSICS[camera_name]),
             )
 
     return camera_metadata
@@ -214,7 +216,7 @@ def _get_pandaset_lidar_metadata(dataset_config: DatasetConverterConfig) -> Dict
                 lidar_name=lidar_name,
                 lidar_type=lidar_type,
                 lidar_index=PandasetLiDARIndex,
-                extrinsic=PANDASET_LIDAR_EXTRINSICS[lidar_name],
+                extrinsic=main_lidar_to_rear_axle(PANDASET_LIDAR_EXTRINSICS[lidar_name]),
             )
 
     return lidar_metadata

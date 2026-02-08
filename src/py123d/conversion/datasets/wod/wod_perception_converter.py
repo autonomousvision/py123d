@@ -248,11 +248,23 @@ def _get_wodp_camera_metadata(
     if dataset_converter_config.pinhole_camera_store_option is not None:
         for calibration in initial_frame.context.camera_calibrations:
             camera_type = WODP_CAMERA_TYPES[calibration.name]
+
+            # Intrinsic & distortion parameters
             # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L96
             # https://github.com/waymo-research/waymo-open-dataset/issues/834#issuecomment-2134995440
             fx, fy, cx, cy, k1, k2, p1, p2, k3 = calibration.intrinsic
             intrinsics = PinholeIntrinsics(fx=fx, fy=fy, cx=cx, cy=cy)
             distortion = PinholeDistortion(k1=k1, k2=k2, p1=p1, p2=p2, k3=k3)
+
+            # Static extrinsic parameters (from calibration)
+            static_extrinsic_matrix = np.array(calibration.extrinsic.transform, dtype=np.float64).reshape(4, 4)
+            static_extrinsic = PoseSE3.from_transformation_matrix(static_extrinsic_matrix)
+            static_extrinsic = convert_camera_convention(
+                static_extrinsic,
+                from_convention=CameraConvention.pXpZmY,
+                to_convention=CameraConvention.pZmYpX,
+            )
+
             if camera_type in WODP_CAMERA_TYPES.values():
                 camera_metadata_dict[camera_type] = PinholeCameraMetadata(
                     camera_name=str(calibration.name),
@@ -261,6 +273,7 @@ def _get_wodp_camera_metadata(
                     height=calibration.height,
                     intrinsics=intrinsics,
                     distortion=distortion,
+                    static_extrinsic=static_extrinsic,
                 )
     return camera_metadata_dict
 

@@ -8,7 +8,7 @@ import numpy as np
 from pyparsing import Union
 
 from py123d.geometry import PoseSE3, Vector3D
-from py123d.geometry.transform.transform_se3 import translate_se3_along_body_frame
+from py123d.geometry.transform import translate_se3_along_body_frame
 
 
 def read_json(json_file: Union[Path, str]):
@@ -82,3 +82,16 @@ def main_lidar_to_rear_axle(pose: PoseSE3) -> PoseSE3:
     imu_pose = translate_se3_along_body_frame(rotated_pose, vector_3d=Vector3D(x=-0.840, y=0.0, z=0.0))
 
     return imu_pose
+
+
+# def main_lidar_to_rear_axle_v2(pose: PoseSE3) -> PoseSE3:
+
+#     rear_axle = PoseSE3.identity()
+#     imu = main_lidar_to_rear_axle(rear_axle)
+
+#     new_pose_array = convert_se3_array_between_origins(
+#         from_origin=rear_axle,
+#         to_origin=imu,
+#         se3_array=pose.array,
+#     )
+#     return PoseSE3.from_array(new_pose_array)
