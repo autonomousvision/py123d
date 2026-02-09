@@ -308,6 +308,7 @@ class TestPinholeMetadata:
             "distortion": None,
             "width": 800,
             "height": 600,
+            "static_extrinsic": None,
         }
 
         metadata = PinholeCameraMetadata.from_dict(data_dict)

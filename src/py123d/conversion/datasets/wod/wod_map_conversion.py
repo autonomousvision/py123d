@@ -158,7 +158,7 @@ def _write_and_get_waymo_lanes(
 
 
 def _write_waymo_lane_groups(lanes: List[Lane], map_writer: AbstractMapWriter) -> None:
-    # NOTE: WODP does not provide lane groups, so we create a lane group for each lane.
+    # NOTE: WOD Perception does not provide lane groups, so we create a lane group for each lane.
     for lane in lanes:
         map_writer.write_lane_group(
             LaneGroup(

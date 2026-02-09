@@ -268,10 +268,13 @@ You can convert the nuPlan dataset (or mini dataset) by running:
 
 .. code-block:: bash
 
-  py123d-conversion datasets=["nuplan_dataset"]
+  py123d-conversion datasets=["nuplan"]
   # or
-  py123d-conversion datasets=["nuplan_mini_dataset"]
+  py123d-conversion datasets=["nuplan-mini"]
 
+.. note::
+  The conversion of nuPlan by default does not store sensor data in the logs, but only relative file paths.
+  To change this behavior, you need to adapt the ``nuplan.yaml`` or ``nuplan-mini.yaml`` converter configuration.
 
 
 Dataset Issues

@@ -357,9 +357,12 @@ class PinholeCameraMetadata:
         data_dict["distortion"] = (
             PinholeDistortion.from_list(data_dict["distortion"]) if data_dict["distortion"] is not None else None
         )
-        data_dict["static_extrinsic"] = (
-            PoseSE3.from_list(data_dict["static_extrinsic"]) if data_dict["static_extrinsic"] is not None else None
-        )
+
+        # TODO: Make static extrinsic mandatory in the future.
+        if "static_extrinsic" in data_dict.keys():
+            data_dict["static_extrinsic"] = (
+                PoseSE3.from_list(data_dict["static_extrinsic"]) if data_dict["static_extrinsic"] is not None else None
+            )
         return PinholeCameraMetadata(**data_dict)
 
     def to_dict(self) -> Dict[str, Any]:

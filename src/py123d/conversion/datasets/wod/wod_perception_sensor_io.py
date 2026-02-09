@@ -4,7 +4,7 @@ from typing import Dict, Optional
 import numpy as np
 
 from py123d.common.utils.dependencies import check_dependencies
-from py123d.conversion.datasets.wod.utils.wod_constants import WODP_CAMERA_TYPES, WODP_LIDAR_TYPES
+from py123d.conversion.datasets.wod.utils.wod_constants import WOD_PERCEPTION_CAMERA_TYPES, WOD_PERCEPTION_LIDAR_TYPES
 from py123d.conversion.datasets.wod.utils.wod_range_image_utils import parse_range_image_and_camera_projection
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
@@ -39,17 +39,17 @@ def load_jpeg_binary_from_tf_record_file(
 
     jpeg_binary: Optional[bytes] = None
     for image_proto in frame.images:
-        camera_type = WODP_CAMERA_TYPES[image_proto.name]
+        camera_type = WOD_PERCEPTION_CAMERA_TYPES[image_proto.name]
         if camera_type == pinhole_camera_type:
             jpeg_binary = image_proto.image
             break
     return jpeg_binary
 
 
-def load_wodp_lidar_pcs_from_file(
+def load_wod_perception_lidar_pcs_from_file(
     tf_record_path: Path, index: int, keep_polar_features: bool = False
 ) -> Dict[LiDARType, np.ndarray]:
-    """Loads Waymo Open Dataset - Perception (WODP) LiDAR point clouds from a TFRecord file at a given iteration."""
+    """Loads Waymo Open Dataset (WOD) - Perception LiDAR point clouds from a TFRecord file at a given iteration."""
 
     frame = _get_frame_at_iteration(tf_record_path, index)
     assert frame is not None, f"Frame at iteration {index} not found in Waymo file: {tf_record_path}"
@@ -63,7 +63,7 @@ def load_wodp_lidar_pcs_from_file(
     )
     lidar_pcs_dict: Dict[LiDARType, np.ndarray] = {}
     for lidar_idx, frame_lidar in enumerate(frame.lasers):
-        lidar_type = WODP_LIDAR_TYPES[frame_lidar.name]
+        lidar_type = WOD_PERCEPTION_LIDAR_TYPES[frame_lidar.name]
         lidar_pcs_dict[lidar_type] = np.array(points[lidar_idx], dtype=np.float32)
 
     return lidar_pcs_dict

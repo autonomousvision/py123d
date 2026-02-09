@@ -7,6 +7,9 @@ CARLA is an open-source simulator for autonomous driving research.
 As such CARLA data is synthetic and can be generated with varying sensor and environmental conditions.
 The following documentation is largely incomplete and merely describes the provided demo data.
 
+.. note::
+  Data from the CARLA simulator can be collected using the `LEAD framework <https://github.com/autonomousvision/lead>`_, which provides a state-of-the-art expert driver in CARLA.
+
 .. dropdown:: Quick Links
   :open:
 

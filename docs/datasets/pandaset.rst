@@ -188,7 +188,11 @@ You can convert the PandaSet by running:
 
 .. code-block:: bash
 
-  py123d-conversion datasets=["pandaset_dataset"]
+  py123d-conversion datasets=["pandaset"]
+
+.. note::
+  The conversion of PandaSet by default does not store sensor data in the logs, but only relative file paths.
+  To change this behavior, you need to adapt the ``pandaset.yaml`` converter configuration.
 
 
 Dataset Issues

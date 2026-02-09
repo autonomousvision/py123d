@@ -70,7 +70,7 @@ DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "av2-sensor": DATASET_PATHS.av2_sensor_data_root,
     "nuplan": DATASET_PATHS.nuplan_sensor_root,
     "nuscenes": DATASET_PATHS.nuscenes_data_root,
-    "wodp": DATASET_PATHS.wodp_data_root,
+    "wod_perception": DATASET_PATHS.wod_perception_data_root,
     "pandaset": DATASET_PATHS.pandaset_data_root,
     "kitti360": DATASET_PATHS.kitti360_data_root,
 }

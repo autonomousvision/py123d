@@ -13,7 +13,7 @@ DATASET_PATHS: DictConfig = get_dataset_paths()
 DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "nuplan": DATASET_PATHS.nuplan_sensor_root,
     "av2-sensor": DATASET_PATHS.av2_sensor_data_root,
-    "wodp": DATASET_PATHS.wodp_data_root,
+    "wod_perception": DATASET_PATHS.wod_perception_data_root,
     "pandaset": DATASET_PATHS.pandaset_data_root,
     "kitti360": DATASET_PATHS.kitti360_data_root,
     "nuscenes": DATASET_PATHS.nuscenes_sensor_root,
@@ -61,11 +61,11 @@ def load_lidar_pcs_from_file(
 
         lidar_pcs_dict = load_av2_sensor_lidar_pcs_from_file(full_lidar_path)
 
-    elif log_metadata.dataset == "wodp":
-        from py123d.conversion.datasets.wod.wod_perception_sensor_io import load_wodp_lidar_pcs_from_file
+    elif log_metadata.dataset == "wod_perception":
+        from py123d.conversion.datasets.wod.wod_perception_sensor_io import load_wod_perception_lidar_pcs_from_file
 
-        assert index is not None, "Index must be provided for WODP LiDAR loading."
-        lidar_pcs_dict = load_wodp_lidar_pcs_from_file(full_lidar_path, index, keep_polar_features=False)
+        assert index is not None, "Index must be provided for WOD Perception LiDAR loading."
+        lidar_pcs_dict = load_wod_perception_lidar_pcs_from_file(full_lidar_path, index, keep_polar_features=False)
 
     elif log_metadata.dataset == "pandaset":
         from py123d.conversion.datasets.pandaset.pandaset_sensor_io import load_pandaset_lidars_pcs_from_file

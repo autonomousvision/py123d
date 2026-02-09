@@ -38,10 +38,10 @@ WAYMO_LANE_TYPE_CONVERSION: Dict[int, LaneType] = {
 
 # Perception:
 # ----------------------------------------------------------------------------------------------------------------------
-WODP_AVAILABLE_SPLITS: List[str] = ["wod-perception_train", "wod-perception_val", "wod-perception_test"]
+WOD_PERCEPTION_AVAILABLE_SPLITS: List[str] = ["wod-perception_train", "wod-perception_val", "wod-perception_test"]
 
 # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L50
-WODP_CAMERA_TYPES: Dict[int, PinholeCameraType] = {
+WOD_PERCEPTION_CAMERA_TYPES: Dict[int, PinholeCameraType] = {
     1: PinholeCameraType.PCAM_F0,  # front_camera
     2: PinholeCameraType.PCAM_L0,  # front_left_camera
     3: PinholeCameraType.PCAM_R0,  # front_right_camera
@@ -50,7 +50,7 @@ WODP_CAMERA_TYPES: Dict[int, PinholeCameraType] = {
 }
 
 # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L66
-WODP_LIDAR_TYPES: Dict[int, LiDARType] = {
+WOD_PERCEPTION_LIDAR_TYPES: Dict[int, LiDARType] = {
     0: LiDARType.LIDAR_UNKNOWN,  # UNKNOWN
     1: LiDARType.LIDAR_TOP,  # TOP
     2: LiDARType.LIDAR_FRONT,  # FRONT
@@ -63,10 +63,10 @@ WODP_LIDAR_TYPES: Dict[int, LiDARType] = {
 # Motion:
 # ----------------------------------------------------------------------------------------------------------------------
 
-WODM_AVAILABLE_SPLITS: List[str] = ["wod-motion_train", "wod-motion_val", "wod-motion_test"]
+WOD_MOTION_AVAILABLE_SPLITS: List[str] = ["wod-motion_train", "wod-motion_val", "wod-motion_test"]
 
 # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/protos/map.proto#L39
-WOPM_TRAFFIC_LIGHT_MAPPING: Dict[int, TrafficLightStatus] = {
+WOD_MOTION_TRAFFIC_LIGHT_MAPPING: Dict[int, TrafficLightStatus] = {
     0: TrafficLightStatus.UNKNOWN,  # LANE_STATE_UNKNOWN
     1: TrafficLightStatus.RED,  # LANE_STATE_ARROW_STOP
     2: TrafficLightStatus.YELLOW,  # LANE_STATE_ARROW_CAUTION

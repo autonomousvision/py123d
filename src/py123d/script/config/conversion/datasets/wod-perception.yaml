@@ -3,7 +3,7 @@ wod-perception:
   _convert_: 'all'
 
   splits: ["wod-perception_train", "wod-perception_val", "wod-perception_test"] # Which splits to convert. Options: ["wod-perception_train", "wod-perception_val", "wod-perception_test"]
-  wodp_data_root: ${dataset_paths.wodp_data_root}
+  wod_perception_data_root: ${dataset_paths.wod_perception_data_root}
   zero_roll_pitch: true # Whether to zero the roll and pitch of the box detections in global frame.
   keep_polar_features: false # Add lidar polar features (range, azimuth, elevation) in addition to XYZ. (slow if true)
   add_map_pose_offset: true # Whether to add the map pose offset to the ego state and box detections.
