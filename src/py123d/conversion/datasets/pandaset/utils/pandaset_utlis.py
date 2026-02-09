@@ -9,6 +9,9 @@ from pyparsing import Union
 
 from py123d.geometry import PoseSE3, Vector3D
 from py123d.geometry.transform import translate_se3_along_body_frame
+from py123d.geometry.transform.transform_se3 import (
+    convert_se3_array_between_origins,
+)
 
 
 def read_json(json_file: Union[Path, str]):
@@ -65,11 +68,11 @@ def rotate_pandaset_pose_to_iso_coordinates(pose: PoseSE3) -> PoseSE3:
     return PoseSE3.from_transformation_matrix(transformation_matrix)
 
 
-def main_lidar_to_rear_axle(pose: PoseSE3) -> PoseSE3:
+def global_main_lidar_to_global_imu(pose: PoseSE3) -> PoseSE3:
     F = np.array(
         [
             [0.0, 1.0, 0.0],  # new X = old Y (forward)
-            [-1.0, 0.0, 0.0],  # new Y = old X (left)
+            [-1.0, 0.0, 0.0],  # new Y = old -X (left)
             [0.0, 0.0, 1.0],  # new Z = old Z (up)
         ],
         dtype=np.float64,
@@ -78,20 +81,42 @@ def main_lidar_to_rear_axle(pose: PoseSE3) -> PoseSE3:
     transformation_matrix[0:3, 0:3] = transformation_matrix[0:3, 0:3] @ F
 
     rotated_pose = PoseSE3.from_transformation_matrix(transformation_matrix)
-
     imu_pose = translate_se3_along_body_frame(rotated_pose, vector_3d=Vector3D(x=-0.840, y=0.0, z=0.0))
 
     return imu_pose
 
 
-# def main_lidar_to_rear_axle_v2(pose: PoseSE3) -> PoseSE3:
+def relative_main_lidar_to_relative_imu(pose: PoseSE3 = PoseSE3.identity()) -> PoseSE3:
+    imu_location_pose = translate_se3_along_body_frame(pose, vector_3d=Vector3D(x=0.0, y=0.840, z=0.0))
 
-#     rear_axle = PoseSE3.identity()
-#     imu = main_lidar_to_rear_axle(rear_axle)
+    F = np.array(
+        [
+            [0.0, -1.0, 0.0],  # new X = old -Y (forward)
+            [1.0, 0.0, 0.0],  # new Y = old -X (left)
+            [0.0, 0.0, 1.0],  # new Z = old Z (up)
+        ],
+        dtype=np.float64,
+    ).T
+    transformation_matrix = PoseSE3.identity().transformation_matrix.copy()
+    transformation_matrix[0:3, 0:3] = transformation_matrix[0:3, 0:3] @ F
+    transformation_matrix[0:3, 3] = imu_location_pose.point_3d.array
 
-#     new_pose_array = convert_se3_array_between_origins(
-#         from_origin=rear_axle,
-#         to_origin=imu,
-#         se3_array=pose.array,
-#     )
-#     return PoseSE3.from_array(new_pose_array)
+    rotated_pose = PoseSE3.from_transformation_matrix(transformation_matrix)
+    return rotated_pose
+
+
+def extrinsic_to_imu(pose: PoseSE3) -> PoseSE3:
+    def _get_inverse_pose(pose: PoseSE3) -> PoseSE3:
+        return PoseSE3.from_transformation_matrix(np.linalg.inv(pose.transformation_matrix))
+
+    invert_pose = _get_inverse_pose(pose)
+
+    main_lidar = PoseSE3.identity()
+    imu = relative_main_lidar_to_relative_imu(main_lidar)
+
+    new_pose_array = convert_se3_array_between_origins(
+        from_origin=main_lidar,
+        to_origin=imu,
+        se3_array=invert_pose.array,
+    )
+    return PoseSE3.from_array(new_pose_array)

@@ -17,7 +17,8 @@ from py123d.conversion.datasets.pandaset.utils.pandaset_constants import (
     PANDASET_SPLITS,
 )
 from py123d.conversion.datasets.pandaset.utils.pandaset_utlis import (
-    main_lidar_to_rear_axle,
+    extrinsic_to_imu,
+    global_main_lidar_to_global_imu,
     pandaset_pose_dict_to_pose_se3,
     read_json,
     read_pkl_gz,
@@ -201,7 +202,7 @@ def _get_pandaset_camera_metadata(
                     cy=intrinsics_data["cy"],
                 ),
                 distortion=PANDASET_CAMERA_DISTORTIONS[camera_name],
-                static_extrinsic=main_lidar_to_rear_axle(PANDASET_CAMERA_EXTRINSICS[camera_name]),
+                static_extrinsic=extrinsic_to_imu(PANDASET_CAMERA_EXTRINSICS[camera_name]),
             )
 
     return camera_metadata
@@ -216,7 +217,7 @@ def _get_pandaset_lidar_metadata(dataset_config: DatasetConverterConfig) -> Dict
                 lidar_name=lidar_name,
                 lidar_type=lidar_type,
                 lidar_index=PandasetLiDARIndex,
-                extrinsic=main_lidar_to_rear_axle(PANDASET_LIDAR_EXTRINSICS[lidar_name]),
+                extrinsic=extrinsic_to_imu(PANDASET_LIDAR_EXTRINSICS[lidar_name]),
             )
 
     return lidar_metadata
@@ -224,7 +225,7 @@ def _get_pandaset_lidar_metadata(dataset_config: DatasetConverterConfig) -> Dict
 
 def _extract_pandaset_sensor_ego_state(gps: Dict[str, float], lidar_pose: Dict[str, Dict[str, float]]) -> EgoStateSE3:
     """Extracts the ego state from Pandaset GPS and LiDAR pose data."""
-    rear_axle_se3 = main_lidar_to_rear_axle(pandaset_pose_dict_to_pose_se3(lidar_pose))
+    rear_axle_se3 = global_main_lidar_to_global_imu(pandaset_pose_dict_to_pose_se3(lidar_pose))
     vehicle_parameters = get_pandaset_chrysler_pacifica_parameters()
     dynamic_state_se3 = None
     return EgoStateSE3.from_rear_axle(
