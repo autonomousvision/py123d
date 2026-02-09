@@ -33,6 +33,7 @@ nuplan-mini:
     # LiDARs
     include_lidars: true
     lidar_store_option: "path_merged" # "path", "path_merged", "laz_binary", "draco_binary"
+
     # Scenario tag / Route
     include_scenario_tags: true
     include_route: true

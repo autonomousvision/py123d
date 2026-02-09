@@ -46,6 +46,7 @@ kitti360:
     include_route: false
     include_scenario_tags: false
 
+  # NOTE: KITTI-360 does not have official splits, so we just put all sequences in the training set.
   train_sequences:
     - "2013_05_28_drive_0000_sync"
     - "2013_05_28_drive_0002_sync"
