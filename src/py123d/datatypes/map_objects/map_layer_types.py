@@ -3,7 +3,6 @@ from __future__ import annotations
 from py123d.common.utils.enums import SerialIntEnum
 
 # TODO @DanielDauner:
-# - Implement stop zone types.
 # - Consider adding types for intersections or other layers.
 
 
@@ -51,6 +50,19 @@ class LaneType(SerialIntEnum):
     FREEWAY = 1
     SURFACE_STREET = 2
     BIKE_LANE = 3
+
+
+class StopZoneType(SerialIntEnum):
+    """Enum for different stop zone types."""
+
+    UNKNOWN = 0
+    """Unknown stop zone type."""
+
+    TRAFFIC_LIGHT = 1
+    """Stop zone controlled by a traffic light."""
+
+    STOP_SIGN = 2
+    """Stop zone controlled by a stop sign."""
 
 
 class RoadEdgeType(SerialIntEnum):

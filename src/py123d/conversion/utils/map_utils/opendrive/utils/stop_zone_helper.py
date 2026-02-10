@@ -1,0 +1,173 @@
+import hashlib
+import logging
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+
+from py123d.conversion.utils.map_utils.opendrive.utils.lane_helper import OpenDriveLaneHelper
+from py123d.conversion.utils.map_utils.opendrive.utils.signal_helper import OpenDriveSignalHelper
+from py123d.datatypes.map_objects import StopZone, StopZoneType
+from py123d.geometry.polyline import Polyline3D
+
+logger = logging.getLogger(__name__)
+
+STOP_ZONE_DEPTH = 0.5
+
+# Signal reference key type: (road_id, signal_id, turn_relation)
+SignalRefKey = Tuple[int, int, Optional[str]]
+
+
+def _group_contiguous_lanes(
+    helpers: List[OpenDriveLaneHelper],
+) -> List[List[OpenDriveLaneHelper]]:
+    """Group lane helpers into contiguous sequences by lane index.
+
+    Lanes are contiguous if their |id| values form an unbroken sequence.
+    E.g., lanes with ids [-1, -2, -3] or [3, 4, 5] are contiguous.
+    Lanes [-1, -3] or [3, 5] are not (missing -2 and 4 respectively).
+    """
+    if not helpers:
+        return []
+
+    # Sort by absolute lane id
+    sorted_helpers = sorted(helpers, key=lambda h: abs(h.id))
+
+    groups: List[List[OpenDriveLaneHelper]] = []
+    current_group: List[OpenDriveLaneHelper] = [sorted_helpers[0]]
+
+    for i in range(1, len(sorted_helpers)):
+        prev_abs_id = abs(sorted_helpers[i - 1].id)
+        curr_abs_id = abs(sorted_helpers[i].id)
+
+        if curr_abs_id == prev_abs_id + 1:
+            current_group.append(sorted_helpers[i])
+        else:
+            groups.append(current_group)
+            current_group = [sorted_helpers[i]]
+
+    groups.append(current_group)
+    return groups
+
+
+def _signal_type_to_stop_zone_type(signal: OpenDriveSignalHelper) -> StopZoneType:
+    if signal.xodr_signal.dynamic.lower() == "yes":
+        return StopZoneType.TRAFFIC_LIGHT
+    return StopZoneType.STOP_SIGN
+
+
+def _create_stop_zone_outline_from_helpers(
+    helpers: List[OpenDriveLaneHelper],
+    lane_reference_s: Dict[str, float],
+) -> Optional[Polyline3D]:
+    """Create stop zone polygon from contiguous lane helpers.
+
+    :param helpers: List of lane helpers (must be sorted by abs(id), contiguous)
+    :param lane_reference_s: Lane-specific s coordinate for the stop line
+    :return: Closed Polyline3D outline or None if no helpers
+    """
+    if not helpers:
+        return None
+
+    inner_helper = helpers[0]
+    outer_helper = helpers[-1]
+
+    inner_lane_id = inner_helper.lane_id
+    outer_lane_id = outer_helper.lane_id
+    fallback_s = np.mean(list(lane_reference_s.values())) if lane_reference_s else inner_helper.s_range[0]
+    inner_signal_s = lane_reference_s.get(inner_lane_id, fallback_s)
+    outer_signal_s = lane_reference_s.get(outer_lane_id, fallback_s)
+
+    travels_in_s = inner_helper.id < 0
+    if travels_in_s:
+        inner_start_s = inner_signal_s - STOP_ZONE_DEPTH
+        inner_end_s = inner_signal_s
+        outer_start_s = outer_signal_s - STOP_ZONE_DEPTH
+        outer_end_s = outer_signal_s
+    else:
+        inner_start_s = inner_signal_s
+        inner_end_s = inner_signal_s + STOP_ZONE_DEPTH
+        outer_start_s = outer_signal_s
+        outer_end_s = outer_signal_s + STOP_ZONE_DEPTH
+
+    inner_start_s = np.clip(inner_start_s, inner_helper.s_range[0], inner_helper.s_range[1])
+    inner_end_s = np.clip(inner_end_s, inner_helper.s_range[0], inner_helper.s_range[1])
+    outer_start_s = np.clip(outer_start_s, outer_helper.s_range[0], outer_helper.s_range[1])
+    outer_end_s = np.clip(outer_end_s, outer_helper.s_range[0], outer_helper.s_range[1])
+
+    inner_start = inner_helper.inner_boundary.interpolate_3d(inner_start_s - inner_helper.s_range[0])
+    outer_start = outer_helper.outer_boundary.interpolate_3d(outer_start_s - outer_helper.s_range[0])
+    inner_end = inner_helper.inner_boundary.interpolate_3d(inner_end_s - inner_helper.s_range[0])
+    outer_end = outer_helper.outer_boundary.interpolate_3d(outer_end_s - outer_helper.s_range[0])
+
+    corners = np.array(
+        [
+            inner_start,
+            outer_start,
+            outer_end,
+            inner_end,
+            inner_start,
+        ]
+    )
+
+    return Polyline3D.from_array(corners)
+
+
+def create_stop_zones_from_signals(
+    signal_dict: Dict[SignalRefKey, OpenDriveSignalHelper],
+    lane_helper_dict: Dict[str, OpenDriveLaneHelper],
+) -> Dict[Tuple[int, int, Optional[str], int], StopZone]:
+    """Create StopZone objects from signal reference helpers using lane geometry.
+
+    Non-contiguous lanes are split into separate stop zones.
+
+    :param signal_dict: Dictionary of signal helpers keyed by (road_id, signal_id, turn_relation)
+    :param lane_helper_dict: Dictionary of lane helpers keyed by lane ID
+    :return: Dictionary of StopZone objects keyed by (road_id, signal_id, turn_relation, group_idx)
+    """
+    stop_zones: Dict[Tuple[int, int, Optional[str], int], StopZone] = {}
+
+    for key, signal_helper in signal_dict.items():
+        stop_zone_type = _signal_type_to_stop_zone_type(signal_helper)
+        if stop_zone_type == StopZoneType.UNKNOWN:
+            continue
+
+        # Skip signals without valid lane_ids
+        if not signal_helper.lane_ids:
+            continue
+
+        # Get helpers for valid lane_ids
+        helpers = [lane_helper_dict[lid] for lid in signal_helper.lane_ids if lid in lane_helper_dict]
+        if not helpers:
+            continue
+
+        # Group into contiguous lane sequences
+        groups = _group_contiguous_lanes(helpers)
+
+        if len(groups) > 1:
+            logger.debug(f"Signal {key} has non-contiguous lanes, creating {len(groups)} stop zones")
+
+        for group_idx, group_helpers in enumerate(groups):
+            outline = _create_stop_zone_outline_from_helpers(
+                helpers=group_helpers,
+                lane_reference_s=signal_helper.lane_reference_s,
+            )
+
+            if outline is None:
+                continue
+
+            # Generate unique object_id from extended key
+            extended_key = (*key, group_idx)
+            # Use MD5 for deterministic ID generation
+            key_str = str(extended_key)
+            object_id = int(hashlib.md5(key_str.encode("utf-8")).hexdigest(), 16) & 0x7FFFFFFF
+
+            group_lane_ids = [h.lane_id for h in group_helpers]
+            stop_zone = StopZone(
+                object_id=object_id,
+                stop_zone_type=stop_zone_type,
+                outline=outline,
+                lane_ids=group_lane_ids,
+            )
+            stop_zones[extended_key] = stop_zone
+
+    return stop_zones

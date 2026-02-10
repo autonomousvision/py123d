@@ -6,7 +6,7 @@ import shapely
 import trimesh
 
 from py123d.datatypes.map_objects import Intersection, Lane, LaneGroup, MapLayer
-from py123d.datatypes.map_objects.map_layer_types import RoadEdgeType, RoadLineType
+from py123d.datatypes.map_objects.map_layer_types import RoadEdgeType, RoadLineType, StopZoneType
 from py123d.datatypes.map_objects.map_objects import (
     Carpark,
     Crosswalk,
@@ -816,9 +816,10 @@ class TestStopZone:
     def test_properties(self):
         """Test that the properties of the StopZone object are correct."""
         shapely_polygon = shapely.Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 0.5), (0.0, 0.5)])
-        stop_zone = StopZone(object_id=4, shapely_polygon=shapely_polygon)
+        stop_zone = StopZone(object_id=4, stop_zone_type=StopZoneType.TRAFFIC_LIGHT, shapely_polygon=shapely_polygon)
         assert stop_zone.layer == MapLayer.STOP_ZONE
         assert stop_zone.object_id == 4
+        assert stop_zone.stop_zone_type == StopZoneType.TRAFFIC_LIGHT
         assert isinstance(stop_zone.shapely_polygon, shapely.Polygon)
         assert isinstance(stop_zone.outline_2d, Polyline2D)
 
@@ -827,22 +828,44 @@ class TestStopZone:
         outline = Polyline3D.from_array(
             np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.5, 0.0], [0.0, 0.5, 0.0], [0.0, 0.0, 0.0]])
         )
-        stop_zone = StopZone(object_id=4, outline=outline)
+        stop_zone = StopZone(object_id=4, stop_zone_type=StopZoneType.STOP_SIGN, outline=outline)
         assert isinstance(stop_zone.outline, Polyline3D)
         assert isinstance(stop_zone.shapely_polygon, shapely.Polygon)
+        assert stop_zone.stop_zone_type == StopZoneType.STOP_SIGN
 
     def test_init_with_polyline2d(self):
         """Test initialization with Polyline2D outline."""
         outline = Polyline2D.from_array(np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 0.5], [0.0, 0.5], [0.0, 0.0]]))
-        stop_zone = StopZone(object_id=4, outline=outline)
+        stop_zone = StopZone(object_id=4, stop_zone_type=StopZoneType.UNKNOWN, outline=outline)
         assert isinstance(stop_zone.outline_2d, Polyline2D)
         assert isinstance(stop_zone.shapely_polygon, shapely.Polygon)
+        assert stop_zone.stop_zone_type == StopZoneType.UNKNOWN
 
     def test_polygon_area(self):
         """Test that the polygon area is calculated correctly."""
         shapely_polygon = shapely.Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 0.5), (0.0, 0.5)])
-        stop_zone = StopZone(object_id=4, shapely_polygon=shapely_polygon)
+        stop_zone = StopZone(object_id=4, stop_zone_type=StopZoneType.TRAFFIC_LIGHT, shapely_polygon=shapely_polygon)
         assert stop_zone.shapely_polygon.area == pytest.approx(0.5)
+
+    def test_lane_ids_property(self):
+        """Test that lane_ids property works correctly."""
+        outline = Polyline3D.from_array(
+            np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.5, 0.0], [0.0, 0.5, 0.0], [0.0, 0.0, 0.0]])
+        )
+        lane_ids = ["1_0_right_-1", "1_0_right_-2"]
+        stop_zone = StopZone(
+            object_id=4,
+            stop_zone_type=StopZoneType.TRAFFIC_LIGHT,
+            outline=outline,
+            lane_ids=lane_ids,
+        )
+        assert stop_zone.lane_ids == lane_ids
+
+    def test_lane_ids_default_empty(self):
+        """Test that lane_ids defaults to empty list."""
+        shapely_polygon = shapely.Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 0.5), (0.0, 0.5)])
+        stop_zone = StopZone(object_id=4, stop_zone_type=StopZoneType.TRAFFIC_LIGHT, shapely_polygon=shapely_polygon)
+        assert stop_zone.lane_ids == []
 
 
 class TestRoadEdge:

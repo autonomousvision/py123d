@@ -8,6 +8,7 @@ from py123d.conversion.utils.map_utils.opendrive.parser.elevation import XODRLat
 from py123d.conversion.utils.map_utils.opendrive.parser.lane import XODRLanes
 from py123d.conversion.utils.map_utils.opendrive.parser.objects import XODRObject
 from py123d.conversion.utils.map_utils.opendrive.parser.reference import XODRPlanView
+from py123d.conversion.utils.map_utils.opendrive.parser.signals import XODRSignal, XODRSignalReference
 
 
 @dataclass
@@ -28,6 +29,8 @@ class XODRRoad:
     lateral_profile: XODRLateralProfile
     lanes: XODRLanes
     objects: List[XODRObject]
+    signals: List[XODRSignal]
+    signal_references: List[XODRSignalReference]
 
     rule: Optional[str] = None  # NOTE: ignored
 
@@ -64,6 +67,17 @@ class XODRRoad:
                 objects.append(XODRObject.parse(object_element))
 
         args["objects"] = objects
+
+        signals: List[XODRSignal] = []
+        signal_references: List[XODRSignalReference] = []
+        if road_element.find("signals") is not None:
+            for signal_element in road_element.find("signals").findall("signal"):
+                signals.append(XODRSignal.parse(signal_element))
+            for signal_ref_element in road_element.find("signals").findall("signalReference"):
+                signal_references.append(XODRSignalReference.parse(signal_ref_element))
+
+        args["signals"] = signals
+        args["signal_references"] = signal_references
 
         return XODRRoad(**args)
 
