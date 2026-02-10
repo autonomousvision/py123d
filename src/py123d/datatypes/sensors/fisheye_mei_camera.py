@@ -233,7 +233,16 @@ class FisheyeMEIProjection(ArrayMixin):
 class FisheyeMEICameraMetadata:
     """Metadata for a fisheye MEI camera."""
 
-    __slots__ = ("_camera_name", "_camera_type", "_mirror_parameter", "_distortion", "_projection", "_width", "_height")
+    __slots__ = (
+        "_camera_name",
+        "_camera_type",
+        "_mirror_parameter",
+        "_distortion",
+        "_projection",
+        "_width",
+        "_height",
+        "_static_extrinsic",
+    )
 
     def __init__(
         self,
@@ -244,6 +253,7 @@ class FisheyeMEICameraMetadata:
         projection: Optional[FisheyeMEIProjection],
         width: int,
         height: int,
+        static_extrinsic: Optional[PoseSE3] = None,
     ) -> None:
         """Initialize the fisheye MEI camera metadata.
 
@@ -254,6 +264,7 @@ class FisheyeMEICameraMetadata:
         :param projection: Projection parameters of the camera.
         :param width: Width of the camera image in pixels.
         :param height: Height of the camera image in pixels.
+        :param static_extrinsic: Static extrinsic pose of the camera.
         """
         self._camera_name = camera_name
         self._camera_type = camera_type
@@ -262,6 +273,7 @@ class FisheyeMEICameraMetadata:
         self._projection = projection
         self._width = width
         self._height = height
+        self._static_extrinsic = static_extrinsic
 
     @classmethod
     def from_dict(cls, data_dict: Dict[str, Any]) -> FisheyeMEICameraMetadata:
@@ -281,6 +293,11 @@ class FisheyeMEICameraMetadata:
             if data_dict["projection"] is not None
             else None
         )
+        # TODO: Make static extrinsic mandatory in the future.
+        if "static_extrinsic" in data_dict.keys():
+            data_dict["static_extrinsic"] = (
+                PoseSE3.from_list(data_dict["static_extrinsic"]) if data_dict["static_extrinsic"] is not None else None
+            )
         return FisheyeMEICameraMetadata(**data_dict)
 
     @property
@@ -307,6 +324,21 @@ class FisheyeMEICameraMetadata:
     def projection(self) -> Optional[FisheyeMEIProjection]:
         """The projection parameters of the fisheye MEI camera, if available."""
         return self._projection
+
+    @property
+    def width(self) -> int:
+        """The width of the fisheye MEI camera image in pixels."""
+        return self._width
+
+    @property
+    def height(self) -> int:
+        """The height of the fisheye MEI camera image in pixels."""
+        return self._height
+
+    @property
+    def static_extrinsic(self) -> Optional[PoseSE3]:
+        """The static extrinsic pose of the fisheye MEI camera, if available."""
+        return self._static_extrinsic
 
     @property
     def aspect_ratio(self) -> float:

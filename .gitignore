@@ -39,3 +39,6 @@ _build/
 
 # ruff
 .ruff_cache/*
+
+# Other
+CLAUDE.md

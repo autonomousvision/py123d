@@ -1,4 +1,4 @@
-wod_motion_dataset:
+wod-motion:
   _target_: py123d.conversion.datasets.wod.wod_motion_converter.WODMotionConverter
   _convert_: 'all'
 

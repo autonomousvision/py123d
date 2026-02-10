@@ -8,8 +8,8 @@ from py123d.common.utils.dependencies import check_dependencies
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.conversion.datasets.wod.utils.wod_constants import (
-    WODM_AVAILABLE_SPLITS,
-    WOPM_TRAFFIC_LIGHT_MAPPING,
+    WOD_MOTION_AVAILABLE_SPLITS,
+    WOD_MOTION_TRAFFIC_LIGHT_MAPPING,
 )
 from py123d.conversion.datasets.wod.wod_map_conversion import convert_wod_map
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter
@@ -78,8 +78,8 @@ class WODMotionConverter(AbstractDatasetConverter):
     ) -> None:
         super().__init__(dataset_converter_config)
         for split in splits:
-            assert split in WODM_AVAILABLE_SPLITS, (
-                f"Split {split} is not available. Available splits: {WODM_AVAILABLE_SPLITS}"
+            assert split in WOD_MOTION_AVAILABLE_SPLITS, (
+                f"Split {split} is not available. Available splits: {WOD_MOTION_AVAILABLE_SPLITS}"
             )
 
         self._splits: List[str] = splits
@@ -301,7 +301,7 @@ def _extract_all_traffic_lights(scenario: scenario_pb2.Scenario) -> List[Traffic
     for dynamic_map_state in scenario.dynamic_map_states:
         traffic_light_detections: List[TrafficLightDetection] = []
         for lane_state in dynamic_map_state.lane_states:
-            traffic_light_status = WOPM_TRAFFIC_LIGHT_MAPPING[lane_state.state]
+            traffic_light_status = WOD_MOTION_TRAFFIC_LIGHT_MAPPING[lane_state.state]
             traffic_light_detections.append(TrafficLightDetection(lane_id=lane_state.lane, status=traffic_light_status))
 
         all_traffic_lights.append(TrafficLightDetectionWrapper(traffic_light_detections=traffic_light_detections))

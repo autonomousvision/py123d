@@ -1,4 +1,4 @@
-nuplan_dataset:
+nuplan:
   _target_: py123d.conversion.datasets.nuplan.nuplan_converter.NuPlanConverter
   _convert_: 'all'
 
@@ -27,11 +27,11 @@ nuplan_dataset:
     include_traffic_lights: true
 
     # Pinhole Cameras
-    include_pinhole_cameras: false
+    include_pinhole_cameras: true
     pinhole_camera_store_option: "path" # "path", "jpeg_binary", "png_binary", "mp4"
 
     # LiDARs
-    include_lidars: false
+    include_lidars: true
     lidar_store_option: "path_merged" # "path", "path_merged", "laz_binary", "draco_binary"
 
     # Scenario tag / Route

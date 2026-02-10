@@ -70,7 +70,7 @@ DATASET_SENSOR_ROOT: Dict[str, Path] = {
     "av2-sensor": DATASET_PATHS.av2_sensor_data_root,
     "nuplan": DATASET_PATHS.nuplan_sensor_root,
     "nuscenes": DATASET_PATHS.nuscenes_data_root,
-    "wodp": DATASET_PATHS.wodp_data_root,
+    "wod_perception": DATASET_PATHS.wod_perception_data_root,
     "pandaset": DATASET_PATHS.pandaset_data_root,
     "kitti360": DATASET_PATHS.kitti360_data_root,
 }
@@ -327,52 +327,87 @@ def get_lidar_from_arrow_table(
     :return: The constructed LiDAR object, or None if not available.
     """
 
+    def _load_lidar_type_from_arrow_table(lidar_type_: LiDARType, lidar_column_name_: str) -> Optional[LiDAR]:
+        lidar: Optional[LiDAR] = None
+        if lidar_column_name_ in arrow_table.schema.names:
+            lidar_data = arrow_table[lidar_column_name_][index].as_py()
+            if isinstance(lidar_data, str):
+                lidar_pc_dict = load_lidar_pcs_from_file(
+                    relative_path=lidar_data, log_metadata=log_metadata, index=index
+                )
+                if lidar_type_ == LiDARType.LIDAR_MERGED:
+                    # Merge all available LiDAR point clouds into one
+                    merged_pc = np.vstack(list(lidar_pc_dict.values()))
+                    lidar = LiDAR(
+                        metadata=LiDARMetadata(
+                            lidar_name=LiDARType.LIDAR_MERGED.serialize(),
+                            lidar_type=LiDARType.LIDAR_MERGED,
+                            lidar_index=DefaultLiDARIndex,
+                            extrinsic=PoseSE3.identity(),
+                        ),
+                        point_cloud=merged_pc,
+                    )
+                elif lidar_type_ in lidar_pc_dict:
+                    lidar = LiDAR(
+                        metadata=log_metadata.lidar_metadata[lidar_type_],
+                        point_cloud=lidar_pc_dict[lidar_type_],
+                    )
+            elif isinstance(lidar_data, bytes):
+                lidar_metadata = log_metadata.lidar_metadata[lidar_type_]
+                if is_draco_binary(lidar_data):
+                    # NOTE: DRACO only allows XYZ compression, so we need to override the lidar index here.
+                    lidar_metadata.lidar_index = DefaultLiDARIndex
+                    lidar = load_lidar_from_draco_binary(lidar_data, lidar_metadata)
+                elif is_laz_binary(lidar_data):
+                    lidar = load_lidar_from_laz_binary(lidar_data, lidar_metadata)
+                else:
+                    raise ValueError("LiDAR binary data is neither in Draco nor LAZ format.")
+            elif lidar_data is not None:
+                raise NotImplementedError(
+                    f"Only string file paths or bytes for LiDAR data are supported, got {type(lidar_data)}"
+                )
+
+        return lidar
+
     lidar: Optional[LiDAR] = None
+
     # NOTE @DanielDauner: Some LiDAR are stored together and are separated only during loading.
     # In this case, we need to use the merged LiDAR column name.
+    lidar_column_name_dict: Dict[LiDARType, str] = {}
+    if lidar_type == LiDARType.LIDAR_MERGED:
+        lidar_column_name_merged = LIDAR_DATA_COLUMN(LiDARType.LIDAR_MERGED.serialize())
+        if lidar_column_name_merged in arrow_table.schema.names:
+            lidar_column_name_dict[LiDARType.LIDAR_MERGED] = lidar_column_name_merged
+        else:
+            for lt in log_metadata.lidar_metadata.keys():
+                lidar_column_name_dict[lt] = LIDAR_DATA_COLUMN(lt.serialize())
+    else:
+        lidar_column_name = LIDAR_DATA_COLUMN(lidar_type.serialize())
+        if lidar_column_name in arrow_table.schema.names:
+            lidar_column_name_dict[lidar_type] = LIDAR_DATA_COLUMN(lidar_type.serialize())
+        else:
+            lidar_column_name_merged = LIDAR_DATA_COLUMN(LiDARType.LIDAR_MERGED.serialize())
+            lidar_column_name_dict[lidar_type] = lidar_column_name_merged
 
-    lidar_column_name = LIDAR_DATA_COLUMN(lidar_type.serialize())
-    lidar_column_name = (
-        LIDAR_DATA_COLUMN(LiDARType.LIDAR_MERGED.serialize())
-        if lidar_column_name not in arrow_table.schema.names
-        else lidar_column_name
-    )
+    lidars: List[Optional[LiDAR]] = []
+    for lidar_type_, lidar_column_name in lidar_column_name_dict.items():
+        lidar_ = _load_lidar_type_from_arrow_table(lidar_type_, lidar_column_name)
+        lidars.append(lidar_)
 
-    if lidar_column_name in arrow_table.schema.names:
-        lidar_data = arrow_table[lidar_column_name][index].as_py()
-        if isinstance(lidar_data, str):
-            lidar_pc_dict = load_lidar_pcs_from_file(relative_path=lidar_data, log_metadata=log_metadata, index=index)
-            if lidar_type == LiDARType.LIDAR_MERGED:
-                # Merge all available LiDAR point clouds into one
-                merged_pc = np.vstack(list(lidar_pc_dict.values()))
-                lidar = LiDAR(
-                    metadata=LiDARMetadata(
-                        lidar_name=LiDARType.LIDAR_MERGED.serialize(),
-                        lidar_type=LiDARType.LIDAR_MERGED,
-                        lidar_index=DefaultLiDARIndex,
-                        extrinsic=None,
-                    ),
-                    point_cloud=merged_pc,
-                )
-            elif lidar_type in lidar_pc_dict:
-                lidar = LiDAR(
-                    metadata=log_metadata.lidar_metadata[lidar_type],
-                    point_cloud=lidar_pc_dict[lidar_type],
-                )
-        elif isinstance(lidar_data, bytes):
-            lidar_metadata = log_metadata.lidar_metadata[lidar_type]
-            if is_draco_binary(lidar_data):
-                # NOTE: DRACO only allows XYZ compression, so we need to override the lidar index here.
-                lidar_metadata.lidar_index = DefaultLiDARIndex
-                lidar = load_lidar_from_draco_binary(lidar_data, lidar_metadata)
-            elif is_laz_binary(lidar_data):
-                lidar = load_lidar_from_laz_binary(lidar_data, lidar_metadata)
-            else:
-                raise ValueError("LiDAR binary data is neither in Draco nor LAZ format.")
-        elif lidar_data is not None:
-            raise NotImplementedError(
-                f"Only string file paths or bytes for LiDAR data are supported, got {type(lidar_data)}"
-            )
+    if len(lidars) > 1:
+        # Merge all available LiDAR point clouds into one
+        merged_pc = np.vstack([lidar_.point_cloud for lidar_ in lidars if lidar_ is not None])
+        lidar = LiDAR(
+            metadata=LiDARMetadata(
+                lidar_name=LiDARType.LIDAR_MERGED.serialize(),
+                lidar_type=LiDARType.LIDAR_MERGED,
+                lidar_index=DefaultLiDARIndex,
+                extrinsic=PoseSE3.identity(),
+            ),
+            point_cloud=merged_pc,
+        )
+    else:
+        lidar = lidars[0]
 
     return lidar
 

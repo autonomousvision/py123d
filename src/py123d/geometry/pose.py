@@ -1,13 +1,27 @@
 from __future__ import annotations
 
+from typing import Union
+
 import numpy as np
 import numpy.typing as npt
 import shapely.geometry as geom
 
 from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
-from py123d.geometry.geometry_index import EulerPoseSE3Index, Point3DIndex, PoseSE2Index, PoseSE3Index
+from py123d.geometry.geometry_index import (
+    EulerAnglesIndex,
+    EulerPoseSE3Index,
+    Point3DIndex,
+    PoseSE2Index,
+    PoseSE3Index,
+    QuaternionIndex,
+)
 from py123d.geometry.point import Point2D, Point3D
 from py123d.geometry.rotation import EulerAngles, Quaternion
+from py123d.geometry.utils.rotation_utils import (
+    get_quaternion_array_from_euler_array,
+    get_quaternion_array_from_rotation_matrix,
+)
+from py123d.geometry.vector import Vector2D, Vector3D
 
 
 class PoseSE2(ArrayMixin):
@@ -55,6 +69,76 @@ class PoseSE2(ArrayMixin):
         object.__setattr__(instance, "_array", array.copy() if copy else array)
         return instance
 
+    @classmethod
+    def from_transformation_matrix(cls, transformation_matrix: npt.NDArray[np.float64]) -> PoseSE2:
+        """Constructs a PoseSE2 from a 3x3 transformation matrix.
+
+        :param transformation_matrix: A 3x3 numpy array representing the transformation matrix.
+        :return: A PoseSE2 instance.
+        """
+        assert transformation_matrix.ndim == 2
+        assert transformation_matrix.shape == (3, 3)
+        x = transformation_matrix[0, 2]
+        y = transformation_matrix[1, 2]
+        yaw = np.arctan2(transformation_matrix[1, 0], transformation_matrix[0, 0])
+        return PoseSE2(x=x, y=y, yaw=yaw)
+
+    @classmethod
+    def from_R_t(
+        cls,
+        rotation: Union[npt.NDArray[np.float64], float],
+        translation: Union[npt.NDArray[np.float64], Point2D, Vector2D],
+    ) -> PoseSE2:
+        """Constructs a PoseSE2 from a 2x2 rotation matrix and a 2D translation vector.
+
+        :param rotation: Either a 2x2 rotation matrix, or a single float representing the yaw angle in radians.
+        :param translation: A numpy array of shape (2,), or a :class:`~py123d.geometry.Point2D` instance \
+            representing the translation.
+        :return: A PoseSE2 instance.
+        """
+
+        array = np.zeros(len(PoseSE2Index), dtype=np.float64)
+
+        # 1. Translation
+        if isinstance(translation, np.ndarray):
+            assert translation.shape == (2,), (
+                "Expected translation to be a numpy array of shape (2,), got shape {}".format(translation.shape)
+            )
+            array[PoseSE2Index.XY] = translation
+        elif isinstance(translation, Point2D):
+            array[PoseSE2Index.XY] = translation.array
+        else:
+            raise ValueError(
+                "Unsupported translation type for PoseSE2 construction, got type: {}".format(type(translation))
+            )
+
+        # 2. Rotation
+        if isinstance(rotation, (int, float)):
+            array[PoseSE2Index.YAW] = float(rotation)
+        elif isinstance(rotation, np.ndarray):
+            if rotation.shape == ():
+                array[PoseSE2Index.YAW] = float(rotation)
+            elif rotation.shape == (1,):
+                array[PoseSE2Index.YAW] = float(rotation[0])
+            elif rotation.shape == (2, 2):
+                array[PoseSE2Index.YAW] = np.arctan2(rotation[1, 0], rotation[0, 0])
+            else:
+                raise ValueError(
+                    "Expected rotation to be a numpy array of shape (2, 2) or (1,), got shape {}".format(rotation.shape)
+                )
+        else:
+            raise ValueError("Unsupported rotation type for PoseSE2 construction, got type: {}".format(type(rotation)))
+
+        return PoseSE2.from_array(array, copy=False)
+
+    @classmethod
+    def identity(cls) -> PoseSE2:
+        """Constructs an identity PoseSE2.
+
+        :return: An identity PoseSE2 instance.
+        """
+        return PoseSE2(x=0.0, y=0.0, yaw=0.0)
+
     @property
     def x(self) -> float:
         """The x-coordinate of the pose."""
@@ -95,7 +179,7 @@ class PoseSE2(ArrayMixin):
     @property
     def transformation_matrix(self) -> npt.NDArray[np.float64]:
         """The 3x3 transformation matrix representation of the pose."""
-        matrix = np.zeros((3, 3), dtype=np.float64)
+        matrix = np.eye(3, dtype=np.float64)
         matrix[:2, :2] = self.rotation_matrix
         matrix[0, 2] = self.x
         matrix[1, 2] = self.y
@@ -181,6 +265,69 @@ class PoseSE3(ArrayMixin):
         array = np.zeros(len(PoseSE3Index), dtype=np.float64)
         array[PoseSE3Index.XYZ] = transformation_matrix[:3, 3]
         array[PoseSE3Index.QUATERNION] = Quaternion.from_rotation_matrix(transformation_matrix[:3, :3])
+        return PoseSE3.from_array(array, copy=False)
+
+    @classmethod
+    def from_R_t(
+        cls,
+        rotation: Union[npt.NDArray[np.float64], Quaternion, EulerAngles],
+        translation: Union[npt.NDArray[np.float64], Point3D, Vector3D],
+    ) -> PoseSE3:
+        """Constructs a :class:`PoseSE3` from arbitrary rotation and translation representations.
+
+        :param rotation: Either a numpy array representing the rotation in one of the following formats: \
+            a 3x3 rotation matrix, a (4,) quaternion array indexed by :class:`~py123d.geometry.geometry_index.QuaternionIndex`, \
+            euler angles indexed by :class:`~py123d.geometry.geometry_index.EulerAnglesIndex`, \
+                or directly as a :class:`~py123d.geometry.Quaternion` instance, or  :class:`~py123d.geometry.EulerAngles` instance.
+        :param translation: Either a numpy array of shape (3,) representing the translation, \
+            or a :class:`~py123d.geometry.Point3D` or :class:`~py123d.geometry.Vector3D` instance representing the translation.
+        :return: A :class:`PoseSE3` instance.
+        """
+
+        array = np.zeros(len(PoseSE3Index), dtype=np.float64)
+
+        # 1. Translation
+        if isinstance(translation, np.ndarray):
+            assert translation.shape == (3,)
+            array[PoseSE3Index.XYZ] = translation
+        elif isinstance(translation, (Point3D, Vector3D)):
+            array[PoseSE3Index.XYZ] = translation.array
+        else:
+            raise ValueError(
+                "Unsupported translation type for PoseSE3 construction, got type: {}".format(type(translation))
+            )
+
+        # 2. Rotation
+        if isinstance(rotation, np.ndarray):
+            if rotation.shape == (3, 3):
+                array[PoseSE3Index.QUATERNION] = get_quaternion_array_from_rotation_matrix(rotation)
+            elif rotation.shape == (len(QuaternionIndex),):
+                array[PoseSE3Index.QUATERNION] = rotation
+            elif rotation.shape == (len(EulerAnglesIndex),):
+                array[PoseSE3Index.QUATERNION] = get_quaternion_array_from_euler_array(rotation)
+            else:
+                raise ValueError(
+                    "Expected rotation to be a numpy array of shape (3, 3), (4,) or (3,), got shape {}".format(
+                        rotation.shape
+                    )
+                )
+        elif isinstance(rotation, Quaternion):
+            array[PoseSE3Index.QUATERNION] = rotation.array
+        elif isinstance(rotation, EulerAngles):
+            array[PoseSE3Index.QUATERNION] = rotation.quaternion.array
+        else:
+            raise ValueError("Unsupported rotation type for PoseSE3 construction, got type: {}".format(type(rotation)))
+
+        return PoseSE3.from_array(array, copy=False)
+
+    @classmethod
+    def identity(cls) -> PoseSE3:
+        """Constructs an identity :class:`PoseSE3`.
+
+        :return: An identity :class:`PoseSE3` instance.
+        """
+        array = np.zeros(len(PoseSE3Index), dtype=np.float64)
+        array[PoseSE3Index.QW] = 1.0
         return PoseSE3.from_array(array, copy=False)
 
     @property

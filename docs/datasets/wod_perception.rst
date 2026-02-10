@@ -2,7 +2,7 @@ Waymo Open Dataset - Perception
 -------------------------------
 
 The Waymo Open Dataset (WOD) is a collective term for publicly available datasets from Waymo.
-The *Perception Dataset*, abbreviated as WOD-P, is a high-quality dataset targeted for perceptions tasks, such as
+The *Perception Dataset*, abbreviated as WOD-Perception, is a high-quality dataset targeted for perceptions tasks.
 With 1150 logs each spanning 20 seconds, the dataset includes about 6.4 hours
 
 .. dropdown:: Overview
@@ -27,7 +27,7 @@ With 1150 logs each spanning 20 seconds, the dataset includes about 6.4 hours
         Apache License 2.0 + `Code Specific Licenses <https://github.com/waymo-research/waymo-open-dataset/blob/master/LICENSE>`_
 
     * - :octicon:`database` Available splits
-      - ``wodp_train``, ``wodp_val``, ``wodp_test``
+      - ``wod-perception_train``, ``wod-perception_val``, ``wod-perception_test``
 
 
 Available Modalities
@@ -80,11 +80,11 @@ Available Modalities
 .. dropdown:: Dataset Specific
 
 
-  .. autoclass:: py123d.conversion.registry.WODBoxDetectionLabel
+  .. autoclass:: py123d.conversion.registry.WODPerceptionBoxDetectionLabel
     :members:
     :no-inherited-members:
 
-  .. autoclass:: py123d.conversion.registry.WODPLiDARIndex
+  .. autoclass:: py123d.conversion.registry.WODPerceptionLiDARIndex
     :members:
     :no-inherited-members:
 
@@ -100,7 +100,7 @@ The expected directory structure after downloading and extracting the dataset is
 
 .. code-block:: text
 
-  $WODP_DATA_ROOT
+  $WOD_PERCEPTION_DATA_ROOT
     ├── testing/
     |   ├── segment-10084636266401282188_1120_000_1140_000_with_camera_labels.tfrecord
     |   ├── ...
@@ -114,11 +114,11 @@ The expected directory structure after downloading and extracting the dataset is
         ├── ...
         └── segment-967082162553397800_5102_900_5122_900_with_camera_labels.tfrecord
 
-You can add the dataset root directory to the environment variable ``WODP_DATA_ROOT`` for easier access.
+You can add the dataset root directory to the environment variable ``WOD_PERCEPTION_DATA_ROOT`` for easier access.
 
 .. code-block:: bash
 
-   export WODP_DATA_ROOT=/path/to/wodp_dataset_root
+   export WOD_PERCEPTION_DATA_ROOT=/path/to/wod_perception_dataset_root
 
 Optionally, you can adjust the ``py123d/script/config/common/default_dataset_paths.yaml`` accordingly.
 
@@ -155,6 +155,19 @@ Here is an example of how to set it up:
 You only need the Waymo Open Dataset specific dependencies if you convert the dataset or read from the raw TFRecord files.
 After conversion, you may use any other ``py123d`` installation.
 
+Conversion
+~~~~~~~~~~~~
+
+You can convert the Waymo Open Dataset for Perception by running:
+
+.. code-block:: bash
+
+  py123d-conversion datasets=["wod-perception"]
+
+.. note::
+  The conversion of WOD-Perception by default stores the camera images as jpegs and the LiDAR point clouds as binary files in the logs.
+  Thus, the logs need fairly large disk space. Reading from the raw TFRecord files is also supported, but requires the Waymo Open Dataset specific dependencies (see above) and might be slower.
+  To change the default behavior, you need to adapt the ``wod-perception.yaml`` converter configuration.
 
 Dataset Specific Issues
 ~~~~~~~~~~~~~~~~~~~~~~~

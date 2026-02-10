@@ -260,11 +260,18 @@ def _get_nuplan_camera_metadata(
     def _get_camera_metadata(camera_type: PinholeCameraType) -> PinholeCameraMetadata:
         cam = list(get_cameras(str(source_log_path), [str(NUPLAN_CAMERA_MAPPING[camera_type].value)]))[0]
 
+        # Load intrinsics
         intrinsics_camera_matrix = np.array(pickle.loads(cam.intrinsic), dtype=np.float64)  # type: ignore  # array of shape (3, 3)
         intrinsic = PinholeIntrinsics.from_camera_matrix(intrinsics_camera_matrix)
 
+        # Load distortion
         distortion_array = np.array(pickle.loads(cam.distortion), dtype=np.float64)  # type: ignore  # array of shape (5,)
         distortion = PinholeDistortion.from_array(distortion_array, copy=False)
+
+        # Load static extrinsic
+        translation_array = np.array(pickle.loads(cam.translation), dtype=np.float64)  # type: ignore  # array of shape (3,)
+        rotation_array = np.array(pickle.loads(cam.rotation), dtype=np.float64)  # type: ignore  # array of shape (4,)
+        extrinsic = PoseSE3.from_R_t(rotation=rotation_array, translation=translation_array)
 
         return PinholeCameraMetadata(
             camera_name=str(NUPLAN_CAMERA_MAPPING[camera_type].value),
@@ -273,6 +280,7 @@ def _get_nuplan_camera_metadata(
             height=cam.height,  # type: ignore
             intrinsics=intrinsic,
             distortion=distortion,
+            static_extrinsic=extrinsic,
         )
 
     camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}

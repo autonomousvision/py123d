@@ -64,7 +64,7 @@ class AV2SensorConverter(AbstractDatasetConverter):
         for split in self._splits:
             dataset_name = split.split("_")[0]
             split_type = split.split("_")[-1]
-            assert split_type in ["train", "val", "test"]
+            assert split_type in {"train", "val", "test"}, f"Split type {split_type} is not valid."
             if "av2-sensor" == dataset_name:
                 log_folder = self._av2_data_root / "sensor" / split_type
             else:
@@ -183,24 +183,46 @@ def _get_av2_sensor_map_metadata(split: str, source_log_path: Path) -> MapMetada
 
 
 def _get_av2_pinhole_camera_metadata(
-    source_log_path: Path, dataset_converter_config: DatasetConverterConfig
+    source_log_path: Path,
+    dataset_converter_config: DatasetConverterConfig,
 ) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
     """Helper to get pinhole camera metadata for AV2 sensor dataset."""
     pinhole_camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
     if dataset_converter_config.include_pinhole_cameras:
         intrinsics_file = source_log_path / "calibration" / "intrinsics.feather"
         intrinsics_df = pd.read_feather(intrinsics_file)
-        for _, row in intrinsics_df.iterrows():
-            row = row.to_dict()
-            camera_type = AV2_CAMERA_TYPE_MAPPING[row["sensor_name"]]
-            pinhole_camera_metadata[camera_type] = PinholeCameraMetadata(
-                camera_name=str(row["sensor_name"]),
-                camera_type=camera_type,
-                width=row["width_px"],
-                height=row["height_px"],
-                intrinsics=PinholeIntrinsics(fx=row["fx_px"], fy=row["fy_px"], cx=row["cx_px"], cy=row["cy_px"]),
-                distortion=PinholeDistortion(k1=row["k1"], k2=row["k2"], p1=0.0, p2=0.0, k3=row["k3"]),
-            )
+
+        egovehicle_se3_sensor_file = source_log_path / "calibration" / "egovehicle_SE3_sensor.feather"
+        egovehicle_se3_sensor_df = pd.read_feather(egovehicle_se3_sensor_file)
+
+        for _, row_callib in egovehicle_se3_sensor_df.iterrows():
+            row_callib = row_callib.to_dict()
+            if row_callib["sensor_name"] in AV2_CAMERA_TYPE_MAPPING.keys():
+                row_intrinsics = (
+                    intrinsics_df[intrinsics_df["sensor_name"] == row_callib["sensor_name"]].iloc[0].to_dict()
+                )
+                camera_type = AV2_CAMERA_TYPE_MAPPING[row_callib["sensor_name"]]
+                pinhole_camera_metadata[camera_type] = PinholeCameraMetadata(
+                    camera_name=str(row_callib["sensor_name"]),
+                    camera_type=camera_type,
+                    width=row_intrinsics["width_px"],
+                    height=row_intrinsics["height_px"],
+                    intrinsics=PinholeIntrinsics(
+                        fx=row_intrinsics["fx_px"],
+                        fy=row_intrinsics["fy_px"],
+                        cx=row_intrinsics["cx_px"],
+                        cy=row_intrinsics["cy_px"],
+                    ),
+                    distortion=PinholeDistortion(
+                        k1=row_intrinsics["k1"],
+                        k2=row_intrinsics["k2"],
+                        p1=0.0,
+                        p2=0.0,
+                        k3=row_intrinsics["k3"],
+                    ),
+                    static_extrinsic=_row_dict_to_pose_se3(row_callib),
+                )
+
     return pinhole_camera_metadata
 
 

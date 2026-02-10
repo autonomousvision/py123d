@@ -259,9 +259,17 @@ def _get_nuscenes_pinhole_camera_metadata(
             cam_token = first_sample["data"][camera_channel]
             cam_data = nusc.get("sample_data", cam_token)
             calib = nusc.get("calibrated_sensor", cam_data["calibrated_sensor_token"])
+
+            # Intrinsic & distortion parameters
             intrinsic_matrix = np.array(calib["camera_intrinsic"])
             intrinsic = PinholeIntrinsics.from_camera_matrix(intrinsic_matrix)
             distortion = PinholeDistortion.from_array(np.zeros(5), copy=False)
+
+            # Extrinsic parameters
+            translation_array = np.array(calib["translation"], dtype=np.float64)  # array of shape (3,)
+            rotation_array = np.array(calib["rotation"], dtype=np.float64)  # array of shape (4,)
+            extrinsic = PoseSE3.from_R_t(rotation=rotation_array, translation=translation_array)
+
             camera_metadata[camera_type] = PinholeCameraMetadata(
                 camera_name=camera_channel,
                 camera_type=camera_type,
@@ -269,7 +277,9 @@ def _get_nuscenes_pinhole_camera_metadata(
                 height=cam_data["height"],
                 intrinsics=intrinsic,
                 distortion=distortion,
+                static_extrinsic=extrinsic,
             )
+
     return camera_metadata
 
 
@@ -428,13 +438,9 @@ def _extract_nuscenes_cameras(
                 continue
 
             calib = nusc.get("calibrated_sensor", cam_data["calibrated_sensor_token"])
-
-            translation = np.array(calib["translation"])
-            rotation = Quaternion(calib["rotation"]).rotation_matrix
-            extrinsic_matrix = np.eye(4)
-            extrinsic_matrix[:3, :3] = rotation
-            extrinsic_matrix[:3, 3] = translation
-            extrinsic = PoseSE3.from_transformation_matrix(extrinsic_matrix)
+            translation_array = np.array(calib["translation"], dtype=np.float64)  # array of shape (3,)
+            rotation_array = np.array(calib["rotation"], dtype=np.float64)  # array of shape (4,)
+            extrinsic = PoseSE3.from_R_t(rotation=rotation_array, translation=translation_array)
 
             cam_path = nuscenes_data_root / str(cam_data["filename"])
             if cam_path.exists() and cam_path.is_file():

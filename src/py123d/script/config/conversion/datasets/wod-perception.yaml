@@ -1,9 +1,9 @@
-wod_perception_dataset:
+wod-perception:
   _target_: py123d.conversion.datasets.wod.wod_perception_converter.WODPerceptionConverter
   _convert_: 'all'
 
-  splits: ["wod-perception_val"] # Which splits to convert. Options: ["wod-perception_train", "wod-perception_val", "wod-perception_test"]
-  wodp_data_root: ${dataset_paths.wodp_data_root}
+  splits: ["wod-perception_train", "wod-perception_val", "wod-perception_test"] # Which splits to convert. Options: ["wod-perception_train", "wod-perception_val", "wod-perception_test"]
+  wod_perception_data_root: ${dataset_paths.wod_perception_data_root}
   zero_roll_pitch: true # Whether to zero the roll and pitch of the box detections in global frame.
   keep_polar_features: false # Add lidar polar features (range, azimuth, elevation) in addition to XYZ. (slow if true)
   add_map_pose_offset: true # Whether to add the map pose offset to the ego state and box detections.
@@ -27,11 +27,11 @@ wod_perception_dataset:
 
     # Pinhole Cameras
     include_pinhole_cameras: true
-    pinhole_camera_store_option: ${pinhole_camera_store_option}   # "path", "jpeg_binary", "png_binary", "mp4"
+    pinhole_camera_store_option: "jpeg_binary"  # "path", "jpeg_binary", "png_binary", "mp4"
 
     # LiDARs
     include_lidars: true
-    lidar_store_option: ${lidar_store_option}  # "path", "path_merged", "laz_binary", "draco_binary"
+    lidar_store_option: "laz_binary"  # "path", "path_merged", "laz_binary", "draco_binary"
 
     # Not available:
     include_traffic_lights: false

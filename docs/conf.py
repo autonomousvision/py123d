@@ -10,7 +10,7 @@
 project = "py123d"
 copyright = "2025"
 author = "DanielDauner"
-release = "v0.0.8"
+release = "v0.0.9"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

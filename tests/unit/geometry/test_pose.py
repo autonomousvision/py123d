@@ -1,9 +1,11 @@
 import numpy as np
 import pytest
 
-from py123d.geometry import Point2D, PoseSE2, PoseSE3
+from py123d.geometry import EulerAngles, Point2D, PoseSE2, PoseSE3
 from py123d.geometry.geometry_index import PoseSE2Index
+from py123d.geometry.point import Point3D
 from py123d.geometry.pose import EulerPoseSE3
+from py123d.geometry.vector import Vector3D
 
 
 class TestPoseSE2:
@@ -35,6 +37,61 @@ class TestPoseSE2:
         pose = PoseSE2.from_array(array, copy=False)
         array[0] = 99.0
         assert pose.x == 99.0
+
+    def test_from_transformation_matrix(self):
+        """Test creation from a transformation matrix."""
+
+        transformation_matrix = np.array([[1.0, 0.0, 1.0], [0.0, 1.0, 2.0], [0.0, 0.0, 1.0]])
+        pose = PoseSE2.from_transformation_matrix(transformation_matrix)
+        assert pose.x == 1.0
+        assert pose.y == 2.0
+        assert pose.yaw == 0.0  # Assuming no rotation in the transformation matrix
+
+        # Consistency check:
+        cons_pose = PoseSE2(x=1.0, y=2.0, yaw=np.pi / 4)
+        cons_transformation_matrix = cons_pose.transformation_matrix
+        pose_from_cons_matrix = PoseSE2.from_transformation_matrix(cons_transformation_matrix)
+        np.testing.assert_allclose(pose_from_cons_matrix.array, cons_pose.array, atol=1e-10)
+
+    def test_from_R_t(self):
+        """Test creation arbitrary from rotation and translation representations."""
+
+        rotation_matrix = np.array([[0.0, -1.0], [1.0, 0.0]])
+        rotation_float = np.pi / 2  # 90 degrees rotation
+        rotation_numpy_0d = np.array(rotation_float)
+        rotation_numpy_1d = np.array([rotation_float])
+
+        translation_numpy = np.array([1.0, 2.0])
+        translation_point2d = Point2D(x=1.0, y=2.0)
+        translation_vector2d = np.array([1.0, 2.0])
+
+        # Test all combinations of rotation and translation inputs
+        pose1 = PoseSE2.from_R_t(rotation_matrix, translation_numpy)
+        pose2 = PoseSE2.from_R_t(rotation_float, translation_numpy)
+        pose3 = PoseSE2.from_R_t(rotation_numpy_0d, translation_numpy)
+        pose4 = PoseSE2.from_R_t(rotation_numpy_1d, translation_numpy)
+        pose5 = PoseSE2.from_R_t(rotation_float, translation_point2d)
+        pose6 = PoseSE2.from_R_t(rotation_float, translation_vector2d)
+
+        # Verify all produce consistent results
+        assert pose2.x == 1.0
+        assert pose2.y == 2.0
+        assert pytest.approx(pose2.yaw) == np.pi / 2
+
+        np.testing.assert_allclose(pose1.array, pose2.array, atol=1e-10)
+        np.testing.assert_allclose(pose2.array, pose3.array, atol=1e-10)
+        np.testing.assert_allclose(pose3.array, pose4.array, atol=1e-10)
+        np.testing.assert_allclose(pose4.array, pose5.array, atol=1e-10)
+        np.testing.assert_allclose(pose5.array, pose6.array, atol=1e-10)
+
+    def test_identity(self):
+        """Test creation of identity pose."""
+        pose = PoseSE2.identity()
+        assert pose.x == 0.0
+        assert pose.y == 0.0
+        assert pose.yaw == 0.0
+        transformation_matrix = pose.transformation_matrix
+        np.testing.assert_allclose(transformation_matrix, np.eye(3), atol=1e-10)
 
     def test_properties(self):
         """Test access to individual pose component properties."""
@@ -79,7 +136,7 @@ class TestPoseSE2:
         pose = PoseSE2(x=1.0, y=2.0, yaw=0.0)
         trans_mat = pose.transformation_matrix
         assert trans_mat.shape == (3, 3)
-        expected = np.array([[1.0, 0.0, 1.0], [0.0, 1.0, 2.0], [0.0, 0.0, 0.0]])
+        expected = np.array([[1.0, 0.0, 1.0], [0.0, 1.0, 2.0], [0.0, 0.0, 1.0]])
         np.testing.assert_allclose(trans_mat, expected)
 
     def test_shapely_point(self):
@@ -157,6 +214,41 @@ class TestPoseSE3:
         assert pose.qx == 0.0
         assert pose.qy == 0.0
         assert pose.qz == 0.0
+
+    def test_from_R_t(self):
+        """Test creation from arbitrary rotation and translation representations."""
+
+        # Rotation representations
+        rotation_euler = EulerAngles(yaw=np.pi / 2, pitch=np.pi / 3, roll=np.pi / 4)
+        rotation_euler_array = rotation_euler.array
+        rotation_quat = rotation_euler.quaternion
+        rotation_quat_array = rotation_quat.array
+        rotation_matrix = rotation_euler.rotation_matrix
+
+        # Translation representations
+        translation_point3d = Point3D(x=1.0, y=2.0, z=3.0)
+        translation_vector3d = Vector3D(x=1.0, y=2.0, z=3.0)
+        translation_array = np.array([1.0, 2.0, 3.0])
+
+        # Reference pose for consistency checks
+        transformation_matrix = np.eye(4)
+        transformation_matrix[:3, :3] = rotation_matrix
+        transformation_matrix[:3, 3] = [1.0, 2.0, 3.0]
+        reference_pose = PoseSE3.from_transformation_matrix(transformation_matrix)
+
+        for rotation in [rotation_matrix, rotation_quat, rotation_quat_array, rotation_euler_array]:
+            for translation in [translation_point3d, translation_vector3d, translation_array]:
+                pose = PoseSE3.from_R_t(rotation, translation)
+                np.testing.assert_allclose(pose.array, reference_pose.array, atol=1e-10)
+
+    def test_identity(self):
+        """Test creation of identity pose."""
+        pose = PoseSE3.identity()
+        np.testing.assert_allclose(pose.array, np.array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]), atol=1e-10)
+        np.testing.assert_allclose(pose.transformation_matrix, np.eye(4), atol=1e-10)
+        assert pose.yaw == 0.0
+        assert pose.pitch == 0.0
+        assert pose.roll == 0.0
 
     def test_properties(self):
         """Test access to individual pose component properties."""

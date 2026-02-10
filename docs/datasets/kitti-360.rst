@@ -170,8 +170,10 @@ You can convert the KITTI-360 dataset by running:
 
   py123d-conversion datasets=["kitti360_dataset"]
 
-
-Note, that you can assign the logs of KITTI-360 to different splits (e.g., "train", "val", "test") in the ``kitti360_dataset.yaml`` config.
+.. note::
+  You can assign the logs of KITTI-360 to different splits (e.g., "train", "val", "test") in the ``kitti360.yaml`` config.
+  The conversion of KITTI-360 by default does not store sensor data in the logs, but only relative file paths.
+  To change this behavior, you need to adapt the ``kitti360.yaml`` converter configuration.
 
 
 Dataset Issues

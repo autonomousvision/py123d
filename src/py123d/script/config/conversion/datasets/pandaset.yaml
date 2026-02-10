@@ -1,4 +1,4 @@
-pandaset_dataset:
+pandaset:
   _target_: py123d.conversion.datasets.pandaset.pandaset_converter.PandasetConverter
   _convert_: 'all'
 
@@ -20,11 +20,11 @@ pandaset_dataset:
 
     # Pinhole Cameras
     include_pinhole_cameras: true
-    pinhole_camera_store_option: ${pinhole_camera_store_option}  # "path", "jpeg_binary", "png_binary", "mp4"
+    pinhole_camera_store_option: "path"  # "path", "jpeg_binary", "png_binary", "mp4"
 
     # LiDARs
     include_lidars: true
-    lidar_store_option: ${lidar_store_option} # "path", "path_merged", "laz_binary", "draco_binary"
+    lidar_store_option: "path"  # "path", "path_merged", "laz_binary", "draco_binary"
 
     # Not available:
     include_map: false
@@ -34,8 +34,7 @@ pandaset_dataset:
     include_route: false
 
 
-  # NOTE: Pandaset does not have official splits, so we create our own here.
-  # We use 80% of the logs for training, 10% for validation, and 10% for testing.
+  # NOTE: Pandaset does not have official splits, so we just put all logs in the training set.
   train_log_names:
     - "001"
     - "002"
@@ -119,8 +118,6 @@ pandaset_dataset:
     - "123"
     - "149"
     - "158"
-
-  val_log_names:
     - "004"
     - "017"
     - "018"
@@ -132,8 +129,6 @@ pandaset_dataset:
     - "105"
     - "117"
     - "124"
-
-  test_log_names:
     - "005"
     - "015"
     - "035"
@@ -144,3 +139,6 @@ pandaset_dataset:
     - "093"
     - "112"
     - "139"
+
+  val_log_names: []
+  test_log_names: []

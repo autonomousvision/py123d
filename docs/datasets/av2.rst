@@ -162,16 +162,18 @@ You can also override the file path and run:
 
 .. code-block:: bash
 
-  py123d-conversion datasets=["av2_sensor_dataset"] \
+  py123d-conversion datasets=["av2-sensor"] \
   dataset_paths.av2_data_root=$AV2_DATA_ROOT # optional if env variable is set
 
 
+.. note::
+  The conversion of AV2 by default does not store sensor data in the logs, but only relative file paths.
+  To change this behavior, you need to adapt the ``av2-sensor.yaml`` converter configuration.
 
 Dataset Issues
 ~~~~~~~~~~~~~~
 
 - **Ego Vehicle:** The vehicle parameters are partially estimated and may be subject to inaccuracies.
-
 
 
 Citation
@@ -181,7 +183,7 @@ If you use this dataset in your research, please cite:
 
 .. code-block:: bibtex
 
-  @article{Wilson2023NEURIPS,
+  @article{Wilson2021NEURIPS,
     author = {Benjamin Wilson and William Qi and Tanmay Agarwal and John Lambert and Jagjeet Singh and Siddhesh Khandelwal and Bowen Pan and Ratnesh Kumar and Andrew Hartnett and Jhony Kaesemodel Pontes and Deva Ramanan and Peter Carr and James Hays},
     title = {Argoverse 2: Next Generation Datasets for Self-Driving Perception and Forecasting},
     booktitle = {Proceedings of the Neural Information Processing Systems Track on Datasets and Benchmarks (NeurIPS Datasets and Benchmarks 2021)},

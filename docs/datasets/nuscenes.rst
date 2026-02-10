@@ -177,11 +177,13 @@ You can convert the nuScenes dataset (or mini dataset) by running:
 
 .. code-block:: bash
 
-  py123d-conversion datasets=["nuscenes_dataset"]
+  py123d-conversion datasets=["nuscenes"]
   # or
-  py123d-conversion datasets=["nuscenes_mini_dataset"]
+  py123d-conversion datasets=["nuscenes-mini"]
 
-
+.. note::
+  The conversion of nuScenes by default does not store sensor data in the logs, but only relative file paths.
+  To change this behavior, you need to adapt the ``nuscenes-sensor.yaml`` or ``nuscenes-mini.yaml`` converter configuration.
 
 Dataset Issues
 ~~~~~~~~~~~~~~
@@ -193,7 +195,7 @@ Dataset Issues
 Citation
 ~~~~~~~~
 
-If you use nuPlan in your research, please cite:
+If you use nuScenes in your research, please cite:
 
 .. code-block:: bibtex
 
