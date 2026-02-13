@@ -646,11 +646,6 @@ def _collect_signals(opendrive: XODR) -> Dict[Tuple[int, int, Optional[str]], Op
         if not road.signal_references:
             continue
 
-        reference_line = XODRReferenceLine.from_plan_view(
-            road.plan_view,
-            road.lanes.lane_offsets,
-            road.elevation_profile.elevations,
-        )
         for signal_ref in road.signal_references:
             helper = get_signal_reference_helper(signal_ref, signal_lookup, road)
             if helper and helper.lane_ids:
