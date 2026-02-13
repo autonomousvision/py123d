@@ -652,7 +652,7 @@ def _collect_signals(opendrive: XODR) -> Dict[Tuple[int, int, Optional[str]], Op
             road.elevation_profile.elevations,
         )
         for signal_ref in road.signal_references:
-            helper = get_signal_reference_helper(signal_ref, signal_lookup, reference_line, road)
+            helper = get_signal_reference_helper(signal_ref, signal_lookup, road)
             if helper and helper.lane_ids:
                 key = (road.id, helper.signal_id, helper.turn_relation)
                 if key not in signal_dict:
