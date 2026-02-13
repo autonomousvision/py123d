@@ -662,8 +662,5 @@ def _collect_signals(opendrive: XODR) -> Dict[Tuple[int, int, Optional[str]], Op
                 existing = signal_dict[key]
                 merged_lane_ids = sorted(set(existing.lane_ids + helper.lane_ids))
                 existing.lane_ids = merged_lane_ids
-                for lane_id, ref_s in helper.lane_reference_s.items():
-                    if lane_id not in existing.lane_reference_s:
-                        existing.lane_reference_s[lane_id] = ref_s
 
     return signal_dict

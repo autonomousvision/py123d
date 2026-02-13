@@ -22,47 +22,50 @@ def _group_contiguous_lanes(
 ) -> List[List[OpenDriveLaneHelper]]:
     """Group lane helpers into contiguous sequences by lane index.
 
-    Lanes are contiguous if their |id| values form an unbroken sequence.
-    E.g., lanes with ids [-1, -2, -3] or [3, 4, 5] are contiguous.
-    Lanes [-1, -3] or [3, 5] are not (missing -2 and 4 respectively).
+    Lanes are first split by side (left/right), then grouped by contiguity
+    within each side. Lanes are contiguous if their |id| values form an
+    unbroken sequence.
     """
     if not helpers:
         return []
 
-    # Sort by absolute lane id
-    sorted_helpers = sorted(helpers, key=lambda h: abs(h.id))
+    left = sorted([h for h in helpers if h.id > 0], key=lambda h: h.id)
+    right = sorted([h for h in helpers if h.id < 0], key=lambda h: abs(h.id))
 
     groups: List[List[OpenDriveLaneHelper]] = []
-    current_group: List[OpenDriveLaneHelper] = [sorted_helpers[0]]
-
-    for i in range(1, len(sorted_helpers)):
-        prev_abs_id = abs(sorted_helpers[i - 1].id)
-        curr_abs_id = abs(sorted_helpers[i].id)
-
-        if curr_abs_id == prev_abs_id + 1:
-            current_group.append(sorted_helpers[i])
-        else:
-            groups.append(current_group)
-            current_group = [sorted_helpers[i]]
-
-    groups.append(current_group)
+    for side_helpers in [left, right]:
+        if not side_helpers:
+            continue
+        current_group: List[OpenDriveLaneHelper] = [side_helpers[0]]
+        for i in range(1, len(side_helpers)):
+            if abs(side_helpers[i].id) == abs(side_helpers[i - 1].id) + 1:
+                current_group.append(side_helpers[i])
+            else:
+                groups.append(current_group)
+                current_group = [side_helpers[i]]
+        groups.append(current_group)
     return groups
 
 
+SIGNAL_TYPE_MAP = {
+    "1000001": StopZoneType.TRAFFIC_LIGHT,
+    "206": StopZoneType.STOP_SIGN,
+    "205": StopZoneType.YIELD_SIGN,
+}
+
+
 def _signal_type_to_stop_zone_type(signal: OpenDriveSignalHelper) -> StopZoneType:
-    if signal.xodr_signal.dynamic.lower() == "yes":
-        return StopZoneType.TRAFFIC_LIGHT
-    return StopZoneType.STOP_SIGN
+    return SIGNAL_TYPE_MAP.get(signal.xodr_signal.type, StopZoneType.UNKNOWN)
 
 
 def _create_stop_zone_outline_from_helpers(
     helpers: List[OpenDriveLaneHelper],
-    lane_reference_s: Dict[str, float],
 ) -> Optional[Polyline3D]:
     """Create stop zone polygon from contiguous lane helpers.
 
+    Places the stop zone at the beginning of the controlled lane.
+
     :param helpers: List of lane helpers (must be sorted by abs(id), contiguous)
-    :param lane_reference_s: Lane-specific s coordinate for the stop line
     :return: Closed Polyline3D outline or None if no helpers
     """
     if not helpers:
@@ -71,32 +74,23 @@ def _create_stop_zone_outline_from_helpers(
     inner_helper = helpers[0]
     outer_helper = helpers[-1]
 
-    inner_lane_id = inner_helper.lane_id
-    outer_lane_id = outer_helper.lane_id
-    fallback_s = np.mean(list(lane_reference_s.values())) if lane_reference_s else inner_helper.s_range[0]
-    inner_signal_s = lane_reference_s.get(inner_lane_id, fallback_s)
-    outer_signal_s = lane_reference_s.get(outer_lane_id, fallback_s)
-
+    # Place at lane beginning: right lanes travel in +s, left lanes in -s
     travels_in_s = inner_helper.id < 0
     if travels_in_s:
-        inner_start_s = inner_signal_s - STOP_ZONE_DEPTH
-        inner_end_s = inner_signal_s
-        outer_start_s = outer_signal_s - STOP_ZONE_DEPTH
-        outer_end_s = outer_signal_s
+        start_s = inner_helper.s_range[0]
+        end_s = start_s + STOP_ZONE_DEPTH
     else:
-        inner_start_s = inner_signal_s
-        inner_end_s = inner_signal_s + STOP_ZONE_DEPTH
-        outer_start_s = outer_signal_s
-        outer_end_s = outer_signal_s + STOP_ZONE_DEPTH
+        end_s = inner_helper.s_range[1]
+        start_s = end_s - STOP_ZONE_DEPTH
 
-    inner_start_s = np.clip(inner_start_s, inner_helper.s_range[0], inner_helper.s_range[1])
-    inner_end_s = np.clip(inner_end_s, inner_helper.s_range[0], inner_helper.s_range[1])
-    outer_start_s = np.clip(outer_start_s, outer_helper.s_range[0], outer_helper.s_range[1])
-    outer_end_s = np.clip(outer_end_s, outer_helper.s_range[0], outer_helper.s_range[1])
+    start_s = np.clip(start_s, inner_helper.s_range[0], inner_helper.s_range[1])
+    end_s = np.clip(end_s, inner_helper.s_range[0], inner_helper.s_range[1])
+    outer_start_s = np.clip(start_s, outer_helper.s_range[0], outer_helper.s_range[1])
+    outer_end_s = np.clip(end_s, outer_helper.s_range[0], outer_helper.s_range[1])
 
-    inner_start = inner_helper.inner_boundary.interpolate_3d(inner_start_s - inner_helper.s_range[0])
+    inner_start = inner_helper.inner_boundary.interpolate_3d(start_s - inner_helper.s_range[0])
     outer_start = outer_helper.outer_boundary.interpolate_3d(outer_start_s - outer_helper.s_range[0])
-    inner_end = inner_helper.inner_boundary.interpolate_3d(inner_end_s - inner_helper.s_range[0])
+    inner_end = inner_helper.inner_boundary.interpolate_3d(end_s - inner_helper.s_range[0])
     outer_end = outer_helper.outer_boundary.interpolate_3d(outer_end_s - outer_helper.s_range[0])
 
     corners = np.array(
@@ -149,7 +143,6 @@ def create_stop_zones_from_signals(
         for group_idx, group_helpers in enumerate(groups):
             outline = _create_stop_zone_outline_from_helpers(
                 helpers=group_helpers,
-                lane_reference_s=signal_helper.lane_reference_s,
             )
 
             if outline is None:

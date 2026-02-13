@@ -21,7 +21,6 @@ class OpenDriveSignalHelper:
     signal_type: str
     lane_ids: List[str]  # Lane IDs controlled by this signal
     turn_relation: Optional[str]
-    lane_reference_s: Dict[str, float]
     position_3d: npt.NDArray[np.float64]  # Signal reference position [x, y, z]
     heading: float
     reference_s: float  # s coordinate of signal reference (for stop zone placement)
@@ -91,14 +90,12 @@ def get_signal_reference_helper(
 
     # Get lane IDs from signal reference validity
     lane_ids = _lane_ids_from_signal_ref_validity(signal_ref, road)
-    lane_reference_s = {lane_id: signal_s for lane_id in lane_ids}
 
     return OpenDriveSignalHelper(
         signal_id=signal_ref.id,
         signal_type=signal.type,
         lane_ids=lane_ids,
         turn_relation=signal_ref.turn_relation,
-        lane_reference_s=lane_reference_s,
         position_3d=position_3d,
         heading=heading,
         reference_s=signal_s,
