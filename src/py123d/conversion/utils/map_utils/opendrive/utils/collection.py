@@ -42,7 +42,7 @@ def collect_element_helpers(
     Dict[str, OpenDriveLaneGroupHelper],
     Dict[int, OpenDriveObjectHelper],
     Dict[str, List[XODRRoadMark]],
-    Dict[Tuple[int, int, Optional[str]], OpenDriveSignalHelper],
+    Dict[int, OpenDriveSignalHelper],
 ]:
     # 1. Fill the road and junction dictionaries
     road_dict: Dict[int, XODRRoad] = {road.id: road for road in opendrive.roads}
@@ -628,12 +628,12 @@ def _collect_crosswalks(opendrive: XODR) -> Dict[int, OpenDriveObjectHelper]:
     return object_helper_dict
 
 
-def _collect_signals(opendrive: XODR) -> Dict[Tuple[int, int, Optional[str]], OpenDriveSignalHelper]:
+def _collect_signals(opendrive: XODR) -> Dict[int, OpenDriveSignalHelper]:
     """Collect signal references with lane validity info.
 
-    Returns dict keyed by (road_id, signal_id, turn_relation).
+    Returns dict keyed by signal_id, merging lane_ids across roads/turn_relations.
     """
-    signal_dict: Dict[Tuple[int, int, Optional[str]], OpenDriveSignalHelper] = {}
+    signal_dict: Dict[int, OpenDriveSignalHelper] = {}
 
     # First pass: collect signal definitions for type lookup
     signal_lookup = {}
@@ -649,7 +649,7 @@ def _collect_signals(opendrive: XODR) -> Dict[Tuple[int, int, Optional[str]], Op
         for signal_ref in road.signal_references:
             helper = get_signal_reference_helper(signal_ref, signal_lookup, road)
             if helper and helper.lane_ids:
-                key = (road.id, helper.signal_id, helper.turn_relation)
+                key = helper.signal_id
                 if key not in signal_dict:
                     signal_dict[key] = helper
                     continue
