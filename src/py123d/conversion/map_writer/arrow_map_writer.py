@@ -115,7 +115,9 @@ class ArrowMapWriter(AbstractMapWriter):
 
     def write_stop_zone(self, stop_zone: StopZone) -> None:
         """Inherited, see superclass."""
-        raise NotImplementedError("Stop zones are not yet supported in Arrow maps.")
+        self._write_surface_layer(MapLayer.STOP_ZONE, stop_zone)
+        self._map_data[MapLayer.STOP_ZONE]["stop_zone_type"].append(int(stop_zone.stop_zone_type))
+        self._map_data[MapLayer.STOP_ZONE]["lane_ids"].append(stop_zone.lane_ids)
 
     def write_road_edge(self, road_edge: RoadEdge) -> None:
         """Inherited, see superclass."""
@@ -253,6 +255,8 @@ class ArrowMapWriter(AbstractMapWriter):
                 all_types.append(type_idx)
                 stop_zone_dict = {
                     "outline": self._map_data[MapLayer.STOP_ZONE]["outline"][idx],
+                    "stop_zone_type": self._map_data[MapLayer.STOP_ZONE]["stop_zone_type"][idx],
+                    "lane_ids": self._map_data[MapLayer.STOP_ZONE]["lane_ids"][idx],
                 }
                 all_features.append(msgpack_encode_with_numpy(stop_zone_dict))  # type: ignore
 
@@ -409,6 +413,9 @@ def _map_ids_to_integer(map_data: Dict[MapLayer, Dict[str, Any]]) -> None:
     if len(map_data[MapLayer.STOP_ZONE]["id"]) > 0:
         for idx in range(len(map_data[MapLayer.STOP_ZONE]["id"])):
             map_data[MapLayer.STOP_ZONE]["id"][idx] = stop_zone_id_mapping.map(map_data[MapLayer.STOP_ZONE]["id"][idx])
+            map_data[MapLayer.STOP_ZONE]["lane_ids"][idx] = lane_id_mapping.map_list(
+                map_data[MapLayer.STOP_ZONE]["lane_ids"][idx]
+            )
     if len(map_data[MapLayer.ROAD_LINE]["id"]) > 0:
         for idx in range(len(map_data[MapLayer.ROAD_LINE]["id"])):
             map_data[MapLayer.ROAD_LINE]["id"][idx] = road_line_id_mapping.map(map_data[MapLayer.ROAD_LINE]["id"][idx])

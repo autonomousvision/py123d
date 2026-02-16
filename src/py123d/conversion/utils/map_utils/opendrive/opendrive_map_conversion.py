@@ -15,6 +15,7 @@ from py123d.conversion.utils.map_utils.opendrive.utils.lane_helper import (
     OpenDriveLaneHelper,
 )
 from py123d.conversion.utils.map_utils.opendrive.utils.objects_helper import OpenDriveObjectHelper
+from py123d.conversion.utils.map_utils.opendrive.utils.stop_zone_helper import create_stop_zones_from_signals
 from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     get_road_edge_linear_rings,
     split_line_geometry_by_max_length,
@@ -69,6 +70,7 @@ def convert_xodr_map(
         lane_group_helper_dict,
         object_helper_dict,
         center_lane_marks_dict,
+        signal_dict,
     ) = collect_element_helpers(opendrive, interpolation_step_size, connection_distance_threshold)
 
     # Collect data frames and store (needed for road edge/line extraction)
@@ -81,6 +83,7 @@ def convert_xodr_map(
     _write_walkways(lane_helper_dict, map_writer)
     _write_intersections(junction_dict, lane_group_helper_dict, map_writer)
     _write_crosswalks(object_helper_dict, map_writer)
+    _write_stop_zones(signal_dict, lane_helper_dict, map_writer)
 
     # Extract polyline elements that are inferred of other road surfaces.
     _write_road_lines(lane_helper_dict, lane_groups, center_lane_marks_dict, map_writer, internal_only)
@@ -234,6 +237,15 @@ def _write_crosswalks(object_helper_dict: Dict[int, OpenDriveObjectHelper], map_
                 outline=object_helper.outline_polyline_3d,
             )
         )
+
+
+def _write_stop_zones(
+    signal_dict: Dict, lane_helper_dict: Dict[str, OpenDriveLaneHelper], map_writer: AbstractMapWriter
+) -> None:
+    """Write stop zones from signal helpers using the map writer."""
+    stop_zones = create_stop_zones_from_signals(signal_dict, lane_helper_dict)
+    for stop_zone in stop_zones.values():
+        map_writer.write_stop_zone(stop_zone)
 
 
 def _map_road_mark_to_type(mark_type: str, color: str) -> RoadLineType:

@@ -15,7 +15,7 @@ from py123d.api.scene.arrow.utils.arrow_metadata_utils import get_map_metadata_f
 from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.common.utils.msgpack_utils import msgpack_decode_with_numpy
 from py123d.datatypes.map_objects.base_map_objects import BaseMapObject, MapObjectIDType
-from py123d.datatypes.map_objects.map_layer_types import MapLayer, RoadEdgeType, RoadLineType
+from py123d.datatypes.map_objects.map_layer_types import MapLayer, RoadEdgeType, RoadLineType, StopZoneType
 from py123d.datatypes.map_objects.map_objects import (
     Carpark,
     Crosswalk,
@@ -381,8 +381,10 @@ class ArrowMapAPI(MapAPI):
             assert isinstance(stop_zone_polygon, geom.Polygon)
             stop_zone = StopZone(
                 object_id=object_id,
+                stop_zone_type=StopZoneType(stop_zone_features["stop_zone_type"]),
                 outline=Polyline3D.from_array(stop_zone_features["outline"], copy=False),
                 shapely_polygon=stop_zone_polygon,
+                lane_ids=stop_zone_features.get("lane_ids", []),
             )
         return stop_zone
 

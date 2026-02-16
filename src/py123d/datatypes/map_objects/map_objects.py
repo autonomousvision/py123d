@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Sequence, Union
 
 import numpy as np
 import shapely.geometry as geom
 from trimesh import Trimesh
 
 from py123d.datatypes.map_objects.base_map_objects import BaseMapLineObject, BaseMapSurfaceObject, MapObjectIDType
-from py123d.datatypes.map_objects.map_layer_types import MapLayer, RoadEdgeType, RoadLineType
+from py123d.datatypes.map_objects.map_layer_types import MapLayer, RoadEdgeType, RoadLineType, StopZoneType
 from py123d.datatypes.map_objects.utils import get_trimesh_from_boundaries
 from py123d.geometry import Polyline2D, Polyline3D
 
@@ -513,15 +513,17 @@ class GenericDrivable(BaseMapSurfaceObject):
 
 
 class StopZone(BaseMapSurfaceObject):
-    """Placeholder class representing a stop zone in a map. Requires further implementation based on dataset specifics."""
+    """Class representing a stop zone in a map."""
 
-    __slots__ = ()
+    __slots__ = ("_stop_zone_type", "_lane_ids")
 
     def __init__(
         self,
         object_id: MapObjectIDType,
+        stop_zone_type: StopZoneType,
         outline: Optional[Union[Polyline2D, Polyline3D]] = None,
         shapely_polygon: Optional[geom.Polygon] = None,
+        lane_ids: Optional[Sequence[MapObjectIDType]] = None,
     ):
         """Initialize a StopZone instance.
 
@@ -530,10 +532,24 @@ class StopZone(BaseMapSurfaceObject):
         Either outline or shapely_polygon must be provided.
 
         :param object_id: The ID of the stop zone.
+        :param stop_zone_type: The type of the stop zone (traffic light, stop sign, etc.).
         :param outline: The outline of the stop zone, defaults to None.
         :param shapely_polygon: The Shapely polygon representation of the stop zone, defaults to None.
+        :param lane_ids: List of lane IDs this stop zone controls, defaults to None.
         """
         super().__init__(object_id, outline, shapely_polygon)
+        self._stop_zone_type = stop_zone_type
+        self._lane_ids = list(lane_ids) if lane_ids is not None else []
+
+    @property
+    def stop_zone_type(self) -> StopZoneType:
+        """The type of the stop zone."""
+        return self._stop_zone_type
+
+    @property
+    def lane_ids(self) -> List[MapObjectIDType]:
+        """List of lane IDs this stop zone controls."""
+        return self._lane_ids
 
     @property
     def layer(self) -> MapLayer:

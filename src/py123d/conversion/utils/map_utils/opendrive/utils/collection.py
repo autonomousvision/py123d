@@ -21,6 +21,10 @@ from py123d.conversion.utils.map_utils.opendrive.utils.lane_helper import (
     lane_section_to_lane_helpers,
 )
 from py123d.conversion.utils.map_utils.opendrive.utils.objects_helper import OpenDriveObjectHelper, get_object_helper
+from py123d.conversion.utils.map_utils.opendrive.utils.signal_helper import (
+    OpenDriveSignalHelper,
+    get_signal_reference_helper,
+)
 from py123d.geometry.polyline import Polyline3D, PolylineSE2
 from py123d.geometry.utils.polyline_utils import get_points_2d_yaws, offset_points_perpendicular
 
@@ -38,6 +42,7 @@ def collect_element_helpers(
     Dict[str, OpenDriveLaneGroupHelper],
     Dict[int, OpenDriveObjectHelper],
     Dict[str, List[XODRRoadMark]],
+    Dict[int, OpenDriveSignalHelper],
 ]:
     # 1. Fill the road and junction dictionaries
     road_dict: Dict[int, XODRRoad] = {road.id: road for road in opendrive.roads}
@@ -97,7 +102,18 @@ def collect_element_helpers(
     # 5. Collect objects, i.e. crosswalks
     crosswalk_dict = _collect_crosswalks(opendrive)
 
-    return (road_dict, junction_dict, lane_helper_dict, lane_group_helper_dict, crosswalk_dict, center_lane_marks_dict)
+    # 6. Collect signals
+    signal_dict = _collect_signals(opendrive)
+
+    return (
+        road_dict,
+        junction_dict,
+        lane_helper_dict,
+        lane_group_helper_dict,
+        crosswalk_dict,
+        center_lane_marks_dict,
+        signal_dict,
+    )
 
 
 def _update_connection_from_links(
@@ -610,3 +626,36 @@ def _collect_crosswalks(opendrive: XODR) -> Dict[int, OpenDriveObjectHelper]:
                 object_helper_dict[object_helper.object_id] = object_helper
 
     return object_helper_dict
+
+
+def _collect_signals(opendrive: XODR) -> Dict[int, OpenDriveSignalHelper]:
+    """Collect signal references with lane validity info.
+
+    Returns dict keyed by signal_id, merging lane_ids across roads/turn_relations.
+    """
+    signal_dict: Dict[int, OpenDriveSignalHelper] = {}
+
+    # First pass: collect signal definitions for type lookup
+    signal_lookup = {}
+    for road in opendrive.roads:
+        for signal in road.signals:
+            signal_lookup[signal.id] = signal
+
+    # Second pass: process signal references (have actual lane validity)
+    for road in opendrive.roads:
+        if not road.signal_references:
+            continue
+
+        for signal_ref in road.signal_references:
+            helper = get_signal_reference_helper(signal_ref, signal_lookup, road)
+            if helper and helper.lane_ids:
+                key = helper.signal_id
+                if key not in signal_dict:
+                    signal_dict[key] = helper
+                    continue
+
+                existing = signal_dict[key]
+                merged_lane_ids = sorted(set(existing.lane_ids + helper.lane_ids))
+                existing.lane_ids = merged_lane_ids
+
+    return signal_dict
