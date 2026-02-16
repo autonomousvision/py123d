@@ -67,6 +67,12 @@ class StopZoneType(SerialIntEnum):
     YIELD_SIGN = 3
     """Stop zone controlled by a yield sign."""
 
+    PEDESTRIAN_CROSSING = 4
+    """Stop zone controlled by a pedestrian crossing."""
+
+    TURN_STOP = 5
+    """Stop zone for turning vehicles."""
+
 
 class RoadEdgeType(SerialIntEnum):
     """Enum for different road edge types.
