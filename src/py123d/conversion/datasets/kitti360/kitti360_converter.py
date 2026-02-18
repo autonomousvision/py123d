@@ -359,6 +359,7 @@ def _get_kitti360_pinhole_camera_metadata(
                 intrinsics=PinholeIntrinsics.from_camera_matrix(np.array(persp_result[pcam_name]["intrinsic"])),
                 distortion=PinholeDistortion.from_array(np.array(persp_result[pcam_name]["distortion"])),
                 static_extrinsic=camera_calibration[pcam_name],
+                is_undistorted=True,
             )
 
     return pinhole_cam_metadatas

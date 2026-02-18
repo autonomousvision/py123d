@@ -237,6 +237,7 @@ def _get_av2_pinhole_camera_metadata(
                         k3=row_intrinsics["k3"],
                     ),
                     static_extrinsic=_row_dict_to_pose_se3(row_callib),
+                    is_undistorted=True,
                 )
 
     return pinhole_camera_metadata

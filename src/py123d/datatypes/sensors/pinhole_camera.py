@@ -313,6 +313,7 @@ class PinholeCameraMetadata:
         "_width",
         "_height",
         "_static_extrinsic",
+        "_is_undistorted",
     )
 
     def __init__(
@@ -324,6 +325,7 @@ class PinholeCameraMetadata:
         width: int,
         height: int,
         static_extrinsic: Optional[PoseSE3] = None,
+        is_undistorted: bool = False,
     ) -> None:
         """Initialize a :class:`PinholeCameraMetadata` instance.
 
@@ -334,6 +336,7 @@ class PinholeCameraMetadata:
         :param width: The image width in pixels.
         :param height: The image height in pixels.
         :param static_extrinsic: The static extrinsic :class:`~py123d.geometry.PoseSE3` of the pinhole camera, if available.
+        :param is_undistorted: Whether the camera images are already undistorted, defaults to False.
         """
         self._camera_name = camera_name
         self._camera_type = camera_type
@@ -342,6 +345,7 @@ class PinholeCameraMetadata:
         self._width = width
         self._height = height
         self._static_extrinsic = static_extrinsic
+        self._is_undistorted = is_undistorted
 
     @classmethod
     def from_dict(cls, data_dict: Dict[str, Any]) -> PinholeCameraMetadata:
@@ -378,6 +382,7 @@ class PinholeCameraMetadata:
         data_dict["width"] = self.width
         data_dict["height"] = self.height
         data_dict["static_extrinsic"] = self.static_extrinsic.tolist() if self.static_extrinsic is not None else None
+        data_dict["is_undistorted"] = self.is_undistorted
         return data_dict
 
     @property
@@ -414,6 +419,11 @@ class PinholeCameraMetadata:
     def static_extrinsic(self) -> Optional[PoseSE3]:
         """The static extrinsic :class:`~py123d.geometry.PoseSE3` of the pinhole camera, if available."""
         return self._static_extrinsic
+
+    @property
+    def is_undistorted(self) -> bool:
+        """Whether the camera images are already undistorted."""
+        return self._is_undistorted
 
     @property
     def aspect_ratio(self) -> float:

@@ -264,6 +264,7 @@ def _get_nuscenes_pinhole_camera_metadata(
                 intrinsics=intrinsic,
                 distortion=distortion,
                 static_extrinsic=extrinsic,
+                is_undistorted=True,
             )
 
     return camera_metadata
