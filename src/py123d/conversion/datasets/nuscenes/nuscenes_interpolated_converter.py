@@ -75,8 +75,6 @@ class NuScenesInterpolatedConverter(AbstractDatasetConverter):
         splits: List[str],
         nuscenes_data_root: Union[Path, str],
         nuscenes_map_root: Union[Path, str],
-        nuscenes_lanelet2_root: Union[Path, str],
-        use_lanelet2: bool,
         dataset_converter_config: DatasetConverterConfig,
         nuscenes_dbs: Optional[Dict[str, NuScenes]] = None,
     ) -> None:
@@ -86,8 +84,6 @@ class NuScenesInterpolatedConverter(AbstractDatasetConverter):
             ["nuscenes-interpolated_train", "nuscenes-interpolated_val"]
         :param nuscenes_data_root: Path to the root directory of the nuScenes dataset
         :param nuscenes_map_root: Path to the root directory of the nuScenes map data
-        :param nuscenes_lanelet2_root: Path to the root directory of the nuScenes Lanelet2 data
-        :param use_lanelet2: Whether to use Lanelet2 data for map conversion
         :param dataset_converter_config: Configuration for the dataset converter
         """
         super().__init__(dataset_converter_config)
@@ -103,8 +99,6 @@ class NuScenesInterpolatedConverter(AbstractDatasetConverter):
 
         self._nuscenes_data_root: Path = Path(nuscenes_data_root)
         self._nuscenes_map_root: Path = Path(nuscenes_map_root)
-        self._nuscenes_lanelet2_root: Path = Path(nuscenes_lanelet2_root)
-        self._use_lanelet2 = use_lanelet2
 
         self._nuscenes_dbs: Dict[str, NuScenes] = nuscenes_dbs if nuscenes_dbs is not None else {}
         self._scene_tokens_per_split: Dict[str, List[str]] = self._collect_scene_tokens()
@@ -116,8 +110,6 @@ class NuScenesInterpolatedConverter(AbstractDatasetConverter):
                 self._splits,
                 self._nuscenes_data_root,
                 self._nuscenes_map_root,
-                self._nuscenes_lanelet2_root,
-                self._use_lanelet2,
                 self.dataset_converter_config,
                 self._nuscenes_dbs,
             ),
@@ -176,13 +168,7 @@ class NuScenesInterpolatedConverter(AbstractDatasetConverter):
         map_needs_writing = map_writer.reset(self.dataset_converter_config, map_metadata)
 
         if map_needs_writing:
-            write_nuscenes_map(
-                nuscenes_maps_root=self._nuscenes_map_root,
-                location=map_name,
-                map_writer=map_writer,
-                use_lanelet2=self._use_lanelet2,
-                lanelet2_root=Path(self._nuscenes_lanelet2_root),
-            )
+            write_nuscenes_map(nuscenes_maps_root=self._nuscenes_map_root, location=map_name, map_writer=map_writer)
 
         map_writer.close()
 

@@ -1,6 +1,6 @@
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Final, List, Optional
+from typing import Dict, Final, List
 
 import numpy as np
 from shapely.geometry import LineString, Polygon
@@ -41,21 +41,12 @@ MAX_LANE_WIDTH: Final[float] = 4.0  # [m]
 MIN_LANE_WIDTH: Final[float] = 1.0  # [m]
 
 
-def write_nuscenes_map(
-    nuscenes_maps_root: Path,
-    location: str,
-    map_writer: AbstractMapWriter,
-    use_lanelet2: bool,
-    lanelet2_root: Optional[str] = None,
-) -> None:
+def write_nuscenes_map(nuscenes_maps_root: Path, location: str, map_writer: AbstractMapWriter) -> None:
     """Converts the nuScenes map types to the 123D format, and sends elements to the map writer.
-    FIXME @DanielDauner: Currently, Lanelet2 format is not supported for nuScenes.
 
     :param nuscenes_maps_root: Path to the nuScenes maps root directory
     :param location: Name of the specific map location to convert
     :param map_writer: Map writer instance to write the converted elements
-    :param use_lanelet2: Flag indicating whether to use Lanelet2 format
-    :param lanelet2_root: Path to the Lanelet2 root directory, defaults to None
     """
 
     assert location in NUSCENES_MAPS, f"Map name {location} is not supported."

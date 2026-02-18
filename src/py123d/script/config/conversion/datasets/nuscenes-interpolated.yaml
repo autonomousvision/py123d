@@ -5,8 +5,6 @@ nuscenes-interpolated:
   splits: ["nuscenes-interpolated_train", "nuscenes-interpolated_val", "nuscenes-interpolated_test"]
   nuscenes_data_root: ${dataset_paths.nuscenes_data_root}
   nuscenes_map_root: ${dataset_paths.nuscenes_data_root}
-  nuscenes_lanelet2_root: ${dataset_paths.nuscenes_data_root}/lanelet2
-  use_lanelet2: False
 
   dataset_converter_config:
     _target_: py123d.conversion.dataset_converter_config.DatasetConverterConfig

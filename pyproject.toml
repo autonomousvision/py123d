@@ -82,7 +82,6 @@ nuplan = [
 ]
 nuscenes = [
     "nuscenes-devkit==1.2.0",
-    "lanelet2",
 ]
 waymo = [
     "waymo-open-dataset-tf-2-12-0==1.6.7",
