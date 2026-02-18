@@ -32,6 +32,7 @@ from py123d.datatypes.vehicle_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_av2_ford_fusion_hybrid_parameters
 from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, PoseSE3, Vector3D, Vector3DIndex
 from py123d.geometry.transform import convert_relative_to_absolute_se3_array
+from py123d.geometry.transform.transform_se3 import convert_se3_array_between_origins
 
 
 class AV2SensorConverter(AbstractDatasetConverter):
@@ -162,6 +163,7 @@ class AV2SensorConverter(AbstractDatasetConverter):
                     pinhole_cameras=_extract_av2_sensor_pinhole_cameras(
                         lidar_timestamp_ns,
                         egovehicle_se3_sensor_df,
+                        city_se3_egovehicle_df,
                         synchronization_df,
                         source_log_path,
                         self.dataset_converter_config,
@@ -350,6 +352,7 @@ def _extract_av2_sensor_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_ti
 def _extract_av2_sensor_pinhole_cameras(
     lidar_timestamp_ns: int,
     egovehicle_se3_sensor_df: pd.DataFrame,
+    city_se3_egovehicle_df: pd.DataFrame,
     synchronization_df: pd.DataFrame,
     source_log_path: Path,
     dataset_converter_config: DatasetConverterConfig,
@@ -363,11 +366,15 @@ def _extract_av2_sensor_pinhole_cameras(
     if dataset_converter_config.include_pinhole_cameras:
         av2_sensor_data_root = source_log_path.parent.parent
 
+        current_ego_pose_slice = get_slice_with_timestamp_ns(city_se3_egovehicle_df, lidar_timestamp_ns)
+        assert len(current_ego_pose_slice) == 1
+        current_ego_pose_se3 = _row_dict_to_pose_se3(current_ego_pose_slice.iloc[0].to_dict())
+
         for _, row in egovehicle_se3_sensor_df.iterrows():
             row = row.to_dict()
             if row["sensor_name"] not in AV2_CAMERA_TYPE_MAPPING:
                 continue
-
+            static_extrinsic_se3 = _row_dict_to_pose_se3(row)
             pinhole_camera_name = row["sensor_name"]
             pinhole_camera_type = AV2_CAMERA_TYPE_MAPPING[pinhole_camera_name]
 
@@ -384,11 +391,21 @@ def _extract_av2_sensor_pinhole_cameras(
                 assert absolute_image_path.exists()
                 timestamp_ns_str = absolute_image_path.stem
 
+                # Motion compensation of the camera extrinsic to the lidar timestamp:
+                nearest_pose = (
+                    get_slice_with_timestamp_ns(city_se3_egovehicle_df, int(timestamp_ns_str)).iloc[0].to_dict()
+                )
+                nearest_pose_se3 = _row_dict_to_pose_se3(nearest_pose)
+                compensated_extrinsic_se3_array = convert_se3_array_between_origins(
+                    from_origin=nearest_pose_se3,
+                    to_origin=current_ego_pose_se3,
+                    se3_array=static_extrinsic_se3.array,
+                )
                 camera_data = CameraData(
                     camera_name=str(pinhole_camera_name),
                     camera_type=pinhole_camera_type,
                     timestamp=TimePoint.from_ns(int(timestamp_ns_str)),
-                    extrinsic=_row_dict_to_pose_se3(row),
+                    extrinsic=PoseSE3.from_array(compensated_extrinsic_se3_array),
                     dataset_root=av2_sensor_data_root,
                     relative_path=relative_image_path,
                 )
