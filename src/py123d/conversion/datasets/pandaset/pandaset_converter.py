@@ -71,6 +71,9 @@ class PandasetConverter(AbstractDatasetConverter):
         for split in splits:
             assert split in PANDASET_SPLITS, f"Split {split} is not available. Available splits: {PANDASET_SPLITS}"
         assert pandaset_data_root is not None, "The variable `pandaset_data_root` must be provided."
+        assert dataset_converter_config.lidar_store_option != "path", (
+            "Pandaset stores LiDAR sweeps as merged filed, use  lidar_store_option='path_merged' instead."
+        )
 
         self._splits: List[str] = splits
         self._pandaset_data_root: Path = Path(pandaset_data_root)

@@ -45,6 +45,7 @@ from py123d.datatypes.time import TimePoint
 from py123d.datatypes.vehicle_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_nuplan_chrysler_pacifica_parameters
 from py123d.geometry import PoseSE3, Vector3D
+from py123d.geometry.transform.transform_se3 import convert_se3_array_between_origins
 
 check_dependencies(["nuplan"], "nuplan")
 from nuplan.database.nuplan_db.nuplan_scenario_queries import get_cameras, get_images_from_lidar_tokens
@@ -102,6 +103,10 @@ class NuPlanConverter(AbstractDatasetConverter):
         assert nuplan_data_root is not None, "The variable `nuplan_data_root` must be provided."
         assert nuplan_maps_root is not None, "The variable `nuplan_maps_root` must be provided."
         assert nuplan_sensor_root is not None, "The variable `nuplan_sensor_root` must be provided."
+        assert dataset_converter_config.lidar_store_option != "path", (
+            "nuPlan stores LiDAR sweeps as merged filed, use  lidar_store_option='path_merged' instead."
+        )
+
         for split in splits:
             assert split in NUPLAN_DATA_SPLITS, (
                 f"Split {split} is not available. Available splits: {NUPLAN_DATA_SPLITS}"
@@ -125,13 +130,13 @@ class NuPlanConverter(AbstractDatasetConverter):
 
         for split in self._splits:
             split_type = split.split("_")[-1]
-            assert split_type in ["train", "val", "test"]
+            assert split_type in {"train", "val", "test"}
 
-            if split in ["nuplan_train", "nuplan_val"]:
+            if split in {"nuplan_train", "nuplan_val"}:
                 nuplan_split_folder = self._nuplan_data_root / "nuplan-v1.1" / "splits" / "trainval"
-            elif split in ["nuplan_test"]:
+            elif split in {"nuplan_test"}:
                 nuplan_split_folder = self._nuplan_data_root / "nuplan-v1.1" / "splits" / "test"
-            elif split in ["nuplan-mini_train", "nuplan-mini_val", "nuplan-mini_test"]:
+            elif split in {"nuplan-mini_train", "nuplan-mini_val", "nuplan-mini_test"}:
                 nuplan_split_folder = self._nuplan_data_root / "nuplan-v1.1" / "splits" / "mini"
             else:
                 raise ValueError(f"Unknown nuPlan split: {split}")
@@ -205,7 +210,10 @@ class NuPlanConverter(AbstractDatasetConverter):
 
         if log_needs_writing:
             step_interval: float = int(TARGET_DT / NUPLAN_DEFAULT_DT)
-            for nuplan_lidar_pc in nuplan_log_db.lidar_pc[::step_interval]:
+            offset = get_ideal_lidar_pc_offset(source_log_path, nuplan_log_db)
+            num_steps = len(nuplan_log_db.lidar_pc)
+            for lidar_pc_index in range(offset, num_steps, step_interval):
+                nuplan_lidar_pc = nuplan_log_db.lidar_pc[lidar_pc_index]
                 lidar_pc_token: str = nuplan_lidar_pc.token
                 log_writer.write(
                     timestamp=TimePoint.from_us(nuplan_lidar_pc.timestamp),
@@ -382,11 +390,15 @@ def _extract_nuplan_cameras(
 ) -> List[CameraData]:
     """Extracts the nuPlan camera data from a given LidarPc database objects."""
     camera_data_list: List[CameraData] = []
+    current_ego_pose = PoseSE3.from_transformation_matrix(nuplan_lidar_pc.ego_pose.trans_matrix)
+
     if dataset_converter_config.include_pinhole_cameras:
         log_cam_infos = {camera.token: camera for camera in nuplan_log_db.log.cameras}
         for camera_type, camera_channel in NUPLAN_CAMERA_MAPPING.items():
             image_class = list(
-                get_images_from_lidar_tokens(str(source_log_path), [nuplan_lidar_pc.token], [str(camera_channel.value)])
+                get_images_from_lidar_tokens(
+                    log_file=str(source_log_path), tokens=[nuplan_lidar_pc.token], channels=[str(camera_channel.value)]
+                )
             )
 
             if len(image_class) != 0:
@@ -400,20 +412,19 @@ def _extract_nuplan_cameras(
 
                     # Query nearest ego pose for the image timestamp
                     timestamp = image.timestamp + NUPLAN_ROLLING_SHUTTER_S.time_us
-                    nearest_ego_pose = get_nearest_ego_pose_for_timestamp_from_db(
+                    nearest_ego_poses, timestamp_poses = get_nearest_ego_pose_for_timestamp_from_db(
                         source_log_path,
                         timestamp,
                         [nuplan_lidar_pc.token],
                     )
-
-                    # Compute camera to ego transformation, given the nearest ego pose
-                    img_e2g = nearest_ego_pose.transformation_matrix
-                    g2e = nuplan_lidar_pc.ego_pose.trans_matrix_inv
-                    img_e2e = g2e @ img_e2g
-                    cam_info = log_cam_infos[image.camera_token]
-                    c2img_e = cam_info.trans_matrix
-                    c2e = img_e2e @ c2img_e
-                    extrinsic = PoseSE3.from_transformation_matrix(c2e)
+                    nearest_ego_pose = nearest_ego_poses[np.argmin(timestamp_poses)]
+                    extrinsic_static = PoseSE3.from_transformation_matrix(
+                        log_cam_infos[image.camera_token].trans_matrix
+                    )
+                    extrinsic_compensated_array = convert_se3_array_between_origins(
+                        from_origin=nearest_ego_pose, to_origin=current_ego_pose, se3_array=extrinsic_static.array
+                    )
+                    extrinsic = PoseSE3.from_array(extrinsic_compensated_array)
 
                     # Store in dictionary
                     camera_data_list.append(
@@ -447,8 +458,8 @@ def _extract_nuplan_lidars(
                     relative_path=nuplan_lidar_pc.filename,
                 )
             )
-        else:
-            logger.warning(f"LiDAR file not found: {lidar_full_path}")
+        # else:
+        #     logger.warning(f"LiDAR file not found: {lidar_full_path}")
     return lidars
 
 
@@ -469,3 +480,54 @@ def _extract_nuplan_route_lane_group_ids(nuplan_lidar_pc: LidarPc) -> List[int]:
         for roadblock_id in str(nuplan_lidar_pc.scene.roadblock_ids).split(" ")
         if len(roadblock_id) > 0
     ]
+
+
+def get_ideal_lidar_pc_offset(source_log_path: Path, nuplan_log_db: NuPlanDB) -> int:
+    """
+    Helper function to get the ideal initial step offset of a log.
+
+    NOTE: In nuPlan, lidars are captured at 20Hz (every 50ms), whereas cameras are captured at 10Hz (every 100ms).
+    However, cameras are triggers with the sweeping lidar motion, thus within a time-frame of [-25ms, 25ms] of every
+    second sweep. We need find out which alternating sweep provides a better camera matching.
+
+    Non-Ideal Case: Offset 0, with images within [-50ms, 50ms]
+    iteration: 0        [1]        2         3
+    timestamp: 0   50   100  150  200  300  350
+    lidar_pc:  |    |    |    |    |    |    |
+    Images:       |||||     |||||     |||||
+    search window:  [---------]
+
+    Ideal Case: Offset 1, with images within [-50ms, 50ms]
+    iteration:      0        [1]        2
+    timestamp: 0   50   100  150  200  300  350
+    lidar_pc:  |    |    |    |    |    |    |
+    Images:       |||||     |||||     |||||
+    search window:       [---------]
+
+    AFAIK, nuPlan does not document whether the lidar timestamp is at the start, end, or mid of a sweep.
+    Given the pattern of the cameras and their timestamps, estimated guess is mid sweep.
+
+    :param nuplan_log_db: The nuPlan database object.
+    :return: Either 0 or 1, as integer
+    """
+
+    QUERY_START: int = 10
+    average_offsets = np.zeros((2,), dtype=np.float64)
+    for offset in [0, 1]:
+        lidar_pc = nuplan_log_db.lidar_pc[QUERY_START + offset]
+        lidar_pc_timestamp_us = lidar_pc.timestamp
+        camera_channels = [str(channel.value) for channel in NUPLAN_CAMERA_MAPPING.values()]
+        images = list(
+            get_images_from_lidar_tokens(
+                log_file=str(source_log_path),
+                tokens=[lidar_pc.token],
+                channels=camera_channels,
+            )
+        )
+        absolute_time_offset_ms = []
+        for image in images:
+            image_timestamp_us = image.timestamp
+            absolute_time_offset_ms.append(abs(image_timestamp_us - lidar_pc_timestamp_us) / 1e3)
+        average_offsets[offset] = np.mean(absolute_time_offset_ms)
+
+    return int(np.argmin(average_offsets))

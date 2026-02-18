@@ -19,7 +19,7 @@ def load_nuscenes_lidar_pcs_from_file(pcd_path: Path, log_metadata: LogMetadata)
     lidar_extrinsic = log_metadata.lidar_metadata[LiDARType.LIDAR_TOP].extrinsic
     lidar_pc[..., NuScenesLiDARIndex.XYZ] = convert_points_3d_array_between_origins(
         from_origin=lidar_extrinsic,
-        to_origin=PoseSE3(0, 0, 0, 1.0, 0, 0, 0),
+        to_origin=PoseSE3.identity(),
         points_3d_array=lidar_pc[..., NuScenesLiDARIndex.XYZ],
     )
     return {LiDARType.LIDAR_TOP: lidar_pc}

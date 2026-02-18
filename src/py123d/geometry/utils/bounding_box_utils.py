@@ -60,7 +60,9 @@ def get_corners_3d_factors() -> npt.NDArray[np.float64]:
     return factors
 
 
-def bbse2_array_to_corners_array(bbse2: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+def bbse2_array_to_corners_array(
+    bbse2: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
     """Converts an array of BoundingBoxSE2 objects to the 2D coordinates array of their corners.
 
     :param bbse2: Array of SE2 bounding boxes, indexed by :class:`~py123d.geometry.BoundingBoxSE2Index`.
@@ -196,7 +198,9 @@ def corners_array_to_3d_mesh(
     return vertices, faces
 
 
-def corners_array_to_edge_lines(corners_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+def corners_array_to_edge_lines(
+    corners_array: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
     """Creates line segments representing the edges of boxes defined by their corner points.
 
     :param corners_array: An array of shape (..., 8, 3) representing the corners of the boxes.
@@ -240,14 +244,17 @@ def corners_array_to_edge_lines(corners_array: npt.NDArray[np.float64]) -> npt.N
 
 
 def points_3d_in_bbse3_array(
-    points_3d: npt.NDArray[np.float64],
-    bbse3_array: npt.NDArray[np.float64],
+    points_3d: npt.NDArray,
+    bbse3_array: npt.NDArray,
+    z_axis_threshold: Optional[float] = None,
 ) -> npt.NDArray[np.bool_]:
     """Check which points are inside each bounding box in a batch. See [1]_, [2]_ for reference.
 
     :param points_3d: Array of 3D points, shape (M, 3), indexed by :class:`~py123d.geometry.Point3DIndex`.
     :param bbse3_array: SE3 bounding boxes, either of shape (N, 10) or (10,), \
         indexed by :class:`~py123d.geometry.BoundingBoxSE3Index`.
+    :param z_axis_threshold: Optional threshold to points, that are below the box in the z-axis, \
+        (starting at the bottom). Can be used to crop ground points.
     :return: Boolean array of shape (N, M) or (M,) indicating if each point the respective box.
 
     References
@@ -265,6 +272,22 @@ def points_3d_in_bbse3_array(
         bbse3_array_ = bbse3_array[None, :]
     else:
         bbse3_array_ = bbse3_array
+
+    if z_axis_threshold is not None:
+        bbse3_array_ = bbse3_array_.copy()
+
+        # 1. Move center by z_axis_threshold up
+        bbse3_array_[:, BoundingBoxSE3Index.XYZ] = translate_3d_along_body_frame(
+            points_3d=bbse3_array_[:, BoundingBoxSE3Index.XYZ],
+            quaternions=bbse3_array_[:, BoundingBoxSE3Index.QUATERNION],
+            translation=np.array([0.0, 0.0, z_axis_threshold]),
+        )
+
+        # 2. Reduce height by z_axis_threshold
+        bbse3_array_[:, BoundingBoxSE3Index.HEIGHT] = np.maximum(
+            0.0,
+            bbse3_array_[:, BoundingBoxSE3Index.HEIGHT] - z_axis_threshold,
+        )
 
     corners_array = bbse3_array_to_corners_array(bbse3_array_)  # (N, 8, 3)
 

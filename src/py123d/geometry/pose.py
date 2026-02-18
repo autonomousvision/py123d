@@ -434,6 +434,13 @@ class PoseSE3(ArrayMixin):
         transformation_matrix[:3, 3] = self.array[PoseSE3Index.XYZ]
         return transformation_matrix
 
+    @property
+    def inverse(self) -> PoseSE3:
+        """Returns the inverse of the SE3 pose."""
+        return PoseSE3.from_transformation_matrix(
+            np.linalg.inv(self.transformation_matrix)  # cSpell:ignore linalg
+        )  # TODO: Implement robustly in quaternion space.
+
     def __repr__(self) -> str:
         """String representation of :class:`PoseSE3`."""
         return indexed_array_repr(self, PoseSE3Index)

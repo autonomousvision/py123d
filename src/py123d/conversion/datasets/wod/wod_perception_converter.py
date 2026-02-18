@@ -86,6 +86,9 @@ class WODPerceptionConverter(AbstractDatasetConverter):
         """
 
         super().__init__(dataset_converter_config)
+        assert dataset_converter_config.lidar_store_option != "path", (
+            "WOD-Perception stores LiDAR sweeps as merged filed, use lidar_store_option='path_merged' instead."
+        )
         for split in splits:
             assert split in WOD_PERCEPTION_AVAILABLE_SPLITS, (
                 f"Split {split} is not available. Available splits: {WOD_PERCEPTION_AVAILABLE_SPLITS}"

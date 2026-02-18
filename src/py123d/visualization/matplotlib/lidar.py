@@ -10,7 +10,7 @@ from py123d.conversion.registry.lidar_index_registry import LiDARIndex
 def get_lidar_pc_color(
     lidar_pc: npt.NDArray[np.float32],
     lidar_index: LiDARIndex,
-    feature: Literal["none", "distance", "intensity"],
+    feature: Literal["none", "distance", "intensity", "ring"],
 ) -> npt.NDArray[np.uint8]:
     """
     Compute color map of lidar point cloud according to global configuration
@@ -28,6 +28,8 @@ def get_lidar_pc_color(
         elif feature == "intensity":
             assert lidar_index.INTENSITY is not None, "LiDARIndex.INTENSITY is not defined"
             color_intensities = lidar_pc[:, lidar_index.INTENSITY]
+        elif feature == "ring":
+            color_intensities = lidar_pc[:, lidar_index.RING]
 
         min, max = color_intensities.min(), color_intensities.max()
         norm_intensities = [(value - min) / (max - min) for value in color_intensities]

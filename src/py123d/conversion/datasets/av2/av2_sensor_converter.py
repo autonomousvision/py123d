@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -42,20 +42,30 @@ class AV2SensorConverter(AbstractDatasetConverter):
         splits: List[str],
         av2_data_root: Union[Path, str],
         dataset_converter_config: DatasetConverterConfig,
+        lidar_camera_matching: Literal["nearest", "sweep"] = "sweep",
     ) -> None:
         """Initializes the AV2SensorConverter.
 
         :param splits: List of dataset splits to convert, e.g. ["av2-sensor_train", "av2-sensor_val", "av2-sensor_test"]
         :param av2_data_root: Root directory of the AV2 sensor dataset.
         :param dataset_converter_config: Configuration for the dataset converter.
+        :param lidar_camera_matching: Criterion for matching lidar-to-camera timestamps. "sweep" (default) uses
+            forward/backward matching to find cameras captured during the lidar sweep window. "nearest" finds the
+            closest camera frame regardless of temporal ordering.
         """
         super().__init__(dataset_converter_config)
         assert av2_data_root is not None, "The variable `av2_data_root` must be provided."
+        assert Path(av2_data_root).exists(), f"The provided `av2_data_root` path {av2_data_root} does not exist."
+        assert dataset_converter_config.lidar_store_option != "path", (
+            "AV2 stores LiDAR sweeps as merged filed, use  lidar_store_option='path_merged' instead."
+        )
+
         for split in splits:
             assert split in AV2_SENSOR_SPLITS, f"Split {split} is not available. Available splits: {AV2_SENSOR_SPLITS}"
 
         self._splits: List[str] = splits
         self._av2_data_root: Path = Path(av2_data_root)
+        self._lidar_camera_matching: Literal["nearest", "sweep"] = lidar_camera_matching
         self._log_paths_and_split: List[Tuple[Path, str]] = self._collect_log_paths()
 
     def _collect_log_paths(self) -> List[Tuple[Path, str]]:
@@ -124,7 +134,11 @@ class AV2SensorConverter(AbstractDatasetConverter):
         # 3. Process source log data
         if log_needs_writing:
             sensor_df = build_sensor_dataframe(source_log_path)
-            synchronization_df = build_synchronization_dataframe(sensor_df)
+            synchronization_df = build_synchronization_dataframe(
+                sensor_df,
+                camera_camera_matching="nearest",
+                lidar_camera_matching=self._lidar_camera_matching,
+            )
 
             lidar_sensor = sensor_df.xs(key="lidar", level=2)
             lidar_timestamps_ns = np.sort([int(idx_tuple[2]) for idx_tuple in lidar_sensor.index])
