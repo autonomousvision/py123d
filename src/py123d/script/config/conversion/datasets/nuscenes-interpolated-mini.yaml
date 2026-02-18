@@ -1,0 +1,39 @@
+nuscenes-interpolated-mini:
+  _target_: py123d.conversion.datasets.nuscenes.nuscenes_interpolated_converter.NuScenesInterpolatedConverter
+  _convert_: 'all'
+
+  splits: ["nuscenes-interpolated-mini_train", "nuscenes-interpolated-mini_val"]
+  nuscenes_data_root: ${dataset_paths.nuscenes_data_root}
+  nuscenes_map_root: ${dataset_paths.nuscenes_data_root}
+  nuscenes_lanelet2_root: ${dataset_paths.nuscenes_data_root}/lanelet2
+  use_lanelet2: false
+
+  dataset_converter_config:
+    _target_: py123d.conversion.dataset_converter_config.DatasetConverterConfig
+    _convert_: 'all'
+
+    force_log_conversion: ${force_log_conversion}
+    force_map_conversion: ${force_map_conversion}
+
+    # Map
+    include_map: true
+
+    # Ego
+    include_ego: true
+
+    # Box Detections
+    include_box_detections: true
+
+    # Pinhole Cameras
+    include_pinhole_cameras: true
+    pinhole_camera_store_option: "path"  # "path", "jpeg_binary", "png_binary", "mp4"
+
+    # LiDARs
+    include_lidars: true
+    lidar_store_option: "path" # "path", "path_merged", "laz_binary", "draco_binary"
+
+    # Not available:
+    include_fisheye_mei_cameras: false
+    include_traffic_lights: false
+    include_scenario_tags: false
+    include_route: false
