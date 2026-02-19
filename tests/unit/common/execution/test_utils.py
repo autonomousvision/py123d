@@ -4,6 +4,8 @@ from py123d.common.execution.utils import chunk_list, executor_map
 
 
 class TestChunkList:
+    """Tests for the chunk_list function to ensure it correctly splits lists into chunks."""
+
     def test_basic_chunking(self):
         """Test splitting a list into the specified number of chunks."""
         chunks = chunk_list([1, 2, 3, 4, 5, 6], num_chunks=3)
@@ -46,6 +48,8 @@ class TestChunkList:
 
 
 class TestExecutorMap:
+    """Various tests for the executor_map function with different executors and input scenarios."""
+
     def test_sequential_map(self):
         """Test executor_map with SequentialExecutor."""
         executor = SequentialExecutor()

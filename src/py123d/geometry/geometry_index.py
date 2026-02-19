@@ -103,38 +103,6 @@ class QuaternionIndex(IntEnum):
         return slice(cls.QX, cls.QZ + 1)
 
 
-class EulerPoseSE3Index(IntEnum):
-    """Indexing enum for array-like representations of SE3 states with Euler angles (x,y,z,roll,pitch,yaw).
-
-    Notes
-    -----
-    Representing a pose with Euler angles is deprecated but left in for testing purposes.
-
-    """
-
-    X = 0
-    Y = 1
-    Z = 2
-    ROLL = 3
-    PITCH = 4
-    YAW = 5
-
-    @classproperty
-    def XY(cls) -> slice:
-        """Slice for accessing (x,y) coordinates."""
-        return slice(cls.X, cls.Y + 1)
-
-    @classproperty
-    def XYZ(cls) -> slice:
-        """Slice for accessing (x,y,z) coordinates."""
-        return slice(cls.X, cls.Z + 1)
-
-    @classproperty
-    def EULER_ANGLES(cls) -> slice:
-        """Slice for accessing (roll,pitch,yaw) Euler angles."""
-        return slice(cls.ROLL, cls.YAW + 1)
-
-
 class PoseSE3Index(IntEnum):
     """Indexing enum for array-like representations of SE3 poses (x,y,z,qw,qx,qy,qz)."""
 

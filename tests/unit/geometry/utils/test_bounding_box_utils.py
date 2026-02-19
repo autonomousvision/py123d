@@ -6,11 +6,11 @@ from py123d.geometry.geometry_index import (
     BoundingBoxSE3Index,
     Corners2DIndex,
     Corners3DIndex,
-    EulerPoseSE3Index,
     Point2DIndex,
     Point3DIndex,
+    PoseSE3Index,
 )
-from py123d.geometry.pose import EulerPoseSE3, PoseSE3
+from py123d.geometry.pose import PoseSE3
 from py123d.geometry.rotation import EulerAngles
 from py123d.geometry.transform.transform_se3 import translate_se3_along_body_frame
 from py123d.geometry.utils.bounding_box_utils import (
@@ -23,6 +23,7 @@ from py123d.geometry.utils.bounding_box_utils import (
     get_corners_3d_factors,
     points_3d_in_bbse3_array,
 )
+from py123d.geometry.utils.rotation_utils import get_quaternion_array_from_euler_array
 from py123d.geometry.vector import Vector3D
 
 
@@ -32,17 +33,20 @@ class TestBoundingBoxUtils:  # noqa: PLR0904
         self._max_pose_xyz = 100.0
         self._max_extent = 200.0
 
-    def _get_random_euler_se3_array(self, size: int) -> npt.NDArray[np.float64]:
-        """Generate random SE3 poses"""
-        random_se3_array = np.zeros((size, len(EulerPoseSE3Index)), dtype=np.float64)
-        random_se3_array[:, EulerPoseSE3Index.XYZ] = np.random.uniform(
+    def _get_random_quat_se3_array(self, size: int) -> npt.NDArray[np.float64]:
+        """Generate random SE3 poses in quaternion representation."""
+        euler_angles = np.zeros((size, 3), dtype=np.float64)
+        euler_angles[:, 0] = np.random.uniform(-np.pi, np.pi, size)  # roll
+        euler_angles[:, 1] = np.random.uniform(-np.pi / 2, np.pi / 2, size)  # pitch
+        euler_angles[:, 2] = np.random.uniform(-np.pi, np.pi, size)  # yaw
+
+        random_se3_array = np.zeros((size, len(PoseSE3Index)), dtype=np.float64)
+        random_se3_array[:, PoseSE3Index.XYZ] = np.random.uniform(
             -self._max_pose_xyz,
             self._max_pose_xyz,
             (size, len(Point3DIndex)),
         )
-        random_se3_array[:, EulerPoseSE3Index.YAW] = np.random.uniform(-np.pi, np.pi, size)
-        random_se3_array[:, EulerPoseSE3Index.PITCH] = np.random.uniform(-np.pi / 2, np.pi / 2, size)
-        random_se3_array[:, EulerPoseSE3Index.ROLL] = np.random.uniform(-np.pi, np.pi, size)
+        random_se3_array[:, PoseSE3Index.QUATERNION] = get_quaternion_array_from_euler_array(euler_angles)
 
         return random_se3_array
 
@@ -199,7 +203,7 @@ class TestBoundingBoxUtils:  # noqa: PLR0904
 
     def test_bbse3_array_to_corners_array_one_dim_rotation(self):
         for _ in range(self._num_consistency_checks):
-            se3_state = EulerPoseSE3.from_array(self._get_random_euler_se3_array(1)[0]).pose_se3
+            se3_state = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
             se3_array = se3_state.array
 
             # construct a bounding box
@@ -227,8 +231,7 @@ class TestBoundingBoxUtils:  # noqa: PLR0904
     def test_bbse3_array_to_corners_array_n_dim(self):
         for _ in range(self._num_consistency_checks):
             N = np.random.randint(1, 20)
-            se3_array = self._get_random_euler_se3_array(N)
-            se3_state_array = np.array([EulerPoseSE3.from_array(arr).pose_se3.array for arr in se3_array])
+            se3_state_array = self._get_random_quat_se3_array(N)
 
             # construct a bounding box
             bounding_box_se3_array = np.zeros((N, len(BoundingBoxSE3Index)), dtype=np.float64)
