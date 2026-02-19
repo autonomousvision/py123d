@@ -86,7 +86,7 @@ class ViserConfig:
 
     # LiDAR
     lidar_visible: bool = True
-    lidar_types: List[LiDARType] = field(default_factory=lambda: all_lidar_types.copy())
+    lidar_types: List[LiDARType] = field(default_factory=lambda: [LiDARType.LIDAR_MERGED])
     lidar_point_size: float = 0.05
     lidar_point_shape: Literal["square", "diamond", "circle", "rounded", "sparkle"] = "circle"
 

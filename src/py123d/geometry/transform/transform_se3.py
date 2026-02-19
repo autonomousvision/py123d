@@ -28,6 +28,12 @@ from py123d.geometry.utils.rotation_utils import (
     multiply_quaternion_arrays,
 )
 
+# NOTE @DanielDauner: Pre-computed einsum contraction path for the (..., 3) x (3, 3) → (..., 3) pattern.
+# Using einsum with this path leverages optimized BLAS dispatch and is significantly
+# faster than np.dot / np.matmul for large point clouds (>4 000 points).
+_EINSUM_MAT3_PATH = np.einsum_path("...i,ij->...j", np.empty((1, 3)), np.empty((3, 3)), optimize="optimal")[0]
+_EINSUM_THRESHOLD = 8000
+
 
 def _extract_rotation_translation_pose_arrays(
     pose_se3: Union[PoseSE3, npt.NDArray[np.float64]],
@@ -39,18 +45,40 @@ def _extract_rotation_translation_pose_arrays(
     :return: A tuple of ``(rotation_matrix, translation_vector, pose_array)``.
     """
     if isinstance(pose_se3, PoseSE3):
-        translation = pose_se3.point_3d.array
-        rotation = pose_se3.rotation_matrix
         pose_array = pose_se3.array
+        translation = pose_array[PoseSE3Index.XYZ]
+        rotation = get_rotation_matrix_from_quaternion_array(pose_array[PoseSE3Index.QUATERNION])
     elif isinstance(pose_se3, np.ndarray):
         assert pose_se3.ndim == 1 and pose_se3.shape[-1] == len(PoseSE3Index)
+        pose_array = pose_se3
         translation = pose_se3[PoseSE3Index.XYZ]
         rotation = get_rotation_matrix_from_quaternion_array(pose_se3[PoseSE3Index.QUATERNION])
-        pose_array = pose_se3
     else:
         raise TypeError(f"Expected PoseSE3 or np.ndarray, got {type(pose_se3)}")
 
     return rotation, translation, pose_array
+
+
+def _matmul_points_3d(points: npt.NDArray[np.float64], matrix: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Multiply an array of 3D points by a 3x3 matrix: ``points @ matrix``.
+
+    Uses ``np.dot`` for small arrays and ``np.einsum`` with a pre-computed
+    contraction path for large arrays (≥ :data:`_EINSUM_THRESHOLD` points).
+
+    :param points: Array of shape ``(..., 3)``.
+    :param matrix: Array of shape ``(3, 3)``.
+    :return: Transformed points with the same shape as *points*.
+    """
+    if points.size // 3 < _EINSUM_THRESHOLD:
+        result = np.dot(points, matrix)
+    elif points.ndim == 2:
+        result = np.einsum("ni,ij->nj", points, matrix, optimize=_EINSUM_MAT3_PATH)
+    else:
+        original_shape = points.shape
+        result = np.einsum("ni,ij->nj", points.reshape(-1, 3), matrix, optimize=_EINSUM_MAT3_PATH)
+        result = result.reshape(original_shape)
+
+    return result
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -84,8 +112,14 @@ def abs_to_rel_points_3d_array(
     assert points_3d_array.ndim >= 1
     assert points_3d_array.shape[-1] == len(Point3DIndex)
 
-    # Translate points to origin frame, then rotate to body frame
-    relative_points = (points_3d_array - t_origin) @ R_origin
+    if points_3d_array.size // 3 < _EINSUM_THRESHOLD:
+        return (points_3d_array - t_origin) @ R_origin
+
+    # Algebraic rewrite: (pts - t) @ R  ==  pts @ R - t @ R
+    # Avoids allocating an Nx3 intermediate for the broadcast subtraction.
+    t_rel = np.dot(t_origin, R_origin)
+    relative_points = _matmul_points_3d(points_3d_array, R_origin)
+    relative_points -= t_rel
     return relative_points
 
 
@@ -138,18 +172,20 @@ def abs_to_rel_se3_array(
     abs_positions = pose_se3_array[..., PoseSE3Index.XYZ]
     abs_quaternions = pose_se3_array[..., PoseSE3Index.QUATERNION]
 
-    rel_se3_array = np.zeros_like(pose_se3_array)
-
-    # 1. Vectorized relative position calculation: translate and rotate
-    rel_positions = (abs_positions - t_origin) @ R_origin
-    rel_se3_array[..., PoseSE3Index.XYZ] = rel_positions
-
-    # 2. Vectorized relative orientation calculation: quaternion multiplication with conjugate
     q_origin_conj = conjugate_quaternion_array(origin_array[PoseSE3Index.QUATERNION])
+
+    if abs_positions.size // 3 < _EINSUM_THRESHOLD:
+        rel_positions = (abs_positions - t_origin) @ R_origin
+    else:
+        t_rel = np.dot(t_origin, R_origin)
+        rel_positions = _matmul_points_3d(abs_positions, R_origin)
+        rel_positions -= t_rel
+
     rel_quaternions = multiply_quaternion_arrays(q_origin_conj, abs_quaternions)
 
+    rel_se3_array = np.empty_like(pose_se3_array)
+    rel_se3_array[..., PoseSE3Index.XYZ] = rel_positions
     rel_se3_array[..., PoseSE3Index.QUATERNION] = rel_quaternions
-
     return rel_se3_array
 
 
@@ -185,7 +221,11 @@ def rel_to_abs_points_3d_array(
 
     assert points_3d_array.shape[-1] == len(Point3DIndex)
 
-    absolute_points = points_3d_array @ R_origin.T + t_origin
+    if points_3d_array.size // 3 < _EINSUM_THRESHOLD:
+        absolute_points = points_3d_array @ R_origin.T + t_origin
+    else:
+        absolute_points = _matmul_points_3d(points_3d_array, R_origin.T)
+        absolute_points += t_origin
     return absolute_points
 
 
@@ -223,19 +263,20 @@ def rel_to_abs_se3_array(
     assert pose_se3_array.ndim >= 1
     assert pose_se3_array.shape[-1] == len(PoseSE3Index)
 
-    # Extract relative positions and orientations
     rel_positions = pose_se3_array[..., PoseSE3Index.XYZ]
     rel_quaternions = pose_se3_array[..., PoseSE3Index.QUATERNION]
 
-    # Vectorized absolute position calculation: rotate and translate
-    abs_positions = (R_origin @ rel_positions.T).T + t_origin
+    if rel_positions.size // 3 < _EINSUM_THRESHOLD:
+        abs_positions = rel_positions @ R_origin.T + t_origin
+    else:
+        abs_positions = _matmul_points_3d(rel_positions, R_origin.T)
+        abs_positions += t_origin
+
     abs_quaternions = multiply_quaternion_arrays(origin_array[PoseSE3Index.QUATERNION], rel_quaternions)
 
-    # Prepare output array
-    abs_se3_array = pose_se3_array.copy()
+    abs_se3_array = np.empty_like(pose_se3_array)
     abs_se3_array[..., PoseSE3Index.XYZ] = abs_positions
     abs_se3_array[..., PoseSE3Index.QUATERNION] = abs_quaternions
-
     return abs_se3_array
 
 
@@ -286,9 +327,6 @@ def reframe_se3_array(
     assert pose_se3_array.ndim >= 1
     assert pose_se3_array.shape[-1] == len(PoseSE3Index)
 
-    rel_positions = pose_se3_array[..., PoseSE3Index.XYZ]
-    rel_quaternions = pose_se3_array[..., PoseSE3Index.QUATERNION]
-
     # Compute relative transformation: T_to^-1 * T_from
     R_rel = R_to.T @ R_from  # Relative rotation matrix
     t_rel = R_to.T @ (t_from - t_to)  # Relative translation
@@ -298,17 +336,23 @@ def reframe_se3_array(
         from_origin_array[PoseSE3Index.QUATERNION],
     )
 
+    rel_positions = pose_se3_array[..., PoseSE3Index.XYZ]
+    rel_quaternions = pose_se3_array[..., PoseSE3Index.QUATERNION]
+
     # Transform positions: rotate and translate
-    new_rel_positions = (R_rel @ rel_positions.T).T + t_rel
+    if rel_positions.size // 3 < _EINSUM_THRESHOLD:
+        new_rel_positions = rel_positions @ R_rel.T + t_rel
+    else:
+        new_rel_positions = _matmul_points_3d(rel_positions, R_rel.T)
+        new_rel_positions += t_rel
 
     # Transform orientations: quaternion multiplication
     new_rel_quaternions = multiply_quaternion_arrays(q_rel, rel_quaternions)
 
     # Prepare output array
-    result_se3_array = np.zeros_like(pose_se3_array)
+    result_se3_array = np.empty_like(pose_se3_array)
     result_se3_array[..., PoseSE3Index.XYZ] = new_rel_positions
     result_se3_array[..., PoseSE3Index.QUATERNION] = new_rel_quaternions
-
     return result_se3_array
 
 
@@ -352,7 +396,11 @@ def reframe_points_3d_array(
     R_rel = R_to.T @ R_from  # Relative rotation matrix
     t_rel = R_to.T @ (t_from - t_to)  # Relative translation
 
-    conv_points_3d_array = (R_rel @ points_3d_array.T).T + t_rel
+    if points_3d_array.size // 3 < _EINSUM_THRESHOLD:
+        conv_points_3d_array = points_3d_array @ R_rel.T + t_rel
+    else:
+        conv_points_3d_array = _matmul_points_3d(points_3d_array, R_rel.T)
+        conv_points_3d_array += t_rel
     return conv_points_3d_array
 
 

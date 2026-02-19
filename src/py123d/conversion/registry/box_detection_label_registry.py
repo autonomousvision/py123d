@@ -274,8 +274,11 @@ class NuScenesBoxDetectionLabel(BoxDetectionLabel):
 @register_box_detection_label
 class PandasetBoxDetectionLabel(BoxDetectionLabel):
     """
-    Semantic labels for Pandaset bounding box detections.
-    [1] https://github.com/scaleapi/pandaset-devkit/blob/master/docs/annotation_instructions_cuboids.pdf
+    Semantic labels for Pandaset bounding box detections, see [1]_
+
+    References
+    ----------
+    .. [1] https://github.com/scaleapi/pandaset-devkit/blob/master/docs/annotation_instructions_cuboids.pdf
     """
 
     ANIMALS_BIRD = 0

@@ -23,9 +23,7 @@ from py123d.conversion.log_writer.abstract_log_writer import (
     LiDARData,
 )
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.registry.box_detection_label_registry import (
-    NuScenesBoxDetectionLabel,
-)
+from py123d.conversion.registry.box_detection_label_registry import NuScenesBoxDetectionLabel
 from py123d.conversion.registry.lidar_index_registry import NuScenesLiDARIndex
 from py123d.datatypes.detections.box_detections import (
     BoxDetectionMetadata,
