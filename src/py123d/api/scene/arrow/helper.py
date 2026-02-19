@@ -4,25 +4,21 @@ from typing import List, Optional, Union
 from py123d.api.scene.arrow.arrow_scene_builder import ArrowSceneBuilder
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_filter import SceneFilter
-from py123d.common.multithreading.worker_parallel import SingleMachineParallelExecutor
-from py123d.common.multithreading.worker_pool import WorkerPool
+from py123d.common.execution import Executor, ThreadPoolExecutor
 
 
 def get_filtered_scenes(
     scene_filter: SceneFilter,
     data_root: Optional[Union[str, Path]] = None,
-    worker: Optional[WorkerPool] = None,
+    executor: Executor = ThreadPoolExecutor(),
 ) -> List[SceneAPI]:
     """Retrieve a list of scenes that match the given filter criteria.
 
     :param scene_filter: Filter class describing criteria for scene selection.
-    :param py123d_data_root: Root directory for py123d data, defaults to None
-    :param worker: Worker pool for parallel execution, defaults to None
+    :param data_root: Root directory for py123d data, defaults to None
+    :param executor: Executor for parallel execution, defaults to ThreadPoolExecutor()
     :return: List of scenes matching the filter criteria
     """
-
-    if worker is None:
-        worker = SingleMachineParallelExecutor()
 
     if data_root is not None:
         data_root = Path(data_root)
@@ -30,6 +26,6 @@ def get_filtered_scenes(
     scenes = ArrowSceneBuilder(
         logs_root=data_root / "logs" if data_root is not None else None,
         maps_root=data_root / "maps" if data_root is not None else None,
-    ).get_scenes(filter=scene_filter, worker=worker)
+    ).get_scenes(filter=scene_filter, executor=executor)
 
     return scenes

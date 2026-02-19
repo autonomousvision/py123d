@@ -1,4 +1,4 @@
-_target_: py123d.common.multithreading.worker_ray.RayDistributed
+_target_: py123d.common.execution.ray_executor.RayExecutor
 _convert_: 'all'
 master_node_ip: null    # Set to a master node IP if you desire to connect to cluster remotely
 threads_per_node: null  # Number of CPU threads to use per node, "null" means all threads available

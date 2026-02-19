@@ -3,7 +3,7 @@ from typing import List
 
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_filter import SceneFilter
-from py123d.common.multithreading.worker_utils import WorkerPool
+from py123d.common.execution import Executor
 
 
 class SceneBuilder(abc.ABC):
@@ -12,10 +12,10 @@ class SceneBuilder(abc.ABC):
     """
 
     @abc.abstractmethod
-    def get_scenes(self, filter: SceneFilter, worker: WorkerPool) -> List[SceneAPI]:
+    def get_scenes(self, filter: SceneFilter, executor: Executor) -> List[SceneAPI]:
         """Returns a list of scenes that match the given filter.
 
         :param filter: SceneFilter object to filter the scenes.
-        :param worker: WorkerPool to parallelize the scene extraction.
+        :param executor: Executor to parallelize the scene extraction.
         :return: Iterator over AbstractScene objects.
         """

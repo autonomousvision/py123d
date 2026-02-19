@@ -7,9 +7,9 @@ from typing import Dict, List
 import hydra
 from omegaconf import DictConfig
 
-from py123d.common.multithreading.worker_utils import worker_map
+from py123d.common.execution.utils import executor_map
 from py123d.script.builders.dataset_converter_builder import AbstractDatasetConverter, build_dataset_converters
-from py123d.script.builders.worker_pool_builder import build_worker
+from py123d.script.builders.execution_builder import build_executor
 from py123d.script.builders.writer_builder import build_log_writer, build_map_writer
 from py123d.script.utils.dataset_path_utils import setup_dataset_paths
 
@@ -33,7 +33,7 @@ def main(cfg: DictConfig) -> None:
     dataset_converters: List[AbstractDatasetConverter] = build_dataset_converters(cfg.datasets)
 
     for dataset_converter in dataset_converters:
-        worker = build_worker(cfg)
+        executor = build_executor(cfg)
         logger.info(f"Processing dataset: {dataset_converter.__class__.__name__}")
 
         map_args = [{"map_index": i} for i in range(dataset_converter.get_number_of_maps())]
@@ -41,14 +41,14 @@ def main(cfg: DictConfig) -> None:
             f"Found maps: {dataset_converter.get_number_of_maps()} for dataset: {dataset_converter.__class__.__name__}"
         )
 
-        worker_map(worker, partial(_convert_maps, cfg=cfg, dataset_converter=dataset_converter), map_args)
+        executor_map(executor, partial(_convert_maps, cfg=cfg, dataset_converter=dataset_converter), map_args)
         logger.info(f"Finished maps: {dataset_converter.__class__.__name__}")
 
         log_args = [{"log_index": i} for i in range(dataset_converter.get_number_of_logs())]
         logger.info(
             f"Found logs: {dataset_converter.get_number_of_logs()} for dataset: {dataset_converter.__class__.__name__}"
         )
-        worker_map(worker, partial(_convert_logs, cfg=cfg, dataset_converter=dataset_converter), log_args)
+        executor_map(executor, partial(_convert_logs, cfg=cfg, dataset_converter=dataset_converter), log_args)
         logger.info(f"Finished logs: {dataset_converter.__class__.__name__}")
 
         logger.info(f"Finished processing dataset: {dataset_converter.__class__.__name__}")

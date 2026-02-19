@@ -1,5 +1,5 @@
 """
-Multi-threading execution code.
+Sequential executor backend.
 Code is adapted from the nuplan-devkit: https://github.com/motional/nuplan-devkit
 """
 
@@ -9,38 +9,38 @@ from typing import Any, Iterable, List
 
 from tqdm import tqdm
 
-from py123d.common.multithreading.worker_pool import (
+from py123d.common.execution.executor import (
+    Executor,
+    ExecutorResources,
     Task,
-    WorkerPool,
-    WorkerResources,
     get_max_size_of_arguments,
 )
 
 logger = logging.getLogger(__name__)
 
 
-class Sequential(WorkerPool):
+class SequentialExecutor(Executor):
     """
-    This function does execute all functions sequentially.
+    Executes all tasks sequentially in the current process.
     """
 
     def __init__(self) -> None:
         """
-        Initialize simple sequential worker.
+        Initialize simple sequential executor.
         """
-        super().__init__(WorkerResources(number_of_nodes=1, number_of_cpus_per_node=1, number_of_gpus_per_node=0))
+        super().__init__(ExecutorResources(number_of_nodes=1, number_of_cpus_per_node=1, number_of_gpus_per_node=0))
 
     def _map(self, task: Task, *item_lists: Iterable[List[Any]], verbose: bool = False) -> List[Any]:
         """Inherited, see superclass."""
         if task.num_cpus not in [None, 1]:
-            raise ValueError(f"Expected num_cpus to be 1 or unset for Sequential worker, got {task.num_cpus}")
+            raise ValueError(f"Expected num_cpus to be 1 or unset for SequentialExecutor, got {task.num_cpus}")
         output = [
             task.fn(*args)
             for args in tqdm(
                 zip(*item_lists),
                 leave=False,
                 total=get_max_size_of_arguments(*item_lists),
-                desc="Sequential",
+                desc="SequentialExecutor",
                 disable=not verbose,
             )
         ]

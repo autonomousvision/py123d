@@ -1,5 +1,5 @@
 """
-Multi-threading execution code.
+Ray execution utilities.
 Code is adapted from the nuplan-devkit: https://github.com/motional/nuplan-devkit
 """
 
@@ -15,7 +15,7 @@ from ray.exceptions import RayTaskError
 from ray.remote_function import RemoteFunction
 from tqdm import tqdm
 
-from py123d.common.multithreading.worker_pool import Task
+from py123d.common.execution.executor import Task
 
 
 def _ray_object_iterator(initial_ids: List[ray.ObjectRef]) -> Iterator[Tuple[ray.ObjectRef, Any]]:
@@ -75,8 +75,8 @@ def wrap_function(fn: Callable[..., Any], log_dir: Optional[Path] = None) -> Cal
 def _ray_map_items(task: Task, *item_lists: Iterable[List[Any]], log_dir: Optional[Path] = None) -> List[Any]:
     """Map each item of a list of arguments to a callable and executes in parallel.
 
-    :param fn: callable to be run
-    :param item_list: items to be parallelized
+    :param task: callable to be run
+    :param item_lists: items to be parallelized
     :param log_dir: directory to store worker logs
     :return: list of outputs
     """

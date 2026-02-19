@@ -9,7 +9,7 @@ from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_builder import SceneBuilder
 from py123d.api.scene.scene_filter import SceneFilter
 from py123d.api.scene.scene_metadata import SceneMetadata
-from py123d.common.multithreading.worker_utils import WorkerPool, worker_map
+from py123d.common.execution import Executor, executor_map
 from py123d.common.utils.arrow_column_names import (
     FISHEYE_CAMERA_DATA_COLUMN,
     LIDAR_DATA_COLUMN,
@@ -42,7 +42,7 @@ class ArrowSceneBuilder(SceneBuilder):
         self._logs_root = Path(logs_root)
         self._maps_root = Path(maps_root)
 
-    def get_scenes(self, filter: SceneFilter, worker: WorkerPool) -> List[SceneAPI]:
+    def get_scenes(self, filter: SceneFilter, executor: Executor) -> List[SceneAPI]:
         """Inherited, see superclass."""
 
         split_names = set(filter.split_names) if filter.split_names else _discover_split_names(self._logs_root, filter)
@@ -52,7 +52,7 @@ class ArrowSceneBuilder(SceneBuilder):
         if len(log_paths) == 0:
             return []
 
-        scenes = worker_map(worker, partial(_extract_scenes_from_logs, filter=filter), log_paths)
+        scenes = executor_map(executor, partial(_extract_scenes_from_logs, filter=filter), log_paths)
         if filter.shuffle:
             random.shuffle(scenes)
 

@@ -1,5 +1,5 @@
 """
-Multi-threading execution code.
+Ray distributed executor backend.
 Code is adapted from the nuplan-devkit: https://github.com/motional/nuplan-devkit
 """
 
@@ -12,8 +12,8 @@ from typing import Any, Iterable, List, Optional, Union
 import ray
 from psutil import cpu_count
 
-from py123d.common.multithreading.ray_execution import ray_map
-from py123d.common.multithreading.worker_pool import Task, WorkerPool, WorkerResources
+from py123d.common.execution.executor import Executor, ExecutorResources, Task
+from py123d.common.execution.ray_utils import ray_map
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ def initialize_ray(
     local_mode: bool = False,
     log_to_driver: bool = True,
     use_distributed: bool = False,
-) -> WorkerResources:
+) -> ExecutorResources:
     """
     Initialize ray worker.
     ENV_VAR_MASTER_NODE_IP="master node IP".
@@ -42,7 +42,7 @@ def initialize_ray(
             is useful for debugging.
     :param use_distributed: If true, and the env vars are available,
             ray will launch in distributed mode
-    :return: created WorkerResources.
+    :return: created ExecutorResources.
     """
     # Env variables which are set through SLURM script
     env_var_master_node_ip = "ip_head"
@@ -93,16 +93,16 @@ def initialize_ray(
             log_to_driver=log_to_driver,
         )
 
-    return WorkerResources(
+    return ExecutorResources(
         number_of_nodes=number_of_nodes,
         number_of_cpus_per_node=number_of_cpus_per_node,
         number_of_gpus_per_node=number_of_gpus_per_node,
     )
 
 
-class RayDistributed(WorkerPool):
+class RayExecutor(Executor):
     """
-    This worker uses ray to distribute work across all available threads.
+    Uses Ray to distribute work across all available threads, potentially across multiple nodes.
     """
 
     def __init__(
@@ -116,7 +116,7 @@ class RayDistributed(WorkerPool):
         use_distributed: bool = False,
     ):
         """
-        Initialize ray worker.
+        Initialize ray executor.
         :param master_node_ip: if available, ray will connect to remote cluster.
         :param threads_per_node: Number of threads to use per node.
         :param debug_mode: If true, the code will be executed serially. This
@@ -135,10 +135,10 @@ class RayDistributed(WorkerPool):
         self._use_distributed = use_distributed
         super().__init__(self.initialize())
 
-    def initialize(self) -> WorkerResources:
+    def initialize(self) -> ExecutorResources:
         """
         Initialize ray.
-        :return: created WorkerResources.
+        :return: created ExecutorResources.
         """
         # In case ray was already running, shut it down. This occurs mainly in tests
         if ray.is_initialized():
@@ -155,7 +155,7 @@ class RayDistributed(WorkerPool):
 
     def shutdown(self) -> None:
         """
-        Shutdown the worker and clear memory.
+        Shutdown the executor and clear memory.
         """
         ray.shutdown()
 

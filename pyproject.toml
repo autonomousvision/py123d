@@ -135,3 +135,7 @@ lint.ignore = [
 exclude = ["__init__.py"]
 fixable = ["ALL"]
 unfixable = []
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

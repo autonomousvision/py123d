@@ -1,5 +1,5 @@
 """
-Multi-threading execution code.
+Execution utilities.
 Code is adapted from the nuplan-devkit: https://github.com/motional/nuplan-devkit
 """
 
@@ -8,7 +8,7 @@ from typing import Any, Callable, List, Optional
 import numpy as np
 from psutil import cpu_count
 
-from py123d.common.multithreading.worker_pool import Task, WorkerPool
+from py123d.common.execution.executor import Executor, Task
 
 
 def chunk_list(input_list: List[Any], num_chunks: Optional[int] = None) -> List[List[Any]]:
@@ -23,19 +23,19 @@ def chunk_list(input_list: List[Any], num_chunks: Optional[int] = None) -> List[
     return [chunk.tolist() for chunk in chunks if len(chunk) != 0]
 
 
-def worker_map(worker: WorkerPool, fn: Callable[..., List[Any]], input_objects: List[Any]) -> List[Any]:
+def executor_map(executor: Executor, fn: Callable[..., List[Any]], input_objects: List[Any]) -> List[Any]:
     """
-    Map a list of objects through a worker.
-    :param worker: Worker pool to use for parallelization.
+    Map a list of objects through an executor.
+    :param executor: Executor to use for parallelization.
     :param fn: Function to use when mapping.
     :param input_objects: List of objects to map.
     :return: List of mapped objects.
     """
-    if worker.number_of_threads == 0:
+    if executor.number_of_threads == 0:
         return fn(input_objects)
 
-    object_chunks = chunk_list(input_objects, worker.number_of_threads)
-    scattered_objects = worker.map(Task(fn=fn), object_chunks)
+    object_chunks = chunk_list(input_objects, executor.number_of_threads)
+    scattered_objects = executor.map(Task(fn=fn), object_chunks)
     output_objects = [result for results in scattered_objects for result in results]
 
     return output_objects

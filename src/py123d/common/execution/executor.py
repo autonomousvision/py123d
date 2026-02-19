@@ -1,5 +1,5 @@
 """
-Multi-threading execution code.
+Execution module providing base classes for parallel and sequential task execution.
 Code is adapted from the nuplan-devkit: https://github.com/motional/nuplan-devkit
 """
 
@@ -41,7 +41,7 @@ def align_size_of_arguments(*item_lists: Iterable[List[Any]]) -> Tuple[int, Iter
 
 @dataclass(frozen=True)
 class Task:
-    """This class represents a task that can be submitted to a worker with specific resource requirements."""
+    """This class represents a task that can be submitted to an executor with specific resource requirements."""
 
     fn: Callable[..., Any]  # Function that should be called with arguments
 
@@ -64,8 +64,8 @@ class Task:
 
 
 @dataclass(frozen=True)
-class WorkerResources:
-    """Data class to indicate resources used by workers."""
+class ExecutorResources:
+    """Data class to indicate resources used by executors."""
 
     number_of_nodes: int  # Number of available independent nodes
     number_of_gpus_per_node: int  # Number of GPUs per node
@@ -88,22 +88,22 @@ class WorkerResources:
         return cpu_count(logical=True)  # type: ignore
 
 
-class WorkerPool(abc.ABC):
+class Executor(abc.ABC):
     """
-    This class executed function on list of arguments. This can either be distributed/parallel or sequential worker.
+    Base class for executing functions on lists of arguments. Implementations can be distributed/parallel or sequential.
     """
 
-    def __init__(self, config: WorkerResources):
+    def __init__(self, config: ExecutorResources):
         """
-        Initialize worker with resource description.
-        :param config: setup of this worker.
+        Initialize executor with resource description.
+        :param config: setup of this executor.
         """
         self.config = config
 
         if self.config.number_of_threads < 1:
             raise RuntimeError(f"Number of threads can not be 0, and it is {self.config.number_of_threads}!")
 
-        logger.info(f"Worker: {self.__class__.__name__}")
+        logger.info(f"Executor: {self.__class__.__name__}")
         logger.info(f"{self}")
 
     def map(self, task: Task, *item_lists: Iterable[List[Any]], verbose: bool = False) -> List[Any]:
@@ -126,16 +126,16 @@ class WorkerPool(abc.ABC):
         """
         Run function with arguments from item_lists. This function can assume that all the args in item_lists have
         the same number of elements.
-        :param fn: function to be run.
+        :param task: function to be run.
         :param item_lists: arguments to the function.
-        :param number_of_elements: number of calls to the function.
+        :param verbose: Whether to increase logger verbosity.
         :return: type from the fn.
         """
 
     @abc.abstractmethod
     def submit(self, task: Task, *args: Any, **kwargs: Any) -> Future[Any]:
         """
-        Submit a task to the worker.
+        Submit a task to the executor.
         :param task: to be submitted.
         :param args: arguments for the task.
         :param kwargs: keyword arguments for the task.
@@ -151,7 +151,7 @@ class WorkerPool(abc.ABC):
 
     def __str__(self) -> str:
         """
-        :return: string with information about this worker.
+        :return: string with information about this executor.
         """
         return (
             f"Number of nodes: {self.config.number_of_nodes}\n"
