@@ -44,7 +44,7 @@ from py123d.geometry import (
     Vector3D,
     Vector3DIndex,
 )
-from py123d.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array
+from py123d.geometry.transform.transform_se3 import rel_to_abs_se3_array
 from py123d.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from py123d.geometry.utils.rotation_utils import (
     get_euler_array_from_quaternion_array,
@@ -375,8 +375,8 @@ def _extract_wod_perception_box_detections(
         detections_types.append(WODPerceptionBoxDetectionLabel(detection.type))
         detections_token.append(str(detection.id))
 
-    detections_state[:, BoundingBoxSE3Index.SE3] = convert_relative_to_absolute_se3_array(
-        origin=ego_pose_se3, se3_array=detections_state[:, BoundingBoxSE3Index.SE3]
+    detections_state[:, BoundingBoxSE3Index.SE3] = rel_to_abs_se3_array(
+        origin=ego_pose_se3, pose_se3_array=detections_state[:, BoundingBoxSE3Index.SE3]
     )
     if zero_roll_pitch:
         euler_array = get_euler_array_from_quaternion_array(detections_state[:, BoundingBoxSE3Index.QUATERNION])

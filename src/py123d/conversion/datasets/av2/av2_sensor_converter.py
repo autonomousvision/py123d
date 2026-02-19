@@ -31,8 +31,8 @@ from py123d.datatypes.time import TimePoint
 from py123d.datatypes.vehicle_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_av2_ford_fusion_hybrid_parameters
 from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, PoseSE3, Vector3D, Vector3DIndex
-from py123d.geometry.transform import convert_relative_to_absolute_se3_array
-from py123d.geometry.transform.transform_se3 import convert_se3_array_between_origins
+from py123d.geometry.transform import rel_to_abs_se3_array
+from py123d.geometry.transform.transform_se3 import reframe_se3_array
 
 
 class AV2SensorConverter(AbstractDatasetConverter):
@@ -305,9 +305,9 @@ def _extract_av2_sensor_box_detections(
         detections_labels.append(AV2SensorBoxDetectionLabel.deserialize(row["category"]))  # type: ignore
         detections_num_lidar_points.append(int(row["num_interior_pts"]))
 
-    detections_state[:, BoundingBoxSE3Index.SE3] = convert_relative_to_absolute_se3_array(
+    detections_state[:, BoundingBoxSE3Index.SE3] = rel_to_abs_se3_array(
         origin=ego_state_se3.rear_axle_se3,
-        se3_array=detections_state[:, BoundingBoxSE3Index.SE3],
+        pose_se3_array=detections_state[:, BoundingBoxSE3Index.SE3],
     )
 
     box_detections: List[BoxDetectionSE3] = []
@@ -397,10 +397,10 @@ def _extract_av2_sensor_pinhole_cameras(
                     get_slice_with_timestamp_ns(city_se3_egovehicle_df, int(timestamp_ns_str)).iloc[0].to_dict()
                 )
                 nearest_pose_se3 = _row_dict_to_pose_se3(nearest_pose)
-                compensated_extrinsic_se3_array = convert_se3_array_between_origins(
+                compensated_extrinsic_se3_array = reframe_se3_array(
                     from_origin=nearest_pose_se3,
                     to_origin=current_ego_pose_se3,
-                    se3_array=static_extrinsic_se3.array,
+                    pose_se3_array=static_extrinsic_se3.array,
                 )
                 camera_data = CameraData(
                     camera_name=str(pinhole_camera_name),

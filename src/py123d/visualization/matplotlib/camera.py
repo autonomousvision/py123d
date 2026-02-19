@@ -11,7 +11,7 @@ from py123d.datatypes.detections import BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.sensors import LiDAR, PinholeCamera, PinholeIntrinsics
 from py123d.datatypes.vehicle_state import EgoStateSE3
 from py123d.geometry import BoundingBoxSE3Index, Corners3DIndex
-from py123d.geometry.transform import convert_absolute_to_relative_se3_array
+from py123d.geometry.transform import abs_to_rel_se3_array
 from py123d.visualization.color.default import BOX_DETECTION_CONFIG
 from py123d.visualization.matplotlib.helper import undistort_image_from_camera
 from py123d.visualization.matplotlib.lidar import get_lidar_pc_color
@@ -81,7 +81,7 @@ def add_box_detections_to_camera_ax(
         box_detection_array[idx] = box_detection.bounding_box_se3.array
 
     # FIXME
-    box_detection_array[..., BoundingBoxSE3Index.SE3] = convert_absolute_to_relative_se3_array(
+    box_detection_array[..., BoundingBoxSE3Index.SE3] = abs_to_rel_se3_array(
         ego_state_se3.rear_axle_se3, box_detection_array[..., BoundingBoxSE3Index.SE3]
     )
     # box_detection_array[..., BoundingBoxSE3Index.XYZ] -= ego_state_se3.rear_axle_se3.point_3d.array

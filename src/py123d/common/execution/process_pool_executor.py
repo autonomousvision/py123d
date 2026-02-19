@@ -4,6 +4,7 @@ Code is adapted from the nuplan-devkit: https://github.com/motional/nuplan-devki
 """
 
 import logging
+import multiprocessing
 from concurrent.futures import Future
 from concurrent.futures import ProcessPoolExecutor as _ProcessPoolExecutor
 from typing import Any, Iterable, List, Optional
@@ -38,7 +39,9 @@ class ProcessPoolExecutor(Executor):
             )
         )
 
-        self._executor = _ProcessPoolExecutor(max_workers=max_workers)
+        self._executor = _ProcessPoolExecutor(
+            max_workers=max_workers, mp_context=multiprocessing.get_context("forkserver")
+        )
 
     def _map(self, task: Task, *item_lists: Iterable[List[Any]], verbose: bool = False) -> List[Any]:
         """Inherited, see superclass."""

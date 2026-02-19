@@ -3,12 +3,19 @@ import numpy.typing as npt
 
 from py123d.geometry import EulerAngles, Point3D, PoseSE3, PoseSE3Index
 from py123d.geometry.transform.transform_se3 import (
-    convert_absolute_to_relative_points_3d_array,
+    abs_to_rel_point_3d,
+    abs_to_rel_points_3d_array,
+    abs_to_rel_se3,
+    abs_to_rel_se3_array,
     convert_absolute_to_relative_se3_array,
-    convert_points_3d_array_between_origins,
-    convert_relative_to_absolute_points_3d_array,
-    convert_relative_to_absolute_se3_array,
-    convert_se3_array_between_origins,
+    reframe_point_3d,
+    reframe_points_3d_array,
+    reframe_se3,
+    reframe_se3_array,
+    rel_to_abs_point_3d,
+    rel_to_abs_points_3d_array,
+    rel_to_abs_se3,
+    rel_to_abs_se3_array,
     translate_se3_along_body_frame,
     translate_se3_along_x,
     translate_se3_along_y,
@@ -50,45 +57,45 @@ class TestTransformSE3:
 
         return quat_se3_array
 
-    def test_convert_absolute_to_relative_points_3d_array(self):
+    def test_abs_to_rel_points_3d_array(self):
         random_points_3d = np.random.rand(10, 3)
         for quat_se3 in self.quat_se3:
-            rel_points = convert_absolute_to_relative_points_3d_array(quat_se3, random_points_3d)
+            rel_points = abs_to_rel_points_3d_array(quat_se3, random_points_3d)
             # Round-trip check
-            abs_points = convert_relative_to_absolute_points_3d_array(quat_se3, rel_points)
+            abs_points = rel_to_abs_points_3d_array(quat_se3, rel_points)
             np.testing.assert_allclose(abs_points, random_points_3d, atol=1e-6)
 
-    def test_convert_absolute_to_relative_se3_array(self):
+    def test_abs_to_rel_se3_array(self):
         for quat_se3 in self.quat_se3:
             random_quat_se3_array = self._get_random_quat_se3_array(np.random.randint(1, 10))
 
-            rel_se3_quat = convert_absolute_to_relative_se3_array(quat_se3, random_quat_se3_array)
+            rel_se3_quat = abs_to_rel_se3_array(quat_se3, random_quat_se3_array)
             # Round-trip check
-            abs_se3_quat = convert_relative_to_absolute_se3_array(quat_se3, rel_se3_quat)
+            abs_se3_quat = rel_to_abs_se3_array(quat_se3, rel_se3_quat)
             np.testing.assert_allclose(
                 abs_se3_quat[..., PoseSE3Index.XYZ], random_quat_se3_array[..., PoseSE3Index.XYZ], atol=1e-6
             )
 
-    def test_convert_relative_to_absolute_points_3d_array(self):
+    def test_rel_to_abs_points_3d_array(self):
         random_points_3d = np.random.rand(10, 3)
         for quat_se3 in self.quat_se3:
-            abs_points = convert_relative_to_absolute_points_3d_array(quat_se3, random_points_3d)
+            abs_points = rel_to_abs_points_3d_array(quat_se3, random_points_3d)
             # Round-trip check
-            rel_points = convert_absolute_to_relative_points_3d_array(quat_se3, abs_points)
+            rel_points = abs_to_rel_points_3d_array(quat_se3, abs_points)
             np.testing.assert_allclose(rel_points, random_points_3d, atol=1e-6)
 
-    def test_convert_relative_to_absolute_se3_array(self):
+    def test_rel_to_abs_se3_array(self):
         for quat_se3 in self.quat_se3:
             random_quat_se3_array = self._get_random_quat_se3_array(np.random.randint(1, 10))
 
-            abs_se3_quat = convert_relative_to_absolute_se3_array(quat_se3, random_quat_se3_array)
+            abs_se3_quat = rel_to_abs_se3_array(quat_se3, random_quat_se3_array)
             # Round-trip check
-            rel_se3_quat = convert_absolute_to_relative_se3_array(quat_se3, abs_se3_quat)
+            rel_se3_quat = abs_to_rel_se3_array(quat_se3, abs_se3_quat)
             np.testing.assert_allclose(
                 rel_se3_quat[..., PoseSE3Index.XYZ], random_quat_se3_array[..., PoseSE3Index.XYZ], atol=1e-6
             )
 
-    def test_convert_se3_array_between_origins(self):
+    def test_reframe_se3_array(self):
         for _ in range(10):
             random_quat_se3_array = self._get_random_quat_se3_array(np.random.randint(1, 10))
 
@@ -99,10 +106,10 @@ class TestTransformSE3:
             identity_se3 = PoseSE3.from_array(identity_se3_array)
 
             # Check if consistent with absolute-relative-absolute conversion
-            converted_se3_quat = convert_se3_array_between_origins(from_se3, to_se3, random_quat_se3_array)
+            converted_se3_quat = reframe_se3_array(from_se3, to_se3, random_quat_se3_array)
 
-            abs_from_se3_quat = convert_relative_to_absolute_se3_array(from_se3, random_quat_se3_array)
-            rel_to_se3_quat = convert_absolute_to_relative_se3_array(to_se3, abs_from_se3_quat)
+            abs_from_se3_quat = rel_to_abs_se3_array(from_se3, random_quat_se3_array)
+            rel_to_se3_quat = abs_to_rel_se3_array(to_se3, abs_from_se3_quat)
 
             np.testing.assert_allclose(
                 converted_se3_quat[..., PoseSE3Index.XYZ],
@@ -116,14 +123,14 @@ class TestTransformSE3:
             )
 
             # Check if consistent with absolute conversion to identity origin
-            absolute_se3_quat = convert_se3_array_between_origins(from_se3, identity_se3, random_quat_se3_array)
+            absolute_se3_quat = reframe_se3_array(from_se3, identity_se3, random_quat_se3_array)
             np.testing.assert_allclose(
                 absolute_se3_quat[..., PoseSE3Index.XYZ],
                 abs_from_se3_quat[..., PoseSE3Index.XYZ],
                 atol=1e-6,
             )
 
-    def test_convert_points_3d_array_between_origins(self):
+    def test_reframe_points_3d_array(self):
         random_points_3d = np.random.rand(10, 3)
         for _ in range(10):
             from_se3 = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
@@ -133,16 +140,16 @@ class TestTransformSE3:
             identity_se3 = PoseSE3.from_array(identity_se3_array)
 
             # Check if consistent with absolute-relative-absolute conversion
-            converted_points_quat = convert_points_3d_array_between_origins(from_se3, to_se3, random_points_3d)
-            abs_from_se3_quat = convert_relative_to_absolute_points_3d_array(from_se3, random_points_3d)
-            rel_to_se3_quat = convert_absolute_to_relative_points_3d_array(to_se3, abs_from_se3_quat)
+            converted_points_quat = reframe_points_3d_array(from_se3, to_se3, random_points_3d)
+            abs_from_se3_quat = rel_to_abs_points_3d_array(from_se3, random_points_3d)
+            rel_to_se3_quat = abs_to_rel_points_3d_array(to_se3, abs_from_se3_quat)
             np.testing.assert_allclose(converted_points_quat, rel_to_se3_quat, atol=1e-6)
 
             # Check if consistent with se3 array conversion
             random_se3_poses = np.zeros((random_points_3d.shape[0], len(PoseSE3Index)), dtype=np.float64)
             random_se3_poses[:, PoseSE3Index.XYZ] = random_points_3d
             random_se3_poses[:, PoseSE3Index.QUATERNION] = np.array([1.0, 0.0, 0.0, 0.0])  # Identity rotation
-            converted_se3_quat_poses = convert_se3_array_between_origins(from_se3, to_se3, random_se3_poses)
+            converted_se3_quat_poses = reframe_se3_array(from_se3, to_se3, random_se3_poses)
             np.testing.assert_allclose(
                 converted_se3_quat_poses[:, PoseSE3Index.XYZ],
                 converted_points_quat,
@@ -150,7 +157,7 @@ class TestTransformSE3:
             )
 
             # Check if consistent with absolute conversion to identity origin
-            absolute_se3_quat = convert_points_3d_array_between_origins(from_se3, identity_se3, random_points_3d)
+            absolute_se3_quat = reframe_points_3d_array(from_se3, identity_se3, random_points_3d)
             np.testing.assert_allclose(
                 absolute_se3_quat[..., PoseSE3Index.XYZ],
                 abs_from_se3_quat[..., PoseSE3Index.XYZ],
@@ -208,3 +215,101 @@ class TestTransformSE3:
                 R = quat_se3.rotation_matrix
                 expected_pos = quat_se3.point_3d.array + R @ vector_3d.array
                 np.testing.assert_allclose(translated_quat.point_3d.array, expected_pos, atol=1e-6)
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Tests for new typed single-item functions
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def test_abs_to_rel_se3(self) -> None:
+        """Tests typed abs_to_rel_se3 returns correct PoseSE3."""
+        for quat_se3 in self.quat_se3:
+            random_pose = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+            result = abs_to_rel_se3(quat_se3, random_pose)
+            assert isinstance(result, PoseSE3)
+            expected = abs_to_rel_se3_array(quat_se3, random_pose.array)
+            np.testing.assert_allclose(result.array, expected, atol=1e-6)
+
+    def test_rel_to_abs_se3(self) -> None:
+        """Tests typed rel_to_abs_se3 returns correct PoseSE3."""
+        for quat_se3 in self.quat_se3:
+            random_pose = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+            result = rel_to_abs_se3(quat_se3, random_pose)
+            assert isinstance(result, PoseSE3)
+            expected = rel_to_abs_se3_array(quat_se3, random_pose.array)
+            np.testing.assert_allclose(result.array, expected, atol=1e-6)
+
+    def test_reframe_se3(self) -> None:
+        """Tests typed reframe_se3 matches array version."""
+        for _ in range(10):
+            from_origin = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+            to_origin = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+            pose = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+            result = reframe_se3(from_origin, to_origin, pose)
+            assert isinstance(result, PoseSE3)
+            expected = reframe_se3_array(from_origin, to_origin, pose.array[np.newaxis])[0]
+            np.testing.assert_allclose(result.array, expected, atol=1e-6)
+
+    def test_abs_to_rel_point_3d(self) -> None:
+        """Tests typed abs_to_rel_point_3d returns correct Point3D."""
+        for quat_se3 in self.quat_se3:
+            point = Point3D(np.random.uniform(-10, 10), np.random.uniform(-10, 10), np.random.uniform(-10, 10))
+            result = abs_to_rel_point_3d(quat_se3, point)
+            assert isinstance(result, Point3D)
+            expected = abs_to_rel_points_3d_array(quat_se3, point.array)
+            np.testing.assert_allclose(result.array, expected, atol=1e-6)
+
+    def test_rel_to_abs_point_3d(self) -> None:
+        """Tests typed rel_to_abs_point_3d returns correct Point3D."""
+        for quat_se3 in self.quat_se3:
+            point = Point3D(np.random.uniform(-10, 10), np.random.uniform(-10, 10), np.random.uniform(-10, 10))
+            result = rel_to_abs_point_3d(quat_se3, point)
+            assert isinstance(result, Point3D)
+            expected = rel_to_abs_points_3d_array(quat_se3, point.array)
+            np.testing.assert_allclose(result.array, expected, atol=1e-6)
+
+    def test_reframe_point_3d(self) -> None:
+        """Tests typed reframe_point_3d matches array version."""
+        for _ in range(10):
+            from_origin = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+            to_origin = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+            point = Point3D(np.random.uniform(-10, 10), np.random.uniform(-10, 10), np.random.uniform(-10, 10))
+            result = reframe_point_3d(from_origin, to_origin, point)
+            assert isinstance(result, Point3D)
+            expected = reframe_points_3d_array(from_origin, to_origin, point.array[np.newaxis])[0]
+            np.testing.assert_allclose(result.array, expected, atol=1e-6)
+
+    def test_typed_se3_round_trip(self) -> None:
+        """Tests round-trip: abs_to_rel_se3 -> rel_to_abs_se3 returns original."""
+        for _ in range(10):
+            origin = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+            pose = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+            rel = abs_to_rel_se3(origin, pose)
+            recovered = rel_to_abs_se3(origin, rel)
+            np.testing.assert_allclose(pose.array[PoseSE3Index.XYZ], recovered.array[PoseSE3Index.XYZ], atol=1e-6)
+
+    def test_typed_point_3d_round_trip(self) -> None:
+        """Tests round-trip: abs_to_rel_point_3d -> rel_to_abs_point_3d returns original."""
+        for _ in range(10):
+            origin = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+            point = Point3D(np.random.uniform(-10, 10), np.random.uniform(-10, 10), np.random.uniform(-10, 10))
+            rel = abs_to_rel_point_3d(origin, point)
+            recovered = rel_to_abs_point_3d(origin, rel)
+            np.testing.assert_allclose(point.array, recovered.array, atol=1e-6)
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Deprecation warning tests
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def test_deprecated_alias_emits_warning(self) -> None:
+        """Tests that old function names emit DeprecationWarning."""
+        import warnings
+
+        origin = PoseSE3.from_R_t(EulerAngles(roll=0.0, pitch=0.0, yaw=0.0), np.array([0.0, 0.0, 0.0]))
+        se3_array = np.zeros((1, len(PoseSE3Index)), dtype=np.float64)
+        se3_array[0, PoseSE3Index.QW] = 1.0
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            convert_absolute_to_relative_se3_array(origin, se3_array)
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "abs_to_rel_se3_array" in str(w[0].message)

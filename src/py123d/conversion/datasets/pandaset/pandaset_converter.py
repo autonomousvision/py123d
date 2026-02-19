@@ -40,7 +40,7 @@ from py123d.datatypes.time import TimePoint
 from py123d.datatypes.vehicle_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_pandaset_chrysler_pacifica_parameters
 from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, EulerAnglesIndex, PoseSE3
-from py123d.geometry.transform import convert_absolute_to_relative_se3_array
+from py123d.geometry.transform import abs_to_rel_se3_array
 from py123d.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from py123d.geometry.utils.rotation_utils import get_quaternion_array_from_euler_array
 
@@ -352,7 +352,7 @@ def _extract_pandaset_pinhole_cameras(
             camera_pose_dict = camera_poses[camera_name][iteration]
             camera_extrinsic = pandaset_pose_dict_to_pose_se3(camera_pose_dict)
             camera_extrinsic = PoseSE3.from_array(
-                convert_absolute_to_relative_se3_array(ego_state_se3.rear_axle_se3, camera_extrinsic.array), copy=True
+                abs_to_rel_se3_array(ego_state_se3.rear_axle_se3, camera_extrinsic.array), copy=True
             )
             camera_timestamp = TimePoint.from_s(camera_timestamps[camera_name][iteration])
 

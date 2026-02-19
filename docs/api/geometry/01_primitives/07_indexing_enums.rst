@@ -46,6 +46,27 @@ Poses
    :no-inherited-members:
 
 
+Matrices
+--------
+
+
+.. autoclass:: py123d.geometry.MatrixSO2Index
+   :members:
+   :no-inherited-members:
+
+.. autoclass:: py123d.geometry.MatrixSO3Index
+   :members:
+   :no-inherited-members:
+
+.. autoclass:: py123d.geometry.MatrixSE2Index
+   :members:
+   :no-inherited-members:
+
+.. autoclass:: py123d.geometry.MatrixSE3Index
+   :members:
+   :no-inherited-members:
+
+
 Bounding Boxes
 --------------
 

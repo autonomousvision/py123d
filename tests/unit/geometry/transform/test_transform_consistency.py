@@ -4,20 +4,20 @@ import numpy.typing as npt
 from py123d.geometry import PoseSE2, PoseSE3, Vector2D, Vector3D
 from py123d.geometry.geometry_index import Point2DIndex, Point3DIndex, PoseSE2Index, PoseSE3Index
 from py123d.geometry.transform.transform_se2 import (
-    convert_absolute_to_relative_points_2d_array,
-    convert_absolute_to_relative_se2_array,
-    convert_relative_to_absolute_points_2d_array,
-    convert_relative_to_absolute_se2_array,
+    abs_to_rel_points_2d_array,
+    abs_to_rel_se2_array,
+    rel_to_abs_points_2d_array,
+    rel_to_abs_se2_array,
     translate_se2_along_body_frame,
     translate_se2_along_x,
     translate_se2_along_y,
     translate_se2_array_along_body_frame,
 )
 from py123d.geometry.transform.transform_se3 import (
-    convert_absolute_to_relative_points_3d_array,
-    convert_absolute_to_relative_se3_array,
-    convert_relative_to_absolute_points_3d_array,
-    convert_relative_to_absolute_se3_array,
+    abs_to_rel_points_3d_array,
+    abs_to_rel_se3_array,
+    rel_to_abs_points_3d_array,
+    rel_to_abs_se3_array,
     translate_se3_along_body_frame,
     translate_se3_along_x,
     translate_se3_along_y,
@@ -69,8 +69,8 @@ class TestTransformConsistency:
             absolute_poses = self._get_random_se2_array(num_poses)
 
             # Convert absolute -> relative -> absolute
-            relative_poses = convert_absolute_to_relative_se2_array(reference, absolute_poses)
-            recovered_absolute = convert_relative_to_absolute_se2_array(reference, relative_poses)
+            relative_poses = abs_to_rel_se2_array(reference, absolute_poses)
+            recovered_absolute = rel_to_abs_se2_array(reference, relative_poses)
 
             np.testing.assert_array_almost_equal(absolute_poses, recovered_absolute, decimal=self.decimal)
 
@@ -85,8 +85,8 @@ class TestTransformConsistency:
             absolute_points = self._get_random_se2_array(num_points)[:, PoseSE2Index.XY]
 
             # Convert absolute -> relative -> absolute
-            relative_points = convert_absolute_to_relative_points_2d_array(reference, absolute_points)
-            recovered_absolute = convert_relative_to_absolute_points_2d_array(reference, relative_points)
+            relative_points = abs_to_rel_points_2d_array(reference, absolute_points)
+            recovered_absolute = rel_to_abs_points_2d_array(reference, relative_points)
 
             np.testing.assert_array_almost_equal(absolute_points, recovered_absolute, decimal=self.decimal)
 
@@ -101,16 +101,14 @@ class TestTransformConsistency:
             absolute_se2 = self._get_random_se2_array(num_poses)
 
             # Convert absolute -> relative -> absolute
-            relative_se2 = convert_absolute_to_relative_se2_array(reference, absolute_se2)
-            relative_points = convert_absolute_to_relative_points_2d_array(
-                reference, absolute_se2[..., PoseSE2Index.XY]
-            )
+            relative_se2 = abs_to_rel_se2_array(reference, absolute_se2)
+            relative_points = abs_to_rel_points_2d_array(reference, absolute_se2[..., PoseSE2Index.XY])
             np.testing.assert_array_almost_equal(
                 relative_se2[..., PoseSE2Index.XY], relative_points, decimal=self.decimal
             )
 
-            recovered_absolute_se2 = convert_relative_to_absolute_se2_array(reference, relative_se2)
-            absolute_points = convert_relative_to_absolute_points_2d_array(reference, relative_points)
+            recovered_absolute_se2 = rel_to_abs_se2_array(reference, relative_se2)
+            absolute_points = rel_to_abs_points_2d_array(reference, relative_points)
             np.testing.assert_array_almost_equal(
                 recovered_absolute_se2[..., PoseSE2Index.XY], absolute_points, decimal=self.decimal
             )
@@ -151,8 +149,8 @@ class TestTransformConsistency:
             absolute_poses = self._get_random_se3_array(num_poses)
 
             # Convert absolute -> relative -> absolute
-            relative_poses = convert_absolute_to_relative_se3_array(reference, absolute_poses)
-            recovered_absolute = convert_relative_to_absolute_se3_array(reference, relative_poses)
+            relative_poses = abs_to_rel_se3_array(reference, absolute_poses)
+            recovered_absolute = rel_to_abs_se3_array(reference, relative_poses)
 
             np.testing.assert_array_almost_equal(
                 absolute_poses[..., PoseSE3Index.XYZ],
@@ -184,8 +182,8 @@ class TestTransformConsistency:
             absolute_points = self._get_random_se3_array(num_points)[:, PoseSE3Index.XYZ]
 
             # Convert absolute -> relative -> absolute
-            relative_points = convert_absolute_to_relative_points_3d_array(reference, absolute_points)
-            recovered_absolute = convert_relative_to_absolute_points_3d_array(reference, relative_points)
+            relative_points = abs_to_rel_points_3d_array(reference, absolute_points)
+            recovered_absolute = rel_to_abs_points_3d_array(reference, relative_points)
 
             np.testing.assert_array_almost_equal(absolute_points, recovered_absolute, decimal=self.decimal)
 
@@ -200,16 +198,14 @@ class TestTransformConsistency:
             absolute_se3 = self._get_random_se3_array(num_poses)
 
             # Convert absolute -> relative -> absolute
-            relative_se3 = convert_absolute_to_relative_se3_array(reference, absolute_se3)
-            relative_points = convert_absolute_to_relative_points_3d_array(
-                reference, absolute_se3[..., PoseSE3Index.XYZ]
-            )
+            relative_se3 = abs_to_rel_se3_array(reference, absolute_se3)
+            relative_points = abs_to_rel_points_3d_array(reference, absolute_se3[..., PoseSE3Index.XYZ])
             np.testing.assert_array_almost_equal(
                 relative_se3[..., PoseSE3Index.XYZ], relative_points, decimal=self.decimal
             )
 
-            recovered_absolute_se3 = convert_relative_to_absolute_se3_array(reference, relative_se3)
-            absolute_points = convert_relative_to_absolute_points_3d_array(reference, relative_points)
+            recovered_absolute_se3 = rel_to_abs_se3_array(reference, relative_se3)
+            absolute_points = rel_to_abs_points_3d_array(reference, relative_points)
             np.testing.assert_array_almost_equal(
                 recovered_absolute_se3[..., PoseSE3Index.XYZ], absolute_points, decimal=self.decimal
             )
@@ -278,12 +274,12 @@ class TestTransformConsistency:
             points_3d = np.column_stack([points_2d, np.zeros(num_points)])
 
             # Convert using SE2 functions
-            relative_2d = convert_absolute_to_relative_points_2d_array(reference_se2, points_2d)
-            absolute_2d_recovered = convert_relative_to_absolute_points_2d_array(reference_se2, relative_2d)
+            relative_2d = abs_to_rel_points_2d_array(reference_se2, points_2d)
+            absolute_2d_recovered = rel_to_abs_points_2d_array(reference_se2, relative_2d)
 
             # Convert using SE3 functions
-            relative_3d = convert_absolute_to_relative_points_3d_array(reference_se3, points_3d)
-            absolute_3d_recovered = convert_relative_to_absolute_points_3d_array(reference_se3, relative_3d)
+            relative_3d = abs_to_rel_points_3d_array(reference_se3, points_3d)
+            absolute_3d_recovered = rel_to_abs_points_3d_array(reference_se3, relative_3d)
 
             # Check that SE2 and SE3 conversions are consistent for the x,y components
             np.testing.assert_array_almost_equal(relative_2d, relative_3d[:, Point3DIndex.XY], decimal=self.decimal)
@@ -324,12 +320,12 @@ class TestTransformConsistency:
             pose_3d[:, PoseSE3Index.QUATERNION] = get_quaternion_array_from_euler_array(euler_for_quat)
 
             # Convert using SE2 functions
-            relative_se2 = convert_absolute_to_relative_se2_array(reference_se2, pose_2d)
-            absolute_se2_recovered = convert_relative_to_absolute_se2_array(reference_se2, relative_se2)
+            relative_se2 = abs_to_rel_se2_array(reference_se2, pose_2d)
+            absolute_se2_recovered = rel_to_abs_se2_array(reference_se2, relative_se2)
 
             # Convert using SE3 functions
-            relative_se3 = convert_absolute_to_relative_se3_array(reference_se3, pose_3d)
-            absolute_se3_recovered = convert_relative_to_absolute_se3_array(reference_se3, relative_se3)
+            relative_se3 = abs_to_rel_se3_array(reference_se3, pose_3d)
+            absolute_se3_recovered = rel_to_abs_se3_array(reference_se3, relative_se3)
 
             # Check that SE2 and SE3 conversions are consistent for the x,y components
             np.testing.assert_array_almost_equal(
@@ -385,8 +381,8 @@ class TestTransformConsistency:
         empty_se2_poses = np.array([], dtype=np.float64).reshape(0, len(PoseSE2Index))
         empty_2d_points = np.array([], dtype=np.float64).reshape(0, len(Point2DIndex))
 
-        result_se2_poses = convert_absolute_to_relative_se2_array(reference_se2, empty_se2_poses)
-        result_2d_points = convert_absolute_to_relative_points_2d_array(reference_se2, empty_2d_points)
+        result_se2_poses = abs_to_rel_se2_array(reference_se2, empty_se2_poses)
+        result_2d_points = abs_to_rel_points_2d_array(reference_se2, empty_2d_points)
 
         assert result_se2_poses.shape == (0, len(PoseSE2Index))
         assert result_2d_points.shape == (0, len(Point2DIndex))
@@ -395,8 +391,8 @@ class TestTransformConsistency:
         empty_se3_poses = np.array([], dtype=np.float64).reshape(0, len(PoseSE3Index))
         empty_3d_points = np.array([], dtype=np.float64).reshape(0, len(Point3DIndex))
 
-        result_se3_poses = convert_absolute_to_relative_se3_array(reference_se3, empty_se3_poses)
-        result_3d_points = convert_absolute_to_relative_points_3d_array(reference_se3, empty_3d_points)
+        result_se3_poses = abs_to_rel_se3_array(reference_se3, empty_se3_poses)
+        result_3d_points = abs_to_rel_points_3d_array(reference_se3, empty_3d_points)
 
         assert result_se3_poses.shape == (0, len(PoseSE3Index))
         assert result_3d_points.shape == (0, len(Point3DIndex))
@@ -413,8 +409,8 @@ class TestTransformConsistency:
             se2_poses = self._get_random_se2_array(num_poses)
             se2_points = se2_poses[:, PoseSE2Index.XY]
 
-            relative_se2_poses = convert_absolute_to_relative_se2_array(identity_se2, se2_poses)
-            relative_se2_points = convert_absolute_to_relative_points_2d_array(identity_se2, se2_points)
+            relative_se2_poses = abs_to_rel_se2_array(identity_se2, se2_poses)
+            relative_se2_points = abs_to_rel_points_2d_array(identity_se2, se2_points)
 
             np.testing.assert_array_almost_equal(se2_poses, relative_se2_poses, decimal=self.decimal)
             np.testing.assert_array_almost_equal(se2_points, relative_se2_points, decimal=self.decimal)
@@ -423,8 +419,8 @@ class TestTransformConsistency:
             se3_poses = self._get_random_se3_array(num_poses)
             se3_points = se3_poses[:, PoseSE3Index.XYZ]
 
-            relative_se3_poses = convert_absolute_to_relative_se3_array(identity_se3, se3_poses)
-            relative_se3_points = convert_absolute_to_relative_points_3d_array(identity_se3, se3_points)
+            relative_se3_poses = abs_to_rel_se3_array(identity_se3, se3_poses)
+            relative_se3_points = abs_to_rel_points_3d_array(identity_se3, se3_points)
 
             np.testing.assert_array_almost_equal(
                 get_rotation_matrices_from_quaternion_array(se3_poses[..., PoseSE3Index.QUATERNION]),
@@ -453,17 +449,17 @@ class TestTransformConsistency:
             test_3d_points = test_se3_poses[:, PoseSE3Index.XYZ]
 
             # Test round-trip conversions should still work
-            relative_se2 = convert_absolute_to_relative_se2_array(reference_se2, test_se2_poses)
-            recovered_se2 = convert_relative_to_absolute_se2_array(reference_se2, relative_se2)
+            relative_se2 = abs_to_rel_se2_array(reference_se2, test_se2_poses)
+            recovered_se2 = rel_to_abs_se2_array(reference_se2, relative_se2)
 
-            relative_se3 = convert_absolute_to_relative_se3_array(reference_se3, test_se3_poses)
-            recovered_se3 = convert_relative_to_absolute_se3_array(reference_se3, relative_se3)
+            relative_se3 = abs_to_rel_se3_array(reference_se3, test_se3_poses)
+            recovered_se3 = rel_to_abs_se3_array(reference_se3, relative_se3)
 
-            relative_2d_points = convert_absolute_to_relative_points_2d_array(reference_se2, test_2d_points)
-            recovered_2d_points = convert_relative_to_absolute_points_2d_array(reference_se2, relative_2d_points)
+            relative_2d_points = abs_to_rel_points_2d_array(reference_se2, test_2d_points)
+            recovered_2d_points = rel_to_abs_points_2d_array(reference_se2, relative_2d_points)
 
-            relative_3d_points = convert_absolute_to_relative_points_3d_array(reference_se3, test_3d_points)
-            recovered_3d_points = convert_relative_to_absolute_points_3d_array(reference_se3, relative_3d_points)
+            relative_3d_points = abs_to_rel_points_3d_array(reference_se3, test_3d_points)
+            recovered_3d_points = rel_to_abs_points_3d_array(reference_se3, relative_3d_points)
 
             # Check consistency (allowing for angle wrapping)
             np.testing.assert_array_almost_equal(

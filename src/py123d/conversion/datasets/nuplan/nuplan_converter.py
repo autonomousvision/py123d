@@ -45,7 +45,7 @@ from py123d.datatypes.time import TimePoint
 from py123d.datatypes.vehicle_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_nuplan_chrysler_pacifica_parameters
 from py123d.geometry import PoseSE3, Vector3D
-from py123d.geometry.transform.transform_se3 import convert_se3_array_between_origins
+from py123d.geometry.transform.transform_se3 import reframe_se3_array
 
 check_dependencies(["nuplan"], "nuplan")
 from nuplan.database.nuplan_db.nuplan_scenario_queries import get_cameras, get_images_from_lidar_tokens
@@ -421,8 +421,8 @@ def _extract_nuplan_cameras(
                     extrinsic_static = PoseSE3.from_transformation_matrix(
                         log_cam_infos[image.camera_token].trans_matrix
                     )
-                    extrinsic_compensated_array = convert_se3_array_between_origins(
-                        from_origin=nearest_ego_pose, to_origin=current_ego_pose, se3_array=extrinsic_static.array
+                    extrinsic_compensated_array = reframe_se3_array(
+                        from_origin=nearest_ego_pose, to_origin=current_ego_pose, pose_se3_array=extrinsic_static.array
                     )
                     extrinsic = PoseSE3.from_array(extrinsic_compensated_array)
 

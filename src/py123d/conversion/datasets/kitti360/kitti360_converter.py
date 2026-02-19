@@ -45,7 +45,7 @@ from py123d.datatypes.time import TimePoint
 from py123d.datatypes.vehicle_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_kitti360_vw_passat_parameters
 from py123d.geometry import BoundingBoxSE3, PoseSE3, Quaternion, Vector3D
-from py123d.geometry.transform import convert_se3_array_between_origins, translate_se3_along_body_frame
+from py123d.geometry.transform import reframe_se3_array, translate_se3_along_body_frame
 
 KITTI360_DT: Final[float] = 0.1
 
@@ -823,4 +823,4 @@ def _extrinsic_from_imu_to_rear_axle(extrinsic: PoseSE3) -> PoseSE3:
     """Convert extrinsic from IMU origin to rear axle origin."""
     imu_se3 = PoseSE3(x=-0.05, y=0.32, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
     rear_axle_se3 = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
-    return PoseSE3.from_array(convert_se3_array_between_origins(imu_se3, rear_axle_se3, extrinsic.array))
+    return PoseSE3.from_array(reframe_se3_array(imu_se3, rear_axle_se3, extrinsic.array))

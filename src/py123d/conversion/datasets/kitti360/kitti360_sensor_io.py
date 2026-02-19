@@ -8,7 +8,7 @@ from py123d.conversion.registry.lidar_index_registry import KITTI360LiDARIndex
 from py123d.datatypes.metadata import LogMetadata
 from py123d.datatypes.sensors.lidar import LiDARType
 from py123d.geometry.pose import PoseSE3
-from py123d.geometry.transform.transform_se3 import convert_points_3d_array_between_origins
+from py123d.geometry.transform.transform_se3 import reframe_points_3d_array
 
 
 def load_kitti360_lidar_pcs_from_file(filepath: Path, log_metadata: LogMetadata) -> Dict[LiDARType, np.ndarray]:
@@ -24,7 +24,7 @@ def load_kitti360_lidar_pcs_from_file(filepath: Path, log_metadata: LogMetadata)
 
     assert lidar_extrinsic is not None, "LiDAR extrinsic must be available in log metadata."
 
-    lidar_pc[..., KITTI360LiDARIndex.XYZ] = convert_points_3d_array_between_origins(
+    lidar_pc[..., KITTI360LiDARIndex.XYZ] = reframe_points_3d_array(
         from_origin=lidar_extrinsic,
         to_origin=PoseSE3(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0),
         points_3d_array=lidar_pc[..., KITTI360LiDARIndex.XYZ],  # type: ignore
