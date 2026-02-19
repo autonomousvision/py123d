@@ -1,10 +1,9 @@
 import numpy as np
 import pytest
 
-from py123d.geometry import EulerAngles, Point2D, PoseSE2, PoseSE3
+from py123d.geometry import EulerAngles, Point2D, PoseSE2, PoseSE3, Vector2D, Vector3D
 from py123d.geometry.geometry_index import PoseSE2Index
 from py123d.geometry.point import Point3D
-from py123d.geometry.vector import Vector3D
 
 
 class TestPoseSE2:
@@ -62,7 +61,7 @@ class TestPoseSE2:
 
         translation_numpy = np.array([1.0, 2.0])
         translation_point2d = Point2D(x=1.0, y=2.0)
-        translation_vector2d = np.array([1.0, 2.0])
+        translation_numpy_2 = np.array([1.0, 2.0])
 
         # Test all combinations of rotation and translation inputs
         pose1 = PoseSE2.from_R_t(rotation_matrix, translation_numpy)
@@ -70,7 +69,7 @@ class TestPoseSE2:
         pose3 = PoseSE2.from_R_t(rotation_numpy_0d, translation_numpy)
         pose4 = PoseSE2.from_R_t(rotation_numpy_1d, translation_numpy)
         pose5 = PoseSE2.from_R_t(rotation_float, translation_point2d)
-        pose6 = PoseSE2.from_R_t(rotation_float, translation_vector2d)
+        pose6 = PoseSE2.from_R_t(rotation_float, translation_numpy_2)
 
         # Verify all produce consistent results
         assert pose2.x == 1.0
@@ -149,6 +148,22 @@ class TestPoseSE2:
         """Test that pose_se2 property returns self."""
         pose = PoseSE2(x=1.0, y=2.0, yaw=0.5)
         assert pose.pose_se2 is pose
+
+    def test_vector_2d(self):
+        """Test extraction of translation as Vector2D."""
+        pose = PoseSE2(x=1.0, y=2.0, yaw=0.5)
+        vector = pose.vector_2d
+        assert isinstance(vector, Vector2D)
+        assert vector.x == 1.0
+        assert vector.y == 2.0
+
+    def test_from_R_t_with_vector2d(self):
+        """Test from_R_t accepts Vector2D for translation."""
+        vector = Vector2D(x=1.0, y=2.0)
+        pose = PoseSE2.from_R_t(rotation=0.5, translation=vector)
+        assert pose.x == 1.0
+        assert pose.y == 2.0
+        assert pytest.approx(pose.yaw) == 0.5
 
     def test_equality(self):
         """Test equality comparison of PoseSE2 instances."""
@@ -292,6 +307,23 @@ class TestPoseSE3:
         assert point.x == 1.0
         assert point.y == 2.0
 
+    def test_vector_3d(self):
+        """Test extraction of translation as Vector3D."""
+        pose = PoseSE3(x=1.0, y=2.0, z=3.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
+        vector = pose.vector_3d
+        assert isinstance(vector, Vector3D)
+        assert vector.x == 1.0
+        assert vector.y == 2.0
+        assert vector.z == 3.0
+
+    def test_vector_2d(self):
+        """Test extraction of 2D translation as Vector2D."""
+        pose = PoseSE3(x=1.0, y=2.0, z=3.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
+        vector = pose.vector_2d
+        assert isinstance(vector, Vector2D)
+        assert vector.x == 1.0
+        assert vector.y == 2.0
+
     def test_shapely_point(self):
         """Test extraction of Shapely Point representation."""
         pose = PoseSE3(x=1.0, y=2.0, z=3.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
@@ -341,3 +373,25 @@ class TestPoseSE3:
         pose1 = PoseSE3(x=1.0, y=2.0, z=3.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
         pose2 = PoseSE3(x=1.0, y=2.0, z=3.0, qw=0.9, qx=0.1, qy=0.0, qz=0.0)
         assert pose1 != pose2
+
+    def test_pose_se3_property(self):
+        """Test that pose_se3 property returns self."""
+        pose = PoseSE3(x=1.0, y=2.0, z=3.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
+        assert pose.pose_se3 is pose
+
+    def test_quaternion_property(self):
+        """Test extraction of quaternion from pose."""
+        pose = PoseSE3(x=1.0, y=2.0, z=3.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
+        q = pose.quaternion
+        assert q.qw == 1.0
+        assert q.qx == 0.0
+        assert q.qy == 0.0
+        assert q.qz == 0.0
+
+    def test_inverse(self):
+        """Test inverse of a pose."""
+        pose = PoseSE3(x=1.0, y=2.0, z=3.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
+        inv = pose.inverse
+        # pose * inverse should give identity
+        T = pose.transformation_matrix @ inv.transformation_matrix
+        np.testing.assert_allclose(T, np.eye(4), atol=1e-10)

@@ -9,6 +9,8 @@ import shapely.geometry as geom
 from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
 from py123d.geometry.geometry_index import (
     EulerAnglesIndex,
+    MatrixSE2Index,
+    MatrixSE3Index,
     PoseSE2Index,
     PoseSE3Index,
     QuaternionIndex,
@@ -18,6 +20,7 @@ from py123d.geometry.rotation import EulerAngles, Quaternion
 from py123d.geometry.utils.rotation_utils import (
     get_quaternion_array_from_euler_array,
     get_quaternion_array_from_rotation_matrix,
+    invert_quaternion_array,
 )
 from py123d.geometry.vector import Vector2D, Vector3D
 
@@ -76,8 +79,7 @@ class PoseSE2(ArrayMixin):
         """
         assert transformation_matrix.ndim == 2
         assert transformation_matrix.shape == (3, 3)
-        x = transformation_matrix[0, 2]
-        y = transformation_matrix[1, 2]
+        x, y = transformation_matrix[MatrixSE2Index.TRANSLATION]
         yaw = np.arctan2(transformation_matrix[1, 0], transformation_matrix[0, 0])
         return PoseSE2(x=x, y=y, yaw=yaw)
 
@@ -87,12 +89,16 @@ class PoseSE2(ArrayMixin):
         rotation: Union[npt.NDArray[np.float64], float],
         translation: Union[npt.NDArray[np.float64], Point2D, Vector2D],
     ) -> PoseSE2:
-        """Constructs a PoseSE2 from a 2x2 rotation matrix and a 2D translation vector.
+        """Constructs a :class:`~py123d.geometry.PoseSE2` from a rotation and a translation.
 
-        :param rotation: Either a 2x2 rotation matrix, or a single float representing the yaw angle in radians.
-        :param translation: A numpy array of shape (2,), or a :class:`~py123d.geometry.Point2D` instance \
-            representing the translation.
-        :return: A PoseSE2 instance.
+        :param rotation: Any implemented representation of a SO2 rotation: \
+            - (2, 2) rotation matrix as numpy array, \
+            - (1,) numpy array representing the yaw angle in radians.
+        :param translation: The translation component:
+            - (2,) numpy array indexed by :class:`~py123d.geometry.geometry_index.Vector2DIndex`, \
+            - :class:`~py123d.geometry.Vector2D` instance, \
+            - :class:`~py123d.geometry.Point2D` is also accepted for convenience.
+        :return: A :class:`~py123d.geometry.PoseSE2` instance.
         """
 
         array = np.zeros(len(PoseSE2Index), dtype=np.float64)
@@ -103,7 +109,7 @@ class PoseSE2(ArrayMixin):
                 "Expected translation to be a numpy array of shape (2,), got shape {}".format(translation.shape)
             )
             array[PoseSE2Index.XY] = translation
-        elif isinstance(translation, Point2D):
+        elif isinstance(translation, (Point2D, Vector2D)):
             array[PoseSE2Index.XY] = translation.array
         else:
             raise ValueError(
@@ -168,6 +174,11 @@ class PoseSE2(ArrayMixin):
         return Point2D.from_array(self.array[PoseSE2Index.XY])
 
     @property
+    def vector_2d(self) -> Vector2D:
+        """The :class:`~py123d.geometry.Vector2D` translation component of the SE2 pose."""
+        return Vector2D(self.x, self.y)
+
+    @property
     def rotation_matrix(self) -> npt.NDArray[np.float64]:
         """The 2x2 rotation matrix representation of the pose."""
         cos_yaw = np.cos(self.yaw)
@@ -178,9 +189,8 @@ class PoseSE2(ArrayMixin):
     def transformation_matrix(self) -> npt.NDArray[np.float64]:
         """The 3x3 transformation matrix representation of the pose."""
         matrix = np.eye(3, dtype=np.float64)
-        matrix[:2, :2] = self.rotation_matrix
-        matrix[0, 2] = self.x
-        matrix[1, 2] = self.y
+        matrix[MatrixSE2Index.ROTATION] = self.rotation_matrix
+        matrix[MatrixSE2Index.TRANSLATION] = self.array[PoseSE2Index.XY]
         return matrix
 
     @property
@@ -194,7 +204,7 @@ class PoseSE2(ArrayMixin):
 
 
 class PoseSE3(ArrayMixin):
-    """Class representing a quaternion in SE3 space
+    """Class representing a pose in SE3 space.
 
     Examples:
         >>> from py123d.geometry import PoseSE3
@@ -261,8 +271,8 @@ class PoseSE3(ArrayMixin):
         assert transformation_matrix.ndim == 2
         assert transformation_matrix.shape == (4, 4)
         array = np.zeros(len(PoseSE3Index), dtype=np.float64)
-        array[PoseSE3Index.XYZ] = transformation_matrix[:3, 3]
-        array[PoseSE3Index.QUATERNION] = Quaternion.from_rotation_matrix(transformation_matrix[:3, :3])
+        array[PoseSE3Index.XYZ] = transformation_matrix[MatrixSE3Index.TRANSLATION]
+        array[PoseSE3Index.QUATERNION] = Quaternion.from_rotation_matrix(transformation_matrix[MatrixSE3Index.ROTATION])
         return PoseSE3.from_array(array, copy=False)
 
     @classmethod
@@ -273,14 +283,16 @@ class PoseSE3(ArrayMixin):
     ) -> PoseSE3:
         """Constructs a :class:`PoseSE3` from arbitrary rotation and translation representations.
 
-        :param rotation: Either a numpy array representing the rotation in one of the following formats: \
+        :param rotation: Any implemented representation of a SO3 rotation: \
             - (3, 3) rotation matrix as numpy array,\
             - (4,) quaternion array indexed by :class:`~py123d.geometry.geometry_index.QuaternionIndex`, \
             - (3,) euler angles indexed by :class:`~py123d.geometry.geometry_index.EulerAnglesIndex`, \
             - :class:`~py123d.geometry.Quaternion` instance,
             - :class:`~py123d.geometry.EulerAngles` instance.
-        :param translation: Either a numpy array of shape (3,) representing the translation, \
-            or a :class:`~py123d.geometry.Point3D` or :class:`~py123d.geometry.Vector3D` instance representing the translation.
+        :param translation: The translation component:, \
+            - (3,) numpy array indexed by :class:`~py123d.geometry.geometry_index.Vector3DIndex`, \
+            - :class:`~py123d.geometry.Vector3D` instance, \
+            - :class:`~py123d.geometry.Point3D` is also accepted for convenience. \
         :return: A :class:`PoseSE3` instance.
         """
 
@@ -392,6 +404,16 @@ class PoseSE3(ArrayMixin):
         return Point2D(self.x, self.y)
 
     @property
+    def vector_3d(self) -> Vector3D:
+        """The :class:`~py123d.geometry.Vector3D` translation component of the SE3 pose."""
+        return Vector3D(self.x, self.y, self.z)
+
+    @property
+    def vector_2d(self) -> Vector2D:
+        """The :class:`~py123d.geometry.Vector2D` 2D translation component (x, y) of the SE3 pose."""
+        return Vector2D(self.x, self.y)
+
+    @property
     def shapely_point(self) -> geom.Point:
         """The Shapely point representation, of the translation part of the SE3 pose."""
         return self.point_3d.shapely_point
@@ -430,16 +452,17 @@ class PoseSE3(ArrayMixin):
     def transformation_matrix(self) -> npt.NDArray[np.float64]:
         """Returns the 4x4 transformation matrix representation of the state."""
         transformation_matrix = np.eye(4, dtype=np.float64)
-        transformation_matrix[:3, :3] = self.rotation_matrix
-        transformation_matrix[:3, 3] = self.array[PoseSE3Index.XYZ]
+        transformation_matrix[MatrixSE3Index.ROTATION] = self.rotation_matrix
+        transformation_matrix[MatrixSE3Index.TRANSLATION] = self.array[PoseSE3Index.XYZ]
         return transformation_matrix
 
     @property
     def inverse(self) -> PoseSE3:
         """Returns the inverse of the SE3 pose."""
-        return PoseSE3.from_transformation_matrix(
-            np.linalg.inv(self.transformation_matrix)  # cSpell:ignore linalg
-        )  # TODO: Implement robustly in quaternion space.
+        inverse_array = np.zeros_like(self.array)
+        inverse_array[PoseSE3Index.QUATERNION] = invert_quaternion_array(self.array[PoseSE3Index.QUATERNION])
+        inverse_array[PoseSE3Index.XYZ] = -self.array[PoseSE3Index.XYZ]
+        return PoseSE3.from_array(inverse_array, copy=False)
 
     def __repr__(self) -> str:
         """String representation of :class:`PoseSE3`."""

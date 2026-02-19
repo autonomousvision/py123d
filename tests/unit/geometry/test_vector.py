@@ -76,6 +76,58 @@ class TestVector2D:
         assert x == self.x_coord
         assert y == self.y_coord
 
+    def test_magnitude(self):
+        """Test magnitude computation."""
+        v = Vector2D(3.0, 4.0)
+        assert v.magnitude == pytest.approx(5.0)
+
+    def test_vector_2d_property(self):
+        """Test that vector_2d returns self."""
+        v = Vector2D(1.0, 2.0)
+        assert v.vector_2d is v
+
+    def test_add(self):
+        """Test vector addition."""
+        v1 = Vector2D(1.0, 2.0)
+        v2 = Vector2D(3.0, 4.0)
+        result = v1 + v2
+        assert isinstance(result, Vector2D)
+        assert result.x == 4.0
+        assert result.y == 6.0
+
+    def test_sub(self):
+        """Test vector subtraction."""
+        v1 = Vector2D(5.0, 7.0)
+        v2 = Vector2D(1.0, 3.0)
+        result = v1 - v2
+        assert isinstance(result, Vector2D)
+        assert result.x == 4.0
+        assert result.y == 4.0
+
+    def test_mul(self):
+        """Test scalar multiplication."""
+        v = Vector2D(2.0, 3.0)
+        result = v * 2.5
+        assert isinstance(result, Vector2D)
+        assert result.x == pytest.approx(5.0)
+        assert result.y == pytest.approx(7.5)
+
+    def test_truediv(self):
+        """Test scalar division."""
+        v = Vector2D(6.0, 9.0)
+        result = v / 3.0
+        assert isinstance(result, Vector2D)
+        assert result.x == pytest.approx(2.0)
+        assert result.y == pytest.approx(3.0)
+
+    def test_neg(self):
+        """Test negation of Vector2D."""
+        v = Vector2D(3.0, -4.0)
+        neg_v = -v
+        assert isinstance(neg_v, Vector2D)
+        assert neg_v.x == -3.0
+        assert neg_v.y == 4.0
+
 
 class TestVector3D:
     """Unit tests for Vector3D class."""
@@ -153,3 +205,68 @@ class TestVector3D:
         assert x == self.x_coord
         assert y == self.y_coord
         assert z == self.z_coord
+
+    def test_magnitude(self):
+        """Test magnitude computation."""
+        v = Vector3D(1.0, 2.0, 2.0)
+        assert v.magnitude == pytest.approx(3.0)
+
+    def test_vector_3d_property(self):
+        """Test that vector_3d returns self."""
+        v = Vector3D(1.0, 2.0, 3.0)
+        assert v.vector_3d is v
+
+    def test_vector_2d_property(self):
+        """Test XY projection as Vector2D."""
+        v = Vector3D(1.0, 2.0, 3.0)
+        v2d = v.vector_2d
+        assert isinstance(v2d, Vector2D)
+        assert v2d.x == 1.0
+        assert v2d.y == 2.0
+
+    def test_add(self):
+        """Test vector addition."""
+        v1 = Vector3D(1.0, 2.0, 3.0)
+        v2 = Vector3D(4.0, 5.0, 6.0)
+        result = v1 + v2
+        assert isinstance(result, Vector3D)
+        assert result.x == 5.0
+        assert result.y == 7.0
+        assert result.z == 9.0
+
+    def test_sub(self):
+        """Test vector subtraction."""
+        v1 = Vector3D(5.0, 7.0, 9.0)
+        v2 = Vector3D(1.0, 2.0, 3.0)
+        result = v1 - v2
+        assert isinstance(result, Vector3D)
+        assert result.x == 4.0
+        assert result.y == 5.0
+        assert result.z == 6.0
+
+    def test_mul(self):
+        """Test scalar multiplication."""
+        v = Vector3D(2.0, 3.0, 4.0)
+        result = v * 2.5
+        assert isinstance(result, Vector3D)
+        assert result.x == pytest.approx(5.0)
+        assert result.y == pytest.approx(7.5)
+        assert result.z == pytest.approx(10.0)
+
+    def test_truediv(self):
+        """Test scalar division."""
+        v = Vector3D(6.0, 9.0, 12.0)
+        result = v / 3.0
+        assert isinstance(result, Vector3D)
+        assert result.x == pytest.approx(2.0)
+        assert result.y == pytest.approx(3.0)
+        assert result.z == pytest.approx(4.0)
+
+    def test_neg(self):
+        """Test negation of Vector3D."""
+        v = Vector3D(3.0, -4.0, 5.0)
+        neg_v = -v
+        assert isinstance(neg_v, Vector3D)
+        assert neg_v.x == -3.0
+        assert neg_v.y == 4.0
+        assert neg_v.z == -5.0

@@ -9,6 +9,10 @@ from py123d.geometry.geometry_index import (
     QuaternionIndex,
     PoseSE2Index,
     PoseSE3Index,
+    MatrixSE2Index,
+    MatrixSE3Index,
+    MatrixSO2Index,
+    MatrixSO3Index,
     Vector2DIndex,
     Vector3DIndex,
 )

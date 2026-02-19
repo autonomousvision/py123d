@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from typing import Union
+
 import numpy as np
 import numpy.typing as npt
 import shapely.geometry as geom
 
 from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
 from py123d.geometry.geometry_index import Point2DIndex, Point3DIndex
+from py123d.geometry.vector import Vector2D, Vector3D
 
 
 class Point2D(ArrayMixin):
@@ -72,6 +75,29 @@ class Point2D(ArrayMixin):
     def point_2d(self) -> Point2D:
         """Returns the :class:`Point2D` instance itself."""
         return self
+
+    def __add__(self, other: Vector2D) -> Point2D:
+        """Translates the point by a vector: Point + Vector = Point.
+
+        :param other: The displacement vector.
+        :return: A new :class:`Point2D` at the translated position.
+        """
+        if not isinstance(other, Vector2D):
+            return NotImplemented
+        return Point2D(self.x + other.x, self.y + other.y)
+
+    def __sub__(self, other: Union[Point2D, Vector2D]) -> Union[Vector2D, Point2D]:
+        """Point - Point = Vector (displacement), or Point - Vector = Point (translate backwards).
+
+        :param other: Either a :class:`Point2D` or :class:`~py123d.geometry.Vector2D`.
+        :return: A :class:`~py123d.geometry.Vector2D` if subtracting a point, \
+            or a :class:`Point2D` if subtracting a vector.
+        """
+        if isinstance(other, Point2D):
+            return Vector2D(self.x - other.x, self.y - other.y)
+        elif isinstance(other, Vector2D):
+            return Point2D(self.x - other.x, self.y - other.y)
+        return NotImplemented
 
     def __repr__(self) -> str:
         """String representation of :class:`Point2D`."""
@@ -154,6 +180,29 @@ class Point3D(ArrayMixin):
     def shapely_point(self) -> geom.Point:
         """The shapely point representation of the 3D point."""
         return geom.Point(self.x, self.y, self.z)
+
+    def __add__(self, other: Vector3D) -> Point3D:
+        """Translates the point by a vector: Point + Vector = Point.
+
+        :param other: The displacement vector.
+        :return: A new :class:`Point3D` at the translated position.
+        """
+        if not isinstance(other, Vector3D):
+            return NotImplemented
+        return Point3D(self.x + other.x, self.y + other.y, self.z + other.z)
+
+    def __sub__(self, other: Union[Point3D, Vector3D]) -> Union[Vector3D, Point3D]:
+        """Point - Point = Vector (displacement), or Point - Vector = Point (translate backwards).
+
+        :param other: Either a :class:`Point3D` or :class:`~py123d.geometry.Vector3D`.
+        :return: A :class:`~py123d.geometry.Vector3D` if subtracting a point, \
+            or a :class:`Point3D` if subtracting a vector.
+        """
+        if isinstance(other, Point3D):
+            return Vector3D(self.x - other.x, self.y - other.y, self.z - other.z)
+        elif isinstance(other, Vector3D):
+            return Point3D(self.x - other.x, self.y - other.y, self.z - other.z)
+        return NotImplemented
 
     def __repr__(self) -> str:
         """String representation of :class:`Point3D`."""

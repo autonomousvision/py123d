@@ -43,7 +43,7 @@ def convert_absolute_to_relative_se2_array(
     R_inv = np.array([[cos, -sin], [sin, cos]])
 
     pose_se2_rel = pose_se2_array - origin_array
-    pose_se2_rel[..., PoseSE2Index.XY] = pose_se2_rel[..., PoseSE2Index.XY] @ R_inv.T
+    pose_se2_rel[..., PoseSE2Index.XY] @= R_inv.T
     pose_se2_rel[..., PoseSE2Index.YAW] = normalize_angle(pose_se2_rel[..., PoseSE2Index.YAW])
 
     return pose_se2_rel
@@ -142,7 +142,7 @@ def convert_relative_to_absolute_points_2d_array(
     R = np.array([[cos, -sin], [sin, cos]], dtype=np.float64)
 
     points_2d_abs = points_2d_array @ R.T
-    points_2d_abs = points_2d_abs + origin_array[..., PoseSE2Index.XY]
+    points_2d_abs += origin_array[..., PoseSE2Index.XY]
 
     return points_2d_abs
 
