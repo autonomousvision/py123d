@@ -20,6 +20,8 @@ defaults:
   - _self_
 
 
+logger_level: info  # "debug", "info", "warning", "error"
+
 terminate_on_exception: True
 
 force_map_conversion: True

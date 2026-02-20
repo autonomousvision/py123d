@@ -32,10 +32,20 @@ class TestModuleExports:
 
         assert ProcessPoolExecutor is not None
 
-    def test_executor_map_importable(self):
-        from py123d.common.execution import executor_map
+    def test_executor_map_chunked_list_importable(self):
+        from py123d.common.execution import executor_map_chunked_list
 
-        assert executor_map is not None
+        assert executor_map_chunked_list is not None
+
+    def test_executor_map_chunked_single_importable(self):
+        from py123d.common.execution import executor_map_chunked_single
+
+        assert executor_map_chunked_single is not None
+
+    def test_executor_map_queued_importable(self):
+        from py123d.common.execution import executor_map_queued
+
+        assert executor_map_queued is not None
 
     def test_chunk_list_importable(self):
         from py123d.common.execution import chunk_list

@@ -11,16 +11,16 @@ logger = logging.getLogger(__name__)
 
 
 def build_map_writer(cfg: DictConfig) -> AbstractMapWriter:
-    logger.info("Building AbstractMapWriter...")
+    logger.debug("Building AbstractMapWriter...")
     map_writer: AbstractMapWriter = instantiate(cfg)
     validate_type(map_writer, AbstractMapWriter)
-    logger.info("Building AbstractMapWriter...DONE!")
+    logger.debug("Building AbstractMapWriter...DONE!")
     return map_writer
 
 
 def build_log_writer(cfg: DictConfig) -> AbstractLogWriter:
-    logger.info("Building AbstractLogWriter...")
+    logger.debug("Building AbstractLogWriter...")
     log_writer: AbstractLogWriter = instantiate(cfg)
     validate_type(log_writer, AbstractLogWriter)
-    logger.info("Building AbstractLogWriter...DONE!")
+    logger.debug("Building AbstractLogWriter...DONE!")
     return log_writer

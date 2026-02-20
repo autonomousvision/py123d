@@ -159,10 +159,12 @@ class RayExecutor(Executor):
         """
         ray.shutdown()
 
-    def _map(self, task: Task, *item_lists: Iterable[List[Any]], verbose: bool = False) -> List[Any]:
+    def _map(
+        self, task: Task, *item_lists: Iterable[List[Any]], verbose: bool = False, desc: Optional[str] = None
+    ) -> List[Any]:
         """Inherited, see superclass."""
         del verbose
-        return ray_map(task, *item_lists, log_dir=self._log_dir)  # type: ignore
+        return ray_map(task, *item_lists, log_dir=self._log_dir, desc=desc)  # type: ignore
 
     def submit(self, task: Task, *args: Any, **kwargs: Any) -> Future[Any]:
         """Inherited, see superclass."""

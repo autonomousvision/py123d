@@ -103,32 +103,38 @@ class Executor(abc.ABC):
         if self.config.number_of_threads < 1:
             raise RuntimeError(f"Number of threads can not be 0, and it is {self.config.number_of_threads}!")
 
-        logger.info(f"Executor: {self.__class__.__name__}")
-        logger.info(f"{self}")
+        logger.debug(f"Executor: {self.__class__.__name__}")
+        logger.debug(f"{self}")
 
-    def map(self, task: Task, *item_lists: Iterable[List[Any]], verbose: bool = False) -> List[Any]:
+    def map(
+        self, task: Task, *item_lists: Iterable[List[Any]], verbose: bool = False, desc: Optional[str] = None
+    ) -> List[Any]:
         """
         Run function with arguments from item_lists, this function will make sure all arguments have the same
         number of elements.
         :param task: function to be run.
         :param item_lists: arguments to the function.
         :param verbose: Whether to increase logger verbosity.
+        :param desc: Optional description for the progress bar.
         :return: type from the fn.
         """
         max_size, aligned_item_lists = align_size_of_arguments(*item_lists)
 
         if verbose:
             logger.info(f"Submitting {max_size} tasks!")
-        return self._map(task, *aligned_item_lists, verbose=verbose)
+        return self._map(task, *aligned_item_lists, verbose=verbose, desc=desc)
 
     @abc.abstractmethod
-    def _map(self, task: Task, *item_lists: Iterable[List[Any]], verbose: bool = False) -> List[Any]:
+    def _map(
+        self, task: Task, *item_lists: Iterable[List[Any]], verbose: bool = False, desc: Optional[str] = None
+    ) -> List[Any]:
         """
         Run function with arguments from item_lists. This function can assume that all the args in item_lists have
         the same number of elements.
         :param task: function to be run.
         :param item_lists: arguments to the function.
         :param verbose: Whether to increase logger verbosity.
+        :param desc: Optional description for the progress bar.
         :return: type from the fn.
         """
 

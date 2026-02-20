@@ -72,12 +72,15 @@ def wrap_function(fn: Callable[..., Any], log_dir: Optional[Path] = None) -> Cal
     return wrapped_fn
 
 
-def _ray_map_items(task: Task, *item_lists: Iterable[List[Any]], log_dir: Optional[Path] = None) -> List[Any]:
+def _ray_map_items(
+    task: Task, *item_lists: Iterable[List[Any]], log_dir: Optional[Path] = None, desc: Optional[str] = None
+) -> List[Any]:
     """Map each item of a list of arguments to a callable and executes in parallel.
 
     :param task: callable to be run
     :param item_lists: items to be parallelized
     :param log_dir: directory to store worker logs
+    :param desc: optional description for the progress bar
     :return: list of outputs
     """
     assert len(item_lists) > 0, "No map arguments received for mapping"
@@ -103,7 +106,7 @@ def _ray_map_items(task: Task, *item_lists: Iterable[List[Any]], log_dir: Option
     object_result_map = dict.fromkeys(object_ids, None)
 
     # Asynchronously iterate through the object and track progress
-    for object_id, output in tqdm(_ray_object_iterator(object_ids), total=len(object_ids), desc="Ray objects"):
+    for object_id, output in tqdm(_ray_object_iterator(object_ids), total=len(object_ids), desc=desc or "Ray objects"):
         object_result_map[object_id] = output
 
     results = list(object_result_map.values())
@@ -111,16 +114,19 @@ def _ray_map_items(task: Task, *item_lists: Iterable[List[Any]], log_dir: Option
     return results
 
 
-def ray_map(task: Task, *item_lists: Iterable[List[Any]], log_dir: Optional[Path] = None) -> List[Any]:
+def ray_map(
+    task: Task, *item_lists: Iterable[List[Any]], log_dir: Optional[Path] = None, desc: Optional[str] = None
+) -> List[Any]:
     """Initialize ray, align item lists and map each item of a list of arguments to a callable and executes in parallel.
 
     :param task: callable to be run
     :param item_lists: items to be parallelized
     :param log_dir: directory to store worker logs
+    :param desc: optional description for the progress bar
     :return: list of outputs
     """
     try:
-        results = _ray_map_items(task, *item_lists, log_dir=log_dir)
+        results = _ray_map_items(task, *item_lists, log_dir=log_dir, desc=desc)
         return results
     except (RayTaskError, Exception) as exc:
         ray.shutdown()

@@ -40,14 +40,16 @@ class ThreadPoolExecutor(Executor):
 
         self._executor = _ThreadPoolExecutor(max_workers=number_of_cpus_per_node)
 
-    def _map(self, task: Task, *item_lists: Iterable[List[Any]], verbose: bool = False) -> List[Any]:
+    def _map(
+        self, task: Task, *item_lists: Iterable[List[Any]], verbose: bool = False, desc: Optional[str] = None
+    ) -> List[Any]:
         """Inherited, see superclass."""
         return list(
             tqdm(
                 self._executor.map(task.fn, *item_lists),
                 leave=False,
                 total=get_max_size_of_arguments(*item_lists),
-                desc="ThreadPoolExecutor",
+                desc=desc or "ThreadPoolExecutor",
                 disable=not verbose,
             )
         )

@@ -5,7 +5,7 @@ Code is adapted from the nuplan-devkit: https://github.com/motional/nuplan-devki
 
 import logging
 from concurrent.futures import Future
-from typing import Any, Iterable, List
+from typing import Any, Iterable, List, Optional
 
 from tqdm import tqdm
 
@@ -30,7 +30,9 @@ class SequentialExecutor(Executor):
         """
         super().__init__(ExecutorResources(number_of_nodes=1, number_of_cpus_per_node=1, number_of_gpus_per_node=0))
 
-    def _map(self, task: Task, *item_lists: Iterable[List[Any]], verbose: bool = False) -> List[Any]:
+    def _map(
+        self, task: Task, *item_lists: Iterable[List[Any]], verbose: bool = False, desc: Optional[str] = None
+    ) -> List[Any]:
         """Inherited, see superclass."""
         if task.num_cpus not in [None, 1]:
             raise ValueError(f"Expected num_cpus to be 1 or unset for SequentialExecutor, got {task.num_cpus}")
@@ -40,7 +42,7 @@ class SequentialExecutor(Executor):
                 zip(*item_lists),
                 leave=False,
                 total=get_max_size_of_arguments(*item_lists),
-                desc="SequentialExecutor",
+                desc=desc or "SequentialExecutor",
                 disable=not verbose,
             )
         ]

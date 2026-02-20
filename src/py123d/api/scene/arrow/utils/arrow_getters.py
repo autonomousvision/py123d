@@ -4,8 +4,8 @@ from typing import Dict, List, Optional, Type, Union
 import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
-from omegaconf import DictConfig
 
+from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.utils.arrow_column_names import (
     BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN,
     BOX_DETECTIONS_LABEL_COLUMN,
@@ -63,17 +63,6 @@ from py123d.datatypes.sensors import (
 from py123d.datatypes.time import TimePoint
 from py123d.datatypes.vehicle_state import DynamicStateSE3, EgoStateSE3, VehicleParameters
 from py123d.geometry import BoundingBoxSE3, PoseSE3, Vector3D
-from py123d.script.utils.dataset_path_utils import get_dataset_paths
-
-DATASET_PATHS: DictConfig = get_dataset_paths()
-DATASET_SENSOR_ROOT: Dict[str, Path] = {
-    "av2-sensor": DATASET_PATHS.av2_sensor_data_root,
-    "nuplan": DATASET_PATHS.nuplan_sensor_root,
-    "nuscenes": DATASET_PATHS.nuscenes_data_root,
-    "wod_perception": DATASET_PATHS.wod_perception_data_root,
-    "pandaset": DATASET_PATHS.pandaset_data_root,
-    "kitti360": DATASET_PATHS.kitti360_data_root,
-}
 
 
 def get_timepoint_from_arrow_table(arrow_table: pa.Table, index: int) -> TimePoint:
@@ -234,7 +223,7 @@ def get_camera_from_arrow_table(
             image: Optional[npt.NDArray[np.uint8]] = None
 
             if isinstance(table_data, str):
-                sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
+                sensor_root = get_dataset_paths().get_sensor_root(log_metadata.dataset)
                 assert sensor_root is not None, (
                     f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}"
                 )
@@ -448,7 +437,8 @@ def _unoptimized_demo_mp4_read(log_metadata: LogMetadata, camera_name: str, fram
     """
     image: Optional[npt.NDArray[np.uint8]] = None
 
-    py123d_sensor_root = Path(DATASET_PATHS.py123d_sensors_root)
+    py123d_sensor_root = get_dataset_paths().py123d_sensors_root
+    assert py123d_sensor_root is not None, "PY123D_DATA_ROOT must be set for MP4 reading."
     mp4_path = py123d_sensor_root / log_metadata.split / log_metadata.log_name / f"{camera_name}.mp4"
     if mp4_path.exists():
         reader = get_mp4_reader_from_path(str(mp4_path))

@@ -43,14 +43,16 @@ class ProcessPoolExecutor(Executor):
             max_workers=max_workers, mp_context=multiprocessing.get_context("forkserver")
         )
 
-    def _map(self, task: Task, *item_lists: Iterable[List[Any]], verbose: bool = False) -> List[Any]:
+    def _map(
+        self, task: Task, *item_lists: Iterable[List[Any]], verbose: bool = False, desc: Optional[str] = None
+    ) -> List[Any]:
         """Inherited, see superclass."""
         return list(
             tqdm(
                 self._executor.map(task.fn, *item_lists),
                 leave=False,
                 total=get_max_size_of_arguments(*item_lists),
-                desc="ProcessPoolExecutor",
+                desc=desc or "ProcessPoolExecutor",
                 disable=not verbose,
             )
         )

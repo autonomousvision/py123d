@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import tqdm
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 LOGGING_LEVEL_MAP = {
     "error": logging.ERROR,
@@ -122,14 +122,13 @@ def build_logger(cfg: DictConfig) -> logging.Logger:
     """
     handler_configs = [LogHandlerConfig(level=cfg.logger_level)]
 
-    if cfg.output_dir is not None:
-        path = str(Path(cfg.output_dir) / "log.txt")
+    output_dir = OmegaConf.select(cfg, "output_dir", default=None)
+    if output_dir is not None:
+        path = str(Path(output_dir) / "log.txt")
         handler_configs.append(LogHandlerConfig(level=cfg.logger_level, path=path))
 
-    format_string = (
-        "%(asctime)s %(levelname)-2s {%(pathname)s:%(lineno)d}  %(message)s"
-        if not cfg.logger_format_string
-        else cfg.logger_format_string
+    format_string = OmegaConf.select(
+        cfg, "logger_format_string", default="%(asctime)s %(levelname)-2s {%(pathname)s:%(lineno)d}  %(message)s"
     )
     logger = configure_logger(handler_configs, format_str=format_string)
 

@@ -12,6 +12,7 @@ import shapely.geometry as geom
 
 from py123d.api.map.map_api import MapAPI
 from py123d.api.scene.arrow.utils.arrow_metadata_utils import get_map_metadata_from_arrow_table
+from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.common.utils.msgpack_utils import msgpack_decode_with_numpy
 from py123d.datatypes.map_objects.base_map_objects import BaseMapObject, MapObjectIDType
@@ -30,7 +31,6 @@ from py123d.datatypes.map_objects.map_objects import (
 )
 from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.geometry import OccupancyMap2D, Point2D, Point3D, Polyline3D
-from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
 # TODO: add to some configs
 MAX_LRU_CACHED_TABLES: Final[int] = 128

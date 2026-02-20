@@ -3,21 +3,10 @@ from typing import Dict, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
-from omegaconf import DictConfig
 
+from py123d.common.dataset_paths import get_dataset_paths
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.sensors.lidar import LiDARType
-from py123d.script.utils.dataset_path_utils import get_dataset_paths
-
-DATASET_PATHS: DictConfig = get_dataset_paths()
-DATASET_SENSOR_ROOT: Dict[str, Path] = {
-    "nuplan": DATASET_PATHS.nuplan_sensor_root,
-    "av2-sensor": DATASET_PATHS.av2_sensor_data_root,
-    "wod_perception": DATASET_PATHS.wod_perception_data_root,
-    "pandaset": DATASET_PATHS.pandaset_data_root,
-    "kitti360": DATASET_PATHS.kitti360_data_root,
-    "nuscenes": DATASET_PATHS.nuscenes_sensor_root,
-}
 
 
 def load_lidar_pcs_from_file(
@@ -37,15 +26,14 @@ def load_lidar_pcs_from_file(
     """
     # NOTE @DanielDauner: This function is designed s.t. it can load multiple lidar types at the same time.
     # Several datasets (e.g., PandaSet, nuScenes) have multiple LiDAR sensors stored in one file.
-    # Returning this as a dict allows us to handle this case without unnucessary io overhead.
+    # Returning this as a dict allows us to handle this case without unnecessary io overhead.
 
     assert relative_path is not None, "Relative path to LiDAR file must be provided."
     if sensor_root is None:
-        assert log_metadata.dataset in DATASET_SENSOR_ROOT.keys(), (
+        sensor_root = get_dataset_paths().get_sensor_root(log_metadata.dataset)
+        assert sensor_root is not None, (
             f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}."
         )
-        sensor_root = DATASET_SENSOR_ROOT[log_metadata.dataset]
-        assert sensor_root is not None, f"Dataset path for sensor loading not found for dataset: {log_metadata.dataset}"
 
     full_lidar_path = Path(sensor_root) / relative_path
     assert full_lidar_path.exists(), f"LiDAR file not found: {sensor_root} / {relative_path}"

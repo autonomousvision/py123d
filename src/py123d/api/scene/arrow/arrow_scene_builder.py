@@ -9,7 +9,8 @@ from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_builder import SceneBuilder
 from py123d.api.scene.scene_filter import SceneFilter
 from py123d.api.scene.scene_metadata import SceneMetadata
-from py123d.common.execution import Executor, executor_map
+from py123d.common.dataset_paths import get_dataset_paths
+from py123d.common.execution import Executor, executor_map_chunked_list
 from py123d.common.utils.arrow_column_names import (
     FISHEYE_CAMERA_DATA_COLUMN,
     LIDAR_DATA_COLUMN,
@@ -18,7 +19,6 @@ from py123d.common.utils.arrow_column_names import (
 )
 from py123d.common.utils.arrow_helper import open_arrow_table
 from py123d.common.utils.uuid_utils import convert_to_str_uuid
-from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
 
 class ArrowSceneBuilder(SceneBuilder):
@@ -39,6 +39,8 @@ class ArrowSceneBuilder(SceneBuilder):
         if maps_root is None:
             maps_root = get_dataset_paths().py123d_maps_root
 
+        assert logs_root is not None, "logs_root must be provided or PY123D_DATA_ROOT must be set."
+        assert maps_root is not None, "maps_root must be provided or PY123D_DATA_ROOT must be set."
         self._logs_root = Path(logs_root)
         self._maps_root = Path(maps_root)
 
@@ -52,7 +54,7 @@ class ArrowSceneBuilder(SceneBuilder):
         if len(log_paths) == 0:
             return []
 
-        scenes = executor_map(executor, partial(_extract_scenes_from_logs, filter=filter), log_paths)
+        scenes = executor_map_chunked_list(executor, partial(_extract_scenes_from_logs, filter=filter), log_paths)
         if filter.shuffle:
             random.shuffle(scenes)
 

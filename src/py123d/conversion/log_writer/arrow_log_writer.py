@@ -5,6 +5,7 @@ import numpy as np
 import pyarrow as pa
 
 from py123d.api.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
+from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.utils.arrow_column_names import (
     BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN,
     BOX_DETECTIONS_LABEL_COLUMN,
@@ -56,17 +57,15 @@ from py123d.geometry import BoundingBoxSE3Index, PoseSE3, PoseSE3Index, Vector3D
 
 
 def _get_logs_root() -> Path:
-    from py123d.script.utils.dataset_path_utils import get_dataset_paths  # noqa: PLC0415
-
-    DATASET_PATHS = get_dataset_paths()
-    return Path(DATASET_PATHS.py123d_logs_root)
+    logs_root = get_dataset_paths().py123d_logs_root
+    assert logs_root is not None, "PY123D_DATA_ROOT must be set."
+    return logs_root
 
 
 def _get_sensors_root() -> Path:
-    from py123d.script.utils.dataset_path_utils import get_dataset_paths  # noqa: PLC0415
-
-    DATASET_PATHS = get_dataset_paths()
-    return Path(DATASET_PATHS.py123d_sensors_root)
+    sensors_root = get_dataset_paths().py123d_sensors_root
+    assert sensors_root is not None, "PY123D_DATA_ROOT must be set."
+    return sensors_root
 
 
 def _store_option_to_arrow_type(
