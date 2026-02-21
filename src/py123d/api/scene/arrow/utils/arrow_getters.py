@@ -80,18 +80,21 @@ def get_ego_state_se3_from_arrow_table(
     arrow_table: pa.Table,
     index: int,
     vehicle_parameters: Optional[VehicleParameters],
+    timepoint: Optional[TimePoint] = None,
 ) -> Optional[EgoStateSE3]:
     """Builds a :class:`~py123d.datatypes.vehicle_state.EgoStateSE3` from an Arrow table at a given index.
 
     :param arrow_table: The Arrow table containing the ego state data.
     :param index: The index to extract the ego state from.
     :param vehicle_parameters: The vehicle parameters used to build the ego state.
+    :param timepoint: Optional pre-resolved timepoint. If None, extracted from the table.
     :return: The ego state at the given index, or None if not available.
     """
 
     ego_state_se3: Optional[EgoStateSE3] = None
     if _all_columns_in_schema(arrow_table, EGO_STATE_SE3_COLUMNS) and vehicle_parameters is not None:
-        timepoint = get_timepoint_from_arrow_table(arrow_table, index)
+        if timepoint is None:
+            timepoint = get_timepoint_from_arrow_table(arrow_table, index)
         rear_axle_se3 = PoseSE3.from_list(arrow_table[EGO_REAR_AXLE_SE3_COLUMN][index].as_py())
         dynamic_state_se3 = _get_optional_array_mixin(
             arrow_table[EGO_DYNAMIC_STATE_SE3_COLUMN][index].as_py(),
@@ -110,18 +113,21 @@ def get_box_detections_se3_from_arrow_table(
     arrow_table: pa.Table,
     index: int,
     log_metadata: LogMetadata,
+    timepoint: Optional[TimePoint] = None,
 ) -> BoxDetectionWrapper:
     """Builds a :class:`~py123d.datatypes.detections.BoxDetectionWrapper` from an Arrow table at a given index.
 
     :param arrow_table: The Arrow table containing the box detections data.
     :param index: The index to extract the box detections from.
     :param log_metadata: The log metadata, contained the label class information.
+    :param timepoint: Optional pre-resolved timepoint. If None, extracted from the table.
     :return: The BoxDetectionWrapper at the given index.
     """
 
     box_detections: Optional[BoxDetectionWrapper] = None
     if _all_columns_in_schema(arrow_table, BOX_DETECTIONS_SE3_COLUMNS):
-        timepoint = get_timepoint_from_arrow_table(arrow_table, index)
+        if timepoint is None:
+            timepoint = get_timepoint_from_arrow_table(arrow_table, index)
         box_detections_list: List[BoxDetectionSE3] = []
         box_detection_label_class = log_metadata.box_detection_label_class
         assert box_detection_label_class is not None, "Box detection label class mapping not found in log metadata."
@@ -152,16 +158,19 @@ def get_box_detections_se3_from_arrow_table(
 def get_traffic_light_detections_from_arrow_table(
     arrow_table: pa.Table,
     index: int,
+    timepoint: Optional[TimePoint] = None,
 ) -> Optional[TrafficLightDetectionWrapper]:
     """Builds a :class:`~py123d.datatypes.detections.TrafficLightDetectionWrapper` from an Arrow table at a given index.
 
     :param arrow_table: The Arrow table containing the traffic light detections data.
     :param index: The index to extract the traffic light detections from.
+    :param timepoint: Optional pre-resolved timepoint. If None, extracted from the table.
     :return: The TrafficLightDetectionWrapper at the given index, or None if not available.
     """
     traffic_lights: Optional[TrafficLightDetectionWrapper] = None
     if _all_columns_in_schema(arrow_table, TRAFFIC_LIGHTS_COLUMNS):
-        timepoint = get_timepoint_from_arrow_table(arrow_table, index)
+        if timepoint is None:
+            timepoint = get_timepoint_from_arrow_table(arrow_table, index)
         traffic_light_detections: List[TrafficLightDetection] = []
         for lane_id, status in zip(
             arrow_table[TRAFFIC_LIGHTS_LANE_ID_COLUMN][index].as_py(),
