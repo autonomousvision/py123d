@@ -46,7 +46,7 @@ class SceneAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_timestamp_at_iteration(self, iteration: int) -> Timestamp:
-        """Returns the :class:`~py123d.datatypes.time.TimePoint` at a given iteration.
+        """Returns the :class:`~py123d.datatypes.time.Timestamp` at a given iteration.
 
         :param iteration: The iteration to get the timestamp for.
         :return: The timestamp at the given iteration.

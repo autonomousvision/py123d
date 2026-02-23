@@ -3,27 +3,27 @@ import pytest
 from py123d.datatypes.time.time_point import Timestamp
 
 
-class TestTimePoint:
+class TestTimestamp:
     def test_from_ns(self):
-        """Test constructing TimePoint from nanoseconds."""
+        """Test constructing Timestamp from nanoseconds."""
         tp = Timestamp.from_ns(1000000)
         assert tp.time_ns == 1000000
         assert tp.time_us == 1000
 
     def test_from_us(self):
-        """Test constructing TimePoint from microseconds."""
+        """Test constructing Timestamp from microseconds."""
         tp = Timestamp.from_us(1000)
         assert tp.time_us == 1000
         assert tp.time_ns == 1000000
 
     def test_from_ms(self):
-        """Test constructing TimePoint from milliseconds."""
+        """Test constructing Timestamp from milliseconds."""
         tp = Timestamp.from_ms(1.5)
         assert tp.time_ms == 1.5
         assert tp.time_us == 1500
 
     def test_from_s(self):
-        """Test constructing TimePoint from seconds."""
+        """Test constructing Timestamp from seconds."""
         tp = Timestamp.from_s(2.5)
         assert tp.time_s == 2.5
         assert tp.time_us == 2500000

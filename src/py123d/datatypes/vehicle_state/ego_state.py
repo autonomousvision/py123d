@@ -128,7 +128,7 @@ class EgoStateSE3:
 
     @property
     def timestamp(self) -> Optional[Timestamp]:
-        """The :class:`~py123d.datatypes.time.TimePoint` of the ego state, if available."""
+        """The :class:`~py123d.datatypes.time.Timestamp` of the ego state, if available."""
         return self._timestamp
 
     @property
@@ -299,7 +299,7 @@ class EgoStateSE2:
 
     @property
     def timestamp(self) -> Optional[Timestamp]:
-        """The :class:`~py123d.datatypes.time.TimePoint` of the ego state, if available."""
+        """The :class:`~py123d.datatypes.time.Timestamp` of the ego state, if available."""
         return self._timestamp
 
     @property

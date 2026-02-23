@@ -69,11 +69,11 @@ from py123d.geometry import BoundingBoxSE3, PoseSE3, Vector3D
 
 
 def get_timestamp_from_arrow_table(arrow_table: pa.Table, index: int) -> Timestamp:
-    """Builds a :class:`~py123d.datatypes.time.TimePoint` from an Arrow table at a given index.
+    """Builds a :class:`~py123d.datatypes.time.Timestamp` from an Arrow table at a given index.
 
     :param arrow_table: The Arrow table containing the timestamp data.
     :param index: The index to extract the timestamp from.
-    :return: The TimePoint at the given index.
+    :return: The Timestamp at the given index.
     """
     assert TIMESTAMP_US_COLUMN in arrow_table.schema.names, "Timestamp column not found in Arrow table."
     return Timestamp.from_us(arrow_table[TIMESTAMP_US_COLUMN][index].as_py())

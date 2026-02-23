@@ -15,7 +15,7 @@ from py123d.geometry import PoseSE3
 class TestPinholeCameraID:
     """Test PinholeCameraID enum functionality."""
 
-    def test_camera_type_values(self):
+    def test_camera_id_values(self):
         """Test that camera type enum has expected values."""
         assert PinholeCameraID.PCAM_F0 == PinholeCameraID.PCAM_F0
         assert PinholeCameraID.PCAM_B0 == PinholeCameraID.PCAM_B0
@@ -28,18 +28,18 @@ class TestPinholeCameraID:
         assert PinholeCameraID.PCAM_STEREO_L == PinholeCameraID.PCAM_STEREO_L
         assert PinholeCameraID.PCAM_STEREO_R == PinholeCameraID.PCAM_STEREO_R
 
-    def test_camera_type_from_int(self):
+    def test_camera_id_from_int(self):
         """Test creating camera type from integer."""
         assert PinholeCameraID(0) == PinholeCameraID.PCAM_F0
         assert PinholeCameraID(5) == PinholeCameraID.PCAM_R0
         assert PinholeCameraID(9) == PinholeCameraID.PCAM_STEREO_R
 
-    def test_camera_type_count(self):
+    def test_camera_id_count(self):
         """Test that all camera types are defined."""
         camera_ids = list(PinholeCameraID)
         assert len(camera_ids) == 10
 
-    def test_camera_type_unique_values(self):
+    def test_camera_id_unique_values(self):
         """Test that all camera type values are unique."""
         values = [ct.value for ct in PinholeCameraID]
         assert len(values) == len(set(values))
@@ -283,7 +283,7 @@ class TestPinholeMetadata:
         """Test creating metadata from dict with None intrinsics."""
         data_dict = {
             "camera_name": "TestCamera",
-            "camera_type": 1,
+            "camera_id": 1,
             "intrinsics": None,
             "distortion": [0.1, 0.01, 0.001, 0.001, 0.001],
             "width": 800,
@@ -293,7 +293,7 @@ class TestPinholeMetadata:
         metadata = PinholeCameraMetadata.from_dict(data_dict)
 
         assert metadata.camera_name == "TestCamera"
-        assert metadata.camera_type == PinholeCameraID.PCAM_B0
+        assert metadata.camera_id == PinholeCameraID.PCAM_B0
         assert metadata.intrinsics is None
         assert metadata.distortion is not None
         assert metadata.width == 800
@@ -303,7 +303,7 @@ class TestPinholeMetadata:
         """Test creating metadata from dict with None distortion."""
         data_dict = {
             "camera_name": "TestCamera",
-            "camera_type": 2,
+            "camera_id": 2,
             "intrinsics": [600.0, 600.0, 400.0, 300.0, 0.0],
             "distortion": None,
             "width": 800,
@@ -313,7 +313,7 @@ class TestPinholeMetadata:
 
         metadata = PinholeCameraMetadata.from_dict(data_dict)
 
-        assert metadata.camera_type == PinholeCameraID.PCAM_L0
+        assert metadata.camera_id == PinholeCameraID.PCAM_L0
         assert metadata.intrinsics is not None
         assert metadata.distortion is None
 
@@ -388,7 +388,7 @@ class TestPinholeMetadata:
         data_dict = metadata.to_dict()
 
         assert isinstance(data_dict["camera_name"], str)
-        assert isinstance(data_dict["camera_type"], int)
+        assert isinstance(data_dict["camera_id"], int)
         assert isinstance(data_dict["width"], int)
         assert isinstance(data_dict["height"], int)
         assert isinstance(data_dict["intrinsics"], list)
@@ -398,16 +398,16 @@ class TestPinholeMetadata:
         """Test metadata creation with all camera types."""
         intrinsics = PinholeIntrinsics(fx=500.0, fy=500.0, cx=320.0, cy=240.0)
 
-        for camera_type in PinholeCameraID:
+        for camera_id in PinholeCameraID:
             metadata = PinholeCameraMetadata(
                 camera_name="TestCamera",
-                camera_id=camera_type,
+                camera_id=camera_id,
                 intrinsics=intrinsics,
                 distortion=None,
                 width=640,
                 height=480,
             )
-            assert metadata.camera_type == camera_type
+            assert metadata.camera_id == camera_id
 
     def test_metadata_square_image(self):
         """Test metadata with square image dimensions."""
@@ -533,7 +533,7 @@ class TestPinholeCamera:
         image = np.zeros((480, 640, 3), dtype=np.uint8)
         extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
 
-        for camera_type in [
+        for camera_id in [
             PinholeCameraID.PCAM_F0,
             PinholeCameraID.PCAM_B0,
             PinholeCameraID.PCAM_STEREO_L,
@@ -541,14 +541,14 @@ class TestPinholeCamera:
         ]:
             metadata = PinholeCameraMetadata(
                 camera_name="TestCamera",
-                camera_id=camera_type,
+                camera_id=camera_id,
                 intrinsics=intrinsics,
                 distortion=None,
                 width=640,
                 height=480,
             )
             camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic)
-            assert camera.metadata.camera_type == camera_type
+            assert camera.metadata.camera_id == camera_id
 
     def test_pinhole_camera_with_different_resolutions(self):
         """Test PinholeCamera with different image resolutions."""

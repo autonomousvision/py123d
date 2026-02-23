@@ -372,7 +372,7 @@ def _extract_nuplan_traffic_lights(log_db: NuPlanDB, lidar_pc_token: str) -> Tra
     """Extracts the nuPlan traffic light detections from a given LidarPc database objects."""
     traffic_lights_detections: List[TrafficLightDetection] = [
         TrafficLightDetection(
-            timestamp=None,  # NOTE: Timepoint is not needed during writing, set to None
+            timestamp=None,  # NOTE: Timestamp is not needed during writing, set to None
             lane_id=int(traffic_light.lane_connector_id),
             status=NUPLAN_TRAFFIC_STATUS_DICT[traffic_light.status],
         )

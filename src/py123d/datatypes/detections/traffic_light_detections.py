@@ -57,7 +57,7 @@ class TrafficLightDetection:
 
     @property
     def timestamp(self) -> Optional[Timestamp]:
-        """The optional :class:`~py123d.datatypes.time.TimePoint` of the traffic light detection."""
+        """The optional :class:`~py123d.datatypes.time.Timestamp` of the traffic light detection."""
         return self._timestamp
 
 

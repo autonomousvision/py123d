@@ -235,7 +235,7 @@ class FisheyeMEICameraMetadata:
 
     __slots__ = (
         "_camera_name",
-        "_camera_type",
+        "_camera_id",
         "_mirror_parameter",
         "_distortion",
         "_projection",
@@ -247,7 +247,7 @@ class FisheyeMEICameraMetadata:
     def __init__(
         self,
         camera_name: str,
-        camera_type: FisheyeMEICameraID,
+        camera_id: FisheyeMEICameraID,
         mirror_parameter: Optional[float],
         distortion: Optional[FisheyeMEIDistortion],
         projection: Optional[FisheyeMEIProjection],
@@ -258,7 +258,7 @@ class FisheyeMEICameraMetadata:
         """Initialize the fisheye MEI camera metadata.
 
         :param camera_name: Name of the fisheye MEI camera, according to the dataset naming convention.
-        :param camera_type: Type of the fisheye MEI camera.
+        :param camera_id: ID of the fisheye MEI camera.
         :param mirror_parameter: Mirror parameter of the camera model.
         :param distortion: Distortion parameters of the camera.
         :param projection: Projection parameters of the camera.
@@ -267,7 +267,7 @@ class FisheyeMEICameraMetadata:
         :param static_extrinsic: Static extrinsic pose of the camera.
         """
         self._camera_name = camera_name
-        self._camera_type = camera_type
+        self._camera_id = camera_id
         self._mirror_parameter = mirror_parameter
         self._distortion = distortion
         self._projection = projection
@@ -308,7 +308,7 @@ class FisheyeMEICameraMetadata:
     @property
     def camera_id(self) -> FisheyeMEICameraID:
         """The ID of the fisheye MEI camera."""
-        return self._camera_type
+        return self._camera_id
 
     @property
     def mirror_parameter(self) -> Optional[float]:
@@ -352,7 +352,7 @@ class FisheyeMEICameraMetadata:
         """
         data_dict: Dict[str, Any] = {}
         data_dict["camera_name"] = self._camera_name
-        data_dict["camera_type"] = int(self._camera_type)
+        data_dict["camera_id"] = int(self.camera_id)
         data_dict["mirror_parameter"] = self._mirror_parameter
         data_dict["distortion"] = self._distortion.array.tolist() if self._distortion is not None else None
         data_dict["projection"] = self._projection.array.tolist() if self._projection is not None else None

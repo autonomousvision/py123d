@@ -51,7 +51,7 @@ class BoxDetectionMetadata:
 
     @property
     def timestamp(self) -> Optional[Timestamp]:
-        """Optionally, the :class:`~py123d.datatypes.time.TimePoint` of the detection."""
+        """Optionally, the :class:`~py123d.datatypes.time.Timestamp` of the detection."""
         return self._timestamp
 
     @property

@@ -87,7 +87,7 @@ class PinholeCamera:
 
     @property
     def timestamp(self) -> Optional[Timestamp]:
-        """The :class:`~py123d.datatypes.time.TimePoint` of the image capture, if available."""
+        """The :class:`~py123d.datatypes.time.Timestamp` of the image capture, if available."""
         return self._timestamp
 
 
