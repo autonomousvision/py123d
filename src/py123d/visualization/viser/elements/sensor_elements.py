@@ -1,5 +1,5 @@
 import concurrent.futures
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -9,11 +9,11 @@ import viser
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.datatypes.sensors import (
     FisheyeMEICamera,
+    FisheyeMEICameraID,
     FisheyeMEICameraMetadata,
-    FisheyeMEICameraType,
-    LiDARType,
+    LidarID,
     PinholeCamera,
-    PinholeCameraType,
+    PinholeCameraID,
 )
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import PoseSE3Index
@@ -21,7 +21,6 @@ from py123d.geometry.transform.transform_se3 import (
     rel_to_abs_points_3d_array,
     rel_to_abs_se3_array,
 )
-from py123d.visualization.color.color import TAB_10
 from py123d.visualization.viser.viser_config import ViserConfig
 
 
@@ -31,14 +30,14 @@ def add_camera_frustums_to_viser_server(
     initial_ego_state: EgoStateSE3,
     viser_server: viser.ViserServer,
     viser_config: ViserConfig,
-    camera_frustum_handles: Dict[PinholeCameraType, viser.CameraFrustumHandle],
+    camera_frustum_handles: Dict[PinholeCameraID, viser.CameraFrustumHandle],
 ) -> None:
     if viser_config.camera_frustum_visible:
         scene_center_array = initial_ego_state.center_se3.point_3d.array
         ego_pose = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
         ego_pose[PoseSE3Index.XYZ] -= scene_center_array
 
-        def _add_camera_frustums_to_viser_server(camera_type: PinholeCameraType) -> None:
+        def _add_camera_frustums_to_viser_server(camera_type: PinholeCameraID) -> None:
             camera = scene.get_pinhole_camera_at_iteration(scene_interation, camera_type)
             if camera is not None:
                 camera_position, camera_quaternion, camera_image = _get_camera_values(
@@ -83,14 +82,14 @@ def add_fisheye_frustums_to_viser_server(
     initial_ego_state: EgoStateSE3,
     viser_server: viser.ViserServer,
     viser_config: ViserConfig,
-    fisheye_frustum_handles: Dict[FisheyeMEICameraType, viser.CameraFrustumHandle],
+    fisheye_frustum_handles: Dict[FisheyeMEICameraID, viser.CameraFrustumHandle],
 ) -> None:
     if viser_config.fisheye_frustum_visible:
         scene_center_array = initial_ego_state.center_se3.point_3d.array
         ego_pose = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
         ego_pose[PoseSE3Index.XYZ] -= scene_center_array
 
-        def _add_fisheye_frustums_to_viser_server(fisheye_camera_type: FisheyeMEICameraType) -> None:
+        def _add_fisheye_frustums_to_viser_server(fisheye_camera_type: FisheyeMEICameraID) -> None:
             camera = scene.get_fisheye_mei_camera_at_iteration(scene_interation, fisheye_camera_type)
             if camera is not None:
                 fcam_position, fcam_quaternion, fcam_image = _get_fisheye_camera_values(
@@ -134,7 +133,7 @@ def add_camera_gui_to_viser_server(
     scene_interation: int,
     viser_server: viser.ViserServer,
     viser_config: ViserConfig,
-    camera_gui_handles: Dict[PinholeCameraType, viser.GuiImageHandle],
+    camera_gui_handles: Dict[PinholeCameraID, viser.GuiImageHandle],
 ) -> None:
     if viser_config.camera_gui_visible:
         for camera_type in viser_config.camera_gui_types:
@@ -158,66 +157,36 @@ def add_lidar_pc_to_viser_server(
     initial_ego_state: EgoStateSE3,
     viser_server: viser.ViserServer,
     viser_config: ViserConfig,
-    lidar_pc_handles: Dict[LiDARType, Optional[viser.PointCloudHandle]],
+    lidar_pc_handles: Dict[LidarID, Optional[viser.PointCloudHandle]],
 ) -> None:
     if viser_config.lidar_visible:
         scene_center_array = initial_ego_state.center_se3.point_3d.array
         ego_pose = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
         ego_pose[PoseSE3Index.XYZ] -= scene_center_array
 
-        def _load_lidar_points(lidar_type: LiDARType) -> npt.NDArray[np.float32]:
-            lidar = scene.get_lidar_at_iteration(scene_interation, lidar_type)
-            if lidar is not None:
-                return lidar.xyz
-            else:
-                return np.zeros((0, 3), dtype=np.float32)
+        import time
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=len(viser_config.lidar_types)) as executor:
-            future_to_lidar = {
-                executor.submit(_load_lidar_points, lidar_type): lidar_type for lidar_type in viser_config.lidar_types
-            }
-            lidar_points_3d_list: List[npt.NDArray[np.float32]] = []
-            for future in concurrent.futures.as_completed(future_to_lidar):
-                lidar_points_3d_list.append(future.result())
+        start = time.time()
+        lidar = scene.get_lidar_at_iteration(scene_interation, LidarID.LIDAR_MERGED)
+        print(f"Time to get lidar from scene: {(time.time() - start) * 1000:.2f} ms")
 
-        points_3d_local = (
-            np.concatenate(lidar_points_3d_list, axis=0) if lidar_points_3d_list else np.zeros((0, 3), dtype=np.float32)
-        )
-
-        colors = []
-        for idx, points in enumerate(lidar_points_3d_list):
-            color = np.array(TAB_10[idx % len(TAB_10)].rgb, dtype=np.uint8)
-            colors.append(np.tile(color, (points.shape[0], 1)))
-        colors = np.vstack(colors) if colors else np.zeros((0, 3), dtype=np.uint8)
-
+        points_3d_local = lidar.xyz if lidar is not None else np.zeros((0, 3), dtype=np.float32)
         points = rel_to_abs_points_3d_array(ego_pose, points_3d_local)
         colors = np.zeros_like(points)
 
-        # # TODO: remove:
-        # lidar = scene.get_lidar_at_iteration(scene_interation, LiDARType.LIDAR_TOP)
-        # lidar_extrinsic = rel_to_abs_se3_array(
-        #     origin=ego_pose, se3_array=lidar.metadata.extrinsic.array
-        # )
-
-        # viser_server.scene.add_frame(
-        #     "lidar_frame",
-        #     position=lidar_extrinsic[PoseSE3Index.XYZ],
-        #     wxyz=lidar_extrinsic[PoseSE3Index.QUATERNION],
-        # )
-
-        if lidar_pc_handles[LiDARType.LIDAR_MERGED] is not None:
-            lidar_pc_handles[LiDARType.LIDAR_MERGED].points = points
-            lidar_pc_handles[LiDARType.LIDAR_MERGED].colors = colors
+        if lidar_pc_handles[LidarID.LIDAR_MERGED] is not None:
+            lidar_pc_handles[LidarID.LIDAR_MERGED].points = points
+            lidar_pc_handles[LidarID.LIDAR_MERGED].colors = colors
         else:
-            lidar_pc_handles[LiDARType.LIDAR_MERGED] = viser_server.scene.add_point_cloud(
+            lidar_pc_handles[LidarID.LIDAR_MERGED] = viser_server.scene.add_point_cloud(
                 "lidar_points",
                 points=points,
                 colors=colors,
                 point_size=viser_config.lidar_point_size,
                 point_shape=viser_config.lidar_point_shape,
             )
-    elif lidar_pc_handles[LiDARType.LIDAR_MERGED] is not None:
-        lidar_pc_handles[LiDARType.LIDAR_MERGED].visible = False
+    elif lidar_pc_handles[LidarID.LIDAR_MERGED] is not None:
+        lidar_pc_handles[LidarID.LIDAR_MERGED].visible = False
 
 
 def _get_camera_values(

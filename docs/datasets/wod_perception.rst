@@ -57,25 +57,25 @@ Available Modalities
      -
       Includes 5 cameras, see :class:`~py123d.datatypes.sensors.PinholeCamera`:
 
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_F0` (front_camera)
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_L0` (front_left_camera)
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_R0` (front_right_camera)
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_L1` (left_camera)
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_R1` (right_camera)
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_F0` (front_camera)
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_L0` (front_left_camera)
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_R0` (front_right_camera)
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_L1` (left_camera)
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_R1` (right_camera)
 
    * - Fisheye Cameras
      - X
      - n/a
-   * - LiDARs
+   * - Lidars
      - ✓
      -
-      Includes 5 LiDARs, see :class:`~py123d.datatypes.sensors.LiDAR`:
+      Includes 5 Lidars, see :class:`~py123d.datatypes.sensors.Lidar`:
 
-      - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_TOP` (top)
-      - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_FRONT` (front)
-      - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_SIDE_LEFT` (side_left)
-      - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_SIDE_RIGHT` (side_right)
-      - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_BACK` (rear)
+      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_TOP` (top)
+      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_FRONT` (front)
+      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_SIDE_LEFT` (side_left)
+      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_SIDE_RIGHT` (side_right)
+      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_BACK` (rear)
 
 .. dropdown:: Dataset Specific
 
@@ -84,7 +84,7 @@ Available Modalities
     :members:
     :no-inherited-members:
 
-  .. autoclass:: py123d.conversion.registry.WODPerceptionLiDARIndex
+  .. autoclass:: py123d.conversion.registry.WODPerceptionLidarIndex
     :members:
     :no-inherited-members:
 
@@ -165,7 +165,7 @@ You can convert the Waymo Open Dataset for Perception by running:
   py123d-conversion datasets=["wod-perception"]
 
 .. note::
-  The conversion of WOD-Perception by default stores the camera images as jpegs and the LiDAR point clouds as binary files in the logs.
+  The conversion of WOD-Perception by default stores the camera images as jpegs and the Lidar point clouds as binary files in the logs.
   Thus, the logs need fairly large disk space. Reading from the raw TFRecord files is also supported, but requires the Waymo Open Dataset specific dependencies (see above) and might be slower.
   To change the default behavior, you need to adapt the ``wod-perception.yaml`` converter configuration.
 

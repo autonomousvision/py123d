@@ -11,7 +11,7 @@ from nuplan.database.nuplan_db.query_session import execute_many, execute_one
 
 
 def get_box_detections_for_lidarpc_token_from_db(log_file: str, token: str) -> List[BoxDetectionSE3]:
-    """Gets the box detections for a given LiDAR point cloud token from the NuPlan database."""
+    """Gets the box detections for a given Lidar point cloud token from the NuPlan database."""
 
     query = """
         SELECT  c.name AS category_name,

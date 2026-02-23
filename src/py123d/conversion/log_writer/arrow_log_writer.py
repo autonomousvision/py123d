@@ -1,7 +1,9 @@
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import numpy as np
+import numpy.typing as npt
 import pyarrow as pa
 
 from py123d.api.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
@@ -17,7 +19,9 @@ from py123d.common.utils.arrow_column_names import (
     FISHEYE_CAMERA_DATA_COLUMN,
     FISHEYE_CAMERA_EXTRINSIC_COLUMN,
     FISHEYE_CAMERA_TIMESTAMP_COLUMN,
-    LIDAR_DATA_COLUMN,
+    LIDAR_PATH_COLUMN,
+    LIDAR_POINT_CLOUD_COLUMN,
+    LIDAR_POINT_CLOUD_FEATURE_COLUMN,
     PINHOLE_CAMERA_DATA_COLUMN,
     PINHOLE_CAMERA_EXTRINSIC_COLUMN,
     PINHOLE_CAMERA_TIMESTAMP_COLUMN,
@@ -30,7 +34,7 @@ from py123d.common.utils.arrow_column_names import (
 )
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.conversion.abstract_dataset_converter import AbstractLogWriter, DatasetConverterConfig
-from py123d.conversion.log_writer.abstract_log_writer import CameraData, LiDARData
+from py123d.conversion.log_writer.abstract_log_writer import CameraData, LidarData
 from py123d.conversion.sensor_io.camera.jpeg_camera_io import (
     decode_image_from_jpeg_binary,
     encode_image_as_jpeg_binary,
@@ -43,16 +47,24 @@ from py123d.conversion.sensor_io.camera.png_camera_io import (
     load_image_from_png_file,
     load_png_binary_from_png_file,
 )
-from py123d.conversion.sensor_io.lidar.draco_lidar_io import encode_lidar_pc_as_draco_binary
-from py123d.conversion.sensor_io.lidar.file_lidar_io import load_lidar_pcs_from_file
-from py123d.conversion.sensor_io.lidar.laz_lidar_io import encode_lidar_pc_as_laz_binary
-from py123d.datatypes.detections.box_detections import BoxDetectionSE3, BoxDetectionWrapper
-from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
-from py123d.datatypes.metadata import LogMetadata
-from py123d.datatypes.sensors import LiDARType, PinholeCameraType
-from py123d.datatypes.time.time_point import TimePoint
-from py123d.datatypes.vehicle_state.dynamic_state import DynamicStateSE3Index
-from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
+from py123d.conversion.sensor_io.lidar.draco_lidar_io import encode_point_cloud_3d_as_draco_binary
+from py123d.conversion.sensor_io.lidar.ipc_lidar_io import (
+    encode_point_cloud_3d_as_ipc_binary,
+    encode_point_cloud_features_as_ipc_binary,
+)
+from py123d.conversion.sensor_io.lidar.laz_lidar_io import encode_point_cloud_3d_as_laz_binary
+from py123d.conversion.sensor_io.lidar.path_lidar_io import load_point_cloud_data_from_path
+from py123d.datatypes import (
+    BoxDetectionSE3,
+    BoxDetectionWrapper,
+    DynamicStateSE3Index,
+    EgoStateSE3,
+    LidarID,
+    LogMetadata,
+    PinholeCameraID,
+    Timestamp,
+    TrafficLightDetectionWrapper,
+)
 from py123d.geometry import BoundingBoxSE3Index, PoseSE3, PoseSE3Index, Vector3DIndex
 
 
@@ -68,8 +80,8 @@ def _get_sensors_root() -> Path:
     return sensors_root
 
 
-def _store_option_to_arrow_type(
-    store_option: Literal["path", "jpeg_binary", "png_binary", "laz_binary", "draco_binary", "mp4"],
+def _camera_store_option_to_arrow_type(
+    store_option: Literal["path", "jpeg_binary", "png_binary", "mp4"],
 ) -> pa.DataType:
     """Maps the store option literal to the corresponding Arrow data type."""
     data_type_map = {
@@ -119,7 +131,7 @@ class ArrowLogWriter(AbstractLogWriter):
         # Loaded during .reset() and cleared during .close()
         self._dataset_converter_config: Optional[DatasetConverterConfig] = None
         self._log_metadata: Optional[LogMetadata] = None
-        self._schema: Optional[LogMetadata] = None
+        self._schema: Optional[pa.Schema] = None
         self._source: Optional[pa.NativeFile] = None
         self._record_batch_writer: Optional[pa.ipc.RecordBatchWriter] = None  # pyright: ignore[reportAttributeAccessIssue]
         self._pinhole_mp4_writers: Dict[str, MP4Writer] = {}
@@ -164,13 +176,14 @@ class ArrowLogWriter(AbstractLogWriter):
 
     def write(
         self,
-        timestamp: TimePoint,
+        timestamp: Timestamp,
+        uuid: Optional[uuid.UUID] = None,
         ego_state: Optional[EgoStateSE3] = None,
         box_detections: Optional[BoxDetectionWrapper] = None,
         traffic_lights: Optional[TrafficLightDetectionWrapper] = None,
         pinhole_cameras: Optional[List[CameraData]] = None,
         fisheye_mei_cameras: Optional[List[CameraData]] = None,
-        lidars: Optional[List[LiDARData]] = None,
+        lidar: Optional[LidarData] = None,
         scenario_tags: Optional[List[str]] = None,
         route_lane_group_ids: Optional[List[int]] = None,
         **kwargs,
@@ -183,16 +196,13 @@ class ArrowLogWriter(AbstractLogWriter):
         assert self._record_batch_writer is not None, "Log writer is not initialized."
         assert self._source is not None, "Log writer is not initialized."
 
-        record_batch_data = {
-            UUID_COLUMN: [
-                create_deterministic_uuid(
-                    split=self._log_metadata.split,
-                    log_name=self._log_metadata.log_name,
-                    timestamp_us=timestamp.time_us,
-                ).bytes
-            ],
-            TIMESTAMP_US_COLUMN: [timestamp.time_us],
-        }
+        if uuid is None:
+            uuid = create_deterministic_uuid(
+                split=self._log_metadata.split,
+                log_name=self._log_metadata.log_name,
+                timestamp_us=timestamp.time_us,
+            )
+        record_batch_data = {UUID_COLUMN: [uuid.bytes], TIMESTAMP_US_COLUMN: [timestamp.time_us]}
 
         # --------------------------------------------------------------------------------------------------------------
         # Ego State
@@ -257,10 +267,10 @@ class ArrowLogWriter(AbstractLogWriter):
                 pinhole_cameras, self._dataset_converter_config.pinhole_camera_store_option
             )
             provided_pinhole_extrinsics = {
-                camera_data.camera_type: camera_data.extrinsic for camera_data in pinhole_cameras
+                camera_data.camera_id: camera_data.extrinsic for camera_data in pinhole_cameras
             }
             provided_pinhole_timestamps = {
-                camera_data.camera_type: camera_data.timestamp for camera_data in pinhole_cameras
+                camera_data.camera_id: camera_data.timestamp for camera_data in pinhole_cameras
             }
             expected_pinhole_cameras = set(self._log_metadata.pinhole_camera_metadata.keys())
 
@@ -273,7 +283,7 @@ class ArrowLogWriter(AbstractLogWriter):
                 # camera data as a dictionary, list or struct-like object in the columns.
                 pinhole_camera_data: Optional[Any] = None
                 pinhole_camera_pose: Optional[PoseSE3] = None
-                pinhole_camera_timestamp: Optional[TimePoint] = None
+                pinhole_camera_timestamp: Optional[Timestamp] = None
                 if pinhole_camera_type in provided_pinhole_data:
                     pinhole_camera_data = provided_pinhole_data[pinhole_camera_type]
                     pinhole_camera_pose = provided_pinhole_extrinsics[pinhole_camera_type]
@@ -296,10 +306,10 @@ class ArrowLogWriter(AbstractLogWriter):
                 fisheye_mei_cameras, self._dataset_converter_config.fisheye_mei_camera_store_option
             )
             provided_fisheye_mei_extrinsics = {
-                camera_data.camera_type: camera_data.extrinsic for camera_data in fisheye_mei_cameras
+                camera_data.camera_id: camera_data.extrinsic for camera_data in fisheye_mei_cameras
             }
             provided_fisheye_mei_timestamps = {
-                camera_data.camera_type: camera_data.timestamp for camera_data in fisheye_mei_cameras
+                camera_data.camera_id: camera_data.timestamp for camera_data in fisheye_mei_cameras
             }
             expected_fisheye_mei_cameras = set(self._log_metadata.fisheye_mei_camera_metadata.keys())
 
@@ -310,7 +320,7 @@ class ArrowLogWriter(AbstractLogWriter):
                 # In this case, we write None/null to the arrow table.
                 fisheye_mei_camera_data: Optional[Any] = None
                 fisheye_mei_camera_pose: Optional[PoseSE3] = None
-                fisheye_mei_camera_timestamp: Optional[TimePoint] = None
+                fisheye_mei_camera_timestamp: Optional[Timestamp] = None
                 if fisheye_mei_camera_type in provided_fisheye_mei_data:
                     fisheye_mei_camera_data = provided_fisheye_mei_data[fisheye_mei_camera_type]
                     fisheye_mei_camera_pose = provided_fisheye_mei_extrinsics[fisheye_mei_camera_type]
@@ -325,37 +335,25 @@ class ArrowLogWriter(AbstractLogWriter):
                 ]
 
         # --------------------------------------------------------------------------------------------------------------
-        # LiDARs
+        # Lidars
         # --------------------------------------------------------------------------------------------------------------
         if self._dataset_converter_config.include_lidars and len(self._log_metadata.lidar_metadata) > 0:
-            assert lidars is not None, "LiDAR data is required but not provided."
-
-            if self._dataset_converter_config.lidar_store_option == "path_merged":
-                # NOTE @DanielDauner: The path_merged option is necessary for datasets, that natively store multiple
-                # LiDAR point clouds in a single file. In this case, writing the file path several times is wasteful.
-                # Instead, we store the file path once, and divide the point clouds during reading.
-                assert len(lidars) <= 1, "Exactly one LiDAR data must be provided for merged LiDAR storage."
-
-                if len(lidars) == 0:
-                    merged_lidar_data: Optional[str] = None
-                else:
-                    assert lidars[0].has_file_path, "LiDAR data must provide file path for merged LiDAR storage."
-                    merged_lidar_data: Optional[str] = str(lidars[0].relative_path)
-                lidar_name = LiDARType.LIDAR_MERGED.serialize()
-                record_batch_data[LIDAR_DATA_COLUMN(lidar_name)] = [merged_lidar_data]
-
+            if self._dataset_converter_config.lidar_store_option == "path":
+                lidar_path: Optional[str] = None
+                if lidar is not None:
+                    assert lidar.has_file_path
+                    lidar_path = str(lidar.relative_path)
+                record_batch_data[LIDAR_PATH_COLUMN(LidarID.LIDAR_MERGED.serialize())] = [lidar_path]
+            elif self._dataset_converter_config.lidar_store_option == "binary":
+                lidar_name = LidarID.LIDAR_MERGED.serialize()
+                lidar_point_cloud_binary: Optional[bytes] = None
+                lidar_point_cloud_features: Optional[bytes] = None
+                if lidar is not None:
+                    lidar_point_cloud_binary, lidar_point_cloud_features = self._prepare_lidar_data_dict(lidar)
+                record_batch_data[LIDAR_POINT_CLOUD_COLUMN(lidar_name)] = [lidar_point_cloud_binary]
+                record_batch_data[LIDAR_POINT_CLOUD_FEATURE_COLUMN(lidar_name)] = [lidar_point_cloud_features]
             else:
-                # NOTE @DanielDauner: for "path" and "binary" options, we write each LiDAR in a separate column.
-                # We currently assume that all lidars are provided at the same time step.
-                # Theoretically, we could extend the store asynchronous LiDARs in the future by storing the lidar data
-                # list as a dictionary, list or struct-like object in the columns.
-                expected_lidars = set(self._log_metadata.lidar_metadata.keys())
-                lidar_data_dict = self._prepare_lidar_data_dict(lidars)
-
-                for lidar_type in expected_lidars:
-                    lidar_name = lidar_type.serialize()
-                    lidar_data: Optional[Union[str, bytes]] = lidar_data_dict.get(lidar_type, None)
-                    record_batch_data[LIDAR_DATA_COLUMN(lidar_name)] = [lidar_data]
+                raise ValueError(f"Unsupported Lidar store option: {self._dataset_converter_config.lidar_store_option}")
 
         # --------------------------------------------------------------------------------------------------------------
         # Miscellaneous (Scenario Tags / Route)
@@ -375,7 +373,7 @@ class ArrowLogWriter(AbstractLogWriter):
         """Inherited, see superclass."""
         if self._record_batch_writer is not None:
             self._record_batch_writer.close()
-            self._record_batch_writer: Optional[pa.ipc.RecordBatchWriter] = None
+            self._record_batch_writer: Optional[pa.ipc.RecordBatchWriter] = None  # type: ignore
 
         if self._source is not None:
             self._source.close()
@@ -383,7 +381,7 @@ class ArrowLogWriter(AbstractLogWriter):
 
         self._dataset_converter_config: Optional[DatasetConverterConfig] = None
         self._log_metadata: Optional[LogMetadata] = None
-        self._schema: Optional[LogMetadata] = None
+        self._schema: Optional[pa.Schema] = None
 
         for mp4_writer in self._pinhole_mp4_writers.values():
             mp4_writer.close()
@@ -467,7 +465,7 @@ class ArrowLogWriter(AbstractLogWriter):
                     [
                         (
                             PINHOLE_CAMERA_DATA_COLUMN(pinhole_camera_name),
-                            _store_option_to_arrow_type(dataset_converter_config.pinhole_camera_store_option),
+                            _camera_store_option_to_arrow_type(dataset_converter_config.pinhole_camera_store_option),
                         ),
                         (
                             PINHOLE_CAMERA_EXTRINSIC_COLUMN(pinhole_camera_name),
@@ -490,7 +488,9 @@ class ArrowLogWriter(AbstractLogWriter):
                     [
                         (
                             FISHEYE_CAMERA_DATA_COLUMN(fisheye_mei_camera_name),
-                            _store_option_to_arrow_type(dataset_converter_config.fisheye_mei_camera_store_option),
+                            _camera_store_option_to_arrow_type(
+                                dataset_converter_config.fisheye_mei_camera_store_option
+                            ),
                         ),
                         (
                             FISHEYE_CAMERA_EXTRINSIC_COLUMN(fisheye_mei_camera_name),
@@ -504,21 +504,37 @@ class ArrowLogWriter(AbstractLogWriter):
                 )
 
         # --------------------------------------------------------------------------------------------------------------
-        # LiDARs
+        # Lidars
         # --------------------------------------------------------------------------------------------------------------
         if dataset_converter_config.include_lidars and len(log_metadata.lidar_metadata) > 0:
-            if dataset_converter_config.lidar_store_option == "path_merged":
-                lidar_name = LiDARType.LIDAR_MERGED.serialize()
-                schema_list.append((LIDAR_DATA_COLUMN(lidar_name), pa.string()))
-            else:
-                for lidar_type in log_metadata.lidar_metadata.keys():
-                    lidar_name = lidar_type.serialize()
+            # NOTE @DanielDauner: We now store the lidar merged by default.
+
+            if dataset_converter_config.lidar_store_option == "path":
+                schema_list.append(
+                    (
+                        LIDAR_PATH_COLUMN(LidarID.LIDAR_MERGED.serialize()),
+                        pa.string(),
+                    )
+                )
+            elif dataset_converter_config.lidar_store_option == "binary":
+                schema_list.append(
+                    (
+                        LIDAR_POINT_CLOUD_COLUMN(LidarID.LIDAR_MERGED.serialize()),
+                        pa.binary(),
+                    )
+                )
+                if dataset_converter_config.lidar_point_feature_codec is not None:
+                    # If a point feature codec is specified, we also store the point features as binary data.
                     schema_list.append(
                         (
-                            LIDAR_DATA_COLUMN(lidar_name),
-                            _store_option_to_arrow_type(dataset_converter_config.lidar_store_option),
+                            LIDAR_POINT_CLOUD_FEATURE_COLUMN(LidarID.LIDAR_MERGED.serialize()),
+                            pa.binary(),
                         )
                     )
+            else:
+                raise NotImplementedError(
+                    f"Unsupported Lidar store option: {dataset_converter_config.lidar_store_option}"
+                )
 
         # --------------------------------------------------------------------------------------------------------------
         # Miscellaneous (Scenario Tags / Route)
@@ -531,78 +547,96 @@ class ArrowLogWriter(AbstractLogWriter):
 
         return add_log_metadata_to_arrow_schema(pa.schema(schema_list), log_metadata)
 
-    def _prepare_lidar_data_dict(self, lidars: List[LiDARData]) -> Dict[LiDARType, Union[str, bytes]]:
-        """Helper function to prepare LiDAR data dictionary for the target storage option.
+    def _prepare_lidar_data_dict(self, lidar_data: LidarData) -> Tuple[Optional[bytes], Optional[bytes]]:
+        """Load and/or encodes the lidar data in binary for the point cloud and additional features.
 
-        :param lidars: List of LiDARData objects to be processed.
-        :return: Dictionary mapping LiDARType to either file path (str) or binary data (bytes) depending on storage option.
+        :param lidar_data: Helper class to reference the lidar observation.
+        :return: Tuple of (point_cloud_binary, point_cloud_features_binary)
         """
+        assert self._dataset_converter_config is not None, "Log writer is not initialized."
+        assert self._log_metadata is not None, "Log writer is not initialized."
 
-        lidar_data_dict: Dict[LiDARType, Union[str, bytes]] = {}
+        # 1. Load point cloud and point features
+        point_cloud_3d: Optional[npt.NDArray] = None
+        point_cloud_features: Optional[Dict[str, npt.NDArray]] = None
+        if lidar_data.has_point_cloud_3d:
+            point_cloud_3d = lidar_data.point_cloud_3d
+            point_cloud_features = lidar_data.point_cloud_features
+        elif lidar_data.has_file_path:
+            point_cloud_3d, point_cloud_features = load_point_cloud_data_from_path(
+                lidar_data.relative_path,  # type: ignore
+                self._log_metadata,
+                lidar_data.iteration,
+                lidar_data.dataset_root,
+            )
+        else:
+            raise ValueError("Lidar data must provide either point cloud data or a file path.")
 
-        if self._dataset_converter_config.lidar_store_option == "path":
-            for lidar_data in lidars:
-                assert lidar_data.has_file_path, "LiDAR data must provide file path for path storage."
-                lidar_data_dict[lidar_data.lidar_type] = str(lidar_data.relative_path)
+        # 2. Compress point clouds with target codec
+        point_cloud_3d_output: Optional[bytes] = None
+        if point_cloud_3d is not None:
+            if self._dataset_converter_config.lidar_point_cloud_codec == "draco":
+                point_cloud_3d_output = encode_point_cloud_3d_as_draco_binary(point_cloud_3d)
+            elif self._dataset_converter_config.lidar_point_cloud_codec == "laz":
+                point_cloud_3d_output = encode_point_cloud_3d_as_laz_binary(point_cloud_3d)
+            elif self._dataset_converter_config.lidar_point_cloud_codec == "ipc":
+                point_cloud_3d_output = encode_point_cloud_3d_as_ipc_binary(point_cloud_3d, codec=None)
+            elif self._dataset_converter_config.lidar_point_cloud_codec == "ipc_zstd":
+                point_cloud_3d_output = encode_point_cloud_3d_as_ipc_binary(point_cloud_3d, codec="zstd")
+            elif self._dataset_converter_config.lidar_point_cloud_codec == "ipc_lz4":
+                point_cloud_3d_output = encode_point_cloud_3d_as_ipc_binary(point_cloud_3d, codec="lz4")
+            else:
+                raise NotImplementedError(
+                    f"Unsupported Lidar point cloud codec: {self._dataset_converter_config.lidar_point_cloud_codec}"
+                )
 
-        elif self._dataset_converter_config.lidar_store_option in ["laz_binary", "draco_binary"]:
-            lidar_pcs_dict: Dict[LiDARType, np.ndarray] = {}
+        # 3. Compress point cloud features with target codec, if specified
+        point_cloud_feature_output: Optional[bytes] = None
+        if self._dataset_converter_config.lidar_point_feature_codec is not None and point_cloud_features is not None:
+            if self._dataset_converter_config.lidar_point_feature_codec == "ipc":
+                point_cloud_feature_output = encode_point_cloud_features_as_ipc_binary(point_cloud_features, codec=None)
+            elif self._dataset_converter_config.lidar_point_feature_codec == "ipc_zstd":
+                point_cloud_feature_output = encode_point_cloud_features_as_ipc_binary(
+                    point_cloud_features, codec="zstd"
+                )
+            elif self._dataset_converter_config.lidar_point_feature_codec == "ipc_lz4":
+                point_cloud_feature_output = encode_point_cloud_features_as_ipc_binary(
+                    point_cloud_features, codec="lz4"
+                )
+            else:
+                raise NotImplementedError(
+                    f"Unsupported Lidar point feature codec: {self._dataset_converter_config.lidar_point_feature_codec}"
+                )
 
-            # 1. Load point clouds from files
-            for lidar_data in lidars:
-                if lidar_data.has_point_cloud:
-                    lidar_pcs_dict[lidar_data.lidar_type] = lidar_data.point_cloud
-                elif lidar_data.has_file_path:
-                    lidar_pcs_dict.update(
-                        load_lidar_pcs_from_file(
-                            lidar_data.relative_path,
-                            self._log_metadata,
-                            lidar_data.iteration,
-                            lidar_data.dataset_root,
-                        )
-                    )
-
-            # 2. Compress the point clouds to bytes
-            for lidar_type, point_cloud in lidar_pcs_dict.items():
-                lidar_metadata = self._log_metadata.lidar_metadata[lidar_type]
-                binary: Optional[bytes] = None
-                if self._dataset_converter_config.lidar_store_option == "draco_binary":
-                    binary = encode_lidar_pc_as_draco_binary(point_cloud, lidar_metadata)
-                elif self._dataset_converter_config.lidar_store_option == "laz_binary":
-                    binary = encode_lidar_pc_as_laz_binary(point_cloud, lidar_metadata)
-                else:
-                    raise NotImplementedError(
-                        f"Unsupported LiDAR store option: {self._dataset_converter_config.lidar_store_option}"
-                    )
-                lidar_data_dict[lidar_type] = binary
-
-        return lidar_data_dict
+        return point_cloud_3d_output, point_cloud_feature_output
 
     def _prepare_camera_data_dict(
-        self, cameras: List[CameraData], store_option: Literal["path", "jpeg_binary", "png_binary", "mp4"]
-    ) -> Dict[PinholeCameraType, Union[str, bytes]]:
+        self,
+        cameras: List[CameraData],
+        store_option: Literal["path", "jpeg_binary", "png_binary", "mp4"],
+    ) -> Dict[PinholeCameraID, Union[str, bytes]]:
         """Helper function to prepare camera data dictionary for the target storage option.
 
         :param cameras: List of CameraData objects to be processed.
         :param store_option: The storage option for camera data, either "path" or "binary".
         :raises NotImplementedError: If the storage option is not supported.
         :raises NotImplementedError: If the camera data does not support the specified storage option.
-        :return: Dictionary mapping PinholeCameraType to either file path (str) or binary data (bytes) depending on storage option.
+        :return: Dictionary mapping PinholeCameraID to either file path (str) or binary data (bytes) depending on storage option.
         """
-        camera_data_dict: Dict[PinholeCameraType, Union[str, int, bytes]] = {}
+        camera_data_dict: Dict[PinholeCameraID, Union[str, int, bytes]] = {}
 
         for camera_data in cameras:
             if store_option == "path":
                 if camera_data.has_file_path:
-                    camera_data_dict[camera_data.camera_type] = str(camera_data.relative_path)
+                    camera_data_dict[camera_data.camera_id] = str(camera_data.relative_path)
                 else:
                     raise NotImplementedError("Only file path storage is supported for camera data.")
             elif store_option == "jpeg_binary":
-                camera_data_dict[camera_data.camera_type] = _get_jpeg_binary_from_camera_data(camera_data)
+                camera_data_dict[camera_data.camera_id] = _get_jpeg_binary_from_camera_data(camera_data)
             elif store_option == "png_binary":
-                camera_data_dict[camera_data.camera_type] = _get_png_binary_from_camera_data(camera_data)
+                camera_data_dict[camera_data.camera_id] = _get_png_binary_from_camera_data(camera_data)
             elif store_option == "mp4":
-                camera_name = camera_data.camera_type.serialize()
+                camera_name = camera_data.camera_id.serialize()
                 if camera_name not in self._pinhole_mp4_writers:
                     mp4_path = (
                         self._sensors_root
@@ -614,7 +648,7 @@ class ArrowLogWriter(AbstractLogWriter):
                     self._pinhole_mp4_writers[camera_name] = MP4Writer(mp4_path, fps=1 / frame_interval)
 
                 image = _get_numpy_image_from_camera_data(camera_data)
-                camera_data_dict[camera_data.camera_type] = self._pinhole_mp4_writers[camera_name].write_frame(image)
+                camera_data_dict[camera_data.camera_id] = self._pinhole_mp4_writers[camera_name].write_frame(image)
 
             else:
                 raise NotImplementedError(f"Unsupported camera store option: {store_option}")

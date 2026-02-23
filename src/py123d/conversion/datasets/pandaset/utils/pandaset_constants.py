@@ -1,24 +1,24 @@
 from typing import Dict, List
 
 from py123d.conversion.registry.box_detection_label_registry import PandasetBoxDetectionLabel
-from py123d.datatypes.sensors.lidar import LiDARType
-from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType, PinholeDistortion, PinholeIntrinsics
+from py123d.datatypes.sensors.lidar import LidarID
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraID, PinholeDistortion, PinholeIntrinsics
 from py123d.geometry import PoseSE3
 
 PANDASET_SPLITS: List[str] = ["pandaset_train", "pandaset_val", "pandaset_test"]
 
-PANDASET_CAMERA_MAPPING: Dict[str, PinholeCameraType] = {
-    "front_camera": PinholeCameraType.PCAM_F0,
-    "back_camera": PinholeCameraType.PCAM_B0,
-    "front_left_camera": PinholeCameraType.PCAM_L0,
-    "front_right_camera": PinholeCameraType.PCAM_R0,
-    "left_camera": PinholeCameraType.PCAM_L1,
-    "right_camera": PinholeCameraType.PCAM_R1,
+PANDASET_CAMERA_MAPPING: Dict[str, PinholeCameraID] = {
+    "front_camera": PinholeCameraID.PCAM_F0,
+    "back_camera": PinholeCameraID.PCAM_B0,
+    "front_left_camera": PinholeCameraID.PCAM_L0,
+    "front_right_camera": PinholeCameraID.PCAM_R0,
+    "left_camera": PinholeCameraID.PCAM_L1,
+    "right_camera": PinholeCameraID.PCAM_R1,
 }
 
-PANDASET_LIDAR_MAPPING: Dict[str, LiDARType] = {
-    "main_pandar64": LiDARType.LIDAR_TOP,
-    "front_gt": LiDARType.LIDAR_FRONT,
+PANDASET_LIDAR_MAPPING: Dict[str, LidarID] = {
+    "main_pandar64": LidarID.LIDAR_TOP,
+    "front_gt": LidarID.LIDAR_FRONT,
 }
 
 

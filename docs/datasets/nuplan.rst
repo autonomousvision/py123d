@@ -5,7 +5,7 @@ nuPlan
 
 nuPlan is a planning simulator that comes with a large-scale dataset for autonomous vehicle research.
 This dataset contains ~1282 hours of driving logs, including ego-vehicle data, HD maps, and auto-labeled bounding boxes, spanning 4 cities.
-About 120 hours of nuPlan include sensor data from 8 cameras and 5 LiDARs.
+About 120 hours of nuPlan include sensor data from 8 cameras and 5 Lidars.
 
 .. dropdown:: Overview
   :open:
@@ -63,27 +63,27 @@ Available Modalities
      -
       Subset of nuPlan includes 8x :class:`~py123d.datatypes.sensors.PinholeCamera`:
 
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_F0`: Front camera
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_R0`: Right front camera
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_R1`: Right middle camera
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_R2`: Right rear camera
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_L0`: Left front camera
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_L1`: Left middle camera
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_L2`: Left rear camera
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_B0`: Back camera
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_F0`: Front camera
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_R0`: Right front camera
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_R1`: Right middle camera
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_R2`: Right rear camera
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_L0`: Left front camera
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_L1`: Left middle camera
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_L2`: Left rear camera
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_B0`: Back camera
    * - Fisheye Cameras
      - X
      -
-   * - LiDARs
+   * - Lidars
      - (✓)
      -
-      Subset of nuPlan includes 5x :class:`~py123d.datatypes.sensors.LiDAR`:
+      Subset of nuPlan includes 5x :class:`~py123d.datatypes.sensors.Lidar`:
 
-      - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_TOP`: Top
-      - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_FRONT`: Front
-      - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_SIDE_LEFT`: Side left
-      - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_SIDE_RIGHT`: Side right
-      - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_BACK`: Rear
+      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_TOP`: Top
+      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_FRONT`: Front
+      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_SIDE_LEFT`: Side left
+      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_SIDE_RIGHT`: Side right
+      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_BACK`: Rear
 
 .. dropdown:: Dataset Specific
 
@@ -92,7 +92,7 @@ Available Modalities
     :no-index:
     :no-inherited-members:
 
-  .. autoclass:: py123d.conversion.registry.NuPlanLiDARIndex
+  .. autoclass:: py123d.conversion.registry.NuPlanLidarIndex
     :members:
     :no-index:
     :no-inherited-members:
@@ -281,7 +281,7 @@ Dataset Issues
 ~~~~~~~~~~~~~~
 
 * **Map:** The HD-Maps are only available in 2D.
-* **Camera & LiDAR:** There are synchronization issues between the sensors and the ego vehicle state.
+* **Camera & Lidar:** There are synchronization issues between the sensors and the ego vehicle state.
 * **Bounding Boxes:** Due to the auto-labeling process of nuPlan, some bounding boxes may be noisy.
 * **Traffic Lights:** The status of the traffic lights are inferred from the vehicle movements. As such, there may be incorrect labels.
 

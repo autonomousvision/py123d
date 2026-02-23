@@ -70,9 +70,11 @@ FISHEYE_CAMERA_COLUMNS: Callable[[str], List[str]] = lambda name: [
 ]
 
 
-# LiDAR
+# Lidar
 # ----------------------------------------------------------------------------------------------------------------------
-LIDAR_DATA_COLUMN: Callable[[str], str] = lambda name: f"lidar.{name}.data"
+LIDAR_PATH_COLUMN: Callable[[str], str] = lambda name: f"lidar.{name}.path"
+LIDAR_POINT_CLOUD_COLUMN: Callable[[str], str] = lambda name: f"lidar.{name}.point_cloud_3d"
+LIDAR_POINT_CLOUD_FEATURE_COLUMN: Callable[[str], str] = lambda name: f"lidar.{name}.point_cloud_features"
 
 
 # Miscellaneous (Scenario Tags / Route)

@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 
-from py123d.conversion.registry.lidar_index_registry import LiDARIndex
+from py123d.conversion.registry.lidar_index_registry import LidarIndex
 
 
 def get_lidar_pc_color(
     lidar_pc: npt.NDArray[np.float32],
-    lidar_index: LiDARIndex,
+    lidar_index: LidarIndex,
     feature: Literal["none", "distance", "intensity", "ring"],
 ) -> npt.NDArray[np.uint8]:
     """
@@ -26,7 +26,7 @@ def get_lidar_pc_color(
         if feature == "distance":
             color_intensities = np.linalg.norm(lidar_xyz, axis=-1)
         elif feature == "intensity":
-            assert lidar_index.INTENSITY is not None, "LiDARIndex.INTENSITY is not defined"
+            assert lidar_index.INTENSITY is not None, "LidarIndex.INTENSITY is not defined"
             color_intensities = lidar_pc[:, lidar_index.INTENSITY]
         elif feature == "ring":
             color_intensities = lidar_pc[:, lidar_index.RING]

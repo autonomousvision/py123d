@@ -60,7 +60,7 @@ Available Modalities
    * - Fisheye Cameras
      - X
      - n/a
-   * - LiDARs
+   * - Lidars
      - X
      - n/a
 

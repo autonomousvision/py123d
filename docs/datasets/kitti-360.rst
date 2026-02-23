@@ -2,7 +2,7 @@ KITTI-360
 ---------
 
 The KITTI-360 dataset is an extension of the popular KITTI dataset, designed for various perception tasks in autonomous driving.
-The dataset includes 9 logs (called "sequences") of varying length with stereo cameras, fisheye cameras, LiDAR data, 3D primitives, and semantic annotations.
+The dataset includes 9 logs (called "sequences") of varying length with stereo cameras, fisheye cameras, Lidar data, 3D primitives, and semantic annotations.
 
 .. dropdown:: Quick Links
   :open:
@@ -53,8 +53,8 @@ Available Modalities
      - ✓
      - The dataset has two :class:`~py123d.datatypes.sensors.PinholeCamera` in a stereo setup:
 
-       - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_STEREO_L` (image_00)
-       - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_STEREO_R` (image_01)
+       - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_STEREO_L` (image_00)
+       - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_STEREO_R` (image_01)
 
    * - Fisheye Cameras
      - ✓
@@ -62,11 +62,11 @@ Available Modalities
 
        - :class:`~py123d.datatypes.sensors.FisheyeMEICameraType.FCAM_L` (image_02)
        - :class:`~py123d.datatypes.sensors.FisheyeMEICameraType.FCAM_R` (image_03)
-   * - LiDARs
+   * - Lidars
      - ✓
-     - The dataset has :class:`~py123d.datatypes.sensors.LiDAR` mounted on the roof:
+     - The dataset has :class:`~py123d.datatypes.sensors.Lidar` mounted on the roof:
 
-       - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_TOP` (velodyne_points)
+       - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_TOP` (velodyne_points)
 
 .. dropdown:: Dataset Specific
 
@@ -75,7 +75,7 @@ Available Modalities
     :no-index:
     :no-inherited-members:
 
-  .. autoclass:: py123d.conversion.registry.KITTI360LiDARIndex
+  .. autoclass:: py123d.conversion.registry.KITTI360LidarIndex
     :members:
     :no-index:
     :no-inherited-members:
@@ -181,7 +181,7 @@ Dataset Issues
 
 * **Ego Vehicle:** The vehicle parameters from the VW station wagon are partially estimated and may be subject to inaccuracies.
 * **Map:** The ground primitives in KITTI-360 only cover surfaces, e.g. of the road, but not lane-level information. Drivable areas, road edges, walkways, driveways are included.
-* **Bounding Boxes:** Bounding boxes in KITTI-360 annotated globally. We therefore determine which boxes are visible in each frame on the number of LiDAR points contained in the box.
+* **Bounding Boxes:** Bounding boxes in KITTI-360 annotated globally. We therefore determine which boxes are visible in each frame on the number of Lidar points contained in the box.
 
 
 Citation

@@ -7,7 +7,7 @@ from py123d.datatypes.detections import (
     BoxDetectionSE3,
     BoxDetectionWrapper,
 )
-from py123d.datatypes.time.time_point import TimePoint
+from py123d.datatypes.time.time_point import Timestamp
 from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, PoseSE2, PoseSE3, Vector2D, Vector3D
 
 
@@ -29,7 +29,7 @@ sample_metadata_args = {
     "label": DummyBoxDetectionLabel.CAR,
     "track_token": "sample_token",
     "num_lidar_points": 10,
-    "timepoint": TimePoint.from_s(0.0),
+    "timestamp": Timestamp.from_s(0.0),
 }
 
 
@@ -40,7 +40,7 @@ class TestBoxDetectionMetadata:
         assert metadata.label == DummyBoxDetectionLabel.CAR
         assert metadata.track_token == "sample_token"
         assert metadata.num_lidar_points == 10
-        assert isinstance(metadata.timepoint, TimePoint)
+        assert isinstance(metadata.timestamp, Timestamp)
 
     def test_default_label(self):
         metadata = BoxDetectionMetadata(**sample_metadata_args)
@@ -69,7 +69,7 @@ class TestBoxDetectionMetadata:
         assert metadata.label == DummyBoxDetectionLabel.BICYCLE
         assert metadata.track_token == "another_token"
         assert metadata.num_lidar_points is None
-        assert metadata.timepoint is None
+        assert metadata.timestamp is None
 
     def test_missing_args(self):
         sample_args = {
@@ -85,7 +85,7 @@ class TestBoxDetectionMetadata:
             BoxDetectionMetadata(**sample_args)
 
         sample_args = {
-            "timepoint": TimePoint.from_s(0.0),
+            "timestamp": Timestamp.from_s(0.0),
         }
         with pytest.raises(TypeError):
             BoxDetectionMetadata(**sample_args)
@@ -232,19 +232,19 @@ class TestBoxDetectionWrapper:
             label=DummyBoxDetectionLabel.CAR,
             track_token="token1",
             num_lidar_points=10,
-            timepoint=TimePoint.from_s(0.0),
+            timestamp=Timestamp.from_s(0.0),
         )
         self.metadata2 = BoxDetectionMetadata(
             label=DummyBoxDetectionLabel.PEDESTRIAN,
             track_token="token2",
             num_lidar_points=5,
-            timepoint=TimePoint.from_s(0.0),
+            timestamp=Timestamp.from_s(0.0),
         )
         self.metadata3 = BoxDetectionMetadata(
             label=DummyBoxDetectionLabel.BICYCLE,
             track_token="token3",
             num_lidar_points=8,
-            timepoint=TimePoint.from_s(0.0),
+            timestamp=Timestamp.from_s(0.0),
         )
 
         self.box_detection1 = BoxDetectionSE2(

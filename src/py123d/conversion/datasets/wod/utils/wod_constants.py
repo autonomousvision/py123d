@@ -2,7 +2,7 @@ from typing import Dict, List
 
 from py123d.datatypes.detections import TrafficLightStatus
 from py123d.datatypes.map_objects import LaneType, RoadEdgeType, RoadLineType
-from py123d.datatypes.sensors import LiDARType, PinholeCameraType
+from py123d.datatypes.sensors import LidarID, PinholeCameraID
 
 # Map features:
 # ----------------------------------------------------------------------------------------------------------------------
@@ -41,22 +41,22 @@ WAYMO_LANE_TYPE_CONVERSION: Dict[int, LaneType] = {
 WOD_PERCEPTION_AVAILABLE_SPLITS: List[str] = ["wod-perception_train", "wod-perception_val", "wod-perception_test"]
 
 # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L50
-WOD_PERCEPTION_CAMERA_TYPES: Dict[int, PinholeCameraType] = {
-    1: PinholeCameraType.PCAM_F0,  # front_camera
-    2: PinholeCameraType.PCAM_L0,  # front_left_camera
-    3: PinholeCameraType.PCAM_R0,  # front_right_camera
-    4: PinholeCameraType.PCAM_L1,  # left_camera
-    5: PinholeCameraType.PCAM_R1,  # right_camera
+WOD_PERCEPTION_CAMERA_IDS: Dict[int, PinholeCameraID] = {
+    1: PinholeCameraID.PCAM_F0,  # front_camera
+    2: PinholeCameraID.PCAM_L0,  # front_left_camera
+    3: PinholeCameraID.PCAM_R0,  # front_right_camera
+    4: PinholeCameraID.PCAM_L1,  # left_camera
+    5: PinholeCameraID.PCAM_R1,  # right_camera
 }
 
 # https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/dataset.proto#L66
-WOD_PERCEPTION_LIDAR_TYPES: Dict[int, LiDARType] = {
-    0: LiDARType.LIDAR_UNKNOWN,  # UNKNOWN
-    1: LiDARType.LIDAR_TOP,  # TOP
-    2: LiDARType.LIDAR_FRONT,  # FRONT
-    3: LiDARType.LIDAR_SIDE_LEFT,  # SIDE_LEFT
-    4: LiDARType.LIDAR_SIDE_RIGHT,  # SIDE_RIGHT
-    5: LiDARType.LIDAR_BACK,  # REAR
+WOD_PERCEPTION_LIDAR_IDS: Dict[int, LidarID] = {
+    0: LidarID.LIDAR_UNKNOWN,  # UNKNOWN
+    1: LidarID.LIDAR_TOP,  # TOP
+    2: LidarID.LIDAR_FRONT,  # FRONT
+    3: LidarID.LIDAR_SIDE_LEFT,  # SIDE_LEFT
+    4: LidarID.LIDAR_SIDE_RIGHT,  # SIDE_RIGHT
+    5: LidarID.LIDAR_BACK,  # REAR
 }
 
 

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import abc
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -12,10 +13,10 @@ from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.metadata import LogMetadata
-from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraType
-from py123d.datatypes.sensors.lidar import LiDARType
-from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
-from py123d.datatypes.time.time_point import TimePoint
+from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraID
+from py123d.datatypes.sensors.lidar import LidarID
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraID
+from py123d.datatypes.time.time_point import Timestamp
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import PoseSE3
 
@@ -43,13 +44,14 @@ class AbstractLogWriter(abc.ABC):
     @abc.abstractmethod
     def write(
         self,
-        timestamp: TimePoint,
+        timestamp: Timestamp,
+        uuid: Optional[uuid.UUID] = None,
         ego_state: Optional[EgoStateSE3] = None,
         box_detections: Optional[BoxDetectionWrapper] = None,
         traffic_lights: Optional[TrafficLightDetectionWrapper] = None,
         pinhole_cameras: Optional[List[CameraData]] = None,
         fisheye_mei_cameras: Optional[List[CameraData]] = None,
-        lidars: Optional[List[LiDARData]] = None,
+        lidar: Optional[LidarData] = None,
         scenario_tags: Optional[List[str]] = None,
         route_lane_group_ids: Optional[List[int]] = None,
         **kwargs,
@@ -62,7 +64,7 @@ class AbstractLogWriter(abc.ABC):
         :param traffic_lights: Optional, the traffic light detections, defaults to None
         :param pinhole_cameras: Optional, the pinhole camera data, defaults to None
         :param fisheye_mei_cameras: Optional, the fisheye MEI camera data, defaults to None
-        :param lidars: Optional, the LiDAR data, defaults to None
+        :param lidar: Optional, the Lidar data, defaults to None
         :param scenario_tags: Optional, the scenario tags, defaults to None
         :param route_lane_group_ids: Optional, the route lane group IDs, defaults to None
         """
@@ -73,21 +75,22 @@ class AbstractLogWriter(abc.ABC):
 
 
 @dataclass
-class LiDARData:
-    """Helper dataclass to pass LiDAR data to log writers."""
+class LidarData:
+    """Helper dataclass to pass Lidar data to log writers."""
 
     lidar_name: str
-    lidar_type: LiDARType
+    lidar_type: LidarID
 
-    timestamp: Optional[TimePoint] = None
+    timestamp: Optional[Timestamp] = None
     iteration: Optional[int] = None
     dataset_root: Optional[Union[str, Path]] = None
     relative_path: Optional[Union[str, Path]] = None
-    point_cloud: Optional[npt.NDArray[np.float32]] = None
+    point_cloud_3d: Optional[npt.NDArray] = None
+    point_cloud_features: Optional[Dict[str, npt.NDArray]] = None
 
     def __post_init__(self):
-        assert self.has_file_path or self.has_point_cloud, (
-            "Either file path (dataset_root and relative_path) or point_cloud must be provided for LiDARData."
+        assert self.has_file_path or self.has_point_cloud_3d, (
+            "Either file path (dataset_root and relative_path) or point_cloud must be provided for LidarData."
         )
 
     @property
@@ -95,8 +98,12 @@ class LiDARData:
         return self.dataset_root is not None and self.relative_path is not None
 
     @property
-    def has_point_cloud(self) -> bool:
-        return self.point_cloud is not None
+    def has_point_cloud_3d(self) -> bool:
+        return self.point_cloud_3d is not None
+
+    @property
+    def has_point_cloud_features(self) -> bool:
+        return self.point_cloud_features is not None
 
 
 @dataclass
@@ -104,10 +111,10 @@ class CameraData:
     """Helper dataclass to pass Camera data to log writers."""
 
     camera_name: str
-    camera_type: Union[PinholeCameraType, FisheyeMEICameraType]
+    camera_id: Union[PinholeCameraID, FisheyeMEICameraID]
     extrinsic: PoseSE3
 
-    timestamp: Optional[TimePoint] = None
+    timestamp: Optional[Timestamp] = None
     jpeg_binary: Optional[bytes] = None
     numpy_image: Optional[npt.NDArray[np.uint8]] = None
     dataset_root: Optional[Union[str, Path]] = None
@@ -119,7 +126,7 @@ class CameraData:
         )
 
         if self.has_file_path:
-            absolute_path = Path(self.dataset_root) / self.relative_path
+            absolute_path = Path(self.dataset_root) / self.relative_path  # type: ignore
             assert absolute_path.exists(), f"Camera file not found: {absolute_path}"
 
     @property

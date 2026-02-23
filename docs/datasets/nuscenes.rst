@@ -3,9 +3,9 @@
 nuScenes
 --------
 
-The nuScenes dataset is multi-modal autonomous driving dataset that includes data from cameras, LiDARs, and radars, along with detailed annotations from Boston and Singapore.
+The nuScenes dataset is multi-modal autonomous driving dataset that includes data from cameras, Lidars, and radars, along with detailed annotations from Boston and Singapore.
 In total, the dataset contains 1000 driving logs, each of 20 second duration, resulting in 5.5 hours of data.
-All logs include ego-vehicle data, camera images, LiDAR point clouds, bounding boxes, and map data.
+All logs include ego-vehicle data, camera images, Lidar point clouds, bounding boxes, and map data.
 
 
 .. dropdown:: Overview
@@ -64,18 +64,18 @@ Available Modalities
      -
       nuScenes includes 6x :class:`~py123d.datatypes.sensors.PinholeCamera`:
 
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_F0`: CAM_FRONT
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_R0`: CAM_FRONT_RIGHT
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_R1`: CAM_BACK_RIGHT
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_L0`: CAM_FRONT_LEFT
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_L1`: CAM_BACK_LEFT
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_B0`: CAM_BACK
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_F0`: CAM_FRONT
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_R0`: CAM_FRONT_RIGHT
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_R1`: CAM_BACK_RIGHT
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_L0`: CAM_FRONT_LEFT
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_L1`: CAM_BACK_LEFT
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_B0`: CAM_BACK
    * - Fisheye Cameras
      - X
      -
-   * - LiDARs
+   * - Lidars
      - ✓
-     - nuScenes has one :class:`~py123d.datatypes.sensors.LiDAR` of type :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_TOP`.
+     - nuScenes has one :class:`~py123d.datatypes.sensors.Lidar` of type :class:`~py123d.datatypes.sensors.LidarID.LIDAR_TOP`.
 .. dropdown:: Dataset Specific
 
   .. autoclass:: py123d.conversion.registry.NuScenesBoxDetectionLabel
@@ -83,7 +83,7 @@ Available Modalities
     :no-index:
     :no-inherited-members:
 
-  .. autoclass:: py123d.conversion.registry.NuScenesLiDARIndex
+  .. autoclass:: py123d.conversion.registry.NuScenesLidarIndex
     :members:
     :no-index:
     :no-inherited-members:
@@ -232,7 +232,7 @@ The interpolated conversion uses the :class:`~py123d.conversion.datasets.nuscene
     are excluded at interpolated frames and only written at their actual keyframe.
   - ``num_lidar_points`` is set to ``0`` for interpolated frames.
 
-  **LiDAR.**
+  **Lidar.**
   Each selected 10 Hz frame uses the actual lidar point cloud file from the corresponding
   ``sample_data`` sweep, so no point cloud interpolation is performed.
 

@@ -285,16 +285,15 @@ def get_rotation_matrices_from_quaternion_array(quaternion_array: npt.NDArray[np
     assert quaternion_array.ndim >= 1 and quaternion_array.shape[-1] == len(QuaternionIndex)
 
     q = normalize_quaternion_array(quaternion_array)
-
-    w = q[..., QuaternionIndex.QW]
-    x = q[..., QuaternionIndex.QX]
-    y = q[..., QuaternionIndex.QY]
-    z = q[..., QuaternionIndex.QZ]
+    qw = q[..., QuaternionIndex.QW]
+    qx = q[..., QuaternionIndex.QX]
+    qy = q[..., QuaternionIndex.QY]
+    qz = q[..., QuaternionIndex.QZ]
 
     # Precompute repeated products
-    xx, yy, zz = x * x, y * y, z * z
-    xy, xz, yz = x * y, x * z, y * z
-    wx, wy, wz = w * x, w * y, w * z
+    xx, yy, zz = qx * qx, qy * qy, qz * qz
+    xy, xz, yz = qx * qy, qx * qz, qy * qz
+    wx, wy, wz = qw * qx, qw * qy, qw * qz
 
     # Build rotation matrices using the direct algebraic formula
     R = np.empty(q.shape[:-1] + (3, 3), dtype=np.float64)

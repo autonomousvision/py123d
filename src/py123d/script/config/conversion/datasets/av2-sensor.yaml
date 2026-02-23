@@ -25,9 +25,11 @@ av2-sensor:
     include_pinhole_cameras: true
     pinhole_camera_store_option: "path" # "path", "jpeg_binary", "png_binary", "mp4"
 
-    # LiDARs
+    # Lidars
     include_lidars: true
-    lidar_store_option: "path_merged"  # "path", "path_merged", "laz_binary", "draco_binary"
+    lidar_store_option: "binary" #  "path", "binary"
+    lidar_point_cloud_codec: "ipc_zstd"
+    lidar_point_feature_codec: "ipc_zstd"
 
     # Not available:
     include_traffic_lights: false

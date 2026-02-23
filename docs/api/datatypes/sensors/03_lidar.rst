@@ -1,27 +1,27 @@
-LiDAR
+Lidar
 ^^^^^
 
-LiDAR Data
+Lidar Data
 ----------
 
-.. autoclass:: py123d.datatypes.sensors.LiDAR
+.. autoclass:: py123d.datatypes.sensors.Lidar
    :members:
    :exclude-members: __init__
    :autoclasstoc:
 
 
-LiDAR Metadata
+Lidar Metadata
 --------------
 
-.. autoclass:: py123d.datatypes.sensors.LiDARMetadata
+.. autoclass:: py123d.datatypes.sensors.LidarMetadata
    :members:
    :exclude-members: __init__
    :autoclasstoc:
 
 
-LiDAR Types
+Lidar Types
 -----------
 
-.. autoclass:: py123d.datatypes.sensors.LiDARType
+.. autoclass:: py123d.datatypes.sensors.LidarID
    :no-inherited-members:
    :exclude-members: __init__, __new__

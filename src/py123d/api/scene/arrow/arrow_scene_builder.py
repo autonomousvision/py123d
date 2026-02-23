@@ -13,7 +13,7 @@ from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.execution import Executor, executor_map_chunked_list
 from py123d.common.utils.arrow_column_names import (
     FISHEYE_CAMERA_DATA_COLUMN,
-    LIDAR_DATA_COLUMN,
+    LIDAR_PATH_COLUMN,
     PINHOLE_CAMERA_DATA_COLUMN,
     UUID_COLUMN,
 )
@@ -191,8 +191,8 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
     for scene_extraction_metadata in scene_metadatas:
         add_scene = True
         start_idx = scene_extraction_metadata.initial_idx
-        if filter.pinhole_camera_types is not None:
-            for pinhole_camera_type in filter.pinhole_camera_types:
+        if filter.pinhole_camera_ids is not None:
+            for pinhole_camera_type in filter.pinhole_camera_ids:
                 column_name = PINHOLE_CAMERA_DATA_COLUMN(pinhole_camera_type.serialize())
 
                 if (
@@ -205,8 +205,8 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
                     add_scene = False
                     break
 
-        if filter.fisheye_mei_camera_types is not None:
-            for fisheye_mei_camera_type in filter.fisheye_mei_camera_types:
+        if filter.fisheye_mei_camera_ids is not None:
+            for fisheye_mei_camera_type in filter.fisheye_mei_camera_ids:
                 column_name = FISHEYE_CAMERA_DATA_COLUMN(fisheye_mei_camera_type.serialize())
 
                 if (
@@ -219,9 +219,9 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
                     add_scene = False
                     break
 
-        if filter.lidar_types is not None:
-            for lidar_type in filter.lidar_types:
-                column_name = LIDAR_DATA_COLUMN(lidar_type.serialize())
+        if filter.lidar_ids is not None:
+            for lidar_type in filter.lidar_ids:
+                column_name = LIDAR_PATH_COLUMN(lidar_type.serialize())
                 if lidar_type not in log_metadata.lidar_metadata and column_name not in recording_table.schema.names:
                     add_scene = False
                     break

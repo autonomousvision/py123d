@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Optional
 
 
 @dataclass
@@ -30,9 +30,11 @@ class DatasetConverterConfig:
     include_fisheye_mei_cameras: bool = False
     fisheye_mei_camera_store_option: Literal["path", "jpeg_binary", "png_binary", "mp4"] = "path"
 
-    # LiDARs
+    # Lidars
     include_lidars: bool = False
-    lidar_store_option: Literal["path", "path_merged", "laz_binary", "draco_binary"] = "path"
+    lidar_store_option: Literal["path", "binary"] = "path"
+    lidar_point_cloud_codec: Literal["laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"] = "draco"
+    lidar_point_feature_codec: Optional[Literal["ipc_zstd", "ipc_lz4", "ipc"]] = "ipc_zstd"  # None drops features.
 
     # Scenario tag / Route
     # NOTE: These are only supported for nuPlan. Consider removing or expanding support.
@@ -54,9 +56,9 @@ class DatasetConverterConfig:
             "mp4",
         }, f"Invalid Fisheye MEI camera store option, got {self.fisheye_mei_camera_store_option}."
 
-        assert self.lidar_store_option in {
-            "path",
-            "path_merged",
-            "laz_binary",
-            "draco_binary",
-        }, f"Invalid LiDAR store option, got {self.lidar_store_option}."
+        # assert self.lidar_store_option in {
+        #     "path",
+        #     "path_merged",
+        #     "laz_binary",
+        #     "draco_binary",
+        # }, f"Invalid Lidar store option, got {self.lidar_store_option}."

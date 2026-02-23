@@ -29,7 +29,7 @@ wod-perception:
     include_pinhole_cameras: true
     pinhole_camera_store_option: "jpeg_binary"  # "path", "jpeg_binary", "png_binary", "mp4"
 
-    # LiDARs
+    # Lidars
     include_lidars: true
     lidar_store_option: "laz_binary"  # "path", "path_merged", "laz_binary", "draco_binary"
 

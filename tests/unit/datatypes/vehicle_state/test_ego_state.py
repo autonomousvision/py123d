@@ -1,7 +1,7 @@
 import pytest
 
 from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
-from py123d.datatypes.time import TimePoint
+from py123d.datatypes.time import Timestamp
 from py123d.datatypes.vehicle_state import (
     DynamicStateSE2,
     DynamicStateSE3,
@@ -32,7 +32,7 @@ class TestEgoStateSE2:
             acceleration=Vector2D(0.1, 0.0),
             angular_velocity=0.1,
         )
-        self.timepoint = TimePoint.from_us(1000000)
+        self.timestamp = Timestamp.from_us(1000000)
         self.tire_steering_angle = 0.2
 
     def test_init(self):
@@ -41,14 +41,14 @@ class TestEgoStateSE2:
             rear_axle_se2=self.rear_axle_pose,
             vehicle_parameters=self.vehicle_params,
             dynamic_state_se2=self.dynamic_state,
-            timepoint=self.timepoint,
+            timestamp=self.timestamp,
             tire_steering_angle=self.tire_steering_angle,
         )
 
         assert ego_state.rear_axle_se2 == self.rear_axle_pose
         assert ego_state.vehicle_parameters == self.vehicle_params
         assert ego_state.dynamic_state_se2 == self.dynamic_state
-        assert ego_state.timepoint == self.timepoint
+        assert ego_state.timestamp == self.timestamp
         assert ego_state.tire_steering_angle == self.tire_steering_angle
 
     def test_from_rear_axle(self):
@@ -57,7 +57,7 @@ class TestEgoStateSE2:
             rear_axle_se2=self.rear_axle_pose,
             dynamic_state_se2=self.dynamic_state,
             vehicle_parameters=self.vehicle_params,
-            timepoint=self.timepoint,
+            timestamp=self.timestamp,
             tire_steering_angle=self.tire_steering_angle,
         )
 
@@ -71,7 +71,7 @@ class TestEgoStateSE2:
             center_se2=center_pose,
             dynamic_state_se2=self.dynamic_state,
             vehicle_parameters=self.vehicle_params,
-            timepoint=self.timepoint,
+            timestamp=self.timestamp,
             tire_steering_angle=self.tire_steering_angle,
         )
 
@@ -110,14 +110,14 @@ class TestEgoStateSE2:
             rear_axle_se2=self.rear_axle_pose,
             vehicle_parameters=self.vehicle_params,
             dynamic_state_se2=self.dynamic_state,
-            timepoint=self.timepoint,
+            timestamp=self.timestamp,
         )
 
         box_det = ego_state.box_detection_se2
         assert box_det is not None
         assert box_det.metadata.label == DefaultBoxDetectionLabel.EGO
         assert box_det.metadata.track_token == EGO_TRACK_TOKEN
-        assert box_det.metadata.timepoint == self.timepoint
+        assert box_det.metadata.timestamp == self.timestamp
 
     def test_optional_parameters_none(self):
         """Test EgoStateSE2 with optional parameters as None."""
@@ -125,12 +125,12 @@ class TestEgoStateSE2:
             rear_axle_se2=self.rear_axle_pose,
             vehicle_parameters=self.vehicle_params,
             dynamic_state_se2=None,
-            timepoint=None,
+            timestamp=None,
             tire_steering_angle=None,
         )
 
         assert ego_state.dynamic_state_se2 is None
-        assert ego_state.timepoint is None
+        assert ego_state.timestamp is None
         assert ego_state.tire_steering_angle is None
 
     def test_default_tire_steering_angle(self):
@@ -159,7 +159,7 @@ class TestEgoStateSE3:
             acceleration=Vector3D(0.1, 0.0, 0.0),
             angular_velocity=Vector3D(0.0, 0.0, 0.1),
         )
-        self.timepoint = TimePoint.from_us(1000000)
+        self.timestamp = Timestamp.from_us(1000000)
         self.tire_steering_angle = 0.2
 
     def test_init(self):
@@ -168,14 +168,14 @@ class TestEgoStateSE3:
             rear_axle_se3=self.rear_axle_pose,
             vehicle_parameters=self.vehicle_params,
             dynamic_state_se3=self.dynamic_state,
-            timepoint=self.timepoint,
+            timestamp=self.timestamp,
             tire_steering_angle=self.tire_steering_angle,
         )
 
         assert ego_state.rear_axle_se3 == self.rear_axle_pose
         assert ego_state.vehicle_parameters == self.vehicle_params
         assert ego_state.dynamic_state_se3 == self.dynamic_state
-        assert ego_state.timepoint == self.timepoint
+        assert ego_state.timestamp == self.timestamp
         assert ego_state.tire_steering_angle == self.tire_steering_angle
 
     def test_from_rear_axle(self):
@@ -184,7 +184,7 @@ class TestEgoStateSE3:
             rear_axle_se3=self.rear_axle_pose,
             vehicle_parameters=self.vehicle_params,
             dynamic_state_se3=self.dynamic_state,
-            timepoint=self.timepoint,
+            timestamp=self.timestamp,
             tire_steering_angle=self.tire_steering_angle,
         )
 
@@ -198,7 +198,7 @@ class TestEgoStateSE3:
             center_se3=center_pose,
             vehicle_parameters=self.vehicle_params,
             dynamic_state_se3=self.dynamic_state,
-            timepoint=self.timepoint,
+            timestamp=self.timestamp,
             tire_steering_angle=self.tire_steering_angle,
         )
 
@@ -244,20 +244,20 @@ class TestEgoStateSE3:
             rear_axle_se3=self.rear_axle_pose,
             vehicle_parameters=self.vehicle_params,
             dynamic_state_se3=self.dynamic_state,
-            timepoint=self.timepoint,
+            timestamp=self.timestamp,
         )
 
         box_det_se3 = ego_state.box_detection_se3
         assert box_det_se3 is not None
         assert box_det_se3.metadata.label == DefaultBoxDetectionLabel.EGO
         assert box_det_se3.metadata.track_token == EGO_TRACK_TOKEN
-        assert box_det_se3.metadata.timepoint == self.timepoint
+        assert box_det_se3.metadata.timestamp == self.timestamp
 
         box_det_se2 = ego_state.box_detection_se2
         assert box_det_se2 is not None
         assert box_det_se2.metadata.label == DefaultBoxDetectionLabel.EGO
         assert box_det_se2.metadata.track_token == EGO_TRACK_TOKEN
-        assert box_det_se2.metadata.timepoint == self.timepoint
+        assert box_det_se2.metadata.timestamp == self.timestamp
 
     def test_ego_state_se2_projection(self):
         """Test projection to EgoStateSE2."""
@@ -265,7 +265,7 @@ class TestEgoStateSE3:
             rear_axle_se3=self.rear_axle_pose,
             vehicle_parameters=self.vehicle_params,
             dynamic_state_se3=self.dynamic_state,
-            timepoint=self.timepoint,
+            timestamp=self.timestamp,
             tire_steering_angle=self.tire_steering_angle,
         )
 
@@ -273,7 +273,7 @@ class TestEgoStateSE3:
         assert ego_state_se2 is not None
         assert isinstance(ego_state_se2, EgoStateSE2)
         assert ego_state_se2.vehicle_parameters == self.vehicle_params
-        assert ego_state_se2.timepoint == self.timepoint
+        assert ego_state_se2.timestamp == self.timestamp
         assert ego_state_se2.tire_steering_angle == self.tire_steering_angle
 
     def test_optional_parameters_none(self):
@@ -282,12 +282,12 @@ class TestEgoStateSE3:
             rear_axle_se3=self.rear_axle_pose,
             vehicle_parameters=self.vehicle_params,
             dynamic_state_se3=None,
-            timepoint=None,
+            timestamp=None,
             tire_steering_angle=None,
         )
 
         assert ego_state.dynamic_state_se3 is None
-        assert ego_state.timepoint is None
+        assert ego_state.timestamp is None
         assert ego_state.tire_steering_angle is None
 
     def test_default_tire_steering_angle(self):

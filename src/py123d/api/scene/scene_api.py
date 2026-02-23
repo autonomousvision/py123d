@@ -9,10 +9,10 @@ from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
-from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
-from py123d.datatypes.sensors.lidar import LiDAR, LiDARType
-from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraType
-from py123d.datatypes.time.time_point import TimePoint
+from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraID
+from py123d.datatypes.sensors.lidar import Lidar, LidarID
+from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraID
+from py123d.datatypes.time.time_point import Timestamp
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 
@@ -45,11 +45,11 @@ class SceneAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_timepoint_at_iteration(self, iteration: int) -> TimePoint:
+    def get_timestamp_at_iteration(self, iteration: int) -> Timestamp:
         """Returns the :class:`~py123d.datatypes.time.TimePoint` at a given iteration.
 
-        :param iteration: The iteration to get the timepoint for.
-        :return: The timepoint at the given iteration.
+        :param iteration: The iteration to get the timestamp for.
+        :return: The timestamp at the given iteration.
         """
 
     @abc.abstractmethod
@@ -89,36 +89,36 @@ class SceneAPI(abc.ABC):
     def get_pinhole_camera_at_iteration(
         self,
         iteration: int,
-        camera_type: PinholeCameraType,
+        camera_id: PinholeCameraID,
     ) -> Optional[PinholeCamera]:
         """Returns the :class:`~py123d.datatypes.sensors.PinholeCamera` of a given \
-            :class:`~py123d.datatypes.sensors.PinholeCameraType` at a given iteration, if available.
+            :class:`~py123d.datatypes.sensors.PinholeCameraID` at a given iteration, if available.
 
         :param iteration: The iteration to get the pinhole camera for.
-        :param camera_type: The :type:`~py123d.datatypes.sensors.PinholeCameraType` of the pinhole camera.
+        :param camera_id: The :type:`~py123d.datatypes.sensors.PinholeCameraID` of the pinhole camera.
         :return: The pinhole camera, or None if not available.
         """
 
     @abc.abstractmethod
     def get_fisheye_mei_camera_at_iteration(
-        self, iteration: int, camera_type: FisheyeMEICameraType
+        self, iteration: int, camera_id: FisheyeMEICameraID
     ) -> Optional[FisheyeMEICamera]:
         """Returns the :class:`~py123d.datatypes.sensors.FisheyeMEICamera` of a given \
-            :class:`~py123d.datatypes.sensors.FisheyeMEICameraType` at a given iteration, if available.
+            :class:`~py123d.datatypes.sensors.FisheyeMEICameraID` at a given iteration, if available.
 
         :param iteration: The iteration to get the fisheye MEI camera for.
-        :param camera_type: The :type:`~py123d.datatypes.sensors.FisheyeMEICameraType` of the fisheye MEI camera.
+        :param camera_id: The :type:`~py123d.datatypes.sensors.FisheyeMEICameraID` of the fisheye MEI camera.
         :return: The fisheye MEI camera, or None if not available.
         """
 
     @abc.abstractmethod
-    def get_lidar_at_iteration(self, iteration: int, lidar_type: LiDARType) -> Optional[LiDAR]:
-        """Returns the :class:`~py123d.datatypes.sensors.LiDAR` of a given :class:`~py123d.datatypes.sensors.LiDARType`\
+    def get_lidar_at_iteration(self, iteration: int, lidar_id: LidarID) -> Optional[Lidar]:
+        """Returns the :class:`~py123d.datatypes.sensors.Lidar` of a given :class:`~py123d.datatypes.sensors.LidarID`\
             at a given iteration, if available.
 
-        :param iteration: The iteration to get the LiDAR for.
-        :param lidar_type: The :type:`~py123d.datatypes.sensors.LiDARType` of the LiDAR.
-        :return: The LiDAR, or None if not available.
+        :param iteration: The iteration to get the Lidar for.
+        :param lidar_id: The :type:`~py123d.datatypes.sensors.LidarID` of the Lidar.
+        :return: The Lidar, or None if not available.
         """
 
     # Syntactic Sugar / Properties, that are convenient to access and pass to subclasses
@@ -190,17 +190,17 @@ class SceneAPI(abc.ABC):
         return self.log_metadata.vehicle_parameters
 
     @property
-    def available_pinhole_camera_types(self) -> List[PinholeCameraType]:
-        """List of available :class:`~py123d.datatypes.sensors.PinholeCameraType` in the log metadata."""
+    def available_pinhole_camera_ids(self) -> List[PinholeCameraID]:
+        """List of available :class:`~py123d.datatypes.sensors.PinholeCameraID` in the log metadata."""
         return list(self.log_metadata.pinhole_camera_metadata.keys())
 
     @property
     def available_pinhole_camera_names(self) -> List[str]:
-        """List of available :class:`~py123d.datatypes.sensors.PinholeCameraType` in the log metadata."""
+        """List of available :class:`~py123d.datatypes.sensors.PinholeCameraID` in the log metadata."""
         return [camera.camera_name for camera in self.log_metadata.pinhole_camera_metadata.values()]
 
     @property
-    def available_fisheye_mei_camera_types(self) -> List[FisheyeMEICameraType]:
+    def available_fisheye_mei_camera_ids(self) -> List[FisheyeMEICameraID]:
         """List of available :class:`~py123d.datatypes.sensors.FisheyeMEICameraType` in the log metadata."""
         return list(self.log_metadata.fisheye_mei_camera_metadata.keys())
 
@@ -210,11 +210,11 @@ class SceneAPI(abc.ABC):
         return [camera.camera_name for camera in self.log_metadata.fisheye_mei_camera_metadata.values()]
 
     @property
-    def available_lidar_types(self) -> List[LiDARType]:
-        """List of available :class:`~py123d.datatypes.sensors.LiDARType` in the log metadata."""
+    def available_lidar_ids(self) -> List[LidarID]:
+        """List of available :class:`~py123d.datatypes.sensors.LidarID` in the log metadata."""
         return list(self.log_metadata.lidar_metadata.keys())
 
     @property
     def available_lidar_names(self) -> List[str]:
-        """List of available :class:`~py123d.datatypes.sensors.LiDARType` in the log metadata."""
+        """List of available Lidar names in the log metadata."""
         return [lidar.lidar_name for lidar in self.log_metadata.lidar_metadata.values()]

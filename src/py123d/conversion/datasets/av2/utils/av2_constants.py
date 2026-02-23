@@ -1,21 +1,20 @@
 from typing import Dict, Final, Set
 
-from py123d.datatypes.map_objects import RoadLineType
-from py123d.datatypes.sensors import PinholeCameraType
+from py123d.datatypes import PinholeCameraID, RoadLineType
 
 AV2_SENSOR_SPLITS: Set[str] = {"av2-sensor_train", "av2-sensor_val", "av2-sensor_test"}
 
-# Mapping from AV2 camera names to PinholeCameraType enums.
-AV2_CAMERA_TYPE_MAPPING: Dict[str, PinholeCameraType] = {
-    "ring_front_center": PinholeCameraType.PCAM_F0,
-    "ring_front_left": PinholeCameraType.PCAM_L0,
-    "ring_front_right": PinholeCameraType.PCAM_R0,
-    "ring_side_left": PinholeCameraType.PCAM_L1,
-    "ring_side_right": PinholeCameraType.PCAM_R1,
-    "ring_rear_left": PinholeCameraType.PCAM_L2,
-    "ring_rear_right": PinholeCameraType.PCAM_R2,
-    "stereo_front_left": PinholeCameraType.PCAM_STEREO_L,
-    "stereo_front_right": PinholeCameraType.PCAM_STEREO_R,
+# Mapping from AV2 camera names to PinholeCameraID enums.
+AV2_CAMERA_ID_MAPPING: Dict[str, PinholeCameraID] = {
+    "ring_front_center": PinholeCameraID.PCAM_F0,
+    "ring_front_left": PinholeCameraID.PCAM_L0,
+    "ring_front_right": PinholeCameraID.PCAM_R0,
+    "ring_side_left": PinholeCameraID.PCAM_L1,
+    "ring_side_right": PinholeCameraID.PCAM_R1,
+    "ring_rear_left": PinholeCameraID.PCAM_L2,
+    "ring_rear_right": PinholeCameraID.PCAM_R2,
+    "stereo_front_left": PinholeCameraID.PCAM_STEREO_L,
+    "stereo_front_right": PinholeCameraID.PCAM_STEREO_R,
 }
 
 # Mapping from AV2 road line types to RoadLineType enums.

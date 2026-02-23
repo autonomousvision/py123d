@@ -28,7 +28,7 @@
 - **`[2026-02-09]`** v0.0.9
   - Added Waymo Open Motion Dataset support.
   - Replaced gpkg map implementation with Arrow-based format for improved performance.
-  - Added sensor names and timestamps to camera and LiDAR data across all datasets.
+  - Added sensor names and timestamps to camera and Lidar data across all datasets.
   - Added ego-to-camera transforms in static metadata.
   - Implemented geometry builders for PoseSE2/PoseSE3 from arbitrary rotation/translation representations.
   - Added support for loading merged point clouds in API.

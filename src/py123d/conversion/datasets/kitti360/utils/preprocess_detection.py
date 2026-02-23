@@ -1,7 +1,7 @@
 """
 This script precomputes static detection records for KITTI-360:
   - Stage 1: radius filtering using ego positions (from poses.txt).
-  - Stage 2: LiDAR visibility check to fill per-frame point counts.
+  - Stage 2: Lidar visibility check to fill per-frame point counts.
 It writes a pickle containing, for each static object, all feasible frames and
 their point counts to avoid recomputation in later pipelines.
 We have precomputed and saved the pickle for all training logs, you can either
@@ -53,7 +53,7 @@ def _lidar_frame_path(kitti360_dataset_root: Path, log_name: str, frame_idx: int
 
 
 def _load_lidar_xyz(filepath: Path) -> np.ndarray:
-    """Load one LiDAR frame and return Nx3 xyz."""
+    """Load one Lidar frame and return Nx3 xyz."""
     arr = np.fromfile(filepath, dtype=np.float32)
     return arr.reshape(-1, 4)[:, :3]
 
@@ -130,13 +130,13 @@ def process_detection(
     Precompute detections filtering
     for static objects:
       1) filter by ego-centered radius over all frames
-      2) filter by LiDAR point cloud visibility
+      2) filter by Lidar point cloud visibility
     Save per-frame detections to a pickle to avoid recomputation.
     """
 
     lidar_dir = kitti360_data_root / "data_3d_raw" / log_name / "velodyne_points" / "data"
     if not lidar_dir.exists():
-        raise FileNotFoundError(f"LiDAR data folder not found: {lidar_dir}")
+        raise FileNotFoundError(f"Lidar data folder not found: {lidar_dir}")
     ts_len = len(list(lidar_dir.glob("*.bin")))
     logging.info(f"[preprocess] {log_name}: found {ts_len} lidar frames")
 
@@ -150,7 +150,7 @@ def process_detection(
     for obj in static_objs:
         obj.filter_by_radius(ego_states[:, :3, 3], valid_timestamp, radius_m)
 
-    # 3) Filter static objs by LiDAR point cloud visibility
+    # 3) Filter static objs by Lidar point cloud visibility
     lidar_extrinsic = get_kitti360_lidar_extrinsic(kitti360_data_root / "calibration")
 
     def process_one_frame(time_idx: int) -> None:
@@ -158,7 +158,7 @@ def process_detection(
         logging.info(f"[preprocess] {log_name}: t={valid_time_idx}")
         lidar_path = _lidar_frame_path(kitti360_data_root, log_name, valid_time_idx)
         if not lidar_path.exists():
-            logging.warning(f"[preprocess] {log_name}: LiDAR frame not found: {lidar_path}")
+            logging.warning(f"[preprocess] {log_name}: Lidar frame not found: {lidar_path}")
             return
 
         lidar_xyz = _load_lidar_xyz(lidar_path)

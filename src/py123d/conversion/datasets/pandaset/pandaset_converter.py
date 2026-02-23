@@ -24,20 +24,22 @@ from py123d.conversion.datasets.pandaset.utils.pandaset_utlis import (
     read_pkl_gz,
     rotate_pandaset_pose_to_iso_coordinates,
 )
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.registry import PandasetBoxDetectionLabel, PandasetLiDARIndex
-from py123d.datatypes.detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
-from py123d.datatypes.metadata import LogMetadata
-from py123d.datatypes.sensors import (
-    LiDARMetadata,
-    LiDARType,
+from py123d.conversion.registry import PandasetBoxDetectionLabel
+from py123d.datatypes import (
+    BoxDetectionMetadata,
+    BoxDetectionSE3,
+    BoxDetectionWrapper,
+    EgoStateSE3,
+    LidarID,
+    LidarMetadata,
+    LogMetadata,
+    PinholeCameraID,
     PinholeCameraMetadata,
-    PinholeCameraType,
     PinholeIntrinsics,
+    Timestamp,
 )
-from py123d.datatypes.time import TimePoint
-from py123d.datatypes.vehicle_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_pandaset_chrysler_pacifica_parameters
 from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, EulerAnglesIndex, PoseSE3
 from py123d.geometry.transform import abs_to_rel_se3_array
@@ -72,7 +74,7 @@ class PandasetConverter(AbstractDatasetConverter):
             assert split in PANDASET_SPLITS, f"Split {split} is not available. Available splits: {PANDASET_SPLITS}"
         assert pandaset_data_root is not None, "The variable `pandaset_data_root` must be provided."
         assert dataset_converter_config.lidar_store_option != "path", (
-            "Pandaset stores LiDAR sweeps as merged filed, use  lidar_store_option='path_merged' instead."
+            "Pandaset stores Lidar sweeps as merged filed, use  lidar_store_option='path_merged' instead."
         )
 
         self._splits: List[str] = splits
@@ -154,7 +156,7 @@ class PandasetConverter(AbstractDatasetConverter):
             for iteration, timestep_s in enumerate(timesteps):
                 ego_state = _extract_pandaset_sensor_ego_state(gps[iteration], lidar_poses[iteration])
                 log_writer.write(
-                    timestamp=TimePoint.from_s(timestep_s),
+                    timestamp=Timestamp.from_s(timestep_s),
                     ego_state=ego_state,
                     box_detections=_extract_pandaset_box_detections(source_log_path, iteration),
                     pinhole_cameras=_extract_pandaset_pinhole_cameras(
@@ -178,10 +180,10 @@ class PandasetConverter(AbstractDatasetConverter):
 
 def _get_pandaset_camera_metadata(
     source_log_path: Path, dataset_config: DatasetConverterConfig
-) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
+) -> Dict[PinholeCameraID, PinholeCameraMetadata]:
     """Extracts the pinhole camera metadata from a Pandaset log folder."""
 
-    camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
+    camera_metadata: Dict[PinholeCameraID, PinholeCameraMetadata] = {}
     if dataset_config.include_pinhole_cameras:
         all_cameras_folder = source_log_path / "camera"
         for camera_folder in all_cameras_folder.iterdir():
@@ -195,7 +197,7 @@ def _get_pandaset_camera_metadata(
             intrinsics_data = read_json(intrinsics_file)
             camera_metadata[camera_type] = PinholeCameraMetadata(
                 camera_name=camera_name,
-                camera_type=camera_type,
+                camera_id=camera_type,
                 width=1920,
                 height=1080,
                 intrinsics=PinholeIntrinsics(
@@ -211,15 +213,14 @@ def _get_pandaset_camera_metadata(
     return camera_metadata
 
 
-def _get_pandaset_lidar_metadata(dataset_config: DatasetConverterConfig) -> Dict[LiDARType, LiDARMetadata]:
-    """Extracts the LiDAR metadata from a Pandaset log folder."""
-    lidar_metadata: Dict[LiDARType, LiDARMetadata] = {}
+def _get_pandaset_lidar_metadata(dataset_config: DatasetConverterConfig) -> Dict[LidarID, LidarMetadata]:
+    """Extracts the Lidar metadata from a Pandaset log folder."""
+    lidar_metadata: Dict[LidarID, LidarMetadata] = {}
     if dataset_config.include_lidars:
         for lidar_name, lidar_type in PANDASET_LIDAR_MAPPING.items():
-            lidar_metadata[lidar_type] = LiDARMetadata(
+            lidar_metadata[lidar_type] = LidarMetadata(
                 lidar_name=lidar_name,
-                lidar_type=lidar_type,
-                lidar_index=PandasetLiDARIndex,
+                lidar_id=lidar_type,
                 extrinsic=extrinsic_to_imu(PANDASET_LIDAR_EXTRINSICS[lidar_name]),
             )
 
@@ -227,7 +228,7 @@ def _get_pandaset_lidar_metadata(dataset_config: DatasetConverterConfig) -> Dict
 
 
 def _extract_pandaset_sensor_ego_state(gps: Dict[str, float], lidar_pose: Dict[str, Dict[str, float]]) -> EgoStateSE3:
-    """Extracts the ego state from Pandaset GPS and LiDAR pose data."""
+    """Extracts the ego state from Pandaset GPS and Lidar pose data."""
     rear_axle_se3 = global_main_lidar_to_global_imu(pandaset_pose_dict_to_pose_se3(lidar_pose))
     vehicle_parameters = get_pandaset_chrysler_pacifica_parameters()
     dynamic_state_se3 = None
@@ -235,7 +236,7 @@ def _extract_pandaset_sensor_ego_state(gps: Dict[str, float], lidar_pose: Dict[s
         rear_axle_se3=rear_axle_se3,
         vehicle_parameters=vehicle_parameters,
         dynamic_state_se3=dynamic_state_se3,
-        timepoint=None,
+        timestamp=None,
     )
 
 
@@ -291,8 +292,8 @@ def _extract_pandaset_box_detections(source_log_path: Path, iteration: int) -> B
     # NOTE @DanielDauner: Pandaset annotates moving bounding boxes twice (for synchronization reasons),
     # if they are in the overlap area between the top 360° lidar and the front-facing lidar (and moving).
     # The value in `cuboids.sensor_id` is either
-    # - `0` (mechanical 360° LiDAR)
-    # - `1` (front-facing LiDAR).
+    # - `0` (mechanical 360° Lidar)
+    # - `1` (front-facing Lidar).
     # - All other cuboids have value `-1`.
 
     # To avoid duplicate bounding boxes, we only keep boxes from the front lidar (sensor_id == 1), if they do not
@@ -354,12 +355,12 @@ def _extract_pandaset_pinhole_cameras(
             camera_extrinsic = PoseSE3.from_array(
                 abs_to_rel_se3_array(ego_state_se3.rear_axle_se3, camera_extrinsic.array), copy=True
             )
-            camera_timestamp = TimePoint.from_s(camera_timestamps[camera_name][iteration])
+            camera_timestamp = Timestamp.from_s(camera_timestamps[camera_name][iteration])
 
             camera_data_list.append(
                 CameraData(
                     camera_name=camera_name,
-                    camera_type=camera_type,
+                    camera_id=camera_type,
                     timestamp=camera_timestamp,
                     extrinsic=camera_extrinsic,
                     dataset_root=source_log_path.parent,
@@ -372,18 +373,18 @@ def _extract_pandaset_pinhole_cameras(
 
 def _extract_pandaset_lidar(
     source_log_path: Path, iteration: int, dataset_converter_config: DatasetConverterConfig
-) -> List[LiDARData]:
-    """Extracts the LiDAR data from a Pandaset scene at a given iteration."""
+) -> List[LidarData]:
+    """Extracts the Lidar data from a Pandaset scene at a given iteration."""
 
-    lidars: List[LiDARData] = []
+    lidars: List[LidarData] = []
     if dataset_converter_config.include_lidars:
         iteration_str = f"{iteration:02d}"
         lidar_absolute_path = source_log_path / "lidar" / f"{iteration_str}.pkl.gz"
-        assert lidar_absolute_path.exists(), f"LiDAR file {str(lidar_absolute_path)} does not exist."
+        assert lidar_absolute_path.exists(), f"Lidar file {str(lidar_absolute_path)} does not exist."
         lidars.append(
-            LiDARData(
-                lidar_name=LiDARType.LIDAR_MERGED.serialize(),
-                lidar_type=LiDARType.LIDAR_MERGED,
+            LidarData(
+                lidar_name=LidarID.LIDAR_MERGED.serialize(),
+                lidar_type=LidarID.LIDAR_MERGED,
                 timestamp=None,
                 iteration=iteration,
                 dataset_root=source_log_path.parent,

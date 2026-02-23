@@ -12,7 +12,7 @@ from py123d.api.scene.arrow.utils.arrow_getters import (
     get_ego_state_se3_from_arrow_table,
     get_lidar_from_arrow_table,
     get_route_lane_group_ids_from_arrow_table,
-    get_timepoint_from_arrow_table,
+    get_timestamp_from_arrow_table,
     get_traffic_light_detections_from_arrow_table,
 )
 from py123d.api.scene.arrow.utils.arrow_metadata_utils import (
@@ -27,13 +27,13 @@ from py123d.datatypes.detections import BoxDetectionWrapper, TrafficLightDetecti
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.sensors import (
     FisheyeMEICamera,
-    FisheyeMEICameraType,
-    LiDAR,
-    LiDARType,
+    FisheyeMEICameraID,
+    Lidar,
+    LidarID,
     PinholeCamera,
-    PinholeCameraType,
+    PinholeCameraID,
 )
-from py123d.datatypes.time import TimePoint
+from py123d.datatypes.time import Timestamp
 from py123d.datatypes.vehicle_state import EgoStateSE3
 
 
@@ -130,9 +130,9 @@ class ArrowSceneAPI(SceneAPI):
                 map_api = get_global_map_api(self.log_metadata.dataset, self.log_metadata.location)
         return map_api
 
-    def get_timepoint_at_iteration(self, iteration: int) -> TimePoint:
+    def get_timestamp_at_iteration(self, iteration: int) -> Timestamp:
         """Inherited, see superclass."""
-        return get_timepoint_from_arrow_table(self._get_recording_table(), self._get_table_index(iteration))
+        return get_timestamp_from_arrow_table(self._get_recording_table(), self._get_table_index(iteration))
 
     def get_ego_state_at_iteration(self, iteration: int) -> Optional[EgoStateSE3]:
         """Inherited, see superclass."""
@@ -160,12 +160,10 @@ class ArrowSceneAPI(SceneAPI):
         """Inherited, see superclass."""
         return get_route_lane_group_ids_from_arrow_table(self._get_recording_table(), self._get_table_index(iteration))
 
-    def get_pinhole_camera_at_iteration(
-        self, iteration: int, camera_type: PinholeCameraType
-    ) -> Optional[PinholeCamera]:
+    def get_pinhole_camera_at_iteration(self, iteration: int, camera_type: PinholeCameraID) -> Optional[PinholeCamera]:
         """Inherited, see superclass."""
         pinhole_camera: Optional[PinholeCamera] = None
-        if camera_type in self.available_pinhole_camera_types:
+        if camera_type in self.available_pinhole_camera_ids:
             pinhole_camera_ = get_camera_from_arrow_table(
                 self._get_recording_table(),
                 self._get_table_index(iteration),
@@ -177,11 +175,11 @@ class ArrowSceneAPI(SceneAPI):
         return pinhole_camera
 
     def get_fisheye_mei_camera_at_iteration(
-        self, iteration: int, camera_type: FisheyeMEICameraType
+        self, iteration: int, camera_type: FisheyeMEICameraID
     ) -> Optional[FisheyeMEICamera]:
         """Inherited, see superclass."""
         fisheye_mei_camera: Optional[FisheyeMEICamera] = None
-        if camera_type in self.available_fisheye_mei_camera_types:
+        if camera_type in self.available_fisheye_mei_camera_ids:
             fisheye_mei_camera_ = get_camera_from_arrow_table(
                 self._get_recording_table(),
                 self._get_table_index(iteration),
@@ -192,10 +190,10 @@ class ArrowSceneAPI(SceneAPI):
             fisheye_mei_camera = fisheye_mei_camera_
         return fisheye_mei_camera
 
-    def get_lidar_at_iteration(self, iteration: int, lidar_type: LiDARType) -> Optional[LiDAR]:
+    def get_lidar_at_iteration(self, iteration: int, lidar_type: LidarID) -> Optional[Lidar]:
         """Inherited, see superclass."""
-        lidar: Optional[LiDAR] = None
-        if lidar_type in self.available_lidar_types or lidar_type == LiDARType.LIDAR_MERGED:
+        lidar: Optional[Lidar] = None
+        if lidar_type in self.available_lidar_ids or lidar_type == LidarID.LIDAR_MERGED:
             lidar = get_lidar_from_arrow_table(
                 self._get_recording_table(),
                 self._get_table_index(iteration),

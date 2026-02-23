@@ -6,13 +6,13 @@ from typing import Any, Dict, Optional
 import numpy as np
 import numpy.typing as npt
 
-from py123d.common.utils.enums import SerialIntEnum
+from py123d.common.utils.enums import SerialIntEnum, classproperty
 from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
-from py123d.datatypes.time import TimePoint
+from py123d.datatypes.time import Timestamp
 from py123d.geometry import PoseSE3
 
 
-class PinholeCameraType(SerialIntEnum):
+class PinholeCameraID(SerialIntEnum):
     """Enumeration of pinhole camera types."""
 
     PCAM_F0 = 0
@@ -56,7 +56,7 @@ class PinholeCamera:
         metadata: PinholeCameraMetadata,
         image: npt.NDArray[np.uint8],
         extrinsic: PoseSE3,
-        timestamp: Optional[TimePoint] = None,
+        timestamp: Optional[Timestamp] = None,
     ) -> None:
         """Initialize a PinholeCamera instance.
 
@@ -86,7 +86,7 @@ class PinholeCamera:
         return self._extrinsic
 
     @property
-    def timestamp(self) -> Optional[TimePoint]:
+    def timestamp(self) -> Optional[Timestamp]:
         """The :class:`~py123d.datatypes.time.TimePoint` of the image capture, if available."""
         return self._timestamp
 
@@ -108,6 +108,31 @@ class PinholeIntrinsicsIndex(IntEnum):
 
     SKEW = 4
     """Skew coefficient. Not used in most cases."""
+
+    @classproperty
+    def FX_MATRIX(cls) -> tuple[int, int]:
+        """The index of the focal length in x direction (fx) in the 3x3 camera intrinsic matrix."""
+        return (0, 0)
+
+    @classproperty
+    def FY_MATRIX(cls) -> tuple[int, int]:
+        """The index of the focal length in y direction (fy) in the 3x3 camera intrinsic matrix."""
+        return (1, 1)
+
+    @classproperty
+    def CX_MATRIX(cls) -> tuple[int, int]:
+        """The index of the optical center x coordinate (cx) in the 3x3 camera intrinsic matrix."""
+        return (0, 2)
+
+    @classproperty
+    def CY_MATRIX(cls) -> tuple[int, int]:
+        """The index of the optical center y coordinate (cy) in the 3x3 camera intrinsic matrix."""
+        return (1, 2)
+
+    @classproperty
+    def SKEW_MATRIX(cls) -> tuple[int, int]:
+        """The index of the skew coefficient in the 3x3 camera intrinsic matrix. Not used in most cases."""
+        return (0, 1)
 
 
 class PinholeIntrinsics(ArrayMixin):
@@ -144,7 +169,7 @@ class PinholeIntrinsics(ArrayMixin):
         assert array.ndim == 1
         assert array.shape[-1] == len(PinholeIntrinsicsIndex)
         instance = object.__new__(cls)
-        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        setattr(instance, "_array", array.copy() if copy else array)
         return instance
 
     @classmethod
@@ -155,11 +180,11 @@ class PinholeIntrinsics(ArrayMixin):
         :return: A :class:`PinholeIntrinsics` instance.
         """
         assert intrinsic.shape == (3, 3)
-        fx = intrinsic[0, 0]
-        fy = intrinsic[1, 1]
-        cx = intrinsic[0, 2]
-        cy = intrinsic[1, 2]
-        skew = intrinsic[0, 1]  # Not used in most cases.
+        fx = intrinsic[PinholeIntrinsicsIndex.FX_MATRIX]
+        fy = intrinsic[PinholeIntrinsicsIndex.FY_MATRIX]
+        cx = intrinsic[PinholeIntrinsicsIndex.CX_MATRIX]
+        cy = intrinsic[PinholeIntrinsicsIndex.CY_MATRIX]
+        skew = intrinsic[PinholeIntrinsicsIndex.SKEW_MATRIX]  # Not used in most cases.
         array = np.array([fx, fy, cx, cy, skew], dtype=np.float64)
         return cls.from_array(array, copy=False)
 
@@ -196,14 +221,12 @@ class PinholeIntrinsics(ArrayMixin):
     @property
     def camera_matrix(self) -> npt.NDArray[np.float64]:
         """The 3x3 camera intrinsic matrix K."""
-        K = np.array(
-            [
-                [self.fx, self.skew, self.cx],
-                [0.0, self.fy, self.cy],
-                [0.0, 0.0, 1.0],
-            ],
-            dtype=np.float64,
-        )
+        K = np.eye(3, dtype=np.float64)
+        K[PinholeIntrinsicsIndex.FX_MATRIX] = self.fx
+        K[PinholeIntrinsicsIndex.FY_MATRIX] = self.fy
+        K[PinholeIntrinsicsIndex.CX_MATRIX] = self.cx
+        K[PinholeIntrinsicsIndex.CY_MATRIX] = self.cy
+        K[PinholeIntrinsicsIndex.SKEW_MATRIX] = self.skew
         return K
 
     def __repr__(self) -> str:
@@ -251,7 +274,7 @@ class PinholeDistortion(ArrayMixin):
         array[PinholeDistortionIndex.P1] = p1
         array[PinholeDistortionIndex.P2] = p2
         array[PinholeDistortionIndex.K3] = k3
-        object.__setattr__(self, "_array", array)
+        setattr(self, "_array", array)
 
     @classmethod
     def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> PinholeDistortion:
@@ -264,7 +287,7 @@ class PinholeDistortion(ArrayMixin):
         assert array.ndim == 1
         assert array.shape[-1] == len(PinholeDistortionIndex)
         instance = object.__new__(cls)
-        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        setattr(instance, "_array", array.copy() if copy else array)
         return instance
 
     @property
@@ -307,7 +330,7 @@ class PinholeCameraMetadata:
 
     __slots__ = (
         "_camera_name",
-        "_camera_type",
+        "_camera_id",
         "_intrinsics",
         "_distortion",
         "_width",
@@ -319,7 +342,7 @@ class PinholeCameraMetadata:
     def __init__(
         self,
         camera_name: str,
-        camera_type: PinholeCameraType,
+        camera_id: PinholeCameraID,
         intrinsics: Optional[PinholeIntrinsics],
         distortion: Optional[PinholeDistortion],
         width: int,
@@ -330,7 +353,7 @@ class PinholeCameraMetadata:
         """Initialize a :class:`PinholeCameraMetadata` instance.
 
         :param camera_name: The name of the pinhole camera, according to the dataset naming convention.
-        :param camera_type: The type of the pinhole camera.
+        :param camera_id: The :class:`PinholeCameraID` of the pinhole camera.
         :param intrinsics: The :class:`PinholeIntrinsics` of the pinhole camera.
         :param distortion: The :class:`PinholeDistortion` of the pinhole camera.
         :param width: The image width in pixels.
@@ -339,7 +362,7 @@ class PinholeCameraMetadata:
         :param is_undistorted: Whether the camera images are already undistorted, defaults to False.
         """
         self._camera_name = camera_name
-        self._camera_type = camera_type
+        self._camera_id = camera_id
         self._intrinsics = intrinsics
         self._distortion = distortion
         self._width = width
@@ -354,7 +377,7 @@ class PinholeCameraMetadata:
         :param data_dict: A dictionary containing the metadata.
         :return: A PinholeCameraMetadata instance.
         """
-        data_dict["camera_type"] = PinholeCameraType(data_dict["camera_type"])
+        data_dict["camera_id"] = PinholeCameraID(data_dict["camera_id"])
         data_dict["intrinsics"] = (
             PinholeIntrinsics.from_list(data_dict["intrinsics"]) if data_dict["intrinsics"] is not None else None
         )
@@ -376,7 +399,7 @@ class PinholeCameraMetadata:
         """
         data_dict = {}
         data_dict["camera_name"] = self.camera_name
-        data_dict["camera_type"] = int(self.camera_type)
+        data_dict["camera_id"] = int(self.camera_id)
         data_dict["intrinsics"] = self.intrinsics.tolist() if self.intrinsics is not None else None
         data_dict["distortion"] = self.distortion.tolist() if self.distortion is not None else None
         data_dict["width"] = self.width
@@ -391,9 +414,9 @@ class PinholeCameraMetadata:
         return self._camera_name
 
     @property
-    def camera_type(self) -> PinholeCameraType:
-        """The :class:`PinholeCameraType` of the pinhole camera."""
-        return self._camera_type
+    def camera_id(self) -> PinholeCameraID:
+        """The :class:`PinholeCameraID` of the pinhole camera."""
+        return self._camera_id
 
     @property
     def intrinsics(self) -> Optional[PinholeIntrinsics]:

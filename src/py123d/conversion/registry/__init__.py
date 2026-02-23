@@ -10,15 +10,3 @@ from py123d.conversion.registry.box_detection_label_registry import (
     WODMotionBoxDetectionLabel,
     WODPerceptionBoxDetectionLabel,
 )
-from py123d.conversion.registry.lidar_index_registry import (
-    LIDAR_INDEX_REGISTRY,
-    AV2SensorLiDARIndex,
-    CARLALiDARIndex,
-    DefaultLiDARIndex,
-    KITTI360LiDARIndex,
-    LiDARIndex,
-    NuPlanLiDARIndex,
-    NuScenesLiDARIndex,
-    PandasetLiDARIndex,
-    WODPerceptionLiDARIndex,
-)

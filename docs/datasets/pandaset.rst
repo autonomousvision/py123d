@@ -3,7 +3,7 @@
 PandaSet
 --------
 
-The PandaSet dataset is a multi-modal dataset that includes data from cameras and LiDARs, along with detailed 3D bounding box annotations.
+The PandaSet dataset is a multi-modal dataset that includes data from cameras and Lidars, along with detailed 3D bounding box annotations.
 It includes 103 logs of 8 second duration, resulting in about 0.2 hours of data.
 PandaSet stands out, due to its no-cost commercial license.
 
@@ -87,23 +87,23 @@ Available Modalities
      -
        Pandaset has 6x :class:`~py123d.datatypes.sensors.PinholeCamera`:
 
-       - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_F0`: front_camera
-       - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_L0`: front_left_camera
-       - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_R0`: front_right_camera
-       - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_L1`: left_camera
-       - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_R1`: right_camera
-       - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_B0`: back_camera
+       - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_F0`: front_camera
+       - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_L0`: front_left_camera
+       - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_R0`: front_right_camera
+       - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_L1`: left_camera
+       - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_R1`: right_camera
+       - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_B0`: back_camera
 
    * - Fisheye Cameras
      - X
      - n/a
-   * - LiDARs
+   * - Lidars
      - ✓
      -
-      Pandaset has 2x :class:`~py123d.datatypes.sensors.LiDAR`:
+      Pandaset has 2x :class:`~py123d.datatypes.sensors.Lidar`:
 
-      - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_TOP`: main_pandar64
-      - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_FRONT`: front_gt
+      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_TOP`: main_pandar64
+      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_FRONT`: front_gt
 
 
 .. dropdown:: Dataset Specific
@@ -113,7 +113,7 @@ Available Modalities
     :no-index:
     :no-inherited-members:
 
-  .. autoclass:: py123d.conversion.registry.PandasetLiDARIndex
+  .. autoclass:: py123d.conversion.registry.PandasetLidarIndex
     :members:
     :no-index:
     :no-inherited-members:
@@ -199,8 +199,8 @@ Dataset Issues
 ~~~~~~~~~~~~~~
 
 * **Ego Vehicle:** The ego vehicle parameters are estimates from the vehicle model. The exact location of the IMU/GPS sensor and the bounding box dimensions of the ego vehicle may not be accurate.
-* **Bounding Boxes:** PandaSet provides bounding boxes that fall in the overlap of the LiDAR region twice (for each point cloud). The current implementation only uses the bounding boxes of the top LiDAR sensor.
-* **LiDAR:** PandaSet does not motion compensate the LiDAR sweeps (in contrast to other datasets). Artifacts remain visible.
+* **Bounding Boxes:** PandaSet provides bounding boxes that fall in the overlap of the Lidar region twice (for each point cloud). The current implementation only uses the bounding boxes of the top Lidar sensor.
+* **Lidar:** PandaSet does not motion compensate the Lidar sweeps (in contrast to other datasets). Artifacts remain visible.
 
 Citation
 ~~~~~~~~

@@ -6,181 +6,233 @@ import numpy as np
 import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
-from py123d.conversion.registry import LIDAR_INDEX_REGISTRY, LiDARIndex
-from py123d.geometry import PoseSE3
+from py123d.geometry import Point3DIndex, PoseSE3
 
 
-class LiDARType(SerialIntEnum):
-    """Enumeration of LiDAR sensors, in multi-sensor setups."""
+class LidarID(SerialIntEnum):
+    """Enumeration of Lidar sensors, in multi-sensor setups."""
 
     LIDAR_UNKNOWN = 0
-    """Unknown LiDAR type."""
+    """Unknown Lidar type."""
 
     LIDAR_MERGED = 1
-    """Merged LiDAR type."""
+    """Merged Lidar type."""
 
     LIDAR_TOP = 2
-    """Top-facing LiDAR type."""
+    """Top-facing Lidar type."""
 
     LIDAR_FRONT = 3
-    """Front-facing LiDAR type."""
+    """Front-facing Lidar type."""
 
     LIDAR_SIDE_LEFT = 4
-    """Left-side LiDAR type."""
+    """Left-side Lidar type."""
 
     LIDAR_SIDE_RIGHT = 5
-    """Right-side LiDAR type."""
+    """Right-side Lidar type."""
 
     LIDAR_BACK = 6
-    """Back-facing LiDAR type."""
+    """Back-facing Lidar type."""
 
     LIDAR_DOWN = 7
-    """Down-facing LiDAR type."""
+    """Down-facing Lidar type."""
 
 
-class LiDARMetadata:
-    """Metadata for LiDAR sensor, static for a given sensor."""
+class LidarFeature(SerialIntEnum):
+    """Enumeration of common Lidar point cloud features"""
 
-    __slots__ = ("_lidar_name", "_lidar_type", "_lidar_index", "_extrinsic")
+    IDS = 0
+    """Point IDs feature index."""
+
+    INTENSITY = 1
+    """Intensity feature index."""
+
+    CHANNEL = 2
+    """Ring feature index."""
+
+    TIMESTAMP = 3
+    """Timestamp feature index."""
+
+    RANGE = 4
+    """Range feature index."""
+
+    ELONGATION = 5
+    """Elongation feature index."""
+
+
+LIDAR_FEATURE_DTYPES: Dict[LidarFeature, Type] = {
+    LidarFeature.IDS: np.uint8,
+    LidarFeature.INTENSITY: np.uint8,
+    LidarFeature.CHANNEL: np.uint8,
+    LidarFeature.TIMESTAMP: np.int64,
+    LidarFeature.RANGE: np.float32,
+    LidarFeature.ELONGATION: np.float32,
+}
+
+
+class LidarMetadata:
+    """Metadata for Lidar sensor, static for a given sensor."""
+
+    __slots__ = ("_lidar_name", "_lidar_id", "_extrinsic")
 
     def __init__(
         self,
         lidar_name: str,
-        lidar_type: LiDARType,
-        lidar_index: Type[LiDARIndex],
+        lidar_id: LidarID,
         extrinsic: Optional[PoseSE3] = None,
     ):
-        """Initialize LiDAR metadata.
+        """Initialize Lidar metadata.
 
-        :param lidar_name: The name of the LiDAR sensor from the dataset.
-        :param lidar_type: The type of the LiDAR sensor.
-        :param lidar_index: The indexing schema of the LiDAR point cloud.
-        :param extrinsic: The extrinsic pose of the LiDAR sensor, defaults to None
+        :param lidar_name: The name of the Lidar sensor from the dataset.
+        :param lidar_id: The ID of the Lidar sensor.
+        :param lidar_index: The indexing schema of the Lidar point cloud.
+        :param extrinsic: The extrinsic pose of the Lidar sensor, defaults to None
         """
         self._lidar_name = lidar_name
-        self._lidar_type = lidar_type
-        self._lidar_index = lidar_index
+        self._lidar_id = lidar_id
         self._extrinsic = extrinsic
 
     @property
     def lidar_name(self) -> str:
-        """The name of the LiDAR sensor from the dataset."""
+        """The name of the Lidar sensor from the dataset."""
         return self._lidar_name
 
     @property
-    def lidar_type(self) -> LiDARType:
-        """The type of the LiDAR sensor."""
-        return self._lidar_type
-
-    @property
-    def lidar_index(self) -> Type[LiDARIndex]:
-        """The indexing schema of the LiDAR point cloud."""
-        return self._lidar_index
+    def lidar_id(self) -> LidarID:
+        """The ID of the Lidar sensor."""
+        return self._lidar_id
 
     @property
     def extrinsic(self) -> Optional[PoseSE3]:
-        """The extrinsic :class:`~py123d.geometry.PoseSE3` of the LiDAR sensor, relative to the vehicle frame."""
+        """The extrinsic :class:`~py123d.geometry.PoseSE3` of the Lidar sensor, relative to the vehicle frame."""
         return self._extrinsic
 
     @classmethod
-    def from_dict(cls, data_dict: dict) -> LiDARMetadata:
-        """Construct the LiDAR metadata from a dictionary.
+    def from_dict(cls, data_dict: dict) -> LidarMetadata:
+        """Construct the Lidar metadata from a dictionary.
 
-        :param data_dict: A dictionary containing LiDAR metadata.
+        :param data_dict: A dictionary containing Lidar metadata.
         :raises ValueError: If the dictionary is missing required fields or contains invalid data.
-        :return: An instance of LiDARMetadata.
+        :return: An instance of LidarMetadata.
         """
-        lidar_type = LiDARType[data_dict["lidar_type"]]
-        if data_dict["lidar_index"] not in LIDAR_INDEX_REGISTRY:
-            raise ValueError(f"Unknown lidar index: {data_dict['lidar_index']}")
-        lidar_index_class = LIDAR_INDEX_REGISTRY[data_dict["lidar_index"]]
-        extrinsic = PoseSE3.from_list(data_dict["extrinsic"]) if data_dict["extrinsic"] is not None else None
-        return cls(
-            lidar_name=data_dict["lidar_name"],
-            lidar_type=lidar_type,
-            lidar_index=lidar_index_class,
-            extrinsic=extrinsic,
-        )
+        lidar_id = LidarID[data_dict["lidar_id"]]
+        if data_dict["extrinsic"] is not None:
+            extrinsic = PoseSE3.from_list(data_dict["extrinsic"])
+        else:
+            extrinsic = PoseSE3.identity()
+        return cls(lidar_name=data_dict["lidar_name"], lidar_id=lidar_id, extrinsic=extrinsic)
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert the LiDAR metadata to a dictionary.
+        """Convert the Lidar metadata to a dictionary.
 
-        :return: A dictionary representation of the LiDAR metadata.
+        :return: A dictionary representation of the Lidar metadata.
         """
         return {
             "lidar_name": self.lidar_name,
-            "lidar_type": self.lidar_type.name,
-            "lidar_index": self.lidar_index.__name__,
+            "lidar_id": self.lidar_id.name,
             "extrinsic": self.extrinsic.tolist() if self.extrinsic is not None else None,
         }
 
 
-class LiDAR:
-    """Data structure for LiDAR point cloud data and associated metadata."""
+class Lidar:
+    """Data structure for Lidar point cloud data and associated metadata."""
 
-    __slots__ = ("_metadata", "_point_cloud")
+    __slots__ = ("_metadata", "_point_cloud_3d", "_point_cloud_features")
 
-    def __init__(self, metadata: LiDARMetadata, point_cloud: npt.NDArray[np.float32]) -> None:
-        """Initialize LiDAR data structure.
+    def __init__(
+        self,
+        metadata: LidarMetadata,
+        point_cloud_3d: npt.NDArray[np.float32],
+        point_cloud_features: Optional[Dict[str, npt.NDArray]] = None,
+    ) -> None:
+        """Initialize Lidar data structure.
 
-        :param metadata: LiDAR metadata.
-        :param point_cloud: LiDAR point cloud as an NxM numpy array, where N is the number of points
-            and M is the number of attributes per point as defined by the :class:`~py123d.conversion.registry.LiDARIndex`.
+        :param metadata: Lidar metadata.
+        :param point_cloud_3d: Lidar point cloud as an NxM numpy array, where N is the number of points
+            and M is the number of attributes per point as defined by the :class:`~py123d.conversion.registry.LidarIndex`.
+        :param point_cloud_features: Optional dictionary of point cloud features.
         """
         self._metadata = metadata
-        self._point_cloud = point_cloud
+        self._point_cloud_3d = point_cloud_3d
+        self._point_cloud_features = point_cloud_features
 
     @property
-    def metadata(self) -> LiDARMetadata:
-        """The :class:`LiDARMetadata` associated with this LiDAR recording."""
+    def metadata(self) -> LidarMetadata:
+        """The :class:`LidarMetadata` associated with this Lidar recording."""
         return self._metadata
 
     @property
-    def point_cloud(self) -> npt.NDArray[np.float32]:
+    def point_cloud_3d(self) -> npt.NDArray[np.float32]:
         """The raw point cloud as an NxM numpy array,
         where N is the number of points and M is the number of attributes per point,
-        as defined by the :class:`~py123d.conversion.registry.LiDARIndex`. Point cloud in vehicle frame.
+        as defined by the :class:`~py123d.conversion.registry.LidarIndex`. Point cloud in vehicle frame.
         """
-        return self._point_cloud
+        return self._point_cloud_3d
+
+    @property
+    def point_cloud_features(self) -> Optional[Dict[str, npt.NDArray]]:
+        """The point cloud features as a dictionary of numpy arrays."""
+        return self._point_cloud_features
 
     @property
     def xyz(self) -> npt.NDArray[np.float32]:
         """The point cloud as an Nx3 array of x, y, z coordinates."""
-        return self._point_cloud[:, self.metadata.lidar_index.XYZ]
+        return self._point_cloud_3d
 
     @property
     def xy(self) -> npt.NDArray[np.float32]:
         """The point cloud as an Nx2 array of x, y coordinates."""
-        return self._point_cloud[:, self.metadata.lidar_index.XY]
+        return self._point_cloud_3d[..., Point3DIndex.XY]  # type: ignore
 
     @property
-    def intensity(self) -> Optional[npt.NDArray[np.float32]]:
+    def ids(self) -> Optional[npt.NDArray[np.uint8]]:
+        """The point cloud as an Nx1 array of point IDs, if available."""
+        ids: Optional[npt.NDArray[np.uint8]] = None
+        key = LidarFeature.IDS.serialize()
+        if self._point_cloud_features is not None and key in self._point_cloud_features:
+            ids = self._point_cloud_features[key].astype(np.uint8)  # type: ignore
+        return ids
+
+    @property
+    def intensity(self) -> Optional[npt.NDArray[np.uint8]]:
         """The point cloud as an Nx1 array of intensity values, if available."""
-        intensity: Optional[npt.NDArray[np.float32]] = None
-        if hasattr(self._metadata.lidar_index, "INTENSITY"):
-            intensity = self._point_cloud[:, self._metadata.lidar_index.INTENSITY]  # type: ignore
+        intensity: Optional[npt.NDArray[np.uint8]] = None
+        key = LidarFeature.INTENSITY.serialize()
+        if self._point_cloud_features is not None and key in self._point_cloud_features:
+            intensity = self._point_cloud_features[key].astype(np.uint8)  # type: ignore
         return intensity
+
+    @property
+    def channel(self) -> Optional[npt.NDArray[np.uint8]]:
+        """The point cloud as an Nx1 array of channel/ring values, if available."""
+        channel: Optional[npt.NDArray[np.uint8]] = None
+        key = LidarFeature.CHANNEL.serialize()
+        if self._point_cloud_features is not None and key in self._point_cloud_features:
+            channel = self._point_cloud_features[key].astype(np.uint8)  # type: ignore
+        return channel
+
+    @property
+    def timestamp(self) -> Optional[npt.NDArray[np.int64]]:
+        """The point cloud as an Nx1 array of timestamps in microseconds, if available."""
+        timestamp: Optional[npt.NDArray[np.int64]] = None
+        key = LidarFeature.TIMESTAMP.serialize()
+        if self._point_cloud_features is not None and key in self._point_cloud_features:
+            timestamp = self._point_cloud_features[key].astype(np.int64)  # type: ignore
+        return timestamp
 
     @property
     def range(self) -> Optional[npt.NDArray[np.float32]]:
         """The point cloud as an Nx1 array of range values, if available."""
         range: Optional[npt.NDArray[np.float32]] = None
-        if hasattr(self._metadata.lidar_index, "RANGE"):
-            range = self._point_cloud[:, self._metadata.lidar_index.RANGE]  # type: ignore
+        key = LidarFeature.RANGE.serialize()
+        if self._point_cloud_features is not None and key in self._point_cloud_features:
+            range = self._point_cloud_features[key].astype(np.float32)  # type: ignore
         return range
 
     @property
     def elongation(self) -> Optional[npt.NDArray[np.float32]]:
         """The point cloud as an Nx1 array of elongation values, if available."""
         elongation: Optional[npt.NDArray[np.float32]] = None
-        if hasattr(self._metadata.lidar_index, "ELONGATION"):
-            elongation = self._point_cloud[:, self._metadata.lidar_index.ELONGATION]  # type: ignore
+        key = LidarFeature.ELONGATION.serialize()
+        if self._point_cloud_features is not None and key in self._point_cloud_features:
+            elongation = self._point_cloud_features[key].astype(np.float32)  # type: ignore
         return elongation
-
-    @property
-    def ring(self) -> Optional[npt.NDArray[np.int32]]:
-        """The point cloud as an Nx1 array of ring values, if available."""
-        ring: Optional[npt.NDArray[np.int32]] = None
-        if hasattr(self._metadata.lidar_index, "RING"):
-            ring = self._point_cloud[:, self._metadata.lidar_index.RING]  # type: ignore
-        return ring

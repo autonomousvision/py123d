@@ -3,8 +3,8 @@ from typing import Dict, Final, List, Set
 from py123d.conversion.registry import NuPlanBoxDetectionLabel
 from py123d.datatypes.detections import TrafficLightStatus
 from py123d.datatypes.map_objects import RoadLineType
-from py123d.datatypes.sensors import LiDARType
-from py123d.datatypes.time import TimePoint
+from py123d.datatypes.sensors import LidarID
+from py123d.datatypes.time import Timestamp
 
 NUPLAN_DEFAULT_DT: Final[float] = 0.05
 
@@ -29,11 +29,11 @@ NUPLAN_DETECTION_NAME_DICT = {
 # NOTE: The above description is not matching the actually loaded points clouds.
 # Correct is the mapping; 1: LIDAR_SIDE_LEFT, 2: LIDAR_SIDE_RIGHT.
 NUPLAN_LIDAR_DICT = {
-    0: LiDARType.LIDAR_TOP,
-    1: LiDARType.LIDAR_SIDE_LEFT,
-    2: LiDARType.LIDAR_SIDE_RIGHT,
-    3: LiDARType.LIDAR_BACK,
-    4: LiDARType.LIDAR_FRONT,
+    0: LidarID.LIDAR_TOP,
+    1: LidarID.LIDAR_SIDE_LEFT,
+    2: LidarID.LIDAR_SIDE_RIGHT,
+    3: LidarID.LIDAR_BACK,
+    4: LidarID.LIDAR_FRONT,
 }
 
 NUPLAN_DATA_SPLITS: Set[str] = {
@@ -87,4 +87,4 @@ NUPLAN_ROAD_LINE_CONVERSION = {
 }
 
 
-NUPLAN_ROLLING_SHUTTER_S: Final[TimePoint] = TimePoint.from_s(1 / 60)
+NUPLAN_ROLLING_SHUTTER_S: Final[Timestamp] = Timestamp.from_s(1 / 60)

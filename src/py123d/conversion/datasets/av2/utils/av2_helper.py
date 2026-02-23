@@ -4,7 +4,7 @@ from typing import List, Literal, Optional
 import pandas as pd
 
 from py123d.conversion.datasets.av2.utils.av2_constants import (
-    AV2_CAMERA_TYPE_MAPPING,
+    AV2_CAMERA_ID_MAPPING,
     AV2_SENSOR_CAM_SHUTTER_INTERVAL_MS,
     AV2_SENSOR_LIDAR_SWEEP_INTERVAL_W_BUFFER_NS,
 )
@@ -46,7 +46,7 @@ def build_sensor_dataframe(source_log_path: Path) -> pd.DataFrame:
     # Find all the camera records and timestamps from file names.
     camera_records = []
     for camera_folder in cameras_path.iterdir():
-        assert camera_folder.name in AV2_CAMERA_TYPE_MAPPING.keys()
+        assert camera_folder.name in AV2_CAMERA_ID_MAPPING.keys()
         camera_record = populate_sensor_records(camera_folder, split, log_id)
         camera_records.append(camera_record)
 
@@ -175,7 +175,7 @@ def find_closest_target_fpath(
     # https://github.com/argoverse/av2-api/blob/6b22766247eda941cb1953d6a58e8d5631c561da/src/av2/datasets/sensor/sensor_dataloader.py#L448
 
     src_timedelta_ns = pd.Timedelta(src_timestamp_ns)
-    src_to_target_records = synchronization_df.loc[(split, log_id, src_sensor_name)].set_index(src_sensor_name)
+    src_to_target_records = synchronization_df.loc[(split, log_id, src_sensor_name)].set_index(src_sensor_name)  # type: ignore
     index = src_to_target_records.index
     if src_timedelta_ns not in index:
         # This timestamp does not correspond to any lidar sweep.
@@ -188,7 +188,7 @@ def find_closest_target_fpath(
         return None
 
     sensor_dir = Path(split) / log_id / "sensors"
-    valid_cameras = list(AV2_CAMERA_TYPE_MAPPING.keys())
+    valid_cameras = list(AV2_CAMERA_ID_MAPPING.keys())
     timestamp_ns_str = str(target_timestamp_ns.asm8.item())
     if target_sensor_name in valid_cameras:
         target_path = sensor_dir / "cameras" / target_sensor_name / f"{timestamp_ns_str}.jpg"

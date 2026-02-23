@@ -8,7 +8,7 @@ from pyquaternion import Quaternion
 
 from py123d.conversion.registry import DefaultBoxDetectionLabel
 from py123d.datatypes.detections import BoxDetectionSE3, BoxDetectionWrapper
-from py123d.datatypes.sensors import LiDAR, PinholeCamera, PinholeIntrinsics
+from py123d.datatypes.sensors import Lidar, PinholeCamera, PinholeIntrinsics
 from py123d.datatypes.vehicle_state import EgoStateSE3
 from py123d.geometry import BoundingBoxSE3Index, Corners3DIndex
 from py123d.geometry.transform import abs_to_rel_se3_array
@@ -28,7 +28,7 @@ def add_pinhole_camera_ax(ax: plt.Axes, pinhole_camera: PinholeCamera) -> plt.Ax
     return ax
 
 
-def add_lidar_to_camera_ax(ax: plt.Axes, camera: PinholeCamera, lidar: LiDAR, undistort: bool = True) -> plt.Axes:
+def add_lidar_to_camera_ax(ax: plt.Axes, camera: PinholeCamera, lidar: Lidar, undistort: bool = True) -> plt.Axes:
     """Add lidar point cloud to camera image on matplotlib axis
 
     :param ax: matplotlib axis

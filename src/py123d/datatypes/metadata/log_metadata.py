@@ -5,9 +5,9 @@ from typing import Dict, Optional, Type
 import py123d
 from py123d.conversion.registry.box_detection_label_registry import BOX_DETECTION_LABEL_REGISTRY, BoxDetectionLabel
 from py123d.datatypes.metadata.map_metadata import MapMetadata
-from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraMetadata, FisheyeMEICameraType
-from py123d.datatypes.sensors.lidar import LiDARMetadata, LiDARType
-from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata, PinholeCameraType
+from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraID, FisheyeMEICameraMetadata
+from py123d.datatypes.sensors.lidar import LidarID, LidarMetadata
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraID, PinholeCameraMetadata
 from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 
 
@@ -38,9 +38,9 @@ class LogMetadata:
         timestep_seconds: float,
         vehicle_parameters: Optional[VehicleParameters] = None,
         box_detection_label_class: Optional[Type[BoxDetectionLabel]] = None,
-        pinhole_camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {},
-        fisheye_mei_camera_metadata: Dict[FisheyeMEICameraType, FisheyeMEICameraMetadata] = {},
-        lidar_metadata: Dict[LiDARType, LiDARMetadata] = {},
+        pinhole_camera_metadata: Dict[PinholeCameraID, PinholeCameraMetadata] = {},
+        fisheye_mei_camera_metadata: Dict[FisheyeMEICameraID, FisheyeMEICameraMetadata] = {},
+        lidar_metadata: Dict[LidarID, LidarMetadata] = {},
         map_metadata: Optional[MapMetadata] = None,
         version: str = str(py123d.__version__),
     ):
@@ -54,12 +54,12 @@ class LogMetadata:
         :param vehicle_parameters: The :class:`~py123d.datatypes.vehicle_state.VehicleParameters`
             of the ego vehicle, if available.
         :param box_detection_label_class: The box detection label class specific to the dataset, if available.
-        :param pinhole_camera_metadata: Dictionary of :class:`~py123d.datatypes.sensors.PinholeCameraType`
+        :param pinhole_camera_metadata: Dictionary of :class:`~py123d.datatypes.sensors.PinholeCameraID`
             to :class:`~py123d.datatypes.sensors.PinholeCameraMetadata`, defaults to {}
         :param fisheye_mei_camera_metadata: Dictionary of :class:`~py123d.datatypes.sensors.FisheyeMEICameraType`
             to :class:`~py123d.datatypes.sensors.FisheyeMEICameraMetadata`, defaults to {}
-        :param lidar_metadata: Dictionary of :class:`~py123d.datatypes.sensors.LiDARType`
-            to :class:`~py123d.datatypes.sensors.LiDARMetadata`, defaults to {}
+        :param lidar_metadata: Dictionary of :class:`~py123d.datatypes.sensors.LidarID`
+            to :class:`~py123d.datatypes.sensors.LidarMetadata`, defaults to {}
         :param map_metadata: The :class:`~py123d.datatypes.metadata.MapMetadata` for the log, if available, defaults to None
         :param version: The version of the log metadata, defaults to str(py123d.__version__)
         """
@@ -112,23 +112,23 @@ class LogMetadata:
         return self._box_detection_label_class
 
     @property
-    def pinhole_camera_metadata(self) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
-        """Dictionary of :class:`~py123d.datatypes.sensors.PinholeCameraType`
+    def pinhole_camera_metadata(self) -> Dict[PinholeCameraID, PinholeCameraMetadata]:
+        """Dictionary of :class:`~py123d.datatypes.sensors.PinholeCameraID`
         to :class:`~py123d.datatypes.sensors.PinholeCameraMetadata`.
         """
         return self._pinhole_camera_metadata
 
     @property
-    def fisheye_mei_camera_metadata(self) -> Dict[FisheyeMEICameraType, FisheyeMEICameraMetadata]:
+    def fisheye_mei_camera_metadata(self) -> Dict[FisheyeMEICameraID, FisheyeMEICameraMetadata]:
         """Dictionary of :class:`~py123d.datatypes.sensors.FisheyeMEICameraType`
         to :class:`~py123d.datatypes.sensors.FisheyeMEICameraMetadata`.
         """
         return self._fisheye_mei_camera_metadata
 
     @property
-    def lidar_metadata(self) -> Dict[LiDARType, LiDARMetadata]:
-        """Dictionary of :class:`~py123d.datatypes.sensors.LiDARType`
-        to :class:`~py123d.datatypes.sensors.LiDARMetadata`.
+    def lidar_metadata(self) -> Dict[LidarID, LidarMetadata]:
+        """Dictionary of :class:`~py123d.datatypes.sensors.LidarID`
+        to :class:`~py123d.datatypes.sensors.LidarMetadata`.
         """
         return self._lidar_metadata
 
@@ -168,20 +168,18 @@ class LogMetadata:
         # Pinhole Camera Metadata
         pinhole_camera_metadata = {}
         for key, value in data_dict.get("pinhole_camera_metadata", {}).items():
-            pinhole_camera_metadata[PinholeCameraType.deserialize(key)] = PinholeCameraMetadata.from_dict(value)
+            pinhole_camera_metadata[PinholeCameraID.deserialize(key)] = PinholeCameraMetadata.from_dict(value)
         data_dict["pinhole_camera_metadata"] = pinhole_camera_metadata
 
         # Fisheye MEI Camera Metadata
         fisheye_mei_camera_metadata = {}
         for key, value in data_dict.get("fisheye_mei_camera_metadata", {}).items():
-            fisheye_mei_camera_metadata[FisheyeMEICameraType.deserialize(key)] = FisheyeMEICameraMetadata.from_dict(
-                value
-            )
+            fisheye_mei_camera_metadata[FisheyeMEICameraID.deserialize(key)] = FisheyeMEICameraMetadata.from_dict(value)
         data_dict["fisheye_mei_camera_metadata"] = fisheye_mei_camera_metadata
 
-        # LiDAR Metadata
+        # Lidar Metadata
         data_dict["lidar_metadata"] = {
-            LiDARType.deserialize(key): LiDARMetadata.from_dict(value)
+            LidarID.deserialize(key): LidarMetadata.from_dict(value)
             for key, value in data_dict.get("lidar_metadata", {}).items()
         }
 

@@ -66,7 +66,7 @@ class VehicleParameters:
 def get_nuplan_chrysler_pacifica_parameters() -> VehicleParameters:
     """Helper function to get nuPlan Chrysler Pacifica vehicle parameters."""
     # NOTE: These parameters are mostly available in nuPlan, except for the rear_axle_to_center_vertical.
-    # The value is estimated based the LiDAR point cloud.
+    # The value is estimated based the Lidar point cloud.
     # [1] https://en.wikipedia.org/wiki/Chrysler_Pacifica_(minivan)
     return VehicleParameters(
         vehicle_name="nuplan_chrysler_pacifica",
@@ -140,7 +140,7 @@ def get_wod_motion_chrysler_pacifica_parameters() -> VehicleParameters:
 def get_kitti360_vw_passat_parameters() -> VehicleParameters:
     """Helper function to get KITTI-360 VW Passat vehicle parameters."""
     # NOTE: The parameters in KITTI-360 are estimates based on the vehicle model used in the dataset
-    # Uses a 2006 VW Passat Variant B6 [1]. Vertical distance is estimated based on the LiDAR.
+    # Uses a 2006 VW Passat Variant B6 [1]. Vertical distance is estimated based on the Lidar.
     # KITTI-360 is currently the only dataset where the IMU has a lateral offset to the rear axle [2]
     # We do account for such offsets, but the overall estimations are not perfect.
     # [1] https://en.wikipedia.org/wiki/Volkswagen_Passat_(B6)
@@ -158,7 +158,7 @@ def get_kitti360_vw_passat_parameters() -> VehicleParameters:
 
 def get_av2_ford_fusion_hybrid_parameters() -> VehicleParameters:
     """Helper function to get Argoverse 2 Ford Fusion Hybrid vehicle parameters."""
-    # NOTE: Parameters are estimated from the vehicle model [1] and LiDAR point cloud.
+    # NOTE: Parameters are estimated from the vehicle model [1] and Lidar point cloud.
     # [1] https://en.wikipedia.org/wiki/Ford_Fusion_Hybrid#Second_generation
     # https://github.com/argoverse/av2-api/blob/6b22766247eda941cb1953d6a58e8d5631c561da/tests/unit/map/test_map_api.py#L375
     return VehicleParameters(

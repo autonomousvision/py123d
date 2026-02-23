@@ -37,9 +37,9 @@ Fisheye MEI Projection
    :autoclasstoc:
 
 
-Fisheye MEI Camera Types
-------------------------
+Fisheye MEI Camera IDs
+----------------------
 
-.. autoclass:: py123d.datatypes.sensors.FisheyeMEICameraType
+.. autoclass:: py123d.datatypes.sensors.FisheyeMEICameraID
    :no-inherited-members:
    :exclude-members: __init__, __new__

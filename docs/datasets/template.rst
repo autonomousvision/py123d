@@ -51,9 +51,9 @@ Available Modalities
    * - Fisheye Cameras
      - ✓ / (✓) / X
      - ..., see :class:`~py123d.datatypes.sensors.FisheyeCamera`.
-   * - LiDARs
+   * - Lidars
      - ✓ / (✓) / X
-     - ..., see :class:`~py123d.datatypes.sensors.LiDAR`.
+     - ..., see :class:`~py123d.datatypes.sensors.Lidar`.
 
 
 Download
@@ -88,9 +88,9 @@ Dataset Specific
     :members:
     :no-inherited-members:
 
-.. dropdown:: LiDAR Index
+.. dropdown:: Lidar Index
 
-  .. autoclass:: py123d.conversion.registry.DefaultLiDARIndex
+  .. autoclass:: py123d.conversion.registry.DefaultLidarIndex
     :members:
     :no-inherited-members:
 

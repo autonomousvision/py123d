@@ -38,9 +38,9 @@ Pinhole Distortion
    :autoclasstoc:
 
 
-Pinhole Camera Types
---------------------
+Pinhole Camera IDs
+------------------
 
-.. autoclass:: py123d.datatypes.sensors.PinholeCameraType
+.. autoclass:: py123d.datatypes.sensors.PinholeCameraID
    :no-inherited-members:
    :exclude-members: __init__, __new__

@@ -68,8 +68,8 @@ viser_config:
   fisheye_frustum_scale: 1.0
   fisheye_frustum_image_scale: 0.25
 
-  # LiDAR
+  # Lidar
   lidar_visible: true
-  # lidar_types: [] # Loads all by default
+  # lidar_ids: [] # Loads all by default
   lidar_point_size: 0.05
   lidar_point_shape: "circle" # ["square", "diamond", "circle", "rounded", "sparkle"]

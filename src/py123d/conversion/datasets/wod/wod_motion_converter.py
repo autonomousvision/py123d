@@ -20,10 +20,10 @@ from py123d.datatypes.detections.traffic_light_detections import TrafficLightDet
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.datatypes.sensors import (
-    LiDARMetadata,
-    LiDARType,
+    LidarID,
+    LidarMetadata,
 )
-from py123d.datatypes.time.time_point import TimePoint
+from py123d.datatypes.time.time_point import Timestamp
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import (
     get_wod_motion_chrysler_pacifica_parameters,
@@ -151,18 +151,18 @@ class WODMotionConverter(AbstractDatasetConverter):
 
             # 3. Process source log data
             if log_needs_writing:
-                all_timepoints = _extract_all_timepoints(scenario)
+                all_timestamps = _extract_all_timestamps(scenario)
                 all_ego_states = _extract_all_ego_states(scenario)
                 all_box_detections = _extract_all_wod_motion_box_detections(scenario)
                 all_traffic_lights = _extract_all_traffic_lights(scenario)
 
                 assert (
-                    len(all_timepoints) == len(all_ego_states) == len(all_box_detections) == len(all_traffic_lights)
+                    len(all_timestamps) == len(all_ego_states) == len(all_box_detections) == len(all_traffic_lights)
                 ), "All extracted data lists must have the same length."
 
-                for time_idx in range(len(all_timepoints)):
+                for time_idx in range(len(all_timestamps)):
                     log_writer.write(
-                        timestamp=all_timepoints[time_idx],
+                        timestamp=all_timestamps[time_idx],
                         ego_state=all_ego_states[time_idx],
                         box_detections=all_box_detections[time_idx],
                         traffic_lights=all_traffic_lights[time_idx],
@@ -187,8 +187,8 @@ def _get_wod_motion_map_metadata(scenario: scenario_pb2.Scenario, split: str) ->
     return map_metadata
 
 
-def _extract_all_timepoints(scenario: scenario_pb2.Scenario) -> List[TimePoint]:
-    return [TimePoint.from_s(ts) for ts in scenario.timestamps_seconds]
+def _extract_all_timestamps(scenario: scenario_pb2.Scenario) -> List[Timestamp]:
+    return [Timestamp.from_s(ts) for ts in scenario.timestamps_seconds]
 
 
 def _extract_all_ego_states(scenario: scenario_pb2.Scenario) -> List[EgoStateSE3]:
@@ -260,7 +260,7 @@ def _extract_all_wod_motion_box_detections(scenario: scenario_pb2.Scenario) -> L
                 box_detection = BoxDetectionSE3(
                     metadata=BoxDetectionMetadata(
                         label=label,
-                        timepoint=None,
+                        timestamp=None,
                         track_token=track_id,
                     ),
                     bounding_box_se3=bounding_box_se3,
@@ -315,11 +315,11 @@ def _extract_all_traffic_lights(scenario: scenario_pb2.Scenario) -> List[Traffic
 def _get_wod_motion_lidar_metadata(
     scenario: scenario_pb2.Scenario,
     dataset_converter_config: DatasetConverterConfig,
-) -> Dict[LiDARType, LiDARMetadata]:
-    raise NotImplementedError("WOD-Motion LiDAR metadata extraction is not yet implemented.")
+) -> Dict[LidarID, LidarMetadata]:
+    raise NotImplementedError("WOD-Motion Lidar metadata extraction is not yet implemented.")
 
 
 def _extract_wod_motion_lidars(
     scenario: scenario_pb2.Scenario,
 ) -> None:
-    raise NotImplementedError("WOD-Motion LiDAR extraction is not yet implemented.")
+    raise NotImplementedError("WOD-Motion Lidar extraction is not yet implemented.")

@@ -4,7 +4,7 @@ from typing import Final, Optional
 
 from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE2, BoxDetectionSE3
-from py123d.datatypes.time.time_point import TimePoint
+from py123d.datatypes.time.time_point import Timestamp
 from py123d.datatypes.vehicle_state.dynamic_state import DynamicStateSE2, DynamicStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import (
     VehicleParameters,
@@ -21,7 +21,7 @@ EGO_TRACK_TOKEN: Final[str] = "ego_vehicle"
 class EgoStateSE3:
     """The EgoStateSE3 represents the state of the ego vehicle in SE3 (3D space).
     It includes the rear axle pose, vehicle parameters, optional dynamic state,
-    optional timepoint, and optional tire steering angle.
+    optional timestamp, and optional tire steering angle.
     """
 
     def __init__(
@@ -29,7 +29,7 @@ class EgoStateSE3:
         rear_axle_se3: PoseSE3,
         vehicle_parameters: VehicleParameters,
         dynamic_state_se3: Optional[DynamicStateSE3] = None,
-        timepoint: Optional[TimePoint] = None,
+        timestamp: Optional[Timestamp] = None,
         tire_steering_angle: Optional[float] = 0.0,
     ):
         """Initialize an :class:`EgoStateSE3` instance.
@@ -37,13 +37,13 @@ class EgoStateSE3:
         :param rear_axle_se3: The pose of the rear axle in SE3.
         :param vehicle_parameters: The parameters of the vehicle.
         :param dynamic_state_se3: The dynamic state of the vehicle, defaults to None.
-        :param timepoint: The timepoint of the state, defaults to None.
+        :param timestamp: The timestamp of the state, defaults to None.
         :param tire_steering_angle: The tire steering angle, defaults to 0.0.
         """
         self._rear_axle_se3 = rear_axle_se3
         self._vehicle_parameters = vehicle_parameters
         self._dynamic_state_se3 = dynamic_state_se3
-        self._timepoint: Optional[TimePoint] = timepoint
+        self._timestamp: Optional[Timestamp] = timestamp
         self._tire_steering_angle: Optional[float] = tire_steering_angle
 
     @classmethod
@@ -52,7 +52,7 @@ class EgoStateSE3:
         center_se3: PoseSE3,
         vehicle_parameters: VehicleParameters,
         dynamic_state_se3: Optional[DynamicStateSE3] = None,
-        timepoint: Optional[TimePoint] = None,
+        timestamp: Optional[Timestamp] = None,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE3:
         """Create an :class:`EgoStateSE3` from the center pose.
@@ -60,7 +60,7 @@ class EgoStateSE3:
         :param center_se3: The center pose in SE3.
         :param vehicle_parameters: The parameters of the vehicle.
         :param dynamic_state_se3: The dynamic state of the vehicle, defaults to None.
-        :param timepoint: The timepoint of the state, defaults to None.
+        :param timestamp: The timestamp of the state, defaults to None.
         :param tire_steering_angle: The tire steering angle, defaults to 0.0.
         :return: An :class:`EgoStateSE3` instance.
         """
@@ -75,7 +75,7 @@ class EgoStateSE3:
             rear_axle_se3=rear_axle_se3,
             vehicle_parameters=vehicle_parameters,
             dynamic_state_se3=dynamic_state_se3,
-            timepoint=timepoint,
+            timestamp=timestamp,
             tire_steering_angle=tire_steering_angle,
         )
 
@@ -85,7 +85,7 @@ class EgoStateSE3:
         rear_axle_se3: PoseSE3,
         vehicle_parameters: VehicleParameters,
         dynamic_state_se3: Optional[DynamicStateSE3] = None,
-        timepoint: Optional[TimePoint] = None,
+        timestamp: Optional[Timestamp] = None,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE3:
         """Create an :class:`EgoStateSE3` from the rear axle pose.
@@ -93,7 +93,7 @@ class EgoStateSE3:
         :param rear_axle_se3: The pose of the rear axle in SE3.
         :param vehicle_parameters: The parameters of the vehicle.
         :param dynamic_state_se3: The dynamic state of the vehicle, defaults to None.
-        :param timepoint: The timepoint of the state, defaults to None.
+        :param timestamp: The timestamp of the state, defaults to None.
         :param tire_steering_angle: The tire steering angle, defaults to 0.0.
         :return: An :class:`EgoStateSE3` instance.
         """
@@ -102,7 +102,7 @@ class EgoStateSE3:
             rear_axle_se3=rear_axle_se3,
             vehicle_parameters=vehicle_parameters,
             dynamic_state_se3=dynamic_state_se3,
-            timepoint=timepoint,
+            timestamp=timestamp,
             tire_steering_angle=tire_steering_angle,
         )
 
@@ -127,9 +127,9 @@ class EgoStateSE3:
         return self._dynamic_state_se3
 
     @property
-    def timepoint(self) -> Optional[TimePoint]:
+    def timestamp(self) -> Optional[Timestamp]:
         """The :class:`~py123d.datatypes.time.TimePoint` of the ego state, if available."""
-        return self._timepoint
+        return self._timestamp
 
     @property
     def tire_steering_angle(self) -> Optional[float]:
@@ -170,7 +170,7 @@ class EgoStateSE3:
         return BoxDetectionSE3(
             metadata=BoxDetectionMetadata(
                 label=DefaultBoxDetectionLabel.EGO,
-                timepoint=self.timepoint,
+                timestamp=self.timestamp,
                 track_token=EGO_TRACK_TOKEN,
                 num_lidar_points=None,
             ),
@@ -190,14 +190,14 @@ class EgoStateSE3:
             rear_axle_se2=self.rear_axle_se2,
             vehicle_parameters=self.vehicle_parameters,
             dynamic_state_se2=self.dynamic_state_se3.dynamic_state_se2 if self.dynamic_state_se3 else None,
-            timepoint=self.timepoint,
+            timestamp=self.timestamp,
             tire_steering_angle=self.tire_steering_angle,
         )
 
 
 class EgoStateSE2:
     """The EgoStateSE2 represents the state of the ego vehicle in SE2 (2D space).
-    It includes the rear axle pose, vehicle parameters, optional dynamic state, and optional timepoint.
+    It includes the rear axle pose, vehicle parameters, optional dynamic state, and optional timestamp.
     """
 
     def __init__(
@@ -205,7 +205,7 @@ class EgoStateSE2:
         rear_axle_se2: PoseSE2,
         vehicle_parameters: VehicleParameters,
         dynamic_state_se2: Optional[DynamicStateSE2] = None,
-        timepoint: Optional[TimePoint] = None,
+        timestamp: Optional[Timestamp] = None,
         tire_steering_angle: Optional[float] = 0.0,
     ):
         """Initialize an :class:`EgoStateSE2` instance.
@@ -213,13 +213,13 @@ class EgoStateSE2:
         :param rear_axle_se2: The pose of the rear axle in SE2.
         :param vehicle_parameters: The parameters of the vehicle.
         :param dynamic_state_se2: The dynamic state of the vehicle in SE2, defaults to None.
-        :param timepoint: The timepoint of the state, defaults to None.
+        :param timestamp: The timestamp of the state, defaults to None.
         :param tire_steering_angle: The tire steering angle, defaults to 0.0
         """
         self._rear_axle_se2: PoseSE2 = rear_axle_se2
         self._vehicle_parameters: VehicleParameters = vehicle_parameters
         self._dynamic_state_se2: Optional[DynamicStateSE2] = dynamic_state_se2
-        self._timepoint: Optional[TimePoint] = timepoint
+        self._timestamp: Optional[Timestamp] = timestamp
         self._tire_steering_angle: Optional[float] = tire_steering_angle
 
     @classmethod
@@ -228,7 +228,7 @@ class EgoStateSE2:
         rear_axle_se2: PoseSE2,
         dynamic_state_se2: DynamicStateSE2,
         vehicle_parameters: VehicleParameters,
-        timepoint: TimePoint,
+        timestamp: Timestamp,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE2:
         """Create an :class:`EgoStateSE2` from the rear axle pose.
@@ -236,7 +236,7 @@ class EgoStateSE2:
         :param rear_axle_se2: The pose of the rear axle in SE2.
         :param dynamic_state_se2: The dynamic state of the vehicle in SE2.
         :param vehicle_parameters: The parameters of the vehicle.
-        :param timepoint: The timepoint of the state.
+        :param timestamp: The timestamp of the state.
         :param tire_steering_angle: The tire steering angle, defaults to 0.0.
         :return: An instance of :class:`EgoStateSE2`.
         """
@@ -245,7 +245,7 @@ class EgoStateSE2:
             rear_axle_se2=rear_axle_se2,
             dynamic_state_se2=dynamic_state_se2,
             vehicle_parameters=vehicle_parameters,
-            timepoint=timepoint,
+            timestamp=timestamp,
             tire_steering_angle=tire_steering_angle,
         )
 
@@ -255,7 +255,7 @@ class EgoStateSE2:
         center_se2: PoseSE2,
         dynamic_state_se2: DynamicStateSE2,
         vehicle_parameters: VehicleParameters,
-        timepoint: TimePoint,
+        timestamp: Timestamp,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE2:
         """Create an :class:`EgoStateSE2` from the center pose.
@@ -263,7 +263,7 @@ class EgoStateSE2:
         :param center_se2: The pose of the center in SE2.
         :param dynamic_state_se2: The dynamic state of the vehicle in SE2.
         :param vehicle_parameters: The parameters of the vehicle.
-        :param timepoint: The timepoint of the state.
+        :param timestamp: The timestamp of the state.
         :param tire_steering_angle: The tire steering angle, defaults to 0.0.
         :return: An instance of :class:`EgoStateSE2`.
         """
@@ -278,7 +278,7 @@ class EgoStateSE2:
             rear_axle_se2=rear_axle_se2,
             dynamic_state_se2=dynamic_state_se2,
             vehicle_parameters=vehicle_parameters,
-            timepoint=timepoint,
+            timestamp=timestamp,
             tire_steering_angle=tire_steering_angle,
         )
 
@@ -298,9 +298,9 @@ class EgoStateSE2:
         return self._dynamic_state_se2
 
     @property
-    def timepoint(self) -> Optional[TimePoint]:
+    def timestamp(self) -> Optional[Timestamp]:
         """The :class:`~py123d.datatypes.time.TimePoint` of the ego state, if available."""
-        return self._timepoint
+        return self._timestamp
 
     @property
     def tire_steering_angle(self) -> Optional[float]:
@@ -327,7 +327,7 @@ class EgoStateSE2:
         return BoxDetectionSE2(
             metadata=BoxDetectionMetadata(
                 label=DefaultBoxDetectionLabel.EGO,
-                timepoint=self.timepoint,
+                timestamp=self.timestamp,
                 track_token=EGO_TRACK_TOKEN,
                 num_lidar_points=None,
             ),

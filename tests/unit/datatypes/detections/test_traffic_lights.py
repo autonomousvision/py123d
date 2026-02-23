@@ -1,5 +1,5 @@
 from py123d.datatypes.detections import TrafficLightDetection, TrafficLightDetectionWrapper, TrafficLightStatus
-from py123d.datatypes.time.time_point import TimePoint
+from py123d.datatypes.time.time_point import Timestamp
 
 
 class TestTrafficLightStatus:
@@ -18,19 +18,19 @@ class TestTrafficLightDetection:
         detection = TrafficLightDetection(lane_id=1, status=TrafficLightStatus.GREEN)
         assert detection.lane_id == 1
         assert detection.status == TrafficLightStatus.GREEN
-        assert detection.timepoint is None
+        assert detection.timestamp is None
 
-    def test_creation_with_timepoint(self):
-        """Test that TrafficLightDetection can be created with timepoint."""
-        timepoint = TimePoint.from_s(0)
+    def test_creation_with_timestamp(self):
+        """Test that TrafficLightDetection can be created with timestamp."""
+        timestamp = Timestamp.from_s(0)
         detection = TrafficLightDetection(
             lane_id=2,
             status=TrafficLightStatus.RED,
-            timepoint=timepoint,
+            timestamp=timestamp,
         )
         assert detection.lane_id == 2
         assert detection.status == TrafficLightStatus.RED
-        assert detection.timepoint == timepoint
+        assert detection.timestamp == timestamp
 
 
 class TestTrafficLightDetectionWrapper:

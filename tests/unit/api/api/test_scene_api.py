@@ -8,13 +8,13 @@ from py123d.datatypes.detections import BoxDetectionWrapper, TrafficLightDetecti
 from py123d.datatypes.metadata import LogMetadata, MapMetadata
 from py123d.datatypes.sensors import (
     FisheyeMEICamera,
-    FisheyeMEICameraType,
-    LiDAR,
-    LiDARType,
+    FisheyeMEICameraID,
+    Lidar,
+    LidarID,
     PinholeCamera,
-    PinholeCameraType,
+    PinholeCameraID,
 )
-from py123d.datatypes.time import TimePoint
+from py123d.datatypes.time import Timestamp
 from py123d.datatypes.vehicle_state import EgoStateSE3, VehicleParameters
 
 
@@ -38,9 +38,9 @@ class ConcreteSceneAPI(SceneAPI):
         """Inherited, see super class."""
         return self._map_api
 
-    def get_timepoint_at_iteration(self, iteration: int) -> TimePoint:
+    def get_timestamp_at_iteration(self, iteration: int) -> Timestamp:
         """Inherited, see super class."""
-        return Mock(spec=TimePoint)
+        return Mock(spec=Timestamp)
 
     def get_ego_state_at_iteration(self, iteration: int) -> Optional[EgoStateSE3]:
         """Inherited, see super class."""
@@ -58,21 +58,19 @@ class ConcreteSceneAPI(SceneAPI):
         """Inherited, see super class."""
         return [1, 2, 3]
 
-    def get_pinhole_camera_at_iteration(
-        self, iteration: int, camera_type: PinholeCameraType
-    ) -> Optional[PinholeCamera]:
+    def get_pinhole_camera_at_iteration(self, iteration: int, camera_type: PinholeCameraID) -> Optional[PinholeCamera]:
         """Inherited, see super class."""
         return Mock(spec=PinholeCamera)
 
     def get_fisheye_mei_camera_at_iteration(
-        self, iteration: int, camera_type: FisheyeMEICameraType
+        self, iteration: int, camera_type: FisheyeMEICameraID
     ) -> Optional[FisheyeMEICamera]:
         """Inherited, see super class."""
         return Mock(spec=FisheyeMEICamera)
 
-    def get_lidar_at_iteration(self, iteration: int, lidar_type: LiDARType) -> Optional[LiDAR]:
+    def get_lidar_at_iteration(self, iteration: int, lidar_type: LidarID) -> Optional[Lidar]:
         """Inherited, see super class."""
-        return Mock(spec=LiDAR)
+        return Mock(spec=Lidar)
 
 
 @pytest.fixture
@@ -86,9 +84,9 @@ def scene_api():
     api._log_metadata.version = "1.0.0"
     api._log_metadata.map_metadata = Mock(spec=MapMetadata)
     api._log_metadata.vehicle_parameters = Mock(spec=VehicleParameters)
-    api._log_metadata.pinhole_camera_metadata = {PinholeCameraType.PCAM_B0: Mock()}
-    api._log_metadata.fisheye_mei_camera_metadata = {FisheyeMEICameraType.FCAM_L: Mock()}
-    api._log_metadata.lidar_metadata = {LiDARType.LIDAR_TOP: Mock()}
+    api._log_metadata.pinhole_camera_metadata = {PinholeCameraID.PCAM_B0: Mock()}
+    api._log_metadata.fisheye_mei_camera_metadata = {FisheyeMEICameraID.FCAM_L: Mock()}
+    api._log_metadata.lidar_metadata = {LidarID.LIDAR_TOP: Mock()}
     api._scene_metadata.initial_uuid = "test-uuid-123"
     api._scene_metadata.number_of_iterations = 100
     api._scene_metadata.number_of_history_iterations = 10
@@ -150,25 +148,25 @@ class TestSceneAPIProperties:
         """Test vehicle_parameters property."""
         assert scene_api.vehicle_parameters == scene_api._log_metadata.vehicle_parameters
 
-    def test_available_pinhole_camera_types(self, scene_api):
-        """Test available_pinhole_camera_types property."""
-        assert scene_api.available_pinhole_camera_types == [PinholeCameraType.PCAM_B0]
+    def test_available_pinhole_camera_ids(self, scene_api):
+        """Test available_pinhole_camera_ids property."""
+        assert scene_api.available_pinhole_camera_ids == [PinholeCameraID.PCAM_B0]
 
-    def test_available_fisheye_mei_camera_types(self, scene_api):
-        """Test available_fisheye_mei_camera_types property."""
-        assert scene_api.available_fisheye_mei_camera_types == [FisheyeMEICameraType.FCAM_L]
+    def test_available_fisheye_mei_camera_ids(self, scene_api):
+        """Test available_fisheye_mei_camera_ids property."""
+        assert scene_api.available_fisheye_mei_camera_ids == [FisheyeMEICameraID.FCAM_L]
 
     def test_available_lidar_types(self, scene_api):
         """Test available_lidar_types property."""
-        assert scene_api.available_lidar_types == [LiDARType.LIDAR_TOP]
+        assert scene_api.available_lidar_types == [LidarID.LIDAR_TOP]
 
 
 class TestSceneAPIMethods:
     """Test abstract method implementations."""
 
-    def test_get_timepoint_at_iteration(self, scene_api):
-        """Test get_timepoint_at_iteration method."""
-        result = scene_api.get_timepoint_at_iteration(0)
+    def test_get_timestamp_at_iteration(self, scene_api):
+        """Test get_timestamp_at_iteration method."""
+        result = scene_api.get_timestamp_at_iteration(0)
         assert isinstance(result, Mock)
 
     def test_get_ego_state_at_iteration(self, scene_api):
@@ -193,15 +191,15 @@ class TestSceneAPIMethods:
 
     def test_get_pinhole_camera_at_iteration(self, scene_api):
         """Test get_pinhole_camera_at_iteration method."""
-        result = scene_api.get_pinhole_camera_at_iteration(0, PinholeCameraType.PCAM_B0)
+        result = scene_api.get_pinhole_camera_at_iteration(0, PinholeCameraID.PCAM_B0)
         assert result is not None
 
     def test_get_fisheye_mei_camera_at_iteration(self, scene_api):
         """Test get_fisheye_mei_camera_at_iteration method."""
-        result = scene_api.get_fisheye_mei_camera_at_iteration(0, FisheyeMEICameraType.FCAM_L)
+        result = scene_api.get_fisheye_mei_camera_at_iteration(0, FisheyeMEICameraID.FCAM_L)
         assert result is not None
 
     def test_get_lidar_at_iteration(self, scene_api):
         """Test get_lidar_at_iteration method."""
-        result = scene_api.get_lidar_at_iteration(0, LiDARType.LIDAR_TOP)
+        result = scene_api.get_lidar_at_iteration(0, LidarID.LIDAR_TOP)
         assert result is not None

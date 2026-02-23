@@ -1,7 +1,7 @@
 from typing import Dict, Final, List
 
 from py123d.conversion.registry.box_detection_label_registry import NuScenesBoxDetectionLabel
-from py123d.datatypes.sensors.pinhole_camera import PinholeCameraType
+from py123d.datatypes.sensors.pinhole_camera import PinholeCameraID
 
 NUSCENES_MAPS: List[str] = ["boston-seaport", "singapore-hollandvillage", "singapore-onenorth", "singapore-queenstown"]
 
@@ -69,11 +69,11 @@ NUSCENES_DATABASE_VERSION_MAPPING: Dict[str, str] = {
     "nuscenes-interpolated-mini_val": "v1.0-mini",
 }
 
-NUSCENES_CAMERA_TYPES = {
-    PinholeCameraType.PCAM_F0: "CAM_FRONT",
-    PinholeCameraType.PCAM_B0: "CAM_BACK",
-    PinholeCameraType.PCAM_L0: "CAM_FRONT_LEFT",
-    PinholeCameraType.PCAM_L1: "CAM_BACK_LEFT",
-    PinholeCameraType.PCAM_R0: "CAM_FRONT_RIGHT",
-    PinholeCameraType.PCAM_R1: "CAM_BACK_RIGHT",
+NUSCENES_camera_ids = {
+    PinholeCameraID.PCAM_F0: "CAM_FRONT",
+    PinholeCameraID.PCAM_B0: "CAM_BACK",
+    PinholeCameraID.PCAM_L0: "CAM_FRONT_LEFT",
+    PinholeCameraID.PCAM_L1: "CAM_BACK_LEFT",
+    PinholeCameraID.PCAM_R0: "CAM_FRONT_RIGHT",
+    PinholeCameraID.PCAM_R1: "CAM_BACK_RIGHT",
 }

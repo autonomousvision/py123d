@@ -4,7 +4,7 @@ Argoverse 2 - Sensor
 --------------------
 
 Argoverse 2 (AV2) is a collection of three datasets.
-The *Sensor Dataset* includes 1000 logs of ~20 second duration, including multi-view cameras, LiDAR point clouds, maps, ego-vehicle data, and bounding boxes.
+The *Sensor Dataset* includes 1000 logs of ~20 second duration, including multi-view cameras, Lidar point clouds, maps, ego-vehicle data, and bounding boxes.
 This dataset is intended to train 3D perception models for autonomous vehicles.
 
 .. dropdown:: Overview
@@ -62,27 +62,27 @@ Available Modalities
      -
       Includes 9 cameras, see :class:`~py123d.datatypes.sensors.PinholeCamera`:
 
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_F0` (ring_front_center)
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_R0` (ring_front_right)
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_R1` (ring_side_right)
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_R2` (ring_rear_right)
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_L0` (ring_front_left)
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_L1` (ring_side_left)
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_L2` (ring_rear_left)
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_STEREO_R` (stereo_front_right)
-      - :class:`~py123d.datatypes.sensors.PinholeCameraType.PCAM_STEREO_L` (stereo_front_left)
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_F0` (ring_front_center)
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_R0` (ring_front_right)
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_R1` (ring_side_right)
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_R2` (ring_rear_right)
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_L0` (ring_front_left)
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_L1` (ring_side_left)
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_L2` (ring_rear_left)
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_STEREO_R` (stereo_front_right)
+      - :class:`~py123d.datatypes.sensors.PinholeCameraID.PCAM_STEREO_L` (stereo_front_left)
 
 
    * - Fisheye Cameras
      - X
      - n/a
-   * - LiDARs
+   * - Lidars
      - ✓
      -
-      Includes 2 LiDARs, see :class:`~py123d.datatypes.sensors.LiDAR`:
+      Includes 2 Lidars, see :class:`~py123d.datatypes.sensors.Lidar`:
 
-      - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_TOP` (top up)
-      - :class:`~py123d.datatypes.sensors.LiDARType.LIDAR_DOWN` (top down)
+      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_TOP` (top up)
+      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_DOWN` (top down)
 
 
 .. dropdown:: Dataset Specific
@@ -92,7 +92,7 @@ Available Modalities
     :no-index:
     :no-inherited-members:
 
-  .. autoclass:: py123d.conversion.registry.AV2SensorLiDARIndex
+  .. autoclass:: py123d.conversion.registry.AV2SensorLidarIndex
     :members:
     :no-index:
     :no-inherited-members:

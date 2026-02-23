@@ -6,33 +6,33 @@ from typing import List, Optional, Union
 import shapely
 
 from py123d.conversion.registry import BoxDetectionLabel, DefaultBoxDetectionLabel
-from py123d.datatypes.time import TimePoint
+from py123d.datatypes.time import Timestamp
 from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, OccupancyMap2D, PoseSE2, PoseSE3, Vector2D, Vector3D
 
 
 class BoxDetectionMetadata:
-    """Stores data about the box detection, including its label, track token, number of LiDAR points, and timepoint."""
+    """Stores data about the box detection, including its label, track token, number of Lidar points, and timestamp."""
 
-    __slots__ = ("_label", "_track_token", "_num_lidar_points", "_timepoint")
+    __slots__ = ("_label", "_track_token", "_num_lidar_points", "_timestamp")
 
     def __init__(
         self,
         label: BoxDetectionLabel,
         track_token: str,
         num_lidar_points: Optional[int] = None,
-        timepoint: Optional[TimePoint] = None,
+        timestamp: Optional[Timestamp] = None,
     ) -> None:
         """Initialize a BoxDetectionMetadata instance.
 
         :param label: The label of the detection.
         :param track_token: The track token of the detection.
-        :param num_lidar_points: The number of LiDAR points, defaults to None.
-        :param timepoint: The timepoint of the detection, defaults to None.
+        :param num_lidar_points: The number of Lidar points, defaults to None.
+        :param timestamp: The timestamp of the detection, defaults to None.
         """
         self._label = label
         self._track_token = track_token
         self._num_lidar_points = num_lidar_points
-        self._timepoint = timepoint
+        self._timestamp = timestamp
 
     @property
     def label(self) -> BoxDetectionLabel:
@@ -46,13 +46,13 @@ class BoxDetectionMetadata:
 
     @property
     def num_lidar_points(self) -> Optional[int]:
-        """Optionally, the number of LiDAR points associated with the detection."""
+        """Optionally, the number of Lidar points associated with the detection."""
         return self._num_lidar_points
 
     @property
-    def timepoint(self) -> Optional[TimePoint]:
+    def timestamp(self) -> Optional[Timestamp]:
         """Optionally, the :class:`~py123d.datatypes.time.TimePoint` of the detection."""
-        return self._timepoint
+        return self._timestamp
 
     @property
     def default_label(self) -> DefaultBoxDetectionLabel:

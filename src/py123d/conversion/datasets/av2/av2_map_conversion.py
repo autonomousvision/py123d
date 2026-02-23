@@ -6,9 +6,9 @@ from typing import Any, Dict, Final, List
 import geopandas as gpd
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 import shapely
 import shapely.geometry as geom
-from pandas import isna
 
 from py123d.conversion.datasets.av2.utils.av2_constants import AV2_ROAD_LINE_TYPE_MAPPING
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
@@ -17,16 +17,7 @@ from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     split_line_geometry_by_max_length,
 )
 from py123d.conversion.utils.map_utils.road_edge.road_edge_3d_utils import lift_road_edges_to_3d
-from py123d.datatypes.map_objects.map_layer_types import RoadEdgeType
-from py123d.datatypes.map_objects.map_objects import (
-    Crosswalk,
-    GenericDrivable,
-    Intersection,
-    Lane,
-    LaneGroup,
-    RoadEdge,
-    RoadLine,
-)
+from py123d.datatypes import Crosswalk, GenericDrivable, Intersection, Lane, LaneGroup, RoadEdge, RoadEdgeType, RoadLine
 from py123d.geometry import OccupancyMap2D, Point3DIndex, Polyline2D, Polyline3D
 
 LANE_GROUP_MARK_TYPES: List[str] = [
@@ -59,10 +50,12 @@ def convert_av2_map(source_log_path: Path, map_writer: AbstractMapWriter) -> Non
         # In this case we replace NaNs with zeros with the median (or zeros).
         if np.isnan(polyline).any():
             median_xyz = np.nanmedian(polyline[:, 2], axis=-1)
-            logger.warning(f"Found NaN values {source_log_path} polyline data: {polyline}. Replacing NaNs with zeros.")
+            logger.warning(
+                f"Found NaN values in {source_log_path} polyline data: Replacing NaNs of z-axis with median height."
+            )
             for i in range(polyline.shape[0]):
-                if isna(polyline[i, 2]):
-                    polyline[i, 2] = median_xyz if not isna(median_xyz) else 0.0
+                if pd.isna(polyline[i, 2]):
+                    polyline[i, 2] = median_xyz if not pd.isna(median_xyz) else 0.0
 
         return Polyline3D.from_array(polyline)
 

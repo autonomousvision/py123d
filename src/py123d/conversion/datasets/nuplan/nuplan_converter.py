@@ -23,9 +23,9 @@ from py123d.conversion.datasets.nuplan.utils.nuplan_sql_helper import (
     get_box_detections_for_lidarpc_token_from_db,
     get_nearest_ego_pose_for_timestamp_from_db,
 )
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LiDARData
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.registry import NuPlanBoxDetectionLabel, NuPlanLiDARIndex
+from py123d.conversion.registry import NuPlanBoxDetectionLabel, NuPlanLidarIndex
 from py123d.datatypes.detections import (
     BoxDetectionSE3,
     BoxDetectionWrapper,
@@ -34,14 +34,14 @@ from py123d.datatypes.detections import (
 )
 from py123d.datatypes.metadata import LogMetadata, MapMetadata
 from py123d.datatypes.sensors import (
-    LiDARMetadata,
-    LiDARType,
+    LidarID,
+    LidarMetadata,
+    PinholeCameraID,
     PinholeCameraMetadata,
-    PinholeCameraType,
     PinholeDistortion,
     PinholeIntrinsics,
 )
-from py123d.datatypes.time import TimePoint
+from py123d.datatypes.time import Timestamp
 from py123d.datatypes.vehicle_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_nuplan_chrysler_pacifica_parameters
 from py123d.geometry import PoseSE3, Vector3D
@@ -55,14 +55,14 @@ from nuplan.planning.simulation.observation.observation_type import CameraChanne
 
 # NOTE: Leaving this constant here, to avoid having a nuplan dependency in nuplan_constants.py
 NUPLAN_CAMERA_MAPPING = {
-    PinholeCameraType.PCAM_F0: CameraChannel.CAM_F0,
-    PinholeCameraType.PCAM_B0: CameraChannel.CAM_B0,
-    PinholeCameraType.PCAM_L0: CameraChannel.CAM_L0,
-    PinholeCameraType.PCAM_L1: CameraChannel.CAM_L1,
-    PinholeCameraType.PCAM_L2: CameraChannel.CAM_L2,
-    PinholeCameraType.PCAM_R0: CameraChannel.CAM_R0,
-    PinholeCameraType.PCAM_R1: CameraChannel.CAM_R1,
-    PinholeCameraType.PCAM_R2: CameraChannel.CAM_R2,
+    PinholeCameraID.PCAM_F0: CameraChannel.CAM_F0,
+    PinholeCameraID.PCAM_B0: CameraChannel.CAM_B0,
+    PinholeCameraID.PCAM_L0: CameraChannel.CAM_L0,
+    PinholeCameraID.PCAM_L1: CameraChannel.CAM_L1,
+    PinholeCameraID.PCAM_L2: CameraChannel.CAM_L2,
+    PinholeCameraID.PCAM_R0: CameraChannel.CAM_R0,
+    PinholeCameraID.PCAM_R1: CameraChannel.CAM_R1,
+    PinholeCameraID.PCAM_R2: CameraChannel.CAM_R2,
 }
 
 TARGET_DT: Final[float] = 0.1  # TODO: make configurable
@@ -104,7 +104,7 @@ class NuPlanConverter(AbstractDatasetConverter):
         assert nuplan_maps_root is not None, "The variable `nuplan_maps_root` must be provided."
         assert nuplan_sensor_root is not None, "The variable `nuplan_sensor_root` must be provided."
         assert dataset_converter_config.lidar_store_option != "path", (
-            "nuPlan stores LiDAR sweeps as merged filed, use  lidar_store_option='path_merged' instead."
+            "nuPlan stores Lidar sweeps as merged filed, use  lidar_store_option='path_merged' instead."
         )
 
         for split in splits:
@@ -216,7 +216,7 @@ class NuPlanConverter(AbstractDatasetConverter):
                 nuplan_lidar_pc = nuplan_log_db.lidar_pc[lidar_pc_index]
                 lidar_pc_token: str = nuplan_lidar_pc.token
                 log_writer.write(
-                    timestamp=TimePoint.from_us(nuplan_lidar_pc.timestamp),
+                    timestamp=Timestamp.from_us(nuplan_lidar_pc.timestamp),
                     ego_state=_extract_nuplan_ego_state(nuplan_lidar_pc),
                     box_detections=_extract_nuplan_box_detections(nuplan_lidar_pc, source_log_path),
                     traffic_lights=_extract_nuplan_traffic_lights(nuplan_log_db, lidar_pc_token),
@@ -262,10 +262,10 @@ def _get_nuplan_camera_metadata(
     source_log_path: Path,
     nuplan_sensor_root: Path,
     dataset_converter_config: DatasetConverterConfig,
-) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
+) -> Dict[PinholeCameraID, PinholeCameraMetadata]:
     """Extracts the nuPlan camera metadata for a given log."""
 
-    def _get_camera_metadata(camera_type: PinholeCameraType) -> PinholeCameraMetadata:
+    def _get_camera_metadata(camera_type: PinholeCameraID) -> PinholeCameraMetadata:
         cam = list(get_cameras(str(source_log_path), [str(NUPLAN_CAMERA_MAPPING[camera_type].value)]))[0]
 
         # Load intrinsics
@@ -283,7 +283,7 @@ def _get_nuplan_camera_metadata(
 
         return PinholeCameraMetadata(
             camera_name=str(NUPLAN_CAMERA_MAPPING[camera_type].value),
-            camera_type=camera_type,
+            camera_id=camera_type,
             width=cam.width,  # type: ignore
             height=cam.height,  # type: ignore
             intrinsics=intrinsic,
@@ -291,7 +291,7 @@ def _get_nuplan_camera_metadata(
             static_extrinsic=extrinsic,
         )
 
-    camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
+    camera_metadata: Dict[PinholeCameraID, PinholeCameraMetadata] = {}
     if dataset_converter_config.include_pinhole_cameras:
         log_name = source_log_path.stem
         for camera_type, nuplan_camera_type in NUPLAN_CAMERA_MAPPING.items():
@@ -306,18 +306,18 @@ def _get_nuplan_lidar_metadata(
     nuplan_sensor_root: Path,
     log_name: str,
     dataset_converter_config: DatasetConverterConfig,
-) -> Dict[LiDARType, LiDARMetadata]:
-    """Extracts the nuPlan LiDAR metadata for a given log."""
-    metadata: Dict[LiDARType, LiDARMetadata] = {}
+) -> Dict[LidarID, LidarMetadata]:
+    """Extracts the nuPlan Lidar metadata for a given log."""
+    metadata: Dict[LidarID, LidarMetadata] = {}
     log_lidar_folder = nuplan_sensor_root / log_name / "MergedPointCloud"
-    # NOTE: We first need to check if the LiDAR folder exists, as not all logs have LiDAR data
+    # NOTE: We first need to check if the Lidar folder exists, as not all logs have Lidar data
     if log_lidar_folder.exists() and log_lidar_folder.is_dir() and dataset_converter_config.include_lidars:
         for lidar_type in NUPLAN_LIDAR_DICT.values():
-            metadata[lidar_type] = LiDARMetadata(
-                lidar_name=lidar_type.serialize(),  # NOTE: nuPlan does not have specific names for the LiDARs
-                lidar_type=lidar_type,
-                lidar_index=NuPlanLiDARIndex,
-                extrinsic=None,  # NOTE: LiDAR extrinsic are unknown
+            metadata[lidar_type] = LidarMetadata(
+                lidar_name=lidar_type.serialize(),  # NOTE: nuPlan does not have specific names for the Lidars
+                lidar_id=lidar_type,
+                lidar_index=NuPlanLidarIndex,
+                extrinsic=None,  # NOTE: Lidar extrinsic are unknown
             )
     return metadata
 
@@ -356,7 +356,7 @@ def _extract_nuplan_ego_state(nuplan_lidar_pc: LidarPc) -> EgoStateSE3:
         rear_axle_se3=rear_axle_pose,
         vehicle_parameters=vehicle_parameters,
         dynamic_state_se3=dynamic_state_se3,
-        timepoint=TimePoint.from_us(nuplan_lidar_pc.ego_pose.timestamp),  # type: ignore
+        timestamp=Timestamp.from_us(nuplan_lidar_pc.ego_pose.timestamp),  # type: ignore
     )
 
 
@@ -372,7 +372,7 @@ def _extract_nuplan_traffic_lights(log_db: NuPlanDB, lidar_pc_token: str) -> Tra
     """Extracts the nuPlan traffic light detections from a given LidarPc database objects."""
     traffic_lights_detections: List[TrafficLightDetection] = [
         TrafficLightDetection(
-            timepoint=None,  # NOTE: Timepoint is not needed during writing, set to None
+            timestamp=None,  # NOTE: Timepoint is not needed during writing, set to None
             lane_id=int(traffic_light.lane_connector_id),
             status=NUPLAN_TRAFFIC_STATUS_DICT[traffic_light.status],
         )
@@ -430,11 +430,11 @@ def _extract_nuplan_cameras(
                     camera_data_list.append(
                         CameraData(
                             camera_name=str(camera_channel.value),
-                            camera_type=camera_type,
+                            camera_id=camera_type,
                             extrinsic=extrinsic,
                             dataset_root=nuplan_sensor_root,
                             relative_path=filename_jpg.relative_to(nuplan_sensor_root),
-                            timestamp=TimePoint.from_us(image.timestamp),  # type: ignore
+                            timestamp=Timestamp.from_us(image.timestamp),  # type: ignore
                         )
                     )
     return camera_data_list
@@ -444,22 +444,22 @@ def _extract_nuplan_lidars(
     nuplan_lidar_pc: LidarPc,
     nuplan_sensor_root: Path,
     dataset_converter_config: DatasetConverterConfig,
-) -> List[LiDARData]:
-    """Extracts the nuPlan LiDAR data from a given LidarPc database objects."""
-    lidars: List[LiDARData] = []
+) -> List[LidarData]:
+    """Extracts the nuPlan Lidar data from a given LidarPc database objects."""
+    lidars: List[LidarData] = []
     if dataset_converter_config.include_lidars:
         lidar_full_path: Path = nuplan_sensor_root / nuplan_lidar_pc.filename
         if lidar_full_path.exists() and lidar_full_path.is_file():
             lidars.append(
-                LiDARData(
-                    lidar_name=LiDARType.LIDAR_MERGED.serialize(),
-                    lidar_type=LiDARType.LIDAR_MERGED,
+                LidarData(
+                    lidar_name=LidarID.LIDAR_MERGED.serialize(),
+                    lidar_type=LidarID.LIDAR_MERGED,
                     dataset_root=nuplan_sensor_root,
                     relative_path=nuplan_lidar_pc.filename,
                 )
             )
         # else:
-        #     logger.warning(f"LiDAR file not found: {lidar_full_path}")
+        #     logger.warning(f"Lidar file not found: {lidar_full_path}")
     return lidars
 
 

@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from py123d.common.utils.enums import SerialIntEnum
-from py123d.datatypes.time import TimePoint
+from py123d.datatypes.time import Timestamp
 
 
 class TrafficLightStatus(SerialIntEnum):
@@ -28,22 +28,22 @@ class TrafficLightStatus(SerialIntEnum):
 class TrafficLightDetection:
     """
     Single traffic light detection if a lane, that includes the lane id, status (green, yellow, red, off, unknown),
-    and optional timepoint of the detection.
+    and optional timestamp of the detection.
     """
 
-    __slots__ = ("_lane_id", "_status", "_timepoint")
+    __slots__ = ("_lane_id", "_status", "_timestamp")
 
-    def __init__(self, lane_id: int, status: TrafficLightStatus, timepoint: Optional[TimePoint] = None) -> None:
+    def __init__(self, lane_id: int, status: TrafficLightStatus, timestamp: Optional[Timestamp] = None) -> None:
         """Initialize a TrafficLightDetection instance.
 
         :param lane_id: The lane id associated with the traffic light detection.
         :param status: The status of the traffic light (green, yellow, red, off, unknown).
-        :param timepoint: The optional timepoint of the detection.
+        :param timestamp: The optional timestamp of the detection.
         """
 
         self._lane_id = lane_id
         self._status = status
-        self._timepoint = timepoint
+        self._timestamp = timestamp
 
     @property
     def lane_id(self) -> int:
@@ -56,9 +56,9 @@ class TrafficLightDetection:
         return self._status
 
     @property
-    def timepoint(self) -> Optional[TimePoint]:
+    def timestamp(self) -> Optional[Timestamp]:
         """The optional :class:`~py123d.datatypes.time.TimePoint` of the traffic light detection."""
-        return self._timepoint
+        return self._timestamp
 
 
 class TrafficLightDetectionWrapper:
