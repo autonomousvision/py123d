@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from py123d.geometry import Point2D, Point3D
+from py123d.geometry import Point2D, Point3D, Vector2D, Vector3D
 from py123d.geometry.geometry_index import Point2DIndex, Point3DIndex
 
 
@@ -91,6 +91,40 @@ class TestPoint2D:
         x, y = self.point
         assert x == self.x_coord
         assert y == self.y_coord
+
+    def test_add_vector(self):
+        """Test Point2D + Vector2D = Point2D (translate a point)."""
+        point = Point2D(1.0, 2.0)
+        vector = Vector2D(3.0, 4.0)
+        result = point + vector
+        assert isinstance(result, Point2D)
+        assert result.x == 4.0
+        assert result.y == 6.0
+
+    def test_sub_point(self):
+        """Test Point2D - Point2D = Vector2D (displacement between points)."""
+        p1 = Point2D(5.0, 7.0)
+        p2 = Point2D(1.0, 3.0)
+        result = p1 - p2
+        assert isinstance(result, Vector2D)
+        assert result.x == 4.0
+        assert result.y == 4.0
+
+    def test_sub_vector(self):
+        """Test Point2D - Vector2D = Point2D (translate backwards)."""
+        point = Point2D(5.0, 7.0)
+        vector = Vector2D(1.0, 3.0)
+        result = point - vector
+        assert isinstance(result, Point2D)
+        assert result.x == 4.0
+        assert result.y == 4.0
+
+    def test_add_non_vector_returns_not_implemented(self):
+        """Test that Point2D + Point2D raises TypeError."""
+        p1 = Point2D(1.0, 2.0)
+        p2 = Point2D(3.0, 4.0)
+        with pytest.raises(TypeError):
+            _ = p1 + p2
 
 
 class TestPoint3D:
@@ -182,3 +216,48 @@ class TestPoint3D:
         assert x == self.x_coord
         assert y == self.y_coord
         assert z == self.z_coord
+
+    def test_point_2d_projection(self):
+        """Test the 2D projection of Point3D."""
+        point = Point3D(1.0, 2.0, 3.0)
+        p2d = point.point_2d
+        assert isinstance(p2d, Point2D)
+        assert p2d.x == 1.0
+        assert p2d.y == 2.0
+
+    def test_add_vector(self):
+        """Test Point3D + Vector3D = Point3D (translate a point)."""
+        point = Point3D(1.0, 2.0, 3.0)
+        vector = Vector3D(4.0, 5.0, 6.0)
+        result = point + vector
+        assert isinstance(result, Point3D)
+        assert result.x == 5.0
+        assert result.y == 7.0
+        assert result.z == 9.0
+
+    def test_sub_point(self):
+        """Test Point3D - Point3D = Vector3D (displacement between points)."""
+        p1 = Point3D(5.0, 7.0, 9.0)
+        p2 = Point3D(1.0, 2.0, 3.0)
+        result = p1 - p2
+        assert isinstance(result, Vector3D)
+        assert result.x == 4.0
+        assert result.y == 5.0
+        assert result.z == 6.0
+
+    def test_sub_vector(self):
+        """Test Point3D - Vector3D = Point3D (translate backwards)."""
+        point = Point3D(5.0, 7.0, 9.0)
+        vector = Vector3D(1.0, 2.0, 3.0)
+        result = point - vector
+        assert isinstance(result, Point3D)
+        assert result.x == 4.0
+        assert result.y == 5.0
+        assert result.z == 6.0
+
+    def test_add_non_vector_returns_not_implemented(self):
+        """Test that Point3D + Point3D raises TypeError."""
+        p1 = Point3D(1.0, 2.0, 3.0)
+        p2 = Point3D(4.0, 5.0, 6.0)
+        with pytest.raises(TypeError):
+            _ = p1 + p2

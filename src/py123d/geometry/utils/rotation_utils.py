@@ -5,8 +5,6 @@ import numpy.typing as npt
 
 from py123d.geometry.geometry_index import EulerAnglesIndex, QuaternionIndex
 
-# import pyquaternion
-
 
 def batch_matmul(A: npt.NDArray[np.float64], B: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     """Batch matrix multiplication for arrays of matrices.
@@ -286,26 +284,31 @@ def get_rotation_matrices_from_quaternion_array(quaternion_array: npt.NDArray[np
     """
     assert quaternion_array.ndim >= 1 and quaternion_array.shape[-1] == len(QuaternionIndex)
 
-    # Store original shape for reshaping later
-    original_shape = quaternion_array.shape[:-1]
+    q = normalize_quaternion_array(quaternion_array)
 
-    # Flatten to 2D if needed
-    if quaternion_array.ndim > 2:
-        quaternion_array_ = quaternion_array.reshape(-1, len(QuaternionIndex))
-    else:
-        quaternion_array_ = quaternion_array
+    w = q[..., QuaternionIndex.QW]
+    x = q[..., QuaternionIndex.QX]
+    y = q[..., QuaternionIndex.QY]
+    z = q[..., QuaternionIndex.QZ]
 
-    norm_quaternion = normalize_quaternion_array(quaternion_array_)
-    Q_matrices = get_q_matrices(norm_quaternion)
-    Q_bar_matrices = get_q_bar_matrices(norm_quaternion)
-    rotation_matrix = batch_matmul(Q_matrices, Q_bar_matrices.conj().swapaxes(-1, -2))
-    rotation_matrix = rotation_matrix[:, 1:][:, :, 1:]
+    # Precompute repeated products
+    xx, yy, zz = x * x, y * y, z * z
+    xy, xz, yz = x * y, x * z, y * z
+    wx, wy, wz = w * x, w * y, w * z
 
-    # Reshape back to original batch dimensions + (3, 3)
-    if len(original_shape) > 1:
-        rotation_matrix = rotation_matrix.reshape(original_shape + (3, 3))
+    # Build rotation matrices using the direct algebraic formula
+    R = np.empty(q.shape[:-1] + (3, 3), dtype=np.float64)
+    R[..., 0, 0] = 1 - 2 * (yy + zz)
+    R[..., 0, 1] = 2 * (xy - wz)
+    R[..., 0, 2] = 2 * (xz + wy)
+    R[..., 1, 0] = 2 * (xy + wz)
+    R[..., 1, 1] = 1 - 2 * (xx + zz)
+    R[..., 1, 2] = 2 * (yz - wx)
+    R[..., 2, 0] = 2 * (xz - wy)
+    R[..., 2, 1] = 2 * (yz + wx)
+    R[..., 2, 2] = 1 - 2 * (xx + yy)
 
-    return rotation_matrix
+    return R
 
 
 def get_rotation_matrix_from_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
@@ -315,7 +318,26 @@ def get_rotation_matrix_from_quaternion_array(quaternion_array: npt.NDArray[np.f
     :return: Rotation matrix of shape (3, 3)
     """
     assert quaternion_array.ndim == 1 and quaternion_array.shape[0] == len(QuaternionIndex)
-    return get_rotation_matrices_from_quaternion_array(quaternion_array[None, :])[0]
+
+    # Fast path for single quaternion: use scalar math to avoid array overhead
+    inv_norm = 1.0 / np.linalg.norm(quaternion_array)
+    w = float(quaternion_array[QuaternionIndex.QW]) * inv_norm
+    x = float(quaternion_array[QuaternionIndex.QX]) * inv_norm
+    y = float(quaternion_array[QuaternionIndex.QY]) * inv_norm
+    z = float(quaternion_array[QuaternionIndex.QZ]) * inv_norm
+
+    xx, yy, zz = x * x, y * y, z * z
+    xy, xz, yz = x * y, x * z, y * z
+    wx, wy, wz = w * x, w * y, w * z
+
+    return np.array(
+        [
+            [1 - 2 * (yy + zz), 2 * (xy - wz), 2 * (xz + wy)],
+            [2 * (xy + wz), 1 - 2 * (xx + zz), 2 * (yz - wx)],
+            [2 * (xz - wy), 2 * (yz + wx), 1 - 2 * (xx + yy)],
+        ],
+        dtype=np.float64,
+    )
 
 
 def get_euler_array_from_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
@@ -358,10 +380,9 @@ def conjugate_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt
 
     assert quaternion_array.ndim >= 1
     assert quaternion_array.shape[-1] == len(QuaternionIndex)
-    conjugated_quaternions = np.zeros_like(quaternion_array)
-    conjugated_quaternions[..., QuaternionIndex.SCALAR] = quaternion_array[..., QuaternionIndex.SCALAR]
-    conjugated_quaternions[..., QuaternionIndex.VECTOR] = -quaternion_array[..., QuaternionIndex.VECTOR]
-    return conjugated_quaternions
+    conjugated = quaternion_array.copy()
+    conjugated[..., QuaternionIndex.VECTOR] *= -1
+    return conjugated
 
 
 def invert_quaternion_array(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
@@ -419,16 +440,12 @@ def multiply_quaternion_arrays(q1: npt.NDArray[np.float64], q2: npt.NDArray[np.f
         q2[..., QuaternionIndex.QZ],
     )
 
-    quaternions = np.stack(
-        [
-            qw1 * qw2 - qx1 * qx2 - qy1 * qy2 - qz1 * qz2,
-            qw1 * qx2 + qx1 * qw2 + qy1 * qz2 - qz1 * qy2,
-            qw1 * qy2 - qx1 * qz2 + qy1 * qw2 + qz1 * qx2,
-            qw1 * qz2 + qx1 * qy2 - qy1 * qx2 + qz1 * qw2,
-        ],
-        axis=-1,
-    )
-    return quaternions
+    result = np.empty(np.broadcast_shapes(q1.shape, q2.shape), dtype=np.float64)
+    result[..., QuaternionIndex.QW] = qw1 * qw2 - qx1 * qx2 - qy1 * qy2 - qz1 * qz2
+    result[..., QuaternionIndex.QX] = qw1 * qx2 + qx1 * qw2 + qy1 * qz2 - qz1 * qy2
+    result[..., QuaternionIndex.QY] = qw1 * qy2 - qx1 * qz2 + qy1 * qw2 + qz1 * qx2
+    result[..., QuaternionIndex.QZ] = qw1 * qz2 + qx1 * qy2 - qy1 * qx2 + qz1 * qw2
+    return result
 
 
 def get_q_matrices(quaternion_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:

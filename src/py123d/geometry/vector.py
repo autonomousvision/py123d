@@ -62,10 +62,7 @@ class Vector2D(ArrayMixin):
     @property
     def array(self) -> npt.NDArray[np.float64]:
         """The vector as array of shape (2,), indexed by :class:`~py123d.geometry.Vector2DIndex`."""
-        array = np.zeros(len(Vector2DIndex), dtype=np.float64)
-        array[Vector2DIndex.X] = self.x
-        array[Vector2DIndex.Y] = self.y
-        return array
+        return self._array
 
     @property
     def magnitude(self) -> float:
@@ -108,6 +105,13 @@ class Vector2D(ArrayMixin):
         :return: A new Vector2D instance representing the divided vector.
         """
         return Vector2D(self.x / scalar, self.y / scalar)
+
+    def __neg__(self) -> Vector2D:
+        """Negates the 2D vector.
+
+        :return: A new Vector2D with negated components.
+        """
+        return Vector2D(-self.x, -self.y)
 
     def __repr__(self) -> str:
         """String representation of :class:`Vector2D`."""
@@ -196,7 +200,7 @@ class Vector3D(ArrayMixin):
         """Adds two 3D vectors.
 
         :param other: The other vector to add.
-        :return: A new Vector2D instance representing the sum.
+        :return: A new Vector3D instance representing the sum.
         """
         return Vector3D(self.x + other.x, self.y + other.y, self.z + other.z)
 
@@ -209,7 +213,7 @@ class Vector3D(ArrayMixin):
         return Vector3D(self.x - other.x, self.y - other.y, self.z - other.z)
 
     def __mul__(self, scalar: float) -> Vector3D:
-        """Multiplies the 2D vector by a scalar.
+        """Multiplies the 3D vector by a scalar.
 
         :param scalar: The scalar value to multiply with.
         :return: A new Vector3D instance representing the scaled vector.
@@ -217,12 +221,19 @@ class Vector3D(ArrayMixin):
         return Vector3D(self.x * scalar, self.y * scalar, self.z * scalar)
 
     def __truediv__(self, scalar: float) -> Vector3D:
-        """Divides the 2D vector by a scalar.
+        """Divides the 3D vector by a scalar.
 
         :param scalar: The scalar value to divide by.
         :return: A new Vector3D instance representing the divided vector.
         """
         return Vector3D(self.x / scalar, self.y / scalar, self.z / scalar)
+
+    def __neg__(self) -> Vector3D:
+        """Negates the 3D vector.
+
+        :return: A new Vector3D with negated components.
+        """
+        return Vector3D(-self.x, -self.y, -self.z)
 
     def __repr__(self) -> str:
         """String representation of :class:`Vector3D`."""

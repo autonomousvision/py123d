@@ -76,6 +76,7 @@ class AbstractLogWriter(abc.ABC):
 class LiDARData:
     """Helper dataclass to pass LiDAR data to log writers."""
 
+    lidar_name: str
     lidar_type: LiDARType
 
     timestamp: Optional[TimePoint] = None
@@ -102,6 +103,7 @@ class LiDARData:
 class CameraData:
     """Helper dataclass to pass Camera data to log writers."""
 
+    camera_name: str
     camera_type: Union[PinholeCameraType, FisheyeMEICameraType]
     extrinsic: PoseSE3
 

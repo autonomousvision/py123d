@@ -1,39 +1,36 @@
-import logging
-from pathlib import Path
-from typing import Optional
+"""Backward-compatible shim for dataset path management.
 
-from omegaconf import DictConfig, OmegaConf
+Delegates to :mod:`py123d.common.dataset_paths`. Prefer importing from
+``py123d.common.dataset_paths`` directly in new code.
+"""
+
+import logging
+
+from omegaconf import DictConfig
+
+from py123d.common.dataset_paths import DatasetPaths
+from py123d.common.dataset_paths import get_dataset_paths as _get_dataset_paths
+from py123d.common.dataset_paths import setup_dataset_paths as _setup_dataset_paths
 
 logger = logging.getLogger(__name__)
-_global_dataset_paths: Optional[DictConfig] = None
 
 
 def setup_dataset_paths(cfg: DictConfig) -> None:
-    """Setup the global dataset paths.
+    """Setup global dataset paths from a Hydra DictConfig.
 
-    :param cfg: The configuration containing dataset paths.
-    :return: None
+    Converts the DictConfig to a :class:`DatasetPaths` dataclass, stores it globally,
+    and exports to env vars for child process inheritance.
+
+    :param cfg: The ``dataset_paths`` sub-config from Hydra.
     """
-
-    global _global_dataset_paths  # noqa: PLW0603
-
-    if _global_dataset_paths is None:
-        # Make it immutable
-        OmegaConf.set_struct(cfg, True)  # Prevents adding new keys
-        OmegaConf.set_readonly(cfg, True)  # Prevents any modifications
-        _global_dataset_paths = cfg
+    paths = DatasetPaths.from_dict_config(cfg)
+    _setup_dataset_paths(paths)
+    paths.export_to_env()
 
 
-def get_dataset_paths() -> DictConfig:
-    """Get the global dataset paths from anywhere in your code.
+def get_dataset_paths() -> DatasetPaths:
+    """Get the global dataset paths.
 
-    :return: global dataset paths configuration
+    :return: :class:`DatasetPaths` instance.
     """
-    if _global_dataset_paths is None:
-        dataset_paths_config_yaml = Path(__file__).parent.parent / "config" / "common" / "default_dataset_paths.yaml"
-        logger.warning(f"Dataset paths not set. Using default config: {dataset_paths_config_yaml}")
-
-        cfg = OmegaConf.load(dataset_paths_config_yaml)
-        setup_dataset_paths(cfg.dataset_paths)
-
-    return _global_dataset_paths
+    return _get_dataset_paths()

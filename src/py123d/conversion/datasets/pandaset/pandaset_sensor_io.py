@@ -5,14 +5,14 @@ import numpy as np
 import pandas as pd
 
 from py123d.conversion.datasets.pandaset.utils.pandaset_utlis import (
-    main_lidar_to_rear_axle,
+    global_main_lidar_to_global_imu,
     pandaset_pose_dict_to_pose_se3,
     read_json,
     read_pkl_gz,
 )
 from py123d.conversion.registry.lidar_index_registry import PandasetLiDARIndex
 from py123d.datatypes.sensors.lidar import LiDARType
-from py123d.geometry.transform.transform_se3 import convert_absolute_to_relative_points_3d_array
+from py123d.geometry.transform.transform_se3 import abs_to_rel_points_3d_array
 
 
 def load_pandaset_global_lidar_pc_from_path(pkl_gz_path: Union[Path, str]) -> Dict[LiDARType, np.ndarray]:
@@ -42,11 +42,11 @@ def load_pandaset_lidars_pcs_from_file(
     pkl_gz_path = Path(pkl_gz_path)
     assert pkl_gz_path.exists(), f"Pandaset LiDAR file not found: {pkl_gz_path}"
     lidar_pc_dict = load_pandaset_global_lidar_pc_from_path(pkl_gz_path)
-    ego_pose = main_lidar_to_rear_axle(
+    ego_pose = global_main_lidar_to_global_imu(
         pandaset_pose_dict_to_pose_se3(read_json(pkl_gz_path.parent / "poses.json")[iteration])
     )
     for lidar_type in lidar_pc_dict.keys():
-        lidar_pc_dict[lidar_type][..., PandasetLiDARIndex.XYZ] = convert_absolute_to_relative_points_3d_array(
+        lidar_pc_dict[lidar_type][..., PandasetLiDARIndex.XYZ] = abs_to_rel_points_3d_array(
             ego_pose,
             lidar_pc_dict[lidar_type][..., PandasetLiDARIndex.XYZ],
         )

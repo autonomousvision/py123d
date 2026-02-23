@@ -41,23 +41,31 @@ class LiDARType(SerialIntEnum):
 class LiDARMetadata:
     """Metadata for LiDAR sensor, static for a given sensor."""
 
-    __slots__ = ("_lidar_type", "_lidar_index", "_extrinsic")
+    __slots__ = ("_lidar_name", "_lidar_type", "_lidar_index", "_extrinsic")
 
     def __init__(
         self,
+        lidar_name: str,
         lidar_type: LiDARType,
         lidar_index: Type[LiDARIndex],
         extrinsic: Optional[PoseSE3] = None,
     ):
         """Initialize LiDAR metadata.
 
+        :param lidar_name: The name of the LiDAR sensor from the dataset.
         :param lidar_type: The type of the LiDAR sensor.
         :param lidar_index: The indexing schema of the LiDAR point cloud.
         :param extrinsic: The extrinsic pose of the LiDAR sensor, defaults to None
         """
+        self._lidar_name = lidar_name
         self._lidar_type = lidar_type
         self._lidar_index = lidar_index
         self._extrinsic = extrinsic
+
+    @property
+    def lidar_name(self) -> str:
+        """The name of the LiDAR sensor from the dataset."""
+        return self._lidar_name
 
     @property
     def lidar_type(self) -> LiDARType:
@@ -65,7 +73,7 @@ class LiDARMetadata:
         return self._lidar_type
 
     @property
-    def lidar_index(self) -> LiDARIndex:
+    def lidar_index(self) -> Type[LiDARIndex]:
         """The indexing schema of the LiDAR point cloud."""
         return self._lidar_index
 
@@ -87,7 +95,12 @@ class LiDARMetadata:
             raise ValueError(f"Unknown lidar index: {data_dict['lidar_index']}")
         lidar_index_class = LIDAR_INDEX_REGISTRY[data_dict["lidar_index"]]
         extrinsic = PoseSE3.from_list(data_dict["extrinsic"]) if data_dict["extrinsic"] is not None else None
-        return cls(lidar_type=lidar_type, lidar_index=lidar_index_class, extrinsic=extrinsic)
+        return cls(
+            lidar_name=data_dict["lidar_name"],
+            lidar_type=lidar_type,
+            lidar_index=lidar_index_class,
+            extrinsic=extrinsic,
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the LiDAR metadata to a dictionary.
@@ -95,6 +108,7 @@ class LiDARMetadata:
         :return: A dictionary representation of the LiDAR metadata.
         """
         return {
+            "lidar_name": self.lidar_name,
             "lidar_type": self.lidar_type.name,
             "lidar_index": self.lidar_index.__name__,
             "extrinsic": self.extrinsic.tolist() if self.extrinsic is not None else None,
@@ -144,7 +158,7 @@ class LiDAR:
         """The point cloud as an Nx1 array of intensity values, if available."""
         intensity: Optional[npt.NDArray[np.float32]] = None
         if hasattr(self._metadata.lidar_index, "INTENSITY"):
-            intensity = self._point_cloud[:, self._metadata.lidar_index.INTENSITY]
+            intensity = self._point_cloud[:, self._metadata.lidar_index.INTENSITY]  # type: ignore
         return intensity
 
     @property
@@ -152,7 +166,7 @@ class LiDAR:
         """The point cloud as an Nx1 array of range values, if available."""
         range: Optional[npt.NDArray[np.float32]] = None
         if hasattr(self._metadata.lidar_index, "RANGE"):
-            range = self._point_cloud[:, self._metadata.lidar_index.RANGE]
+            range = self._point_cloud[:, self._metadata.lidar_index.RANGE]  # type: ignore
         return range
 
     @property
@@ -160,7 +174,7 @@ class LiDAR:
         """The point cloud as an Nx1 array of elongation values, if available."""
         elongation: Optional[npt.NDArray[np.float32]] = None
         if hasattr(self._metadata.lidar_index, "ELONGATION"):
-            elongation = self._point_cloud[:, self._metadata.lidar_index.ELONGATION]
+            elongation = self._point_cloud[:, self._metadata.lidar_index.ELONGATION]  # type: ignore
         return elongation
 
     @property
@@ -168,5 +182,5 @@ class LiDAR:
         """The point cloud as an Nx1 array of ring values, if available."""
         ring: Optional[npt.NDArray[np.int32]] = None
         if hasattr(self._metadata.lidar_index, "RING"):
-            ring = self._point_cloud[:, self._metadata.lidar_index.RING]
+            ring = self._point_cloud[:, self._metadata.lidar_index.RING]  # type: ignore
         return ring

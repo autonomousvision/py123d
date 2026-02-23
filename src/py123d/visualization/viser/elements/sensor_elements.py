@@ -18,8 +18,8 @@ from py123d.datatypes.sensors import (
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import PoseSE3Index
 from py123d.geometry.transform.transform_se3 import (
-    convert_relative_to_absolute_points_3d_array,
-    convert_relative_to_absolute_se3_array,
+    rel_to_abs_points_3d_array,
+    rel_to_abs_se3_array,
 )
 from py123d.visualization.color.color import TAB_10
 from py123d.visualization.viser.viser_config import ViserConfig
@@ -190,12 +190,12 @@ def add_lidar_pc_to_viser_server(
             colors.append(np.tile(color, (points.shape[0], 1)))
         colors = np.vstack(colors) if colors else np.zeros((0, 3), dtype=np.uint8)
 
-        points = convert_relative_to_absolute_points_3d_array(ego_pose, points_3d_local)
+        points = rel_to_abs_points_3d_array(ego_pose, points_3d_local)
         colors = np.zeros_like(points)
 
         # # TODO: remove:
         # lidar = scene.get_lidar_at_iteration(scene_interation, LiDARType.LIDAR_TOP)
-        # lidar_extrinsic = convert_relative_to_absolute_se3_array(
+        # lidar_extrinsic = rel_to_abs_se3_array(
         #     origin=ego_pose, se3_array=lidar.metadata.extrinsic.array
         # )
 
@@ -228,7 +228,7 @@ def _get_camera_values(
     assert ego_pose.ndim == 1 and len(ego_pose) == len(PoseSE3Index)
 
     rel_camera_pose = camera.extrinsic.array
-    abs_camera_pose = convert_relative_to_absolute_se3_array(origin=ego_pose, se3_array=rel_camera_pose)
+    abs_camera_pose = rel_to_abs_se3_array(origin=ego_pose, pose_se3_array=rel_camera_pose)
 
     camera_position = abs_camera_pose[PoseSE3Index.XYZ]
     camera_rotation = abs_camera_pose[PoseSE3Index.QUATERNION]
@@ -245,7 +245,7 @@ def _get_fisheye_camera_values(
     assert ego_pose.ndim == 1 and len(ego_pose) == len(PoseSE3Index)
 
     rel_camera_pose = camera.extrinsic.array
-    abs_camera_pose = convert_relative_to_absolute_se3_array(origin=ego_pose, se3_array=rel_camera_pose)
+    abs_camera_pose = rel_to_abs_se3_array(origin=ego_pose, pose_se3_array=rel_camera_pose)
 
     camera_position = abs_camera_pose[PoseSE3Index.XYZ]
     camera_rotation = abs_camera_pose[PoseSE3Index.QUATERNION]

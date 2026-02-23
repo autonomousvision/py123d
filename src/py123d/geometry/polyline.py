@@ -189,23 +189,24 @@ class PolylineSE2(ArrayMixin):
         return PolylineSE2(se2_array, linestring)
 
     @classmethod
-    def from_array(cls, polyline_array: npt.NDArray[np.float32]) -> PolylineSE2:
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> PolylineSE2:
         """Creates a :class:`PolylineSE2` from a numpy array.
 
         :param polyline_array: The input numpy array representing, either indexed by \
             :class:`~py123d.geometry.Point2DIndex` or :class:`~py123d.geometry.PoseSE2Index`.
+        :param copy: Whether to copy the input array or not (ignored).
         :raises ValueError: If the input array is not of the expected shape.
         :return: A :class:`PolylineSE2` representing the same path as the input array.
         """
-        assert polyline_array.ndim == 2
-        if polyline_array.shape[-1] == len(Point2DIndex):
-            se2_array = np.zeros((len(polyline_array), len(PoseSE2Index)), dtype=np.float64)
-            se2_array[:, PoseSE2Index.XY] = polyline_array
-            se2_array[:, PoseSE2Index.YAW] = get_linestring_yaws(geom_creation.linestrings(*polyline_array.T))
-        elif polyline_array.shape[-1] == len(PoseSE2Index):
-            se2_array = np.array(polyline_array, dtype=np.float64)
+        assert array.ndim == 2
+        if array.shape[-1] == len(Point2DIndex):
+            se2_array = np.zeros((len(array), len(PoseSE2Index)), dtype=np.float64)
+            se2_array[:, PoseSE2Index.XY] = array
+            se2_array[:, PoseSE2Index.YAW] = get_linestring_yaws(geom_creation.linestrings(*array.T))
+        elif array.shape[-1] == len(PoseSE2Index):
+            se2_array = np.array(array, dtype=np.float64)
         else:
-            raise ValueError(f"Invalid polyline array shape, expected (N, 2) or (N, 3), got {polyline_array.shape}.")
+            raise ValueError(f"Invalid polyline array shape, expected (N, 2) or (N, 3), got {array.shape}.")
         return PolylineSE2(se2_array)
 
     @property
@@ -298,8 +299,10 @@ class Polyline3D(ArrayMixin):
         """
         assert len(array.shape) == 2 and array.shape[1] == len(Point3DIndex)
         self._array = array
-        self._progress = get_path_progress_3d(self._array[:, Point3DIndex.XYZ])
-        self._linestring = geom.LineString(self._array) if linestring is None else linestring
+
+        # Dynamically computed for faster initialization
+        self._progress: Optional[npt.NDArray[np.float64]] = None
+        self._linestring: Optional[geom.LineString] = linestring
 
     @classmethod
     def from_linestring(cls, linestring: geom.LineString) -> Polyline3D:
@@ -317,7 +320,7 @@ class Polyline3D(ArrayMixin):
         return Polyline3D(array, linestring_)
 
     @classmethod
-    def from_array(cls, array: npt.NDArray[np.float64]) -> Polyline3D:
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> Polyline3D:
         """Creates a :class:`Polyline3D` from a numpy array.
 
         :param array: A numpy array of shape (N, 3) representing 3D points, e.g. indexed by \
@@ -329,14 +332,15 @@ class Polyline3D(ArrayMixin):
             array = np.hstack((array, np.full((array.shape[0], 1), DEFAULT_Z)))
         elif array.shape[1] != len(Point3DIndex):
             raise ValueError("Array must have shape (N, 3) for Point3D.")
-        return Polyline3D(array)
+        return Polyline3D(array.copy() if copy else array)
 
     @property
     def linestring(self) -> geom.LineString:
         """The shapely LineString representation of the 3D polyline."""
-        if not self._linestring.has_z:
+        if self._linestring is None or not self._linestring.has_z:
             linestring_ = geom_creation.linestrings(*self._array.T)  # type: ignore
             object.__setattr__(self, "_linestring", linestring_)
+        assert self._linestring is not None, "Linestring should have been initialized."
         return self._linestring
 
     @property
@@ -357,8 +361,11 @@ class Polyline3D(ArrayMixin):
     @property
     def length(self) -> float:
         """Returns the length of the 3D polyline."""
-        array = self.array
-        return np.linalg.norm(array[:-1, :] - array[1:, :], axis=1).sum()
+        if self._progress is None:
+            object.__setattr__(self, "_progress", get_path_progress_3d(self._array[:, Point3DIndex.XYZ]))
+
+        assert self._progress is not None, "Progress should have been initialized."
+        return float(self._progress[-1])
 
     def interpolate(
         self,
@@ -371,8 +378,17 @@ class Polyline3D(ArrayMixin):
         :param normalized: Whether to interpret the distances as fractions of the length.
         :return: A Point3D instance or a numpy array of shape (N, 3) representing the interpolated points.
         """
+        if self._progress is None:
+            object.__setattr__(self, "_progress", get_path_progress_3d(self._array[:, Point3DIndex.XYZ]))
+        assert self._progress is not None, "Progress should have been initialized."
 
-        _interpolator = interp1d(self._progress, self._array, axis=0, bounds_error=False, fill_value="extrapolate")
+        _interpolator = interp1d(
+            self._progress,
+            self._array,
+            axis=0,
+            bounds_error=False,
+            fill_value="extrapolate",  # pyright: ignore[reportArgumentType]
+        )
         distances_ = distances * self.length if normalized else distances
         clipped_distances = np.clip(distances_, 1e-8, self.length)
 

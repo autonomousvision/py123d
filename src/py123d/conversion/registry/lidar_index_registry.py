@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Dict
+from typing import Dict, Type
 
 from py123d.common.utils.enums import classproperty
 
-LIDAR_INDEX_REGISTRY: Dict[str, LiDARIndex] = {}
+LIDAR_INDEX_REGISTRY: Dict[str, Type[LiDARIndex]] = {}
 
 
 def register_lidar_index(enum_class):
@@ -22,14 +22,14 @@ class LiDARIndex(IntEnum):
         """
         Returns a slice for the XY coordinates of the LiDAR point cloud.
         """
-        return slice(self.X, self.Y + 1)
+        return slice(self.X, self.Y + 1)  # pyright: ignore[reportAttributeAccessIssue]
 
     @classproperty
     def XYZ(self) -> slice:
         """
         Returns a slice for the XYZ coordinates of the LiDAR point cloud.
         """
-        return slice(self.X, self.Z + 1)
+        return slice(self.X, self.Z + 1)  # pyright: ignore[reportAttributeAccessIssue]
 
 
 @register_lidar_index
@@ -63,8 +63,8 @@ class CARLALiDARIndex(LiDARIndex):
 
 
 @register_lidar_index
-class WOPDLiDARIndex(LiDARIndex):
-    """Waymo Open Perception Dataset (WOPD) LiDAR Indexing Scheme, with polar features."""
+class WODPerceptionLiDARIndex(LiDARIndex):
+    """Waymo Open Dataset (WOD) - Perception  LiDAR Indexing Scheme, with polar features."""
 
     RANGE = 0
     INTENSITY = 1

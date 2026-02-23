@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -60,7 +60,9 @@ def get_corners_3d_factors() -> npt.NDArray[np.float64]:
     return factors
 
 
-def bbse2_array_to_corners_array(bbse2: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+def bbse2_array_to_corners_array(
+    bbse2: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
     """Converts an array of BoundingBoxSE2 objects to the 2D coordinates array of their corners.
 
     :param bbse2: Array of SE2 bounding boxes, indexed by :class:`~py123d.geometry.BoundingBoxSE2Index`.
@@ -121,15 +123,16 @@ def bbse3_array_to_corners_array(bbse3_array: npt.NDArray[np.float64]) -> npt.ND
     # Flag whether to unsqueeze and squeeze the input dim
     ndim_one: bool = bbse3_array.ndim == 1
     if ndim_one:
-        bbse3_array = bbse3_array[None, ...]
+        bbse3_array_ = bbse3_array[None, ...]
+    else:
+        bbse3_array_ = bbse3_array
 
     # Extract parameters
-    centers = bbse3_array[..., BoundingBoxSE3Index.XYZ]  # (..., 3)
-    quaternions = bbse3_array[..., BoundingBoxSE3Index.QUATERNION]  # (..., 4)
-
+    centers = bbse3_array_[..., BoundingBoxSE3Index.XYZ]  # (..., 3)
+    quaternions = bbse3_array_[..., BoundingBoxSE3Index.QUATERNION]  # (..., 4)
     # Box extents
     factors = get_corners_3d_factors()  # (8, 3)
-    extents = bbse3_array[..., BoundingBoxSE3Index.EXTENT]  # (..., 3)
+    extents = bbse3_array_[..., BoundingBoxSE3Index.EXTENT]  # (..., 3)
     corner_translation_body = extents[..., None, :] * factors[None, :, :]  # (..., 8, 3)
     corners_world = translate_3d_along_body_frame(
         centers[..., None, :],  # (..., 1, 3)
@@ -148,9 +151,21 @@ def corners_array_to_3d_mesh(
     :param corners_array: An array of shape (..., 8, 3) representing the corners of the boxes.
     :return: A tuple containing the vertices and faces of the mesh.
     """
+    assert corners_array.ndim >= 2
 
-    num_boxes = corners_array.shape[0]
-    vertices = corners_array.reshape(-1, 3)
+    corners_array_: Optional[npt.NDArray[np.float64]] = None
+    if corners_array.ndim == 2:
+        # Single box case: (8, 3) -> (1, 8, 3)
+        corners_array_ = corners_array[None, :, :]
+    else:
+        corners_array_ = corners_array
+
+    assert corners_array_ is not None
+    assert corners_array_.shape[-1] == len(Point3DIndex)
+    assert corners_array_.shape[-2] == len(Corners3DIndex)
+
+    num_boxes = corners_array_.shape[0]
+    vertices = corners_array_.reshape(-1, 3)
 
     # Define the faces for a single box using Corners3DIndex
     faces_single = np.array(
@@ -183,7 +198,9 @@ def corners_array_to_3d_mesh(
     return vertices, faces
 
 
-def corners_array_to_edge_lines(corners_array: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+def corners_array_to_edge_lines(
+    corners_array: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
     """Creates line segments representing the edges of boxes defined by their corner points.
 
     :param corners_array: An array of shape (..., 8, 3) representing the corners of the boxes.
@@ -224,3 +241,81 @@ def corners_array_to_edge_lines(corners_array: npt.NDArray[np.float64]) -> npt.N
             edge_lines[..., edge_idx, 1, :] = corners_array[..., end_idx, :]
 
     return edge_lines
+
+
+def points_3d_in_bbse3_array(
+    points_3d: npt.NDArray,
+    bbse3_array: npt.NDArray,
+    z_axis_threshold: Optional[float] = None,
+) -> npt.NDArray[np.bool_]:
+    """Check which points are inside each bounding box in a batch. See [1]_, [2]_ for reference.
+
+    :param points_3d: Array of 3D points, shape (M, 3), indexed by :class:`~py123d.geometry.Point3DIndex`.
+    :param bbse3_array: SE3 bounding boxes, either of shape (N, 10) or (10,), \
+        indexed by :class:`~py123d.geometry.BoundingBoxSE3Index`.
+    :param z_axis_threshold: Optional threshold to points, that are below the box in the z-axis, \
+        (starting at the bottom). Can be used to crop ground points.
+    :return: Boolean array of shape (N, M) or (M,) indicating if each point the respective box.
+
+    References
+    ----------
+    .. [1] https://math.stackexchange.com/questions/1472049/check-if-a-point-is-inside-a-rectangular-shaped-area-3d
+    .. [2] https://github.com/argoverse/av2-api/blob/main/src/av2/geometry/geometry.py#L253
+
+    """
+    assert bbse3_array.shape[-1] == len(BoundingBoxSE3Index)
+    assert bbse3_array.ndim in {2, 1}
+    assert points_3d.shape[-1] == len(Point3DIndex)
+
+    one_ndim: bool = bbse3_array.ndim == 1
+    if one_ndim:
+        bbse3_array_ = bbse3_array[None, :]
+    else:
+        bbse3_array_ = bbse3_array
+
+    if z_axis_threshold is not None:
+        bbse3_array_ = bbse3_array_.copy()
+
+        # 1. Move center by z_axis_threshold up
+        bbse3_array_[:, BoundingBoxSE3Index.XYZ] = translate_3d_along_body_frame(
+            points_3d=bbse3_array_[:, BoundingBoxSE3Index.XYZ],
+            quaternions=bbse3_array_[:, BoundingBoxSE3Index.QUATERNION],
+            translation=np.array([0.0, 0.0, z_axis_threshold]),
+        )
+
+        # 2. Reduce height by z_axis_threshold
+        bbse3_array_[:, BoundingBoxSE3Index.HEIGHT] = np.maximum(
+            0.0,
+            bbse3_array_[:, BoundingBoxSE3Index.HEIGHT] - z_axis_threshold,
+        )
+
+    corners_array = bbse3_array_to_corners_array(bbse3_array_)  # (N, 8, 3)
+
+    vertices = np.stack(
+        (
+            corners_array[:, Corners3DIndex.BACK_RIGHT_BOTTOM],
+            corners_array[:, Corners3DIndex.FRONT_LEFT_BOTTOM],
+            corners_array[:, Corners3DIndex.FRONT_RIGHT_TOP],
+        ),
+        axis=1,
+    )  # (N, 3, 3)
+
+    ref_vertices = corners_array[:, Corners3DIndex.FRONT_RIGHT_BOTTOM]  # (N, 3)
+
+    uvw = ref_vertices[:, None, :] - vertices  # (N, 3, 3)
+
+    sim_uvw_points = points_3d[None, :, :] @ uvw.transpose(0, 2, 1)  # (N, M, 3)
+    sim_uvw_ref = np.sum(uvw * ref_vertices[:, None, :], axis=2)  # (N, 3)
+    sim_uvw_vertices = np.diagonal(uvw @ vertices.transpose(0, 2, 1), axis1=1, axis2=2)  # (N, 3)
+
+    constraint_a = np.logical_and(
+        sim_uvw_ref[:, None, :] <= sim_uvw_points,
+        sim_uvw_points <= sim_uvw_vertices[:, None, :],
+    )
+    constraint_b = np.logical_and(
+        sim_uvw_ref[:, None, :] >= sim_uvw_points,
+        sim_uvw_points >= sim_uvw_vertices[:, None, :],
+    )
+    is_interior = np.logical_or(constraint_a, constraint_b).all(axis=2)  # (N, M)
+
+    return is_interior.squeeze(axis=0) if one_ndim else is_interior

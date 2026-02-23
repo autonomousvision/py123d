@@ -160,7 +160,7 @@ class KITTI360BoxDetectionLabel(BoxDetectionLabel):
             KITTI360BoxDetectionLabel.RIDER: DefaultBoxDetectionLabel.PERSON,
             KITTI360BoxDetectionLabel.SMALLPOLE: DefaultBoxDetectionLabel.GENERIC_OBJECT,
             KITTI360BoxDetectionLabel.STOP: DefaultBoxDetectionLabel.TRAFFIC_SIGN,
-            KITTI360BoxDetectionLabel.TRAFFIC_LIGHT: DefaultBoxDetectionLabel.TRAFFIC_LIGHT,
+            KITTI360BoxDetectionLabel.TRAFFIC_LIGHT: DefaultBoxDetectionLabel.TRAFFIC_SIGN,
             KITTI360BoxDetectionLabel.TRAFFIC_SIGN: DefaultBoxDetectionLabel.TRAFFIC_SIGN,
             KITTI360BoxDetectionLabel.TRAILER: DefaultBoxDetectionLabel.VEHICLE,
             KITTI360BoxDetectionLabel.TRAIN: DefaultBoxDetectionLabel.VEHICLE,
@@ -274,8 +274,11 @@ class NuScenesBoxDetectionLabel(BoxDetectionLabel):
 @register_box_detection_label
 class PandasetBoxDetectionLabel(BoxDetectionLabel):
     """
-    Semantic labels for Pandaset bounding box detections.
-    [1] https://github.com/scaleapi/pandaset-devkit/blob/master/docs/annotation_instructions_cuboids.pdf
+    Semantic labels for Pandaset bounding box detections, see [1]_
+
+    References
+    ----------
+    .. [1] https://github.com/scaleapi/pandaset-devkit/blob/master/docs/annotation_instructions_cuboids.pdf
     """
 
     ANIMALS_BIRD = 0
@@ -341,11 +344,14 @@ class PandasetBoxDetectionLabel(BoxDetectionLabel):
 
 
 @register_box_detection_label
-class WOPDBoxDetectionLabel(BoxDetectionLabel):
+class WODPerceptionBoxDetectionLabel(BoxDetectionLabel):
     """
-    Semantic labels for Waymo Open Dataset bounding box detections.
-    [1] https://github.com/waymo-research/waymo-open-dataset/blob/master/docs/labeling_specifications.md
-    [2] https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/label.proto#L63-L69
+    Semantic labels if bounding box detections in the WOD-Perception dataset, see [1]_ [2]_.
+
+    References
+    ----------
+    .. [1] https://github.com/waymo-research/waymo-open-dataset/blob/master/docs/labeling_specifications.md
+    .. [2] https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/label.proto#L63-L69
     """
 
     TYPE_UNKNOWN = 0
@@ -357,10 +363,38 @@ class WOPDBoxDetectionLabel(BoxDetectionLabel):
     def to_default(self) -> DefaultBoxDetectionLabel:
         """Inherited, see superclass."""
         mapping = {
-            WOPDBoxDetectionLabel.TYPE_UNKNOWN: DefaultBoxDetectionLabel.GENERIC_OBJECT,
-            WOPDBoxDetectionLabel.TYPE_VEHICLE: DefaultBoxDetectionLabel.VEHICLE,
-            WOPDBoxDetectionLabel.TYPE_PEDESTRIAN: DefaultBoxDetectionLabel.PERSON,
-            WOPDBoxDetectionLabel.TYPE_SIGN: DefaultBoxDetectionLabel.TRAFFIC_SIGN,
-            WOPDBoxDetectionLabel.TYPE_CYCLIST: DefaultBoxDetectionLabel.BICYCLE,
+            WODPerceptionBoxDetectionLabel.TYPE_UNKNOWN: DefaultBoxDetectionLabel.GENERIC_OBJECT,
+            WODPerceptionBoxDetectionLabel.TYPE_VEHICLE: DefaultBoxDetectionLabel.VEHICLE,
+            WODPerceptionBoxDetectionLabel.TYPE_PEDESTRIAN: DefaultBoxDetectionLabel.PERSON,
+            WODPerceptionBoxDetectionLabel.TYPE_SIGN: DefaultBoxDetectionLabel.TRAFFIC_SIGN,
+            WODPerceptionBoxDetectionLabel.TYPE_CYCLIST: DefaultBoxDetectionLabel.BICYCLE,
+        }
+        return mapping[self]
+
+
+@register_box_detection_label
+class WODMotionBoxDetectionLabel(BoxDetectionLabel):
+    """
+    Semantic labels if bounding box detections in the WOD-Motion dataset, see [1]_.
+
+    References
+    ----------
+    .. [1] https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/protos/scenario.proto#L56-L62
+    """
+
+    TYPE_UNSET = 0
+    TYPE_VEHICLE = 1
+    TYPE_PEDESTRIAN = 2
+    TYPE_CYCLIST = 3
+    TYPE_OTHER = 4
+
+    def to_default(self) -> DefaultBoxDetectionLabel:
+        """Inherited, see superclass."""
+        mapping = {
+            WODMotionBoxDetectionLabel.TYPE_UNSET: DefaultBoxDetectionLabel.GENERIC_OBJECT,
+            WODMotionBoxDetectionLabel.TYPE_VEHICLE: DefaultBoxDetectionLabel.VEHICLE,
+            WODMotionBoxDetectionLabel.TYPE_PEDESTRIAN: DefaultBoxDetectionLabel.PERSON,
+            WODMotionBoxDetectionLabel.TYPE_OTHER: DefaultBoxDetectionLabel.GENERIC_OBJECT,
+            WODMotionBoxDetectionLabel.TYPE_CYCLIST: DefaultBoxDetectionLabel.BICYCLE,
         }
         return mapping[self]

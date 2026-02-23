@@ -107,5 +107,13 @@ class Timer:
 
     def __str__(self) -> str:
         """String representation of the Timer."""
+        string_repr: Optional[str] = None
         dataframe = self.to_pandas()
-        return dataframe.to_string() if dataframe is not None else "No timings logged"
+        if dataframe is not None:
+            with pd.option_context("display.float_format", "{:.6f}".format):
+                string_repr = dataframe.to_string()
+        return string_repr if string_repr is not None else "No timings logged"
+
+    def __repr__(self) -> str:
+        """Representation of the Timer."""
+        return self.__str__()

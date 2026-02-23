@@ -52,7 +52,7 @@ class OccupancyMap2D:
         """
         ids = list(geometry_dict.keys())
         geometries = list(geometry_dict.values())
-        return cls(geometries=geometries, ids=ids, node_capacity=node_capacity)
+        return cls(geometries=geometries, ids=ids, node_capacity=node_capacity)  # type: ignore
 
     def __getitem__(self, id: Union[str, int]) -> BaseGeometry:
         """Retrieves geometry given an ID.
@@ -74,7 +74,7 @@ class OccupancyMap2D:
 
         :return: list of IDs
         """
-        return self._ids
+        return self._ids  # type: ignore
 
     @property
     def geometries(self) -> Sequence[BaseGeometry]:
@@ -131,7 +131,7 @@ class OccupancyMap2D:
             The first subarray contains input geometry indices.
             The second subarray contains tree geometry indices.
         """
-        return self._str_tree.query(geometry, predicate=predicate, distance=distance)
+        return self._str_tree.query(geometry, predicate=predicate, distance=distance)  # type: ignore
 
     def query_nearest(
         self,

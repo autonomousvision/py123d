@@ -34,13 +34,13 @@ class LogMetadata:
         dataset: str,
         split: str,
         log_name: str,
-        location: str,
+        location: Optional[str],
         timestep_seconds: float,
         vehicle_parameters: Optional[VehicleParameters] = None,
         box_detection_label_class: Optional[Type[BoxDetectionLabel]] = None,
-        pinhole_camera_metadata: Optional[Dict[PinholeCameraType, PinholeCameraMetadata]] = {},
-        fisheye_mei_camera_metadata: Optional[Dict[FisheyeMEICameraType, FisheyeMEICameraMetadata]] = {},
-        lidar_metadata: Optional[Dict[LiDARType, LiDARMetadata]] = {},
+        pinhole_camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {},
+        fisheye_mei_camera_metadata: Dict[FisheyeMEICameraType, FisheyeMEICameraMetadata] = {},
+        lidar_metadata: Dict[LiDARType, LiDARMetadata] = {},
         map_metadata: Optional[MapMetadata] = None,
         version: str = str(py123d.__version__),
     ):
@@ -92,7 +92,7 @@ class LogMetadata:
         return self._log_name
 
     @property
-    def location(self) -> str:
+    def location(self) -> Optional[str]:
         """Location of the log data."""
         return self._location
 

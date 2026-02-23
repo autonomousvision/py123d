@@ -163,17 +163,17 @@ class Quaternion(ArrayMixin):
         object.__setattr__(self, "_array", array)
 
     @classmethod
-    def from_array(cls, arr: npt.NDArray[np.float64], copy: bool = True) -> Quaternion:
+    def from_array(cls, array: npt.NDArray[np.float64], copy: bool = True) -> Quaternion:
         """Constructs a Quaternion from a numpy array.
 
         :param arr: A 1D numpy array of shape (4,) containing the quaternion components [qw, qx, qy, qz].
         :param copy: Whether to copy the array data, defaults to True.
         :return: A Quaternion instance.
         """
-        assert arr.ndim == 1
-        assert arr.shape[0] == len(QuaternionIndex)
+        assert array.ndim == 1
+        assert array.shape[0] == len(QuaternionIndex)
         instance = object.__new__(cls)
-        object.__setattr__(instance, "_array", arr.copy() if copy else arr)
+        object.__setattr__(instance, "_array", array.copy() if copy else array)
         return instance
 
     @classmethod

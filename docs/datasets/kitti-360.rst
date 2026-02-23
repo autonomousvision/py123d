@@ -116,7 +116,7 @@ The 123D library supports expect the dataset in the following directory structur
   │   │   └── image_03/
   │   │       └── ...
   │   ├── ...
-  │   └── 2013_05_28_drive_0018_sync/
+  │   └── 2013_05_28_drive_0010_sync/
   │       └── ...
   ├── data_2d_semantics/ (not yet supported)
   │   └── ...
@@ -130,7 +130,7 @@ The 123D library supports expect the dataset in the following directory structur
   │       ├── ...
   │       └── 2013_05_28_drive_0010_sync.xml
   ├── data_3d_raw/
-  │   ├── 2013_05_28_drive_0000_sync/
+  │   ├── 2013_05_28_drive_0010_sync/
   │   │   └── velodyne_points/
   │   │       ├── data
   │   │       │   ├── 0000000000.bin
@@ -138,7 +138,7 @@ The 123D library supports expect the dataset in the following directory structur
   │   │       │   └── 0000011517.bin
   │   │       └── timestamps.txt
   │   ├── ...
-  │   └── 2013_05_28_drive_0018_sync/
+  │   └── 2013_05_28_drive_0010_sync/
   │       └── ...
   ├── data_3d_semantics/ (not yet supported)
   │   └── ...
@@ -149,7 +149,7 @@ The 123D library supports expect the dataset in the following directory structur
       │   │   └── ...
       │   └── poses.txt
       ├── ...
-      └── 2013_05_28_drive_0018_sync/
+      └── 2013_05_28_drive_0010_sync/
           └── ...
 
 Note that not all data modalities are currently supported in 123D. For example, semantic 2D and 3D data are not yet integrated.
@@ -170,8 +170,10 @@ You can convert the KITTI-360 dataset by running:
 
   py123d-conversion datasets=["kitti360_dataset"]
 
-
-Note, that you can assign the logs of KITTI-360 to different splits (e.g., "train", "val", "test") in the ``kitti360_dataset.yaml`` config.
+.. note::
+  You can assign the logs of KITTI-360 to different splits (e.g., "train", "val", "test") in the ``kitti360.yaml`` config.
+  The conversion of KITTI-360 by default does not store sensor data in the logs, but only relative file paths.
+  To change this behavior, you need to adapt the ``kitti360.yaml`` converter configuration.
 
 
 Dataset Issues

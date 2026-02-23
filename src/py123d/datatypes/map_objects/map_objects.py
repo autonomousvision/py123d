@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Sequence, Union
 
 import numpy as np
 import shapely.geometry as geom
 from trimesh import Trimesh
 
 from py123d.datatypes.map_objects.base_map_objects import BaseMapLineObject, BaseMapSurfaceObject, MapObjectIDType
-from py123d.datatypes.map_objects.map_layer_types import MapLayer, RoadEdgeType, RoadLineType
+from py123d.datatypes.map_objects.map_layer_types import MapLayer, RoadEdgeType, RoadLineType, StopZoneType
 from py123d.datatypes.map_objects.utils import get_trimesh_from_boundaries
 from py123d.geometry import Polyline2D, Polyline3D
 
@@ -104,9 +104,12 @@ class Lane(BaseMapSurfaceObject):
     @property
     def lane_group(self) -> Optional[LaneGroup]:
         """The :class:`LaneGroup` this lane belongs to."""
+        lane_group: Optional[LaneGroup] = None
         if self._map_api is not None:
-            return self._map_api.get_map_object(self.lane_group_id, MapLayer.LANE_GROUP)  # type: ignore
-        return None
+            lane_group_ = self._map_api.get_map_object(self.lane_group_id, MapLayer.LANE_GROUP)
+            if isinstance(lane_group_, LaneGroup):
+                lane_group = lane_group_
+        return lane_group
 
     @property
     def left_boundary(self) -> Polyline3D:
@@ -131,9 +134,12 @@ class Lane(BaseMapSurfaceObject):
     @property
     def left_lane(self) -> Optional[Lane]:
         """The left neighboring :class:`Lane`, if available."""
+        left_lane: Optional[Lane] = None
         if self._map_api is not None and self.left_lane_id is not None:
-            return self._map_api.get_map_object(self.left_lane_id, self.layer)  # type: ignore
-        return None
+            left_lane_ = self._map_api.get_map_object(self.left_lane_id, self.layer)
+            if isinstance(left_lane_, Lane):
+                left_lane = left_lane_
+        return left_lane
 
     @property
     def right_lane_id(self) -> Optional[MapObjectIDType]:
@@ -143,9 +149,12 @@ class Lane(BaseMapSurfaceObject):
     @property
     def right_lane(self) -> Optional[Lane]:
         """The right neighboring :class:`Lane`, if available."""
+        right_lane: Optional[Lane] = None
         if self._map_api is not None and self.right_lane_id is not None:
-            return self._map_api.get_map_object(self.right_lane_id, self.layer)  # type: ignore
-        return None
+            right_lane_ = self._map_api.get_map_object(self.right_lane_id, self.layer)
+            if isinstance(right_lane_, Lane):
+                right_lane = right_lane_
+        return right_lane
 
     @property
     def predecessor_ids(self) -> List[MapObjectIDType]:
@@ -153,11 +162,14 @@ class Lane(BaseMapSurfaceObject):
         return self._predecessor_ids
 
     @property
-    def predecessors(self) -> Optional[List[Lane]]:
+    def predecessors(self) -> List[Lane]:
         """List of predecessor :class:`Lane` instances."""
-        predecessors: Optional[List[Lane]] = None
+        predecessors: List[Lane] = []
         if self._map_api is not None:
-            predecessors = [self._map_api.get_map_object(lane_id, self.layer) for lane_id in self.predecessor_ids]  # type: ignore
+            for lane_id in self.predecessor_ids:
+                predecessor_ = self._map_api.get_map_object(lane_id, self.layer)
+                if predecessor_ is not None and isinstance(predecessor_, Lane):
+                    predecessors.append(predecessor_)
         return predecessors
 
     @property
@@ -166,11 +178,14 @@ class Lane(BaseMapSurfaceObject):
         return self._successor_ids
 
     @property
-    def successors(self) -> Optional[List[Lane]]:
+    def successors(self) -> List[Lane]:
         """List of successor :class:`Lane` instances."""
-        successors: Optional[List[Lane]] = None
+        successors: List[Lane] = []
         if self._map_api is not None:
-            successors = [self._map_api.get_map_object(lane_id, self.layer) for lane_id in self.successor_ids]  # type: ignore
+            for lane_id in self.successor_ids:
+                successor_ = self._map_api.get_map_object(lane_id, self.layer)
+                if successor_ is not None and isinstance(successor_, Lane):
+                    successors.append(successor_)
         return successors
 
     @property
@@ -261,10 +276,13 @@ class LaneGroup(BaseMapSurfaceObject):
     @property
     def lanes(self) -> List[Lane]:
         """List of :class:`Lane` instances in the group."""
-        lanes: Optional[List[Lane]] = None
+        lanes: List[Lane] = []
         if self._map_api is not None:
-            lanes = [self._map_api.get_map_object(lane_id, MapLayer.LANE) for lane_id in self.lane_ids]  # type: ignore
-        return lanes  # type: ignore
+            for lane_id in self.lane_ids:
+                lane = self._map_api.get_map_object(lane_id, MapLayer.LANE)
+                if lane is not None and isinstance(lane, Lane):
+                    lanes.append(lane)
+        return lanes
 
     @property
     def left_boundary(self) -> Polyline3D:
@@ -297,11 +315,12 @@ class LaneGroup(BaseMapSurfaceObject):
     @property
     def predecessors(self) -> List[LaneGroup]:
         """List of predecessor :class:`LaneGroup` instances."""
-        predecessors: Optional[List[LaneGroup]] = None
+        predecessors: List[LaneGroup] = []
         if self._map_api is not None:
-            predecessors = [
-                self._map_api.get_map_object(lane_group_id, self.layer) for lane_group_id in self.predecessor_ids
-            ]
+            for lane_group_id in self.predecessor_ids:
+                predecessor = self._map_api.get_map_object(lane_group_id, self.layer)
+                if predecessor is not None and isinstance(predecessor, LaneGroup):
+                    predecessors.append(predecessor)
         return predecessors
 
     @property
@@ -312,11 +331,12 @@ class LaneGroup(BaseMapSurfaceObject):
     @property
     def successors(self) -> List[LaneGroup]:
         """List of successor :class:`LaneGroup` instances."""
-        successors: Optional[List[LaneGroup]] = None
+        successors: List[LaneGroup] = []
         if self._map_api is not None:
-            successors = [
-                self._map_api.get_map_object(lane_group_id, self.layer) for lane_group_id in self.successor_ids
-            ]
+            for lane_group_id in self.successor_ids:
+                successor = self._map_api.get_map_object(lane_group_id, self.layer)
+                if successor is not None and isinstance(successor, LaneGroup):
+                    successors.append(successor)
         return successors
 
     @property
@@ -368,12 +388,12 @@ class Intersection(BaseMapSurfaceObject):
     @property
     def lane_groups(self) -> List[LaneGroup]:
         """List of :class:`LaneGroup` instances that belong to the intersection."""
-        lane_groups: Optional[List[LaneGroup]] = None
+        lane_groups: List[LaneGroup] = []
         if self._map_api is not None:
-            lane_groups = [
-                self._map_api.get_map_object(lane_group_id, MapLayer.LANE_GROUP)
-                for lane_group_id in self.lane_group_ids
-            ]
+            for lane_group_id in self.lane_group_ids:
+                lane_group = self._map_api.get_map_object(lane_group_id, MapLayer.LANE_GROUP)
+                if lane_group is not None and isinstance(lane_group, LaneGroup):
+                    lane_groups.append(lane_group)
         return lane_groups
 
 
@@ -493,15 +513,17 @@ class GenericDrivable(BaseMapSurfaceObject):
 
 
 class StopZone(BaseMapSurfaceObject):
-    """Placeholder class representing a stop zone in a map. Requires further implementation based on dataset specifics."""
+    """Class representing a stop zone in a map."""
 
-    __slots__ = ()
+    __slots__ = ("_stop_zone_type", "_lane_ids")
 
     def __init__(
         self,
         object_id: MapObjectIDType,
+        stop_zone_type: StopZoneType,
         outline: Optional[Union[Polyline2D, Polyline3D]] = None,
         shapely_polygon: Optional[geom.Polygon] = None,
+        lane_ids: Optional[Sequence[MapObjectIDType]] = None,
     ):
         """Initialize a StopZone instance.
 
@@ -510,10 +532,24 @@ class StopZone(BaseMapSurfaceObject):
         Either outline or shapely_polygon must be provided.
 
         :param object_id: The ID of the stop zone.
+        :param stop_zone_type: The type of the stop zone (traffic light, stop sign, etc.).
         :param outline: The outline of the stop zone, defaults to None.
         :param shapely_polygon: The Shapely polygon representation of the stop zone, defaults to None.
+        :param lane_ids: List of lane IDs this stop zone controls, defaults to None.
         """
         super().__init__(object_id, outline, shapely_polygon)
+        self._stop_zone_type = stop_zone_type
+        self._lane_ids = list(lane_ids) if lane_ids is not None else []
+
+    @property
+    def stop_zone_type(self) -> StopZoneType:
+        """The type of the stop zone."""
+        return self._stop_zone_type
+
+    @property
+    def lane_ids(self) -> List[MapObjectIDType]:
+        """List of lane IDs this stop zone controls."""
+        return self._lane_ids
 
     @property
     def layer(self) -> MapLayer:

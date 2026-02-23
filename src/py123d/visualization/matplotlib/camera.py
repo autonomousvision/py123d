@@ -6,13 +6,14 @@ import numpy as np
 import numpy.typing as npt
 from pyquaternion import Quaternion
 
-from py123d.conversion.registry import DefaultBoxDetectionLabel, LiDARIndex
+from py123d.conversion.registry import DefaultBoxDetectionLabel
 from py123d.datatypes.detections import BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.sensors import LiDAR, PinholeCamera, PinholeIntrinsics
 from py123d.datatypes.vehicle_state import EgoStateSE3
 from py123d.geometry import BoundingBoxSE3Index, Corners3DIndex
-from py123d.geometry.transform import convert_absolute_to_relative_se3_array
+from py123d.geometry.transform import abs_to_rel_se3_array
 from py123d.visualization.color.default import BOX_DETECTION_CONFIG
+from py123d.visualization.matplotlib.helper import undistort_image_from_camera
 from py123d.visualization.matplotlib.lidar import get_lidar_pc_color
 
 
@@ -27,7 +28,7 @@ def add_pinhole_camera_ax(ax: plt.Axes, pinhole_camera: PinholeCamera) -> plt.Ax
     return ax
 
 
-def add_lidar_to_camera_ax(ax: plt.Axes, camera: PinholeCamera, lidar: LiDAR) -> plt.Axes:
+def add_lidar_to_camera_ax(ax: plt.Axes, camera: PinholeCamera, lidar: LiDAR, undistort: bool = True) -> plt.Axes:
     """Add lidar point cloud to camera image on matplotlib axis
 
     :param ax: matplotlib axis
@@ -39,9 +40,12 @@ def add_lidar_to_camera_ax(ax: plt.Axes, camera: PinholeCamera, lidar: LiDAR) ->
     image, lidar_pc = camera.image.copy(), lidar.point_cloud.copy()
     lidar_index = lidar.metadata.lidar_index
 
+    if undistort:
+        image = undistort_image_from_camera(image, camera.metadata, mode="keep_focal_length")
+
     # lidar_pc = filter_lidar_pc(lidar_pc)
     lidar_pc_colors = np.array(get_lidar_pc_color(lidar_pc, lidar_index, feature="distance"))
-    pc_in_cam, pc_in_fov_mask = _transform_pcs_to_images(lidar_pc, lidar_index, camera)
+    pc_in_cam, pc_in_fov_mask = _transform_pcs_to_images(lidar.xyz.copy(), camera)
 
     for (x, y), color in zip(pc_in_cam[pc_in_fov_mask], lidar_pc_colors[pc_in_fov_mask]):
         color = (int(color[0]), int(color[1]), int(color[2]))
@@ -77,7 +81,7 @@ def add_box_detections_to_camera_ax(
         box_detection_array[idx] = box_detection.bounding_box_se3.array
 
     # FIXME
-    box_detection_array[..., BoundingBoxSE3Index.SE3] = convert_absolute_to_relative_se3_array(
+    box_detection_array[..., BoundingBoxSE3Index.SE3] = abs_to_rel_se3_array(
         ego_state_se3.rear_axle_se3, box_detection_array[..., BoundingBoxSE3Index.SE3]
     )
     # box_detection_array[..., BoundingBoxSE3Index.XYZ] -= ego_state_se3.rear_axle_se3.point_3d.array
@@ -264,22 +268,20 @@ def _transform_points_to_image(
 
 
 def _transform_pcs_to_images(
-    lidar_pc: npt.NDArray[np.float32],
-    lidar_index: LiDARIndex,
+    lidar_xyz: npt.NDArray[np.float32],
     camera: PinholeCamera,
     eps: float = 1e-3,
 ) -> Tuple[npt.NDArray[np.float32], npt.NDArray[np.bool_]]:
     """Transforms lidar point cloud to image pixel coordinates
 
     TODO: refactor
-    :param lidar_pc: lidar point cloud
-    :param lidar_index: lidar index
+    :param lidar_xyz: lidar point cloud in xyz coordinates
     :param camera: pinhole camera
     :param eps: lower threshold of points, defaults to 1e-3
     :return: points in pixel coordinates, mask of values in frame
     """
 
-    pc_xyz = lidar_pc[..., lidar_index.XYZ]
+    pc_xyz = lidar_xyz
 
     lidar2cam_r = np.linalg.inv(camera.extrinsic.rotation_matrix)
     lidar2cam_t = camera.extrinsic.point_3d @ lidar2cam_r.T

@@ -26,10 +26,12 @@ NUPLAN_DETECTION_NAME_DICT = {
 }
 
 # https://github.com/motional/nuplan-devkit/blob/e9241677997dd86bfc0bcd44817ab04fe631405b/nuplan/database/nuplan_db_orm/utils.py#L1129-L1135
+# NOTE: The above description is not matching the actually loaded points clouds.
+# Correct is the mapping; 1: LIDAR_SIDE_LEFT, 2: LIDAR_SIDE_RIGHT.
 NUPLAN_LIDAR_DICT = {
     0: LiDARType.LIDAR_TOP,
-    1: LiDARType.LIDAR_SIDE_RIGHT,
-    2: LiDARType.LIDAR_SIDE_LEFT,
+    1: LiDARType.LIDAR_SIDE_LEFT,
+    2: LiDARType.LIDAR_SIDE_RIGHT,
     3: LiDARType.LIDAR_BACK,
     4: LiDARType.LIDAR_FRONT,
 }

@@ -64,12 +64,16 @@ def build_sensor_dataframe(source_log_path: Path) -> pd.DataFrame:
 
 def build_synchronization_dataframe(
     sensor_dataframe: pd.DataFrame,
-    matching_criterion: Literal["nearest", "forward"] = "nearest",
+    camera_camera_matching: Literal["nearest", "forward", "backward"] = "nearest",
+    lidar_camera_matching: Literal["nearest", "sweep"] = "sweep",
 ) -> pd.DataFrame:
     """Builds a synchronization dataframe, between sensors observations in a log.
 
     :param sensor_dataframe: DataFrame containing sensor data.
-    :param matching_criterion: Criterion for matching timestamps, defaults to "nearest"
+    :param camera_camera_matching: Criterion for matching camera-to-camera timestamps, defaults to "nearest".
+    :param lidar_camera_matching: Criterion for matching lidar-to-camera timestamps. "sweep" (default) uses
+        forward/backward matching to find cameras captured during the lidar sweep window. "nearest" finds the
+        closest camera frame regardless of temporal ordering.
     :return: DataFrame containing synchronized sensor data.
     """
 
@@ -99,16 +103,33 @@ def build_synchronization_dataframe(
             # Merge based on matching criterion.
             # _Very_ important to convert to timedelta. Tolerance below causes precision loss otherwise.
             target_records[target_sensor_name] = pd.to_timedelta(target_records[target_sensor_name])
-            tolerance = pd.to_timedelta(AV2_SENSOR_CAM_SHUTTER_INTERVAL_MS / 2 * 1e6)
-            if "ring" in src_sensor_name:
-                tolerance = pd.to_timedelta(AV2_SENSOR_LIDAR_SWEEP_INTERVAL_W_BUFFER_NS / 2)
+
+            # The lidar timestamp marks the START of the sweep (~100ms accumulation window).
+            # "sweep" mode: lidar→camera uses "forward" to find cameras captured DURING the sweep,
+            #   camera→lidar uses "backward" to find the sweep that contains the image.
+            # "nearest" mode: finds the closest match regardless of temporal ordering.
+            # For camera→camera: always use the caller-provided matching_criterion.
+            if src_sensor_name == "lidar" or target_sensor_name == "lidar":
+                if lidar_camera_matching == "nearest":
+                    direction = "nearest"
+                    tolerance = pd.to_timedelta(AV2_SENSOR_LIDAR_SWEEP_INTERVAL_W_BUFFER_NS)
+                elif src_sensor_name == "lidar":
+                    direction = "forward"
+                    tolerance = pd.to_timedelta(AV2_SENSOR_LIDAR_SWEEP_INTERVAL_W_BUFFER_NS)
+                else:
+                    direction = "backward"
+                    tolerance = pd.to_timedelta(AV2_SENSOR_LIDAR_SWEEP_INTERVAL_W_BUFFER_NS)
+            else:
+                direction = camera_camera_matching
+                tolerance = pd.to_timedelta(AV2_SENSOR_CAM_SHUTTER_INTERVAL_MS / 2 * 1e6)
+
             src_records = pd.merge_asof(
                 src_records,
                 target_records,
                 left_on=src_sensor_name,
                 right_on=target_sensor_name,
                 by=["split", "log_id"],
-                direction=matching_criterion,
+                direction=direction,
                 tolerance=tolerance,
             )
         sync_list.append(src_records)
@@ -128,10 +149,10 @@ def populate_sensor_records(sensor_path: Path, split: str, log_id: str) -> pd.Da
     sensor_records = []
 
     for sensor_file in sensor_files:
-        assert sensor_file.suffix in [
+        assert sensor_file.suffix in {
             ".feather",
             ".jpg",
-        ], f"Unsupported file type: {sensor_file.suffix} for {str(sensor_file)}"
+        }, f"Unsupported file type: {sensor_file.suffix} for {str(sensor_file)}"
         row = {}
         row["split"] = split
         row["log_id"] = log_id

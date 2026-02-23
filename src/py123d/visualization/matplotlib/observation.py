@@ -1,11 +1,13 @@
 import traceback
-from typing import List, Optional, Union
+from collections import defaultdict
+from typing import Dict, List, Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 import shapely.geometry as geom
 
 from py123d.api import MapAPI, SceneAPI
+from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
 from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.map_objects.map_layer_types import MapLayer
@@ -19,15 +21,17 @@ from py123d.visualization.color.default import (
     CENTERLINE_CONFIG,
     EGO_VEHICLE_CONFIG,
     MAP_SURFACE_CONFIG,
-    ROUTE_CONFIG,
     TRAFFIC_LIGHT_CONFIG,
 )
 from py123d.visualization.matplotlib.utils import (
     add_shapely_linestring_to_ax,
-    add_shapely_polygon_to_ax,
+    add_shapely_linestrings_to_ax,
+    add_shapely_polygons_to_ax,
     get_pose_triangle,
     shapely_geometry_local_coords,
 )
+
+# from py123d.visualization.matplotlib.zebra import visualize_crosswalk_stripes
 
 
 def add_scene_on_ax(ax: plt.Axes, scene: SceneAPI, iteration: int = 0, radius: float = 80) -> plt.Axes:
@@ -71,57 +75,65 @@ def add_default_map_on_ax(
     x_min, x_max = point_2d.x - radius, point_2d.x + radius
     y_min, y_max = point_2d.y - radius, point_2d.y + radius
     patch = geom.box(x_min, y_min, x_max, y_max)
-    map_objects_dict = map_api.query(geometry=patch, layers=layers, predicate="intersects")
+    map_objects_dict = map_api.query(geometry=patch, layers=layers)  # , predicate="intersects")
 
     for layer, map_objects in map_objects_dict.items():
-        for map_object in map_objects:
-            try:
-                if layer in [MapLayer.LANE_GROUP]:
-                    if route_lane_group_ids is not None and int(map_object.object_id) in route_lane_group_ids:
-                        add_shapely_polygon_to_ax(ax, map_object.shapely_polygon, ROUTE_CONFIG)
-                    else:
-                        add_shapely_polygon_to_ax(
-                            ax,
-                            map_object.shapely_polygon,
-                            MAP_SURFACE_CONFIG[layer],
-                            label=layer.serialize(),
-                        )
-                if layer in [
-                    MapLayer.GENERIC_DRIVABLE,
-                    MapLayer.CARPARK,
-                    MapLayer.CROSSWALK,
-                    MapLayer.INTERSECTION,
-                    MapLayer.WALKWAY,
-                ]:
-                    add_shapely_polygon_to_ax(
+        try:
+            # if layer == MapLayer.CROSSWALK:
+            #     for map_object in map_objects:
+            #         visualize_crosswalk_stripes(map_object.shapely_polygon, ax)
+
+            if layer in [
+                MapLayer.LANE_GROUP,
+                MapLayer.GENERIC_DRIVABLE,
+                MapLayer.CARPARK,
+                MapLayer.CROSSWALK,
+                MapLayer.INTERSECTION,
+                MapLayer.WALKWAY,
+            ]:
+                polygons = []
+                for map_object in map_objects:
+                    polygons.append(map_object.shapely_polygon)
+                if len(polygons) > 0:
+                    add_shapely_polygons_to_ax(
                         ax,
-                        map_object.shapely_polygon,
+                        polygons,
                         MAP_SURFACE_CONFIG[layer],
                         label=layer.serialize(),
                     )
-                if layer in [MapLayer.LANE]:
+
+            if layer in [MapLayer.LANE]:
+                lines = []
+                for map_object in map_objects:
                     map_object: Lane
-                    add_shapely_linestring_to_ax(
+                    lines.append(map_object.centerline.linestring)
+                if len(lines) > 0:
+                    add_shapely_linestrings_to_ax(
                         ax,
-                        map_object.centerline.linestring,
+                        lines,
                         CENTERLINE_CONFIG,
                         label=layer.serialize(),
                     )
-            except Exception:
-                print(f"Error adding map object of type {layer.name} and id {map_object.object_id}")
-                traceback.print_exc()
+
+        except Exception:
+            print(f"Error adding map object of type {layer.name}")
+            traceback.print_exc()
 
     ax.set_title(f"Map: {map_api.location}")
 
 
 def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionWrapper) -> None:
+    boxes_per_type: Dict[DefaultBoxDetectionLabel, List[BoundingBoxSE2]] = defaultdict(list)
     for box_detection in box_detections:
-        plot_config = BOX_DETECTION_CONFIG[box_detection.metadata.default_label]
-        add_bounding_box_to_ax(ax, box_detection.bounding_box_se2, plot_config)
+        boxes_per_type[box_detection.metadata.default_label].append(box_detection.bounding_box_se2)
+
+    for box_detection_type, bounding_boxes_se2 in boxes_per_type.items():
+        plot_config = BOX_DETECTION_CONFIG[box_detection_type]
+        add_bounding_boxes_to_ax(ax, bounding_boxes_se2, plot_config)  # type: ignore
 
 
 def add_ego_vehicle_to_ax(ax: plt.Axes, ego_vehicle_state: Union[EgoStateSE3, EgoStateSE2]) -> None:
-    add_bounding_box_to_ax(ax, ego_vehicle_state.bounding_box_se2, EGO_VEHICLE_CONFIG)
+    add_bounding_boxes_to_ax(ax, [ego_vehicle_state.bounding_box_se2], EGO_VEHICLE_CONFIG)
 
 
 def add_traffic_lights_to_ax(
@@ -140,37 +152,43 @@ def add_traffic_lights_to_ax(
             raise ValueError(f"Lane with id {traffic_light_detection.lane_id} not found in map {map_api.location}.")
 
 
-def add_bounding_box_to_ax(
+def add_bounding_boxes_to_ax(
     ax: plt.Axes,
-    bounding_box: Union[BoundingBoxSE2, BoundingBoxSE3],
+    bounding_boxes: List[Union[BoundingBoxSE2, BoundingBoxSE3]],
     plot_config: PlotConfig,
 ) -> None:
-    add_shapely_polygon_to_ax(ax, bounding_box.shapely_polygon, plot_config)
-
-    if plot_config.marker_style is not None:
-        assert plot_config.marker_style in ["-", "^"], f"Unknown marker style: {plot_config.marker_style}"
-        if plot_config.marker_style == "-":
-            center_se2 = bounding_box.center_se2
-            arrow = np.zeros((2, 2), dtype=np.float64)
-            arrow[0] = center_se2.point_2d.array
-            arrow[1] = translate_se2_along_body_frame(
-                center_se2,
-                Vector2D(bounding_box.length / 2.0 + 0.5, 0.0),
-            ).array[PoseSE2Index.XY]
-            ax.plot(
-                arrow[:, 0],
-                arrow[:, 1],
-                color=plot_config.line_color.hex,
-                alpha=plot_config.line_color_alpha,
-                linewidth=plot_config.line_width,
-                zorder=plot_config.zorder,
-                linestyle=plot_config.line_style,
-            )
-        elif plot_config.marker_style == "^":
-            min_extent = min(bounding_box.length, bounding_box.width)
-            marker_size = min(plot_config.marker_size, min_extent)
-            marker_polygon = get_pose_triangle(marker_size)
-            global_marker_polygon = shapely_geometry_local_coords(marker_polygon, bounding_box.center_se2)
-            add_shapely_polygon_to_ax(ax, global_marker_polygon, plot_config, disable_smoothing=True)
-        else:
-            raise ValueError(f"Unknown marker style: {plot_config.marker_style}")
+    add_shapely_polygons_to_ax(
+        ax,
+        [box.shapely_polygon for box in bounding_boxes],
+        plot_config,
+    )
+    markers: List[geom.Polygon] = []
+    for bounding_box in bounding_boxes:
+        if plot_config.marker_style is not None:
+            assert plot_config.marker_style in ["-", "^"], f"Unknown marker style: {plot_config.marker_style}"
+            if plot_config.marker_style == "-":
+                center_se2 = bounding_box.center_se2
+                arrow = np.zeros((2, 2), dtype=np.float64)
+                arrow[0] = center_se2.point_2d.array
+                arrow[1] = translate_se2_along_body_frame(
+                    center_se2,
+                    Vector2D(bounding_box.length / 2.0 + 0.5, 0.0),
+                ).array[PoseSE2Index.XY]
+                ax.plot(
+                    arrow[:, 0],
+                    arrow[:, 1],
+                    color=plot_config.line_color.hex,
+                    alpha=plot_config.line_color_alpha,
+                    linewidth=plot_config.line_width,
+                    zorder=plot_config.zorder,
+                    linestyle=plot_config.line_style,
+                )
+            elif plot_config.marker_style == "^":
+                min_extent = min(bounding_box.length, bounding_box.width)
+                marker_size = min(plot_config.marker_size, min_extent)
+                marker_polygon = get_pose_triangle(marker_size)
+                global_marker_polygon = shapely_geometry_local_coords(marker_polygon, bounding_box.center_se2)
+                markers.append(global_marker_polygon)  # type: ignore
+            else:
+                raise ValueError(f"Unknown marker style: {plot_config.marker_style}")
+    add_shapely_polygons_to_ax(ax, markers, plot_config, disable_smoothing=True)

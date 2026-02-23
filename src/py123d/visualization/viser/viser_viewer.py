@@ -1,6 +1,7 @@
 import io
 import logging
 import time
+import zipfile
 from typing import Dict, List, Optional, Union
 
 import imageio.v3 as iio
@@ -151,7 +152,7 @@ class ViserViewer:
             )
 
         with self._viser_server.gui.add_folder("Render", expand_by_default=False):
-            render_format = self._viser_server.gui.add_dropdown("Format", ["gif", "mp4"], initial_value="mp4")
+            render_format = self._viser_server.gui.add_dropdown("Format", ["gif", "mp4", "png"], initial_value="mp4")
             render_view = self._viser_server.gui.add_dropdown(
                 "View", ["3rd Person", "BEV", "Manual"], initial_value="3rd Person"
             )
@@ -317,7 +318,21 @@ class ViserViewer:
                 iio.imwrite(buffer, images, extension=".gif", loop=False)
             elif format == "mp4":
                 iio.imwrite(buffer, images, extension=".mp4", fps=20)
-            content = buffer.getvalue()
+            elif format == "png":
+                # Create an in-memory ZIP containing all frames as PNGs
+                zip_buf = io.BytesIO()
+                with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                    for idx, img in enumerate(images):
+                        name = f"frame_{idx:05d}.png"
+                        if isinstance(img, (bytes, bytearray)):
+                            zf.writestr(name, img)
+                        else:
+                            img_bytes = io.BytesIO()
+                            iio.imwrite(img_bytes, img, extension=".png")
+                            zf.writestr(name, img_bytes.getvalue())
+                zip_buf.seek(0)
+                content = zip_buf.getvalue()
+                format = "zip"
             scene_name = f"{scene.log_metadata.split}_{scene.scene_uuid}"
             client.send_file_download(f"{scene_name}.{format}", content, save_immediately=True)
             server_rendering = False

@@ -15,4 +15,5 @@ Each dataset entry includes installation instructions, available data types, kno
    nuplan
    nuscenes
    pandaset
-   wodp
+   wod_motion
+   wod_perception

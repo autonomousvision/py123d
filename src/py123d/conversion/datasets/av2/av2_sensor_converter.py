@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -31,7 +31,8 @@ from py123d.datatypes.time import TimePoint
 from py123d.datatypes.vehicle_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_av2_ford_fusion_hybrid_parameters
 from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, PoseSE3, Vector3D, Vector3DIndex
-from py123d.geometry.transform import convert_relative_to_absolute_se3_array
+from py123d.geometry.transform import rel_to_abs_se3_array
+from py123d.geometry.transform.transform_se3 import reframe_se3_array
 
 
 class AV2SensorConverter(AbstractDatasetConverter):
@@ -42,20 +43,30 @@ class AV2SensorConverter(AbstractDatasetConverter):
         splits: List[str],
         av2_data_root: Union[Path, str],
         dataset_converter_config: DatasetConverterConfig,
+        lidar_camera_matching: Literal["nearest", "sweep"] = "sweep",
     ) -> None:
         """Initializes the AV2SensorConverter.
 
         :param splits: List of dataset splits to convert, e.g. ["av2-sensor_train", "av2-sensor_val", "av2-sensor_test"]
         :param av2_data_root: Root directory of the AV2 sensor dataset.
         :param dataset_converter_config: Configuration for the dataset converter.
+        :param lidar_camera_matching: Criterion for matching lidar-to-camera timestamps. "sweep" (default) uses
+            forward/backward matching to find cameras captured during the lidar sweep window. "nearest" finds the
+            closest camera frame regardless of temporal ordering.
         """
         super().__init__(dataset_converter_config)
         assert av2_data_root is not None, "The variable `av2_data_root` must be provided."
+        assert Path(av2_data_root).exists(), f"The provided `av2_data_root` path {av2_data_root} does not exist."
+        assert dataset_converter_config.lidar_store_option != "path", (
+            "AV2 stores LiDAR sweeps as merged filed, use  lidar_store_option='path_merged' instead."
+        )
+
         for split in splits:
             assert split in AV2_SENSOR_SPLITS, f"Split {split} is not available. Available splits: {AV2_SENSOR_SPLITS}"
 
         self._splits: List[str] = splits
         self._av2_data_root: Path = Path(av2_data_root)
+        self._lidar_camera_matching: Literal["nearest", "sweep"] = lidar_camera_matching
         self._log_paths_and_split: List[Tuple[Path, str]] = self._collect_log_paths()
 
     def _collect_log_paths(self) -> List[Tuple[Path, str]]:
@@ -64,7 +75,7 @@ class AV2SensorConverter(AbstractDatasetConverter):
         for split in self._splits:
             dataset_name = split.split("_")[0]
             split_type = split.split("_")[-1]
-            assert split_type in ["train", "val", "test"]
+            assert split_type in {"train", "val", "test"}, f"Split type {split_type} is not valid."
             if "av2-sensor" == dataset_name:
                 log_folder = self._av2_data_root / "sensor" / split_type
             else:
@@ -124,7 +135,11 @@ class AV2SensorConverter(AbstractDatasetConverter):
         # 3. Process source log data
         if log_needs_writing:
             sensor_df = build_sensor_dataframe(source_log_path)
-            synchronization_df = build_synchronization_dataframe(sensor_df)
+            synchronization_df = build_synchronization_dataframe(
+                sensor_df,
+                camera_camera_matching="nearest",
+                lidar_camera_matching=self._lidar_camera_matching,
+            )
 
             lidar_sensor = sensor_df.xs(key="lidar", level=2)
             lidar_timestamps_ns = np.sort([int(idx_tuple[2]) for idx_tuple in lidar_sensor.index])
@@ -148,6 +163,7 @@ class AV2SensorConverter(AbstractDatasetConverter):
                     pinhole_cameras=_extract_av2_sensor_pinhole_cameras(
                         lidar_timestamp_ns,
                         egovehicle_se3_sensor_df,
+                        city_se3_egovehicle_df,
                         synchronization_df,
                         source_log_path,
                         self.dataset_converter_config,
@@ -183,23 +199,47 @@ def _get_av2_sensor_map_metadata(split: str, source_log_path: Path) -> MapMetada
 
 
 def _get_av2_pinhole_camera_metadata(
-    source_log_path: Path, dataset_converter_config: DatasetConverterConfig
+    source_log_path: Path,
+    dataset_converter_config: DatasetConverterConfig,
 ) -> Dict[PinholeCameraType, PinholeCameraMetadata]:
     """Helper to get pinhole camera metadata for AV2 sensor dataset."""
     pinhole_camera_metadata: Dict[PinholeCameraType, PinholeCameraMetadata] = {}
     if dataset_converter_config.include_pinhole_cameras:
         intrinsics_file = source_log_path / "calibration" / "intrinsics.feather"
         intrinsics_df = pd.read_feather(intrinsics_file)
-        for _, row in intrinsics_df.iterrows():
-            row = row.to_dict()
-            camera_type = AV2_CAMERA_TYPE_MAPPING[row["sensor_name"]]
-            pinhole_camera_metadata[camera_type] = PinholeCameraMetadata(
-                camera_type=camera_type,
-                width=row["width_px"],
-                height=row["height_px"],
-                intrinsics=PinholeIntrinsics(fx=row["fx_px"], fy=row["fy_px"], cx=row["cx_px"], cy=row["cy_px"]),
-                distortion=PinholeDistortion(k1=row["k1"], k2=row["k2"], p1=0.0, p2=0.0, k3=row["k3"]),
-            )
+
+        egovehicle_se3_sensor_file = source_log_path / "calibration" / "egovehicle_SE3_sensor.feather"
+        egovehicle_se3_sensor_df = pd.read_feather(egovehicle_se3_sensor_file)
+
+        for _, row_callib in egovehicle_se3_sensor_df.iterrows():
+            row_callib = row_callib.to_dict()
+            if row_callib["sensor_name"] in AV2_CAMERA_TYPE_MAPPING.keys():
+                row_intrinsics = (
+                    intrinsics_df[intrinsics_df["sensor_name"] == row_callib["sensor_name"]].iloc[0].to_dict()
+                )
+                camera_type = AV2_CAMERA_TYPE_MAPPING[row_callib["sensor_name"]]
+                pinhole_camera_metadata[camera_type] = PinholeCameraMetadata(
+                    camera_name=str(row_callib["sensor_name"]),
+                    camera_type=camera_type,
+                    width=row_intrinsics["width_px"],
+                    height=row_intrinsics["height_px"],
+                    intrinsics=PinholeIntrinsics(
+                        fx=row_intrinsics["fx_px"],
+                        fy=row_intrinsics["fy_px"],
+                        cx=row_intrinsics["cx_px"],
+                        cy=row_intrinsics["cy_px"],
+                    ),
+                    distortion=PinholeDistortion(
+                        k1=row_intrinsics["k1"],
+                        k2=row_intrinsics["k2"],
+                        p1=0.0,
+                        p2=0.0,
+                        k3=row_intrinsics["k3"],
+                    ),
+                    static_extrinsic=_row_dict_to_pose_se3(row_callib),
+                    is_undistorted=True,
+                )
+
     return pinhole_camera_metadata
 
 
@@ -219,6 +259,7 @@ def _get_av2_lidar_metadata(
 
         # top lidar:
         metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
+            lidar_name="up_lidar",
             lidar_type=LiDARType.LIDAR_TOP,
             lidar_index=AV2SensorLiDARIndex,
             extrinsic=_row_dict_to_pose_se3(
@@ -227,6 +268,7 @@ def _get_av2_lidar_metadata(
         )
         # down lidar:
         metadata[LiDARType.LIDAR_DOWN] = LiDARMetadata(
+            lidar_name="down_lidar",
             lidar_type=LiDARType.LIDAR_DOWN,
             lidar_index=AV2SensorLiDARIndex,
             extrinsic=_row_dict_to_pose_se3(
@@ -260,12 +302,12 @@ def _extract_av2_sensor_box_detections(
         detections_state[detection_idx, BoundingBoxSE3Index.XYZ] = [row["tx_m"], row["ty_m"], row["tz_m"]]
         detections_state[detection_idx, BoundingBoxSE3Index.QUATERNION] = [row["qw"], row["qx"], row["qy"], row["qz"]]
         detections_state[detection_idx, BoundingBoxSE3Index.EXTENT] = [row["length_m"], row["width_m"], row["height_m"]]
-        detections_labels.append(AV2SensorBoxDetectionLabel.deserialize(row["category"]))
+        detections_labels.append(AV2SensorBoxDetectionLabel.deserialize(row["category"]))  # type: ignore
         detections_num_lidar_points.append(int(row["num_interior_pts"]))
 
-    detections_state[:, BoundingBoxSE3Index.SE3] = convert_relative_to_absolute_se3_array(
+    detections_state[:, BoundingBoxSE3Index.SE3] = rel_to_abs_se3_array(
         origin=ego_state_se3.rear_axle_se3,
-        se3_array=detections_state[:, BoundingBoxSE3Index.SE3],
+        pose_se3_array=detections_state[:, BoundingBoxSE3Index.SE3],
     )
 
     box_detections: List[BoxDetectionSE3] = []
@@ -282,7 +324,7 @@ def _extract_av2_sensor_box_detections(
             )
         )
 
-    return BoxDetectionWrapper(box_detections=box_detections)
+    return BoxDetectionWrapper(box_detections=box_detections)  # type: ignore
 
 
 def _extract_av2_sensor_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_timestamp_ns: int) -> EgoStateSE3:
@@ -311,6 +353,7 @@ def _extract_av2_sensor_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_ti
 def _extract_av2_sensor_pinhole_cameras(
     lidar_timestamp_ns: int,
     egovehicle_se3_sensor_df: pd.DataFrame,
+    city_se3_egovehicle_df: pd.DataFrame,
     synchronization_df: pd.DataFrame,
     source_log_path: Path,
     dataset_converter_config: DatasetConverterConfig,
@@ -324,11 +367,15 @@ def _extract_av2_sensor_pinhole_cameras(
     if dataset_converter_config.include_pinhole_cameras:
         av2_sensor_data_root = source_log_path.parent.parent
 
+        current_ego_pose_slice = get_slice_with_timestamp_ns(city_se3_egovehicle_df, lidar_timestamp_ns)
+        assert len(current_ego_pose_slice) == 1
+        current_ego_pose_se3 = _row_dict_to_pose_se3(current_ego_pose_slice.iloc[0].to_dict())
+
         for _, row in egovehicle_se3_sensor_df.iterrows():
             row = row.to_dict()
             if row["sensor_name"] not in AV2_CAMERA_TYPE_MAPPING:
                 continue
-
+            static_extrinsic_se3 = _row_dict_to_pose_se3(row)
             pinhole_camera_name = row["sensor_name"]
             pinhole_camera_type = AV2_CAMERA_TYPE_MAPPING[pinhole_camera_name]
 
@@ -343,10 +390,23 @@ def _extract_av2_sensor_pinhole_cameras(
             if relative_image_path is not None:
                 absolute_image_path = av2_sensor_data_root / relative_image_path
                 assert absolute_image_path.exists()
+                timestamp_ns_str = absolute_image_path.stem
 
+                # Motion compensation of the camera extrinsic to the lidar timestamp:
+                nearest_pose = (
+                    get_slice_with_timestamp_ns(city_se3_egovehicle_df, int(timestamp_ns_str)).iloc[0].to_dict()
+                )
+                nearest_pose_se3 = _row_dict_to_pose_se3(nearest_pose)
+                compensated_extrinsic_se3_array = reframe_se3_array(
+                    from_origin=nearest_pose_se3,
+                    to_origin=current_ego_pose_se3,
+                    pose_se3_array=static_extrinsic_se3.array,
+                )
                 camera_data = CameraData(
+                    camera_name=str(pinhole_camera_name),
                     camera_type=pinhole_camera_type,
-                    extrinsic=_row_dict_to_pose_se3(row),
+                    timestamp=TimePoint.from_ns(int(timestamp_ns_str)),
+                    extrinsic=PoseSE3.from_array(compensated_extrinsic_se3_array),
                     dataset_root=av2_sensor_data_root,
                     relative_path=relative_image_path,
                 )
@@ -370,6 +430,7 @@ def _extract_av2_sensor_lidars(
         assert lidar_feather_path.exists(), f"LiDAR feather file not found: {lidar_feather_path}"
 
         lidar_data = LiDARData(
+            lidar_name=LiDARType.LIDAR_MERGED.serialize(),
             lidar_type=LiDARType.LIDAR_MERGED,
             dataset_root=av2_sensor_data_root,
             relative_path=relative_feather_path,

@@ -11,7 +11,6 @@ class DatasetConverterConfig:
 
     # Map
     include_map: bool = False
-    remap_map_ids: bool = False
 
     # Ego
     include_ego: bool = False
@@ -41,23 +40,23 @@ class DatasetConverterConfig:
     include_route: bool = False
 
     def __post_init__(self):
-        assert self.pinhole_camera_store_option in [
+        assert self.pinhole_camera_store_option in {
             "path",
             "jpeg_binary",
             "png_binary",
             "mp4",
-        ], f"Invalid Pinhole camera store option, got {self.pinhole_camera_store_option}."
+        }, f"Invalid Pinhole camera store option, got {self.pinhole_camera_store_option}."
 
-        assert self.fisheye_mei_camera_store_option in [
+        assert self.fisheye_mei_camera_store_option in {
             "path",
             "jpeg_binary",
             "png_binary",
             "mp4",
-        ], f"Invalid Fisheye MEI camera store option, got {self.fisheye_mei_camera_store_option}."
+        }, f"Invalid Fisheye MEI camera store option, got {self.fisheye_mei_camera_store_option}."
 
-        assert self.lidar_store_option in [
+        assert self.lidar_store_option in {
             "path",
             "path_merged",
             "laz_binary",
             "draco_binary",
-        ], f"Invalid LiDAR store option, got {self.lidar_store_option}."
+        }, f"Invalid LiDAR store option, got {self.lidar_store_option}."

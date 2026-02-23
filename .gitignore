@@ -26,6 +26,10 @@
 exp/
 .coverage
 
+# internal
+benchmarks/*
+notebooks/*
+
 # Sphinx documentation
 docs/_build/
 docs/build/
@@ -35,3 +39,6 @@ _build/
 
 # ruff
 .ruff_cache/*
+
+# Other
+CLAUDE.md

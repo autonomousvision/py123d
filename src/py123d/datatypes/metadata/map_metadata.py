@@ -13,7 +13,7 @@ class MapMetadata:
     def __init__(
         self,
         dataset: str,
-        location: str,
+        location: Optional[str],
         map_has_z: bool,
         map_is_local: bool,
         split: Optional[str] = None,
@@ -56,7 +56,7 @@ class MapMetadata:
         return self._log_name
 
     @property
-    def location(self) -> str:
+    def location(self) -> Optional[str]:
         """Location of the map data."""
         return self._location
 

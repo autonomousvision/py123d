@@ -44,9 +44,7 @@ from py123d.datatypes.sensors.pinhole_camera import (
 )
 from py123d.datatypes.time.time_point import TimePoint
 from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
-from py123d.datatypes.vehicle_state.vehicle_parameters import (
-    get_nuscenes_renault_zoe_parameters,
-)
+from py123d.datatypes.vehicle_state.vehicle_parameters import get_nuscenes_renault_zoe_parameters
 from py123d.geometry import BoundingBoxSE3, PoseSE3
 from py123d.geometry.vector import Vector3D
 
@@ -65,8 +63,6 @@ class NuScenesConverter(AbstractDatasetConverter):
         splits: List[str],
         nuscenes_data_root: Union[Path, str],
         nuscenes_map_root: Union[Path, str],
-        nuscenes_lanelet2_root: Union[Path, str],
-        use_lanelet2: bool,
         dataset_converter_config: DatasetConverterConfig,
         nuscenes_dbs: Optional[Dict[str, NuScenes]] = None,
     ) -> None:
@@ -75,8 +71,6 @@ class NuScenesConverter(AbstractDatasetConverter):
         :param splits: List of splits to include in the conversion, e.g., ["nuscenes_train", "nuscenes_val"]
         :param nuscenes_data_root: Path to the root directory of the nuScenes dataset
         :param nuscenes_map_root: Path to the root directory of the nuScenes map data
-        :param nuscenes_lanelet2_root: Path to the root directory of the nuScenes Lanelet2 data
-        :param use_lanelet2: Whether to use Lanelet2 data for map conversion
         :param dataset_converter_config: Configuration for the dataset converter
         """
         super().__init__(dataset_converter_config)
@@ -92,8 +86,6 @@ class NuScenesConverter(AbstractDatasetConverter):
 
         self._nuscenes_data_root: Path = Path(nuscenes_data_root)
         self._nuscenes_map_root: Path = Path(nuscenes_map_root)
-        self._nuscenes_lanelet2_root: Path = Path(nuscenes_lanelet2_root)
-        self._use_lanelet2 = use_lanelet2
 
         self._nuscenes_dbs: Dict[str, NuScenes] = nuscenes_dbs if nuscenes_dbs is not None else {}
         self._scene_tokens_per_split: Dict[str, List[str]] = self._collect_scene_tokens()
@@ -105,8 +97,6 @@ class NuScenesConverter(AbstractDatasetConverter):
                 self._splits,
                 self._nuscenes_data_root,
                 self._nuscenes_map_root,
-                self._nuscenes_lanelet2_root,
-                self._use_lanelet2,
                 self.dataset_converter_config,
                 self._nuscenes_dbs,
             ),
@@ -165,13 +155,7 @@ class NuScenesConverter(AbstractDatasetConverter):
         map_needs_writing = map_writer.reset(self.dataset_converter_config, map_metadata)
 
         if map_needs_writing:
-            write_nuscenes_map(
-                nuscenes_maps_root=self._nuscenes_map_root,
-                location=map_name,
-                map_writer=map_writer,
-                use_lanelet2=self._use_lanelet2,
-                lanelet2_root=Path(self._nuscenes_lanelet2_root),
-            )
+            write_nuscenes_map(nuscenes_maps_root=self._nuscenes_map_root, location=map_name, map_writer=map_writer)
 
         map_writer.close()
 
@@ -261,16 +245,28 @@ def _get_nuscenes_pinhole_camera_metadata(
             cam_token = first_sample["data"][camera_channel]
             cam_data = nusc.get("sample_data", cam_token)
             calib = nusc.get("calibrated_sensor", cam_data["calibrated_sensor_token"])
+
+            # Intrinsic & distortion parameters
             intrinsic_matrix = np.array(calib["camera_intrinsic"])
             intrinsic = PinholeIntrinsics.from_camera_matrix(intrinsic_matrix)
             distortion = PinholeDistortion.from_array(np.zeros(5), copy=False)
+
+            # Extrinsic parameters
+            translation_array = np.array(calib["translation"], dtype=np.float64)  # array of shape (3,)
+            rotation_array = np.array(calib["rotation"], dtype=np.float64)  # array of shape (4,)
+            extrinsic = PoseSE3.from_R_t(rotation=rotation_array, translation=translation_array)
+
             camera_metadata[camera_type] = PinholeCameraMetadata(
+                camera_name=camera_channel,
                 camera_type=camera_type,
                 width=cam_data["width"],
                 height=cam_data["height"],
                 intrinsics=intrinsic,
                 distortion=distortion,
+                static_extrinsic=extrinsic,
+                is_undistorted=True,
             )
+
     return camera_metadata
 
 
@@ -294,6 +290,7 @@ def _get_nuscenes_lidar_metadata(
         extrinsic[:3, 3] = translation
         extrinsic = PoseSE3.from_transformation_matrix(extrinsic)
         metadata[LiDARType.LIDAR_TOP] = LiDARMetadata(
+            lidar_name="LIDAR_TOP",
             lidar_type=LiDARType.LIDAR_TOP,
             lidar_index=NuScenesLiDARIndex,
             extrinsic=extrinsic,
@@ -407,7 +404,7 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
             velocity_3d=velocity_3d,
         )
         box_detections.append(box_detection)
-    return BoxDetectionWrapper(box_detections=box_detections)
+    return BoxDetectionWrapper(box_detections=box_detections)  # type: ignore
 
 
 def _extract_nuscenes_cameras(
@@ -428,22 +425,20 @@ def _extract_nuscenes_cameras(
                 continue
 
             calib = nusc.get("calibrated_sensor", cam_data["calibrated_sensor_token"])
-
-            translation = np.array(calib["translation"])
-            rotation = Quaternion(calib["rotation"]).rotation_matrix
-            extrinsic_matrix = np.eye(4)
-            extrinsic_matrix[:3, :3] = rotation
-            extrinsic_matrix[:3, 3] = translation
-            extrinsic = PoseSE3.from_transformation_matrix(extrinsic_matrix)
+            translation_array = np.array(calib["translation"], dtype=np.float64)  # array of shape (3,)
+            rotation_array = np.array(calib["rotation"], dtype=np.float64)  # array of shape (4,)
+            extrinsic = PoseSE3.from_R_t(rotation=rotation_array, translation=translation_array)
 
             cam_path = nuscenes_data_root / str(cam_data["filename"])
             if cam_path.exists() and cam_path.is_file():
                 camera_data_list.append(
                     CameraData(
+                        camera_name=camera_channel,
                         camera_type=camera_type,
                         extrinsic=extrinsic,
                         relative_path=cam_path.relative_to(nuscenes_data_root),
                         dataset_root=nuscenes_data_root,
+                        timestamp=TimePoint.from_us(cam_data["timestamp"]),
                     )
                 )
 
@@ -464,6 +459,7 @@ def _extract_nuscenes_lidars(
         absolute_lidar_path = nuscenes_data_root / lidar_data["filename"]
         if absolute_lidar_path.exists() and absolute_lidar_path.is_file():
             lidar = LiDARData(
+                lidar_name="LIDAR_TOP",
                 lidar_type=LiDARType.LIDAR_TOP,
                 relative_path=absolute_lidar_path.relative_to(nuscenes_data_root),
                 dataset_root=nuscenes_data_root,

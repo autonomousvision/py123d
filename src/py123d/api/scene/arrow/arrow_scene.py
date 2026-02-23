@@ -1,9 +1,10 @@
+from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional, Union
 
 import pyarrow as pa
 
-from py123d.api.map.gpkg.gpkg_map_api import get_global_map_api, get_local_map_api
+from py123d.api.map.arrow_map_api import get_global_map_api, get_local_map_api
 from py123d.api.map.map_api import MapAPI
 from py123d.api.scene.arrow.utils.arrow_getters import (
     get_box_detections_se3_from_arrow_table,
@@ -14,25 +15,32 @@ from py123d.api.scene.arrow.utils.arrow_getters import (
     get_timepoint_from_arrow_table,
     get_traffic_light_detections_from_arrow_table,
 )
-from py123d.api.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow_file
+from py123d.api.scene.arrow.utils.arrow_metadata_utils import (
+    get_log_metadata_from_arrow_table,
+)
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.common.utils.arrow_column_names import UUID_COLUMN
 from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
-from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
-from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
+from py123d.common.utils.uuid_utils import convert_to_str_uuid
+from py123d.datatypes.detections import BoxDetectionWrapper, TrafficLightDetectionWrapper
 from py123d.datatypes.metadata.log_metadata import LogMetadata
-from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraType
-from py123d.datatypes.sensors.lidar import LiDAR, LiDARType
-from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraType
-from py123d.datatypes.time.time_point import TimePoint
-from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
+from py123d.datatypes.sensors import (
+    FisheyeMEICamera,
+    FisheyeMEICameraType,
+    LiDAR,
+    LiDARType,
+    PinholeCamera,
+    PinholeCameraType,
+)
+from py123d.datatypes.time import TimePoint
+from py123d.datatypes.vehicle_state import EgoStateSE3
 
 
 def _get_complete_log_scene_metadata(arrow_file_path: Union[Path, str], log_metadata: LogMetadata) -> SceneMetadata:
     """Helper function to get the scene metadata for a complete log of an Arrow file."""
     table = get_lru_cached_arrow_table(arrow_file_path)
-    initial_uuid = table[UUID_COLUMN][0].as_py()
+    initial_uuid = convert_to_str_uuid(table[UUID_COLUMN][0].as_py())
     num_rows = table.num_rows
     return SceneMetadata(
         initial_uuid=initial_uuid,
@@ -41,6 +49,13 @@ def _get_complete_log_scene_metadata(arrow_file_path: Union[Path, str], log_meta
         history_s=0.0,
         iteration_duration_s=log_metadata.timestep_seconds,
     )
+
+
+@lru_cache(maxsize=1_000)
+def _get_lru_cached_log_metadata(arrow_file_path: Union[Path, str]) -> LogMetadata:
+    """Helper function to get the LRU cached log metadata from an Arrow file."""
+    table = get_lru_cached_arrow_table(arrow_file_path)
+    return get_log_metadata_from_arrow_table(table)
 
 
 class ArrowSceneAPI(SceneAPI):
@@ -58,12 +73,7 @@ class ArrowSceneAPI(SceneAPI):
         """
 
         self._arrow_file_path: Path = Path(arrow_file_path)
-        self._log_metadata: LogMetadata = get_log_metadata_from_arrow_file(str(arrow_file_path))
-        self._scene_metadata: SceneMetadata = (
-            scene_metadata
-            if scene_metadata is not None
-            else _get_complete_log_scene_metadata(arrow_file_path, self._log_metadata)
-        )
+        self._scene_metadata: Optional[SceneMetadata] = scene_metadata
 
         # NOTE: Lazy load a log-specific map API, and keep reference.
         # Global maps are LRU cached internally.
@@ -89,7 +99,7 @@ class ArrowSceneAPI(SceneAPI):
     def _get_table_index(self, iteration: int) -> int:
         """Helper function to get the table index for a given iteration."""
         assert -self.number_of_history_iterations <= iteration < self.number_of_iterations, "Iteration out of bounds"
-        table_index = self._scene_metadata.initial_idx + iteration
+        table_index = self.get_scene_metadata().initial_idx + iteration
         return table_index
 
     # Implementation of abstract methods
@@ -97,10 +107,13 @@ class ArrowSceneAPI(SceneAPI):
 
     def get_log_metadata(self) -> LogMetadata:
         """Inherited, see superclass."""
-        return self._log_metadata
+        return _get_lru_cached_log_metadata(self._arrow_file_path)
 
     def get_scene_metadata(self) -> SceneMetadata:
         """Inherited, see superclass."""
+        if self._scene_metadata is None:
+            log_metadata = self.get_log_metadata()
+            self._scene_metadata = _get_complete_log_scene_metadata(self._arrow_file_path, log_metadata)
         return self._scene_metadata
 
     def get_map_api(self) -> Optional[MapAPI]:
@@ -153,12 +166,14 @@ class ArrowSceneAPI(SceneAPI):
         """Inherited, see superclass."""
         pinhole_camera: Optional[PinholeCamera] = None
         if camera_type in self.available_pinhole_camera_types:
-            pinhole_camera = get_camera_from_arrow_table(
+            pinhole_camera_ = get_camera_from_arrow_table(
                 self._get_recording_table(),
                 self._get_table_index(iteration),
                 camera_type,
                 self.log_metadata,
             )
+            assert isinstance(pinhole_camera_, PinholeCamera) or pinhole_camera_ is None
+            pinhole_camera = pinhole_camera_
         return pinhole_camera
 
     def get_fisheye_mei_camera_at_iteration(
@@ -167,12 +182,14 @@ class ArrowSceneAPI(SceneAPI):
         """Inherited, see superclass."""
         fisheye_mei_camera: Optional[FisheyeMEICamera] = None
         if camera_type in self.available_fisheye_mei_camera_types:
-            fisheye_mei_camera = get_camera_from_arrow_table(
+            fisheye_mei_camera_ = get_camera_from_arrow_table(
                 self._get_recording_table(),
                 self._get_table_index(iteration),
                 camera_type,
                 self.log_metadata,
             )
+            assert isinstance(fisheye_mei_camera_, FisheyeMEICamera) or fisheye_mei_camera_ is None
+            fisheye_mei_camera = fisheye_mei_camera_
         return fisheye_mei_camera
 
     def get_lidar_at_iteration(self, iteration: int, lidar_type: LiDARType) -> Optional[LiDAR]:

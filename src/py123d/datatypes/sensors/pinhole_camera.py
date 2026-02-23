@@ -8,6 +8,7 @@ import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
+from py123d.datatypes.time import TimePoint
 from py123d.geometry import PoseSE3
 
 
@@ -46,25 +47,28 @@ class PinholeCameraType(SerialIntEnum):
 
 
 class PinholeCamera:
-    """Represents the recording of a pinhole camera including its metadata, image, and extrinsic pose."""
+    """Represents the recording of a pinhole camera including its metadata, image, extrinsic pose, and timestamp."""
 
-    __slots__ = ("_metadata", "_image", "_extrinsic")
+    __slots__ = ("_metadata", "_image", "_extrinsic", "_timestamp")
 
     def __init__(
         self,
         metadata: PinholeCameraMetadata,
         image: npt.NDArray[np.uint8],
         extrinsic: PoseSE3,
+        timestamp: Optional[TimePoint] = None,
     ) -> None:
         """Initialize a PinholeCamera instance.
 
         :param metadata: The metadata associated with the camera.
         :param image: The image captured by the camera.
         :param extrinsic: The extrinsic pose of the camera.
+        :param timestamp: The timestamp of the image capture, optional.
         """
         self._metadata = metadata
         self._image = image
         self._extrinsic = extrinsic
+        self._timestamp = timestamp
 
     @property
     def metadata(self) -> PinholeCameraMetadata:
@@ -80,6 +84,11 @@ class PinholeCamera:
     def extrinsic(self) -> PoseSE3:
         """The extrinsic :class:`~py123d.geometry.PoseSE3` of the pinhole camera, relative to the ego vehicle frame."""
         return self._extrinsic
+
+    @property
+    def timestamp(self) -> Optional[TimePoint]:
+        """The :class:`~py123d.datatypes.time.TimePoint` of the image capture, if available."""
+        return self._timestamp
 
 
 class PinholeIntrinsicsIndex(IntEnum):
@@ -296,29 +305,47 @@ class PinholeDistortion(ArrayMixin):
 class PinholeCameraMetadata:
     """Static metadata for a pinhole camera, stored in a log."""
 
-    __slots__ = ("_camera_type", "_intrinsics", "_distortion", "_width", "_height")
+    __slots__ = (
+        "_camera_name",
+        "_camera_type",
+        "_intrinsics",
+        "_distortion",
+        "_width",
+        "_height",
+        "_static_extrinsic",
+        "_is_undistorted",
+    )
 
     def __init__(
         self,
+        camera_name: str,
         camera_type: PinholeCameraType,
         intrinsics: Optional[PinholeIntrinsics],
         distortion: Optional[PinholeDistortion],
         width: int,
         height: int,
+        static_extrinsic: Optional[PoseSE3] = None,
+        is_undistorted: bool = False,
     ) -> None:
         """Initialize a :class:`PinholeCameraMetadata` instance.
 
+        :param camera_name: The name of the pinhole camera, according to the dataset naming convention.
         :param camera_type: The type of the pinhole camera.
         :param intrinsics: The :class:`PinholeIntrinsics` of the pinhole camera.
         :param distortion: The :class:`PinholeDistortion` of the pinhole camera.
         :param width: The image width in pixels.
         :param height: The image height in pixels.
+        :param static_extrinsic: The static extrinsic :class:`~py123d.geometry.PoseSE3` of the pinhole camera, if available.
+        :param is_undistorted: Whether the camera images are already undistorted, defaults to False.
         """
+        self._camera_name = camera_name
         self._camera_type = camera_type
         self._intrinsics = intrinsics
         self._distortion = distortion
         self._width = width
         self._height = height
+        self._static_extrinsic = static_extrinsic
+        self._is_undistorted = is_undistorted
 
     @classmethod
     def from_dict(cls, data_dict: Dict[str, Any]) -> PinholeCameraMetadata:
@@ -334,6 +361,12 @@ class PinholeCameraMetadata:
         data_dict["distortion"] = (
             PinholeDistortion.from_list(data_dict["distortion"]) if data_dict["distortion"] is not None else None
         )
+
+        # TODO: Make static extrinsic mandatory in the future.
+        if "static_extrinsic" in data_dict.keys():
+            data_dict["static_extrinsic"] = (
+                PoseSE3.from_list(data_dict["static_extrinsic"]) if data_dict["static_extrinsic"] is not None else None
+            )
         return PinholeCameraMetadata(**data_dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -342,12 +375,20 @@ class PinholeCameraMetadata:
         :return: A dictionary representation of the PinholeCameraMetadata instance, with default Python types.
         """
         data_dict = {}
+        data_dict["camera_name"] = self.camera_name
         data_dict["camera_type"] = int(self.camera_type)
         data_dict["intrinsics"] = self.intrinsics.tolist() if self.intrinsics is not None else None
         data_dict["distortion"] = self.distortion.tolist() if self.distortion is not None else None
         data_dict["width"] = self.width
         data_dict["height"] = self.height
+        data_dict["static_extrinsic"] = self.static_extrinsic.tolist() if self.static_extrinsic is not None else None
+        data_dict["is_undistorted"] = self.is_undistorted
         return data_dict
+
+    @property
+    def camera_name(self) -> str:
+        """The name of the pinhole camera, according to the dataset naming convention."""
+        return self._camera_name
 
     @property
     def camera_type(self) -> PinholeCameraType:
@@ -375,18 +416,32 @@ class PinholeCameraMetadata:
         return self._height
 
     @property
+    def static_extrinsic(self) -> Optional[PoseSE3]:
+        """The static extrinsic :class:`~py123d.geometry.PoseSE3` of the pinhole camera, if available."""
+        return self._static_extrinsic
+
+    @property
+    def is_undistorted(self) -> bool:
+        """Whether the camera images are already undistorted."""
+        return self._is_undistorted
+
+    @property
     def aspect_ratio(self) -> float:
         """The aspect ratio (width / height) of the pinhole camera."""
         return self.width / self.height
 
     @property
-    def fov_x(self) -> float:
-        """The horizontal field of view (FOV) of the pinhole camera in radians."""
-        fov_x_rad = 2 * np.arctan(self.width / (2 * self.intrinsics.fx))
+    def fov_x(self) -> Optional[float]:
+        """The horizontal field of view (FOV) of the pinhole camera in radians, if available."""
+        fov_x_rad: Optional[float] = None
+        if self.intrinsics is not None:
+            fov_x_rad = 2 * np.arctan(self.width / (2 * self.intrinsics.fx))
         return fov_x_rad
 
     @property
-    def fov_y(self) -> float:
-        """The vertical field of view (FOV) of the pinhole camera in radians."""
-        fov_y_rad = 2 * np.arctan(self.height / (2 * self.intrinsics.fy))
+    def fov_y(self) -> Optional[float]:
+        """The vertical field of view (FOV) of the pinhole camera in radians, if available."""
+        fov_y_rad: Optional[float] = None
+        if self.intrinsics is not None:
+            fov_y_rad = 2 * np.arctan(self.height / (2 * self.intrinsics.fy))
         return fov_y_rad

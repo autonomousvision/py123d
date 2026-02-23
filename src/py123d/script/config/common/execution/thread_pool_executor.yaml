@@ -1,0 +1,3 @@
+_target_: py123d.common.execution.thread_pool_executor.ThreadPoolExecutor
+_convert_: 'all'
+max_workers: null  # Number of threads to use, "null" means all available CPUs

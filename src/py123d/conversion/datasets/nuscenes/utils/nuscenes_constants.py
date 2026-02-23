@@ -13,6 +13,14 @@ NUSCENES_DATA_SPLITS: Final[List[str]] = [
     "nuscenes-mini_val",
 ]
 
+NUSCENES_INTERPOLATED_DATA_SPLITS: Final[List[str]] = [
+    "nuscenes-interpolated_train",
+    "nuscenes-interpolated_val",
+    "nuscenes-interpolated_test",
+    "nuscenes-interpolated-mini_train",
+    "nuscenes-interpolated-mini_val",
+]
+
 TARGET_DT: Final[float] = 0.1
 NUSCENES_DT: Final[float] = 0.5
 SORT_BY_TIMESTAMP: Final[bool] = True
@@ -54,6 +62,11 @@ NUSCENES_DATABASE_VERSION_MAPPING: Dict[str, str] = {
     "nuscenes_test": "v1.0-test",
     "nuscenes-mini_train": "v1.0-mini",
     "nuscenes-mini_val": "v1.0-mini",
+    "nuscenes-interpolated_train": "v1.0-trainval",
+    "nuscenes-interpolated_val": "v1.0-trainval",
+    "nuscenes-interpolated_test": "v1.0-test",
+    "nuscenes-interpolated-mini_train": "v1.0-mini",
+    "nuscenes-interpolated-mini_val": "v1.0-mini",
 }
 
 NUSCENES_CAMERA_TYPES = {

@@ -121,7 +121,7 @@ class SceneAPI(abc.ABC):
         :return: The LiDAR, or None if not available.
         """
 
-    # Syntactic Sugar / Properties, for easier access to common attributes
+    # Syntactic Sugar / Properties, that are convenient to access and pass to subclasses
     # ------------------------------------------------------------------------------------------------------------------
 
     @property
@@ -155,7 +155,7 @@ class SceneAPI(abc.ABC):
         return self.log_metadata.split
 
     @property
-    def location(self) -> str:
+    def location(self) -> Optional[str]:
         """The location from the log metadata."""
         return self.log_metadata.location
 
@@ -195,11 +195,26 @@ class SceneAPI(abc.ABC):
         return list(self.log_metadata.pinhole_camera_metadata.keys())
 
     @property
+    def available_pinhole_camera_names(self) -> List[str]:
+        """List of available :class:`~py123d.datatypes.sensors.PinholeCameraType` in the log metadata."""
+        return [camera.camera_name for camera in self.log_metadata.pinhole_camera_metadata.values()]
+
+    @property
     def available_fisheye_mei_camera_types(self) -> List[FisheyeMEICameraType]:
         """List of available :class:`~py123d.datatypes.sensors.FisheyeMEICameraType` in the log metadata."""
         return list(self.log_metadata.fisheye_mei_camera_metadata.keys())
 
     @property
+    def available_fisheye_mei_camera_names(self) -> List[str]:
+        """List of available :class:`~py123d.datatypes.sensors.FisheyeMEICameraType` in the log metadata."""
+        return [camera.camera_name for camera in self.log_metadata.fisheye_mei_camera_metadata.values()]
+
+    @property
     def available_lidar_types(self) -> List[LiDARType]:
         """List of available :class:`~py123d.datatypes.sensors.LiDARType` in the log metadata."""
         return list(self.log_metadata.lidar_metadata.keys())
+
+    @property
+    def available_lidar_names(self) -> List[str]:
+        """List of available :class:`~py123d.datatypes.sensors.LiDARType` in the log metadata."""
+        return [lidar.lidar_name for lidar in self.log_metadata.lidar_metadata.values()]

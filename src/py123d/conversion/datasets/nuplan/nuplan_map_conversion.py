@@ -1,13 +1,13 @@
 import warnings
 from pathlib import Path
-from typing import Dict, Final
+from typing import Dict, Final, List, Optional
 
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 import pyogrio
-from shapely import LineString
+from shapely import LineString, wkt
 
-from py123d.api.map.gpkg.gpkg_utils import get_all_rows_with_value, get_row_with_value
 from py123d.conversion.datasets.nuplan.utils.nuplan_constants import (
     NUPLAN_MAP_GPKG_LAYERS,
     NUPLAN_MAP_LOCATION_FILES,
@@ -107,7 +107,7 @@ def _write_nuplan_lanes(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: Abs
 
         map_writer.write_lane(
             Lane(
-                object_id=lane_id,
+                object_id=int(lane_id),
                 lane_group_id=all_lane_group_ids[idx],
                 left_boundary=Polyline3D.from_linestring(left_boundary),
                 right_boundary=Polyline3D.from_linestring(right_boundary),
@@ -136,6 +136,7 @@ def _write_nuplan_lane_connectors(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_w
     for idx, lane_id in enumerate(all_ids):
         # 1. predecessor_ids, successor_ids
         lane_connector_row = get_row_with_value(nuplan_gdf["lane_connectors"], "fid", str(lane_id))
+        assert lane_connector_row is not None, f"Could not find lane connector with id {lane_id}"
         predecessor_ids = [lane_connector_row["entry_lane_fid"]]
         successor_ids = [lane_connector_row["exit_lane_fid"]]
 
@@ -143,6 +144,7 @@ def _write_nuplan_lane_connectors(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_w
         lane_connector_polygons_row = get_row_with_value(
             nuplan_gdf["gen_lane_connectors_scaled_width_polygons"], "lane_connector_fid", str(lane_id)
         )
+        assert lane_connector_polygons_row is not None, f"Could not find lane connector polygon with id {lane_id}"
         left_boundary_fid = lane_connector_polygons_row["left_boundary_fid"]
         left_boundary = get_row_with_value(nuplan_gdf["boundaries"], "fid", str(left_boundary_fid))["geometry"]
 
@@ -160,7 +162,7 @@ def _write_nuplan_lane_connectors(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_w
 
         map_writer.write_lane(
             Lane(
-                object_id=lane_id,
+                object_id=int(lane_id),
                 lane_group_id=all_lane_group_ids[idx],
                 left_boundary=Polyline3D.from_linestring(left_boundary),
                 right_boundary=Polyline3D.from_linestring(right_boundary),
@@ -261,7 +263,7 @@ def _write_nuplan_lane_connector_groups(nuplan_gdf: Dict[str, gpd.GeoDataFrame],
 
         map_writer.write_lane_group(
             LaneGroup(
-                object_id=lane_group_connector_id,
+                object_id=int(lane_group_connector_id),
                 lane_ids=lane_ids,
                 left_boundary=Polyline3D.from_linestring(left_boundary),
                 right_boundary=Polyline3D.from_linestring(right_boundary),
@@ -286,7 +288,7 @@ def _write_nuplan_intersections(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_wri
 
         map_writer.write_intersection(
             Intersection(
-                object_id=intersection_id,
+                object_id=int(intersection_id),
                 lane_group_ids=lane_group_connector_ids,
                 shapely_polygon=all_geometries[idx],
             )
@@ -297,21 +299,21 @@ def _write_nuplan_crosswalks(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer
     """Write nuPlan crosswalks to the map writer."""
     # NOTE: drops: creator_id, intersection_fids, lane_fids, is_marked (?)
     for id, geometry in zip(nuplan_gdf["crosswalks"].fid.to_list(), nuplan_gdf["crosswalks"].geometry.to_list()):
-        map_writer.write_crosswalk(Crosswalk(object_id=id, shapely_polygon=geometry))
+        map_writer.write_crosswalk(Crosswalk(object_id=int(id), shapely_polygon=geometry))
 
 
 def _write_nuplan_walkways(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
     """Write nuPlan walkways to the map writer."""
     # NOTE: drops: creator_id
     for id, geometry in zip(nuplan_gdf["walkways"].fid.to_list(), nuplan_gdf["walkways"].geometry.to_list()):
-        map_writer.write_walkway(Walkway(object_id=id, shapely_polygon=geometry))
+        map_writer.write_walkway(Walkway(object_id=int(id), shapely_polygon=geometry))
 
 
 def _write_nuplan_carparks(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
     """Write nuPlan carparks to the map writer."""
     # NOTE: drops: creator_id
     for id, geometry in zip(nuplan_gdf["carpark_areas"].fid.to_list(), nuplan_gdf["carpark_areas"].geometry.to_list()):
-        map_writer.write_carpark(Carpark(object_id=id, shapely_polygon=geometry))
+        map_writer.write_carpark(Carpark(object_id=int(id), shapely_polygon=geometry))
 
 
 def _write_nuplan_generic_drivables(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
@@ -320,7 +322,7 @@ def _write_nuplan_generic_drivables(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map
     for id, geometry in zip(
         nuplan_gdf["generic_drivable_areas"].fid.to_list(), nuplan_gdf["generic_drivable_areas"].geometry.to_list()
     ):
-        map_writer.write_generic_drivable(GenericDrivable(object_id=id, shapely_polygon=geometry))
+        map_writer.write_generic_drivable(GenericDrivable(object_id=int(id), shapely_polygon=geometry))
 
 
 def _write_nuplan_road_edges(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer: AbstractMapWriter) -> None:
@@ -337,7 +339,7 @@ def _write_nuplan_road_edges(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer
     for idx in range(len(road_edges)):
         map_writer.write_road_edge(
             RoadEdge(
-                object_id=idx,
+                object_id=int(idx),
                 road_edge_type=RoadEdgeType.ROAD_EDGE_BOUNDARY,
                 polyline=Polyline2D.from_linestring(road_edges[idx]),
             )
@@ -353,7 +355,7 @@ def _write_nuplan_road_lines(nuplan_gdf: Dict[str, gpd.GeoDataFrame], map_writer
     for idx in range(len(boundary_types)):
         map_writer.write_road_line(
             RoadLine(
-                object_id=fids[idx],
+                object_id=int(fids[idx]),
                 road_line_type=NUPLAN_ROAD_LINE_CONVERSION[boundary_types[idx]],
                 polyline=Polyline2D.from_linestring(boundaries[idx]),
             )
@@ -415,3 +417,62 @@ def align_boundary_direction(centerline: LineString, boundary: LineString) -> Li
     if not lines_same_direction(centerline, boundary):
         return _flip_linestring(boundary)
     return boundary
+
+
+def load_gdf_with_geometry_columns(gdf: gpd.GeoDataFrame, geometry_column_names: List[str] = []):
+    """Convert geometry columns stored as wkt back to shapely geometries.
+
+    :param gdf: input GeoDataFrame.
+    :param geometry_column_names: List of geometry column names to convert, defaults to []
+    """
+
+    # Convert string geometry columns back to shapely objects
+    for col in geometry_column_names:
+        if col in gdf.columns and len(gdf) > 0 and isinstance(gdf[col].iloc[0], str):
+            try:
+                gdf[col] = gdf[col].apply(lambda x: wkt.loads(x) if isinstance(x, str) else x)  # type: ignore
+            except Exception as e:
+                print(f"Warning: Could not convert column {col} to geometry: {str(e)}")
+
+
+def get_all_rows_with_value(
+    elements: gpd.geodataframe.GeoDataFrame, column_label: str, desired_value: str
+) -> Optional[gpd.geodataframe.GeoDataFrame]:
+    """Extract all matching elements. Note, if no matching desired_key is found and empty list is returned.
+
+    :param elements: data frame from MapsDb.
+    :param column_label: key to extract from a column.
+    :param desired_value: key which is compared with the values of column_label entry.
+    :return: a subset of the original GeoDataFrame containing the matching key.
+    """
+    if desired_value is None or pd.isna(desired_value):
+        return None
+
+    mask = elements[column_label].notna()
+    valid_elements = elements[mask]
+
+    return valid_elements.iloc[np.where(valid_elements[column_label].to_numpy().astype(int) == int(desired_value))]
+
+
+def get_row_with_value(
+    elements: gpd.geodataframe.GeoDataFrame, column_label: str, desired_value: str
+) -> Optional[pd.Series]:
+    """Extract a matching element.
+
+    :param elements: data frame from MapsDb.
+    :param column_label: key to extract from a column.
+    :param desired_value: key which is compared with the values of column_label entry.
+    :return row from GeoDataFrame.
+    """
+    if column_label == "fid":
+        return elements.loc[desired_value]  # pyright: ignore[reportReturnType]
+
+    geo_series: Optional[pd.Series] = None
+    matching_rows = get_all_rows_with_value(elements, column_label, desired_value)
+    if matching_rows is not None:
+        assert len(matching_rows) > 0, f"Could not find the desired key = {desired_value}"
+        assert len(matching_rows) == 1, (
+            f"{len(matching_rows)} matching keys found. Expected to only find one.Try using get_all_rows_with_value"
+        )
+        geo_series = matching_rows.iloc[0]
+    return geo_series

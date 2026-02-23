@@ -6,39 +6,47 @@ from py123d.geometry.geometry_index import (
     BoundingBoxSE3Index,
     Corners2DIndex,
     Corners3DIndex,
-    EulerPoseSE3Index,
     Point2DIndex,
     Point3DIndex,
+    PoseSE3Index,
 )
-from py123d.geometry.pose import EulerPoseSE3, PoseSE3
+from py123d.geometry.pose import PoseSE3
+from py123d.geometry.rotation import EulerAngles
 from py123d.geometry.transform.transform_se3 import translate_se3_along_body_frame
 from py123d.geometry.utils.bounding_box_utils import (
     bbse2_array_to_corners_array,
     bbse2_array_to_polygon_array,
     bbse3_array_to_corners_array,
     corners_2d_array_to_polygon_array,
+    corners_array_to_3d_mesh,
+    corners_array_to_edge_lines,
     get_corners_3d_factors,
+    points_3d_in_bbse3_array,
 )
+from py123d.geometry.utils.rotation_utils import get_quaternion_array_from_euler_array
 from py123d.geometry.vector import Vector3D
 
 
-class TestBoundingBoxUtils:
+class TestBoundingBoxUtils:  # noqa: PLR0904
     def setup_method(self):
         self._num_consistency_checks = 10
         self._max_pose_xyz = 100.0
         self._max_extent = 200.0
 
-    def _get_random_euler_se3_array(self, size: int) -> npt.NDArray[np.float64]:
-        """Generate random SE3 poses"""
-        random_se3_array = np.zeros((size, len(EulerPoseSE3Index)), dtype=np.float64)
-        random_se3_array[:, EulerPoseSE3Index.XYZ] = np.random.uniform(
+    def _get_random_quat_se3_array(self, size: int) -> npt.NDArray[np.float64]:
+        """Generate random SE3 poses in quaternion representation."""
+        euler_angles = np.zeros((size, 3), dtype=np.float64)
+        euler_angles[:, 0] = np.random.uniform(-np.pi, np.pi, size)  # roll
+        euler_angles[:, 1] = np.random.uniform(-np.pi / 2, np.pi / 2, size)  # pitch
+        euler_angles[:, 2] = np.random.uniform(-np.pi, np.pi, size)  # yaw
+
+        random_se3_array = np.zeros((size, len(PoseSE3Index)), dtype=np.float64)
+        random_se3_array[:, PoseSE3Index.XYZ] = np.random.uniform(
             -self._max_pose_xyz,
             self._max_pose_xyz,
             (size, len(Point3DIndex)),
         )
-        random_se3_array[:, EulerPoseSE3Index.YAW] = np.random.uniform(-np.pi, np.pi, size)
-        random_se3_array[:, EulerPoseSE3Index.PITCH] = np.random.uniform(-np.pi / 2, np.pi / 2, size)
-        random_se3_array[:, EulerPoseSE3Index.ROLL] = np.random.uniform(-np.pi, np.pi, size)
+        random_se3_array[:, PoseSE3Index.QUATERNION] = get_quaternion_array_from_euler_array(euler_angles)
 
         return random_se3_array
 
@@ -195,7 +203,7 @@ class TestBoundingBoxUtils:
 
     def test_bbse3_array_to_corners_array_one_dim_rotation(self):
         for _ in range(self._num_consistency_checks):
-            se3_state = EulerPoseSE3.from_array(self._get_random_euler_se3_array(1)[0]).pose_se3
+            se3_state = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
             se3_array = se3_state.array
 
             # construct a bounding box
@@ -223,8 +231,7 @@ class TestBoundingBoxUtils:
     def test_bbse3_array_to_corners_array_n_dim(self):
         for _ in range(self._num_consistency_checks):
             N = np.random.randint(1, 20)
-            se3_array = self._get_random_euler_se3_array(N)
-            se3_state_array = np.array([EulerPoseSE3.from_array(arr).pose_se3.array for arr in se3_array])
+            se3_state_array = self._get_random_quat_se3_array(N)
 
             # construct a bounding box
             bounding_box_se3_array = np.zeros((N, len(BoundingBoxSE3Index)), dtype=np.float64)
@@ -257,3 +264,186 @@ class TestBoundingBoxUtils:
         corners_array = bbse3_array_to_corners_array(bounding_box_se3_array)
         expected_corners = np.zeros((0, 8, 3), dtype=np.float64)
         np.testing.assert_allclose(corners_array, expected_corners, atol=1e-6)
+
+    def test_corners_array_to_3d_mesh_one_dim(self):
+        """Test conversion of a single bounding box corners to 3D mesh vertices and faces."""
+
+        bounding_box_se3_array = np.array([1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0, 4.0, 2.0, 6.0])
+        corners_array = bbse3_array_to_corners_array(bounding_box_se3_array)
+        vertices, faces = corners_array_to_3d_mesh(corners_array)
+
+        assert vertices.shape == (8, 3)
+        assert faces.shape == (12, 3)
+        np.testing.assert_allclose(vertices, corners_array, atol=1e-6)
+
+    def test_corners_array_to_3d_mesh_n_dim(self):
+        """Test conversion of multiple bounding box corners to 3D mesh vertices and faces."""
+
+        bounding_box_se3_array = np.array([1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0, 4.0, 2.0, 6.0])
+        bounding_box_se3_array = np.tile(bounding_box_se3_array, (3, 1))
+        corners_array = bbse3_array_to_corners_array(bounding_box_se3_array)
+
+        vertices, faces = corners_array_to_3d_mesh(corners_array)
+        assert vertices.shape == (3 * 8, 3), f"Vertices shape: {vertices.shape}"
+        assert faces.shape == (3 * 12, 3), f"Faces shape: {faces.shape}"
+
+    def test_corners_array_to_3d_mesh_error(self):
+        """Test conversion of zero bounding box corners to 3D mesh vertices and faces."""
+
+        corners_array = np.zeros((3), dtype=np.float64)
+
+        with np.testing.assert_raises(AssertionError):
+            corners_array_to_3d_mesh(corners_array)
+
+    def test_corners_array_to_edge_lines_one_dim(self):
+        """Test conversion of a single bounding box corners to 3D mesh vertices and faces."""
+
+        bounding_box_se3_array = np.array([1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0, 4.0, 2.0, 6.0])
+        corners_array = bbse3_array_to_corners_array(bounding_box_se3_array)
+        edge_lines = corners_array_to_edge_lines(corners_array)
+
+        assert edge_lines.shape == (12, 2, 3)
+        expected_num_lines = 12
+        assert edge_lines.shape[0] == expected_num_lines, (
+            f"Expected {expected_num_lines} edge lines, got {edge_lines.shape[0]}"
+        )
+        np.testing.assert_allclose(
+            edge_lines.reshape(-1, 3),
+            corners_array[
+                np.array(
+                    [
+                        Corners3DIndex.FRONT_LEFT_BOTTOM,
+                        Corners3DIndex.FRONT_RIGHT_BOTTOM,
+                        Corners3DIndex.FRONT_RIGHT_BOTTOM,
+                        Corners3DIndex.BACK_RIGHT_BOTTOM,
+                        Corners3DIndex.BACK_RIGHT_BOTTOM,
+                        Corners3DIndex.BACK_LEFT_BOTTOM,
+                        Corners3DIndex.BACK_LEFT_BOTTOM,
+                        Corners3DIndex.FRONT_LEFT_BOTTOM,
+                        Corners3DIndex.FRONT_LEFT_TOP,
+                        Corners3DIndex.FRONT_RIGHT_TOP,
+                        Corners3DIndex.FRONT_RIGHT_TOP,
+                        Corners3DIndex.BACK_RIGHT_TOP,
+                        Corners3DIndex.BACK_RIGHT_TOP,
+                        Corners3DIndex.BACK_LEFT_TOP,
+                        Corners3DIndex.BACK_LEFT_TOP,
+                        Corners3DIndex.FRONT_LEFT_TOP,
+                        Corners3DIndex.FRONT_LEFT_BOTTOM,
+                        Corners3DIndex.FRONT_LEFT_TOP,
+                        Corners3DIndex.FRONT_RIGHT_BOTTOM,
+                        Corners3DIndex.FRONT_RIGHT_TOP,
+                        Corners3DIndex.BACK_RIGHT_BOTTOM,
+                        Corners3DIndex.BACK_RIGHT_TOP,
+                        Corners3DIndex.BACK_LEFT_BOTTOM,
+                        Corners3DIndex.BACK_LEFT_TOP,
+                    ]
+                )
+            ],
+            atol=1e-6,
+        )
+
+    def test_corners_array_to_edge_lines_n_dim(self):
+        """Test conversion of multiple bounding box corners to 3D mesh vertices and faces."""
+
+        bounding_box_se3_array = np.array([1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0, 4.0, 2.0, 6.0])
+        bounding_box_se3_array = np.tile(bounding_box_se3_array, (3, 1))
+        corners_array = bbse3_array_to_corners_array(bounding_box_se3_array)
+
+        edge_lines = corners_array_to_edge_lines(corners_array)
+        assert edge_lines.shape == (3, 12, 2, 3), f"Edge lines shape: {edge_lines.shape}"
+
+    def test_points_3d_in_bbse3_array(self):
+        """Test conversion of zero bounding box corners to 3D mesh vertices and faces."""
+
+        bounding_box_se3_array = np.array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0])
+
+        points_3d = np.array(
+            [
+                [0.0, 0.0, 0.0],  # True
+                [0.25, 0.25, 0.25],  # True
+                [-0.25, 0.25, 0.25],  # True
+                [1.0, 1.0, 1.0],  # False
+                [1.5, 0.5, 0.5],  # False
+            ]
+        )
+
+        is_interior = points_3d_in_bbse3_array(points_3d, bounding_box_se3_array)
+
+        assert is_interior.shape == (5,)
+        expected_is_interior = np.array([True, True, True, False, False])
+        np.testing.assert_array_equal(is_interior, expected_is_interior)
+
+    def test_points_3d_in_bbse3_array_rotated(self):
+        """Test points_3d_in_bbse3_array with rotated bounding box."""
+        # Create a bounding box with 90-degree rotation around z-axis
+
+        quaternion = EulerAngles(0.0, 0.0, np.pi / 2).quaternion
+
+        bounding_box_se3_array = np.array(
+            [
+                0.0,
+                0.0,
+                0.0,  # xyz
+                quaternion[0],
+                quaternion[1],
+                quaternion[2],
+                quaternion[3],  # quaternion (90-degree rotation around z)
+                2.0,
+                1.0,
+                1.0,  # length, width, height
+            ]
+        )
+        print(bbse3_array_to_corners_array(bounding_box_se3_array))
+
+        points_3d = np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [0.75, 0.0, 0.0],
+                [0.0, 0.75, 0.25],
+                [2.0, 2.0, 0.0],
+            ]
+        )
+
+        is_interior = points_3d_in_bbse3_array(points_3d, bounding_box_se3_array)
+        expected_is_interior = np.array([True, False, True, False])
+
+        assert is_interior.shape == (4,)
+        np.testing.assert_array_equal(is_interior, expected_is_interior)
+
+    def test_points_3d_in_bbse3_array_n_dim(self):
+        """Test points_3d_in_bbse3_batch with multiple bounding boxes."""
+
+        # Create multiple bounding boxes
+        bounding_box_se3_array = np.array(
+            [
+                [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+                [5.0, 5.0, 5.0, 1.0, 0.0, 0.0, 0.0, 2.0, 2.0, 2.0],
+                [10.0, 10.0, 10.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+            ]
+        )
+
+        # Create test points
+        points_3d = np.array(
+            [
+                [0.0, 0.0, 0.0],  # Inside box 0
+                [5.0, 5.0, 5.0],  # Inside box 1
+                [10.0, 10.0, 10.0],  # Inside box 2
+                [0.5, 0.5, 0.5],  # Inside box 0
+                [5.5, 5.5, 5.5],  # Inside box 1
+                [100.0, 100.0, 100.0],  # Outside all
+            ]
+        )
+
+        is_interior = points_3d_in_bbse3_array(points_3d, bounding_box_se3_array)
+        is_interior_expected = np.array(
+            [
+                [True, False, False],
+                [False, True, False],
+                [False, False, True],
+                [True, False, False],
+                [False, True, False],
+                [False, False, False],
+            ]
+        ).T
+        assert is_interior.shape == (3, 6)
+        np.testing.assert_array_equal(is_interior, is_interior_expected)

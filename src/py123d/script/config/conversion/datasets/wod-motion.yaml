@@ -1,0 +1,31 @@
+wod-motion:
+  _target_: py123d.conversion.datasets.wod.wod_motion_converter.WODMotionConverter
+  _convert_: 'all'
+
+  splits: ["wod-motion_train", "wod-motion_val", "wod-motion_test"] # Which splits to convert. Options: ["wod-motion_train", "wod-motion_val", "wod-motion_test"]
+  wod_motion_data_root: ${dataset_paths.wod_motion_data_root}
+
+  dataset_converter_config:
+    _target_: py123d.conversion.dataset_converter_config.DatasetConverterConfig
+    _convert_: 'all'
+
+    force_log_conversion: ${force_log_conversion}
+    force_map_conversion: ${force_map_conversion}
+
+    # Map
+    include_map: true
+
+    # Ego
+    include_ego: true
+
+    # Box Detections
+    include_box_detections: true
+
+    # Traffic Lights
+    include_traffic_lights: true
+
+    # Not available:
+    include_lidars: false
+    include_pinhole_cameras: false
+    include_scenario_tags: false
+    include_route: false

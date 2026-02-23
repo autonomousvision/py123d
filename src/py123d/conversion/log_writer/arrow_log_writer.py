@@ -5,6 +5,7 @@ import numpy as np
 import pyarrow as pa
 
 from py123d.api.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
+from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.utils.arrow_column_names import (
     BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN,
     BOX_DETECTIONS_LABEL_COLUMN,
@@ -15,9 +16,11 @@ from py123d.common.utils.arrow_column_names import (
     EGO_REAR_AXLE_SE3_COLUMN,
     FISHEYE_CAMERA_DATA_COLUMN,
     FISHEYE_CAMERA_EXTRINSIC_COLUMN,
+    FISHEYE_CAMERA_TIMESTAMP_COLUMN,
     LIDAR_DATA_COLUMN,
     PINHOLE_CAMERA_DATA_COLUMN,
     PINHOLE_CAMERA_EXTRINSIC_COLUMN,
+    PINHOLE_CAMERA_TIMESTAMP_COLUMN,
     ROUTE_LANE_GROUP_IDS_COLUMN,
     SCENARIO_TAGS_COLUMN,
     TIMESTAMP_US_COLUMN,
@@ -43,7 +46,7 @@ from py123d.conversion.sensor_io.camera.png_camera_io import (
 from py123d.conversion.sensor_io.lidar.draco_lidar_io import encode_lidar_pc_as_draco_binary
 from py123d.conversion.sensor_io.lidar.file_lidar_io import load_lidar_pcs_from_file
 from py123d.conversion.sensor_io.lidar.laz_lidar_io import encode_lidar_pc_as_laz_binary
-from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
+from py123d.datatypes.detections.box_detections import BoxDetectionSE3, BoxDetectionWrapper
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
 from py123d.datatypes.metadata import LogMetadata
 from py123d.datatypes.sensors import LiDARType, PinholeCameraType
@@ -54,17 +57,15 @@ from py123d.geometry import BoundingBoxSE3Index, PoseSE3, PoseSE3Index, Vector3D
 
 
 def _get_logs_root() -> Path:
-    from py123d.script.utils.dataset_path_utils import get_dataset_paths  # noqa: PLC0415
-
-    DATASET_PATHS = get_dataset_paths()
-    return Path(DATASET_PATHS.py123d_logs_root)
+    logs_root = get_dataset_paths().py123d_logs_root
+    assert logs_root is not None, "PY123D_DATA_ROOT must be set."
+    return logs_root
 
 
 def _get_sensors_root() -> Path:
-    from py123d.script.utils.dataset_path_utils import get_dataset_paths  # noqa: PLC0415
-
-    DATASET_PATHS = get_dataset_paths()
-    return Path(DATASET_PATHS.py123d_sensors_root)
+    sensors_root = get_dataset_paths().py123d_sensors_root
+    assert sensors_root is not None, "PY123D_DATA_ROOT must be set."
+    return sensors_root
 
 
 def _store_option_to_arrow_type(
@@ -120,7 +121,7 @@ class ArrowLogWriter(AbstractLogWriter):
         self._log_metadata: Optional[LogMetadata] = None
         self._schema: Optional[LogMetadata] = None
         self._source: Optional[pa.NativeFile] = None
-        self._record_batch_writer: Optional[pa.ipc.RecordBatchWriter] = None
+        self._record_batch_writer: Optional[pa.ipc.RecordBatchWriter] = None  # pyright: ignore[reportAttributeAccessIssue]
         self._pinhole_mp4_writers: Dict[str, MP4Writer] = {}
         self._fisheye_mei_mp4_writers: Dict[str, MP4Writer] = {}
 
@@ -215,6 +216,7 @@ class ArrowLogWriter(AbstractLogWriter):
             box_detection_num_lidar_points = []
 
             for box_detection in box_detections:
+                assert isinstance(box_detection, BoxDetectionSE3), "Currently only BoxDetectionSE3 is supported."
                 box_detection_state.append(box_detection.bounding_box_se3)
                 box_detection_token.append(box_detection.metadata.track_token)
                 box_detection_label.append(int(box_detection.metadata.label))
@@ -257,6 +259,9 @@ class ArrowLogWriter(AbstractLogWriter):
             provided_pinhole_extrinsics = {
                 camera_data.camera_type: camera_data.extrinsic for camera_data in pinhole_cameras
             }
+            provided_pinhole_timestamps = {
+                camera_data.camera_type: camera_data.timestamp for camera_data in pinhole_cameras
+            }
             expected_pinhole_cameras = set(self._log_metadata.pinhole_camera_metadata.keys())
 
             for pinhole_camera_type in expected_pinhole_cameras:
@@ -268,13 +273,18 @@ class ArrowLogWriter(AbstractLogWriter):
                 # camera data as a dictionary, list or struct-like object in the columns.
                 pinhole_camera_data: Optional[Any] = None
                 pinhole_camera_pose: Optional[PoseSE3] = None
+                pinhole_camera_timestamp: Optional[TimePoint] = None
                 if pinhole_camera_type in provided_pinhole_data:
                     pinhole_camera_data = provided_pinhole_data[pinhole_camera_type]
                     pinhole_camera_pose = provided_pinhole_extrinsics[pinhole_camera_type]
+                    pinhole_camera_timestamp = provided_pinhole_timestamps[pinhole_camera_type]
 
                 record_batch_data[PINHOLE_CAMERA_DATA_COLUMN(pinhole_camera_name)] = [pinhole_camera_data]
                 record_batch_data[PINHOLE_CAMERA_EXTRINSIC_COLUMN(pinhole_camera_name)] = [
-                    pinhole_camera_pose.array if pinhole_camera_pose else None
+                    pinhole_camera_pose.array if pinhole_camera_pose is not None else None
+                ]
+                record_batch_data[PINHOLE_CAMERA_TIMESTAMP_COLUMN(pinhole_camera_name)] = [
+                    pinhole_camera_timestamp.time_us if pinhole_camera_timestamp is not None else None
                 ]
 
         # --------------------------------------------------------------------------------------------------------------
@@ -288,6 +298,9 @@ class ArrowLogWriter(AbstractLogWriter):
             provided_fisheye_mei_extrinsics = {
                 camera_data.camera_type: camera_data.extrinsic for camera_data in fisheye_mei_cameras
             }
+            provided_fisheye_mei_timestamps = {
+                camera_data.camera_type: camera_data.timestamp for camera_data in fisheye_mei_cameras
+            }
             expected_fisheye_mei_cameras = set(self._log_metadata.fisheye_mei_camera_metadata.keys())
 
             for fisheye_mei_camera_type in expected_fisheye_mei_cameras:
@@ -297,13 +310,18 @@ class ArrowLogWriter(AbstractLogWriter):
                 # In this case, we write None/null to the arrow table.
                 fisheye_mei_camera_data: Optional[Any] = None
                 fisheye_mei_camera_pose: Optional[PoseSE3] = None
+                fisheye_mei_camera_timestamp: Optional[TimePoint] = None
                 if fisheye_mei_camera_type in provided_fisheye_mei_data:
                     fisheye_mei_camera_data = provided_fisheye_mei_data[fisheye_mei_camera_type]
                     fisheye_mei_camera_pose = provided_fisheye_mei_extrinsics[fisheye_mei_camera_type]
+                    fisheye_mei_camera_timestamp = provided_fisheye_mei_timestamps[fisheye_mei_camera_type]
 
                 record_batch_data[FISHEYE_CAMERA_DATA_COLUMN(fisheye_mei_camera_name)] = [fisheye_mei_camera_data]
                 record_batch_data[FISHEYE_CAMERA_EXTRINSIC_COLUMN(fisheye_mei_camera_name)] = [
-                    fisheye_mei_camera_pose.array if fisheye_mei_camera_pose else None
+                    fisheye_mei_camera_pose.array if fisheye_mei_camera_pose is not None else None
+                ]
+                record_batch_data[FISHEYE_CAMERA_TIMESTAMP_COLUMN(fisheye_mei_camera_name)] = [
+                    fisheye_mei_camera_timestamp.time_us if fisheye_mei_camera_timestamp is not None else None
                 ]
 
         # --------------------------------------------------------------------------------------------------------------
@@ -316,11 +334,14 @@ class ArrowLogWriter(AbstractLogWriter):
                 # NOTE @DanielDauner: The path_merged option is necessary for datasets, that natively store multiple
                 # LiDAR point clouds in a single file. In this case, writing the file path several times is wasteful.
                 # Instead, we store the file path once, and divide the point clouds during reading.
-                assert len(lidars) == 1, "Exactly one LiDAR data must be provided for merged LiDAR storage."
-                assert lidars[0].has_file_path, "LiDAR data must provide file path for merged LiDAR storage."
-                merged_lidar_data: Optional[str] = str(lidars[0].relative_path)
-                lidar_name = LiDARType.LIDAR_MERGED.serialize()
+                assert len(lidars) <= 1, "Exactly one LiDAR data must be provided for merged LiDAR storage."
 
+                if len(lidars) == 0:
+                    merged_lidar_data: Optional[str] = None
+                else:
+                    assert lidars[0].has_file_path, "LiDAR data must provide file path for merged LiDAR storage."
+                    merged_lidar_data: Optional[str] = str(lidars[0].relative_path)
+                lidar_name = LiDARType.LIDAR_MERGED.serialize()
                 record_batch_data[LIDAR_DATA_COLUMN(lidar_name)] = [merged_lidar_data]
 
             else:
@@ -452,6 +473,10 @@ class ArrowLogWriter(AbstractLogWriter):
                             PINHOLE_CAMERA_EXTRINSIC_COLUMN(pinhole_camera_name),
                             pa.list_(pa.float64(), len(PoseSE3Index)),
                         ),
+                        (
+                            PINHOLE_CAMERA_TIMESTAMP_COLUMN(pinhole_camera_name),
+                            pa.int64(),
+                        ),
                     ]
                 )
 
@@ -470,6 +495,10 @@ class ArrowLogWriter(AbstractLogWriter):
                         (
                             FISHEYE_CAMERA_EXTRINSIC_COLUMN(fisheye_mei_camera_name),
                             pa.list_(pa.float64(), len(PoseSE3Index)),
+                        ),
+                        (
+                            FISHEYE_CAMERA_TIMESTAMP_COLUMN(fisheye_mei_camera_name),
+                            pa.int64(),
                         ),
                     ]
                 )
@@ -550,7 +579,7 @@ class ArrowLogWriter(AbstractLogWriter):
         return lidar_data_dict
 
     def _prepare_camera_data_dict(
-        self, cameras: List[CameraData], store_option: Literal["path", "binary"]
+        self, cameras: List[CameraData], store_option: Literal["path", "jpeg_binary", "png_binary", "mp4"]
     ) -> Dict[PinholeCameraType, Union[str, bytes]]:
         """Helper function to prepare camera data dictionary for the target storage option.
 

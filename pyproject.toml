@@ -16,7 +16,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
 ]
 name = "py123d"
-version = "0.0.8"
+version = "0.0.9"
 authors = [{ name = "Daniel Dauner", email = "daniel.dauner@gmail.com" }]
 description = "A Library for Driving Datasets."
 readme = "README.md"
@@ -33,7 +33,7 @@ dependencies = [
     "pyarrow",
     "pyogrio",
     "pyquaternion",
-    "ray",
+    "ray[default]",
     "scipy",
     "shapely>=2.0.0",
     "tqdm",
@@ -82,7 +82,6 @@ nuplan = [
 ]
 nuscenes = [
     "nuscenes-devkit==1.2.0",
-    "lanelet2",
 ]
 waymo = [
     "waymo-open-dataset-tf-2-12-0==1.6.7",
@@ -130,8 +129,13 @@ lint.ignore = [
     "PLW0603",  # Global statement updates are discouraged.
     "PLW2901",  # For loop variable overwritten.
     "PLW0642",  # Reassigned self in instance method.
+    "PLR0904",  # Checks for classes with too many public methods
 ]
 
 exclude = ["__init__.py"]
 fixable = ["ALL"]
 unfixable = []
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

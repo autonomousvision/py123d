@@ -42,7 +42,7 @@ class ArrayMixin:
     @classmethod
     def from_list(cls, values: list) -> Self:
         """Create an instance from a list of values."""
-        return cls.from_array(np.array(values, dtype=np.float64), copy=False)
+        return cls.from_array(np.asarray(values, dtype=np.float64), copy=False)
 
     @property
     def array(self) -> npt.NDArray[np.float64]:
@@ -93,7 +93,7 @@ class ArrayMixin:
         return hash(self.array.tobytes())
 
 
-def indexed_array_repr(array_mixin: ArrayMixin, indexing: IntEnum) -> str:
+def indexed_array_repr(array_mixin: ArrayMixin, indexing: type[IntEnum]) -> str:
     """Generate a string representation of an ArrayMixin instance using an indexing enum.
 
     :param array_mixin: An instance of ArrayMixin.

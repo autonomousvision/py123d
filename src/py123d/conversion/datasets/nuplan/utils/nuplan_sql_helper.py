@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 from py123d.common.utils.dependencies import check_dependencies
 from py123d.conversion.datasets.nuplan.utils.nuplan_constants import NUPLAN_DETECTION_NAME_DICT
@@ -101,7 +101,7 @@ def get_nearest_ego_pose_for_timestamp_from_db(
     tokens: List[str],
     lookahead_window_us: int = 50000,
     lookback_window_us: int = 50000,
-) -> PoseSE3:
+) -> Tuple[List[PoseSE3], List[int]]:
     """Gets the nearest ego pose for a given timestamp from the NuPlan database within a lookahead and lookback window."""
 
     query = f"""
@@ -111,7 +111,8 @@ def get_nearest_ego_pose_for_timestamp_from_db(
                 ep.qw,
                 ep.qx,
                 ep.qy,
-                ep.qz
+                ep.qz,
+                ep.timestamp
         FROM ego_pose AS ep
             INNER JOIN lidar_pc AS lpc
                 ON  ep.timestamp <= lpc.timestamp + ?
@@ -125,5 +126,12 @@ def get_nearest_ego_pose_for_timestamp_from_db(
     args += [bytearray.fromhex(t) for t in tokens]
     args += [timestamp]
 
+    poses = []
+    times = []
+
     for row in execute_many(query, args, log_file):
-        return PoseSE3(x=row["x"], y=row["y"], z=row["z"], qw=row["qw"], qx=row["qx"], qy=row["qy"], qz=row["qz"])
+        poses.append(
+            PoseSE3(x=row["x"], y=row["y"], z=row["z"], qw=row["qw"], qx=row["qx"], qy=row["qy"], qz=row["qz"])
+        )
+        times.append(abs(row["timestamp"] - timestamp))
+    return poses, times

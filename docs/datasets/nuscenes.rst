@@ -33,6 +33,8 @@ All logs include ego-vehicle data, camera images, LiDAR point clouds, bounding b
         Apache License 2.0
     * - :octicon:`database` Available splits
       - ``nuscenes_train``, ``nuscenes_val``, ``nuscenes_test``, ``nuscenes-mini_train``, ``nuscenes-mini_val``, ``nuscenes-mini_test``
+    * - :octicon:`database` Interpolated splits (10 Hz)
+      - ``nuscenes-interpolated_train``, ``nuscenes-interpolated_val``, ``nuscenes-interpolated_test``, ``nuscenes-interpolated-mini_train``, ``nuscenes-interpolated-mini_val``
 
 
 Available Modalities
@@ -177,11 +179,74 @@ You can convert the nuScenes dataset (or mini dataset) by running:
 
 .. code-block:: bash
 
-  py123d-conversion datasets=["nuscenes_dataset"]
+  py123d-conversion datasets=["nuscenes"]
   # or
-  py123d-conversion datasets=["nuscenes_mini_dataset"]
+  py123d-conversion datasets=["nuscenes-mini"]
+
+.. note::
+  The conversion of nuScenes by default does not store sensor data in the logs, but only relative file paths.
+  To change this behavior, you need to adapt the ``nuscenes-sensor.yaml`` or ``nuscenes-mini.yaml`` converter configuration.
 
 
+Interpolated Conversion (10 Hz)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The standard nuScenes dataset provides keyframe annotations at **2 Hz** (every 0.5 s).
+The interpolated converter upsamples this to **10 Hz** by leveraging the intermediate sensor sweeps
+that nuScenes records between keyframes.
+You can convert the interpolated variant by running:
+
+.. code-block:: bash
+
+  py123d-conversion datasets=["nuscenes-interpolated"]
+  # or
+  py123d-conversion datasets=["nuscenes-interpolated-mini"]
+
+The interpolated conversion uses the :class:`~py123d.conversion.datasets.nuscenes.nuscenes_interpolated_converter.NuScenesInterpolatedConverter`.
+
+.. dropdown:: Interpolation Details
+
+  **Frame selection.**
+  The nuScenes LIDAR_TOP sensor records sweeps at approximately 20 Hz.
+  The converter collects all lidar ``sample_data`` records (keyframes and non-keyframe sweeps) for a scene,
+  then selects a subset at approximately 10 Hz by placing regular target timestamps between each pair of
+  2 Hz keyframes and picking the closest lidar sweep for each target.
+  All original keyframes are always included.
+
+  **Ego pose.**
+  Every lidar sweep (including non-keyframe sweeps) has its own ``ego_pose`` record in nuScenes.
+  The converter uses these *real* ego poses rather than interpolating between keyframes.
+  Dynamic state (velocity, acceleration, angular velocity) is obtained from the CAN bus by matching
+  the closest CAN bus message to the sweep timestamp.
+
+  **Bounding box interpolation.**
+  Bounding box annotations only exist at 2 Hz keyframes.
+  For intermediate frames the converter interpolates between the surrounding keyframe annotations:
+
+  - Detections are matched across consecutive keyframes by their ``instance_token`` (track ID).
+  - **Position** (x, y, z): linear interpolation.
+  - **Rotation** (quaternion): spherical linear interpolation (SLERP) via ``pyquaternion``.
+  - **Dimensions** (length, width, height): linear interpolation.
+  - **Velocity**: linear interpolation.
+  - Detections that only appear in one of the two surrounding keyframes (track starts/ends)
+    are excluded at interpolated frames and only written at their actual keyframe.
+  - ``num_lidar_points`` is set to ``0`` for interpolated frames.
+
+  **LiDAR.**
+  Each selected 10 Hz frame uses the actual lidar point cloud file from the corresponding
+  ``sample_data`` sweep, so no point cloud interpolation is performed.
+
+  **Cameras.**
+  At keyframes, cameras are extracted as in the standard converter (using the ``sample["data"]`` references).
+  In nuScenes, these references point to the camera image captured just before the lidar sweep completes,
+  aligning the camera observation to the end of the lidar sweep.
+  At non-keyframe timestamps the converter follows the same convention: for each camera channel it selects the
+  most recent ``sample_data`` record whose timestamp is at or before the lidar sweep timestamp,
+  within a 100 ms tolerance (one full ~12 Hz camera period), consistent with the keyframe extraction.
+
+.. note::
+  The interpolated converter requires the same nuScenes data as the standard converter,
+  including the ``sweeps/`` directory which contains the non-keyframe sensor data.
 
 Dataset Issues
 ~~~~~~~~~~~~~~
@@ -193,7 +258,7 @@ Dataset Issues
 Citation
 ~~~~~~~~
 
-If you use nuPlan in your research, please cite:
+If you use nuScenes in your research, please cite:
 
 .. code-block:: bibtex
 
