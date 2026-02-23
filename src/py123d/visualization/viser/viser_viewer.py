@@ -150,6 +150,19 @@ class ViserViewer:
             options_map_radius_options = self._viser_server.gui.add_button_group(
                 "Map Radius Options.", ("25", "50", "100", "500")
             )
+            option_lidar_point_color = self._viser_server.gui.add_dropdown(
+                "Lidar Coloring",
+                ("none", "distance", "ids", "intensity", "channel", "timestamp", "range", "elongation"),
+                initial_value=self._viser_config.lidar_point_color,
+            )
+
+            lidar_id_list = [LidarID.LIDAR_MERGED] + scene.available_lidar_ids
+            lidar_id_names = tuple(lid.name for lid in lidar_id_list)
+            option_lidar_id = self._viser_server.gui.add_dropdown(
+                "Lidar ID",
+                lidar_id_names,
+                initial_value=self._viser_config.lidar_ids[0].name,
+            )
 
         with self._viser_server.gui.add_folder("Render", expand_by_default=False):
             render_format = self._viser_server.gui.add_dropdown("Format", ["gif", "mp4", "png"], initial_value="mp4")
@@ -199,6 +212,30 @@ class ViserViewer:
         def _(_) -> None:
             options_map_radius_slider.value = float(options_map_radius_options.value)
             self._viser_config._force_map_update = True
+
+        @option_lidar_point_color.on_update
+        def _(_) -> None:
+            self._viser_config.lidar_point_color = option_lidar_point_color.value
+            add_lidar_pc_to_viser_server(
+                scene,
+                gui_timestep.value,
+                initial_ego_state,
+                self._viser_server,
+                self._viser_config,
+                lidar_pc_handles,
+            )
+
+        @option_lidar_id.on_update
+        def _(_) -> None:
+            self._viser_config.lidar_ids = [LidarID[option_lidar_id.value]]
+            add_lidar_pc_to_viser_server(
+                scene,
+                gui_timestep.value,
+                initial_ego_state,
+                self._viser_server,
+                self._viser_config,
+                lidar_pc_handles,
+            )
 
         # Frame step buttons.
         @gui_next_frame.on_click

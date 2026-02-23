@@ -37,19 +37,18 @@ def add_lidar_to_camera_ax(ax: plt.Axes, camera: PinholeCamera, lidar: Lidar, un
     :return: matplotlib axis with lidar points overlaid on camera image
     """
 
-    image, lidar_pc = camera.image.copy(), lidar.point_cloud.copy()
-    lidar_index = lidar.metadata.lidar_index
+    image = camera.image.copy()
 
     if undistort:
         image = undistort_image_from_camera(image, camera.metadata, mode="keep_focal_length")
 
     # lidar_pc = filter_lidar_pc(lidar_pc)
-    lidar_pc_colors = np.array(get_lidar_pc_color(lidar_pc, lidar_index, feature="distance"))
+    lidar_pc_colors = np.array(get_lidar_pc_color(lidar, feature="distance"))
     pc_in_cam, pc_in_fov_mask = _transform_pcs_to_images(lidar.xyz.copy(), camera)
 
     for (x, y), color in zip(pc_in_cam[pc_in_fov_mask], lidar_pc_colors[pc_in_fov_mask]):
         color = (int(color[0]), int(color[1]), int(color[2]))
-        cv2.circle(image, (int(x), int(y)), 5, color, -1)
+        cv2.circle(image, (int(x), int(y)), 5, color, -1)  # type: ignore
 
     ax.imshow(image)
     return ax

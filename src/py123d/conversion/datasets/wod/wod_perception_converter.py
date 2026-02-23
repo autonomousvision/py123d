@@ -15,24 +15,26 @@ from py123d.conversion.datasets.wod.utils.wod_constants import (
     WOD_PERCEPTION_LIDAR_IDS,
 )
 from py123d.conversion.datasets.wod.wod_map_conversion import convert_wod_map
+from py123d.conversion.datasets.wod.wod_perception_sensor_io import load_wod_perception_point_cloud_data_from_frame
 from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.box_detection_label_registry import WODPerceptionBoxDetectionLabel
-from py123d.conversion.registry.lidar_index_registry import DefaultLidarIndex, WODPerceptionLidarIndex
 from py123d.conversion.utils.sensor_utils.camera_conventions import CameraConvention, convert_camera_convention
-from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionWrapper
-from py123d.datatypes.metadata.log_metadata import LogMetadata
-from py123d.datatypes.metadata.map_metadata import MapMetadata
-from py123d.datatypes.sensors import (
+from py123d.datatypes import (
+    BoxDetectionMetadata,
+    BoxDetectionSE3,
+    BoxDetectionWrapper,
+    EgoStateSE3,
     LidarID,
     LidarMetadata,
+    LogMetadata,
+    MapMetadata,
     PinholeCameraID,
     PinholeCameraMetadata,
     PinholeDistortion,
     PinholeIntrinsics,
+    Timestamp,
 )
-from py123d.datatypes.time.time_point import Timestamp
-from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_wod_perception_chrysler_pacifica_parameters
 from py123d.geometry import (
     BoundingBoxSE3,
@@ -44,7 +46,7 @@ from py123d.geometry import (
     Vector3D,
     Vector3DIndex,
 )
-from py123d.geometry.transform.transform_se3 import rel_to_abs_se3_array
+from py123d.geometry.transform import rel_to_abs_se3_array
 from py123d.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from py123d.geometry.utils.rotation_utils import (
     get_euler_array_from_quaternion_array,
@@ -86,9 +88,6 @@ class WODPerceptionConverter(AbstractDatasetConverter):
         """
 
         super().__init__(dataset_converter_config)
-        assert dataset_converter_config.lidar_store_option != "path", (
-            "WOD-Perception stores Lidar sweeps as merged filed, use lidar_store_option='path_merged' instead."
-        )
         for split in splits:
             assert split in WOD_PERCEPTION_AVAILABLE_SPLITS, (
                 f"Split {split} is not available. Available splits: {WOD_PERCEPTION_AVAILABLE_SPLITS}"
@@ -197,14 +196,14 @@ class WODPerceptionConverter(AbstractDatasetConverter):
                         ),
                         traffic_lights=None,  # NOTE: traffic lights are in the map proto, but only found in motion dataset.
                         pinhole_cameras=_extract_wod_perception_cameras(frame, self.dataset_converter_config),
-                        lidars=_extract_wod_perception_lidars(
+                        lidar=_extract_wod_perception_lidars(
                             frame,
                             self._keep_polar_features,
                             frame_idx,
                             self.dataset_converter_config,
                             source_tf_record_path,
                             self._wod_perception_data_root,
-                        ),  #  type: ignore
+                        ),
                     )
             except Exception as e:
                 logger.error(f"Error processing log {log_name}: {e}")
@@ -291,7 +290,6 @@ def _get_wod_perception_lidar_metadata(
     """Get the WODP Lidar metadata from the initial frame."""
 
     laser_metadatas: Dict[LidarID, LidarMetadata] = {}
-    lidar_index = WODPerceptionLidarIndex if keep_polar_features else DefaultLidarIndex
     if dataset_converter_config.lidar_store_option is not None:
         for laser_calibration in initial_frame.context.laser_calibrations:
             lidar_type = WOD_PERCEPTION_LIDAR_IDS[laser_calibration.name]
@@ -303,7 +301,6 @@ def _get_wod_perception_lidar_metadata(
             laser_metadatas[lidar_type] = LidarMetadata(
                 lidar_name=str(laser_calibration.name),
                 lidar_id=lidar_type,
-                lidar_index=lidar_index,
                 extrinsic=extrinsic,
             )
 
@@ -449,19 +446,29 @@ def _extract_wod_perception_lidars(
     dataset_converter_config: DatasetConverterConfig,
     absolute_tf_record_path: Path,
     wod_perception_data_root: Path,
-) -> List[LidarData]:
+) -> Optional[LidarData]:
     """Extracts the Lidar data from a WODP frame."""
 
-    lidars: List[LidarData] = []
+    lidar: Optional[LidarData] = None
     if dataset_converter_config.include_lidars:
-        relative_path = absolute_tf_record_path.relative_to(wod_perception_data_root)
-        lidars.append(
-            LidarData(
+        if dataset_converter_config.lidar_store_option == "path":
+            relative_path = absolute_tf_record_path.relative_to(wod_perception_data_root)
+            lidar = LidarData(
                 lidar_name=LidarID.LIDAR_MERGED.serialize(),
                 lidar_type=LidarID.LIDAR_MERGED,
                 iteration=frame_idx,
                 dataset_root=wod_perception_data_root,
                 relative_path=relative_path,
             )
-        )
-    return lidars
+        else:
+            point_cloud_3d, point_cloud_features = load_wod_perception_point_cloud_data_from_frame(
+                frame, keep_polar_features=keep_polar_features
+            )
+            lidar = LidarData(
+                lidar_name=LidarID.LIDAR_MERGED.serialize(),
+                lidar_type=LidarID.LIDAR_MERGED,
+                iteration=frame_idx,
+                point_cloud_3d=point_cloud_3d,
+                point_cloud_features=point_cloud_features,
+            )
+    return lidar

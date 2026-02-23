@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -73,9 +73,6 @@ class PandasetConverter(AbstractDatasetConverter):
         for split in splits:
             assert split in PANDASET_SPLITS, f"Split {split} is not available. Available splits: {PANDASET_SPLITS}"
         assert pandaset_data_root is not None, "The variable `pandaset_data_root` must be provided."
-        assert dataset_converter_config.lidar_store_option != "path", (
-            "Pandaset stores Lidar sweeps as merged filed, use  lidar_store_option='path_merged' instead."
-        )
 
         self._splits: List[str] = splits
         self._pandaset_data_root: Path = Path(pandaset_data_root)
@@ -167,7 +164,7 @@ class PandasetConverter(AbstractDatasetConverter):
                         camera_timestamps,
                         self.dataset_converter_config,
                     ),
-                    lidars=_extract_pandaset_lidar(
+                    lidar=_extract_pandaset_lidar(
                         source_log_path,
                         iteration,
                         self.dataset_converter_config,
@@ -373,23 +370,21 @@ def _extract_pandaset_pinhole_cameras(
 
 def _extract_pandaset_lidar(
     source_log_path: Path, iteration: int, dataset_converter_config: DatasetConverterConfig
-) -> List[LidarData]:
+) -> Optional[LidarData]:
     """Extracts the Lidar data from a Pandaset scene at a given iteration."""
 
-    lidars: List[LidarData] = []
+    lidar_data: Optional[LidarData] = None
     if dataset_converter_config.include_lidars:
         iteration_str = f"{iteration:02d}"
         lidar_absolute_path = source_log_path / "lidar" / f"{iteration_str}.pkl.gz"
         assert lidar_absolute_path.exists(), f"Lidar file {str(lidar_absolute_path)} does not exist."
-        lidars.append(
-            LidarData(
-                lidar_name=LidarID.LIDAR_MERGED.serialize(),
-                lidar_type=LidarID.LIDAR_MERGED,
-                timestamp=None,
-                iteration=iteration,
-                dataset_root=source_log_path.parent,
-                relative_path=str(lidar_absolute_path.relative_to(source_log_path.parent)),
-            )
+        lidar_data = LidarData(
+            lidar_name=LidarID.LIDAR_MERGED.serialize(),
+            lidar_type=LidarID.LIDAR_MERGED,
+            timestamp=None,
+            iteration=iteration,
+            dataset_root=source_log_path.parent,
+            relative_path=str(lidar_absolute_path.relative_to(source_log_path.parent)),
         )
 
-    return lidars
+    return lidar_data

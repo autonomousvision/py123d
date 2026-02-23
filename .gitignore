@@ -42,3 +42,4 @@ _build/
 
 # Other
 CLAUDE.md
+.claude/*

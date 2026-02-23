@@ -4,18 +4,21 @@ from unittest.mock import Mock
 import pytest
 
 from py123d.api import MapAPI, SceneAPI, SceneMetadata
-from py123d.datatypes.detections import BoxDetectionWrapper, TrafficLightDetectionWrapper
-from py123d.datatypes.metadata import LogMetadata, MapMetadata
-from py123d.datatypes.sensors import (
+from py123d.datatypes import (
+    BoxDetectionWrapper,
+    EgoStateSE3,
     FisheyeMEICamera,
     FisheyeMEICameraID,
     Lidar,
     LidarID,
+    LogMetadata,
+    MapMetadata,
     PinholeCamera,
     PinholeCameraID,
+    Timestamp,
+    TrafficLightDetectionWrapper,
+    VehicleParameters,
 )
-from py123d.datatypes.time import Timestamp
-from py123d.datatypes.vehicle_state import EgoStateSE3, VehicleParameters
 
 
 class ConcreteSceneAPI(SceneAPI):
@@ -156,9 +159,9 @@ class TestSceneAPIProperties:
         """Test available_fisheye_mei_camera_ids property."""
         assert scene_api.available_fisheye_mei_camera_ids == [FisheyeMEICameraID.FCAM_L]
 
-    def test_available_lidar_types(self, scene_api):
-        """Test available_lidar_types property."""
-        assert scene_api.available_lidar_types == [LidarID.LIDAR_TOP]
+    def test_available_lidar_ids(self, scene_api):
+        """Test available_lidar_ids property."""
+        assert scene_api.available_lidar_ids == [LidarID.LIDAR_TOP]
 
 
 class TestSceneAPIMethods:

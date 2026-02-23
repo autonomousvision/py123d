@@ -12,8 +12,8 @@ def is_ipc_binary(blob: bytes) -> bool:
     :param blob: The binary data to check.
     :return: True if the binary data is an Arrow IPC stream, False otherwise.
     """
-    ARROW_MAGIC_NUMBER = b"ARROW1"
-    return blob.startswith(ARROW_MAGIC_NUMBER)
+    IPC_STREAM_CONTINUATION = b"\xff\xff\xff\xff"
+    return blob.startswith(IPC_STREAM_CONTINUATION)
 
 
 def encode_point_cloud_3d_as_ipc_binary(

@@ -27,9 +27,9 @@ av2-sensor:
 
     # Lidars
     include_lidars: true
-    lidar_store_option: "binary" #  "path", "binary"
-    lidar_point_cloud_codec: "ipc_zstd"
-    lidar_point_feature_codec: "ipc_zstd"
+    lidar_store_option: "path" #  "path", "binary"
+    lidar_point_cloud_codec: null # None or "laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"
+    lidar_point_feature_codec: null # None or "ipc_zstd", "ipc_lz4", "ipc"
 
     # Not available:
     include_traffic_lights: false

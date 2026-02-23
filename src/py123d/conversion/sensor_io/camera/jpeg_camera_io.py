@@ -18,7 +18,8 @@ def is_jpeg_binary(jpeg_binary: bytes) -> bool:
 
 
 def encode_image_as_jpeg_binary(image: npt.NDArray[np.uint8]) -> bytes:
-    """Encodes a numpy image as JPEG binary."""
+    """Encodes a numpy RGB image as JPEG binary."""
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     _, encoded_img = cv2.imencode(".jpg", image)
     jpeg_binary = encoded_img.tobytes()
     return jpeg_binary

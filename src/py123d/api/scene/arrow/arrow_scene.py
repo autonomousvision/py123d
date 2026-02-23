@@ -160,14 +160,14 @@ class ArrowSceneAPI(SceneAPI):
         """Inherited, see superclass."""
         return get_route_lane_group_ids_from_arrow_table(self._get_recording_table(), self._get_table_index(iteration))
 
-    def get_pinhole_camera_at_iteration(self, iteration: int, camera_type: PinholeCameraID) -> Optional[PinholeCamera]:
+    def get_pinhole_camera_at_iteration(self, iteration: int, camera_id: PinholeCameraID) -> Optional[PinholeCamera]:
         """Inherited, see superclass."""
         pinhole_camera: Optional[PinholeCamera] = None
-        if camera_type in self.available_pinhole_camera_ids:
+        if camera_id in self.available_pinhole_camera_ids:
             pinhole_camera_ = get_camera_from_arrow_table(
                 self._get_recording_table(),
                 self._get_table_index(iteration),
-                camera_type,
+                camera_id,
                 self.log_metadata,
             )
             assert isinstance(pinhole_camera_, PinholeCamera) or pinhole_camera_ is None
@@ -175,29 +175,29 @@ class ArrowSceneAPI(SceneAPI):
         return pinhole_camera
 
     def get_fisheye_mei_camera_at_iteration(
-        self, iteration: int, camera_type: FisheyeMEICameraID
+        self, iteration: int, camera_id: FisheyeMEICameraID
     ) -> Optional[FisheyeMEICamera]:
         """Inherited, see superclass."""
         fisheye_mei_camera: Optional[FisheyeMEICamera] = None
-        if camera_type in self.available_fisheye_mei_camera_ids:
+        if camera_id in self.available_fisheye_mei_camera_ids:
             fisheye_mei_camera_ = get_camera_from_arrow_table(
                 self._get_recording_table(),
                 self._get_table_index(iteration),
-                camera_type,
+                camera_id,
                 self.log_metadata,
             )
             assert isinstance(fisheye_mei_camera_, FisheyeMEICamera) or fisheye_mei_camera_ is None
             fisheye_mei_camera = fisheye_mei_camera_
         return fisheye_mei_camera
 
-    def get_lidar_at_iteration(self, iteration: int, lidar_type: LidarID) -> Optional[Lidar]:
+    def get_lidar_at_iteration(self, iteration: int, lidar_id: LidarID) -> Optional[Lidar]:
         """Inherited, see superclass."""
         lidar: Optional[Lidar] = None
-        if lidar_type in self.available_lidar_ids or lidar_type == LidarID.LIDAR_MERGED:
+        if lidar_id in self.available_lidar_ids or lidar_id == LidarID.LIDAR_MERGED:
             lidar = get_lidar_from_arrow_table(
                 self._get_recording_table(),
                 self._get_table_index(iteration),
-                lidar_type,
+                lidar_id,
                 self.log_metadata,
             )
         return lidar

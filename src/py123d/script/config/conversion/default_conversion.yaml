@@ -26,7 +26,3 @@ terminate_on_exception: True
 
 force_map_conversion: True
 force_log_conversion: True
-
-pinhole_camera_store_option: "jpeg_binary"  # "path", "jpeg_binary", "png_binary", "mp4"
-fisheye_mei_camera_store_option: "jpeg_binary"  # "path", "jpeg_binary", "png_binary", "mp4"
-lidar_store_option: "laz_binary"  # "path", "path_merged", "laz_binary", "draco_binary"

@@ -31,7 +31,7 @@ def load_nuscenes_point_cloud_data_from_path(
         points_3d_array=lidar_data[..., :3],  # type: ignore
     )
     point_cloud_features = {
-        LidarFeature.INTENSITY.serialize(): (lidar_data[..., 3] * 255).astype(np.uint8),
+        LidarFeature.INTENSITY.serialize(): lidar_data[..., 3].astype(np.uint8),
         LidarFeature.CHANNEL.serialize(): lidar_data[..., 4].astype(np.uint8),
         LidarFeature.IDS.serialize(): lidar_ids,
     }

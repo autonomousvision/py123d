@@ -17,7 +17,8 @@ def is_png_binary(png_binary: bytes) -> bool:
 
 
 def encode_image_as_png_binary(image: npt.NDArray[np.uint8]) -> bytes:
-    """Encodes a numpy image as PNG binary."""
+    """Encodes a numpy RGB image as PNG binary."""
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     _, encoded_img = cv2.imencode(".png", image)
     png_binary = encoded_img.tobytes()
     return png_binary

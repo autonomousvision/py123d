@@ -32,7 +32,9 @@ nuplan:
 
     # Lidars
     include_lidars: true
-    lidar_store_option: "path_merged" # "path", "path_merged", "laz_binary", "draco_binary"
+    lidar_store_option: "path" #  "path", "binary"
+    lidar_point_cloud_codec: null # None or "laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"
+    lidar_point_feature_codec: null # None or "ipc_zstd", "ipc_lz4", "ipc"
 
     # Scenario tag / Route
     include_scenario_tags: true

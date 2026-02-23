@@ -215,10 +215,10 @@ def _get_av2_pinhole_camera_metadata(
                 row_intrinsics = (
                     intrinsics_df[intrinsics_df["sensor_name"] == row_callib["sensor_name"]].iloc[0].to_dict()
                 )
-                camera_type = AV2_CAMERA_ID_MAPPING[row_callib["sensor_name"]]
-                pinhole_camera_metadata[camera_type] = PinholeCameraMetadata(
+                camera_id = AV2_CAMERA_ID_MAPPING[row_callib["sensor_name"]]
+                pinhole_camera_metadata[camera_id] = PinholeCameraMetadata(
                     camera_name=str(row_callib["sensor_name"]),
-                    camera_id=camera_type,
+                    camera_id=camera_id,
                     width=row_intrinsics["width_px"],
                     height=row_intrinsics["height_px"],
                     intrinsics=PinholeIntrinsics(
@@ -373,7 +373,7 @@ def _extract_av2_sensor_pinhole_cameras(
                 continue
             static_extrinsic_se3 = _row_dict_to_pose_se3(row)
             pinhole_camera_name = row["sensor_name"]
-            pinhole_camera_type = AV2_CAMERA_ID_MAPPING[pinhole_camera_name]
+            pinhole_camera_id = AV2_CAMERA_ID_MAPPING[pinhole_camera_name]
 
             relative_image_path = find_closest_target_fpath(
                 split=split,
@@ -400,7 +400,7 @@ def _extract_av2_sensor_pinhole_cameras(
                 )
                 camera_data = CameraData(
                     camera_name=str(pinhole_camera_name),
-                    camera_id=pinhole_camera_type,
+                    camera_id=pinhole_camera_id,
                     timestamp=Timestamp.from_ns(int(timestamp_ns_str)),
                     extrinsic=PoseSE3.from_array(compensated_extrinsic_se3_array),
                     dataset_root=av2_sensor_data_root,

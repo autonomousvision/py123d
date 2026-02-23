@@ -20,16 +20,6 @@ all_camera_ids: List[PinholeCameraID] = [
     PinholeCameraID.PCAM_STEREO_R,
 ]
 
-all_lidar_types: List[LidarID] = [
-    LidarID.LIDAR_MERGED,
-    LidarID.LIDAR_TOP,
-    LidarID.LIDAR_FRONT,
-    LidarID.LIDAR_SIDE_LEFT,
-    LidarID.LIDAR_SIDE_RIGHT,
-    LidarID.LIDAR_BACK,
-    LidarID.LIDAR_DOWN,
-]
-
 
 @dataclass
 class ViserConfig:
@@ -89,6 +79,7 @@ class ViserConfig:
     lidar_ids: List[LidarID] = field(default_factory=lambda: [LidarID.LIDAR_MERGED])
     lidar_point_size: float = 0.05
     lidar_point_shape: Literal["square", "diamond", "circle", "rounded", "sparkle"] = "circle"
+    lidar_point_color: Literal["none", "distance", "intensity", "channel", "timestamp", "range", "elongation"] = "none"
 
     # internal use
     _force_map_update: bool = False

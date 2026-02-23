@@ -192,11 +192,11 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
         add_scene = True
         start_idx = scene_extraction_metadata.initial_idx
         if filter.pinhole_camera_ids is not None:
-            for pinhole_camera_type in filter.pinhole_camera_ids:
-                column_name = PINHOLE_CAMERA_DATA_COLUMN(pinhole_camera_type.serialize())
+            for pinhole_camera_id in filter.pinhole_camera_ids:
+                column_name = PINHOLE_CAMERA_DATA_COLUMN(pinhole_camera_id.serialize())
 
                 if (
-                    pinhole_camera_type in log_metadata.pinhole_camera_metadata
+                    pinhole_camera_id in log_metadata.pinhole_camera_metadata
                     and column_name in recording_table.schema.names
                     and recording_table[column_name][start_idx].as_py() is not None
                 ):
@@ -206,11 +206,11 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
                     break
 
         if filter.fisheye_mei_camera_ids is not None:
-            for fisheye_mei_camera_type in filter.fisheye_mei_camera_ids:
-                column_name = FISHEYE_CAMERA_DATA_COLUMN(fisheye_mei_camera_type.serialize())
+            for fisheye_mei_camera_id in filter.fisheye_mei_camera_ids:
+                column_name = FISHEYE_CAMERA_DATA_COLUMN(fisheye_mei_camera_id.serialize())
 
                 if (
-                    fisheye_mei_camera_type in log_metadata.fisheye_mei_camera_metadata
+                    fisheye_mei_camera_id in log_metadata.fisheye_mei_camera_metadata
                     and column_name in recording_table.schema.names
                     and recording_table[column_name][start_idx].as_py() is not None
                 ):
@@ -220,9 +220,9 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
                     break
 
         if filter.lidar_ids is not None:
-            for lidar_type in filter.lidar_ids:
-                column_name = LIDAR_PATH_COLUMN(lidar_type.serialize())
-                if lidar_type not in log_metadata.lidar_metadata and column_name not in recording_table.schema.names:
+            for lidar_id in filter.lidar_ids:
+                column_name = LIDAR_PATH_COLUMN(lidar_id.serialize())
+                if lidar_id not in log_metadata.lidar_metadata and column_name not in recording_table.schema.names:
                     add_scene = False
                     break
         if add_scene:

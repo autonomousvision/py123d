@@ -33,8 +33,8 @@ class DatasetConverterConfig:
     # Lidars
     include_lidars: bool = False
     lidar_store_option: Literal["path", "binary"] = "path"
-    lidar_point_cloud_codec: Literal["laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"] = "draco"
-    lidar_point_feature_codec: Optional[Literal["ipc_zstd", "ipc_lz4", "ipc"]] = "ipc_zstd"  # None drops features.
+    lidar_point_cloud_codec: Optional[Literal["laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"]] = None
+    lidar_point_feature_codec: Optional[Literal["ipc_zstd", "ipc_lz4", "ipc"]] = None  # None drops features.
 
     # Scenario tag / Route
     # NOTE: These are only supported for nuPlan. Consider removing or expanding support.
@@ -56,9 +56,21 @@ class DatasetConverterConfig:
             "mp4",
         }, f"Invalid Fisheye MEI camera store option, got {self.fisheye_mei_camera_store_option}."
 
-        # assert self.lidar_store_option in {
-        #     "path",
-        #     "path_merged",
-        #     "laz_binary",
-        #     "draco_binary",
-        # }, f"Invalid Lidar store option, got {self.lidar_store_option}."
+        assert self.lidar_store_option in {
+            "path",
+            "binary",
+        }, f"Invalid Lidar store option, got {self.lidar_store_option}."
+
+        if self.lidar_store_option == "binary":
+            assert self.lidar_point_cloud_codec in {
+                "laz",
+                "draco",
+                "ipc_zstd",
+                "ipc_lz4",
+                "ipc",
+            }, f"Invalid Lidar point cloud codec, got {self.lidar_point_cloud_codec}."
+            assert self.lidar_point_feature_codec is None or self.lidar_point_feature_codec in {
+                "ipc_zstd",
+                "ipc_lz4",
+                "ipc",
+            }, f"Invalid Lidar point feature codec, got {self.lidar_point_feature_codec}."

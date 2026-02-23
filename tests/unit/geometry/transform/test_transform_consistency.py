@@ -3,21 +3,19 @@ import numpy.typing as npt
 
 from py123d.geometry import PoseSE2, PoseSE3, Vector2D, Vector3D
 from py123d.geometry.geometry_index import Point2DIndex, Point3DIndex, PoseSE2Index, PoseSE3Index
-from py123d.geometry.transform.transform_se2 import (
+from py123d.geometry.transform import (
     abs_to_rel_points_2d_array,
+    abs_to_rel_points_3d_array,
     abs_to_rel_se2_array,
+    abs_to_rel_se3_array,
     rel_to_abs_points_2d_array,
+    rel_to_abs_points_3d_array,
     rel_to_abs_se2_array,
+    rel_to_abs_se3_array,
     translate_se2_along_body_frame,
     translate_se2_along_x,
     translate_se2_along_y,
     translate_se2_array_along_body_frame,
-)
-from py123d.geometry.transform.transform_se3 import (
-    abs_to_rel_points_3d_array,
-    abs_to_rel_se3_array,
-    rel_to_abs_points_3d_array,
-    rel_to_abs_se3_array,
     translate_se3_along_body_frame,
     translate_se3_along_x,
     translate_se3_along_y,

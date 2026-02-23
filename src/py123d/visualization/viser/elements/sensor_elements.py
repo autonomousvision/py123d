@@ -1,4 +1,5 @@
 import concurrent.futures
+import time
 from typing import Dict, Optional, Tuple
 
 import cv2
@@ -17,10 +18,8 @@ from py123d.datatypes.sensors import (
 )
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import PoseSE3Index
-from py123d.geometry.transform.transform_se3 import (
-    rel_to_abs_points_3d_array,
-    rel_to_abs_se3_array,
-)
+from py123d.geometry.transform.transform_se3 import rel_to_abs_points_3d_array, rel_to_abs_se3_array
+from py123d.visualization.matplotlib.lidar import get_lidar_pc_color
 from py123d.visualization.viser.viser_config import ViserConfig
 
 
@@ -159,34 +158,39 @@ def add_lidar_pc_to_viser_server(
     viser_config: ViserConfig,
     lidar_pc_handles: Dict[LidarID, Optional[viser.PointCloudHandle]],
 ) -> None:
+    active_id = viser_config.lidar_ids[0]
+    # Ensure the active ID has an entry in the handles dict.
+    if active_id not in lidar_pc_handles:
+        lidar_pc_handles[active_id] = None
+
     if viser_config.lidar_visible:
         scene_center_array = initial_ego_state.center_se3.point_3d.array
         ego_pose = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
         ego_pose[PoseSE3Index.XYZ] -= scene_center_array
 
-        import time
-
         start = time.time()
-        lidar = scene.get_lidar_at_iteration(scene_interation, LidarID.LIDAR_MERGED)
-        print(f"Time to get lidar from scene: {(time.time() - start) * 1000:.2f} ms")
-
-        points_3d_local = lidar.xyz if lidar is not None else np.zeros((0, 3), dtype=np.float32)
-        points = rel_to_abs_points_3d_array(ego_pose, points_3d_local)
-        colors = np.zeros_like(points)
-
-        if lidar_pc_handles[LidarID.LIDAR_MERGED] is not None:
-            lidar_pc_handles[LidarID.LIDAR_MERGED].points = points
-            lidar_pc_handles[LidarID.LIDAR_MERGED].colors = colors
+        lidar = scene.get_lidar_at_iteration(scene_interation, lidar_id=active_id)
+        print(f"Time to get lidar data from scene: {(time.time() - start) * 1000:.2f} ms")
+        if lidar is not None:
+            points = rel_to_abs_points_3d_array(ego_pose, lidar.xyz)
+            colors = get_lidar_pc_color(lidar, feature=viser_config.lidar_point_color)
         else:
-            lidar_pc_handles[LidarID.LIDAR_MERGED] = viser_server.scene.add_point_cloud(
+            points = np.zeros((0, 3), dtype=np.float32)
+            colors = np.zeros((0, 3), dtype=np.uint8)
+
+        if lidar_pc_handles[active_id] is not None:
+            lidar_pc_handles[active_id].points = points
+            lidar_pc_handles[active_id].colors = colors
+        else:
+            lidar_pc_handles[active_id] = viser_server.scene.add_point_cloud(
                 "lidar_points",
                 points=points,
                 colors=colors,
                 point_size=viser_config.lidar_point_size,
                 point_shape=viser_config.lidar_point_shape,
             )
-    elif lidar_pc_handles[LidarID.LIDAR_MERGED] is not None:
-        lidar_pc_handles[LidarID.LIDAR_MERGED].visible = False
+    elif lidar_pc_handles[active_id] is not None:
+        lidar_pc_handles[active_id].visible = False
 
 
 def _get_camera_values(

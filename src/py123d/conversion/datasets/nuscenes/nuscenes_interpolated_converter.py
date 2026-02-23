@@ -11,38 +11,33 @@ from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverte
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.conversion.datasets.nuscenes.nuscenes_map_conversion import NUSCENES_MAPS, write_nuscenes_map
 from py123d.conversion.datasets.nuscenes.utils.nuscenes_constants import (
+    NUSCENES_CAMERA_IDS,
     NUSCENES_DATABASE_VERSION_MAPPING,
     NUSCENES_DETECTION_NAME_DICT,
     NUSCENES_INTERPOLATED_DATA_SPLITS,
     TARGET_DT,
-    NUSCENES_camera_ids,
 )
-from py123d.conversion.log_writer.abstract_log_writer import (
-    AbstractLogWriter,
-    CameraData,
-    LidarData,
-)
+from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
 from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.box_detection_label_registry import NuScenesBoxDetectionLabel
-from py123d.conversion.registry.lidar_index_registry import NuScenesLidarIndex
-from py123d.datatypes.detections.box_detections import (
+from py123d.datatypes import (
     BoxDetectionMetadata,
     BoxDetectionSE3,
     BoxDetectionWrapper,
-)
-from py123d.datatypes.metadata import LogMetadata, MapMetadata
-from py123d.datatypes.sensors.lidar import LidarID, LidarMetadata
-from py123d.datatypes.sensors.pinhole_camera import (
+    DynamicStateSE3,
+    EgoStateSE3,
+    LidarID,
+    LidarMetadata,
+    LogMetadata,
+    MapMetadata,
     PinholeCameraID,
     PinholeCameraMetadata,
     PinholeDistortion,
     PinholeIntrinsics,
+    Timestamp,
 )
-from py123d.datatypes.time.time_point import Timestamp
-from py123d.datatypes.vehicle_state.ego_state import DynamicStateSE3, EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_nuscenes_renault_zoe_parameters
-from py123d.geometry import BoundingBoxSE3, PoseSE3
-from py123d.geometry.vector import Vector3D
+from py123d.geometry import BoundingBoxSE3, PoseSE3, Vector3D
 
 check_dependencies(["nuscenes"], "nuscenes")
 from nuscenes import NuScenes
@@ -248,7 +243,7 @@ class NuScenesInterpolatedConverter(AbstractDatasetConverter):
                             nuscenes_data_root=self._nuscenes_data_root,
                             dataset_converter_config=self.dataset_converter_config,
                         ),
-                        lidars=_extract_lidar_from_sample_data(
+                        lidar=_extract_lidar_from_sample_data(
                             sweep,
                             nuscenes_data_root=self._nuscenes_data_root,
                             dataset_converter_config=self.dataset_converter_config,
@@ -284,7 +279,7 @@ class NuScenesInterpolatedConverter(AbstractDatasetConverter):
                     )
 
                     # Lidar from this sweep
-                    lidars = _extract_lidar_from_sample_data(
+                    lidar = _extract_lidar_from_sample_data(
                         sweep,
                         nuscenes_data_root=self._nuscenes_data_root,
                         dataset_converter_config=self.dataset_converter_config,
@@ -295,7 +290,7 @@ class NuScenesInterpolatedConverter(AbstractDatasetConverter):
                         ego_state=ego_state,
                         box_detections=box_detections,
                         pinhole_cameras=cameras,
-                        lidars=lidars,
+                        lidar=lidar,
                     )
 
         log_writer.close()
@@ -638,7 +633,7 @@ def _collect_camera_timelines(
 
     timelines: Dict[str, List[Dict[str, Any]]] = {}
 
-    for _camera_type, camera_channel in NUSCENES_camera_ids.items():
+    for _camera_type, camera_channel in NUSCENES_CAMERA_IDS.items():
         timeline: List[Dict[str, Any]] = []
         sd_token = first_sample["data"][camera_channel]
         current = nusc.get("sample_data", sd_token)
@@ -682,7 +677,7 @@ def _find_nearest_cameras_for_sweep(
     if not dataset_converter_config.include_pinhole_cameras:
         return camera_data_list
 
-    for camera_type, camera_channel in NUSCENES_camera_ids.items():
+    for camera_type, camera_channel in NUSCENES_CAMERA_IDS.items():
         timeline = camera_timelines.get(camera_channel, [])
         if not timeline:
             continue
@@ -731,15 +726,15 @@ def _extract_lidar_from_sample_data(
     sweep: Dict[str, Any],
     nuscenes_data_root: Path,
     dataset_converter_config: DatasetConverterConfig,
-) -> List[LidarData]:
+) -> Optional[LidarData]:
     """Extracts lidar data from a sample_data record (works for keyframes and sweeps).
 
     :param sweep: A lidar sweep dict from the timeline.
     :param nuscenes_data_root: Path to the nuScenes dataset root.
     :param dataset_converter_config: Dataset converter configuration.
-    :return: List of LidarData.
+    :return: Optional LidarData.
     """
-    lidars: List[LidarData] = []
+    lidar: Optional[LidarData] = None
     if dataset_converter_config.include_lidars:
         absolute_lidar_path = nuscenes_data_root / sweep["filename"]
         if absolute_lidar_path.exists() and absolute_lidar_path.is_file():
@@ -750,8 +745,7 @@ def _extract_lidar_from_sample_data(
                 dataset_root=nuscenes_data_root,
                 timestamp=Timestamp.from_us(sweep["timestamp"]),
             )
-            lidars.append(lidar)
-    return lidars
+    return lidar
 
 
 # ---------------------------------------------------------------------------
@@ -820,7 +814,7 @@ def _extract_nuscenes_cameras(
     """Extracts the pinhole camera data from a nuScenes keyframe sample."""
     camera_data_list: List[CameraData] = []
     if dataset_converter_config.include_pinhole_cameras:
-        for camera_type, camera_channel in NUSCENES_camera_ids.items():
+        for camera_type, camera_channel in NUSCENES_CAMERA_IDS.items():
             cam_token = sample["data"][camera_channel]
             cam_data = nusc.get("sample_data", cam_token)
 
@@ -864,7 +858,7 @@ def _get_nuscenes_pinhole_camera_metadata(
     if dataset_converter_config.include_pinhole_cameras:
         first_sample_token = scene["first_sample_token"]
         first_sample = nusc.get("sample", first_sample_token)
-        for camera_type, camera_channel in NUSCENES_camera_ids.items():
+        for camera_type, camera_channel in NUSCENES_CAMERA_IDS.items():
             cam_token = first_sample["data"][camera_channel]
             cam_data = nusc.get("sample_data", cam_token)
             calib = nusc.get("calibrated_sensor", cam_data["calibrated_sensor_token"])
@@ -915,7 +909,6 @@ def _get_nuscenes_lidar_metadata(
         metadata[LidarID.LIDAR_TOP] = LidarMetadata(
             lidar_name="LIDAR_TOP",
             lidar_id=LidarID.LIDAR_TOP,
-            lidar_index=NuScenesLidarIndex,
             extrinsic=extrinsic,
         )
     return metadata

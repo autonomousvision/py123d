@@ -45,7 +45,7 @@ def load_pandaset_point_cloud_data_from_path(
     point_cloud_features = {
         LidarFeature.INTENSITY.serialize(): all_lidar_df["i"].to_numpy(dtype=np.uint8),
         LidarFeature.TIMESTAMP.serialize(): (all_lidar_df["t"].to_numpy(dtype=np.float64) * 1e6).astype(np.int64),
-        LidarFeature.IDS.serialize(): all_lidar_df["d"].to_numpy(dtype=np.uint8),
+        LidarFeature.IDS.serialize(): lidar_id,
     }
 
     return point_cloud_3d.astype(np.float32), point_cloud_features

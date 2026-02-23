@@ -69,7 +69,7 @@ NUSCENES_DATABASE_VERSION_MAPPING: Dict[str, str] = {
     "nuscenes-interpolated-mini_val": "v1.0-mini",
 }
 
-NUSCENES_camera_ids = {
+NUSCENES_CAMERA_IDS = {
     PinholeCameraID.PCAM_F0: "CAM_FRONT",
     PinholeCameraID.PCAM_B0: "CAM_BACK",
     PinholeCameraID.PCAM_L0: "CAM_FRONT_LEFT",

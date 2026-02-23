@@ -67,6 +67,10 @@ class MP4Reader:
         :raises ValueError: If the video file cannot be opened
         """
         self.video_path = video_path
+        self.cap = None
+        self.read_all = read_all
+        self.frames = []
+
         if not Path(video_path).exists():
             raise FileNotFoundError(f"Video file not found: {video_path}")
 
@@ -79,10 +83,8 @@ class MP4Reader:
         self.fps = self.cap.get(cv2.CAP_PROP_FPS)
         self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        self.read_all = read_all
 
         if read_all:
-            self.frames = []
             for _ in range(self.frame_count):
                 ret, frame = self.cap.read()
                 if not ret:
@@ -101,7 +103,7 @@ class MP4Reader:
         """
 
         if frame_index < 0 or frame_index >= self.frame_count:
-            raise IndexError(f"Frame index {frame_index} out of range [0, {len(self.frames)})")
+            raise IndexError(f"Frame index {frame_index} out of range [0, {self.frame_count})")
 
         if self.read_all:
             return self.frames[frame_index]

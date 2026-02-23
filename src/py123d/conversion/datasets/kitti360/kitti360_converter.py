@@ -5,7 +5,7 @@ import re
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, Final, List, Tuple, Union
+from typing import Any, Dict, Final, List, Optional, Tuple, Union
 
 import numpy as np
 import yaml
@@ -306,7 +306,7 @@ class Kitti360Converter(AbstractDatasetConverter):
                     self._kitti360_folders,
                     self.dataset_converter_config,
                 )
-                lidars = _extract_kitti360_lidar(
+                lidar = _extract_kitti360_lidar(
                     log_name,
                     valid_idx,
                     self._kitti360_folders,
@@ -319,7 +319,7 @@ class Kitti360Converter(AbstractDatasetConverter):
                     box_detections=box_detection_wrapper_all[valid_idx],
                     pinhole_cameras=pinhole_cameras,
                     fisheye_mei_cameras=fisheye_cameras,
-                    lidars=lidars,
+                    lidar=lidar,
                 )
 
         log_writer.close()
@@ -382,7 +382,7 @@ def _get_kitti360_fisheye_mei_camera_metadata(
         fisheye03 = _readYAMLFile(fisheye_camera03_path)
         fisheye_result = {"image_02": fisheye02, "image_03": fisheye03}
 
-        for fcam_type, fcam_name in KITTI360_FISHEYE_MEI_CAMERA_IDS.items():
+        for fcam_id, fcam_name in KITTI360_FISHEYE_MEI_CAMERA_IDS.items():
             assert fcam_name in camera_calibration.keys(), f"Camera calibration missing for {fcam_name}"
 
             distortion_params = fisheye_result[fcam_name]["distortion_parameters"]
@@ -401,9 +401,9 @@ def _get_kitti360_fisheye_mei_camera_metadata(
                 v0=projection_params["v0"],
             )
 
-            fisheye_cam_metadatas[fcam_type] = FisheyeMEICameraMetadata(
+            fisheye_cam_metadatas[fcam_id] = FisheyeMEICameraMetadata(
                 camera_name=fcam_name,
-                camera_type=fcam_type,
+                camera_id=fcam_id,
                 width=fisheye_result[fcam_name]["image_width"],
                 height=fisheye_result[fcam_name]["image_height"],
                 mirror_parameter=float(fisheye_result[fcam_name]["mirror_parameters"]["xi"]),
@@ -710,19 +710,16 @@ def _extract_kitti360_lidar(
     idx: int,
     kitti360_folders: Dict[str, Path],
     data_converter_config: DatasetConverterConfig,
-) -> List[LidarData]:
+) -> Optional[LidarData]:
     """Extracts KITTI-360 Lidar data for the given sequence and index."""
 
-    lidars: List[LidarData] = []
+    lidar: Optional[LidarData] = None
     if data_converter_config.include_lidars:
         # NOTE special case for sequence 2013_05_28_drive_0002_sync which has no lidar data before frame 4391
-        if log_name == "2013_05_28_drive_0002_sync" and idx <= 4390:
-            return lidars
-
-        lidar_full_path = kitti360_folders[DIR_3D_RAW] / log_name / "velodyne_points" / "data" / f"{idx:010d}.bin"
-        if lidar_full_path.exists():
-            lidars.append(
-                LidarData(
+        if not (log_name == "2013_05_28_drive_0002_sync" and idx <= 4390):
+            lidar_full_path = kitti360_folders[DIR_3D_RAW] / log_name / "velodyne_points" / "data" / f"{idx:010d}.bin"
+            if lidar_full_path.exists():
+                lidar = LidarData(
                     lidar_name=KITTI360_LIDAR_NAME,
                     lidar_type=LidarID.LIDAR_TOP,
                     timestamp=None,
@@ -730,11 +727,10 @@ def _extract_kitti360_lidar(
                     dataset_root=kitti360_folders[DIR_ROOT],
                     relative_path=lidar_full_path.relative_to(kitti360_folders[DIR_ROOT]),
                 )
-            )
-        else:
-            raise FileNotFoundError(f"Lidar file not found: {lidar_full_path}")
+            else:
+                raise FileNotFoundError(f"Lidar file not found: {lidar_full_path}")
 
-    return lidars
+    return lidar
 
 
 def _extract_kitti360_pinhole_cameras(

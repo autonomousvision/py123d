@@ -45,15 +45,12 @@ def load_jpeg_binary_from_tf_record_file(
     return jpeg_binary
 
 
-def load_wod_perception_point_cloud_data_from_path(
-    tf_record_path: Path,
-    index: int,
+def load_wod_perception_point_cloud_data_from_frame(
+    frame: dataset_pb2.Frame,
     keep_polar_features: bool = True,
 ) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
-    """Loads Waymo Open Dataset (WOD) - Perception Lidar point clouds from a TFRecord file at a given iteration."""
+    """Loads Waymo Open Dataset (WOD) - Perception Lidar point clouds from a Waymo Frame object."""
 
-    frame = _get_frame_at_iteration(tf_record_path, index)
-    assert frame is not None, f"Frame at iteration {index} not found in Waymo file: {tf_record_path}"
     (range_images, camera_projections, _, range_image_top_pose) = parse_range_image_and_camera_projection(frame)
     points, _ = frame_utils.convert_range_image_to_point_cloud(
         frame=frame,
@@ -93,3 +90,15 @@ def load_wod_perception_point_cloud_data_from_path(
             LidarFeature.IDS.serialize(): lidar_ids,
         }
     return point_cloud_3d, point_cloud_features
+
+
+def load_wod_perception_point_cloud_data_from_path(
+    tf_record_path: Path,
+    index: int,
+    keep_polar_features: bool = True,
+) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
+    """Loads Waymo Open Dataset (WOD) - Perception Lidar point clouds from a TFRecord file at a given iteration."""
+
+    frame = _get_frame_at_iteration(tf_record_path, index)
+    assert frame is not None, f"Frame at iteration {index} not found in Waymo file: {tf_record_path}"
+    return load_wod_perception_point_cloud_data_from_frame(frame, keep_polar_features=keep_polar_features)
