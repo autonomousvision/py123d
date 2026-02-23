@@ -127,17 +127,16 @@ class MapAPI(abc.ABC):
 
         Notes
         -----
-        The syntax is aligned with STRtree implementation of shapely and the corresponding ``query`` function [1]_.
+        The syntax is aligned with STRtree implementation of shapely and the corresponding ``query`` function [2]_.
 
         References
         ----------
-        .. [1] https://shapely.readthedocs.io/en/latest/strtree.html#shapely.STRtree.query
+        .. [2] https://shapely.readthedocs.io/en/latest/strtree.html#shapely.STRtree.query
 
 
         :param geometry: A shapely geometry or an iterable of shapely geometries to query against.
         :param layers: The map layers to query against.
         :param predicate: An optional spatial predicate to filter the results.
-        :param sort: Whether to sort the results by distance, defaults to False.
         :param distance: An optional maximum distance to filter the results, defaults to None.
         :return:
             If geometry is a single geometry, a dictionary mapping each layer to a list of map object ids.

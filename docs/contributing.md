@@ -1,6 +1,6 @@
 ## Contributing
 
-Contributions to 123D are highly encouraged! This guide will help you get started with the development process.
+Any contributions to 123D are welcome! This guide both serves as internal tutorial and can help you get started with the development process.
 
 ### Getting Started
 
