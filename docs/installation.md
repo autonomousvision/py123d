@@ -59,10 +59,11 @@ For example, when converting `nuplan-mini` with MP4 compression and using `PY123
     └── ...
 ```
 
-## Demo data
+## Demo Data
 
+For v0.0.9, we do not host any demo data publicly. If you would like to receive demo logs and maps, please reach out to Daniel Dauner at [daniel.dauner@gmail.com](mailto:daniel.dauner@gmail.com).
 
-You can test 123D with demo data from [nuPlan](nuplan), [nuScenes](nuscenes), [PandaSet](pandaset), [Argoverse 2 - Sensor](av2_sensor), and [CARLA](carla). Please be aware of the respective licenses, that are included in the download. You can use the following script:
+<!-- You can test 123D with demo data from [nuPlan](nuplan), [nuScenes](nuscenes), [PandaSet](pandaset), [Argoverse 2 - Sensor](av2_sensor), and [CARLA](carla). Please be aware of the respective licenses, that are included in the download. You can use the following script:
 
 ```bash
 # Create the data root and a temporary folder.
@@ -76,4 +77,4 @@ wget https://s3.eu-central-1.amazonaws.com/avg-projects-2/123d/demo_v0.0.8/data.
 unzip -o data.zip -d ./temp
 rsync -av ./temp/data/* $PY123D_DATA_ROOT
 rm -r ./temp & rm -r data.zip
-```
+``` -->

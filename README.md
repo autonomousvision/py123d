@@ -25,17 +25,17 @@
 
 ## Changelog
 
-- **`[2026-02-09]`** v0.0.9
-  - Added Waymo Open Motion Dataset support.
+- **`[2026-02-23]`** v0.0.9
+  - Added preliminary Waymo Open Motion Dataset support.
+  - Added support for nuScenes interpolated to 10Hz.
   - Replaced gpkg map implementation with Arrow-based format for improved performance.
-  - Added sensor names and timestamps to camera and LiDAR data across all datasets.
+  - Added sensor names and timestamps to camera and Lidar data across all datasets.
   - Added ego-to-camera transforms in static metadata.
-  - Implemented geometry builders for PoseSE2/PoseSE3 from arbitrary rotation/translation representations.
   - Added support for loading merged point clouds in API.
+  - Improvements to geometry module, in terms of speed and syntax.
   - Improved map querying speed and OpenDrive lane connectivity handling.
   - Added recommended conversion options to dataset YAML configuration files.
-  - Fixed PandaSet static extrinsics and KITTI-360 timestamp handling.
-  - Fixed memory issues when converting large datasets (e.g., nuPlan).
+  - Improvements in dataset conversion for sensor sync, speed, and memory requirements.
 
 - **`[2025-11-21]`** v0.0.8 (silent release)
   - Release of package and documentation.
