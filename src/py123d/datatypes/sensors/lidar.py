@@ -115,7 +115,7 @@ class LidarMetadata:
         :return: An instance of LidarMetadata.
         """
         lidar_id = LidarID[data_dict["lidar_id"]]
-        if data_dict["extrinsic"] is not None:
+        if "extrinsic" in data_dict and data_dict["extrinsic"] is not None:
             extrinsic = PoseSE3.from_list(data_dict["extrinsic"])
         else:
             extrinsic = PoseSE3.identity()
