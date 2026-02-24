@@ -42,7 +42,7 @@ def get_path_progress_2d(points_array: npt.NDArray[np.float64]) -> npt.NDArray[n
     """
     if points_array.shape[-1] == len(Point2DIndex):
         x_diff = np.diff(points_array[..., Point2DIndex.X])
-        y_diff = np.diff(points_array[..., Point2DIndex.X])
+        y_diff = np.diff(points_array[..., Point2DIndex.Y])
     elif points_array.shape[-1] == len(PoseSE2Index):
         x_diff = np.diff(points_array[..., PoseSE2Index.X])
         y_diff = np.diff(points_array[..., PoseSE2Index.Y])

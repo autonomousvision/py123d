@@ -101,6 +101,11 @@ class TestBoundingBoxSE2:
         with pytest.raises(AssertionError):
             BoundingBoxSE2.from_array(np.array([1, 2, 3, 4]))
 
+    def test_repr(self):
+        """Test __repr__ returns a string containing the class name."""
+        r = repr(self.bbox)
+        assert "BoundingBoxSE2" in r
+
 
 class TestBoundingBoxSE3:
     """Unit tests for BoundingBoxSE3 class."""
@@ -211,3 +216,8 @@ class TestBoundingBoxSE3:
         assert bbox.length == 0.0
         assert bbox.width == 0.0
         assert bbox.height == 0.0
+
+    def test_repr(self):
+        """Test __repr__ returns a string containing the class name."""
+        r = repr(self.bbox)
+        assert "BoundingBoxSE3" in r

@@ -111,6 +111,30 @@ class TestPolyline2D:
         distance = polyline.project(state)
         assert distance == 1.0
 
+    def test_project_shapely_point(self):
+        """Test projecting a shapely Point onto polyline."""
+        coords = [(0.0, 0.0), (2.0, 0.0)]
+        linestring = geom.LineString(coords)
+        polyline = Polyline2D.from_linestring(linestring)
+        point = geom.Point(1.0, 0.5)
+        distance = polyline.project(point)
+        assert distance == pytest.approx(1.0)
+
+    def test_project_ndarray(self):
+        """Test projecting a raw ndarray onto polyline."""
+        coords = [(0.0, 0.0), (2.0, 0.0)]
+        linestring = geom.LineString(coords)
+        polyline = Polyline2D.from_linestring(linestring)
+        point = np.array([1.0, 0.0])
+        distance = polyline.project(point)
+        assert distance == pytest.approx(1.0)
+
+    def test_from_array_invalid_last_dim(self):
+        """Test from_array with invalid last dimension raises ValueError."""
+        array = np.array([[0.0, 0.0, 0.0, 0.0]], dtype=np.float64)
+        with pytest.raises(ValueError, match="shape"):
+            Polyline2D.from_array(array)
+
     def test_polyline_se2_property(self):
         """Test polyline_se2 property."""
         coords = [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)]
@@ -198,6 +222,28 @@ class TestPolylineSE2:
         state = PoseSE2(1.0, 1.0, 0.0)
         distance = polyline.project(state)
         assert distance == 1.0
+
+    def test_project_shapely_point(self):
+        """Test projecting a shapely Point onto SE2 polyline."""
+        array = np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]], dtype=np.float64)
+        polyline = PolylineSE2.from_array(array)
+        point = geom.Point(1.0, 0.5)
+        distance = polyline.project(point)
+        assert distance == pytest.approx(1.0)
+
+    def test_project_ndarray(self):
+        """Test projecting a raw ndarray onto SE2 polyline."""
+        array = np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]], dtype=np.float64)
+        polyline = PolylineSE2.from_array(array)
+        point = np.array([1.0, 0.0])
+        distance = polyline.project(point)
+        assert distance == pytest.approx(1.0)
+
+    def test_from_array_invalid_last_dim(self):
+        """Test from_array with invalid last dimension raises ValueError."""
+        array = np.array([[0.0, 0.0, 0.0, 0.0]], dtype=np.float64)
+        with pytest.raises(ValueError, match="Invalid polyline array shape"):
+            PolylineSE2.from_array(array)
 
 
 class TestPolyline3D:
@@ -328,3 +374,38 @@ class TestPolyline3D:
         point = Point3D(1.0, 1.0, 1.0)
         distance = polyline.project(point)
         assert distance == 1.0
+
+    def test_project_shapely_point(self):
+        """Test projecting a shapely Point onto 3D polyline."""
+        coords = [(0.0, 0.0, 0.0), (2.0, 0.0, 0.0)]
+        linestring = geom.LineString(coords)
+        polyline = Polyline3D.from_linestring(linestring)
+        point = geom.Point(1.0, 0.5, 0.0)
+        distance = polyline.project(point)
+        assert distance == pytest.approx(1.0)
+
+    def test_project_ndarray(self):
+        """Test projecting a raw ndarray onto 3D polyline."""
+        coords = [(0.0, 0.0, 0.0), (2.0, 0.0, 0.0)]
+        linestring = geom.LineString(coords)
+        polyline = Polyline3D.from_linestring(linestring)
+        point = np.array([1.0, 0.0, 0.0])
+        distance = polyline.project(point)
+        assert distance == pytest.approx(1.0)
+
+    def test_from_array_2d_input(self):
+        """Test creating Polyline3D from 2D array (N, 2)."""
+        array = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]], dtype=np.float64)
+        polyline = Polyline3D.from_array(array)
+        assert isinstance(polyline, Polyline3D)
+        # Z should be zero-padded with DEFAULT_Z
+        assert polyline.array.shape == (3, 3)
+
+    def test_project_pose_se2(self):
+        """Test projecting PoseSE2 onto 3D polyline."""
+        coords = [(0.0, 0.0, 0.0), (2.0, 0.0, 0.0)]
+        linestring = geom.LineString(coords)
+        polyline = Polyline3D.from_linestring(linestring)
+        pose = PoseSE2(1.0, 0.5, 0.0)
+        distance = polyline.project(pose)
+        assert distance == pytest.approx(1.0)

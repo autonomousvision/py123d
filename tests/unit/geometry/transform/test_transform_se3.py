@@ -1,5 +1,6 @@
 import numpy as np
 import numpy.typing as npt
+import pytest
 
 from py123d.geometry import EulerAngles, Point3D, PoseSE3, PoseSE3Index
 from py123d.geometry.transform.transform_se3 import (
@@ -300,6 +301,148 @@ class TestTransformSE3:
     # Deprecation warning tests
     # ──────────────────────────────────────────────────────────────────────────
 
+    # ──────────────────────────────────────────────────────────────────────────
+    # Tests for _matmul_points_3d small-array path
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def test_matmul_points_3d_small_array(self) -> None:
+        """Tests _matmul_points_3d with a small array to hit the np.dot path."""
+        from py123d.geometry.transform.transform_se3 import _matmul_points_3d
+
+        points = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float64)
+        matrix = np.eye(3, dtype=np.float64)
+        result = _matmul_points_3d(points, matrix)
+        np.testing.assert_allclose(result, points, atol=1e-10)
+
+        # With a rotation matrix
+        angle = np.pi / 4
+        R = np.array(
+            [
+                [np.cos(angle), -np.sin(angle), 0],
+                [np.sin(angle), np.cos(angle), 0],
+                [0, 0, 1],
+            ],
+            dtype=np.float64,
+        )
+        result_rot = _matmul_points_3d(points, R)
+        expected = points @ R
+        np.testing.assert_allclose(result_rot, expected, atol=1e-10)
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Tests for _extract_rotation_translation_pose_arrays
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def test_extract_with_ndarray_origin(self) -> None:
+        """Tests that _extract_rotation_translation_pose_arrays works with ndarray input."""
+        from py123d.geometry.transform.transform_se3 import _extract_rotation_translation_pose_arrays
+
+        pose_array = np.zeros(len(PoseSE3Index), dtype=np.float64)
+        pose_array[PoseSE3Index.QW] = 1.0
+        pose_array[PoseSE3Index.X] = 1.0
+        pose_array[PoseSE3Index.Y] = 2.0
+        pose_array[PoseSE3Index.Z] = 3.0
+
+        rotation, translation, result_array = _extract_rotation_translation_pose_arrays(pose_array)
+        np.testing.assert_allclose(rotation, np.eye(3), atol=1e-10)
+        np.testing.assert_allclose(translation, [1.0, 2.0, 3.0], atol=1e-10)
+        np.testing.assert_array_equal(result_array, pose_array)
+
+    def test_extract_type_error(self) -> None:
+        """Tests that _extract_rotation_translation_pose_arrays raises TypeError for invalid input."""
+        from py123d.geometry.transform.transform_se3 import _extract_rotation_translation_pose_arrays
+
+        with pytest.raises(TypeError, match="Expected"):
+            _extract_rotation_translation_pose_arrays("not_a_pose")
+
+        with pytest.raises(TypeError, match="Expected"):
+            _extract_rotation_translation_pose_arrays(42)
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Tests for einsum large-array paths
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def test_abs_to_rel_points_3d_large_array(self) -> None:
+        """Tests abs_to_rel_points_3d_array with large arrays to hit einsum path."""
+        origin = self.quat_se3[0]
+        # Create large array (>8000 points to trigger einsum path)
+        large_points = np.random.rand(10000, 3).astype(np.float64)
+        small_points = large_points[:10]
+
+        # Both should produce consistent round-trip results
+        rel_large = abs_to_rel_points_3d_array(origin, large_points)
+        abs_large = rel_to_abs_points_3d_array(origin, rel_large)
+        np.testing.assert_allclose(abs_large, large_points, atol=1e-6)
+
+        # Verify small subset matches
+        rel_small = abs_to_rel_points_3d_array(origin, small_points)
+        np.testing.assert_allclose(rel_large[:10], rel_small, atol=1e-6)
+
+    def test_abs_to_rel_points_3d_large_3d_array(self) -> None:
+        """Tests abs_to_rel_points_3d_array with large 3D arrays to hit einsum reshape path."""
+        origin = self.quat_se3[0]
+        # 3D array that exceeds threshold when flattened: 100*100*3 = 30000 > 8000*3
+        large_3d_points = np.random.rand(100, 100, 3).astype(np.float64)
+        rel_3d = abs_to_rel_points_3d_array(origin, large_3d_points)
+        abs_3d = rel_to_abs_points_3d_array(origin, rel_3d)
+        np.testing.assert_allclose(abs_3d, large_3d_points, atol=1e-6)
+
+    def test_abs_to_rel_se3_large_array(self) -> None:
+        """Tests abs_to_rel_se3_array with large arrays to hit einsum path."""
+        origin = self.quat_se3[0]
+        large_se3 = self._get_random_quat_se3_array(10000)
+
+        rel_se3 = abs_to_rel_se3_array(origin, large_se3)
+        abs_se3 = rel_to_abs_se3_array(origin, rel_se3)
+        np.testing.assert_allclose(abs_se3[..., PoseSE3Index.XYZ], large_se3[..., PoseSE3Index.XYZ], atol=1e-6)
+
+    def test_rel_to_abs_points_3d_large_array(self) -> None:
+        """Tests rel_to_abs_points_3d_array with large arrays to hit einsum path."""
+        origin = self.quat_se3[0]
+        large_points = np.random.rand(10000, 3).astype(np.float64)
+
+        abs_points = rel_to_abs_points_3d_array(origin, large_points)
+        rel_points = abs_to_rel_points_3d_array(origin, abs_points)
+        np.testing.assert_allclose(rel_points, large_points, atol=1e-6)
+
+    def test_rel_to_abs_se3_large_array(self) -> None:
+        """Tests rel_to_abs_se3_array with large arrays to hit einsum path."""
+        origin = self.quat_se3[0]
+        large_se3 = self._get_random_quat_se3_array(10000)
+
+        abs_se3 = rel_to_abs_se3_array(origin, large_se3)
+        rel_se3 = abs_to_rel_se3_array(origin, abs_se3)
+        np.testing.assert_allclose(rel_se3[..., PoseSE3Index.XYZ], large_se3[..., PoseSE3Index.XYZ], atol=1e-6)
+
+    def test_reframe_se3_large_array(self) -> None:
+        """Tests reframe_se3_array with large arrays to hit einsum path."""
+        from_origin = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+        to_origin = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+        large_se3 = self._get_random_quat_se3_array(10000)
+
+        result = reframe_se3_array(from_origin, to_origin, large_se3)
+
+        # Verify against two-step conversion
+        abs_from = rel_to_abs_se3_array(from_origin, large_se3)
+        expected = abs_to_rel_se3_array(to_origin, abs_from)
+        np.testing.assert_allclose(result[..., PoseSE3Index.XYZ], expected[..., PoseSE3Index.XYZ], atol=1e-6)
+
+    def test_reframe_points_3d_large_array(self) -> None:
+        """Tests reframe_points_3d_array with large arrays to hit einsum path."""
+        from_origin = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+        to_origin = PoseSE3.from_array(self._get_random_quat_se3_array(1)[0])
+        large_points = np.random.rand(10000, 3).astype(np.float64)
+
+        result = reframe_points_3d_array(from_origin, to_origin, large_points)
+
+        # Verify against two-step conversion
+        abs_from = rel_to_abs_points_3d_array(from_origin, large_points)
+        expected = abs_to_rel_points_3d_array(to_origin, abs_from)
+        np.testing.assert_allclose(result, expected, atol=1e-6)
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Deprecation warning tests
+    # ──────────────────────────────────────────────────────────────────────────
+
     def test_deprecated_alias_emits_warning(self) -> None:
         """Tests that old function names emit DeprecationWarning."""
         import warnings
@@ -313,3 +456,92 @@ class TestTransformSE3:
             assert len(w) == 1
             assert issubclass(w[0].category, DeprecationWarning)
             assert "abs_to_rel_se3_array" in str(w[0].message)
+
+    def test_deprecated_convert_absolute_to_relative_points_3d_array(self) -> None:
+        """Tests that convert_absolute_to_relative_points_3d_array emits DeprecationWarning."""
+        import warnings
+
+        from py123d.geometry.transform.transform_se3 import convert_absolute_to_relative_points_3d_array
+
+        origin = PoseSE3.from_R_t(EulerAngles(0.0, 0.0, 0.0), np.array([1.0, 2.0, 3.0]))
+        points = np.array([[2.0, 3.0, 4.0]], dtype=np.float64)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = convert_absolute_to_relative_points_3d_array(origin, points)
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "abs_to_rel_points_3d_array" in str(w[0].message)
+        expected = abs_to_rel_points_3d_array(origin, points)
+        np.testing.assert_allclose(result, expected, atol=1e-10)
+
+    def test_deprecated_convert_relative_to_absolute_points_3d_array(self) -> None:
+        """Tests that convert_relative_to_absolute_points_3d_array emits DeprecationWarning."""
+        import warnings
+
+        from py123d.geometry.transform.transform_se3 import convert_relative_to_absolute_points_3d_array
+
+        origin = PoseSE3.from_R_t(EulerAngles(0.0, 0.0, 0.0), np.array([1.0, 2.0, 3.0]))
+        points = np.array([[1.0, 1.0, 1.0]], dtype=np.float64)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = convert_relative_to_absolute_points_3d_array(origin, points)
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "rel_to_abs_points_3d_array" in str(w[0].message)
+        expected = rel_to_abs_points_3d_array(origin, points)
+        np.testing.assert_allclose(result, expected, atol=1e-10)
+
+    def test_deprecated_convert_relative_to_absolute_se3_array(self) -> None:
+        """Tests that convert_relative_to_absolute_se3_array emits DeprecationWarning."""
+        import warnings
+
+        from py123d.geometry.transform.transform_se3 import convert_relative_to_absolute_se3_array
+
+        origin = PoseSE3.from_R_t(EulerAngles(0.0, 0.0, 0.0), np.array([0.0, 0.0, 0.0]))
+        se3_array = np.zeros((1, len(PoseSE3Index)), dtype=np.float64)
+        se3_array[0, PoseSE3Index.QW] = 1.0
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = convert_relative_to_absolute_se3_array(origin, se3_array)
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "rel_to_abs_se3_array" in str(w[0].message)
+        expected = rel_to_abs_se3_array(origin, se3_array)
+        np.testing.assert_allclose(result, expected, atol=1e-10)
+
+    def test_deprecated_convert_se3_array_between_origins(self) -> None:
+        """Tests that convert_se3_array_between_origins emits DeprecationWarning."""
+        import warnings
+
+        from py123d.geometry.transform.transform_se3 import convert_se3_array_between_origins
+
+        from_origin = PoseSE3.from_R_t(EulerAngles(0.0, 0.0, 0.0), np.array([1.0, 0.0, 0.0]))
+        to_origin = PoseSE3.from_R_t(EulerAngles(0.0, 0.0, 0.0), np.array([0.0, 1.0, 0.0]))
+        se3_array = np.zeros((1, len(PoseSE3Index)), dtype=np.float64)
+        se3_array[0, PoseSE3Index.QW] = 1.0
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = convert_se3_array_between_origins(from_origin, to_origin, se3_array)
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "reframe_se3_array" in str(w[0].message)
+        expected = reframe_se3_array(from_origin, to_origin, se3_array)
+        np.testing.assert_allclose(result, expected, atol=1e-10)
+
+    def test_deprecated_convert_points_3d_array_between_origins(self) -> None:
+        """Tests that convert_points_3d_array_between_origins emits DeprecationWarning."""
+        import warnings
+
+        from py123d.geometry.transform.transform_se3 import convert_points_3d_array_between_origins
+
+        from_origin = PoseSE3.from_R_t(EulerAngles(0.0, 0.0, 0.0), np.array([1.0, 0.0, 0.0]))
+        to_origin = PoseSE3.from_R_t(EulerAngles(0.0, 0.0, 0.0), np.array([0.0, 1.0, 0.0]))
+        points = np.array([[2.0, 3.0, 4.0]], dtype=np.float64)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = convert_points_3d_array_between_origins(from_origin, to_origin, points)
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "reframe_points_3d_array" in str(w[0].message)
+        expected = reframe_points_3d_array(from_origin, to_origin, points)
+        np.testing.assert_allclose(result, expected, atol=1e-10)

@@ -126,6 +126,23 @@ class TestPoint2D:
         with pytest.raises(TypeError):
             _ = p1 + p2
 
+    def test_sub_non_point_or_vector_returns_not_implemented(self):
+        """Test that Point2D - int raises TypeError."""
+        p = Point2D(1.0, 2.0)
+        with pytest.raises(TypeError):
+            _ = p - 5
+
+    def test_point_2d_property(self):
+        """Test that point_2d returns self."""
+        p = Point2D(1.0, 2.0)
+        assert p.point_2d is p
+
+    def test_repr(self):
+        """Test __repr__ returns a string containing the class name."""
+        p = Point2D(1.0, 2.0)
+        r = repr(p)
+        assert "Point2D" in r
+
 
 class TestPoint3D:
     """Unit tests for Point3D class."""
@@ -261,3 +278,20 @@ class TestPoint3D:
         p2 = Point3D(4.0, 5.0, 6.0)
         with pytest.raises(TypeError):
             _ = p1 + p2
+
+    def test_sub_non_point_or_vector_returns_not_implemented(self):
+        """Test that Point3D - int raises TypeError."""
+        p = Point3D(1.0, 2.0, 3.0)
+        with pytest.raises(TypeError):
+            _ = p - 5
+
+    def test_point_3d_property(self):
+        """Test that point_3d returns self."""
+        p = Point3D(1.0, 2.0, 3.0)
+        assert p.point_3d is p
+
+    def test_repr(self):
+        """Test __repr__ returns a string containing the class name."""
+        p = Point3D(1.0, 2.0, 3.0)
+        r = repr(p)
+        assert "Point3D" in r

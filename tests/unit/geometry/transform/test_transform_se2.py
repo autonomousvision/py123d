@@ -1,5 +1,6 @@
 import numpy as np
 import numpy.typing as npt
+import pytest
 
 from py123d.geometry import Point2D, PoseSE2, PoseSE2Index, Vector2D
 from py123d.geometry.transform import (
@@ -405,6 +406,16 @@ class TestTransformSE2:
     # Deprecation warning tests
     # ──────────────────────────────────────────────────────────────────────────
 
+    def test_extract_pose_se2_array_type_error(self) -> None:
+        """Tests that _extract_pose_se2_array raises TypeError for invalid input."""
+        from py123d.geometry.transform.transform_se2 import _extract_pose_se2_array
+
+        with pytest.raises(TypeError, match="Expected"):
+            _extract_pose_se2_array("not_a_pose")
+
+        with pytest.raises(TypeError, match="Expected"):
+            _extract_pose_se2_array(42)
+
     def test_deprecated_alias_emits_warning(self) -> None:
         """Tests that old function names emit DeprecationWarning."""
         import warnings
@@ -417,3 +428,90 @@ class TestTransformSE2:
             assert len(w) == 1
             assert issubclass(w[0].category, DeprecationWarning)
             assert "abs_to_rel_se2_array" in str(w[0].message)
+
+    def test_deprecated_convert_relative_to_absolute_se2_array(self) -> None:
+        """Tests that convert_relative_to_absolute_se2_array emits DeprecationWarning and delegates correctly."""
+        import warnings
+
+        from py123d.geometry.transform.transform_se2 import convert_relative_to_absolute_se2_array
+
+        origin = PoseSE2(1.0, 1.0, 0.0)
+        poses = np.array([[1.0, 1.0, 0.0]], dtype=np.float64)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = convert_relative_to_absolute_se2_array(origin, poses)
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "rel_to_abs_se2_array" in str(w[0].message)
+        expected = rel_to_abs_se2_array(origin, poses)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
+
+    def test_deprecated_convert_se2_array_between_origins(self) -> None:
+        """Tests that convert_se2_array_between_origins emits DeprecationWarning and delegates correctly."""
+        import warnings
+
+        from py123d.geometry.transform.transform_se2 import convert_se2_array_between_origins
+
+        from_origin = PoseSE2(1.0, 0.0, 0.0)
+        to_origin = PoseSE2(0.0, 1.0, np.pi / 2)
+        poses = np.array([[2.0, 0.0, 0.0]], dtype=np.float64)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = convert_se2_array_between_origins(from_origin, to_origin, poses)
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "reframe_se2_array" in str(w[0].message)
+        expected = reframe_se2_array(from_origin, to_origin, poses)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
+
+    def test_deprecated_convert_absolute_to_relative_points_2d_array(self) -> None:
+        """Tests that convert_absolute_to_relative_points_2d_array emits DeprecationWarning."""
+        import warnings
+
+        from py123d.geometry.transform.transform_se2 import convert_absolute_to_relative_points_2d_array
+
+        origin = PoseSE2(1.0, 1.0, 0.0)
+        points = np.array([[2.0, 2.0]], dtype=np.float64)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = convert_absolute_to_relative_points_2d_array(origin, points)
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "abs_to_rel_points_2d_array" in str(w[0].message)
+        expected = abs_to_rel_points_2d_array(origin, points)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
+
+    def test_deprecated_convert_relative_to_absolute_points_2d_array(self) -> None:
+        """Tests that convert_relative_to_absolute_points_2d_array emits DeprecationWarning."""
+        import warnings
+
+        from py123d.geometry.transform.transform_se2 import convert_relative_to_absolute_points_2d_array
+
+        origin = PoseSE2(1.0, 1.0, 0.0)
+        points = np.array([[1.0, 1.0]], dtype=np.float64)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = convert_relative_to_absolute_points_2d_array(origin, points)
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "rel_to_abs_points_2d_array" in str(w[0].message)
+        expected = rel_to_abs_points_2d_array(origin, points)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)
+
+    def test_deprecated_convert_points_2d_array_between_origins(self) -> None:
+        """Tests that convert_points_2d_array_between_origins emits DeprecationWarning."""
+        import warnings
+
+        from py123d.geometry.transform.transform_se2 import convert_points_2d_array_between_origins
+
+        from_origin = PoseSE2(1.0, 0.0, 0.0)
+        to_origin = PoseSE2(0.0, 1.0, np.pi / 2)
+        points = np.array([[2.0, 0.0]], dtype=np.float64)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = convert_points_2d_array_between_origins(from_origin, to_origin, points)
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "reframe_points_2d_array" in str(w[0].message)
+        expected = reframe_points_2d_array(from_origin, to_origin, points)
+        np.testing.assert_array_almost_equal(result, expected, decimal=self.decimal)

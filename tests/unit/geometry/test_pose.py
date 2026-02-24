@@ -177,6 +177,27 @@ class TestPoseSE2:
         pose2 = PoseSE2(x=1.0, y=2.0, yaw=0.6)
         assert pose1 != pose2
 
+    def test_repr(self):
+        """Test __repr__ returns a string containing the class name."""
+        pose = PoseSE2(x=1.0, y=2.0, yaw=0.5)
+        r = repr(pose)
+        assert "PoseSE2" in r
+
+    def test_from_R_t_invalid_translation_type(self):
+        """Test from_R_t with invalid translation type raises ValueError."""
+        with pytest.raises(ValueError, match="Unsupported translation type"):
+            PoseSE2.from_R_t(rotation=0.0, translation="bad")
+
+    def test_from_R_t_invalid_rotation_ndarray_shape(self):
+        """Test from_R_t with invalid rotation ndarray shape raises ValueError."""
+        with pytest.raises(ValueError, match="Expected rotation"):
+            PoseSE2.from_R_t(rotation=np.array([1.0, 2.0, 3.0]), translation=np.array([0.0, 0.0]))
+
+    def test_from_R_t_invalid_rotation_type(self):
+        """Test from_R_t with invalid rotation type raises ValueError."""
+        with pytest.raises(ValueError, match="Unsupported rotation type"):
+            PoseSE2.from_R_t(rotation="bad", translation=np.array([0.0, 0.0]))
+
 
 class TestPoseSE3:
     def test_init(self):
@@ -395,3 +416,33 @@ class TestPoseSE3:
         # pose * inverse should give identity
         T = pose.transformation_matrix @ inv.transformation_matrix
         np.testing.assert_allclose(T, np.eye(4), atol=1e-10)
+
+    def test_repr(self):
+        """Test __repr__ returns a string containing the class name."""
+        pose = PoseSE3(x=1.0, y=2.0, z=3.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
+        r = repr(pose)
+        assert "PoseSE3" in r
+
+    def test_from_R_t_invalid_translation_type(self):
+        """Test from_R_t with invalid translation type raises ValueError."""
+        with pytest.raises(ValueError, match="Unsupported translation type"):
+            PoseSE3.from_R_t(rotation=EulerAngles(0.0, 0.0, 0.0), translation="bad")
+
+    def test_from_R_t_invalid_rotation_ndarray_shape(self):
+        """Test from_R_t with invalid rotation ndarray shape raises ValueError."""
+        with pytest.raises(ValueError, match="Expected rotation"):
+            PoseSE3.from_R_t(rotation=np.array([1.0, 2.0]), translation=np.array([0.0, 0.0, 0.0]))
+
+    def test_from_R_t_invalid_rotation_type(self):
+        """Test from_R_t with invalid rotation type raises ValueError."""
+        with pytest.raises(ValueError, match="Unsupported rotation type"):
+            PoseSE3.from_R_t(rotation="bad", translation=np.array([0.0, 0.0, 0.0]))
+
+    def test_from_R_t_with_euler_angles(self):
+        """Test from_R_t with EulerAngles rotation."""
+        euler = EulerAngles(0.0, 0.0, np.pi / 2)
+        pose = PoseSE3.from_R_t(euler, np.array([1.0, 2.0, 3.0]))
+        assert pose.x == 1.0
+        assert pose.y == 2.0
+        assert pose.z == 3.0
+        assert pytest.approx(pose.yaw) == np.pi / 2

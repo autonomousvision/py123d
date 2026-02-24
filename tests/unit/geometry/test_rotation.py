@@ -74,6 +74,11 @@ class TestEulerAngles:
         assert array[EulerAnglesIndex.PITCH] == self.pitch
         assert array[EulerAnglesIndex.YAW] == self.yaw
 
+    def test_repr(self):
+        """Test __repr__ returns a string containing the class name."""
+        r = repr(self.euler_angles)
+        assert "EulerAngles" in r
+
 
 class TestQuaternion:
     """Unit tests for Quaternion class."""
@@ -176,3 +181,8 @@ class TestQuaternion:
         rot_matrix = self.quaternion.rotation_matrix
         assert rot_matrix.shape == (3, 3)
         np.testing.assert_array_almost_equal(rot_matrix, np.eye(3))
+
+    def test_repr(self):
+        """Test __repr__ returns a string containing the class name."""
+        r = repr(self.quaternion)
+        assert "Quaternion" in r

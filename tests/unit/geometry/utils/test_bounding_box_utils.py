@@ -447,3 +447,33 @@ class TestBoundingBoxUtils:  # noqa: PLR0904
         ).T
         assert is_interior.shape == (3, 6)
         np.testing.assert_array_equal(is_interior, is_interior_expected)
+
+    def test_points_3d_in_bbse3_array_with_z_axis_threshold(self):
+        """Test points_3d_in_bbse3_array with z_axis_threshold to crop ground points."""
+        # Box centered at origin, identity rotation, size 2x2x2 (extends from -1 to +1 in all axes)
+        bounding_box_se3_array = np.array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 2.0, 2.0])
+
+        points_3d = np.array(
+            [
+                [0.0, 0.0, 0.0],  # Center of original box
+                [0.0, 0.0, -0.9],  # Near bottom of original box
+                [0.0, 0.0, 0.9],  # Near top of original box
+                [0.0, 0.0, -1.5],  # Below original box
+                [0.0, 0.0, 1.0],  # At new center after threshold
+            ]
+        )
+
+        # Without threshold, center and near-bottom/top are inside
+        result_no_threshold = points_3d_in_bbse3_array(points_3d, bounding_box_se3_array)
+        np.testing.assert_array_equal(result_no_threshold, [True, True, True, False, True])
+
+        # With z_axis_threshold = 1.0: box center moves up by 1.0 (to z=1),
+        # and height is reduced by 1.0 (from 2.0 to 1.0).
+        # New box extends from z=0.5 to z=1.5.
+        result_with_threshold = points_3d_in_bbse3_array(points_3d, bounding_box_se3_array, z_axis_threshold=1.0)
+
+        assert not result_with_threshold[0]  # z=0 is below new box (0.5 to 1.5)
+        assert not result_with_threshold[1]  # z=-0.9 is well below new box
+        assert result_with_threshold[2]  # z=0.9 is inside new box (0.5 to 1.5)
+        assert not result_with_threshold[3]  # z=-1.5 still below
+        assert result_with_threshold[4]  # z=1.0 is at new center, inside

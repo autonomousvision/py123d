@@ -128,6 +128,12 @@ class TestVector2D:
         assert neg_v.x == -3.0
         assert neg_v.y == 4.0
 
+    def test_repr(self):
+        """Test __repr__ returns a string containing the class name."""
+        v = Vector2D(1.0, 2.0)
+        r = repr(v)
+        assert "Vector2D" in r
+
 
 class TestVector3D:
     """Unit tests for Vector3D class."""
@@ -270,3 +276,9 @@ class TestVector3D:
         assert neg_v.x == -3.0
         assert neg_v.y == 4.0
         assert neg_v.z == -5.0
+
+    def test_repr(self):
+        """Test __repr__ returns a string containing the class name."""
+        v = Vector3D(1.0, 2.0, 3.0)
+        r = repr(v)
+        assert "Vector3D" in r

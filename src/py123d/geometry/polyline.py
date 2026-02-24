@@ -136,7 +136,7 @@ class Polyline2D(ArrayMixin):
         elif isinstance(point, geom.Point):
             point_ = point
         else:
-            point_ = np.array(point, dtype=np.float64)
+            point_ = geom.Point(np.array(point, dtype=np.float64))
         return self._linestring.project(point_, normalized=normalized)  # type: ignore
 
 
@@ -269,7 +269,7 @@ class PolylineSE2(ArrayMixin):
         elif isinstance(point, geom.Point):
             point_ = point
         else:
-            point_ = np.array(point, dtype=np.float64)
+            point_ = geom.Point(np.array(point, dtype=np.float64))
         return self.linestring.project(point_, normalized=normalized)  # type: ignore
 
 
@@ -414,5 +414,5 @@ class Polyline3D(ArrayMixin):
         elif isinstance(point, geom.Point):
             point_ = point
         else:
-            point_ = np.array(point, dtype=np.float64)
+            point_ = geom.Point(np.array(point, dtype=np.float64))
         return self.linestring.project(point_, normalized=normalized)  # type: ignore

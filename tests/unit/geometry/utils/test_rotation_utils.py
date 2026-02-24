@@ -7,6 +7,7 @@ from pyquaternion import Quaternion as PyQuaternion
 
 from py123d.geometry.geometry_index import EulerAnglesIndex, QuaternionIndex
 from py123d.geometry.utils.rotation_utils import (
+    batch_matmul,
     conjugate_quaternion_array,
     get_euler_array_from_quaternion_array,
     get_euler_array_from_rotation_matrices,
@@ -741,6 +742,36 @@ class TestRotationUtils:
             invalid_quat1 = np.zeros((len(QuaternionIndex), 8))  # Zero quaternion (invalid)
             invalid_quat2 = np.zeros((len(QuaternionIndex), 4))  # Zero quaternion (invalid)
             multiply_quaternion_arrays(invalid_quat1, invalid_quat2)
+
+    def test_batch_matmul(self):
+        """Test the batch_matmul function."""
+        # Basic 2D matrix multiplication
+        A = np.random.rand(3, 4).astype(np.float64)
+        B = np.random.rand(4, 5).astype(np.float64)
+        result = batch_matmul(A, B)
+        expected = A @ B
+        np.testing.assert_allclose(result, expected, atol=1e-10)
+
+        # Batched matrix multiplication
+        A_batch = np.random.rand(7, 3, 4).astype(np.float64)
+        B_batch = np.random.rand(7, 4, 5).astype(np.float64)
+        result_batch = batch_matmul(A_batch, B_batch)
+        for i in range(7):
+            np.testing.assert_allclose(result_batch[i], A_batch[i] @ B_batch[i], atol=1e-10)
+
+        # Higher-dimensional batch
+        A_3d = np.random.rand(2, 3, 4, 5).astype(np.float64)
+        B_3d = np.random.rand(2, 3, 5, 6).astype(np.float64)
+        result_3d = batch_matmul(A_3d, B_3d)
+        assert result_3d.shape == (2, 3, 4, 6)
+
+        # Test assertion on incompatible dimensions
+        with pytest.raises(AssertionError, match="Inner dimensions must match"):
+            batch_matmul(np.random.rand(3, 4), np.random.rand(5, 6))
+
+        # Test assertion on 1D input
+        with pytest.raises(AssertionError):
+            batch_matmul(np.array([1.0, 2.0]), np.random.rand(2, 3))
 
     def test_normalize_angle(self):
         """Test the normalize_angle function."""
