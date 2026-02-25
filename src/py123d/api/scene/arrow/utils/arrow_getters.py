@@ -14,7 +14,7 @@ from py123d.common.utils.arrow_column_names import (
     BOX_DETECTIONS_TOKEN_COLUMN,
     BOX_DETECTIONS_VELOCITY_3D_COLUMN,
     EGO_DYNAMIC_STATE_SE3_COLUMN,
-    EGO_REAR_AXLE_SE3_COLUMN,
+    EGO_IMU_SE3_COLUMN,
     EGO_STATE_SE3_COLUMNS,
     FISHEYE_CAMERA_DATA_COLUMN,
     FISHEYE_CAMERA_EXTRINSIC_COLUMN,
@@ -99,13 +99,13 @@ def get_ego_state_se3_from_arrow_table(
     ego_state_se3: Optional[EgoStateSE3] = None
     if _all_columns_in_schema(arrow_table, EGO_STATE_SE3_COLUMNS) and vehicle_parameters is not None:
         timestamp = get_timestamp_from_arrow_table(arrow_table, index)
-        rear_axle_se3 = PoseSE3.from_list(arrow_table[EGO_REAR_AXLE_SE3_COLUMN][index].as_py())
+        imu_se3 = PoseSE3.from_list(arrow_table[EGO_IMU_SE3_COLUMN][index].as_py())
         dynamic_state_se3 = _get_optional_array_mixin(
             arrow_table[EGO_DYNAMIC_STATE_SE3_COLUMN][index].as_py(),
             DynamicStateSE3,
         )
-        ego_state_se3 = EgoStateSE3.from_rear_axle(
-            rear_axle_se3=rear_axle_se3,
+        ego_state_se3 = EgoStateSE3.from_imu(
+            imu_se3=imu_se3,
             vehicle_parameters=vehicle_parameters,
             dynamic_state_se3=dynamic_state_se3,
             timestamp=timestamp,
@@ -369,7 +369,7 @@ def get_lidar_from_arrow_table(
                 metadata=LidarMetadata(
                     lidar_name=LidarID.LIDAR_MERGED.serialize(),
                     lidar_id=LidarID.LIDAR_MERGED,
-                    extrinsic=PoseSE3.identity(),
+                    lidar_to_imu_se3=PoseSE3.identity(),
                 ),
                 point_cloud_3d=point_cloud_3d,
                 point_cloud_features=point_cloud_feature,

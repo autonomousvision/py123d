@@ -487,8 +487,8 @@ def _extract_ego_state_from_sample_data(
         acceleration=Vector3D(*acceleration),
         angular_velocity=Vector3D(*angular_velocity),
     )
-    return EgoStateSE3.from_rear_axle(
-        rear_axle_se3=imu_pose,
+    return EgoStateSE3.from_imu(
+        imu_se3=imu_pose,
         dynamic_state_se3=dynamic_state,
         vehicle_parameters=vehicle_parameters,
     )
@@ -880,7 +880,7 @@ def _get_nuscenes_pinhole_camera_metadata(
                 height=cam_data["height"],
                 intrinsics=intrinsic,
                 distortion=distortion,
-                static_extrinsic=extrinsic,
+                camera_to_imu_se3=extrinsic,
                 is_undistorted=True,
             )
 
@@ -902,14 +902,14 @@ def _get_nuscenes_lidar_metadata(
         calib = nusc.get("calibrated_sensor", lidar_data["calibrated_sensor_token"])
         translation = np.array(calib["translation"])
         rotation = Quaternion(calib["rotation"]).rotation_matrix
-        extrinsic = np.eye(4)
-        extrinsic[:3, :3] = rotation
-        extrinsic[:3, 3] = translation
-        extrinsic = PoseSE3.from_transformation_matrix(extrinsic)
+        lidar_to_imu_se3 = np.eye(4)
+        lidar_to_imu_se3[:3, :3] = rotation
+        lidar_to_imu_se3[:3, 3] = translation
+        lidar_to_imu_se3 = PoseSE3.from_transformation_matrix(lidar_to_imu_se3)
         metadata[LidarID.LIDAR_TOP] = LidarMetadata(
             lidar_name="LIDAR_TOP",
             lidar_id=LidarID.LIDAR_TOP,
-            extrinsic=extrinsic,
+            lidar_to_imu_se3=lidar_to_imu_se3,
         )
     return metadata
 

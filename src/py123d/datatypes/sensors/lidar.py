@@ -72,24 +72,24 @@ LIDAR_FEATURE_DTYPES: Dict[LidarFeature, Type] = {
 class LidarMetadata:
     """Metadata for Lidar sensor, static for a given sensor."""
 
-    __slots__ = ("_lidar_name", "_lidar_id", "_extrinsic")
+    __slots__ = ("_lidar_name", "_lidar_id", "_lidar_to_imu_se3")
 
     def __init__(
         self,
         lidar_name: str,
         lidar_id: LidarID,
-        extrinsic: Optional[PoseSE3] = None,
+        lidar_to_imu_se3: PoseSE3 = PoseSE3.identity(),
     ):
         """Initialize Lidar metadata.
 
         :param lidar_name: The name of the Lidar sensor from the dataset.
         :param lidar_id: The ID of the Lidar sensor.
         :param lidar_index: The indexing schema of the Lidar point cloud.
-        :param extrinsic: The extrinsic pose of the Lidar sensor, defaults to None
+        :param lidar_to_imu_se3: The extrinsic pose of the Lidar sensor relative to the IMU
         """
         self._lidar_name = lidar_name
         self._lidar_id = lidar_id
-        self._extrinsic = extrinsic
+        self._lidar_to_imu_se3 = lidar_to_imu_se3
 
     @property
     def lidar_name(self) -> str:
@@ -102,9 +102,14 @@ class LidarMetadata:
         return self._lidar_id
 
     @property
-    def extrinsic(self) -> Optional[PoseSE3]:
-        """The extrinsic :class:`~py123d.geometry.PoseSE3` of the Lidar sensor, relative to the vehicle frame."""
-        return self._extrinsic
+    def lidar_to_imu_se3(self) -> PoseSE3:
+        """The extrinsic :class:`~py123d.geometry.PoseSE3` of the Lidar sensor, relative to the IMU frame."""
+        return self._lidar_to_imu_se3
+
+    @property
+    def extrinsic(self) -> PoseSE3:
+        """The extrinsic :class:`~py123d.geometry.PoseSE3` of the Lidar sensor, relative to the IMU frame."""
+        return self._lidar_to_imu_se3
 
     @classmethod
     def from_dict(cls, data_dict: dict) -> LidarMetadata:
@@ -114,12 +119,9 @@ class LidarMetadata:
         :raises ValueError: If the dictionary is missing required fields or contains invalid data.
         :return: An instance of LidarMetadata.
         """
-        lidar_id = LidarID[data_dict["lidar_id"]]
-        if "extrinsic" in data_dict and data_dict["extrinsic"] is not None:
-            extrinsic = PoseSE3.from_list(data_dict["extrinsic"])
-        else:
-            extrinsic = PoseSE3.identity()
-        return cls(lidar_name=data_dict["lidar_name"], lidar_id=lidar_id, extrinsic=extrinsic)
+        data_dict["lidar_id"] = LidarID[data_dict["lidar_id"]]
+        data_dict["lidar_to_imu_se3"] = PoseSE3.from_list(data_dict["lidar_to_imu_se3"])
+        return cls(**data_dict)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the Lidar metadata to a dictionary.
@@ -129,7 +131,7 @@ class LidarMetadata:
         return {
             "lidar_name": self.lidar_name,
             "lidar_id": self.lidar_id.name,
-            "extrinsic": self.extrinsic.tolist() if self.extrinsic is not None else None,
+            "lidar_to_imu_se3": self.lidar_to_imu_se3.tolist(),
         }
 
 

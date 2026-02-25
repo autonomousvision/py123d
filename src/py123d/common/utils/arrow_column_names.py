@@ -7,13 +7,10 @@ TIMESTAMP_US_COLUMN: Final[str] = "timestamp_us"
 
 # Ego State SE3
 # ----------------------------------------------------------------------------------------------------------------------
-EGO_REAR_AXLE_SE3_COLUMN: Final[str] = "ego.rear_axle_se3"
+EGO_IMU_SE3_COLUMN: Final[str] = "ego.imu_se3"
 EGO_DYNAMIC_STATE_SE3_COLUMN: Final[str] = "ego.dynamic_state_se3"
 
-EGO_STATE_SE3_COLUMNS: Final[List[str]] = [
-    EGO_REAR_AXLE_SE3_COLUMN,
-    EGO_DYNAMIC_STATE_SE3_COLUMN,
-]
+EGO_STATE_SE3_COLUMNS: Final[List[str]] = [EGO_IMU_SE3_COLUMN, EGO_DYNAMIC_STATE_SE3_COLUMN]
 
 
 # Box Detections SE3
@@ -39,10 +36,7 @@ TRAFFIC_LIGHTS_PREFIX: Final[str] = "traffic_lights"
 TRAFFIC_LIGHTS_LANE_ID_COLUMN: Final[str] = f"{TRAFFIC_LIGHTS_PREFIX}.lane_id"
 TRAFFIC_LIGHTS_STATUS_COLUMN: Final[str] = f"{TRAFFIC_LIGHTS_PREFIX}.status"
 
-TRAFFIC_LIGHTS_COLUMNS: Final[List[str]] = [
-    TRAFFIC_LIGHTS_LANE_ID_COLUMN,
-    TRAFFIC_LIGHTS_STATUS_COLUMN,
-]
+TRAFFIC_LIGHTS_COLUMNS: Final[List[str]] = [TRAFFIC_LIGHTS_LANE_ID_COLUMN, TRAFFIC_LIGHTS_STATUS_COLUMN]
 
 # Pinhole Cameras
 # ----------------------------------------------------------------------------------------------------------------------

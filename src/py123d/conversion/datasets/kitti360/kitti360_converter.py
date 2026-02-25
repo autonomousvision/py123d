@@ -49,7 +49,6 @@ from py123d.datatypes import (
 )
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_kitti360_vw_passat_parameters
 from py123d.geometry import BoundingBoxSE3, PoseSE3, Quaternion, Vector3D
-from py123d.geometry.transform import reframe_se3_array, translate_se3_along_body_frame
 
 KITTI360_DT: Final[float] = 0.1
 KITTI360_LIDAR_NAME: Final[str] = "velodyne_points"
@@ -359,7 +358,7 @@ def _get_kitti360_pinhole_camera_metadata(
                 height=persp_result[pcam_name]["wh"][1],
                 intrinsics=PinholeIntrinsics.from_camera_matrix(np.array(persp_result[pcam_name]["intrinsic"])),
                 distortion=PinholeDistortion.from_array(np.array(persp_result[pcam_name]["distortion"])),
-                static_extrinsic=camera_calibration[pcam_name],
+                camera_to_imu_se3=camera_calibration[pcam_name],
                 is_undistorted=True,
             )
 
@@ -409,7 +408,7 @@ def _get_kitti360_fisheye_mei_camera_metadata(
                 mirror_parameter=float(fisheye_result[fcam_name]["mirror_parameters"]["xi"]),
                 distortion=distortion,
                 projection=projection,
-                static_extrinsic=camera_calibration[fcam_name],
+                camera_to_imu_se3=camera_calibration[fcam_name],
             )
 
     return fisheye_cam_metadatas
@@ -460,11 +459,12 @@ def _get_kitti360_lidar_metadata(
     if dataset_converter_config.include_lidars:
         extrinsic = get_kitti360_lidar_extrinsic(kitti360_folders[DIR_CALIB])
         extrinsic_pose_se3 = PoseSE3.from_transformation_matrix(extrinsic)
-        extrinsic_pose_se3 = _extrinsic_from_imu_to_rear_axle(extrinsic_pose_se3)
+        # TODO: remove when stable.
+        # extrinsic_pose_se3 = _extrinsic_from_imu_to_rear_axle(extrinsic_pose_se3)
         metadata[LidarID.LIDAR_TOP] = LidarMetadata(
             lidar_name=KITTI360_LIDAR_NAME,
             lidar_id=LidarID.LIDAR_TOP,
-            extrinsic=extrinsic_pose_se3,
+            lidar_to_imu_se3=extrinsic_pose_se3,
         )
     return metadata
 
@@ -536,7 +536,7 @@ def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> 
         R_mat_cali = R_mat @ KITTI3602NUPLAN_IMU_CALIBRATION[:3, :3]
 
         ego_quaternion = Quaternion.from_rotation_matrix(R_mat_cali)
-        imu_pose = PoseSE3(
+        imu_pose_se3 = PoseSE3(
             x=poses[pos, 4],
             y=poses[pos, 8],
             z=poses[pos, 12],
@@ -544,11 +544,6 @@ def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> 
             qx=ego_quaternion.qx,
             qy=ego_quaternion.qy,
             qz=ego_quaternion.qz,
-        )
-
-        rear_axle_se3 = translate_se3_along_body_frame(
-            imu_pose,
-            Vector3D(0.05, -0.32, 0.0),
         )
 
         oxts_path_file = oxts_path / f"{int(valid_timestamp[idx]):010d}.txt"
@@ -563,8 +558,8 @@ def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> 
         else:
             dynamic_state_se3 = None
         ego_state_all.append(
-            EgoStateSE3.from_rear_axle(
-                rear_axle_se3=rear_axle_se3,
+            EgoStateSE3.from_imu(
+                imu_se3=imu_pose_se3,
                 vehicle_parameters=vehicle_parameters,
                 dynamic_state_se3=dynamic_state_se3,
             )
@@ -810,13 +805,5 @@ def _load_kitti_360_calibration(kitti_360_data_root: Path) -> Dict[str, PoseSE3]
             cam2pose = np.concatenate((matrix, lastrow))
             cam2pose = KITTI3602NUPLAN_IMU_CALIBRATION @ cam2pose
             camera_extrinsic = PoseSE3.from_transformation_matrix(cam2pose)
-            camera_extrinsic = _extrinsic_from_imu_to_rear_axle(camera_extrinsic)
             calib_dict[key] = camera_extrinsic
     return calib_dict
-
-
-def _extrinsic_from_imu_to_rear_axle(extrinsic: PoseSE3) -> PoseSE3:
-    """Convert extrinsic from IMU origin to rear axle origin."""
-    imu_se3 = PoseSE3(x=-0.05, y=0.32, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
-    rear_axle_se3 = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
-    return PoseSE3.from_array(reframe_se3_array(imu_se3, rear_axle_se3, extrinsic.array))

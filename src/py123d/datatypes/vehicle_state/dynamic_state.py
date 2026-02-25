@@ -102,7 +102,7 @@ class DynamicStateSE3(ArrayMixin):
         assert array.ndim == 1
         assert array.shape[0] == len(DynamicStateSE3Index)
         instance = object.__new__(cls)
-        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        instance._array = array.copy() if copy else array
         return instance
 
     @property
@@ -215,7 +215,7 @@ class DynamicStateSE2(ArrayMixin):
         assert array.ndim == 1
         assert array.shape[0] == len(DynamicStateSE2Index)
         instance = object.__new__(cls)
-        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        instance._array = array.copy() if copy else array
         return instance
 
     @property

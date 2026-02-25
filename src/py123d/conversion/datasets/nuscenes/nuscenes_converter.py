@@ -244,7 +244,7 @@ def _get_nuscenes_pinhole_camera_metadata(
             # Extrinsic parameters
             translation_array = np.array(calib["translation"], dtype=np.float64)  # array of shape (3,)
             rotation_array = np.array(calib["rotation"], dtype=np.float64)  # array of shape (4,)
-            extrinsic = PoseSE3.from_R_t(rotation=rotation_array, translation=translation_array)
+            camera_to_imu_se3 = PoseSE3.from_R_t(rotation=rotation_array, translation=translation_array)
 
             camera_metadata[camera_type] = PinholeCameraMetadata(
                 camera_name=camera_channel,
@@ -253,7 +253,7 @@ def _get_nuscenes_pinhole_camera_metadata(
                 height=cam_data["height"],
                 intrinsics=intrinsic,
                 distortion=distortion,
-                static_extrinsic=extrinsic,
+                camera_to_imu_se3=camera_to_imu_se3,
                 is_undistorted=True,
             )
 
@@ -275,14 +275,14 @@ def _get_nuscenes_lidar_metadata(
         calib = nusc.get("calibrated_sensor", lidar_data["calibrated_sensor_token"])
         translation = np.array(calib["translation"])
         rotation = Quaternion(calib["rotation"]).rotation_matrix
-        extrinsic = np.eye(4)
-        extrinsic[:3, :3] = rotation
-        extrinsic[:3, 3] = translation
-        extrinsic = PoseSE3.from_transformation_matrix(extrinsic)
+        lidar_to_imu_se3 = np.eye(4)
+        lidar_to_imu_se3[:3, :3] = rotation
+        lidar_to_imu_se3[:3, 3] = translation
+        lidar_to_imu_se3 = PoseSE3.from_transformation_matrix(lidar_to_imu_se3)
         metadata[LidarID.LIDAR_TOP] = LidarMetadata(
             lidar_name="LIDAR_TOP",
             lidar_id=LidarID.LIDAR_TOP,
-            extrinsic=extrinsic,
+            lidar_to_imu_se3=lidar_to_imu_se3,
         )
     return metadata
 
@@ -342,8 +342,8 @@ def _extract_nuscenes_ego_state(nusc, sample, can_bus) -> EgoStateSE3:
         acceleration=Vector3D(*acceleration),
         angular_velocity=Vector3D(*angular_velocity),
     )
-    return EgoStateSE3.from_rear_axle(
-        rear_axle_se3=imu_pose,
+    return EgoStateSE3.from_imu(
+        imu_se3=imu_pose,
         dynamic_state_se3=dynamic_state,
         vehicle_parameters=vehicle_parameters,
     )
@@ -417,7 +417,6 @@ def _extract_nuscenes_cameras(
             translation_array = np.array(calib["translation"], dtype=np.float64)  # array of shape (3,)
             rotation_array = np.array(calib["rotation"], dtype=np.float64)  # array of shape (4,)
             extrinsic = PoseSE3.from_R_t(rotation=rotation_array, translation=translation_array)
-
             cam_path = nuscenes_data_root / str(cam_data["filename"])
             if cam_path.exists() and cam_path.is_file():
                 camera_data_list.append(

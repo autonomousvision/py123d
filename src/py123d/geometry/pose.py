@@ -67,7 +67,7 @@ class PoseSE2(ArrayMixin):
         assert array.ndim == 1
         assert array.shape[0] == len(PoseSE2Index)
         instance = object.__new__(cls)
-        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        instance._array = array.copy() if copy else array
         return instance
 
     @classmethod
@@ -258,7 +258,7 @@ class PoseSE3(ArrayMixin):
         assert array.ndim == 1
         assert array.shape[0] == len(PoseSE3Index)
         instance = object.__new__(cls)
-        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        instance._array = array.copy() if copy else array
         return instance
 
     @classmethod

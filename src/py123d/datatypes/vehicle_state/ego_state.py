@@ -8,10 +8,14 @@ from py123d.datatypes.time.time_point import Timestamp
 from py123d.datatypes.vehicle_state.dynamic_state import DynamicStateSE2, DynamicStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import (
     VehicleParameters,
-    center_se2_to_rear_axle_se2,
-    center_se3_to_rear_axle_se3,
-    rear_axle_se2_to_center_se2,
-    rear_axle_se3_to_center_se3,
+    center_se2_to_imu_se2,
+    center_se3_to_imu_se3,
+    imu_se2_to_center_se2,
+    imu_se2_to_rear_axle_se2,
+    imu_se3_to_center_se3,
+    imu_se3_to_rear_axle_se3,
+    rear_axle_se2_to_imu_se2,
+    rear_axle_se3_to_imu_se3,
 )
 from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, PoseSE2, PoseSE3
 
@@ -20,64 +24,52 @@ EGO_TRACK_TOKEN: Final[str] = "ego_vehicle"
 
 class EgoStateSE3:
     """The EgoStateSE3 represents the state of the ego vehicle in SE3 (3D space).
-    It includes the rear axle pose, vehicle parameters, optional dynamic state,
-    optional timestamp, and optional tire steering angle.
+
+    The IMU pose is the primary internal representation. Rear axle, center,
+    and SE2 poses are computed on demand via the vehicle parameters.
     """
 
-    def __init__(
-        self,
-        rear_axle_se3: PoseSE3,
-        vehicle_parameters: VehicleParameters,
-        dynamic_state_se3: Optional[DynamicStateSE3] = None,
-        timestamp: Optional[Timestamp] = None,
-        tire_steering_angle: Optional[float] = 0.0,
-    ):
-        """Initialize an :class:`EgoStateSE3` instance.
+    __slots__ = (
+        "_imu_se3",
+        "_vehicle_parameters",
+        "_dynamic_state_se3",
+        "_timestamp",
+        "_tire_steering_angle",
+    )
 
-        :param rear_axle_se3: The pose of the rear axle in SE3.
-        :param vehicle_parameters: The parameters of the vehicle.
-        :param dynamic_state_se3: The dynamic state of the vehicle, defaults to None.
-        :param timestamp: The timestamp of the state, defaults to None.
-        :param tire_steering_angle: The tire steering angle, defaults to 0.0.
-        """
-        self._rear_axle_se3 = rear_axle_se3
-        self._vehicle_parameters = vehicle_parameters
-        self._dynamic_state_se3 = dynamic_state_se3
-        self._timestamp: Optional[Timestamp] = timestamp
-        self._tire_steering_angle: Optional[float] = tire_steering_angle
+    _imu_se3: PoseSE3
+    _vehicle_parameters: VehicleParameters
+    _dynamic_state_se3: Optional[DynamicStateSE3]
+    _timestamp: Optional[Timestamp]
+    _tire_steering_angle: Optional[float]
 
     @classmethod
-    def from_center(
+    def from_imu(
         cls,
-        center_se3: PoseSE3,
+        imu_se3: PoseSE3,
         vehicle_parameters: VehicleParameters,
         dynamic_state_se3: Optional[DynamicStateSE3] = None,
         timestamp: Optional[Timestamp] = None,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE3:
-        """Create an :class:`EgoStateSE3` from the center pose.
+        """Create an :class:`EgoStateSE3` from the IMU pose.
 
-        :param center_se3: The center pose in SE3.
+        This is the canonical factory method. The IMU pose is stored directly.
+
+        :param imu_se3: The pose of the IMU in the global frame.
         :param vehicle_parameters: The parameters of the vehicle.
         :param dynamic_state_se3: The dynamic state of the vehicle, defaults to None.
         :param timestamp: The timestamp of the state, defaults to None.
         :param tire_steering_angle: The tire steering angle, defaults to 0.0.
         :return: An :class:`EgoStateSE3` instance.
         """
-
-        rear_axle_se3 = center_se3_to_rear_axle_se3(
-            center_se3=center_se3,
-            vehicle_parameters=vehicle_parameters,
-        )
-
-        # TODO @DanielDauner: Adapt dynamic state from center to rear-axle
-        return EgoStateSE3.from_rear_axle(
-            rear_axle_se3=rear_axle_se3,
-            vehicle_parameters=vehicle_parameters,
-            dynamic_state_se3=dynamic_state_se3,
-            timestamp=timestamp,
-            tire_steering_angle=tire_steering_angle,
-        )
+        instance = object.__new__(cls)
+        instance._imu_se3 = imu_se3
+        instance._vehicle_parameters = vehicle_parameters
+        instance._dynamic_state_se3 = dynamic_state_se3
+        instance._timestamp = timestamp
+        instance._tire_steering_angle = tire_steering_angle
+        return instance
 
     @classmethod
     def from_rear_axle(
@@ -90,6 +82,9 @@ class EgoStateSE3:
     ) -> EgoStateSE3:
         """Create an :class:`EgoStateSE3` from the rear axle pose.
 
+        Converts the rear axle pose to the IMU pose using the vehicle's
+        ``rear_axle_to_imu_se3`` extrinsic calibration.
+
         :param rear_axle_se3: The pose of the rear axle in SE3.
         :param vehicle_parameters: The parameters of the vehicle.
         :param dynamic_state_se3: The dynamic state of the vehicle, defaults to None.
@@ -97,9 +92,45 @@ class EgoStateSE3:
         :param tire_steering_angle: The tire steering angle, defaults to 0.0.
         :return: An :class:`EgoStateSE3` instance.
         """
-
-        return EgoStateSE3(
+        imu_se3 = rear_axle_se3_to_imu_se3(
             rear_axle_se3=rear_axle_se3,
+            vehicle_parameters=vehicle_parameters,
+        )
+        return EgoStateSE3.from_imu(
+            imu_se3=imu_se3,
+            vehicle_parameters=vehicle_parameters,
+            dynamic_state_se3=dynamic_state_se3,
+            timestamp=timestamp,
+            tire_steering_angle=tire_steering_angle,
+        )
+
+    @classmethod
+    def from_center(
+        cls,
+        center_se3: PoseSE3,
+        vehicle_parameters: VehicleParameters,
+        dynamic_state_se3: Optional[DynamicStateSE3] = None,
+        timestamp: Optional[Timestamp] = None,
+        tire_steering_angle: float = 0.0,
+    ) -> EgoStateSE3:
+        """Create an :class:`EgoStateSE3` from the center pose.
+
+        Converts the center pose to the IMU pose using the vehicle's
+        ``center_to_imu_se3`` extrinsic calibration.
+
+        :param center_se3: The center pose in SE3.
+        :param vehicle_parameters: The parameters of the vehicle.
+        :param dynamic_state_se3: The dynamic state of the vehicle, defaults to None.
+        :param timestamp: The timestamp of the state, defaults to None.
+        :param tire_steering_angle: The tire steering angle, defaults to 0.0.
+        :return: An :class:`EgoStateSE3` instance.
+        """
+        imu_se3 = center_se3_to_imu_se3(
+            center_se3=center_se3,
+            vehicle_parameters=vehicle_parameters,
+        )
+        return EgoStateSE3.from_imu(
+            imu_se3=imu_se3,
             vehicle_parameters=vehicle_parameters,
             dynamic_state_se3=dynamic_state_se3,
             timestamp=timestamp,
@@ -107,14 +138,24 @@ class EgoStateSE3:
         )
 
     @property
+    def imu_se3(self) -> PoseSE3:
+        """The :class:`~py123d.geometry.PoseSE3` of the IMU in SE3."""
+        return self._imu_se3
+
+    @property
+    def imu_se2(self) -> PoseSE2:
+        """The :class:`~py123d.geometry.PoseSE2` of the IMU in SE2."""
+        return self._imu_se3.pose_se2
+
+    @property
     def rear_axle_se3(self) -> PoseSE3:
         """The :class:`~py123d.geometry.PoseSE3` of the rear axle in SE3."""
-        return self._rear_axle_se3
+        return imu_se3_to_rear_axle_se3(imu_se3=self._imu_se3, vehicle_parameters=self._vehicle_parameters)
 
     @property
     def rear_axle_se2(self) -> PoseSE2:
         """The :class:`~py123d.geometry.PoseSE2` of the rear axle in SE2."""
-        return self._rear_axle_se3.pose_se2
+        return self.rear_axle_se3.pose_se2
 
     @property
     def vehicle_parameters(self) -> VehicleParameters:
@@ -139,10 +180,7 @@ class EgoStateSE3:
     @property
     def center_se3(self) -> PoseSE3:
         """The :class:`~py123d.geometry.PoseSE3` of the vehicle center in SE3."""
-        return rear_axle_se3_to_center_se3(
-            rear_axle_se3=self._rear_axle_se3,
-            vehicle_parameters=self._vehicle_parameters,
-        )
+        return imu_se3_to_center_se3(imu_se3=self._imu_se3, vehicle_parameters=self._vehicle_parameters)
 
     @property
     def center_se2(self) -> PoseSE2:
@@ -186,65 +224,87 @@ class EgoStateSE3:
     @property
     def ego_state_se2(self) -> EgoStateSE2:
         """The :class:`EgoStateSE2` projection of this SE3 ego state."""
-        return EgoStateSE2.from_rear_axle(
-            rear_axle_se2=self.rear_axle_se2,
+        return EgoStateSE2.from_imu(
+            imu_se2=self.imu_se2,
             vehicle_parameters=self.vehicle_parameters,
             dynamic_state_se2=self.dynamic_state_se3.dynamic_state_se2 if self.dynamic_state_se3 else None,
             timestamp=self.timestamp,
-            tire_steering_angle=self.tire_steering_angle,
+            tire_steering_angle=self.tire_steering_angle if self.tire_steering_angle is not None else 0.0,
         )
 
 
 class EgoStateSE2:
     """The EgoStateSE2 represents the state of the ego vehicle in SE2 (2D space).
-    It includes the rear axle pose, vehicle parameters, optional dynamic state, and optional timestamp.
+
+    The IMU pose is the primary internal representation. Rear axle and center
+    poses are computed on demand via the vehicle parameters.
     """
 
-    def __init__(
-        self,
-        rear_axle_se2: PoseSE2,
+    __slots__ = ("_imu_se2", "_vehicle_parameters", "_dynamic_state_se2", "_timestamp", "_tire_steering_angle")
+
+    _imu_se2: PoseSE2
+    _vehicle_parameters: VehicleParameters
+    _dynamic_state_se2: Optional[DynamicStateSE2]
+    _timestamp: Optional[Timestamp]
+    _tire_steering_angle: Optional[float]
+
+    @classmethod
+    def from_imu(
+        cls,
+        imu_se2: PoseSE2,
         vehicle_parameters: VehicleParameters,
         dynamic_state_se2: Optional[DynamicStateSE2] = None,
         timestamp: Optional[Timestamp] = None,
-        tire_steering_angle: Optional[float] = 0.0,
-    ):
-        """Initialize an :class:`EgoStateSE2` instance.
+        tire_steering_angle: float = 0.0,
+    ) -> EgoStateSE2:
+        """Create an :class:`EgoStateSE2` from the IMU pose.
 
-        :param rear_axle_se2: The pose of the rear axle in SE2.
+        This is the canonical factory method. The IMU pose is stored directly.
+
+        :param imu_se2: The pose of the IMU in the global frame (SE2).
         :param vehicle_parameters: The parameters of the vehicle.
         :param dynamic_state_se2: The dynamic state of the vehicle in SE2, defaults to None.
         :param timestamp: The timestamp of the state, defaults to None.
-        :param tire_steering_angle: The tire steering angle, defaults to 0.0
+        :param tire_steering_angle: The tire steering angle, defaults to 0.0.
+        :return: An instance of :class:`EgoStateSE2`.
         """
-        self._rear_axle_se2: PoseSE2 = rear_axle_se2
-        self._vehicle_parameters: VehicleParameters = vehicle_parameters
-        self._dynamic_state_se2: Optional[DynamicStateSE2] = dynamic_state_se2
-        self._timestamp: Optional[Timestamp] = timestamp
-        self._tire_steering_angle: Optional[float] = tire_steering_angle
+        instance = object.__new__(cls)
+        instance._imu_se2 = imu_se2
+        instance._vehicle_parameters = vehicle_parameters
+        instance._dynamic_state_se2 = dynamic_state_se2
+        instance._timestamp = timestamp
+        instance._tire_steering_angle = tire_steering_angle
+        return instance
 
     @classmethod
     def from_rear_axle(
         cls,
         rear_axle_se2: PoseSE2,
-        dynamic_state_se2: DynamicStateSE2,
         vehicle_parameters: VehicleParameters,
-        timestamp: Timestamp,
+        dynamic_state_se2: Optional[DynamicStateSE2] = None,
+        timestamp: Optional[Timestamp] = None,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE2:
         """Create an :class:`EgoStateSE2` from the rear axle pose.
 
+        Converts the rear axle pose to the IMU pose using the vehicle's
+        ``rear_axle_to_imu_se3`` extrinsic calibration.
+
         :param rear_axle_se2: The pose of the rear axle in SE2.
-        :param dynamic_state_se2: The dynamic state of the vehicle in SE2.
         :param vehicle_parameters: The parameters of the vehicle.
-        :param timestamp: The timestamp of the state.
+        :param dynamic_state_se2: The dynamic state of the vehicle in SE2, defaults to None.
+        :param timestamp: The timestamp of the state, defaults to None.
         :param tire_steering_angle: The tire steering angle, defaults to 0.0.
         :return: An instance of :class:`EgoStateSE2`.
         """
-
-        return EgoStateSE2(
+        imu_se2 = rear_axle_se2_to_imu_se2(
             rear_axle_se2=rear_axle_se2,
-            dynamic_state_se2=dynamic_state_se2,
             vehicle_parameters=vehicle_parameters,
+        )
+        return EgoStateSE2.from_imu(
+            imu_se2=imu_se2,
+            vehicle_parameters=vehicle_parameters,
+            dynamic_state_se2=dynamic_state_se2,
             timestamp=timestamp,
             tire_steering_angle=tire_steering_angle,
         )
@@ -253,39 +313,44 @@ class EgoStateSE2:
     def from_center(
         cls,
         center_se2: PoseSE2,
-        dynamic_state_se2: DynamicStateSE2,
         vehicle_parameters: VehicleParameters,
-        timestamp: Timestamp,
+        dynamic_state_se2: Optional[DynamicStateSE2] = None,
+        timestamp: Optional[Timestamp] = None,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE2:
         """Create an :class:`EgoStateSE2` from the center pose.
 
+        Converts the center pose to the IMU pose using the vehicle's
+        ``center_to_imu_se3`` extrinsic calibration.
+
         :param center_se2: The pose of the center in SE2.
-        :param dynamic_state_se2: The dynamic state of the vehicle in SE2.
         :param vehicle_parameters: The parameters of the vehicle.
-        :param timestamp: The timestamp of the state.
+        :param dynamic_state_se2: The dynamic state of the vehicle in SE2, defaults to None.
+        :param timestamp: The timestamp of the state, defaults to None.
         :param tire_steering_angle: The tire steering angle, defaults to 0.0.
         :return: An instance of :class:`EgoStateSE2`.
         """
-
-        rear_axle_se2 = center_se2_to_rear_axle_se2(
+        imu_se2 = center_se2_to_imu_se2(
             center_se2=center_se2,
             vehicle_parameters=vehicle_parameters,
         )
-
-        # TODO @DanielDauner: Adapt dynamic state from center to rear-axle
-        return EgoStateSE2.from_rear_axle(
-            rear_axle_se2=rear_axle_se2,
-            dynamic_state_se2=dynamic_state_se2,
+        return EgoStateSE2.from_imu(
+            imu_se2=imu_se2,
             vehicle_parameters=vehicle_parameters,
+            dynamic_state_se2=dynamic_state_se2,
             timestamp=timestamp,
             tire_steering_angle=tire_steering_angle,
         )
 
     @property
+    def imu_se2(self) -> PoseSE2:
+        """The :class:`~py123d.geometry.PoseSE2` of the IMU in SE2."""
+        return self._imu_se2
+
+    @property
     def rear_axle_se2(self) -> PoseSE2:
         """The :class:`~py123d.geometry.PoseSE2` of the rear axle in SE2."""
-        return self._rear_axle_se2
+        return imu_se2_to_rear_axle_se2(imu_se2=self._imu_se2, vehicle_parameters=self._vehicle_parameters)
 
     @property
     def vehicle_parameters(self) -> VehicleParameters:
@@ -310,7 +375,7 @@ class EgoStateSE2:
     @property
     def center_se2(self) -> PoseSE2:
         """The :class:`~py123d.geometry.PoseSE2` of the center in SE2."""
-        return rear_axle_se2_to_center_se2(rear_axle_se2=self.rear_axle_se2, vehicle_parameters=self.vehicle_parameters)
+        return imu_se2_to_center_se2(imu_se2=self._imu_se2, vehicle_parameters=self._vehicle_parameters)
 
     @property
     def bounding_box_se2(self) -> BoundingBoxSE2:

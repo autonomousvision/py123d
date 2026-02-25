@@ -114,7 +114,7 @@ class FisheyeMEIDistortion(ArrayMixin):
         assert array.ndim == 1
         assert array.shape[-1] == len(FisheyeMEIDistortionIndex)
         instance = object.__new__(cls)
-        setattr(instance, "_array", array.copy() if copy else array)
+        instance._array = array.copy() if copy else array
         return instance
 
     @property
@@ -124,22 +124,22 @@ class FisheyeMEIDistortion(ArrayMixin):
 
     @property
     def k1(self) -> float:
-        """Radial distortion coefficient."""
+        """Radial distortion coefficient k1."""
         return self._array[FisheyeMEIDistortionIndex.K1]
 
     @property
     def k2(self) -> float:
-        """Radial distortion coefficient."""
+        """Radial distortion coefficient k2."""
         return self._array[FisheyeMEIDistortionIndex.K2]
 
     @property
     def p1(self) -> float:
-        """Tangential distortion coefficient."""
+        """Tangential distortion coefficient p1."""
         return self._array[FisheyeMEIDistortionIndex.P1]
 
     @property
     def p2(self) -> float:
-        """Tangential distortion coefficient."""
+        """Tangential distortion coefficient p2."""
         return self._array[FisheyeMEIDistortionIndex.P2]
 
     def __repr__(self) -> str:
@@ -241,7 +241,7 @@ class FisheyeMEICameraMetadata:
         "_projection",
         "_width",
         "_height",
-        "_static_extrinsic",
+        "_camera_to_imu_se3",
     )
 
     def __init__(
@@ -253,7 +253,7 @@ class FisheyeMEICameraMetadata:
         projection: Optional[FisheyeMEIProjection],
         width: int,
         height: int,
-        static_extrinsic: Optional[PoseSE3] = None,
+        camera_to_imu_se3: Optional[PoseSE3] = None,
     ) -> None:
         """Initialize the fisheye MEI camera metadata.
 
@@ -264,7 +264,7 @@ class FisheyeMEICameraMetadata:
         :param projection: Projection parameters of the camera.
         :param width: Width of the camera image in pixels.
         :param height: Height of the camera image in pixels.
-        :param static_extrinsic: Static extrinsic pose of the camera.
+        :param camera_to_imu_se3: Static extrinsic pose of the camera.
         """
         self._camera_name = camera_name
         self._camera_id = camera_id
@@ -273,7 +273,7 @@ class FisheyeMEICameraMetadata:
         self._projection = projection
         self._width = width
         self._height = height
-        self._static_extrinsic = static_extrinsic
+        self._camera_to_imu_se3 = camera_to_imu_se3
 
     @classmethod
     def from_dict(cls, data_dict: Dict[str, Any]) -> FisheyeMEICameraMetadata:
@@ -294,9 +294,11 @@ class FisheyeMEICameraMetadata:
             else None
         )
         # TODO: Make static extrinsic mandatory in the future.
-        if "static_extrinsic" in data_dict.keys():
-            data_dict["static_extrinsic"] = (
-                PoseSE3.from_list(data_dict["static_extrinsic"]) if data_dict["static_extrinsic"] is not None else None
+        if "camera_to_imu_se3" in data_dict.keys():
+            data_dict["camera_to_imu_se3"] = (
+                PoseSE3.from_list(data_dict["camera_to_imu_se3"])
+                if data_dict["camera_to_imu_se3"] is not None
+                else None
             )
         return FisheyeMEICameraMetadata(**data_dict)
 
@@ -336,9 +338,9 @@ class FisheyeMEICameraMetadata:
         return self._height
 
     @property
-    def static_extrinsic(self) -> Optional[PoseSE3]:
+    def camera_to_imu_se3(self) -> Optional[PoseSE3]:
         """The static extrinsic pose of the fisheye MEI camera, if available."""
-        return self._static_extrinsic
+        return self._camera_to_imu_se3
 
     @property
     def aspect_ratio(self) -> float:

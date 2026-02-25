@@ -15,7 +15,7 @@ from py123d.common.utils.arrow_column_names import (
     BOX_DETECTIONS_TOKEN_COLUMN,
     BOX_DETECTIONS_VELOCITY_3D_COLUMN,
     EGO_DYNAMIC_STATE_SE3_COLUMN,
-    EGO_REAR_AXLE_SE3_COLUMN,
+    EGO_IMU_SE3_COLUMN,
     FISHEYE_CAMERA_DATA_COLUMN,
     FISHEYE_CAMERA_EXTRINSIC_COLUMN,
     FISHEYE_CAMERA_TIMESTAMP_COLUMN,
@@ -209,7 +209,7 @@ class ArrowLogWriter(AbstractLogWriter):
         # --------------------------------------------------------------------------------------------------------------
         if self._dataset_converter_config.include_ego:
             assert ego_state is not None, "Ego state is required but not provided."
-            record_batch_data[EGO_REAR_AXLE_SE3_COLUMN] = [ego_state.rear_axle_se3]
+            record_batch_data[EGO_IMU_SE3_COLUMN] = [ego_state.imu_se3]
             record_batch_data[EGO_DYNAMIC_STATE_SE3_COLUMN] = [ego_state.dynamic_state_se3]
 
         # --------------------------------------------------------------------------------------------------------------
@@ -410,7 +410,7 @@ class ArrowLogWriter(AbstractLogWriter):
         if dataset_converter_config.include_ego:
             schema_list.extend(
                 [
-                    (EGO_REAR_AXLE_SE3_COLUMN, pa.list_(pa.float64(), len(PoseSE3Index))),
+                    (EGO_IMU_SE3_COLUMN, pa.list_(pa.float64(), len(PoseSE3Index))),
                     (EGO_DYNAMIC_STATE_SE3_COLUMN, pa.list_(pa.float64(), len(DynamicStateSE3Index))),
                 ]
             )

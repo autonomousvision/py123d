@@ -456,6 +456,8 @@ class Carpark(BaseMapSurfaceObject):
 
 
 class Walkway(BaseMapSurfaceObject):
+    """Class representing a walkway in a map."""
+
     __slots__ = ()
 
     def __init__(
@@ -530,6 +532,12 @@ class StopZone(BaseMapSurfaceObject):
         Notes
         -----
         Either outline or shapely_polygon must be provided.
+
+        TODOs
+        -----
+        - Add optionally ids/references to other map objects (e.g. pedestrian crossings) that are associated with the stop zone.
+        - Add weak reference to the map API to access other map objects.
+
 
         :param object_id: The ID of the stop zone.
         :param stop_zone_type: The type of the stop zone (traffic light, stop sign, etc.).

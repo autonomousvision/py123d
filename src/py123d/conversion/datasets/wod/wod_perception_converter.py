@@ -261,10 +261,10 @@ def _get_wod_perception_camera_metadata(
             distortion = PinholeDistortion(k1=k1, k2=k2, p1=p1, p2=p2, k3=k3)
 
             # Static extrinsic parameters (from calibration)
-            static_extrinsic_matrix = np.array(calibration.extrinsic.transform, dtype=np.float64).reshape(4, 4)
-            static_extrinsic = PoseSE3.from_transformation_matrix(static_extrinsic_matrix)
-            static_extrinsic = convert_camera_convention(
-                static_extrinsic,
+            camera_to_imu_se3_matrix = np.array(calibration.extrinsic.transform, dtype=np.float64).reshape(4, 4)
+            camera_to_imu_se3 = PoseSE3.from_transformation_matrix(camera_to_imu_se3_matrix)
+            camera_to_imu_se3 = convert_camera_convention(
+                camera_to_imu_se3,
                 from_convention=CameraConvention.pXpZmY,
                 to_convention=CameraConvention.pZmYpX,
             )
@@ -277,7 +277,7 @@ def _get_wod_perception_camera_metadata(
                     height=calibration.height,
                     intrinsics=intrinsics,
                     distortion=distortion,
-                    static_extrinsic=static_extrinsic,
+                    camera_to_imu_se3=camera_to_imu_se3,
                 )
     return camera_metadata_dict
 
@@ -301,7 +301,7 @@ def _get_wod_perception_lidar_metadata(
             laser_metadatas[lidar_type] = LidarMetadata(
                 lidar_name=str(laser_calibration.name),
                 lidar_id=lidar_type,
-                extrinsic=extrinsic,
+                lidar_to_imu_se3=extrinsic,
             )
 
     return laser_metadatas
@@ -317,15 +317,11 @@ def _get_ego_pose_se3(frame: dataset_pb2.Frame, map_pose_offset: Vector3D) -> Po
 
 def _extract_wod_perception_ego_state(frame: dataset_pb2.Frame, map_pose_offset: Vector3D) -> EgoStateSE3:
     """Extracts the ego state from a WODP frame."""
-    rear_axle_pose = _get_ego_pose_se3(frame, map_pose_offset)
-
+    imu_se3 = _get_ego_pose_se3(frame, map_pose_offset)
     vehicle_parameters = get_wod_perception_chrysler_pacifica_parameters()
-    # FIXME: Find dynamic state in waymo open perception dataset
-    # https://github.com/waymo-research/waymo-open-dataset/issues/55#issuecomment-546152290
     dynamic_state_se3 = None
-
-    return EgoStateSE3.from_rear_axle(
-        rear_axle_se3=rear_axle_pose,
+    return EgoStateSE3.from_imu(
+        imu_se3=imu_se3,
         dynamic_state_se3=dynamic_state_se3,
         vehicle_parameters=vehicle_parameters,
         timestamp=None,
@@ -394,7 +390,6 @@ def _extract_wod_perception_box_detections(
                 velocity_3d=Vector3D.from_array(detections_velocity[detection_idx]),
             )
         )
-
     return BoxDetectionWrapper(box_detections=box_detections)
 
 

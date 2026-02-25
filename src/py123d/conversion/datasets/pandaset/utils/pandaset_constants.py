@@ -53,7 +53,7 @@ PANDASET_BOX_DETECTION_FROM_STR: Dict[str, PandasetBoxDetectionLabel] = {
 }
 
 
-# https://github.com/scaleapi/pandaset-devkit/blob/master/docs/static_extrinsic_calibration.yaml
+# https://github.com/scaleapi/pandaset-devkit/blob/master/docs/camera_to_imu_se3_calibration.yaml
 PANDASET_LIDAR_EXTRINSICS: Dict[str, PoseSE3] = {
     "front_gt": PoseSE3(
         x=-0.000451117754,
@@ -67,7 +67,7 @@ PANDASET_LIDAR_EXTRINSICS: Dict[str, PoseSE3] = {
     "main_pandar64": PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
 }
 
-# https://github.com/scaleapi/pandaset-devkit/blob/master/docs/static_extrinsic_calibration.yaml
+# https://github.com/scaleapi/pandaset-devkit/blob/master/docs/camera_to_imu_se3_calibration.yaml
 PANDASET_CAMERA_EXTRINSICS: Dict[str, PoseSE3] = {
     "back_camera": PoseSE3(
         x=-0.0004217634029916384,
@@ -125,7 +125,7 @@ PANDASET_CAMERA_EXTRINSICS: Dict[str, PoseSE3] = {
     ),
 }
 
-# https://github.com/scaleapi/pandaset-devkit/blob/master/docs/static_extrinsic_calibration.yaml
+# https://github.com/scaleapi/pandaset-devkit/blob/master/docs/camera_to_imu_se3_calibration.yaml
 PANDASET_CAMERA_INTRINSICS: Dict[str, PinholeIntrinsics] = {
     "back_camera": PinholeIntrinsics(fx=933.4667, fy=934.6754, cx=896.4692, cy=507.3557),
     "front_camera": PinholeIntrinsics(fx=1970.0131, fy=1970.0091, cx=970.0002, cy=483.2988),
@@ -135,7 +135,7 @@ PANDASET_CAMERA_INTRINSICS: Dict[str, PinholeIntrinsics] = {
     "right_camera": PinholeIntrinsics(fx=922.5465, fy=922.4229, cx=945.057, cy=517.575),
 }
 
-# https://github.com/scaleapi/pandaset-devkit/blob/master/docs/static_extrinsic_calibration.yaml
+# https://github.com/scaleapi/pandaset-devkit/blob/master/docs/camera_to_imu_se3_calibration.yaml
 PANDASET_CAMERA_DISTORTIONS: Dict[str, PinholeDistortion] = {
     "back_camera": PinholeDistortion.from_list([-0.1619, 0.0113, -0.00028815, -7.9827e-05, 0.0067]),
     "front_camera": PinholeDistortion.from_list([-0.5894, 0.66, 0.0011, -0.001, -1.0088]),

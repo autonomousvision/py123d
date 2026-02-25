@@ -47,4 +47,5 @@ Features include:
    :hidden:
    :caption: Notes
 
+   notes/conventions
    contributing

@@ -1,4 +1,7 @@
+import pytest
+
 from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
+from py123d.geometry import PoseSE3
 
 
 class TestVehicleParameters:
@@ -9,8 +12,8 @@ class TestVehicleParameters:
             length=5.0,
             height=1.8,
             wheel_base=3.0,
-            rear_axle_to_center_vertical=0.5,
-            rear_axle_to_center_longitudinal=1.5,
+            center_to_imu_se3=PoseSE3(x=1.5, y=0.0, z=0.5, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
+            rear_axle_to_imu_se3=PoseSE3.identity(),
         )
 
     def test_initialization(self):
@@ -20,8 +23,27 @@ class TestVehicleParameters:
         assert self.params.length == 5.0
         assert self.params.height == 1.8
         assert self.params.wheel_base == 3.0
-        assert self.params.rear_axle_to_center_vertical == 0.5
-        assert self.params.rear_axle_to_center_longitudinal == 1.5
+        assert self.params.center_to_imu_se3 == PoseSE3(x=1.5, y=0.0, z=0.5, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
+        assert self.params.rear_axle_to_imu_se3 == PoseSE3.identity()
+
+    def test_derived_offsets(self):
+        """Test that rear_axle_to_center offsets are correctly derived from SE3 transforms."""
+        assert self.params.rear_axle_to_center_longitudinal == pytest.approx(1.5)
+        assert self.params.rear_axle_to_center_vertical == pytest.approx(0.5)
+
+    def test_derived_offsets_with_imu_offset(self):
+        """Test derived offsets when rear_axle_to_imu_se3 is not identity (e.g. KITTI-360)."""
+        params = VehicleParameters(
+            vehicle_name="test_vehicle",
+            width=2.0,
+            length=5.0,
+            height=1.8,
+            wheel_base=3.0,
+            center_to_imu_se3=PoseSE3(x=1.55, y=-0.32, z=0.5, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
+            rear_axle_to_imu_se3=PoseSE3(x=0.05, y=-0.32, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
+        )
+        assert params.rear_axle_to_center_longitudinal == pytest.approx(1.5)
+        assert params.rear_axle_to_center_vertical == pytest.approx(0.5)
 
     def test_half_width(self):
         """Test half_width property."""
@@ -44,8 +66,8 @@ class TestVehicleParameters:
             "length": 5.0,
             "height": 1.8,
             "wheel_base": 3.0,
-            "rear_axle_to_center_vertical": 0.5,
-            "rear_axle_to_center_longitudinal": 1.5,
+            "center_to_imu_se3": [1.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0],
+            "rear_axle_to_imu_se3": [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
         }
         assert result == expected
 
@@ -57,8 +79,8 @@ class TestVehicleParameters:
             "length": 4.0,
             "height": 1.6,
             "wheel_base": 2.5,
-            "rear_axle_to_center_vertical": 0.4,
-            "rear_axle_to_center_longitudinal": 1.2,
+            "center_to_imu_se3": [1.2, 0.0, 0.4, 1.0, 0.0, 0.0, 0.0],
+            "rear_axle_to_imu_se3": [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
         }
         params = VehicleParameters.from_dict(data)
         assert params.vehicle_name == "from_dict_vehicle"
@@ -66,8 +88,8 @@ class TestVehicleParameters:
         assert params.length == 4.0
         assert params.height == 1.6
         assert params.wheel_base == 2.5
-        assert params.rear_axle_to_center_vertical == 0.4
-        assert params.rear_axle_to_center_longitudinal == 1.2
+        assert params.rear_axle_to_center_vertical == pytest.approx(0.4)
+        assert params.rear_axle_to_center_longitudinal == pytest.approx(1.2)
 
     def test_from_dict_to_dict_round_trip(self):
         """Test that from_dict and to_dict are inverses."""

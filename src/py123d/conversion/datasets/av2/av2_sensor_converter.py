@@ -7,7 +7,10 @@ import pandas as pd
 from py123d.conversion.abstract_dataset_converter import AbstractDatasetConverter
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.conversion.datasets.av2.av2_map_conversion import convert_av2_map
-from py123d.conversion.datasets.av2.utils.av2_constants import AV2_CAMERA_ID_MAPPING, AV2_SENSOR_SPLITS
+from py123d.conversion.datasets.av2.utils.av2_constants import (
+    AV2_CAMERA_ID_MAPPING,
+    AV2_SENSOR_SPLITS,
+)
 from py123d.conversion.datasets.av2.utils.av2_helper import (
     build_sensor_dataframe,
     build_synchronization_dataframe,
@@ -234,7 +237,7 @@ def _get_av2_pinhole_camera_metadata(
                         p2=0.0,
                         k3=row_intrinsics["k3"],
                     ),
-                    static_extrinsic=_row_dict_to_pose_se3(row_callib),
+                    camera_to_imu_se3=_row_dict_to_pose_se3(row_callib),
                     is_undistorted=True,
                 )
 
@@ -259,7 +262,7 @@ def _get_av2_lidar_metadata(
         metadata[LidarID.LIDAR_TOP] = LidarMetadata(
             lidar_name="up_lidar",
             lidar_id=LidarID.LIDAR_TOP,
-            extrinsic=_row_dict_to_pose_se3(
+            lidar_to_imu_se3=_row_dict_to_pose_se3(
                 calibration_df[calibration_df["sensor_name"] == "up_lidar"].iloc[0].to_dict()
             ),
         )
@@ -267,7 +270,7 @@ def _get_av2_lidar_metadata(
         metadata[LidarID.LIDAR_DOWN] = LidarMetadata(
             lidar_name="down_lidar",
             lidar_id=LidarID.LIDAR_DOWN,
-            extrinsic=_row_dict_to_pose_se3(
+            lidar_to_imu_se3=_row_dict_to_pose_se3(
                 calibration_df[calibration_df["sensor_name"] == "down_lidar"].iloc[0].to_dict()
             ),
         )
@@ -329,20 +332,13 @@ def _extract_av2_sensor_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_ti
     assert len(ego_state_slice) == 1, (
         f"Expected exactly one ego state for timestamp {lidar_timestamp_ns}, got {len(ego_state_slice)}."
     )
-
     ego_pose_dict = ego_state_slice.iloc[0].to_dict()
-    rear_axle_pose = _row_dict_to_pose_se3(ego_pose_dict)
-
-    vehicle_parameters = get_av2_ford_fusion_hybrid_parameters()
-
-    # TODO: Add script to calculate the dynamic state from log sequence.
-    dynamic_state_se3 = None
-
-    return EgoStateSE3.from_rear_axle(
-        rear_axle_se3=rear_axle_pose,
-        vehicle_parameters=vehicle_parameters,
-        dynamic_state_se3=dynamic_state_se3,
-        timestamp=None,
+    ego_imu_se3 = _row_dict_to_pose_se3(ego_pose_dict)
+    return EgoStateSE3.from_imu(
+        imu_se3=ego_imu_se3,
+        vehicle_parameters=get_av2_ford_fusion_hybrid_parameters(),
+        dynamic_state_se3=None,
+        timestamp=Timestamp.from_ns(lidar_timestamp_ns),
     )
 
 
@@ -371,7 +367,7 @@ def _extract_av2_sensor_pinhole_cameras(
             row = row.to_dict()
             if row["sensor_name"] not in AV2_CAMERA_ID_MAPPING:
                 continue
-            static_extrinsic_se3 = _row_dict_to_pose_se3(row)
+            camera_to_imu_se3 = _row_dict_to_pose_se3(row)
             pinhole_camera_name = row["sensor_name"]
             pinhole_camera_id = AV2_CAMERA_ID_MAPPING[pinhole_camera_name]
 
@@ -396,7 +392,7 @@ def _extract_av2_sensor_pinhole_cameras(
                 compensated_extrinsic_se3_array = reframe_se3_array(
                     from_origin=nearest_pose_se3,
                     to_origin=current_ego_pose_se3,
-                    pose_se3_array=static_extrinsic_se3.array,
+                    pose_se3_array=camera_to_imu_se3.array,
                 )
                 camera_data = CameraData(
                     camera_name=str(pinhole_camera_name),

@@ -56,7 +56,7 @@ class BoundingBoxSE2(ArrayMixin):
         assert array.ndim == 1
         assert array.shape[-1] == len(BoundingBoxSE2Index)
         instance = object.__new__(cls)
-        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        instance._array = array.copy() if copy else array
         return instance
 
     @property
@@ -154,7 +154,7 @@ class BoundingBoxSE3(ArrayMixin):
         assert array.ndim == 1
         assert array.shape[-1] == len(BoundingBoxSE3Index)
         instance = object.__new__(cls)
-        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        instance._array = array.copy() if copy else array
         return instance
 
     @property

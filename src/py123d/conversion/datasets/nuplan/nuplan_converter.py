@@ -285,7 +285,7 @@ def _get_nuplan_camera_metadata(
             height=cam.height,  # type: ignore
             intrinsics=intrinsic,
             distortion=distortion,
-            static_extrinsic=extrinsic,
+            camera_to_imu_se3=extrinsic,
         )
 
     camera_metadata: Dict[PinholeCameraID, PinholeCameraMetadata] = {}
@@ -313,7 +313,7 @@ def _get_nuplan_lidar_metadata(
             metadata[lidar_type] = LidarMetadata(
                 lidar_name=lidar_type.serialize(),  # NOTE: nuPlan does not have specific names for the Lidars
                 lidar_id=lidar_type,
-                extrinsic=None,  # NOTE: Lidar extrinsic are unknown
+                lidar_to_imu_se3=PoseSE3.identity(),  # NOTE: Lidar extrinsic are unknown
             )
     return metadata
 
@@ -322,7 +322,7 @@ def _extract_nuplan_ego_state(nuplan_lidar_pc: LidarPc) -> EgoStateSE3:
     """Extracts the nuPlan ego state from a given LidarPc database objects."""
 
     vehicle_parameters = get_nuplan_chrysler_pacifica_parameters()
-    rear_axle_pose = PoseSE3(
+    imu_pose = PoseSE3(
         x=nuplan_lidar_pc.ego_pose.x,
         y=nuplan_lidar_pc.ego_pose.y,
         z=nuplan_lidar_pc.ego_pose.z,
@@ -348,11 +348,11 @@ def _extract_nuplan_ego_state(nuplan_lidar_pc: LidarPc) -> EgoStateSE3:
             z=nuplan_lidar_pc.ego_pose.angular_rate_z,
         ),
     )
-    return EgoStateSE3.from_rear_axle(
-        rear_axle_se3=rear_axle_pose,
+    return EgoStateSE3.from_imu(
+        imu_se3=imu_pose,
         vehicle_parameters=vehicle_parameters,
         dynamic_state_se3=dynamic_state_se3,
-        timestamp=Timestamp.from_us(nuplan_lidar_pc.ego_pose.timestamp),  # type: ignore
+        timestamp=Timestamp.from_us(nuplan_lidar_pc.ego_pose.timestamp),
     )
 
 

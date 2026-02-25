@@ -18,7 +18,7 @@ from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     split_line_geometry_by_max_length,
     split_polygon_by_grid,
 )
-from py123d.datatypes.map_objects.map_layer_types import RoadEdgeType, RoadLineType
+from py123d.datatypes.map_objects.map_layer_types import RoadEdgeType, RoadLineType, StopZoneType
 from py123d.datatypes.map_objects.map_objects import (
     Carpark,
     Crosswalk,
@@ -28,6 +28,7 @@ from py123d.datatypes.map_objects.map_objects import (
     LaneGroup,
     RoadEdge,
     RoadLine,
+    StopZone,
     Walkway,
 )
 from py123d.geometry import OccupancyMap2D, Polyline2D, Polyline3D
@@ -357,28 +358,36 @@ def _write_nuscenes_generic_drivables(nuscenes_map: NuScenesMap, map_writer: Abs
 
 def _write_nuscenes_stop_zones(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
     """Write stop line data to map_writer."""
-    # FIXME: Add stop lines.
-    # stop_lines = nuscenes_map.stop_line
-    # for stop_line in stop_lines:
-    #     token = stop_line["token"]
-    #     try:
-    #         if "polygon_token" in stop_line:
-    #             polygon = nuscenes_map.extract_polygon(stop_line["polygon_token"])
-    #         else:
-    #             continue
-    #         if not polygon.is_valid:
-    #             continue
-    #     except Exception:
-    #         traceback.print_exc()
-    #         continue
 
-    #     # Note: Stop lines are written as generic drivable for compatibility
-    #     map_writer.write_generic_drivable(
-    #         CacheGenericDrivable(
-    #             object_id=token,
-    #             geometry=polygon,
-    #         )
-    #     )
+    NUSCENES_STOP_CUES_TO_STOP_ZONE_TYPE = {
+        "PED_CROSSING": StopZoneType.PEDESTRIAN_CROSSING,
+        "TURN_STOP": StopZoneType.TURN_STOP,
+        "TRAFFIC_LIGHT": StopZoneType.TRAFFIC_LIGHT,
+        "STOP_SIGN": StopZoneType.STOP_SIGN,
+        "YIELD": StopZoneType.YIELD_SIGN,
+    }
+    for stop_line in nuscenes_map.stop_line:
+        token = stop_line["token"]
+        if "polygon_token" in stop_line:
+            polygon = nuscenes_map.extract_polygon(stop_line["polygon_token"])
+        else:
+            continue
+        if not polygon.is_valid:
+            continue
+
+        # Note: Stop lines are written as generic drivable for compatibility
+        if "stop_line_type" in stop_line.keys():
+            stop_zone_type = NUSCENES_STOP_CUES_TO_STOP_ZONE_TYPE.get(stop_line["stop_line_type"], StopZoneType.UNKNOWN)
+        else:
+            stop_zone_type = StopZoneType.UNKNOWN
+
+        map_writer.write_stop_zone(
+            StopZone(
+                object_id=token,
+                stop_zone_type=stop_zone_type,
+                shapely_polygon=polygon,
+            )
+        )
 
 
 def _write_nuscenes_road_lines(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:

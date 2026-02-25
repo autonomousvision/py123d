@@ -60,72 +60,73 @@ class TestLidarMetadata:
 
         # Get a lidar index class from registry (assuming at least one exists)
         self.lidar_id = LidarID.LIDAR_TOP
-        self.extrinsic = PoseSE3.from_list([1.0, 2.0, 3.0, 0.0, 0.0, 0.0, 1.0])
+        self.lidar_to_imu_se3 = PoseSE3.from_list([1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0])
 
     def test_lidar_metadata_creation_with_extrinsic(self):
         """Test creating LidarMetadata with extrinsic."""
         metadata = LidarMetadata(
             lidar_name=self.lidar_name,
             lidar_id=self.lidar_id,
-            extrinsic=self.extrinsic,
+            lidar_to_imu_se3=self.lidar_to_imu_se3,
         )
         assert metadata.lidar_id == self.lidar_id
-        assert metadata.extrinsic is not None
+        assert metadata.lidar_to_imu_se3 == self.lidar_to_imu_se3
 
     def test_lidar_metadata_creation_without_extrinsic(self):
         """Test creating LidarMetadata without extrinsic."""
         metadata = LidarMetadata(lidar_name=self.lidar_name, lidar_id=self.lidar_id)
         assert metadata.lidar_id == self.lidar_id
-        assert metadata.extrinsic is None
+        assert metadata.lidar_to_imu_se3 == PoseSE3.identity()
 
     def test_lidar_metadata_to_dict_with_extrinsic(self):
         """Test serializing LidarMetadata to dict with extrinsic."""
-        metadata = LidarMetadata(lidar_name=self.lidar_name, lidar_id=self.lidar_id, extrinsic=self.extrinsic)
+        metadata = LidarMetadata(
+            lidar_name=self.lidar_name, lidar_id=self.lidar_id, lidar_to_imu_se3=self.lidar_to_imu_se3
+        )
         data_dict = metadata.to_dict()
         assert data_dict["lidar_id"] == self.lidar_id.name
-        assert data_dict["extrinsic"] is not None
-        assert isinstance(data_dict["extrinsic"], list)
+        assert isinstance(data_dict["lidar_to_imu_se3"], list)
 
     def test_lidar_metadata_to_dict_without_extrinsic(self):
         """Test serializing LidarMetadata to dict without extrinsic."""
         metadata = LidarMetadata(lidar_name=self.lidar_name, lidar_id=self.lidar_id)
         data_dict = metadata.to_dict()
         assert data_dict["lidar_id"] == self.lidar_id.name
-        assert data_dict["extrinsic"] is None
+        assert data_dict["lidar_to_imu_se3"] == PoseSE3.identity().to_list()
 
     def test_lidar_metadata_from_dict_with_extrinsic(self):
         """Test deserializing LidarMetadata from dict with extrinsic."""
         data_dict = {
             "lidar_name": self.lidar_name,
             "lidar_id": self.lidar_id.name,
-            "extrinsic": [1.0, 2.0, 3.0, 0.0, 0.0, 0.0, 1.0],
+            "lidar_to_imu_se3": [1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0],
         }
         metadata = LidarMetadata.from_dict(data_dict)
         assert metadata.lidar_id == self.lidar_id
-        assert metadata.extrinsic == PoseSE3.from_list(data_dict["extrinsic"])
+        assert metadata.lidar_to_imu_se3 == PoseSE3.from_list(data_dict["lidar_to_imu_se3"])
 
     def test_lidar_metadata_from_dict_without_extrinsic(self):
         """Test deserializing LidarMetadata from dict without extrinsic."""
         data_dict = {
             "lidar_name": self.lidar_name,
             "lidar_id": self.lidar_id.name,
-            "extrinsic": None,
+            "lidar_to_imu_se3": PoseSE3.identity().to_list(),
         }
         metadata = LidarMetadata.from_dict(data_dict)
         assert metadata.lidar_id == self.lidar_id
-        assert metadata.extrinsic == PoseSE3.identity()
+        assert metadata.lidar_to_imu_se3 == PoseSE3.identity()
 
     def test_lidar_metadata_roundtrip_with_extrinsic(self):
         """Test roundtrip serialization/deserialization with extrinsic."""
         metadata = LidarMetadata(
             lidar_name=self.lidar_name,
             lidar_id=self.lidar_id,
-            extrinsic=self.extrinsic,
+            lidar_to_imu_se3=self.lidar_to_imu_se3,
         )
         data_dict = metadata.to_dict()
         restored_metadata = LidarMetadata.from_dict(data_dict)
         assert restored_metadata.lidar_id == metadata.lidar_id
-        assert restored_metadata.extrinsic == metadata.extrinsic
+        assert restored_metadata.lidar_to_imu_se3 == metadata.lidar_to_imu_se3
 
     def test_lidar_metadata_roundtrip_without_extrinsic(self):
         """Test roundtrip serialization/deserialization without extrinsic."""
@@ -136,7 +137,7 @@ class TestLidarMetadata:
         data_dict = metadata.to_dict()
         restored_metadata = LidarMetadata.from_dict(data_dict)
         assert restored_metadata.lidar_id == metadata.lidar_id
-        assert restored_metadata.extrinsic == PoseSE3.identity()
+        assert restored_metadata.lidar_to_imu_se3 == PoseSE3.identity()
 
 
 class TestLidar:
@@ -150,7 +151,7 @@ class TestLidar:
         self.metadata = LidarMetadata(
             lidar_name="TestLidar",
             lidar_id=LidarID.LIDAR_TOP,
-            extrinsic=self.extrinsic,
+            lidar_to_imu_se3=self.extrinsic,
         )
         self.point_cloud_3d = np.random.rand(self.NUM_POINTS, 3).astype(np.float32)
         self.point_cloud_features = {

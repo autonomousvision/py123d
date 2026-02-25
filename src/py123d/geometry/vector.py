@@ -46,7 +46,7 @@ class Vector2D(ArrayMixin):
         assert array.ndim == 1
         assert array.shape[0] == len(Vector2DIndex)
         instance = object.__new__(cls)
-        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        instance._array = array.copy() if copy else array
         return instance
 
     @property
@@ -158,7 +158,7 @@ class Vector3D(ArrayMixin):
         assert array.ndim == 1
         assert array.shape[0] == len(Vector3DIndex)
         instance = object.__new__(cls)
-        object.__setattr__(instance, "_array", array.copy() if copy else array)
+        instance._array = array.copy() if copy else array
         return instance
 
     @property
