@@ -1,3 +1,4 @@
+import shutil
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
@@ -6,35 +7,9 @@ import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
 
-from py123d.api.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
 from py123d.common.dataset_paths import get_dataset_paths
-from py123d.common.utils.arrow_column_names import (
-    BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN,
-    BOX_DETECTIONS_LABEL_COLUMN,
-    BOX_DETECTIONS_NUM_LIDAR_POINTS_COLUMN,
-    BOX_DETECTIONS_TOKEN_COLUMN,
-    BOX_DETECTIONS_VELOCITY_3D_COLUMN,
-    EGO_DYNAMIC_STATE_SE3_COLUMN,
-    EGO_IMU_SE3_COLUMN,
-    FISHEYE_CAMERA_DATA_COLUMN,
-    FISHEYE_CAMERA_EXTRINSIC_COLUMN,
-    FISHEYE_CAMERA_TIMESTAMP_COLUMN,
-    LIDAR_PATH_COLUMN,
-    LIDAR_POINT_CLOUD_COLUMN,
-    LIDAR_POINT_CLOUD_FEATURE_COLUMN,
-    PINHOLE_CAMERA_DATA_COLUMN,
-    PINHOLE_CAMERA_EXTRINSIC_COLUMN,
-    PINHOLE_CAMERA_TIMESTAMP_COLUMN,
-    ROUTE_LANE_GROUP_IDS_COLUMN,
-    SCENARIO_TAGS_COLUMN,
-    TIMESTAMP_US_COLUMN,
-    TRAFFIC_LIGHTS_LANE_ID_COLUMN,
-    TRAFFIC_LIGHTS_STATUS_COLUMN,
-    UUID_COLUMN,
-)
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
-from py123d.conversion.abstract_dataset_converter import AbstractLogWriter, DatasetConverterConfig
-from py123d.conversion.log_writer.abstract_log_writer import CameraData, LidarData
+from py123d.conversion.abstract_dataset_converter import DatasetConverterConfig
 from py123d.conversion.sensor_io.camera.jpeg_camera_io import (
     decode_image_from_jpeg_binary,
     encode_image_as_jpeg_binary,
@@ -55,17 +30,19 @@ from py123d.conversion.sensor_io.lidar.ipc_lidar_io import (
 from py123d.conversion.sensor_io.lidar.laz_lidar_io import encode_point_cloud_3d_as_laz_binary
 from py123d.conversion.sensor_io.lidar.path_lidar_io import load_point_cloud_data_from_path
 from py123d.datatypes import (
-    BoxDetectionSE3,
-    BoxDetectionWrapper,
+    BoxDetectionsSE3,
     DynamicStateSE3Index,
     EgoStateSE3,
     LidarID,
     LogMetadata,
     PinholeCameraID,
     Timestamp,
-    TrafficLightDetectionWrapper,
+    TrafficLights,
 )
 from py123d.geometry import BoundingBoxSE3Index, PoseSE3, PoseSE3Index, Vector3DIndex
+from py123d.store.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
+from py123d.store.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
+from py123d.store.utils.arrow_schema import SYNC_NAME
 
 
 def _get_logs_root() -> Path:
@@ -88,8 +65,6 @@ def _camera_store_option_to_arrow_type(
         "path": pa.string(),
         "jpeg_binary": pa.binary(),
         "png_binary": pa.binary(),
-        "laz_binary": pa.binary(),
-        "draco_binary": pa.binary(),
         "mp4": pa.int64(),
     }
     return data_type_map[store_option]
@@ -103,6 +78,53 @@ def _get_uuid_arrow_type():
         return pa.uuid()
     else:
         return pa.binary(16)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# Internal modality writer
+# ------------------------------------------------------------------------------------------------------------------
+
+
+class _ModalityWriter:
+    """Manages a single Arrow IPC file for one modality."""
+
+    def __init__(
+        self,
+        file_path: Path,
+        schema: pa.Schema,
+        ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
+        ipc_compression_level: Optional[int] = None,
+    ) -> None:
+
+        def _get_compression() -> Optional[pa.Codec]:
+            """Returns the IPC compression codec, or None if no compression is configured."""
+            if ipc_compression is not None:
+                return pa.Codec(ipc_compression, compression_level=ipc_compression_level)
+            return None
+
+        self._file_path = file_path
+        self._schema = schema
+        self._source = pa.OSFile(str(file_path), "wb")
+        options = pa.ipc.IpcWriteOptions(compression=_get_compression())
+        self._writer = pa.ipc.new_file(self._source, schema=schema, options=options)
+
+    def write_batch(self, data: Dict[str, Any]) -> None:
+        """Write a single-row record batch from a dict."""
+        batch = pa.record_batch(data, schema=self._schema)
+        self._writer.write_batch(batch)  # type: ignore
+
+    def close(self) -> None:
+        if self._writer is not None:
+            self._writer.close()
+            self._writer = None
+        if self._source is not None:
+            self._source.close()
+            self._source = None
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# ArrowLogWriter (modular folder-per-log)
+# ------------------------------------------------------------------------------------------------------------------
 
 
 class ArrowLogWriter(AbstractLogWriter):
@@ -131,9 +153,9 @@ class ArrowLogWriter(AbstractLogWriter):
         # Loaded during .reset() and cleared during .close()
         self._dataset_converter_config: Optional[DatasetConverterConfig] = None
         self._log_metadata: Optional[LogMetadata] = None
-        self._schema: Optional[pa.Schema] = None
-        self._source: Optional[pa.NativeFile] = None
+        self._log_dir: Optional[Path] = None
         self._record_batch_writer: Optional[pa.ipc.RecordBatchWriter] = None  # pyright: ignore[reportAttributeAccessIssue]
+
         self._pinhole_mp4_writers: Dict[str, MP4Writer] = {}
         self._fisheye_mei_mp4_writers: Dict[str, MP4Writer] = {}
 
@@ -141,21 +163,23 @@ class ArrowLogWriter(AbstractLogWriter):
         """Inherited, see superclass."""
 
         log_needs_writing: bool = False
-        sink_log_path: Path = self._logs_root / log_metadata.split / f"{log_metadata.log_name}.arrow"
+        log_dir: Path = self._logs_root / log_metadata.split / log_metadata.log_name
 
-        # Check if the log file already exists or needs to be overwritten
-        if not sink_log_path.exists() or dataset_converter_config.force_log_conversion:
+        # Check if the log directory already exists or needs to be overwritten
+        sync_file_path = log_dir / f"{SYNC_NAME}.arrow"
+        if not sync_file_path.exists() or dataset_converter_config.force_log_conversion:
             log_needs_writing = True
 
-            # Delete the file if it exists (no error if it doesn't)
-            sink_log_path.unlink(missing_ok=True)
-            if not sink_log_path.parent.exists():
-                sink_log_path.parent.mkdir(parents=True, exist_ok=True)
+            # Delete the directory if it exists (clean start)
+            if log_dir.exists():
+                shutil.rmtree(log_dir)
+            log_dir.mkdir(parents=True, exist_ok=True)
 
             # Load config and metadata
             self._dataset_converter_config = dataset_converter_config
             self._log_metadata = log_metadata
             self._schema = self._build_schema(dataset_converter_config, log_metadata)
+            self._log_dir = log_dir
 
             # Initialize Arrow IPC writer, optionally with compression
             # NOTE @DanielDauner: I tried some compression settings, which did not lead to significant reductions.
@@ -178,15 +202,12 @@ class ArrowLogWriter(AbstractLogWriter):
         self,
         timestamp: Timestamp,
         uuid: Optional[uuid.UUID] = None,
-        ego_state: Optional[EgoStateSE3] = None,
-        box_detections: Optional[BoxDetectionWrapper] = None,
-        traffic_lights: Optional[TrafficLightDetectionWrapper] = None,
+        ego_state_se3: Optional[EgoStateSE3] = None,
+        box_detections_se3: Optional[BoxDetectionsSE3] = None,
+        traffic_lights: Optional[TrafficLights] = None,
         pinhole_cameras: Optional[List[CameraData]] = None,
         fisheye_mei_cameras: Optional[List[CameraData]] = None,
         lidar: Optional[LidarData] = None,
-        scenario_tags: Optional[List[str]] = None,
-        route_lane_group_ids: Optional[List[int]] = None,
-        **kwargs,
     ) -> None:
         """Inherited, see superclass."""
 
@@ -202,21 +223,53 @@ class ArrowLogWriter(AbstractLogWriter):
                 log_name=self._log_metadata.log_name,
                 timestamp_us=timestamp.time_us,
             )
-        record_batch_data = {UUID_COLUMN: [uuid.bytes], TIMESTAMP_US_COLUMN: [timestamp.time_us]}
+        # record_batch_data = {UUID_COLUMN: [uuid.bytes], TIMESTAMP_US_COLUMN: [timestamp.time_us]}
+
+        if ego_state_se3 is not None:
+            self.write_ego_state_se3(ego_state_se3)
+
+        if box_detections_se3 is not None:
+            self.write_box_detections_se3(box_detections_se3)
+
+        if traffic_lights is not None:
+            self.write_traffic_lights(traffic_lights)
+
+        if pinhole_cameras is not None:
+            for camera_data in pinhole_cameras:
+                self.write_pinhole_camera(camera_data)
+
+        if fisheye_mei_cameras is not None:
+            for camera_data in fisheye_mei_cameras:
+                self.write_fisheye_mei_camera(camera_data)
+
+        if lidar is not None:
+            self.write_lidar(lidar)
 
         # --------------------------------------------------------------------------------------------------------------
-        # Ego State
+        # Miscellaneous (Scenario Tags / Route)
         # --------------------------------------------------------------------------------------------------------------
+        # if self._dataset_converter_config.include_scenario_tags:
+        #     assert scenario_tags is not None, "Scenario tags are required but not provided."
+        #     record_batch_data[SCENARIO_TAGS_COLUMN] = [scenario_tags]
+
+        # if self._dataset_converter_config.include_route:
+        #     assert route_lane_group_ids is not None, "Route lane group IDs are required but not provided."
+        #     record_batch_data[ROUTE_LANE_GROUP_IDS_COLUMN] = [route_lane_group_ids]
+
+        record_batch = pa.record_batch(record_batch_data, schema=self._schema)
+        self._record_batch_writer.write_batch(record_batch)
+
+    def write_ego_state_se3(self, ego_state_se3: EgoStateSE3) -> None:
+        assert self._dataset_converter_config is not None, "Log writer is not initialized."
         if self._dataset_converter_config.include_ego:
-            assert ego_state is not None, "Ego state is required but not provided."
-            record_batch_data[EGO_IMU_SE3_COLUMN] = [ego_state.imu_se3]
-            record_batch_data[EGO_DYNAMIC_STATE_SE3_COLUMN] = [ego_state.dynamic_state_se3]
+            assert ego_state_se3 is not None, "Ego state is required but not provided."
+            record_batch_data[EGO_IMU_SE3_COLUMN] = [ego_state_se3.imu_se3]
+            record_batch_data[EGO_DYNAMIC_STATE_SE3_COLUMN] = [ego_state_se3.dynamic_state_se3]
 
-        # --------------------------------------------------------------------------------------------------------------
-        # Box Detections
-        # --------------------------------------------------------------------------------------------------------------
+    def write_box_detections_se3(self, box_detections_se3: BoxDetectionsSE3) -> None:
+        assert self._dataset_converter_config is not None, "Log writer is not initialized."
         if self._dataset_converter_config.include_box_detections:
-            assert box_detections is not None, "Box detections are required but not provided."
+            assert box_detections_se3 is not None, "Box detections are required but not provided."
 
             # Accumulate box detection data
             box_detection_state = []
@@ -225,8 +278,7 @@ class ArrowLogWriter(AbstractLogWriter):
             box_detection_velocity = []
             box_detection_num_lidar_points = []
 
-            for box_detection in box_detections:
-                assert isinstance(box_detection, BoxDetectionSE3), "Currently only BoxDetectionSE3 is supported."
+            for box_detection in box_detections_se3:
                 box_detection_state.append(box_detection.bounding_box_se3)
                 box_detection_token.append(box_detection.metadata.track_token)
                 box_detection_label.append(int(box_detection.metadata.label))
@@ -240,9 +292,8 @@ class ArrowLogWriter(AbstractLogWriter):
             record_batch_data[BOX_DETECTIONS_VELOCITY_3D_COLUMN] = [box_detection_velocity]
             record_batch_data[BOX_DETECTIONS_NUM_LIDAR_POINTS_COLUMN] = [box_detection_num_lidar_points]
 
-        # --------------------------------------------------------------------------------------------------------------
-        # Traffic Lights
-        # --------------------------------------------------------------------------------------------------------------
+    def write_traffic_lights(self, traffic_lights: TrafficLights) -> None:
+        assert self._dataset_converter_config is not None, "Log writer is not initialized."
         if self._dataset_converter_config.include_traffic_lights:
             assert traffic_lights is not None, "Traffic light detections are required but not provided."
 
@@ -258,9 +309,9 @@ class ArrowLogWriter(AbstractLogWriter):
             record_batch_data[TRAFFIC_LIGHTS_LANE_ID_COLUMN] = [traffic_light_ids]
             record_batch_data[TRAFFIC_LIGHTS_STATUS_COLUMN] = [traffic_light_statuses]
 
-        # --------------------------------------------------------------------------------------------------------------
-        # Pinhole Cameras
-        # --------------------------------------------------------------------------------------------------------------
+    def write_pinhole_camera(self, camera_data: CameraData) -> None:
+        assert self._dataset_converter_config is not None, "Log writer is not initialized."
+
         if self._dataset_converter_config.include_pinhole_cameras:
             assert pinhole_cameras is not None, "Pinhole camera data is required but not provided."
             provided_pinhole_data = self._prepare_camera_data_dict(
@@ -297,9 +348,7 @@ class ArrowLogWriter(AbstractLogWriter):
                     pinhole_camera_timestamp.time_us if pinhole_camera_timestamp is not None else None
                 ]
 
-        # --------------------------------------------------------------------------------------------------------------
-        # Fisheye MEI Cameras
-        # --------------------------------------------------------------------------------------------------------------
+    def write_fisheye_mei_camera(self, camera_data: CameraData) -> None:
         if self._dataset_converter_config.include_fisheye_mei_cameras:
             assert fisheye_mei_cameras is not None, "Fisheye MEI camera data is required but not provided."
             provided_fisheye_mei_data = self._prepare_camera_data_dict(
@@ -334,15 +383,14 @@ class ArrowLogWriter(AbstractLogWriter):
                     fisheye_mei_camera_timestamp.time_us if fisheye_mei_camera_timestamp is not None else None
                 ]
 
-        # --------------------------------------------------------------------------------------------------------------
-        # Lidars
-        # --------------------------------------------------------------------------------------------------------------
+    def write_lidar(self, lidar_data: LidarData) -> None:
+        assert self._dataset_converter_config is not None, "Log writer is not initialized."
         if self._dataset_converter_config.include_lidars and len(self._log_metadata.lidar_metadata) > 0:
             if self._dataset_converter_config.lidar_store_option == "path":
                 lidar_path: Optional[str] = None
-                if lidar is not None:
-                    assert lidar.has_file_path
-                    lidar_path = str(lidar.relative_path)
+                if lidar_data is not None:
+                    assert lidar_data.has_file_path
+                    lidar_path = str(lidar_data.relative_path)
                 record_batch_data[LIDAR_PATH_COLUMN(LidarID.LIDAR_MERGED.serialize())] = [lidar_path]
             elif self._dataset_converter_config.lidar_store_option == "binary":
                 lidar_name = LidarID.LIDAR_MERGED.serialize()
@@ -355,19 +403,8 @@ class ArrowLogWriter(AbstractLogWriter):
             else:
                 raise ValueError(f"Unsupported Lidar store option: {self._dataset_converter_config.lidar_store_option}")
 
-        # --------------------------------------------------------------------------------------------------------------
-        # Miscellaneous (Scenario Tags / Route)
-        # --------------------------------------------------------------------------------------------------------------
-        if self._dataset_converter_config.include_scenario_tags:
-            assert scenario_tags is not None, "Scenario tags are required but not provided."
-            record_batch_data[SCENARIO_TAGS_COLUMN] = [scenario_tags]
-
-        if self._dataset_converter_config.include_route:
-            assert route_lane_group_ids is not None, "Route lane group IDs are required but not provided."
-            record_batch_data[ROUTE_LANE_GROUP_IDS_COLUMN] = [route_lane_group_ids]
-
-        record_batch = pa.record_batch(record_batch_data, schema=self._schema)
-        self._record_batch_writer.write_batch(record_batch)
+    def write_aux_dict(self, aux_dict: Dict[str, Union[str, int, float, bool]]) -> None:
+        pass
 
     def close(self) -> None:
         """Inherited, see superclass."""
@@ -408,52 +445,46 @@ class ArrowLogWriter(AbstractLogWriter):
         # Ego State
         # --------------------------------------------------------------------------------------------------------------
         if dataset_converter_config.include_ego:
-            schema_list.extend(
-                [
-                    (EGO_IMU_SE3_COLUMN, pa.list_(pa.float64(), len(PoseSE3Index))),
-                    (EGO_DYNAMIC_STATE_SE3_COLUMN, pa.list_(pa.float64(), len(DynamicStateSE3Index))),
-                ]
-            )
+            schema_list.extend([
+                (EGO_IMU_SE3_COLUMN, pa.list_(pa.float64(), len(PoseSE3Index))),
+                (EGO_DYNAMIC_STATE_SE3_COLUMN, pa.list_(pa.float64(), len(DynamicStateSE3Index))),
+            ])
 
         # --------------------------------------------------------------------------------------------------------------
         # Box Detections
         # --------------------------------------------------------------------------------------------------------------
         if dataset_converter_config.include_box_detections:
-            schema_list.extend(
-                [
-                    (
-                        BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN,
-                        pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index))),
-                    ),
-                    (
-                        BOX_DETECTIONS_TOKEN_COLUMN,
-                        pa.list_(pa.string()),
-                    ),
-                    (
-                        BOX_DETECTIONS_LABEL_COLUMN,
-                        pa.list_(pa.int16()),
-                    ),
-                    (
-                        BOX_DETECTIONS_VELOCITY_3D_COLUMN,
-                        pa.list_(pa.list_(pa.float64(), len(Vector3DIndex))),
-                    ),
-                    (
-                        BOX_DETECTIONS_NUM_LIDAR_POINTS_COLUMN,
-                        pa.list_(pa.int64()),
-                    ),
-                ]
-            )
+            schema_list.extend([
+                (
+                    BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN,
+                    pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index))),
+                ),
+                (
+                    BOX_DETECTIONS_TOKEN_COLUMN,
+                    pa.list_(pa.string()),
+                ),
+                (
+                    BOX_DETECTIONS_LABEL_COLUMN,
+                    pa.list_(pa.int16()),
+                ),
+                (
+                    BOX_DETECTIONS_VELOCITY_3D_COLUMN,
+                    pa.list_(pa.list_(pa.float64(), len(Vector3DIndex))),
+                ),
+                (
+                    BOX_DETECTIONS_NUM_LIDAR_POINTS_COLUMN,
+                    pa.list_(pa.int64()),
+                ),
+            ])
 
         # --------------------------------------------------------------------------------------------------------------
         # Traffic Lights
         # --------------------------------------------------------------------------------------------------------------
         if dataset_converter_config.include_traffic_lights:
-            schema_list.extend(
-                [
-                    (TRAFFIC_LIGHTS_LANE_ID_COLUMN, pa.list_(pa.int64())),
-                    (TRAFFIC_LIGHTS_STATUS_COLUMN, pa.list_(pa.int16())),
-                ]
-            )
+            schema_list.extend([
+                (TRAFFIC_LIGHTS_LANE_ID_COLUMN, pa.list_(pa.int64())),
+                (TRAFFIC_LIGHTS_STATUS_COLUMN, pa.list_(pa.int16())),
+            ])
 
         # --------------------------------------------------------------------------------------------------------------
         # Pinhole Cameras
@@ -461,22 +492,20 @@ class ArrowLogWriter(AbstractLogWriter):
         if dataset_converter_config.include_pinhole_cameras:
             for pinhole_camera_type in log_metadata.pinhole_camera_metadata.keys():
                 pinhole_camera_name = pinhole_camera_type.serialize()
-                schema_list.extend(
-                    [
-                        (
-                            PINHOLE_CAMERA_DATA_COLUMN(pinhole_camera_name),
-                            _camera_store_option_to_arrow_type(dataset_converter_config.pinhole_camera_store_option),
-                        ),
-                        (
-                            PINHOLE_CAMERA_EXTRINSIC_COLUMN(pinhole_camera_name),
-                            pa.list_(pa.float64(), len(PoseSE3Index)),
-                        ),
-                        (
-                            PINHOLE_CAMERA_TIMESTAMP_COLUMN(pinhole_camera_name),
-                            pa.int64(),
-                        ),
-                    ]
-                )
+                schema_list.extend([
+                    (
+                        PINHOLE_CAMERA_DATA_COLUMN(pinhole_camera_name),
+                        _camera_store_option_to_arrow_type(dataset_converter_config.pinhole_camera_store_option),
+                    ),
+                    (
+                        PINHOLE_CAMERA_EXTRINSIC_COLUMN(pinhole_camera_name),
+                        pa.list_(pa.float64(), len(PoseSE3Index)),
+                    ),
+                    (
+                        PINHOLE_CAMERA_TIMESTAMP_COLUMN(pinhole_camera_name),
+                        pa.int64(),
+                    ),
+                ])
 
         # --------------------------------------------------------------------------------------------------------------
         # Fisheye MEI Cameras
@@ -484,24 +513,20 @@ class ArrowLogWriter(AbstractLogWriter):
         if dataset_converter_config.include_fisheye_mei_cameras:
             for fisheye_mei_camera_type in log_metadata.fisheye_mei_camera_metadata.keys():
                 fisheye_mei_camera_name = fisheye_mei_camera_type.serialize()
-                schema_list.extend(
-                    [
-                        (
-                            FISHEYE_CAMERA_DATA_COLUMN(fisheye_mei_camera_name),
-                            _camera_store_option_to_arrow_type(
-                                dataset_converter_config.fisheye_mei_camera_store_option
-                            ),
-                        ),
-                        (
-                            FISHEYE_CAMERA_EXTRINSIC_COLUMN(fisheye_mei_camera_name),
-                            pa.list_(pa.float64(), len(PoseSE3Index)),
-                        ),
-                        (
-                            FISHEYE_CAMERA_TIMESTAMP_COLUMN(fisheye_mei_camera_name),
-                            pa.int64(),
-                        ),
-                    ]
-                )
+                schema_list.extend([
+                    (
+                        FISHEYE_CAMERA_DATA_COLUMN(fisheye_mei_camera_name),
+                        _camera_store_option_to_arrow_type(dataset_converter_config.fisheye_mei_camera_store_option),
+                    ),
+                    (
+                        FISHEYE_CAMERA_EXTRINSIC_COLUMN(fisheye_mei_camera_name),
+                        pa.list_(pa.float64(), len(PoseSE3Index)),
+                    ),
+                    (
+                        FISHEYE_CAMERA_TIMESTAMP_COLUMN(fisheye_mei_camera_name),
+                        pa.int64(),
+                    ),
+                ])
 
         # --------------------------------------------------------------------------------------------------------------
         # Lidars
@@ -510,27 +535,21 @@ class ArrowLogWriter(AbstractLogWriter):
             # NOTE @DanielDauner: We now store the lidar merged by default.
 
             if dataset_converter_config.lidar_store_option == "path":
-                schema_list.append(
-                    (
-                        LIDAR_PATH_COLUMN(LidarID.LIDAR_MERGED.serialize()),
-                        pa.string(),
-                    )
-                )
+                schema_list.append((
+                    LIDAR_PATH_COLUMN(LidarID.LIDAR_MERGED.serialize()),
+                    pa.string(),
+                ))
             elif dataset_converter_config.lidar_store_option == "binary":
-                schema_list.append(
-                    (
-                        LIDAR_POINT_CLOUD_COLUMN(LidarID.LIDAR_MERGED.serialize()),
-                        pa.binary(),
-                    )
-                )
+                schema_list.append((
+                    LIDAR_POINT_CLOUD_COLUMN(LidarID.LIDAR_MERGED.serialize()),
+                    pa.binary(),
+                ))
                 if dataset_converter_config.lidar_point_feature_codec is not None:
                     # If a point feature codec is specified, we also store the point features as binary data.
-                    schema_list.append(
-                        (
-                            LIDAR_POINT_CLOUD_FEATURE_COLUMN(LidarID.LIDAR_MERGED.serialize()),
-                            pa.binary(),
-                        )
-                    )
+                    schema_list.append((
+                        LIDAR_POINT_CLOUD_FEATURE_COLUMN(LidarID.LIDAR_MERGED.serialize()),
+                        pa.binary(),
+                    ))
             else:
                 raise NotImplementedError(
                     f"Unsupported Lidar store option: {dataset_converter_config.lidar_store_option}"

@@ -3,9 +3,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from py123d.api import MapAPI, SceneAPI, SceneMetadata
+from py123d.store import MapAPI, SceneAPI, SceneMetadata
 from py123d.datatypes import (
-    BoxDetectionWrapper,
+    BoxDetectionsSE3,
     EgoStateSE3,
     FisheyeMEICamera,
     FisheyeMEICameraID,
@@ -16,7 +16,7 @@ from py123d.datatypes import (
     PinholeCamera,
     PinholeCameraID,
     Timestamp,
-    TrafficLightDetectionWrapper,
+    TrafficLights,
     VehicleParameters,
 )
 
@@ -49,13 +49,13 @@ class ConcreteSceneAPI(SceneAPI):
         """Inherited, see super class."""
         return Mock(spec=EgoStateSE3)
 
-    def get_box_detections_at_iteration(self, iteration: int) -> Optional[BoxDetectionWrapper]:
+    def get_box_detections_at_iteration(self, iteration: int) -> Optional[BoxDetectionsSE3]:
         """Inherited, see super class."""
-        return Mock(spec=BoxDetectionWrapper)
+        return Mock(spec=BoxDetectionsSE3)
 
-    def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetectionWrapper]:
+    def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLights]:
         """Inherited, see super class."""
-        return Mock(spec=TrafficLightDetectionWrapper)
+        return Mock(spec=TrafficLights)
 
     def get_route_lane_group_ids(self, iteration: int) -> Optional[list]:
         """Inherited, see super class."""

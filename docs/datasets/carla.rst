@@ -46,7 +46,7 @@ Available Modalities
      - Depending on the collected dataset. For further information, see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
    * - Map
      - ✓
-     - We included a conversion method of OpenDRIVE maps. For further information, see :class:`~py123d.api.MapAPI`.
+     - We included a conversion method of OpenDRIVE maps. For further information, see :class:`~py123d.store.MapAPI`.
    * - Bounding Boxes
      - ✓
      - Depending on the collected dataset. For further information, see :class:`~py123d.datatypes.detections.BoxDetectionWrapper`.

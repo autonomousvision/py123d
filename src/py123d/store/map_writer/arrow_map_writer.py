@@ -5,11 +5,8 @@ from typing import Any, Dict, List, Optional, Union
 
 import pyarrow as pa
 
-from py123d.common.utils.arrow_helper import write_arrow_table
 from py123d.common.utils.msgpack_utils import msgpack_encode_with_numpy
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
-from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
-from py123d.conversion.map_writer.utils.id_utils import ToIntMapping
 from py123d.datatypes.map_objects.map_layer_types import MapLayer
 from py123d.datatypes.map_objects.map_objects import (
     BaseMapLineObject,
@@ -28,6 +25,9 @@ from py123d.datatypes.map_objects.map_objects import (
 from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.geometry.geometry_index import Point2DIndex, Point3DIndex
 from py123d.geometry.polyline import Polyline3D
+from py123d.store.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.store.map_writer.utils.id_utils import ToIntMapping
+from py123d.store.utils.arrow_helper import write_arrow_table
 
 
 class ArrowMapWriter(AbstractMapWriter):
@@ -153,7 +153,6 @@ class ArrowMapWriter(AbstractMapWriter):
             type_idx = 0
 
             # 1. Lanes
-            # lanes_struct_data: List[Dict[str, Any]] = []
             for idx in range(len(self._map_data[MapLayer.LANE]["id"])):
                 all_object_ids.append(self._map_data[MapLayer.LANE]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.LANE]["wkb"][idx])

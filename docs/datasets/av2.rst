@@ -50,7 +50,7 @@ Available Modalities
      - State of the ego vehicle, including poses, and vehicle parameters, see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
    * - Map
      - (✓)
-     - The HD-Maps are in 3D, but may have artifacts due to polyline to polygon conversion (see below). For more information, see :class:`~py123d.api.MapAPI`.
+     - The HD-Maps are in 3D, but may have artifacts due to polyline to polygon conversion (see below). For more information, see :class:`~py123d.store.MapAPI`.
    * - Bounding Boxes
      - ✓
      - The bounding boxes are available with the :class:`~py123d.conversion.registry.AV2SensorBoxDetectionLabel`. For more information, :class:`~py123d.datatypes.detections.BoxDetectionWrapper`.

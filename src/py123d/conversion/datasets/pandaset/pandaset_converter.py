@@ -24,13 +24,13 @@ from py123d.conversion.datasets.pandaset.utils.pandaset_utlis import (
     read_pkl_gz,
     rotate_pandaset_pose_to_iso_coordinates,
 )
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
-from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.store.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
+from py123d.store.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry import PandasetBoxDetectionLabel
 from py123d.datatypes import (
     BoxDetectionMetadata,
     BoxDetectionSE3,
-    BoxDetectionWrapper,
+    BoxDetectionsSE3,
     EgoStateSE3,
     LidarID,
     LidarMetadata,
@@ -237,7 +237,7 @@ def _extract_pandaset_sensor_ego_state(gps: Dict[str, float], lidar_pose: Dict[s
     )
 
 
-def _extract_pandaset_box_detections(source_log_path: Path, iteration: int) -> BoxDetectionWrapper:
+def _extract_pandaset_box_detections(source_log_path: Path, iteration: int) -> BoxDetectionsSE3:
     """Extracts the box detections from a Pandaset log folder at a given iteration."""
 
     # NOTE @DanielDauner: The following provided quboids annotations are not stored in 123D
@@ -255,7 +255,7 @@ def _extract_pandaset_box_detections(source_log_path: Path, iteration: int) -> B
     cuboids_file = source_log_path / "annotations" / "cuboids" / f"{iteration_str}.pkl.gz"
 
     if not cuboids_file.exists():
-        return BoxDetectionWrapper(box_detections=[])
+        return BoxDetectionsSE3(box_detections=[])
 
     cuboid_df: pd.DataFrame = read_pkl_gz(cuboids_file)
 
@@ -327,7 +327,7 @@ def _extract_pandaset_box_detections(source_log_path: Path, iteration: int) -> B
         )
         box_detections.append(box_detection_se3)
 
-    return BoxDetectionWrapper(box_detections=box_detections)  # type: ignore
+    return BoxDetectionsSE3(box_detections=box_detections)  # type: ignore
 
 
 def _extract_pandaset_pinhole_cameras(

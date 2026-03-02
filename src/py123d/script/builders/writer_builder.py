@@ -4,7 +4,7 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 
 from py123d.conversion.abstract_dataset_converter import AbstractLogWriter
-from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.store.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.script.builders.utils.utils_type import validate_type
 
 logger = logging.getLogger(__name__)

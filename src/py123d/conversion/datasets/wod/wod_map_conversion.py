@@ -9,7 +9,7 @@ from py123d.conversion.datasets.wod.utils.wod_constants import (
     WAYMO_ROAD_EDGE_TYPE_CONVERSION,
     WAYMO_ROAD_LINE_TYPE_CONVERSION,
 )
-from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.store.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.datatypes.map_objects.map_layer_types import LaneType, RoadEdgeType, RoadLineType
 from py123d.datatypes.map_objects.map_objects import Carpark, Crosswalk, Lane, LaneGroup, RoadEdge, RoadLine
 from py123d.geometry import Polyline3D

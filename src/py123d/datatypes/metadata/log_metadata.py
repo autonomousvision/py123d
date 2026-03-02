@@ -4,6 +4,7 @@ from typing import Dict, Optional, Type
 
 import py123d
 from py123d.conversion.registry.box_detection_label_registry import BOX_DETECTION_LABEL_REGISTRY, BoxDetectionLabel
+from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraID, FisheyeMEICameraMetadata
 from py123d.datatypes.sensors.lidar import LidarID, LidarMetadata
@@ -11,7 +12,7 @@ from py123d.datatypes.sensors.pinhole_camera import PinholeCameraID, PinholeCame
 from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
 
 
-class LogMetadata:
+class LogMetadata(AbstractMetadata):
     """Class to hold metadata information about a log."""
 
     __slots__ = (

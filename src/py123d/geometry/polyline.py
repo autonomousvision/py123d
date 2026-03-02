@@ -47,7 +47,7 @@ class Polyline2D(ArrayMixin):
             linestring_ = linestring
 
         instance = object.__new__(cls)
-        object.__setattr__(instance, "_linestring", linestring_)
+        instance._linestring = linestring_
         return instance
 
     @classmethod
@@ -70,7 +70,7 @@ class Polyline2D(ArrayMixin):
             raise ValueError("Array must have shape (N, 2) or (N, 3) for Point2D or Point3D respectively.")
 
         instance = object.__new__(cls)
-        object.__setattr__(instance, "_linestring", linestring_)
+        instance._linestring = linestring_
         return instance
 
     @property
@@ -338,8 +338,7 @@ class Polyline3D(ArrayMixin):
     def linestring(self) -> geom.LineString:
         """The shapely LineString representation of the 3D polyline."""
         if self._linestring is None or not self._linestring.has_z:
-            linestring_ = geom_creation.linestrings(*self._array.T)  # type: ignore
-            object.__setattr__(self, "_linestring", linestring_)
+            self._linestring = geom_creation.linestrings(*self._array.T)  # type: ignore
         assert self._linestring is not None, "Linestring should have been initialized."
         return self._linestring
 
@@ -362,7 +361,7 @@ class Polyline3D(ArrayMixin):
     def length(self) -> float:
         """Returns the length of the 3D polyline."""
         if self._progress is None:
-            object.__setattr__(self, "_progress", get_path_progress_3d(self._array[:, Point3DIndex.XYZ]))
+            self._progress = get_path_progress_3d(self._array[:, Point3DIndex.XYZ])
 
         assert self._progress is not None, "Progress should have been initialized."
         return float(self._progress[-1])
@@ -379,7 +378,7 @@ class Polyline3D(ArrayMixin):
         :return: A Point3D instance or a numpy array of shape (N, 3) representing the interpolated points.
         """
         if self._progress is None:
-            object.__setattr__(self, "_progress", get_path_progress_3d(self._array[:, Point3DIndex.XYZ]))
+            self._progress = get_path_progress_3d(self._array[:, Point3DIndex.XYZ])
         assert self._progress is not None, "Progress should have been initialized."
 
         _interpolator = interp1d(

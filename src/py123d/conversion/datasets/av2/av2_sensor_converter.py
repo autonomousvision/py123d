@@ -17,13 +17,13 @@ from py123d.conversion.datasets.av2.utils.av2_helper import (
     find_closest_target_fpath,
     get_slice_with_timestamp_ns,
 )
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
-from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.store.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
+from py123d.store.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry import AV2SensorBoxDetectionLabel
 from py123d.datatypes import (
     BoxDetectionMetadata,
     BoxDetectionSE3,
-    BoxDetectionWrapper,
+    BoxDetectionsSE3,
     EgoStateSE3,
     LidarID,
     LidarMetadata,
@@ -279,13 +279,13 @@ def _get_av2_lidar_metadata(
 
 def _extract_av2_sensor_box_detections(
     annotations_df: Optional[pd.DataFrame], lidar_timestamp_ns: int, ego_state_se3: EgoStateSE3
-) -> BoxDetectionWrapper:
+) -> BoxDetectionsSE3:
     """Extract box detections from AV2 sensor dataset annotations."""
 
     # TODO: Extract velocity from annotations_df if available.
 
     if annotations_df is None:
-        return BoxDetectionWrapper(box_detections=[])
+        return BoxDetectionsSE3(box_detections=[])
 
     annotations_slice = get_slice_with_timestamp_ns(annotations_df, lidar_timestamp_ns)
     num_detections = len(annotations_slice)
@@ -323,7 +323,7 @@ def _extract_av2_sensor_box_detections(
             )
         )
 
-    return BoxDetectionWrapper(box_detections=box_detections)  # type: ignore
+    return BoxDetectionsSE3(box_detections=box_detections)  # type: ignore
 
 
 def _extract_av2_sensor_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_timestamp_ns: int) -> EgoStateSE3:

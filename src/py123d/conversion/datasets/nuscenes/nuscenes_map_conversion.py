@@ -12,7 +12,7 @@ from py123d.conversion.datasets.nuscenes.utils.nuscenes_map_utils import (
     extract_nuscenes_centerline,
     order_lanes_left_to_right,
 )
-from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.store.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.utils.map_utils.road_edge.road_edge_2d_utils import (
     get_road_edge_linear_rings,
     split_line_geometry_by_max_length,

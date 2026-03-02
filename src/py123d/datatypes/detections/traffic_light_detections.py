@@ -61,8 +61,8 @@ class TrafficLightDetection:
         return self._timestamp
 
 
-class TrafficLightDetectionWrapper:
-    """The TrafficLightDetectionWrapper is a container for multiple traffic light detections.
+class TrafficLights:
+    """The TrafficLights is a container for multiple traffic light detections.
     It provides methods to access individual detections as well as to retrieve a detection by lane id.
     The wrapper is is used in to read and write traffic light detections from/to logs.
     """
@@ -70,7 +70,7 @@ class TrafficLightDetectionWrapper:
     __slots__ = ("_traffic_light_detections",)
 
     def __init__(self, traffic_light_detections: List[TrafficLightDetection]) -> None:
-        """Initialize a TrafficLightDetectionWrapper instance.
+        """Initialize a TrafficLights instance.
 
         :param traffic_light_detections: List of :class:`TrafficLightDetection`.
         """

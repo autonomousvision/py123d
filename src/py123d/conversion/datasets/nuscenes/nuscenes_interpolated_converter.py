@@ -17,13 +17,13 @@ from py123d.conversion.datasets.nuscenes.utils.nuscenes_constants import (
     NUSCENES_INTERPOLATED_DATA_SPLITS,
     TARGET_DT,
 )
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
-from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.store.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
+from py123d.store.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.box_detection_label_registry import NuScenesBoxDetectionLabel
 from py123d.datatypes import (
     BoxDetectionMetadata,
     BoxDetectionSE3,
-    BoxDetectionWrapper,
+    BoxDetectionsSE3,
     DynamicStateSE3,
     EgoStateSE3,
     LidarID,
@@ -214,7 +214,7 @@ class NuScenesInterpolatedConverter(AbstractDatasetConverter):
             # 4. Collect keyframe data: ordered samples and their box detections
             keyframe_samples = _collect_keyframe_samples(nusc, scene)
             keyframe_timestamps = [s["timestamp"] for s in keyframe_samples]
-            keyframe_detections: Dict[str, BoxDetectionWrapper] = {}
+            keyframe_detections: Dict[str, BoxDetectionsSE3] = {}
             for sample in keyframe_samples:
                 keyframe_detections[sample["token"]] = _extract_nuscenes_box_detections(nusc, sample)
 
@@ -267,7 +267,7 @@ class NuScenesInterpolatedConverter(AbstractDatasetConverter):
                     elif prev_kf is not None:
                         box_detections = keyframe_detections[prev_kf["token"]]
                     else:
-                        box_detections = BoxDetectionWrapper(box_detections=[])
+                        box_detections = BoxDetectionsSE3(box_detections=[])
 
                     # Find nearest cameras for this sweep timestamp
                     cameras = _find_nearest_cameras_for_sweep(
@@ -518,11 +518,11 @@ def _find_surrounding_keyframes(
 
 
 def _interpolate_box_detections(
-    prev_detections: BoxDetectionWrapper,
-    next_detections: BoxDetectionWrapper,
+    prev_detections: BoxDetectionsSE3,
+    next_detections: BoxDetectionsSE3,
     t: float,
     interpolated_timestamp: Timestamp,
-) -> BoxDetectionWrapper:
+) -> BoxDetectionsSE3:
     """Interpolates box detections between two keyframes.
 
     Matches detections by track token (instance_token). For matched pairs:
@@ -609,7 +609,7 @@ def _interpolate_box_detections(
             )
         )
 
-    return BoxDetectionWrapper(box_detections=interpolated)
+    return BoxDetectionsSE3(box_detections=interpolated)
 
 
 # ---------------------------------------------------------------------------
@@ -753,7 +753,7 @@ def _extract_lidar_from_sample_data(
 # ---------------------------------------------------------------------------
 
 
-def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> BoxDetectionWrapper:
+def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> BoxDetectionsSE3:
     """Extracts the box detections from a nuScenes keyframe sample."""
     box_detections: List[BoxDetectionSE3] = []
     for ann_token in sample["anns"]:
@@ -797,7 +797,7 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
             velocity_3d=velocity_3d,
         )
         box_detections.append(box_detection)
-    return BoxDetectionWrapper(box_detections=box_detections)  # type: ignore
+    return BoxDetectionsSE3(box_detections=box_detections)  # type: ignore
 
 
 # ---------------------------------------------------------------------------

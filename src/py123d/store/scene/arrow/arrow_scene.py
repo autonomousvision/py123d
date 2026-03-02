@@ -4,9 +4,9 @@ from typing import List, Optional, Union
 
 import pyarrow as pa
 
-from py123d.api.map.arrow_map_api import get_global_map_api, get_local_map_api
-from py123d.api.map.map_api import MapAPI
-from py123d.api.scene.arrow.utils.arrow_getters import (
+from py123d.store.map.arrow_map_api import get_global_map_api, get_local_map_api
+from py123d.store.map.map_api import MapAPI
+from py123d.store.scene.arrow.utils.arrow_getters import (
     get_box_detections_se3_from_arrow_table,
     get_camera_from_arrow_table,
     get_ego_state_se3_from_arrow_table,
@@ -15,15 +15,15 @@ from py123d.api.scene.arrow.utils.arrow_getters import (
     get_timestamp_from_arrow_table,
     get_traffic_light_detections_from_arrow_table,
 )
-from py123d.api.scene.arrow.utils.arrow_metadata_utils import (
+from py123d.store.scene.arrow.utils.arrow_metadata_utils import (
     get_log_metadata_from_arrow_table,
 )
-from py123d.api.scene.scene_api import SceneAPI
-from py123d.api.scene.scene_metadata import SceneMetadata
-from py123d.common.utils.arrow_column_names import UUID_COLUMN
-from py123d.common.utils.arrow_helper import get_lru_cached_arrow_table
+from py123d.store.scene.scene_api import SceneAPI
+from py123d.store.scene.scene_metadata import SceneMetadata
+from py123d.store.utils.arrow_schema import UUID_COLUMN
+from py123d.store.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.common.utils.uuid_utils import convert_to_str_uuid
-from py123d.datatypes.detections import BoxDetectionWrapper, TrafficLightDetectionWrapper
+from py123d.datatypes.detections import BoxDetectionsSE3, TrafficLights
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.sensors import (
     FisheyeMEICamera,
@@ -142,7 +142,7 @@ class ArrowSceneAPI(SceneAPI):
             self.log_metadata.vehicle_parameters,
         )
 
-    def get_box_detections_at_iteration(self, iteration: int) -> Optional[BoxDetectionWrapper]:
+    def get_box_detections_at_iteration(self, iteration: int) -> Optional[BoxDetectionsSE3]:
         """Inherited, see superclass."""
         return get_box_detections_se3_from_arrow_table(
             self._get_recording_table(),
@@ -150,7 +150,7 @@ class ArrowSceneAPI(SceneAPI):
             self.log_metadata,
         )
 
-    def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetectionWrapper]:
+    def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLights]:
         """Inherited, see superclass."""
         return get_traffic_light_detections_from_arrow_table(
             self._get_recording_table(), self._get_table_index(iteration)

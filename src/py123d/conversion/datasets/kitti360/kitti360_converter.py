@@ -24,13 +24,13 @@ from py123d.conversion.datasets.kitti360.utils.kitti360_labels import (
     kittiId2label,
 )
 from py123d.conversion.datasets.kitti360.utils.preprocess_detection import process_detection
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
-from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.store.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
+from py123d.store.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry import KITTI360BoxDetectionLabel
 from py123d.datatypes import (
     BoxDetectionMetadata,
     BoxDetectionSE3,
-    BoxDetectionWrapper,
+    BoxDetectionsSE3,
     DynamicStateSE3,
     EgoStateSE3,
     FisheyeMEICameraID,
@@ -575,7 +575,7 @@ def _extract_kitti360_box_detections_all(
     kitti360_folders: Dict[str, Path],
     detection_cache_root: Path,
     detection_radius: float,
-) -> List[BoxDetectionWrapper]:
+) -> List[BoxDetectionsSE3]:
     """Extracts all KITTI-360 box detections for the given sequence."""
 
     detections_states: List[List[List[float]]] = [[] for _ in range(ts_len)]
@@ -672,7 +672,7 @@ def _extract_kitti360_box_detections_all(
             detections_tokens[frame].append(str(obj.globalID))
             detections_labels[frame].append(KITTI360_DETECTION_NAME_DICT[obj.name])
 
-    box_detection_wrapper_all: List[BoxDetectionWrapper] = []
+    box_detection_wrapper_all: List[BoxDetectionsSE3] = []
     for frame in range(ts_len):
         box_detections: List[BoxDetectionSE3] = []
         for state, velocity, token, detection_label in zip(
@@ -696,7 +696,7 @@ def _extract_kitti360_box_detections_all(
                 velocity_3d=velocity_vector,
             )
             box_detections.append(box_detection)
-        box_detection_wrapper_all.append(BoxDetectionWrapper(box_detections=box_detections))
+        box_detection_wrapper_all.append(BoxDetectionsSE3(box_detections=box_detections))
     return box_detection_wrapper_all
 
 

@@ -38,13 +38,13 @@ Available Modalities
      - ..., see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
    * - Map
      - ✓ / (✓) / X
-     - ..., see :class:`~py123d.api.MapAPI`.
+     - ..., see :class:`~py123d.store.MapAPI`.
    * - Bounding Boxes
      - ✓ / (✓) / X
      - ..., see :class:`~py123d.datatypes.detections.BoxDetectionWrapper`.
    * - Traffic Lights
      - ✓ / (✓) / X
-     - ..., see :class:`~py123d.datatypes.detections.TrafficLightDetectionWrapper`.
+     - ..., see :class:`~py123d.datatypes.detections.TrafficLights`.
    * - Pinhole Cameras
      - ✓ / (✓) / X
      - ..., see :class:`~py123d.datatypes.sensors.PinholeCamera`.

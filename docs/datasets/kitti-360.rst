@@ -42,7 +42,7 @@ Available Modalities
      - State of the ego vehicle, including poses, dynamic state, and vehicle parameters, see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
    * - Map
      - ✓
-     - The maps are in 3D vector format and defined per log, see :class:`~py123d.api.MapAPI`. The map does not include lane-level information.
+     - The maps are in 3D vector format and defined per log, see :class:`~py123d.store.MapAPI`. The map does not include lane-level information.
    * - Bounding Boxes
      - ✓
      - The bounding boxes are available and labeled with :class:`~py123d.conversion.registry.KITTI360BoxDetectionLabel`. For further information, see :class:`~py123d.datatypes.detections.BoxDetectionWrapper`.

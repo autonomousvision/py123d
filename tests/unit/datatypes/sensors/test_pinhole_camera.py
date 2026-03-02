@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
 from py123d.datatypes.sensors.pinhole_camera import (
     PinholeCamera,
     PinholeCameraID,
@@ -408,6 +409,45 @@ class TestPinholeMetadata:
                 height=480,
             )
             assert metadata.camera_id == camera_id
+
+    def test_is_instance_of_abstract_metadata(self):
+        """PinholeCameraMetadata is an instance of AbstractMetadata."""
+        intrinsics = PinholeIntrinsics(fx=500.0, fy=500.0, cx=320.0, cy=240.0)
+        metadata = PinholeCameraMetadata(
+            camera_name="TestCamera",
+            camera_id=PinholeCameraID.PCAM_F0,
+            intrinsics=intrinsics,
+            distortion=None,
+            width=640,
+            height=480,
+        )
+        assert isinstance(metadata, AbstractMetadata)
+
+    def test_roundtrip_serialization(self):
+        """to_dict and from_dict are inverses."""
+        intrinsics = PinholeIntrinsics(fx=600.0, fy=600.0, cx=400.0, cy=300.0)
+        distortion = PinholeDistortion(k1=0.1, k2=0.02, p1=0.003, p2=0.004, k3=0.005)
+        extrinsic = PoseSE3.from_list([0.1, 0.2, 0.3, 1.0, 0.0, 0.0, 0.0])
+        original = PinholeCameraMetadata(
+            camera_name="RoundtripCam",
+            camera_id=PinholeCameraID.PCAM_L0,
+            intrinsics=intrinsics,
+            distortion=distortion,
+            width=1280,
+            height=720,
+            camera_to_imu_se3=extrinsic,
+            is_undistorted=True,
+        )
+        restored = PinholeCameraMetadata.from_dict(original.to_dict())
+
+        assert restored.camera_name == original.camera_name
+        assert restored.camera_id == original.camera_id
+        assert restored.width == original.width
+        assert restored.height == original.height
+        assert restored.is_undistorted == original.is_undistorted
+        assert restored.intrinsics.fx == pytest.approx(original.intrinsics.fx)
+        assert restored.distortion.k1 == pytest.approx(original.distortion.k1)
+        assert restored.camera_to_imu_se3 == original.camera_to_imu_se3
 
     def test_metadata_square_image(self):
         """Test metadata with square image dimensions."""

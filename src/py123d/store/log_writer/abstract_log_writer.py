@@ -10,8 +10,8 @@ import numpy as np
 import numpy.typing as npt
 
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
-from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
-from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
+from py123d.datatypes.detections.box_detections import BoxDetectionsSE3
+from py123d.datatypes.detections.traffic_light_detections import TrafficLights
 from py123d.datatypes.metadata import LogMetadata
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraID
 from py123d.datatypes.sensors.lidar import LidarID
@@ -41,20 +41,16 @@ class AbstractLogWriter(abc.ABC):
         :return: True if the current logs needs to be written, False otherwise.
         """
 
-    @abc.abstractmethod
     def write(
         self,
         timestamp: Timestamp,
         uuid: Optional[uuid.UUID] = None,
-        ego_state: Optional[EgoStateSE3] = None,
-        box_detections: Optional[BoxDetectionWrapper] = None,
-        traffic_lights: Optional[TrafficLightDetectionWrapper] = None,
+        ego_state_se3: Optional[EgoStateSE3] = None,
+        box_detections_se3: Optional[BoxDetectionsSE3] = None,
+        traffic_lights: Optional[TrafficLights] = None,
         pinhole_cameras: Optional[List[CameraData]] = None,
         fisheye_mei_cameras: Optional[List[CameraData]] = None,
         lidar: Optional[LidarData] = None,
-        scenario_tags: Optional[List[str]] = None,
-        route_lane_group_ids: Optional[List[int]] = None,
-        **kwargs,
     ) -> None:
         """Writes a single iteration of data to the log.
 
@@ -65,9 +61,36 @@ class AbstractLogWriter(abc.ABC):
         :param pinhole_cameras: Optional, the pinhole camera data, defaults to None
         :param fisheye_mei_cameras: Optional, the fisheye MEI camera data, defaults to None
         :param lidar: Optional, the Lidar data, defaults to None
-        :param scenario_tags: Optional, the scenario tags, defaults to None
-        :param route_lane_group_ids: Optional, the route lane group IDs, defaults to None
         """
+        pass
+
+    @abc.abstractmethod
+    def write_ego_state_se3(self, ego_state_se3: EgoStateSE3) -> None:
+        pass
+
+    @abc.abstractmethod
+    def write_box_detections_se3(self, box_detections_se3: BoxDetectionsSE3) -> None:
+        pass
+
+    @abc.abstractmethod
+    def write_traffic_lights(self, traffic_lights: TrafficLights) -> None:
+        pass
+
+    @abc.abstractmethod
+    def write_pinhole_camera(self, camera_data: CameraData) -> None:
+        pass
+
+    @abc.abstractmethod
+    def write_fisheye_mei_camera(self, camera_data: CameraData) -> None:
+        pass
+
+    @abc.abstractmethod
+    def write_lidar(self, lidar_data: LidarData) -> None:
+        pass
+
+    @abc.abstractmethod
+    def write_aux_dict(self, aux_dict: Dict[str, Union[str, int, float, bool]]) -> None:
+        pass
 
     @abc.abstractmethod
     def close(self) -> None:

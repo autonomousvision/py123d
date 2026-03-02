@@ -23,14 +23,14 @@ from py123d.conversion.datasets.nuplan.utils.nuplan_sql_helper import (
     get_box_detections_for_lidarpc_token_from_db,
     get_nearest_ego_pose_for_timestamp_from_db,
 )
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
-from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.store.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
+from py123d.store.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry import NuPlanBoxDetectionLabel
 from py123d.datatypes.detections import (
     BoxDetectionSE3,
-    BoxDetectionWrapper,
+    BoxDetectionsSE3,
     TrafficLightDetection,
-    TrafficLightDetectionWrapper,
+    TrafficLights,
 )
 from py123d.datatypes.metadata import LogMetadata, MapMetadata
 from py123d.datatypes.sensors import (
@@ -356,15 +356,15 @@ def _extract_nuplan_ego_state(nuplan_lidar_pc: LidarPc) -> EgoStateSE3:
     )
 
 
-def _extract_nuplan_box_detections(lidar_pc: LidarPc, source_log_path: Path) -> BoxDetectionWrapper:
+def _extract_nuplan_box_detections(lidar_pc: LidarPc, source_log_path: Path) -> BoxDetectionsSE3:
     """Extracts the nuPlan box detections from a given LidarPc database objects."""
     box_detections: List[BoxDetectionSE3] = get_box_detections_for_lidarpc_token_from_db(
         str(source_log_path), lidar_pc.token
     )
-    return BoxDetectionWrapper(box_detections=box_detections)  # type: ignore
+    return BoxDetectionsSE3(box_detections=box_detections)  # type: ignore
 
 
-def _extract_nuplan_traffic_lights(log_db: NuPlanDB, lidar_pc_token: str) -> TrafficLightDetectionWrapper:
+def _extract_nuplan_traffic_lights(log_db: NuPlanDB, lidar_pc_token: str) -> TrafficLights:
     """Extracts the nuPlan traffic light detections from a given LidarPc database objects."""
     traffic_lights_detections: List[TrafficLightDetection] = [
         TrafficLightDetection(
@@ -374,7 +374,7 @@ def _extract_nuplan_traffic_lights(log_db: NuPlanDB, lidar_pc_token: str) -> Tra
         )
         for traffic_light in log_db.traffic_light_status.select_many(lidar_pc_token=lidar_pc_token)
     ]
-    return TrafficLightDetectionWrapper(traffic_light_detections=traffic_lights_detections)
+    return TrafficLights(traffic_light_detections=traffic_lights_detections)
 
 
 def _extract_nuplan_cameras(

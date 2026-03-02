@@ -8,6 +8,7 @@ import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum, classproperty
 from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
+from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
 from py123d.datatypes.time import Timestamp
 from py123d.geometry import PoseSE3
 
@@ -325,7 +326,7 @@ class PinholeDistortion(ArrayMixin):
         return indexed_array_repr(self, PinholeDistortionIndex)
 
 
-class PinholeCameraMetadata:
+class PinholeCameraMetadata(AbstractMetadata):
     """Static metadata for a pinhole camera, stored in a log."""
 
     __slots__ = (

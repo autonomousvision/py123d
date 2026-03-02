@@ -16,13 +16,13 @@ from py123d.conversion.datasets.nuscenes.utils.nuscenes_constants import (
     NUSCENES_DETECTION_NAME_DICT,
     NUSCENES_DT,
 )
-from py123d.conversion.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
-from py123d.conversion.map_writer.abstract_map_writer import AbstractMapWriter
+from py123d.store.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
+from py123d.store.map_writer.abstract_map_writer import AbstractMapWriter
 from py123d.conversion.registry.box_detection_label_registry import NuScenesBoxDetectionLabel
 from py123d.datatypes import (
     BoxDetectionMetadata,
     BoxDetectionSE3,
-    BoxDetectionWrapper,
+    BoxDetectionsSE3,
     DynamicStateSE3,
     EgoStateSE3,
     LidarID,
@@ -349,7 +349,7 @@ def _extract_nuscenes_ego_state(nusc, sample, can_bus) -> EgoStateSE3:
     )
 
 
-def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> BoxDetectionWrapper:
+def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> BoxDetectionsSE3:
     """Extracts the box detections from a nuScenes sample."""
     box_detections: List[BoxDetectionSE3] = []
     for ann_token in sample["anns"]:
@@ -393,7 +393,7 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
             velocity_3d=velocity_3d,
         )
         box_detections.append(box_detection)
-    return BoxDetectionWrapper(box_detections=box_detections)  # type: ignore
+    return BoxDetectionsSE3(box_detections=box_detections)  # type: ignore
 
 
 def _extract_nuscenes_cameras(

@@ -6,6 +6,7 @@ import numpy as np
 import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
+from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
 from py123d.geometry import Point3DIndex, PoseSE3
 
 
@@ -69,7 +70,7 @@ LIDAR_FEATURE_DTYPES: Dict[LidarFeature, Type] = {
 }
 
 
-class LidarMetadata:
+class LidarMetadata(AbstractMetadata):
     """Metadata for Lidar sensor, static for a given sensor."""
 
     __slots__ = ("_lidar_name", "_lidar_id", "_lidar_to_imu_se3")

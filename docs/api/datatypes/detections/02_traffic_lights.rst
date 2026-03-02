@@ -1,7 +1,7 @@
 Traffic Lights
 ^^^^^^^^^^^^^^
 
-.. autoclass:: py123d.datatypes.detections.TrafficLightDetectionWrapper
+.. autoclass:: py123d.datatypes.detections.TrafficLights
    :exclude-members: __init__
    :autoclasstoc:
 

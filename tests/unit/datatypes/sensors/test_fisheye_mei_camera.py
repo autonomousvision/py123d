@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
 from py123d.datatypes.sensors.fisheye_mei_camera import (
     FisheyeMEICamera,
     FisheyeMEICameraID,
@@ -284,6 +285,19 @@ class TestFisheyeMEICameraMetadata:
         np.testing.assert_array_equal(metadata.distortion.array, metadata_restored.distortion.array)
         np.testing.assert_array_equal(metadata.projection.array, metadata_restored.projection.array)
         assert metadata.aspect_ratio == metadata_restored.aspect_ratio
+
+    def test_is_instance_of_abstract_metadata(self):
+        """FisheyeMEICameraMetadata is an instance of AbstractMetadata."""
+        metadata = FisheyeMEICameraMetadata(
+            camera_name="TestCamera",
+            camera_id=FisheyeMEICameraID.FCAM_L,
+            mirror_parameter=None,
+            distortion=None,
+            projection=None,
+            width=640,
+            height=480,
+        )
+        assert isinstance(metadata, AbstractMetadata)
 
     def test_aspect_ratio_calculation(self):
         """Test aspect ratio calculation."""

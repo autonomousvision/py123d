@@ -3,18 +3,23 @@ from __future__ import annotations
 import abc
 from typing import List, Optional
 
-from py123d.api.map.map_api import MapAPI
-from py123d.api.scene.scene_metadata import SceneMetadata
-from py123d.datatypes.detections.box_detections import BoxDetectionWrapper
-from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionWrapper
-from py123d.datatypes.metadata.log_metadata import LogMetadata
-from py123d.datatypes.metadata.map_metadata import MapMetadata
-from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICamera, FisheyeMEICameraID
-from py123d.datatypes.sensors.lidar import Lidar, LidarID
-from py123d.datatypes.sensors.pinhole_camera import PinholeCamera, PinholeCameraID
-from py123d.datatypes.time.time_point import Timestamp
-from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
-from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
+from py123d.datatypes import (
+    BoxDetectionsSE3,
+    EgoStateSE3,
+    FisheyeMEICamera,
+    FisheyeMEICameraID,
+    Lidar,
+    LidarID,
+    LogMetadata,
+    MapMetadata,
+    PinholeCamera,
+    PinholeCameraID,
+    Timestamp,
+    TrafficLights,
+    VehicleParameters,
+)
+from py123d.store.map.map_api import MapAPI
+from py123d.store.scene.scene_metadata import SceneMetadata
 
 
 class SceneAPI(abc.ABC):
@@ -61,16 +66,16 @@ class SceneAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_box_detections_at_iteration(self, iteration: int) -> Optional[BoxDetectionWrapper]:
-        """Returns the :class:`~py123d.datatypes.detections.BoxDetectionWrapper` at a given iteration, if available.
+    def get_box_detections_at_iteration(self, iteration: int) -> Optional[BoxDetectionsSE3]:
+        """Returns the :class:`~py123d.datatypes.detections.BoxDetectionsSE3` at a given iteration, if available.
 
         :param iteration: The iteration to get the box detections for.
         :return: The box detections at the given iteration, or None if not available.
         """
 
     @abc.abstractmethod
-    def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetectionWrapper]:
-        """Returns the :class:`~py123d.datatypes.detections.TrafficLightDetectionWrapper` at a given iteration,
+    def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLights]:
+        """Returns the :class:`~py123d.datatypes.detections.TrafficLights` at a given iteration,
             if available.
 
         :param iteration: The iteration to get the traffic light detections for.

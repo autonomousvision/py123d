@@ -3,10 +3,11 @@ from py123d.datatypes.detections.box_detections import (
     BoxDetectionSE2,
     BoxDetectionSE3,
     BoxDetection,
-    BoxDetectionWrapper,
+    BoxDetectionsSE2,
+    BoxDetectionsSE3,
 )
 from py123d.datatypes.detections.traffic_light_detections import (
     TrafficLightDetection,
-    TrafficLightDetectionWrapper,
+    TrafficLights,
     TrafficLightStatus,
 )

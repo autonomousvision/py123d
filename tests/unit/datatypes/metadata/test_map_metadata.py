@@ -1,3 +1,4 @@
+from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
 
 
@@ -102,3 +103,13 @@ class TestMapMetadata:
         assert restored.map_has_z == original.map_has_z
         assert restored.map_is_local == original.map_is_local
         assert restored.version == original.version
+
+    def test_is_instance_of_abstract_metadata(self):
+        """MapMetadata is an instance of AbstractMetadata."""
+        metadata = MapMetadata(
+            dataset="test_dataset",
+            location="test_location",
+            map_has_z=True,
+            map_is_local=False,
+        )
+        assert isinstance(metadata, AbstractMetadata)

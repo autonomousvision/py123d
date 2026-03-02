@@ -1,7 +1,7 @@
 Map API
 =======
 
-.. autoclass:: py123d.api.MapAPI
+.. autoclass:: py123d.store.MapAPI
    :autoclasstoc:
 
 

@@ -52,7 +52,7 @@ Available Modalities
      - State of the ego vehicle, including poses, dynamic state, and vehicle parameters, see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
    * - Map
      - (✓)
-     - The HD-Maps are in 2D vector format and defined per-location. For more information, see :class:`~py123d.api.MapAPI`.
+     - The HD-Maps are in 2D vector format and defined per-location. For more information, see :class:`~py123d.store.MapAPI`.
    * - Bounding Boxes
      - ✓
      - The bounding boxes are available with the :class:`~py123d.conversion.registry.NuScenesBoxDetectionLabel`. For more information, see :class:`~py123d.datatypes.detections.BoxDetectionWrapper`.

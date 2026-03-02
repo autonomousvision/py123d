@@ -2,9 +2,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
+from py123d.datatypes.sensors.lidar import LidarID, LidarMetadata
+from py123d.datatypes.sensors.pinhole_camera import (
+    PinholeCameraID,
+    PinholeCameraMetadata,
+    PinholeDistortion,
+    PinholeIntrinsics,
+)
 from py123d.datatypes.vehicle_state.vehicle_parameters import VehicleParameters
+from py123d.geometry import PoseSE3
 
 
 class TestLogMetadata:
@@ -150,3 +159,91 @@ class TestLogMetadata:
         assert original.log_name == reconstructed.log_name
         assert original.location == reconstructed.location
         assert original.timestep_seconds == reconstructed.timestep_seconds
+
+    def test_is_instance_of_abstract_metadata(self):
+        """LogMetadata is an instance of AbstractMetadata."""
+        log_metadata = LogMetadata(
+            dataset="test_dataset", split="train", log_name="log_001", location="test_location", timestep_seconds=0.1
+        )
+        assert isinstance(log_metadata, AbstractMetadata)
+
+    def test_roundtrip_with_pinhole_camera_metadata(self):
+        """Roundtrip preserves pinhole camera metadata."""
+        intrinsics = PinholeIntrinsics(fx=500.0, fy=500.0, cx=320.0, cy=240.0)
+        distortion = PinholeDistortion(k1=0.1, k2=0.01, p1=0.001, p2=0.001, k3=0.001)
+        cam_metadata = PinholeCameraMetadata(
+            camera_name="front_cam",
+            camera_id=PinholeCameraID.PCAM_F0,
+            intrinsics=intrinsics,
+            distortion=distortion,
+            width=640,
+            height=480,
+            camera_to_imu_se3=PoseSE3.identity(),
+        )
+        original = LogMetadata(
+            dataset="test_dataset",
+            split="train",
+            log_name="log_001",
+            location="test_location",
+            timestep_seconds=0.1,
+            pinhole_camera_metadata={PinholeCameraID.PCAM_F0: cam_metadata},
+        )
+        reconstructed = LogMetadata.from_dict(original.to_dict())
+
+        assert len(reconstructed.pinhole_camera_metadata) == 1
+        restored_cam = reconstructed.pinhole_camera_metadata[PinholeCameraID.PCAM_F0]
+        assert restored_cam.camera_name == "front_cam"
+        assert restored_cam.camera_id == PinholeCameraID.PCAM_F0
+        assert restored_cam.width == 640
+        assert restored_cam.height == 480
+        assert restored_cam.intrinsics.fx == pytest.approx(500.0)
+        assert restored_cam.distortion.k1 == pytest.approx(0.1)
+
+    def test_roundtrip_with_lidar_metadata(self):
+        """Roundtrip preserves lidar metadata."""
+        lidar_to_imu = PoseSE3.from_list([0.5, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0])
+        lidar_meta = LidarMetadata(
+            lidar_name="top_lidar",
+            lidar_id=LidarID.LIDAR_TOP,
+            lidar_to_imu_se3=lidar_to_imu,
+        )
+        original = LogMetadata(
+            dataset="test_dataset",
+            split="val",
+            log_name="log_002",
+            location="test_location",
+            timestep_seconds=0.05,
+            lidar_metadata={LidarID.LIDAR_TOP: lidar_meta},
+        )
+        reconstructed = LogMetadata.from_dict(original.to_dict())
+
+        assert len(reconstructed.lidar_metadata) == 1
+        restored_lidar = reconstructed.lidar_metadata[LidarID.LIDAR_TOP]
+        assert restored_lidar.lidar_name == "top_lidar"
+        assert restored_lidar.lidar_id == LidarID.LIDAR_TOP
+        assert restored_lidar.lidar_to_imu_se3 == lidar_to_imu
+
+    def test_roundtrip_with_map_metadata(self):
+        """Roundtrip preserves nested MapMetadata."""
+        map_meta = MapMetadata(
+            dataset="test_dataset",
+            location="test_location",
+            map_has_z=True,
+            map_is_local=True,
+            split="train",
+            log_name="log_001",
+        )
+        original = LogMetadata(
+            dataset="test_dataset",
+            split="train",
+            log_name="log_001",
+            location="test_location",
+            timestep_seconds=0.1,
+            map_metadata=map_meta,
+        )
+        reconstructed = LogMetadata.from_dict(original.to_dict())
+
+        assert reconstructed.map_metadata is not None
+        assert reconstructed.map_metadata.dataset == "test_dataset"
+        assert reconstructed.map_metadata.map_has_z is True
+        assert reconstructed.map_metadata.map_is_local is True

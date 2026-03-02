@@ -6,7 +6,7 @@ import numpy.typing as npt
 import pyarrow as pa
 
 from py123d.common.dataset_paths import get_dataset_paths
-from py123d.common.utils.arrow_column_names import (
+from py123d.store.utils.arrow_schema import (
     BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN,
     BOX_DETECTIONS_LABEL_COLUMN,
     BOX_DETECTIONS_NUM_LIDAR_POINTS_COLUMN,
@@ -51,9 +51,9 @@ from py123d.conversion.sensor_io.lidar.path_lidar_io import load_point_cloud_dat
 from py123d.datatypes.detections import (
     BoxDetectionMetadata,
     BoxDetectionSE3,
-    BoxDetectionWrapper,
+    BoxDetectionsSE3,
     TrafficLightDetection,
-    TrafficLightDetectionWrapper,
+    TrafficLights,
     TrafficLightStatus,
 )
 from py123d.datatypes.metadata import LogMetadata
@@ -117,16 +117,16 @@ def get_box_detections_se3_from_arrow_table(
     arrow_table: pa.Table,
     index: int,
     log_metadata: LogMetadata,
-) -> BoxDetectionWrapper:
-    """Builds a :class:`~py123d.datatypes.detections.BoxDetectionWrapper` from an Arrow table at a given index.
+) -> BoxDetectionsSE3:
+    """Builds a :class:`~py123d.datatypes.detections.BoxDetectionsSE3` from an Arrow table at a given index.
 
     :param arrow_table: The Arrow table containing the box detections data.
     :param index: The index to extract the box detections from.
     :param log_metadata: The log metadata, contained the label class information.
-    :return: The BoxDetectionWrapper at the given index.
+    :return: The BoxDetectionsSE3 at the given index.
     """
 
-    box_detections: Optional[BoxDetectionWrapper] = None
+    box_detections: Optional[BoxDetectionsSE3] = None
     if _all_columns_in_schema(arrow_table, BOX_DETECTIONS_SE3_COLUMNS):
         timestamp = get_timestamp_from_arrow_table(arrow_table, index)
         box_detections_list: List[BoxDetectionSE3] = []
@@ -151,7 +151,7 @@ def get_box_detections_se3_from_arrow_table(
                     velocity_3d=_get_optional_array_mixin(_velocity, Vector3D),
                 )
             )
-        box_detections = BoxDetectionWrapper(box_detections=box_detections_list)
+        box_detections = BoxDetectionsSE3(box_detections=box_detections_list)
 
     return box_detections
 
@@ -159,14 +159,14 @@ def get_box_detections_se3_from_arrow_table(
 def get_traffic_light_detections_from_arrow_table(
     arrow_table: pa.Table,
     index: int,
-) -> Optional[TrafficLightDetectionWrapper]:
-    """Builds a :class:`~py123d.datatypes.detections.TrafficLightDetectionWrapper` from an Arrow table at a given index.
+) -> Optional[TrafficLights]:
+    """Builds a :class:`~py123d.datatypes.detections.TrafficLights` from an Arrow table at a given index.
 
     :param arrow_table: The Arrow table containing the traffic light detections data.
     :param index: The index to extract the traffic light detections from.
-    :return: The TrafficLightDetectionWrapper at the given index, or None if not available.
+    :return: The TrafficLights at the given index, or None if not available.
     """
-    traffic_lights: Optional[TrafficLightDetectionWrapper] = None
+    traffic_lights: Optional[TrafficLights] = None
     if _all_columns_in_schema(arrow_table, TRAFFIC_LIGHTS_COLUMNS):
         timestamp = get_timestamp_from_arrow_table(arrow_table, index)
         traffic_light_detections: List[TrafficLightDetection] = []
@@ -181,7 +181,7 @@ def get_traffic_light_detections_from_arrow_table(
                     status=TrafficLightStatus(status),
                 )
             )
-        traffic_lights = TrafficLightDetectionWrapper(traffic_light_detections=traffic_light_detections)
+        traffic_lights = TrafficLights(traffic_light_detections=traffic_light_detections)
     return traffic_lights
 
 
