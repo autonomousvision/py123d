@@ -31,11 +31,11 @@ kitti360:
 
     # Pinhole Cameras
     include_pinhole_cameras: true
-    pinhole_camera_store_option: "path" # ${pinhole_camera_store_option} # "path", "jpeg_binary", "png_binary", "mp4"
+    pinhole_camera_store_option: "path"  # "path", "jpeg_binary", "png_binary", "mp4"
 
     # Fisheye Cameras
     include_fisheye_mei_cameras: true
-    fisheye_mei_camera_store_option: "path" # ${fisheye_mei_camera_store_option}  # "path", "jpeg_binary", "png_binary", "mp4"
+    fisheye_mei_camera_store_option: "path"  # "path", "jpeg_binary", "png_binary", "mp4"
 
     # Lidars
     include_lidars: true

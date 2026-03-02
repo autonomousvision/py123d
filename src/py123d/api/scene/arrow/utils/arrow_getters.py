@@ -5,6 +5,34 @@ import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
 
+from py123d.api.utils.arrow_schema import (
+    BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN,
+    BOX_DETECTIONS_LABEL_COLUMN,
+    BOX_DETECTIONS_NUM_LIDAR_POINTS_COLUMN,
+    BOX_DETECTIONS_SE3_COLUMNS,
+    BOX_DETECTIONS_TOKEN_COLUMN,
+    BOX_DETECTIONS_VELOCITY_3D_COLUMN,
+    EGO_DYNAMIC_STATE_SE3_COLUMN,
+    EGO_IMU_SE3_COLUMN,
+    EGO_STATE_SE3_COLUMNS,
+    EGO_TIMESTAMP_US_COLUMN,
+    FISHEYE_CAMERA_DATA_COLUMN,
+    FISHEYE_CAMERA_EXTRINSIC_COLUMN,
+    FISHEYE_CAMERA_TIMESTAMP_COLUMN,
+    LIDAR_PATH_COLUMN,
+    LIDAR_POINT_CLOUD_COLUMN,
+    LIDAR_POINT_CLOUD_FEATURE_COLUMN,
+    PINHOLE_CAMERA_DATA_COLUMN,
+    PINHOLE_CAMERA_EXTRINSIC_COLUMN,
+    PINHOLE_CAMERA_TIMESTAMP_COLUMN,
+    ROUTE_LANE_GROUP_IDS_COLUMN,
+    SCENARIO_TAGS_COLUMN,
+    TIMESTAMP_US_COLUMN,
+    TRAFFIC_LIGHTS_COLUMNS,
+    TRAFFIC_LIGHTS_LANE_ID_COLUMN,
+    TRAFFIC_LIGHTS_STATUS_COLUMN,
+    TRAFFIC_LIGHTS_TIMESTAMP_US_COLUMN,
+)
 from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.utils.mixin import ArrayMixin
 from py123d.conversion.sensor_io.camera.jpeg_camera_io import (
@@ -44,32 +72,6 @@ from py123d.datatypes.sensors.lidar import LidarFeature
 from py123d.datatypes.time import Timestamp
 from py123d.datatypes.vehicle_state import DynamicStateSE3, EgoStateSE3, VehicleParameters
 from py123d.geometry import BoundingBoxSE3, PoseSE3, Vector3D
-from py123d.api.utils.arrow_schema import (
-    BOX_DETECTIONS_BOUNDING_BOX_SE3_COLUMN,
-    BOX_DETECTIONS_LABEL_COLUMN,
-    BOX_DETECTIONS_NUM_LIDAR_POINTS_COLUMN,
-    BOX_DETECTIONS_SE3_COLUMNS,
-    BOX_DETECTIONS_TOKEN_COLUMN,
-    BOX_DETECTIONS_VELOCITY_3D_COLUMN,
-    EGO_DYNAMIC_STATE_SE3_COLUMN,
-    EGO_IMU_SE3_COLUMN,
-    EGO_STATE_SE3_COLUMNS,
-    FISHEYE_CAMERA_DATA_COLUMN,
-    FISHEYE_CAMERA_EXTRINSIC_COLUMN,
-    FISHEYE_CAMERA_TIMESTAMP_COLUMN,
-    LIDAR_PATH_COLUMN,
-    LIDAR_POINT_CLOUD_COLUMN,
-    LIDAR_POINT_CLOUD_FEATURE_COLUMN,
-    PINHOLE_CAMERA_DATA_COLUMN,
-    PINHOLE_CAMERA_EXTRINSIC_COLUMN,
-    PINHOLE_CAMERA_TIMESTAMP_COLUMN,
-    ROUTE_LANE_GROUP_IDS_COLUMN,
-    SCENARIO_TAGS_COLUMN,
-    TIMESTAMP_US_COLUMN,
-    TRAFFIC_LIGHTS_COLUMNS,
-    TRAFFIC_LIGHTS_LANE_ID_COLUMN,
-    TRAFFIC_LIGHTS_STATUS_COLUMN,
-)
 
 
 def get_timestamp_from_arrow_table(arrow_table: pa.Table, index: int) -> Timestamp:
@@ -98,7 +100,7 @@ def get_ego_state_se3_from_arrow_table(
 
     ego_state_se3: Optional[EgoStateSE3] = None
     if _all_columns_in_schema(arrow_table, EGO_STATE_SE3_COLUMNS) and vehicle_parameters is not None:
-        timestamp = get_timestamp_from_arrow_table(arrow_table, index)
+        timestamp = Timestamp.from_us(arrow_table[EGO_TIMESTAMP_US_COLUMN][index].as_py())
         imu_se3 = PoseSE3.from_list(arrow_table[EGO_IMU_SE3_COLUMN][index].as_py())
         dynamic_state_se3 = _get_optional_array_mixin(
             arrow_table[EGO_DYNAMIC_STATE_SE3_COLUMN][index].as_py(),
@@ -117,18 +119,24 @@ def get_box_detections_se3_from_arrow_table(
     arrow_table: pa.Table,
     index: int,
     log_metadata: LogMetadata,
+    timestamp: Optional[Timestamp] = None,
 ) -> BoxDetectionsSE3:
     """Builds a :class:`~py123d.datatypes.detections.BoxDetectionsSE3` from an Arrow table at a given index.
 
     :param arrow_table: The Arrow table containing the box detections data.
     :param index: The index to extract the box detections from.
     :param log_metadata: The log metadata, contained the label class information.
+    :param timestamp: Optional timestamp for the detections. If None, attempts to read from the table.
     :return: The BoxDetectionsSE3 at the given index.
     """
 
     box_detections: Optional[BoxDetectionsSE3] = None
     if _all_columns_in_schema(arrow_table, BOX_DETECTIONS_SE3_COLUMNS):
-        timestamp = get_timestamp_from_arrow_table(arrow_table, index)
+        if timestamp is None:
+            if TIMESTAMP_US_COLUMN in arrow_table.schema.names:
+                timestamp = get_timestamp_from_arrow_table(arrow_table, index)
+            else:
+                timestamp = Timestamp.from_us(0)
         box_detections_list: List[BoxDetectionSE3] = []
         box_detection_label_class = log_metadata.box_detection_label_class
         assert box_detection_label_class is not None, "Box detection label class mapping not found in log metadata."
@@ -168,7 +176,7 @@ def get_traffic_light_detections_from_arrow_table(
     """
     traffic_lights: Optional[TrafficLights] = None
     if _all_columns_in_schema(arrow_table, TRAFFIC_LIGHTS_COLUMNS):
-        timestamp = get_timestamp_from_arrow_table(arrow_table, index)
+        timestamp = Timestamp.from_us(arrow_table[TRAFFIC_LIGHTS_TIMESTAMP_US_COLUMN][index].as_py())
         traffic_light_detections: List[TrafficLightDetection] = []
         for lane_id, status in zip(
             arrow_table[TRAFFIC_LIGHTS_LANE_ID_COLUMN][index].as_py(),

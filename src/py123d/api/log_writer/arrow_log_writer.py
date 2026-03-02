@@ -7,6 +7,29 @@ import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
 
+from py123d.api.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
+from py123d.api.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
+from py123d.api.utils.arrow_schema import (
+    BOX_DETECTIONS_SE3_NAME,
+    BOX_DETECTIONS_SE3_SCHEMA_DICT,
+    EGO_STATE_SE3_NAME,
+    EGO_STATE_SE3_SCHEMA_DICT,
+    FCAM_BINARY_SCHEMA_DICT,
+    FCAM_INT_SCHEMA_DICT,
+    FCAM_NAME,
+    FCAM_STRING_SCHEMA_DICT,
+    LIDAR_BINARY_SCHEMA_DICT,
+    LIDAR_NAME,
+    LIDAR_STRING_SCHEMA_DICT,
+    PCAM_BINARY_SCHEMA_DICT,
+    PCAM_INT_SCHEMA_DICT,
+    PCAM_NAME,
+    PCAM_STRING_SCHEMA_DICT,
+    SYNC_NAME,
+    SYNC_SCHEMA_DICT,
+    TRAFFIC_LIGHTS_NAME,
+    TRAFFIC_LIGHTS_SCHEMA_DICT,
+)
 from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
@@ -36,29 +59,6 @@ from py123d.datatypes import (
     LogMetadata,
     Timestamp,
     TrafficLights,
-)
-from py123d.api.log_writer.abstract_log_writer import AbstractLogWriter, CameraData, LidarData
-from py123d.api.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_to_arrow_schema
-from py123d.api.utils.arrow_schema import (
-    BOX_DETECTIONS_SE3_NAME,
-    BOX_DETECTIONS_SE3_SCHEMA_DICT,
-    EGO_STATE_SE3_NAME,
-    EGO_STATE_SE3_SCHEMA_DICT,
-    FCAM_BINARY_SCHEMA_DICT,
-    FCAM_INT_SCHEMA_DICT,
-    FCAM_NAME,
-    FCAM_STRING_SCHEMA_DICT,
-    LIDAR_BINARY_SCHEMA_DICT,
-    LIDAR_NAME,
-    LIDAR_STRING_SCHEMA_DICT,
-    PCAM_BINARY_SCHEMA_DICT,
-    PCAM_INT_SCHEMA_DICT,
-    PCAM_NAME,
-    PCAM_STRING_SCHEMA_DICT,
-    SYNC_NAME,
-    SYNC_SCHEMA_DICT,
-    TRAFFIC_LIGHTS_NAME,
-    TRAFFIC_LIGHTS_SCHEMA_DICT,
 )
 
 
@@ -309,10 +309,12 @@ class ArrowLogWriter(AbstractLogWriter):
 
         # Write sync row (reference timeline)
         sync_writer = self._modality_writers[SYNC_NAME]
-        sync_writer.write_batch({
-            f"{SYNC_NAME}.uuid": [uuid.bytes],
-            f"{SYNC_NAME}.timestamp_us": [timestamp.time_us],
-        })
+        sync_writer.write_batch(
+            {
+                f"{SYNC_NAME}.uuid": [uuid.bytes],
+                f"{SYNC_NAME}.timestamp_us": [timestamp.time_us],
+            }
+        )
 
         # Dispatch to per-modality writers
         if ego_state_se3 is not None:
@@ -349,11 +351,13 @@ class ArrowLogWriter(AbstractLogWriter):
         n = EGO_STATE_SE3_NAME
         timestamp_us = self._current_timestamp.time_us if self._current_timestamp is not None else 0
 
-        writer.write_batch({
-            f"{n}.imu_se3": [ego_state_se3.imu_se3.array],
-            f"{n}.dynamic_state_se3": [ego_state_se3.dynamic_state_se3],
-            f"{n}.timestamp_us": [timestamp_us],
-        })
+        writer.write_batch(
+            {
+                f"{n}.imu_se3": [ego_state_se3.imu_se3.array],
+                f"{n}.dynamic_state_se3": [ego_state_se3.dynamic_state_se3],
+                f"{n}.timestamp_us": [timestamp_us],
+            }
+        )
 
     def write_box_detections_se3(self, box_detections_se3: BoxDetectionsSE3) -> None:
         """Write box detections to ``box_detections_se3.arrow`` (one row per detection)."""
@@ -381,14 +385,16 @@ class ArrowLogWriter(AbstractLogWriter):
             timestamps_list.append(timestamp_us)
 
         if len(bounding_box_se3_list) > 0:
-            writer.write_batch({
-                f"{n}.bounding_box_se3": [bounding_box_se3_list],
-                f"{n}.token": [tokens_list],
-                f"{n}.label": [labels_list],
-                f"{n}.velocity_3d": [velocities_list],
-                f"{n}.num_lidar_points": [num_lidar_points_list],
-                f"{n}.timestamp_us": [timestamps_list],
-            })
+            writer.write_batch(
+                {
+                    f"{n}.bounding_box_se3": [bounding_box_se3_list],
+                    f"{n}.token": [tokens_list],
+                    f"{n}.label": [labels_list],
+                    f"{n}.velocity_3d": [velocities_list],
+                    f"{n}.num_lidar_points": [num_lidar_points_list],
+                    f"{n}.timestamp_us": [timestamps_list],
+                }
+            )
 
     def write_traffic_lights(self, traffic_lights: TrafficLights) -> None:
         """Write traffic lights to ``traffic_lights.arrow`` (one row per traffic light)."""
@@ -410,11 +416,13 @@ class ArrowLogWriter(AbstractLogWriter):
             timestamp_list.append(timestamp_us)
 
         if len(lane_ids) > 0:
-            writer.write_batch({
-                f"{n}.lane_id": [lane_ids],
-                f"{n}.status": [statuses],
-                f"{n}.timestamp_us": [timestamp_list],
-            })
+            writer.write_batch(
+                {
+                    f"{n}.lane_id": [lane_ids],
+                    f"{n}.status": [statuses],
+                    f"{n}.timestamp_us": [timestamp_list],
+                }
+            )
 
     def write_pinhole_camera(self, camera_data: CameraData) -> None:
         """Write a single pinhole camera observation to ``pinhole_camera.{name}.arrow``."""
@@ -435,11 +443,13 @@ class ArrowLogWriter(AbstractLogWriter):
             else (self._current_timestamp.time_us if self._current_timestamp is not None else None)
         )
 
-        writer.write_batch({
-            f"{writer_name}.data": [data_value],
-            f"{writer_name}.state_se3": [camera_data.extrinsic],
-            f"{writer_name}.timestamp_us": [timestamp_us],
-        })
+        writer.write_batch(
+            {
+                f"{writer_name}.data": [data_value],
+                f"{writer_name}.state_se3": [camera_data.extrinsic],
+                f"{writer_name}.timestamp_us": [timestamp_us],
+            }
+        )
 
     def write_fisheye_mei_camera(self, camera_data: CameraData) -> None:
         """Write a single fisheye MEI camera observation to ``fisheye_mei.{name}.arrow``."""
@@ -460,11 +470,13 @@ class ArrowLogWriter(AbstractLogWriter):
             else (self._current_timestamp.time_us if self._current_timestamp is not None else None)
         )
 
-        writer.write_batch({
-            f"{writer_name}.data": [data_value],
-            f"{writer_name}.state_se3": [camera_data.extrinsic],
-            f"{writer_name}.timestamp_us": [timestamp_us],
-        })
+        writer.write_batch(
+            {
+                f"{writer_name}.data": [data_value],
+                f"{writer_name}.state_se3": [camera_data.extrinsic],
+                f"{writer_name}.timestamp_us": [timestamp_us],
+            }
+        )
 
     def write_lidar(self, lidar_data: LidarData) -> None:
         """Write a single lidar observation to ``lidar.{name}.arrow``."""
@@ -487,19 +499,23 @@ class ArrowLogWriter(AbstractLogWriter):
 
         if self._dataset_converter_config.lidar_store_option == "path":
             data_path: Optional[str] = str(lidar_data.relative_path) if lidar_data.has_file_path else None
-            writer.write_batch({
-                f"{writer_name}.data": [data_path],
-                f"{writer_name}.start_timestamp_us": [timestamp_us],
-                f"{writer_name}.end_timestamp_us": [timestamp_us],
-            })
+            writer.write_batch(
+                {
+                    f"{writer_name}.data": [data_path],
+                    f"{writer_name}.start_timestamp_us": [timestamp_us],
+                    f"{writer_name}.end_timestamp_us": [timestamp_us],
+                }
+            )
         elif self._dataset_converter_config.lidar_store_option == "binary":
             point_cloud_binary, features_binary = self._prepare_lidar_data(lidar_data)
-            writer.write_batch({
-                f"{writer_name}.point_cloud_3d": [point_cloud_binary],
-                f"{writer_name}.point_cloud_features": [features_binary],
-                f"{writer_name}.start_timestamp_us": [timestamp_us],
-                f"{writer_name}.end_timestamp_us": [timestamp_us],
-            })
+            writer.write_batch(
+                {
+                    f"{writer_name}.point_cloud_3d": [point_cloud_binary],
+                    f"{writer_name}.point_cloud_features": [features_binary],
+                    f"{writer_name}.start_timestamp_us": [timestamp_us],
+                    f"{writer_name}.end_timestamp_us": [timestamp_us],
+                }
+            )
         else:
             raise ValueError(f"Unsupported lidar store option: {self._dataset_converter_config.lidar_store_option}")
 

@@ -388,7 +388,7 @@ def _extract_av2_sensor_pinhole_cameras(
                 nearest_pose = (
                     get_slice_with_timestamp_ns(city_se3_egovehicle_df, int(timestamp_ns_str)).iloc[0].to_dict()
                 )
-                nearest_pose_se3 = _row_dict_to_pose_se3(nearest_pose)
+                nearest_pose_se3 = _row_dict_to_pose_se3(nearest_pose)  # type: ignore
                 compensated_extrinsic_se3_array = reframe_se3_array(
                     from_origin=nearest_pose_se3,
                     to_origin=current_ego_pose_se3,
