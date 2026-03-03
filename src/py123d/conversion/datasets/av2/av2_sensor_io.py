@@ -6,7 +6,7 @@ import numpy.typing as npt
 import pandas as pd
 
 from py123d.datatypes.sensors.lidar import LidarFeature, LidarID
-from py123d.datatypes.time.time_point import Timestamp
+from py123d.datatypes.time.timestamp import Timestamp
 
 
 def load_av2_sensor_point_cloud_data_from_path(

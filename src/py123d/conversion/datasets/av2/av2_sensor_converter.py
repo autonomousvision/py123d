@@ -285,7 +285,7 @@ def _extract_av2_sensor_box_detections(
     # TODO: Extract velocity from annotations_df if available.
 
     if annotations_df is None:
-        return BoxDetectionsSE3(box_detections=[])
+        return BoxDetectionsSE3(box_detections=[], timestamp=Timestamp.from_ns(int(lidar_timestamp_ns)))
 
     annotations_slice = get_slice_with_timestamp_ns(annotations_df, lidar_timestamp_ns)
     num_detections = len(annotations_slice)
@@ -323,7 +323,7 @@ def _extract_av2_sensor_box_detections(
             )
         )
 
-    return BoxDetectionsSE3(box_detections=box_detections)  # type: ignore
+    return BoxDetectionsSE3(box_detections=box_detections, timestamp=Timestamp.from_ns(int(lidar_timestamp_ns)))  # type: ignore
 
 
 def _extract_av2_sensor_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_timestamp_ns: int) -> EgoStateSE3:

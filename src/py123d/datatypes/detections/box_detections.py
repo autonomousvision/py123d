@@ -11,28 +11,25 @@ from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, OccupancyMap2D, Pose
 
 
 class BoxDetectionMetadata:
-    """Stores data about the box detection, including its label, track token, number of Lidar points, and timestamp."""
+    """Stores data about the box detection, including its label, track token, and number of Lidar points."""
 
-    __slots__ = ("_label", "_track_token", "_num_lidar_points", "_timestamp")
+    __slots__ = ("_label", "_track_token", "_num_lidar_points")
 
     def __init__(
         self,
         label: BoxDetectionLabel,
         track_token: str,
         num_lidar_points: Optional[int] = None,
-        timestamp: Optional[Timestamp] = None,
     ) -> None:
         """Initialize a BoxDetectionMetadata instance.
 
         :param label: The label of the detection.
         :param track_token: The track token of the detection.
         :param num_lidar_points: The number of Lidar points, defaults to None.
-        :param timestamp: The timestamp of the detection, defaults to None.
         """
         self._label = label
         self._track_token = track_token
         self._num_lidar_points = num_lidar_points
-        self._timestamp = timestamp
 
     @property
     def label(self) -> BoxDetectionLabel:
@@ -48,11 +45,6 @@ class BoxDetectionMetadata:
     def num_lidar_points(self) -> Optional[int]:
         """Optionally, the number of Lidar points associated with the detection."""
         return self._num_lidar_points
-
-    @property
-    def timestamp(self) -> Optional[Timestamp]:
-        """Optionally, the :class:`~py123d.datatypes.time.Timestamp` of the detection."""
-        return self._timestamp
 
     @property
     def default_label(self) -> DefaultBoxDetectionLabel:
@@ -195,17 +187,24 @@ class BoxDetectionsSE2:
     Provides indexed access, iteration, lookup by track token, and a 2D occupancy map.
     """
 
-    def __init__(self, box_detections: List[BoxDetectionSE2]) -> None:
+    def __init__(self, box_detections: List[BoxDetectionSE2], timestamp: Timestamp) -> None:
         """Initialize a BoxDetectionsSE2 instance.
 
         :param box_detections: A list of :class:`BoxDetectionSE2` instances.
+        :param timestamp: The :class:`~py123d.datatypes.time.Timestamp` of the box detections.
         """
         self._box_detections = box_detections
+        self._timestamp = timestamp
 
     @property
     def box_detections(self) -> List[BoxDetectionSE2]:
         """List of :class:`BoxDetectionSE2` instances."""
         return self._box_detections
+
+    @property
+    def timestamp(self) -> Timestamp:
+        """The :class:`~py123d.datatypes.time.Timestamp` of the box detections."""
+        return self._timestamp
 
     def __getitem__(self, index: int) -> BoxDetectionSE2:
         """Retrieve a box detection by its index.
@@ -248,17 +247,24 @@ class BoxDetectionsSE3:
     Provides indexed access, iteration, lookup by track token, and a 2D occupancy map.
     """
 
-    def __init__(self, box_detections: List[BoxDetectionSE3]) -> None:
+    def __init__(self, box_detections: List[BoxDetectionSE3], timestamp: Timestamp) -> None:
         """Initialize a BoxDetectionsSE3 instance.
 
         :param box_detections: A list of :class:`BoxDetectionSE3` instances.
+        :param timestamp: The :class:`~py123d.datatypes.time.Timestamp` of the box detections.
         """
         self._box_detections = box_detections
+        self._timestamp = timestamp
 
     @property
     def box_detections(self) -> List[BoxDetectionSE3]:
         """List of :class:`BoxDetectionSE3` instances."""
         return self._box_detections
+
+    @property
+    def timestamp(self) -> Timestamp:
+        """The :class:`~py123d.datatypes.time.Timestamp` of the box detections."""
+        return self._timestamp
 
     def __getitem__(self, index: int) -> BoxDetectionSE3:
         """Retrieve a box detection by its index.

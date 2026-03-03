@@ -11,7 +11,7 @@ from py123d.datatypes.sensors.fisheye_mei_camera import (
     FisheyeMEIProjection,
     FisheyeMEIProjectionIndex,
 )
-from py123d.datatypes.time.time_point import Timestamp
+from py123d.datatypes.time.timestamp import Timestamp
 from py123d.geometry import PoseSE3
 
 

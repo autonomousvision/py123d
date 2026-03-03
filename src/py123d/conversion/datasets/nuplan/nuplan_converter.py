@@ -30,7 +30,7 @@ from py123d.datatypes.detections import (
     BoxDetectionSE3,
     BoxDetectionsSE3,
     TrafficLightDetection,
-    TrafficLights,
+    TrafficLightDetections,
 )
 from py123d.datatypes.metadata import LogMetadata, MapMetadata
 from py123d.datatypes.sensors import (
@@ -208,15 +208,22 @@ class NuPlanConverter(AbstractDatasetConverter):
         if log_needs_writing:
             step_interval: float = int(TARGET_DT / NUPLAN_DEFAULT_DT)
             offset = get_ideal_lidar_pc_offset(source_log_path, nuplan_log_db)
+            # TODO @DanielDauner: Add to aux data.
+            # scenario_tags=_extract_nuplan_scenario_tag(nuplan_log_db, lidar_pc_token),
+            # route_lane_group_ids=_extract_nuplan_route_lane_group_ids(nuplan_lidar_pc),
             num_steps = len(nuplan_log_db.lidar_pc)
             for lidar_pc_index in range(offset, num_steps, step_interval):
                 nuplan_lidar_pc = nuplan_log_db.lidar_pc[lidar_pc_index]
                 lidar_pc_token: str = nuplan_lidar_pc.token
                 log_writer.write(
                     timestamp=Timestamp.from_us(nuplan_lidar_pc.timestamp),
-                    ego_state=_extract_nuplan_ego_state(nuplan_lidar_pc),
-                    box_detections=_extract_nuplan_box_detections(nuplan_lidar_pc, source_log_path),
-                    traffic_lights=_extract_nuplan_traffic_lights(nuplan_log_db, lidar_pc_token),
+                    ego_state_se3=_extract_nuplan_ego_state(nuplan_lidar_pc),
+                    box_detections_se3=_extract_nuplan_box_detections(
+                        nuplan_lidar_pc, source_log_path, Timestamp.from_us(nuplan_lidar_pc.timestamp)
+                    ),
+                    traffic_lights=_extract_nuplan_traffic_lights(
+                        nuplan_log_db, lidar_pc_token, Timestamp.from_us(nuplan_lidar_pc.timestamp)
+                    ),
                     pinhole_cameras=_extract_nuplan_cameras(
                         nuplan_log_db=nuplan_log_db,
                         nuplan_lidar_pc=nuplan_lidar_pc,
@@ -229,8 +236,6 @@ class NuPlanConverter(AbstractDatasetConverter):
                         nuplan_sensor_root=self._nuplan_sensor_root,
                         dataset_converter_config=self.dataset_converter_config,
                     ),
-                    scenario_tags=_extract_nuplan_scenario_tag(nuplan_log_db, lidar_pc_token),
-                    route_lane_group_ids=_extract_nuplan_route_lane_group_ids(nuplan_lidar_pc),
                 )
                 del nuplan_lidar_pc
 
@@ -356,25 +361,26 @@ def _extract_nuplan_ego_state(nuplan_lidar_pc: LidarPc) -> EgoStateSE3:
     )
 
 
-def _extract_nuplan_box_detections(lidar_pc: LidarPc, source_log_path: Path) -> BoxDetectionsSE3:
+def _extract_nuplan_box_detections(lidar_pc: LidarPc, source_log_path: Path, timestamp: Timestamp) -> BoxDetectionsSE3:
     """Extracts the nuPlan box detections from a given LidarPc database objects."""
     box_detections: List[BoxDetectionSE3] = get_box_detections_for_lidarpc_token_from_db(
         str(source_log_path), lidar_pc.token
     )
-    return BoxDetectionsSE3(box_detections=box_detections)  # type: ignore
+    return BoxDetectionsSE3(box_detections=box_detections, timestamp=timestamp)  # type: ignore
 
 
-def _extract_nuplan_traffic_lights(log_db: NuPlanDB, lidar_pc_token: str) -> TrafficLights:
+def _extract_nuplan_traffic_lights(
+    log_db: NuPlanDB, lidar_pc_token: str, timestamp: Timestamp
+) -> TrafficLightDetections:
     """Extracts the nuPlan traffic light detections from a given LidarPc database objects."""
-    traffic_lights_detections: List[TrafficLightDetection] = [
+    detections: List[TrafficLightDetection] = [
         TrafficLightDetection(
-            timestamp=None,  # NOTE: Timestamp is not needed during writing, set to None
             lane_id=int(traffic_light.lane_connector_id),
             status=NUPLAN_TRAFFIC_STATUS_DICT[traffic_light.status],
         )
         for traffic_light in log_db.traffic_light_status.select_many(lidar_pc_token=lidar_pc_token)
     ]
-    return TrafficLights(traffic_light_detections=traffic_lights_detections)
+    return TrafficLightDetections(detections=detections, timestamp=timestamp)
 
 
 def _extract_nuplan_cameras(

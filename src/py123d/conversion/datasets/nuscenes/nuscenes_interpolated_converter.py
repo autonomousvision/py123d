@@ -267,7 +267,7 @@ class NuScenesInterpolatedConverter(AbstractDatasetConverter):
                     elif prev_kf is not None:
                         box_detections = keyframe_detections[prev_kf["token"]]
                     else:
-                        box_detections = BoxDetectionsSE3(box_detections=[])
+                        box_detections = BoxDetectionsSE3(box_detections=[], timestamp=timestamp)
 
                     # Find nearest cameras for this sweep timestamp
                     cameras = _find_nearest_cameras_for_sweep(
@@ -597,7 +597,6 @@ def _interpolate_box_detections(
         metadata = BoxDetectionMetadata(
             label=prev_det.metadata.label,
             track_token=track_token,
-            timestamp=interpolated_timestamp,
             num_lidar_points=0,
         )
 
@@ -609,7 +608,7 @@ def _interpolate_box_detections(
             )
         )
 
-    return BoxDetectionsSE3(box_detections=interpolated)
+    return BoxDetectionsSE3(box_detections=interpolated, timestamp=interpolated_timestamp)
 
 
 # ---------------------------------------------------------------------------
@@ -788,7 +787,6 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
         metadata = BoxDetectionMetadata(
             label=label,
             track_token=ann["instance_token"],
-            timestamp=Timestamp.from_us(sample["timestamp"]),
             num_lidar_points=ann.get("num_lidar_pts", 0),
         )
         box_detection = BoxDetectionSE3(
@@ -797,7 +795,7 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
             velocity_3d=velocity_3d,
         )
         box_detections.append(box_detection)
-    return BoxDetectionsSE3(box_detections=box_detections)  # type: ignore
+    return BoxDetectionsSE3(box_detections=box_detections, timestamp=Timestamp.from_us(sample["timestamp"]))  # type: ignore
 
 
 # ---------------------------------------------------------------------------

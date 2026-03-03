@@ -17,7 +17,7 @@ from py123d.datatypes import (
     PinholeCamera,
     PinholeCameraID,
     Timestamp,
-    TrafficLights,
+    TrafficLightDetections,
     VehicleParameters,
 )
 
@@ -74,8 +74,8 @@ class SceneAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLights]:
-        """Returns the :class:`~py123d.datatypes.detections.TrafficLights` at a given iteration,
+    def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetections]:
+        """Returns the :class:`~py123d.datatypes.detections.TrafficLightDetections` at a given iteration,
             if available.
 
         :param iteration: The iteration to get the traffic light detections for.

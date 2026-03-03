@@ -16,7 +16,7 @@ from py123d.datatypes import (
     PinholeCamera,
     PinholeCameraID,
     Timestamp,
-    TrafficLights,
+    TrafficLightDetections,
     VehicleParameters,
 )
 
@@ -53,25 +53,25 @@ class ConcreteSceneAPI(SceneAPI):
         """Inherited, see super class."""
         return Mock(spec=BoxDetectionsSE3)
 
-    def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLights]:
+    def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetections]:
         """Inherited, see super class."""
-        return Mock(spec=TrafficLights)
+        return Mock(spec=TrafficLightDetections)
 
     def get_route_lane_group_ids(self, iteration: int) -> Optional[list]:
         """Inherited, see super class."""
         return [1, 2, 3]
 
-    def get_pinhole_camera_at_iteration(self, iteration: int, camera_type: PinholeCameraID) -> Optional[PinholeCamera]:
+    def get_pinhole_camera_at_iteration(self, iteration: int, camera_id: PinholeCameraID) -> Optional[PinholeCamera]:
         """Inherited, see super class."""
         return Mock(spec=PinholeCamera)
 
     def get_fisheye_mei_camera_at_iteration(
-        self, iteration: int, camera_type: FisheyeMEICameraID
+        self, iteration: int, camera_id: FisheyeMEICameraID
     ) -> Optional[FisheyeMEICamera]:
         """Inherited, see super class."""
         return Mock(spec=FisheyeMEICamera)
 
-    def get_lidar_at_iteration(self, iteration: int, lidar_type: LidarID) -> Optional[Lidar]:
+    def get_lidar_at_iteration(self, iteration: int, lidar_id: LidarID) -> Optional[Lidar]:
         """Inherited, see super class."""
         return Mock(spec=Lidar)
 

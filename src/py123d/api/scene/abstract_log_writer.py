@@ -11,12 +11,12 @@ import numpy.typing as npt
 
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.datatypes.detections.box_detections import BoxDetectionsSE3
-from py123d.datatypes.detections.traffic_light_detections import TrafficLights
+from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetections
 from py123d.datatypes.metadata import LogMetadata
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraID
 from py123d.datatypes.sensors.lidar import LidarID
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraID
-from py123d.datatypes.time.time_point import Timestamp
+from py123d.datatypes.time.timestamp import Timestamp
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import PoseSE3
 
@@ -47,7 +47,7 @@ class AbstractLogWriter(abc.ABC):
         uuid: Optional[uuid.UUID] = None,
         ego_state_se3: Optional[EgoStateSE3] = None,
         box_detections_se3: Optional[BoxDetectionsSE3] = None,
-        traffic_lights: Optional[TrafficLights] = None,
+        traffic_lights: Optional[TrafficLightDetections] = None,
         pinhole_cameras: Optional[List[CameraData]] = None,
         fisheye_mei_cameras: Optional[List[CameraData]] = None,
         lidar: Optional[LidarData] = None,
@@ -73,7 +73,7 @@ class AbstractLogWriter(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def write_traffic_lights(self, traffic_lights: TrafficLights) -> None:
+    def write_traffic_lights(self, traffic_lights: TrafficLightDetections) -> None:
         pass
 
     @abc.abstractmethod

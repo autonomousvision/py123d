@@ -53,7 +53,7 @@ Available Modalities
      - The bounding boxes are available with the :class:`~py123d.conversion.registry.WODMotionBoxDetectionLabel`. For more information, :class:`~py123d.datatypes.detections.BoxDetectionWrapper`.
    * - Traffic Lights
      - ✓
-     - Traffic lights include the status and the lane id they are associated with, see :class:`~py123d.datatypes.detections.TrafficLights`.
+     - Traffic lights include the status and the lane id they are associated with, see :class:`~py123d.datatypes.detections.TrafficLightDetections`.
    * - Pinhole Cameras
      - X
      - n/a

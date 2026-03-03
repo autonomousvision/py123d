@@ -15,11 +15,11 @@ from py123d.conversion.datasets.wod.utils.wod_constants import (
 from py123d.conversion.datasets.wod.wod_map_conversion import convert_wod_map
 from py123d.conversion.registry.box_detection_label_registry import WODMotionBoxDetectionLabel
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE3, BoxDetectionsSE3
-from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetection, TrafficLights
+from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetection, TrafficLightDetections
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.datatypes.sensors import LidarID, LidarMetadata
-from py123d.datatypes.time.time_point import Timestamp
+from py123d.datatypes.time.timestamp import Timestamp
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import get_wod_motion_chrysler_pacifica_parameters
 from py123d.geometry import (
@@ -143,7 +143,7 @@ class WODMotionConverter(AbstractDatasetConverter):
             if log_needs_writing:
                 all_timestamps = _extract_all_timestamps(scenario)
                 all_ego_states = _extract_all_ego_states(scenario)
-                all_box_detections = _extract_all_wod_motion_box_detections(scenario)
+                all_box_detections = _extract_all_wod_motion_box_detections(scenario, all_timestamps)
                 all_traffic_lights = _extract_all_traffic_lights(scenario)
 
                 assert (
@@ -216,7 +216,9 @@ def _extract_all_ego_states(scenario: scenario_pb2.Scenario) -> List[EgoStateSE3
     return all_ego_states
 
 
-def _extract_all_wod_motion_box_detections(scenario: scenario_pb2.Scenario) -> List[BoxDetectionsSE3]:
+def _extract_all_wod_motion_box_detections(
+    scenario: scenario_pb2.Scenario, all_timestamps: List[Timestamp]
+) -> List[BoxDetectionsSE3]:
     """Extracts all box detections from the WOD-Motion scenario."""
 
     # We first collect all tracks over all timesteps in a dictionary, where the key is the track ID
@@ -250,7 +252,6 @@ def _extract_all_wod_motion_box_detections(scenario: scenario_pb2.Scenario) -> L
                 box_detection = BoxDetectionSE3(
                     metadata=BoxDetectionMetadata(
                         label=label,
-                        timestamp=None,
                         track_token=track_id,
                     ),
                     bounding_box_se3=bounding_box_se3,
@@ -274,7 +275,9 @@ def _extract_all_wod_motion_box_detections(scenario: scenario_pb2.Scenario) -> L
             detection = detections[time_idx]
             if detection is not None:
                 box_detections_at_time_idx.append(detection)
-        all_box_detections.append(BoxDetectionsSE3(box_detections=box_detections_at_time_idx))  # type: ignore
+        all_box_detections.append(
+            BoxDetectionsSE3(box_detections=box_detections_at_time_idx, timestamp=all_timestamps[time_idx])
+        )  # type: ignore
 
     assert len(all_box_detections) == num_timesteps, (
         "Number of box detection timesteps does not match number of scenario timesteps."
@@ -283,21 +286,21 @@ def _extract_all_wod_motion_box_detections(scenario: scenario_pb2.Scenario) -> L
     return all_box_detections
 
 
-def _extract_all_traffic_lights(scenario: scenario_pb2.Scenario) -> List[TrafficLights]:
+def _extract_all_traffic_lights(scenario: scenario_pb2.Scenario) -> List[TrafficLightDetections]:
     """Extracts all traffic light detections from the WOD-Motion scenario."""
-
-    all_traffic_lights: List[TrafficLights] = []
-
-    for dynamic_map_state in scenario.dynamic_map_states:
-        traffic_light_detections: List[TrafficLightDetection] = []
-        for lane_state in dynamic_map_state.lane_states:
-            traffic_light_status = WOD_MOTION_TRAFFIC_LIGHT_MAPPING[lane_state.state]
-            traffic_light_detections.append(TrafficLightDetection(lane_id=lane_state.lane, status=traffic_light_status))
-
-        all_traffic_lights.append(TrafficLights(traffic_light_detections=traffic_light_detections))
-    assert len(all_traffic_lights) == len(scenario.timestamps_seconds), (
+    assert len(scenario.dynamic_map_states) == len(scenario.timestamps_seconds), (
         "Number of traffic light detection timesteps does not match number of scenario timesteps."
     )
+
+    all_traffic_lights: List[TrafficLightDetections] = []
+
+    for dynamic_map_state, ts in zip(scenario.dynamic_map_states, scenario.timestamps_seconds):
+        detections: List[TrafficLightDetection] = []
+        for lane_state in dynamic_map_state.lane_states:
+            traffic_light_status = WOD_MOTION_TRAFFIC_LIGHT_MAPPING[lane_state.state]
+            detections.append(TrafficLightDetection(lane_id=lane_state.lane, status=traffic_light_status))
+
+        all_traffic_lights.append(TrafficLightDetections(detections=detections, timestamp=Timestamp.from_s(ts)))
 
     return all_traffic_lights
 

@@ -155,7 +155,9 @@ class PandasetConverter(AbstractDatasetConverter):
                 log_writer.write(
                     timestamp=Timestamp.from_s(timestep_s),
                     ego_state=ego_state,
-                    box_detections=_extract_pandaset_box_detections(source_log_path, iteration),
+                    box_detections=_extract_pandaset_box_detections(
+                        source_log_path, iteration, Timestamp.from_s(timestep_s)
+                    ),
                     pinhole_cameras=_extract_pandaset_pinhole_cameras(
                         source_log_path,
                         iteration,
@@ -237,7 +239,7 @@ def _extract_pandaset_sensor_ego_state(gps: Dict[str, float], lidar_pose: Dict[s
     )
 
 
-def _extract_pandaset_box_detections(source_log_path: Path, iteration: int) -> BoxDetectionsSE3:
+def _extract_pandaset_box_detections(source_log_path: Path, iteration: int, timestamp: Timestamp) -> BoxDetectionsSE3:
     """Extracts the box detections from a Pandaset log folder at a given iteration."""
 
     # NOTE @DanielDauner: The following provided quboids annotations are not stored in 123D
@@ -255,7 +257,7 @@ def _extract_pandaset_box_detections(source_log_path: Path, iteration: int) -> B
     cuboids_file = source_log_path / "annotations" / "cuboids" / f"{iteration_str}.pkl.gz"
 
     if not cuboids_file.exists():
-        return BoxDetectionsSE3(box_detections=[])
+        return BoxDetectionsSE3(box_detections=[], timestamp=timestamp)
 
     cuboid_df: pd.DataFrame = read_pkl_gz(cuboids_file)
 
@@ -327,7 +329,7 @@ def _extract_pandaset_box_detections(source_log_path: Path, iteration: int) -> B
         )
         box_detections.append(box_detection_se3)
 
-    return BoxDetectionsSE3(box_detections=box_detections)  # type: ignore
+    return BoxDetectionsSE3(box_detections=box_detections, timestamp=timestamp)  # type: ignore
 
 
 def _extract_pandaset_pinhole_cameras(

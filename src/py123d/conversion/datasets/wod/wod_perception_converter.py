@@ -193,7 +193,7 @@ class WODPerceptionConverter(AbstractDatasetConverter):
                         timestamp=Timestamp.from_us(frame.timestamp_micros),
                         ego_state_se3=_extract_wod_perception_ego_state(frame, map_pose_offset),
                         box_detections_se3=_extract_wod_perception_box_detections(
-                            frame, map_pose_offset, self._zero_roll_pitch
+                            frame, map_pose_offset, self._zero_roll_pitch, Timestamp.from_us(frame.timestamp_micros)
                         ),
                         traffic_lights=None,  # NOTE: traffic lights are in the map proto, but only found in motion dataset.
                         pinhole_cameras=_extract_wod_perception_cameras(frame, self.dataset_converter_config),
@@ -330,7 +330,10 @@ def _extract_wod_perception_ego_state(frame: dataset_pb2.Frame, map_pose_offset:
 
 
 def _extract_wod_perception_box_detections(
-    frame: dataset_pb2.Frame, map_pose_offset: Vector3D, zero_roll_pitch: bool = True
+    frame: dataset_pb2.Frame,
+    map_pose_offset: Vector3D,
+    zero_roll_pitch: bool = True,
+    timestamp: Optional[Timestamp] = None,
 ) -> BoxDetectionsSE3:
     """Extracts the box detections from a WODP frame."""
 
@@ -384,14 +387,13 @@ def _extract_wod_perception_box_detections(
             BoxDetectionSE3(
                 metadata=BoxDetectionMetadata(
                     label=detections_types[detection_idx],
-                    timestamp=None,
                     track_token=detections_token[detection_idx],
                 ),
                 bounding_box_se3=BoundingBoxSE3.from_array(detections_state[detection_idx]),
                 velocity_3d=Vector3D.from_array(detections_velocity[detection_idx]),
             )
         )
-    return BoxDetectionsSE3(box_detections=box_detections)
+    return BoxDetectionsSE3(box_detections=box_detections, timestamp=timestamp)
 
 
 def _extract_wod_perception_cameras(

@@ -37,7 +37,7 @@ from py123d.datatypes.detections import (
     BoxDetectionSE3,
     BoxDetectionsSE3,
     TrafficLightDetection,
-    TrafficLights,
+    TrafficLightDetections,
     TrafficLightStatus,
 )
 from py123d.datatypes.metadata import LogMetadata
@@ -135,13 +135,12 @@ def get_box_detections_se3_from_arrow_table(
                         label=box_detection_label_class(_label),
                         track_token=_token,
                         num_lidar_points=_num_lidar_points,
-                        timestamp=timestamp,
                     ),
                     bounding_box_se3=BoundingBoxSE3.from_list(_bounding_box_se3),
                     velocity_3d=_get_optional_array_mixin(_velocity, Vector3D),
                 )
             )
-        box_detections = BoxDetectionsSE3(box_detections=box_detections_list)
+        box_detections = BoxDetectionsSE3(box_detections=box_detections_list, timestamp=timestamp)
 
     return box_detections
 
@@ -149,29 +148,28 @@ def get_box_detections_se3_from_arrow_table(
 def get_traffic_light_detections_from_arrow_table(
     arrow_table: pa.Table,
     index: int,
-) -> Optional[TrafficLights]:
-    """Builds a :class:`~py123d.datatypes.detections.TrafficLights` from an Arrow table at a given index.
+) -> Optional[TrafficLightDetections]:
+    """Builds a :class:`~py123d.datatypes.detections.TrafficLightDetections` from an Arrow table at a given index.
 
     :param arrow_table: The Arrow table containing the traffic light detections data.
     :param index: The index to extract the traffic light detections from.
-    :return: The TrafficLights at the given index, or None if not available.
+    :return: The TrafficLightDetections at the given index, or None if not available.
     """
-    traffic_lights: Optional[TrafficLights] = None
+    traffic_lights: Optional[TrafficLightDetections] = None
     if _all_columns_in_schema(arrow_table, TRAFFIC_LIGHTS.all_columns()):
         timestamp = Timestamp.from_us(arrow_table[TRAFFIC_LIGHTS.col("timestamp_us")][index].as_py())
-        traffic_light_detections: List[TrafficLightDetection] = []
+        detections: List[TrafficLightDetection] = []
         for lane_id, status in zip(
             arrow_table[TRAFFIC_LIGHTS.col("lane_id")][index].as_py(),
             arrow_table[TRAFFIC_LIGHTS.col("status")][index].as_py(),
         ):
-            traffic_light_detections.append(
+            detections.append(
                 TrafficLightDetection(
-                    timestamp=timestamp,
                     lane_id=lane_id,
                     status=TrafficLightStatus(status),
                 )
             )
-        traffic_lights = TrafficLights(traffic_light_detections=traffic_light_detections)
+        traffic_lights = TrafficLightDetections(detections=detections, timestamp=timestamp)
     return traffic_lights
 
 

@@ -48,7 +48,7 @@ from py123d.datatypes import (
     LidarID,
     LogMetadata,
     Timestamp,
-    TrafficLights,
+    TrafficLightDetections,
 )
 
 
@@ -249,7 +249,7 @@ class ArrowLogWriter(AbstractLogWriter):
         uuid: Optional[uuid.UUID] = None,
         ego_state_se3: Optional[EgoStateSE3] = None,
         box_detections_se3: Optional[BoxDetectionsSE3] = None,
-        traffic_lights: Optional[TrafficLights] = None,
+        traffic_lights: Optional[TrafficLightDetections] = None,
         pinhole_cameras: Optional[List[CameraData]] = None,
         fisheye_mei_cameras: Optional[List[CameraData]] = None,
         lidar: Optional[LidarData] = None,
@@ -352,7 +352,7 @@ class ArrowLogWriter(AbstractLogWriter):
                 }
             )
 
-    def write_traffic_lights(self, traffic_lights: TrafficLights) -> None:
+    def write_traffic_lights(self, traffic_lights: TrafficLightDetections) -> None:
         """Write traffic lights to ``traffic_lights.arrow`` (one row per traffic light)."""
         assert self._dataset_converter_config is not None, "Log writer is not initialized."
         assert self._current_timestamp is not None, "Current timestamp is not set. Call write() with a timestamp first."

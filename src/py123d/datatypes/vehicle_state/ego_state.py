@@ -4,7 +4,7 @@ from typing import Final, Optional
 
 from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
 from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE2, BoxDetectionSE3
-from py123d.datatypes.time.time_point import Timestamp
+from py123d.datatypes.time.timestamp import Timestamp
 from py123d.datatypes.vehicle_state.dynamic_state import DynamicStateSE2, DynamicStateSE3
 from py123d.datatypes.vehicle_state.vehicle_parameters import (
     VehicleParameters,
@@ -208,9 +208,7 @@ class EgoStateSE3:
         return BoxDetectionSE3(
             metadata=BoxDetectionMetadata(
                 label=DefaultBoxDetectionLabel.EGO,
-                timestamp=self.timestamp,
                 track_token=EGO_TRACK_TOKEN,
-                num_lidar_points=None,
             ),
             bounding_box_se3=self.bounding_box_se3,
             velocity_3d=self.dynamic_state_se3.velocity_3d if self.dynamic_state_se3 else None,
@@ -392,9 +390,7 @@ class EgoStateSE2:
         return BoxDetectionSE2(
             metadata=BoxDetectionMetadata(
                 label=DefaultBoxDetectionLabel.EGO,
-                timestamp=self.timestamp,
                 track_token=EGO_TRACK_TOKEN,
-                num_lidar_points=None,
             ),
             bounding_box_se2=self.bounding_box_se2,
             velocity_2d=self.dynamic_state_se2.velocity_2d if self.dynamic_state_se2 else None,

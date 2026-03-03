@@ -282,6 +282,7 @@ class Kitti360Converter(AbstractDatasetConverter):
                 self._kitti360_folders,
                 self._detection_cache_root,
                 self._detection_radius,
+                reference_timestamps,
             )
 
             logging.info(f"Number of valid timestamps with ego states: {len(valid_timestamp)}")
@@ -575,6 +576,7 @@ def _extract_kitti360_box_detections_all(
     kitti360_folders: Dict[str, Path],
     detection_cache_root: Path,
     detection_radius: float,
+    reference_timestamps: List[Timestamp],
 ) -> List[BoxDetectionsSE3]:
     """Extracts all KITTI-360 box detections for the given sequence."""
 
@@ -685,7 +687,6 @@ def _extract_kitti360_box_detections_all(
                 break
             detection_metadata = BoxDetectionMetadata(
                 label=detection_label,
-                timestamp=None,
                 track_token=token,
             )
             bounding_box_se3 = BoundingBoxSE3.from_array(state)
@@ -696,7 +697,9 @@ def _extract_kitti360_box_detections_all(
                 velocity_3d=velocity_vector,
             )
             box_detections.append(box_detection)
-        box_detection_wrapper_all.append(BoxDetectionsSE3(box_detections=box_detections))
+        box_detection_wrapper_all.append(
+            BoxDetectionsSE3(box_detections=box_detections, timestamp=reference_timestamps[frame])
+        )
     return box_detection_wrapper_all
 
 

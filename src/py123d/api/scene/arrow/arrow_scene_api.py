@@ -32,7 +32,7 @@ from py123d.api.utils.arrow_schema import (
     TRAFFIC_LIGHTS,
 )
 from py123d.common.utils.uuid_utils import convert_to_str_uuid
-from py123d.datatypes.detections import BoxDetectionsSE3, TrafficLights
+from py123d.datatypes.detections import BoxDetectionsSE3, TrafficLightDetections
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.sensors import (
     FisheyeMEICamera,
@@ -177,7 +177,7 @@ class ArrowSceneAPI(SceneAPI):
             timestamp,
         )
 
-    def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLights]:
+    def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetections]:
         """Inherited, see superclass."""
         tl_table = self._get_modality_table(TRAFFIC_LIGHTS.prefix())
         if tl_table is None:

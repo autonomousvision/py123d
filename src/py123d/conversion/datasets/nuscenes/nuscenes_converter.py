@@ -384,7 +384,6 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
         metadata = BoxDetectionMetadata(
             label=label,
             track_token=ann["instance_token"],
-            timestamp=Timestamp.from_us(sample["timestamp"]),
             num_lidar_points=ann.get("num_lidar_pts", 0),
         )
         box_detection = BoxDetectionSE3(
@@ -393,7 +392,7 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
             velocity_3d=velocity_3d,
         )
         box_detections.append(box_detection)
-    return BoxDetectionsSE3(box_detections=box_detections)  # type: ignore
+    return BoxDetectionsSE3(box_detections=box_detections, timestamp=Timestamp.from_us(sample["timestamp"]))  # type: ignore
 
 
 def _extract_nuscenes_cameras(
