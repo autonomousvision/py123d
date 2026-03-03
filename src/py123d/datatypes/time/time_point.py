@@ -35,11 +35,6 @@ class Timestamp:
 
     @classmethod
     def from_ms(cls, t_ms: float) -> Timestamp:
-        """Constructs a Timestamp from a value in milliseconds.
-
-        :param t_ms: Time in milliseconds.
-        :return: Timestamp.
-        """
         instance = object.__new__(cls)
         setattr(instance, "_time_us", int(t_ms * int(1e3)))
         return instance
@@ -74,6 +69,20 @@ class Timestamp:
     def time_s(self) -> float:
         """The timestamp in seconds [s]."""
         return self._time_us / 1e6
+
+    def __eq__(self, other: object) -> bool:
+        """Compare two Timestamp objects for equality.
+
+        :param other: The other object to compare with.
+        :return: True if both timestamps represent the same time point.
+        """
+        if not isinstance(other, Timestamp):
+            return NotImplemented
+        return self._time_us == other._time_us
+
+    def __hash__(self) -> int:
+        """Hash of the Timestamp based on its microsecond value."""
+        return hash(self._time_us)
 
     def __repr__(self):
         """String representation of :class:`Timestamp`."""

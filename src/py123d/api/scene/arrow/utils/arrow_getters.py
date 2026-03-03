@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional, Type, Union
+from typing import Dict, List, Optional, Type, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -273,7 +273,7 @@ def get_camera_timestamp_from_arrow_table(
     """
 
     assert isinstance(camera_id, (PinholeCameraID, FisheyeMEICameraID)), (
-        f"camera_id must be PinholeCameraID or FisheyeMEICameraType, got {type(camera_id)}"
+        f"The argument 'camera_id' must be PinholeCameraID or FisheyeMEICameraID, got {type(camera_id)}"
     )
 
     camera_timestamp: Optional[Timestamp] = None
@@ -294,7 +294,7 @@ def get_lidar_from_arrow_table(
     index: int,
     lidar_type: LidarID,
     log_metadata: LogMetadata,
-) -> Lidar:
+) -> Optional[Lidar]:
     """Builds a Lidar object from an Arrow table at a given index.
 
     :param arrow_table: The Arrow table containing the Lidar data.
@@ -306,8 +306,8 @@ def get_lidar_from_arrow_table(
     :return: The constructed Lidar object, or None if not available.
     """
     merged_name = LidarID.LIDAR_MERGED.serialize()
-    point_cloud_3d = None
-    point_cloud_feature = None
+    point_cloud_3d: Optional[np.ndarray] = None
+    point_cloud_feature: Optional[Dict[str, np.ndarray]] = None
     if LIDAR.col("data", merged_name) in arrow_table.schema.names:
         # 1. Load lidar sweep from origin dataset using a relative file path.
         lidar_data = arrow_table[LIDAR.col("data", merged_name)][index].as_py()
@@ -320,12 +320,13 @@ def get_lidar_from_arrow_table(
     elif LIDAR.col("point_cloud_3d", merged_name) in arrow_table.schema.names:
         # 2.1 Loading the lidar xyz point cloud from blob in the Arrow table.
         lidar_data = arrow_table[LIDAR.col("point_cloud_3d", merged_name)][index].as_py()
-        if is_draco_binary(lidar_data):
-            point_cloud_3d = load_point_cloud_3d_from_draco_binary(lidar_data)
-        elif is_laz_binary(lidar_data):
-            point_cloud_3d = load_point_cloud_3d_from_laz_binary(lidar_data)
-        elif is_ipc_binary(lidar_data):
-            point_cloud_3d = load_point_cloud_3d_from_ipc_binary(lidar_data)
+        if lidar_data is not None:
+            if is_draco_binary(lidar_data):
+                point_cloud_3d = load_point_cloud_3d_from_draco_binary(lidar_data)
+            elif is_laz_binary(lidar_data):
+                point_cloud_3d = load_point_cloud_3d_from_laz_binary(lidar_data)
+            elif is_ipc_binary(lidar_data):
+                point_cloud_3d = load_point_cloud_3d_from_ipc_binary(lidar_data)
 
         # 2.2 Load lidar features from blob in the Arrow table, if available.
         if LIDAR.col("point_cloud_features", merged_name) in arrow_table.schema.names:

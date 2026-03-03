@@ -21,17 +21,17 @@ def is_draco_binary(draco_binary: bytes) -> bool:
     return draco_binary.startswith(DRACO_MAGIC_NUMBER)
 
 
-def encode_point_cloud_3d_as_draco_binary(lidar_pc: npt.NDArray[np.float32]) -> bytes:
+def encode_point_cloud_3d_as_draco_binary(point_cloud: npt.NDArray[np.float32]) -> bytes:
     """Compress Lidar point cloud data using Draco format.
 
     :param point_cloud: The Lidar point cloud data to compress, as numpy array.
     :return: The compressed Draco binary data.
     """
-    assert lidar_pc.ndim == 2, "Lidar point cloud must be a 2D array of shape (N, 3) for Draco compression."
-    assert lidar_pc.shape[-1] == 3, "Lidar point cloud must have 3 attributes (x, y, z) for Draco compression."
+    assert point_cloud.ndim == 2, "Lidar point cloud must be a 2D array of shape (N, 3) for Draco compression."
+    assert point_cloud.shape[-1] == 3, "Lidar point cloud must have 3 attributes (x, y, z) for Draco compression."
     # TODO: Add variable dtypes, other than float32.
     return DracoPy.encode(
-        lidar_pc,
+        point_cloud,
         quantization_bits=DRACO_QUANTIZATION_BITS,
         compression_level=DRACO_COMPRESSION_LEVEL,
         quantization_range=DRACO_QUANTIZATION_RANGE,

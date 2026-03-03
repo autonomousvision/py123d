@@ -221,7 +221,7 @@ def _get_scene_extraction_metadatas(log_dir: Union[str, Path], filter: SceneFilt
             for lidar_id in filter.lidar_ids:
                 lidar_name = lidar_id.serialize()
                 lidar_file = log_dir / f"{LIDAR.prefix(lidar_name)}.arrow"
-                if lidar_id not in log_metadata.lidar_metadata and not lidar_file.exists():
+                if lidar_id not in log_metadata.lidar_metadata and lidar_file.exists():
                     add_scene = False
                     break
         if add_scene:

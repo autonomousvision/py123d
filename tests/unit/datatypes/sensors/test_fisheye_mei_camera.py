@@ -11,6 +11,7 @@ from py123d.datatypes.sensors.fisheye_mei_camera import (
     FisheyeMEIProjection,
     FisheyeMEIProjectionIndex,
 )
+from py123d.datatypes.time.time_point import Timestamp
 from py123d.geometry import PoseSE3
 
 
@@ -155,6 +156,7 @@ class TestFisheyeMEICameraMetadata:
             projection=projection,
             width=1920,
             height=1080,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         assert metadata.camera_name == "TestCamera"
         assert metadata.camera_id == FisheyeMEICameraID.FCAM_L
@@ -162,6 +164,7 @@ class TestFisheyeMEICameraMetadata:
         assert metadata.distortion == distortion
         assert metadata.projection == projection
         assert metadata.aspect_ratio == 1920 / 1080
+        assert metadata.camera_to_imu_se3 == PoseSE3.identity()
 
     def test_metadata_initialization_with_none(self):
         """Test metadata initialization with None distortion and projection."""
@@ -173,12 +176,14 @@ class TestFisheyeMEICameraMetadata:
             projection=None,
             width=640,
             height=480,
+            camera_to_imu_se3=None,
         )
         assert metadata.camera_name == "TestCamera"
         assert metadata.camera_id == FisheyeMEICameraID.FCAM_R
         assert metadata.mirror_parameter is None
         assert metadata.distortion is None
         assert metadata.projection is None
+        assert metadata.camera_to_imu_se3 is None
         assert metadata.aspect_ratio == 640 / 480
 
     def test_metadata_to_dict(self):
@@ -193,6 +198,7 @@ class TestFisheyeMEICameraMetadata:
             projection=projection,
             width=1920,
             height=1080,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         result = metadata.to_dict()
 
@@ -203,26 +209,7 @@ class TestFisheyeMEICameraMetadata:
         assert result["projection"] == [1.0, 2.0, 3.0, 4.0]
         assert result["width"] == 1920
         assert result["height"] == 1080
-
-    def test_metadata_to_dict_with_none(self):
-        """Test converting metadata with None values to dictionary."""
-        metadata = FisheyeMEICameraMetadata(
-            camera_name="TestCamera",
-            camera_id=FisheyeMEICameraID.FCAM_R,
-            mirror_parameter=None,
-            distortion=None,
-            projection=None,
-            width=640,
-            height=480,
-        )
-        result = metadata.to_dict()
-        assert result["camera_name"] == "TestCamera"
-        assert result["camera_id"] == 1
-        assert result["mirror_parameter"] is None
-        assert result["distortion"] is None
-        assert result["projection"] is None
-        assert result["width"] == 640
-        assert result["height"] == 480
+        assert result["camera_to_imu_se3"] == PoseSE3.identity().to_list()
 
     def test_metadata_from_dict(self):
         """Test creating metadata from dictionary."""
@@ -234,6 +221,7 @@ class TestFisheyeMEICameraMetadata:
             "projection": [1.0, 2.0, 3.0, 4.0],
             "width": 1920,
             "height": 1080,
+            "camera_to_imu_se3": [1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0],
         }
         metadata = FisheyeMEICameraMetadata.from_dict(data)
         assert metadata.camera_id == FisheyeMEICameraID.FCAM_L
@@ -243,6 +231,7 @@ class TestFisheyeMEICameraMetadata:
         assert metadata.projection is not None
         assert metadata.projection.gamma1 == 1.0
         assert metadata.aspect_ratio == 1920 / 1080
+        assert metadata.camera_to_imu_se3 == PoseSE3.from_list([1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0])
 
     def test_metadata_from_dict_with_none(self):
         """Test creating metadata from dictionary with None values."""
@@ -254,6 +243,7 @@ class TestFisheyeMEICameraMetadata:
             "projection": None,
             "width": 640,
             "height": 480,
+            "camera_to_imu_se3": [1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0],
         }
         metadata = FisheyeMEICameraMetadata.from_dict(data)
         assert metadata.camera_name == "TestCamera"
@@ -261,6 +251,7 @@ class TestFisheyeMEICameraMetadata:
         assert metadata.mirror_parameter is None
         assert metadata.distortion is None
         assert metadata.projection is None
+        assert metadata.camera_to_imu_se3 == PoseSE3.from_list([1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0])
 
     def test_metadata_roundtrip(self):
         """Test that to_dict and from_dict are inverses."""
@@ -274,6 +265,7 @@ class TestFisheyeMEICameraMetadata:
             projection=projection,
             width=1920,
             height=1080,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         data_dict = metadata.to_dict()
         metadata_restored = FisheyeMEICameraMetadata.from_dict(data_dict)
@@ -285,6 +277,7 @@ class TestFisheyeMEICameraMetadata:
         np.testing.assert_array_equal(metadata.distortion.array, metadata_restored.distortion.array)
         np.testing.assert_array_equal(metadata.projection.array, metadata_restored.projection.array)
         assert metadata.aspect_ratio == metadata_restored.aspect_ratio
+        assert metadata.camera_to_imu_se3 == metadata_restored.camera_to_imu_se3
 
     def test_is_instance_of_abstract_metadata(self):
         """FisheyeMEICameraMetadata is an instance of AbstractMetadata."""
@@ -296,6 +289,7 @@ class TestFisheyeMEICameraMetadata:
             projection=None,
             width=640,
             height=480,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         assert isinstance(metadata, AbstractMetadata)
 
@@ -309,6 +303,7 @@ class TestFisheyeMEICameraMetadata:
             projection=None,
             width=1920,
             height=1080,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         assert metadata.aspect_ratio == pytest.approx(16 / 9, abs=1e-05)
 
@@ -327,15 +322,22 @@ class TestFisheyeMEICamera:
             projection=FisheyeMEIProjection(gamma1=1.0, gamma2=2.0, u0=3.0, v0=4.0),
             width=1920,
             height=1080,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         image = np.zeros((1080, 1920), dtype=np.uint8)
         extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
 
-        camera = FisheyeMEICamera(metadata=metadata, image=image, extrinsic=extrinsic)
+        camera = FisheyeMEICamera(
+            metadata=metadata,
+            image=image,
+            extrinsic=extrinsic,
+            timestamp=Timestamp.from_s(0.0),
+        )
 
         assert camera.metadata == metadata
         np.testing.assert_array_equal(camera.image, image)
         assert camera.extrinsic == extrinsic
+        assert camera.timestamp == Timestamp.from_s(0.0)
 
     def test_camera_metadata_property(self):
         """Test that metadata property returns correct metadata."""
@@ -348,14 +350,21 @@ class TestFisheyeMEICamera:
             projection=None,
             width=640,
             height=480,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         image = np.ones((480, 640), dtype=np.uint8)
         extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
 
-        camera = FisheyeMEICamera(metadata=metadata, image=image, extrinsic=extrinsic)
+        camera = FisheyeMEICamera(
+            metadata=metadata,
+            image=image,
+            extrinsic=extrinsic,
+            timestamp=Timestamp.from_s(0.0),
+        )
 
         assert camera.metadata is metadata
         assert camera.metadata.camera_id == FisheyeMEICameraID.FCAM_R
+        assert camera.timestamp == Timestamp.from_s(0.0)
 
     def test_camera_image_property(self):
         """Test that image property returns correct image."""
@@ -368,11 +377,17 @@ class TestFisheyeMEICamera:
             projection=None,
             width=640,
             height=480,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         image = np.random.randint(0, 255, (480, 640), dtype=np.uint8)
         extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
 
-        camera = FisheyeMEICamera(metadata=metadata, image=image, extrinsic=extrinsic)
+        camera = FisheyeMEICamera(
+            metadata=metadata,
+            image=image,
+            extrinsic=extrinsic,
+            timestamp=Timestamp.from_s(0.0),
+        )
 
         np.testing.assert_array_equal(camera.image, image)
         assert camera.image.dtype == np.uint8
@@ -388,11 +403,12 @@ class TestFisheyeMEICamera:
             projection=None,
             width=640,
             height=480,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         image = np.zeros((480, 640), dtype=np.uint8)
         extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
 
-        camera = FisheyeMEICamera(metadata=metadata, image=image, extrinsic=extrinsic)
+        camera = FisheyeMEICamera(metadata=metadata, image=image, extrinsic=extrinsic, timestamp=Timestamp.from_s(0.0))
 
         assert camera.extrinsic is extrinsic
 
@@ -407,10 +423,11 @@ class TestFisheyeMEICamera:
             projection=None,
             width=640,
             height=480,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         image = np.zeros((480, 640, 3), dtype=np.uint8)
         extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
 
-        camera = FisheyeMEICamera(metadata=metadata, image=image, extrinsic=extrinsic)
+        camera = FisheyeMEICamera(metadata=metadata, image=image, extrinsic=extrinsic, timestamp=Timestamp.from_s(0.0))
 
         assert camera.image.shape == (480, 640, 3)

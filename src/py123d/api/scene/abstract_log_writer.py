@@ -55,8 +55,8 @@ class AbstractLogWriter(abc.ABC):
         """Writes a single iteration of data to the log.
 
         :param timestamp: Required, the timestamp of the iteration.
-        :param ego_state: Optional, the ego state of the vehicle, defaults to None.
-        :param box_detections: Optional, the box detections, defaults to None
+        :param ego_state_se3: Optional, the ego state of the vehicle, defaults to None.
+        :param box_detections_se3: Optional, the box detections, defaults to None
         :param traffic_lights: Optional, the traffic light detections, defaults to None
         :param pinhole_cameras: Optional, the pinhole camera data, defaults to None
         :param fisheye_mei_cameras: Optional, the fisheye MEI camera data, defaults to None
@@ -158,11 +158,11 @@ class CameraData:
 
     @property
     def has_jpeg_file_path(self) -> bool:
-        return self.relative_path is not None and str(self.relative_path).lower().endswith((".jpg", ".jpeg"))
+        return self.has_file_path and str(self.relative_path).lower().endswith((".jpg", ".jpeg"))
 
     @property
     def has_png_file_path(self) -> bool:
-        return self.relative_path is not None and str(self.relative_path).lower().endswith((".png",))
+        return self.has_file_path and str(self.relative_path).lower().endswith((".png",))
 
     @property
     def has_jpeg_binary(self) -> bool:

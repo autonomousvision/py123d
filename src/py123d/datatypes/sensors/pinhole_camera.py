@@ -348,7 +348,7 @@ class PinholeCameraMetadata(AbstractMetadata):
         distortion: Optional[PinholeDistortion],
         width: int,
         height: int,
-        camera_to_imu_se3: Optional[PoseSE3] = None,
+        camera_to_imu_se3: PoseSE3,
         is_undistorted: bool = False,
     ) -> None:
         """Initialize a :class:`PinholeCameraMetadata` instance.
@@ -359,7 +359,7 @@ class PinholeCameraMetadata(AbstractMetadata):
         :param distortion: The :class:`PinholeDistortion` of the pinhole camera.
         :param width: The image width in pixels.
         :param height: The image height in pixels.
-        :param camera_to_imu_se3: The camera-to-IMU extrinsic :class:`~py123d.geometry.PoseSE3` of the pinhole camera, if available.
+        :param camera_to_imu_se3: The camera-to-IMU extrinsic :class:`~py123d.geometry.PoseSE3` of the pinhole camera.
         :param is_undistorted: Whether the camera images are already undistorted, defaults to False.
         """
         self._camera_name = camera_name
@@ -378,22 +378,22 @@ class PinholeCameraMetadata(AbstractMetadata):
         :param data_dict: A dictionary containing the metadata.
         :return: A PinholeCameraMetadata instance.
         """
-        data_dict["camera_id"] = PinholeCameraID(data_dict["camera_id"])
-        data_dict["intrinsics"] = (
+        _intrinsics = (
             PinholeIntrinsics.from_list(data_dict["intrinsics"]) if data_dict["intrinsics"] is not None else None
         )
-        data_dict["distortion"] = (
+        _distortion = (
             PinholeDistortion.from_list(data_dict["distortion"]) if data_dict["distortion"] is not None else None
         )
-
-        # TODO: Make camera-to-IMU extrinsic mandatory in the future.
-        if "camera_to_imu_se3" in data_dict.keys():
-            data_dict["camera_to_imu_se3"] = (
-                PoseSE3.from_list(data_dict["camera_to_imu_se3"])
-                if data_dict["camera_to_imu_se3"] is not None
-                else None
-            )
-        return PinholeCameraMetadata(**data_dict)
+        return PinholeCameraMetadata(
+            camera_name=data_dict["camera_name"],
+            camera_id=PinholeCameraID(data_dict["camera_id"]),
+            intrinsics=_intrinsics,
+            distortion=_distortion,
+            width=data_dict["width"],
+            height=data_dict["height"],
+            camera_to_imu_se3=PoseSE3.from_list(data_dict["camera_to_imu_se3"]),
+            is_undistorted=data_dict["is_undistorted"],
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Converts the :class:`PinholeCameraMetadata` to a dictionary.
@@ -407,7 +407,7 @@ class PinholeCameraMetadata(AbstractMetadata):
         data_dict["distortion"] = self.distortion.tolist() if self.distortion is not None else None
         data_dict["width"] = self.width
         data_dict["height"] = self.height
-        data_dict["camera_to_imu_se3"] = self.camera_to_imu_se3.tolist() if self.camera_to_imu_se3 is not None else None
+        data_dict["camera_to_imu_se3"] = self.camera_to_imu_se3.tolist()
         data_dict["is_undistorted"] = self.is_undistorted
         return data_dict
 
@@ -442,8 +442,8 @@ class PinholeCameraMetadata(AbstractMetadata):
         return self._height
 
     @property
-    def camera_to_imu_se3(self) -> Optional[PoseSE3]:
-        """The camera-to-IMU extrinsic :class:`~py123d.geometry.PoseSE3` of the pinhole camera, if available."""
+    def camera_to_imu_se3(self) -> PoseSE3:
+        """The camera-to-IMU extrinsic :class:`~py123d.geometry.PoseSE3` of the pinhole camera."""
         return self._camera_to_imu_se3
 
     @property

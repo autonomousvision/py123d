@@ -105,9 +105,9 @@ BOX_DETECTIONS_SE3 = ModalitySchema(
 TRAFFIC_LIGHTS = ModalitySchema(
     "traffic_lights",
     {
-        "lane_id": pa.int32(),
-        "status": pa.uint8(),
-        "timestamp_us": pa.int64(),
+        "lane_id": pa.list_(pa.int32()),
+        "status": pa.list_(pa.uint8()),
+        "timestamp_us": pa.list_(pa.int64()),
     },
 )
 
