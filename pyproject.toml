@@ -85,7 +85,7 @@ nuscenes = [
     "nuscenes-devkit==1.2.0",
 ]
 waymo = [
-    "tensorflow>=2.13",
+    "tensorflow-cpu>=2.13",
     "protobuf>=6.31",
 ]
 ffmpeg = [

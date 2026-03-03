@@ -8,36 +8,7 @@ from __future__ import absolute_import, division, print_function
 
 import tensorflow as tf
 
-__all__ = ["get_yaw_rotation", "get_yaw_rotation_2d", "get_rotation_matrix", "get_transform"]
-
-
-def get_yaw_rotation(yaw, name=None):
-    with tf.compat.v1.name_scope(name, "GetYawRotation", [yaw]):
-        cos_yaw = tf.cos(yaw)
-        sin_yaw = tf.sin(yaw)
-        ones = tf.ones_like(yaw)
-        zeros = tf.zeros_like(yaw)
-        return tf.stack(
-            [
-                tf.stack([cos_yaw, -1.0 * sin_yaw, zeros], axis=-1),
-                tf.stack([sin_yaw, cos_yaw, zeros], axis=-1),
-                tf.stack([zeros, zeros, ones], axis=-1),
-            ],
-            axis=-2,
-        )
-
-
-def get_yaw_rotation_2d(yaw):
-    with tf.name_scope("GetYawRotation2D"):
-        cos_yaw = tf.cos(yaw)
-        sin_yaw = tf.sin(yaw)
-        return tf.stack(
-            [
-                tf.stack([cos_yaw, -1.0 * sin_yaw], axis=-1),
-                tf.stack([sin_yaw, cos_yaw], axis=-1),
-            ],
-            axis=-2,
-        )
+__all__ = ["get_rotation_matrix", "get_transform"]
 
 
 def get_rotation_matrix(roll, pitch, yaw, name=None):

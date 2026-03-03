@@ -6,21 +6,13 @@
 
 from __future__ import absolute_import, division, print_function
 
-import math
-
 import numpy as np
 import tensorflow as tf
 
 __all__ = [
-    "encode_lidar_features",
-    "decode_lidar_features",
-    "scatter_nd_with_pool",
     "compute_range_image_polar",
     "compute_range_image_cartesian",
-    "build_range_image_from_point_cloud",
-    "build_camera_depth_image",
     "extract_point_cloud_from_range_image",
-    "crop_range_image",
     "compute_inclination",
 ]
 
@@ -35,92 +27,6 @@ def _combined_static_and_dynamic_shape(tensor):
         else:
             combined_shape.append(dynamic_tensor_shape[index])
     return combined_shape
-
-
-_RANGE_TO_METERS = 0.00585532144
-
-
-def _encode_range(r):
-    encoded_r = r / _RANGE_TO_METERS
-    with tf.control_dependencies(
-        [tf.compat.v1.assert_non_negative(encoded_r), tf.compat.v1.assert_less_equal(encoded_r, math.pow(2, 16) - 1.0)]
-    ):
-        return tf.cast(encoded_r, dtype=tf.uint16)
-
-
-def _decode_range(r):
-    return tf.cast(r, dtype=tf.float32) * _RANGE_TO_METERS
-
-
-def _encode_intensity(intensity):
-    if intensity.dtype != tf.float32:
-        raise TypeError("intensity must be of type float32")
-    intensity_uint32 = tf.bitcast(intensity, tf.uint32)
-    intensity_uint32_shifted = tf.bitwise.right_shift(intensity_uint32, 16)
-    return tf.cast(intensity_uint32_shifted, dtype=tf.uint16)
-
-
-def _decode_intensity(intensity):
-    if intensity.dtype != tf.uint16:
-        raise TypeError("intensity must be of type uint16")
-    intensity_uint32 = tf.cast(intensity, dtype=tf.uint32)
-    intensity_uint32_shifted = tf.bitwise.left_shift(intensity_uint32, 16)
-    return tf.bitcast(intensity_uint32_shifted, tf.float32)
-
-
-def _encode_elongation(elongation):
-    encoded_elongation = elongation / _RANGE_TO_METERS
-    with tf.control_dependencies(
-        [
-            tf.compat.v1.assert_non_negative(encoded_elongation),
-            tf.compat.v1.assert_less_equal(encoded_elongation, math.pow(2, 8) - 1.0),
-        ]
-    ):
-        return tf.cast(encoded_elongation, dtype=tf.uint8)
-
-
-def _decode_elongation(elongation):
-    return tf.cast(elongation, dtype=tf.float32) * _RANGE_TO_METERS
-
-
-def encode_lidar_features(lidar_point_feature):
-    if lidar_point_feature.dtype != tf.float32:
-        raise TypeError("lidar_point_feature must be of type float32.")
-    r, intensity, elongation = tf.unstack(lidar_point_feature, axis=-1)
-    encoded_r = tf.cast(_encode_range(r), dtype=tf.uint32)
-    encoded_intensity = tf.cast(_encode_intensity(intensity), dtype=tf.uint32)
-    encoded_elongation = tf.cast(_encode_elongation(elongation), dtype=tf.uint32)
-    encoded_r_shifted = tf.bitwise.left_shift(encoded_r, 16)
-    encoded_intensity = tf.cast(tf.bitwise.bitwise_or(encoded_r_shifted, encoded_intensity), dtype=tf.int64)
-    encoded_elongation = tf.cast(tf.bitwise.bitwise_or(encoded_r_shifted, encoded_elongation), dtype=tf.int64)
-    encoded_r = tf.cast(encoded_r, dtype=tf.int64)
-    return tf.stack([encoded_r, encoded_intensity, encoded_elongation], axis=-1)
-
-
-def decode_lidar_features(lidar_point_feature):
-    r, intensity, elongation = tf.unstack(lidar_point_feature, axis=-1)
-    decoded_r = _decode_range(r)
-    intensity = tf.bitwise.bitwise_and(intensity, int(0xFFFF))
-    decoded_intensity = _decode_intensity(tf.cast(intensity, dtype=tf.uint16))
-    elongation = tf.bitwise.bitwise_and(elongation, int(0xFF))
-    decoded_elongation = _decode_elongation(tf.cast(elongation, dtype=tf.uint8))
-    return tf.stack([decoded_r, decoded_intensity, decoded_elongation], axis=-1)
-
-
-def scatter_nd_with_pool(index, value, shape, pool_method=tf.math.unsorted_segment_max):
-    if len(shape) != 2:
-        raise ValueError("shape must be of size 2")
-    height = shape[0]
-    width = shape[1]
-    index_encoded, idx = tf.unique(index[:, 0] * width + index[:, 1])
-    value_pooled = pool_method(value, idx, tf.size(input=index_encoded))
-    index_unique = tf.stack([index_encoded // width, tf.math.mod(index_encoded, width)], axis=-1)
-    shape = [height, width]
-    value_shape = _combined_static_and_dynamic_shape(value)
-    if len(value_shape) > 1:
-        shape = shape + value_shape[1:]
-    image = tf.scatter_nd(index_unique, value_pooled, shape)
-    return image
 
 
 def compute_range_image_polar(range_image, extrinsic, inclination, dtype=tf.float32, scope=None):
