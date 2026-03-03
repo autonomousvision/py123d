@@ -2,9 +2,10 @@ from typing import Dict, List, Tuple
 
 from py123d.common.utils.dependencies import check_dependencies
 
-check_dependencies(modules=["tensorflow", "waymo_open_dataset"], optional_name="waymo")
+check_dependencies(modules=["tensorflow"], optional_name="waymo")
 import tensorflow as tf
-from waymo_open_dataset import dataset_pb2
+
+from py123d.conversion.datasets.wod.waymo_open_dataset.protos import dataset_pb2
 
 RangeImages = Dict["dataset_pb2.LaserName.Name", List[dataset_pb2.MatrixFloat]]
 CameraProjections = Dict["dataset_pb2.LaserName.Name", List[dataset_pb2.MatrixInt32]]
