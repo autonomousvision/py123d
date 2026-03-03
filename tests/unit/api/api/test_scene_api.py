@@ -19,6 +19,7 @@ from py123d.datatypes import (
     TrafficLightDetections,
     VehicleParameters,
 )
+from py123d.datatypes.custom.custom_modality import CustomModality
 
 
 class ConcreteSceneAPI(SceneAPI):
@@ -49,7 +50,7 @@ class ConcreteSceneAPI(SceneAPI):
         """Inherited, see super class."""
         return Mock(spec=EgoStateSE3)
 
-    def get_box_detections_at_iteration(self, iteration: int) -> Optional[BoxDetectionsSE3]:
+    def get_box_detections_se3_at_iteration(self, iteration: int) -> Optional[BoxDetectionsSE3]:
         """Inherited, see super class."""
         return Mock(spec=BoxDetectionsSE3)
 
@@ -74,6 +75,14 @@ class ConcreteSceneAPI(SceneAPI):
     def get_lidar_at_iteration(self, iteration: int, lidar_id: LidarID) -> Optional[Lidar]:
         """Inherited, see super class."""
         return Mock(spec=Lidar)
+
+    def get_custom_modality_at_iteration(self, iteration: int, name: str) -> Optional[CustomModality]:
+        """Inherited, see super class."""
+        return Mock(
+            spec=CustomModality,
+            data={"example_key": "example_value"},
+            timestamp=Mock(spec=Timestamp),
+        )
 
 
 @pytest.fixture

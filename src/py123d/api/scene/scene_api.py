@@ -7,6 +7,7 @@ from py123d.api.map.map_api import MapAPI
 from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.datatypes import (
     BoxDetectionsSE3,
+    CustomModality,
     EgoStateSE3,
     FisheyeMEICamera,
     FisheyeMEICameraID,
@@ -66,7 +67,7 @@ class SceneAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_box_detections_at_iteration(self, iteration: int) -> Optional[BoxDetectionsSE3]:
+    def get_box_detections_se3_at_iteration(self, iteration: int) -> Optional[BoxDetectionsSE3]:
         """Returns the :class:`~py123d.datatypes.detections.BoxDetectionsSE3` at a given iteration, if available.
 
         :param iteration: The iteration to get the box detections for.
@@ -80,14 +81,6 @@ class SceneAPI(abc.ABC):
 
         :param iteration: The iteration to get the traffic light detections for.
         :return: The traffic light detections at the given iteration, or None if not available.
-        """
-
-    @abc.abstractmethod
-    def get_route_lane_group_ids(self, iteration: int) -> Optional[List[int]]:
-        """Returns the list of route lane group IDs at a given iteration, if available.
-
-        :param iteration: The iteration to get the route lane group IDs for.
-        :return: The list of route lane group IDs at the given iteration, or None if not available.
         """
 
     @abc.abstractmethod
@@ -126,6 +119,16 @@ class SceneAPI(abc.ABC):
         :return: The Lidar, or None if not available.
         """
 
+    @abc.abstractmethod
+    def get_custom_modality_at_iteration(self, iteration: int, name: str) -> Optional[CustomModality]:
+        """Returns the :class:`~py123d.datatypes.custom.CustomModality` with the given name at a given iteration,
+            if available.
+
+        :param iteration: The iteration to get the custom modality for.
+        :param name: The name of the custom modality (e.g. ``"route"``, ``"predictions"``).
+        :return: The custom modality, or None if not available.
+        """
+
     # Deprecated Methods, to be removed in future versions
     # ------------------------------------------------------------------------------------------------------------------
     def get_ego_state_at_iteration(self, iteration: int) -> Optional[EgoStateSE3]:
@@ -135,6 +138,21 @@ class SceneAPI(abc.ABC):
         :return: The ego state at the given iteration, or None if not available.
         """
         return self.get_ego_state_se3_at_iteration(iteration)
+
+    def get_box_detections_at_iteration(self, iteration: int) -> Optional[BoxDetectionsSE3]:
+        """Returns the :class:`~py123d.datatypes.detections.BoxDetectionsSE3` at a given iteration, if available.
+
+        :param iteration: The iteration to get the box detections for.
+        :return: The box detections at the given iteration, or None if not available.
+        """
+        return self.get_box_detections_se3_at_iteration(iteration)
+
+    def get_route_lane_group_ids(self, iteration: int) -> Optional[List[int]]:
+        """Returns the list of route lane group IDs at a given iteration, if available.
+
+        :param iteration: The iteration to get the route lane group IDs for.
+        :return: The list of route lane group IDs at the given iteration, or None if not available.
+        """
 
     # Syntactic Sugar / Properties, that are convenient to access and pass to subclasses
     # ------------------------------------------------------------------------------------------------------------------

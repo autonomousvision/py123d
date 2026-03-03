@@ -12,6 +12,7 @@ from py123d.api.scene.arrow.utils.arrow_metadata_utils import add_log_metadata_t
 from py123d.api.utils.arrow_schema import (
     BOX_DETECTIONS_SE3,
     CAMERA_STORE_TYPES,
+    CUSTOM_MODALITY,
     EGO_STATE_SE3,
     FISHEYE_MEI,
     LIDAR,
@@ -21,6 +22,7 @@ from py123d.api.utils.arrow_schema import (
     TRAFFIC_LIGHTS,
 )
 from py123d.common.dataset_paths import get_dataset_paths
+from py123d.common.utils.msgpack_utils import msgpack_encode_with_numpy
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
 from py123d.conversion.sensor_io.camera.jpeg_camera_io import (
@@ -44,6 +46,7 @@ from py123d.conversion.sensor_io.lidar.laz_lidar_io import encode_point_cloud_3d
 from py123d.conversion.sensor_io.lidar.path_lidar_io import load_point_cloud_data_from_path
 from py123d.datatypes import (
     BoxDetectionsSE3,
+    CustomModality,
     EgoStateSE3,
     LidarID,
     LogMetadata,
@@ -123,6 +126,7 @@ class ArrowLogWriter(AbstractLogWriter):
             pinhole_camera.{name}.arrow       # data, state_se3, timestamp_us
             fisheye_mei.{name}.arrow          # data, state_se3, timestamp_us
             lidar.{name}.arrow                # point cloud data, timestamps
+            custom.{name}.arrow               # msgpack-encoded binary data, timestamp_us
 
     Use :meth:`write` for frame-wise synchronized writing (writes sync row + all modalities).
     Use individual ``write_{modality}`` methods for independent / async writing.
@@ -253,6 +257,7 @@ class ArrowLogWriter(AbstractLogWriter):
         pinhole_cameras: Optional[List[CameraData]] = None,
         fisheye_mei_cameras: Optional[List[CameraData]] = None,
         lidar: Optional[LidarData] = None,
+        custom_modalities: Optional[Dict[str, CustomModality]] = None,
     ) -> None:
         """Inherited, see superclass.
 
@@ -300,6 +305,9 @@ class ArrowLogWriter(AbstractLogWriter):
 
         if lidar is not None:
             self.write_lidar(lidar)
+
+        if custom_modalities is not None:
+            self.write_custom_modalities(custom_modalities)
 
     # ------------------------------------------------------------------------------------------------------------------
     # Individual modality writers (usable independently for async writing)
@@ -472,9 +480,28 @@ class ArrowLogWriter(AbstractLogWriter):
         else:
             raise ValueError(f"Unsupported lidar store option: {self._dataset_converter_config.lidar_store_option}")
 
-    def write_aux_dict(self, aux_dict: Dict[str, Union[str, int, float, bool]]) -> None:
-        """Write auxiliary data. Not yet implemented."""
-        pass
+    def write_custom_modalities(self, custom_modalities: Dict[str, CustomModality]) -> None:
+        """Write custom modalities to ``custom.{name}.arrow`` (one file per named modality).
+
+        Writers are created lazily on first encounter of each modality name.
+        """
+        assert self._log_metadata is not None, "Log writer is not initialized."
+
+        for name, modality in custom_modalities.items():
+            writer_key = CUSTOM_MODALITY.prefix(name)
+
+            # Lazily create writer for this custom modality name
+            if writer_key not in self._modality_writers:
+                self._create_modality_writer(writer_key, CUSTOM_MODALITY.schema_dict(name))
+
+            encoded_data = msgpack_encode_with_numpy(modality.data)
+            writer = self._modality_writers[writer_key]
+            writer.write_batch(
+                {
+                    CUSTOM_MODALITY.col("data", name): [encoded_data],
+                    CUSTOM_MODALITY.col("timestamp_us", name): [modality.timestamp.time_us],
+                }
+            )
 
     # ------------------------------------------------------------------------------------------------------------------
     # Lifecycle

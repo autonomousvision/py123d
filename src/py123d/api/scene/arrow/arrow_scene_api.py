@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import pyarrow as pa
 
@@ -11,7 +11,6 @@ from py123d.api.scene.arrow.utils.arrow_getters import (
     get_camera_from_arrow_table,
     get_ego_state_se3_from_arrow_table,
     get_lidar_from_arrow_table,
-    get_route_lane_group_ids_from_arrow_table,
     get_timestamp_from_arrow_table,
     get_traffic_light_detections_from_arrow_table,
 )
@@ -22,8 +21,8 @@ from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.api.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.api.utils.arrow_schema import (
-    AUX,
     BOX_DETECTIONS_SE3,
+    CUSTOM_MODALITY,
     EGO_STATE_SE3,
     FISHEYE_MEI,
     LIDAR,
@@ -31,7 +30,9 @@ from py123d.api.utils.arrow_schema import (
     SYNC,
     TRAFFIC_LIGHTS,
 )
+from py123d.common.utils.msgpack_utils import msgpack_decode_with_numpy
 from py123d.common.utils.uuid_utils import convert_to_str_uuid
+from py123d.datatypes.custom import CustomModality
 from py123d.datatypes.detections import BoxDetectionsSE3, TrafficLightDetections
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.sensors import (
@@ -164,7 +165,7 @@ class ArrowSceneAPI(SceneAPI):
             self.log_metadata.vehicle_parameters,
         )
 
-    def get_box_detections_at_iteration(self, iteration: int) -> Optional[BoxDetectionsSE3]:
+    def get_box_detections_se3_at_iteration(self, iteration: int) -> Optional[BoxDetectionsSE3]:
         """Inherited, see superclass."""
         box_table = self._get_modality_table(BOX_DETECTIONS_SE3.prefix())
         if box_table is None:
@@ -183,13 +184,6 @@ class ArrowSceneAPI(SceneAPI):
         if tl_table is None:
             return None
         return get_traffic_light_detections_from_arrow_table(tl_table, self._get_table_index(iteration))
-
-    def get_route_lane_group_ids(self, iteration: int) -> Optional[List[int]]:
-        """Inherited, see superclass."""
-        aux_table = self._get_modality_table(AUX.prefix())
-        if aux_table is None:
-            return None
-        return get_route_lane_group_ids_from_arrow_table(aux_table, self._get_table_index(iteration))
 
     def get_pinhole_camera_at_iteration(self, iteration: int, camera_id: PinholeCameraID) -> Optional[PinholeCamera]:
         """Inherited, see superclass."""
@@ -241,3 +235,14 @@ class ArrowSceneAPI(SceneAPI):
             lidar_id,
             self.log_metadata,
         )
+
+    def get_custom_modality_at_iteration(self, iteration: int, name: str) -> Optional[CustomModality]:
+        """Inherited, see superclass."""
+        table = self._get_modality_table(CUSTOM_MODALITY.prefix(name))
+        if table is None:
+            return None
+        idx = self._get_table_index(iteration)
+        encoded_data: bytes = table[CUSTOM_MODALITY.col("data", name)][idx].as_py()
+        timestamp_us: int = table[CUSTOM_MODALITY.col("timestamp_us", name)][idx].as_py()
+        data = msgpack_decode_with_numpy(encoded_data)
+        return CustomModality(data=data, timestamp=Timestamp.from_us(timestamp_us))

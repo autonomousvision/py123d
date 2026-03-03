@@ -10,6 +10,7 @@ import numpy as np
 import numpy.typing as npt
 
 from py123d.conversion.dataset_converter_config import DatasetConverterConfig
+from py123d.datatypes.custom.custom_modality import CustomModality
 from py123d.datatypes.detections.box_detections import BoxDetectionsSE3
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetections
 from py123d.datatypes.metadata import LogMetadata
@@ -51,6 +52,7 @@ class AbstractLogWriter(abc.ABC):
         pinhole_cameras: Optional[List[CameraData]] = None,
         fisheye_mei_cameras: Optional[List[CameraData]] = None,
         lidar: Optional[LidarData] = None,
+        custom_modalities: Optional[Dict[str, CustomModality]] = None,
     ) -> None:
         """Writes a single iteration of data to the log.
 
@@ -61,6 +63,7 @@ class AbstractLogWriter(abc.ABC):
         :param pinhole_cameras: Optional, the pinhole camera data, defaults to None
         :param fisheye_mei_cameras: Optional, the fisheye MEI camera data, defaults to None
         :param lidar: Optional, the Lidar data, defaults to None
+        :param custom_modalities: Optional, the custom modalities, defaults to None
         """
         pass
 
@@ -89,7 +92,7 @@ class AbstractLogWriter(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def write_aux_dict(self, aux_dict: Dict[str, Union[str, int, float, bool]]) -> None:
+    def write_custom_modalities(self, custom_modalities: Dict[str, CustomModality]) -> None:
         pass
 
     @abc.abstractmethod
@@ -103,8 +106,9 @@ class LidarData:
 
     lidar_name: str
     lidar_type: LidarID
+    start_timestamp: Timestamp
+    end_timestamp: Timestamp
 
-    timestamp: Optional[Timestamp] = None
     iteration: Optional[int] = None
     dataset_root: Optional[Union[str, Path]] = None
     relative_path: Optional[Union[str, Path]] = None
@@ -136,8 +140,8 @@ class CameraData:
     camera_name: str
     camera_id: Union[PinholeCameraID, FisheyeMEICameraID]
     extrinsic: PoseSE3
+    timestamp: Timestamp
 
-    timestamp: Optional[Timestamp] = None
     jpeg_binary: Optional[bytes] = None
     numpy_image: Optional[npt.NDArray[np.uint8]] = None
     dataset_root: Optional[Union[str, Path]] = None

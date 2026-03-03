@@ -6,7 +6,6 @@ import numpy.typing as npt
 import pyarrow as pa
 
 from py123d.api.utils.arrow_schema import (
-    AUX,
     BOX_DETECTIONS_SE3,
     EGO_STATE_SE3,
     FISHEYE_MEI,
@@ -91,7 +90,7 @@ def get_ego_state_se3_from_arrow_table(
         ego_state_se3 = EgoStateSE3.from_imu(
             imu_se3=imu_se3,
             vehicle_parameters=vehicle_parameters,
-            dynamic_state_se3=dynamic_state_se3,
+            dynamic_state_se3=dynamic_state_se3,  # type: ignore
             timestamp=timestamp,
         )
     return ego_state_se3
@@ -357,32 +356,6 @@ def get_lidar_from_arrow_table(
             )
 
     return lidar
-
-
-def get_route_lane_group_ids_from_arrow_table(arrow_table: pa.Table, index: int) -> Optional[List[int]]:
-    """Gets the route lane group IDs from an Arrow table at a given index.
-
-    :param arrow_table: The Arrow table containing the route lane group IDs data.
-    :param index: The index to extract the route lane group IDs from.
-    :return: The route lane group IDs at the given index, or None if not available
-    """
-    route_lane_group_ids: Optional[List[int]] = None
-    if _all_columns_in_schema(arrow_table, [AUX.col("route_lane_group_ids")]):
-        route_lane_group_ids = arrow_table[AUX.col("route_lane_group_ids")][index].as_py()
-    return route_lane_group_ids
-
-
-def get_scenario_tags_from_arrow_table(arrow_table: pa.Table, index: int) -> Optional[List[int]]:
-    """Gets the scenario tags from an Arrow table at a given index.
-
-    :param arrow_table: The Arrow table containing the scenario tags data.
-    :param index: The index to extract the scenario tags from.
-    :return: The scenario tags at the given index, or None if not available
-    """
-    scenario_tags: Optional[List[int]] = None
-    if _all_columns_in_schema(arrow_table, [AUX.col("scenario_tags")]):
-        scenario_tags = arrow_table[AUX.col("scenario_tags")][index].as_py()
-    return scenario_tags
 
 
 def _unoptimized_demo_mp4_read(log_metadata: LogMetadata, camera_name: str, frame_index: int) -> Optional[np.ndarray]:

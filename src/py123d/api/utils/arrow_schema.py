@@ -151,12 +151,15 @@ LIDAR = ModalitySchema(
     parametric=True,
 )
 
-AUX = ModalitySchema(
-    "aux",
+CUSTOM_MODALITY = ModalitySchema(
+    "custom",
     {
         "data": pa.binary(),
+        "timestamp_us": pa.int64(),
     },
+    parametric=True,
 )
+
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Storage-variant type overrides
