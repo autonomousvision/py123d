@@ -40,7 +40,6 @@ def load_point_cloud_3d_from_laz_binary(laz_binary: bytes) -> npt.NDArray[np.flo
     """Decompress Lidar point cloud data from LAZ format.
 
     :param laz_binary: The compressed LAZ binary data.
-    :param lidar_metadata: Metadata associated with the Lidar data.
     :raises ValueError: If the Lidar features are not found in the LAS file.
     :return: The decompressed Lidar point cloud data as a numpy array.
     """

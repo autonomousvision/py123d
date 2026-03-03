@@ -8,7 +8,7 @@ from py123d.common.execution import Executor
 
 class SceneBuilder(abc.ABC):
     """Base class for all scene builders. The scene builder is responsible for building scene given a \
-        :class:`~py123d.store.scene.scene_filter.SceneFilter`.
+        :class:`~py123d.api.scene.scene_filter.SceneFilter`.
     """
 
     @abc.abstractmethod

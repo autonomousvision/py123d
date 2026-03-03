@@ -39,9 +39,9 @@ class LogMetadata(AbstractMetadata):
         timestep_seconds: float,
         vehicle_parameters: Optional[VehicleParameters] = None,
         box_detection_label_class: Optional[Type[BoxDetectionLabel]] = None,
-        pinhole_camera_metadata: Dict[PinholeCameraID, PinholeCameraMetadata] = {},
-        fisheye_mei_camera_metadata: Dict[FisheyeMEICameraID, FisheyeMEICameraMetadata] = {},
-        lidar_metadata: Dict[LidarID, LidarMetadata] = {},
+        pinhole_camera_metadata: Optional[Dict[PinholeCameraID, PinholeCameraMetadata]] = None,
+        fisheye_mei_camera_metadata: Optional[Dict[FisheyeMEICameraID, FisheyeMEICameraMetadata]] = None,
+        lidar_metadata: Optional[Dict[LidarID, LidarMetadata]] = None,
         map_metadata: Optional[MapMetadata] = None,
         version: str = str(py123d.__version__),
     ):
@@ -56,11 +56,11 @@ class LogMetadata(AbstractMetadata):
             of the ego vehicle, if available.
         :param box_detection_label_class: The box detection label class specific to the dataset, if available.
         :param pinhole_camera_metadata: Dictionary of :class:`~py123d.datatypes.sensors.PinholeCameraID`
-            to :class:`~py123d.datatypes.sensors.PinholeCameraMetadata`, defaults to {}
+            to :class:`~py123d.datatypes.sensors.PinholeCameraMetadata`, defaults to None
         :param fisheye_mei_camera_metadata: Dictionary of :class:`~py123d.datatypes.sensors.FisheyeMEICameraType`
-            to :class:`~py123d.datatypes.sensors.FisheyeMEICameraMetadata`, defaults to {}
+            to :class:`~py123d.datatypes.sensors.FisheyeMEICameraMetadata`, defaults to None
         :param lidar_metadata: Dictionary of :class:`~py123d.datatypes.sensors.LidarID`
-            to :class:`~py123d.datatypes.sensors.LidarMetadata`, defaults to {}
+            to :class:`~py123d.datatypes.sensors.LidarMetadata`, defaults to None
         :param map_metadata: The :class:`~py123d.datatypes.metadata.MapMetadata` for the log, if available, defaults to None
         :param version: The version of the log metadata, defaults to str(py123d.__version__)
         """
@@ -71,9 +71,11 @@ class LogMetadata(AbstractMetadata):
         self._timestep_seconds = timestep_seconds
         self._vehicle_parameters = vehicle_parameters
         self._box_detection_label_class = box_detection_label_class
-        self._pinhole_camera_metadata = pinhole_camera_metadata
-        self._fisheye_mei_camera_metadata = fisheye_mei_camera_metadata
-        self._lidar_metadata = lidar_metadata
+        self._pinhole_camera_metadata = pinhole_camera_metadata if pinhole_camera_metadata is not None else {}
+        self._fisheye_mei_camera_metadata = (
+            fisheye_mei_camera_metadata if fisheye_mei_camera_metadata is not None else {}
+        )
+        self._lidar_metadata = lidar_metadata if lidar_metadata is not None else {}
         self._map_metadata = map_metadata
         self._version = version
 

@@ -65,3 +65,11 @@ class TestTimestamp:
         assert Timestamp.from_ns(tp.time_ns).time_us == original_us
         assert Timestamp.from_ms(tp.time_ms).time_us == original_us
         assert Timestamp.from_s(tp.time_s).time_us == original_us
+
+    def test_equality(self):
+        """Test equality comparison of Timestamp objects."""
+        tp1 = Timestamp.from_us(1000)
+        tp2 = Timestamp.from_ns(1000000)
+        tp3 = Timestamp.from_ms(1)
+        tp4 = Timestamp.from_s(0.001)
+        assert tp1 == tp2 == tp3 == tp4
