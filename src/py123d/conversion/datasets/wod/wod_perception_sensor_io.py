@@ -5,7 +5,7 @@ import numpy as np
 
 from py123d.common.utils.dependencies import check_dependencies
 from py123d.conversion.datasets.wod.utils.wod_constants import WOD_PERCEPTION_CAMERA_IDS, WOD_PERCEPTION_LIDAR_IDS
-from py123d.conversion.datasets.wod.utils.wod_range_image_utils import parse_range_image_and_camera_projection
+from py123d.conversion.datasets.wod.waymo_open_dataset.utils.frame_utils import parse_range_image_and_camera_projection
 from py123d.datatypes import LidarFeature, PinholeCameraID
 
 check_dependencies(modules=["tensorflow"], optional_name="waymo")

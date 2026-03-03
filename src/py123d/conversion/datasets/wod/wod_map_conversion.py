@@ -3,6 +3,10 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from py123d.api.map.abstract_map_writer import AbstractMapWriter
+from py123d.common.utils.dependencies import check_dependencies
+
+check_dependencies(modules=["protobuf"], optional_name="waymo")
+
 from py123d.conversion.datasets.wod.utils.wod_boundary_utils import WaymoLaneData, fill_lane_boundaries
 from py123d.conversion.datasets.wod.utils.wod_constants import (
     WAYMO_LANE_TYPE_CONVERSION,
