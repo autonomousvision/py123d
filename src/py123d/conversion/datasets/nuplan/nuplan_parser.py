@@ -17,7 +17,7 @@ from py123d.conversion.abstract_dataset_parser import (
     LidarData,
     LogParser,
 )
-from py123d.conversion.datasets.nuplan.nuplan_map_parser import NuplanMapParser, get_nuplan_map_metadata
+from py123d.conversion.datasets.nuplan.nuplan_map_parser import NuplanMapParser
 from py123d.conversion.datasets.nuplan.utils.nuplan_constants import (
     NUPLAN_DATA_SPLITS,
     NUPLAN_DEFAULT_DT,
@@ -37,7 +37,9 @@ from py123d.datatypes.detections import (
     TrafficLightDetection,
     TrafficLightDetections,
 )
+from py123d.datatypes.detections.box_detection_label_metadata import BoxDetectionMetadata
 from py123d.datatypes.metadata import LogMetadata
+from py123d.datatypes.metadata.sensor_metadata import FisheyeMEICameraMetadatas, LidarMetadatas, PinholeCameraMetadatas
 from py123d.datatypes.sensors import (
     LidarID,
     LidarMetadata,
@@ -48,7 +50,7 @@ from py123d.datatypes.sensors import (
 )
 from py123d.datatypes.time import Timestamp
 from py123d.datatypes.vehicle_state import DynamicStateSE3, EgoStateSE3
-from py123d.datatypes.vehicle_state.ego_metadata import get_nuplan_chrysler_pacifica_parameters
+from py123d.datatypes.vehicle_state.ego_metadata import EgoMetadata, get_nuplan_chrysler_pacifica_parameters
 from py123d.geometry import PoseSE3, Vector3D
 from py123d.geometry.transform.transform_se3 import reframe_se3_array
 
@@ -191,17 +193,6 @@ class NuplanLogParser(LogParser):
             log_name=log_name,
             location=location,
             timestep_seconds=TARGET_DT,
-            vehicle_parameters=get_nuplan_chrysler_pacifica_parameters(),
-            box_detection_label_class=NuPlanBoxDetectionLabel,
-            pinhole_camera_metadata=_get_nuplan_camera_metadata(
-                self._source_log_path,
-                self._nuplan_sensor_root,
-            ),
-            lidar_metadata=_get_nuplan_lidar_metadata(
-                self._nuplan_sensor_root,
-                log_name,
-            ),
-            map_metadata=get_nuplan_map_metadata(location),
         )
 
         nuplan_log_db.detach_tables()
@@ -209,6 +200,39 @@ class NuplanLogParser(LogParser):
         del nuplan_log_db
 
         return metadata
+
+    def get_ego_metadata(self) -> Optional[EgoMetadata]:
+        """Inherited, see superclass."""
+        return get_nuplan_chrysler_pacifica_parameters()
+
+    def get_box_detection_metadata(self) -> Optional[BoxDetectionMetadata]:
+        """Inherited, see superclass."""
+        return BoxDetectionMetadata(box_detection_label_class=NuPlanBoxDetectionLabel)
+
+    def get_pinhole_camera_metadatas(self) -> Optional[PinholeCameraMetadatas]:
+        """Inherited, see superclass."""
+        camera_metadata = _get_nuplan_camera_metadata(
+            self._source_log_path,
+            self._nuplan_sensor_root,
+        )
+        if camera_metadata:
+            return PinholeCameraMetadatas(camera_metadata)
+        return None
+
+    def get_fisheye_mei_camera_metadatas(self) -> Optional[FisheyeMEICameraMetadatas]:
+        """Inherited, see superclass."""
+        return None
+
+    def get_lidar_metadatas(self) -> Optional[LidarMetadatas]:
+        """Inherited, see superclass."""
+        log_name = self._source_log_path.stem
+        lidar_metadata = _get_nuplan_lidar_metadata(
+            self._nuplan_sensor_root,
+            log_name,
+        )
+        if lidar_metadata:
+            return LidarMetadatas(lidar_metadata)
+        return None
 
     def iter_frames(self) -> Iterator[FrameData]:
         """Inherited, see superclass."""
@@ -239,15 +263,10 @@ class NuplanLogParser(LogParser):
                         source_log_path=self._source_log_path,
                         nuplan_sensor_root=self._nuplan_sensor_root,
                     ),
-                    lidars=[_l]
-                    if (
-                        _l := _extract_nuplan_lidar_data(
-                            nuplan_lidar_pc=nuplan_lidar_pc,
-                            nuplan_sensor_root=self._nuplan_sensor_root,
-                        )
-                    )
-                    is not None
-                    else None,
+                    lidar=_extract_nuplan_lidar_data(
+                        nuplan_lidar_pc=nuplan_lidar_pc,
+                        nuplan_sensor_root=self._nuplan_sensor_root,
+                    ),
                 )
                 del nuplan_lidar_pc
         finally:

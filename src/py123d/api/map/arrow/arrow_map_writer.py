@@ -70,7 +70,7 @@ class ArrowMapWriter(AbstractMapWriter):
             self._map_metadata = map_metadata
         else:
             self._map_file = None
-            self._map_metadata = None
+            self._map_data = {}
             self._map_metadata = None
 
         return map_needs_writing
