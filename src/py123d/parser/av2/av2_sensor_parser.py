@@ -9,21 +9,23 @@ import pandas as pd
 
 from py123d.datatypes import (
     BoxDetectionAttributes,
+    BoxDetectionMetadata,
     BoxDetectionSE3,
     BoxDetectionsSE3,
+    EgoMetadata,
     EgoStateSE3,
+    FisheyeMEICameraMetadatas,
     LidarID,
     LidarMetadata,
+    LidarMetadatas,
     LogMetadata,
     PinholeCameraID,
     PinholeCameraMetadata,
+    PinholeCameraMetadatas,
     PinholeDistortion,
     PinholeIntrinsics,
     Timestamp,
 )
-from py123d.datatypes.detections.box_detection_label_metadata import BoxDetectionMetadata
-from py123d.datatypes.metadata.sensor_metadata import FisheyeMEICameraMetadatas, LidarMetadatas, PinholeCameraMetadatas
-from py123d.datatypes.vehicle_state.ego_metadata import EgoMetadata, get_av2_ford_fusion_hybrid_parameters
 from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, PoseSE3, Vector3D, Vector3DIndex
 from py123d.geometry.transform import reframe_se3_array, rel_to_abs_se3_array
 from py123d.parser.abstract_dataset_parser import (
@@ -163,6 +165,8 @@ class Av2SensorLogParser(LogParser):
 
     def iter_frames(self) -> Iterator[FrameData]:
         """Inherited, see superclass."""
+        ego_metadata = self.get_ego_metadata()
+        assert ego_metadata is not None
         sensor_df = build_sensor_dataframe(self._source_log_path)
         synchronization_df = build_synchronization_dataframe(
             sensor_df,
@@ -184,7 +188,7 @@ class Av2SensorLogParser(LogParser):
         )
 
         for lidar_timestamp_ns in lidar_timestamps_ns:
-            ego_state = _extract_av2_sensor_ego_state(city_se3_egovehicle_df, lidar_timestamp_ns)
+            ego_state = _extract_av2_sensor_ego_state(city_se3_egovehicle_df, lidar_timestamp_ns, ego_metadata)
             yield FrameData(
                 timestamp=Timestamp.from_ns(int(lidar_timestamp_ns)),
                 ego_state_se3=ego_state,
@@ -319,7 +323,11 @@ def _extract_av2_sensor_box_detections(
     return BoxDetectionsSE3(box_detections=box_detections, timestamp=Timestamp.from_ns(int(lidar_timestamp_ns)))  # type: ignore
 
 
-def _extract_av2_sensor_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_timestamp_ns: int) -> EgoStateSE3:
+def _extract_av2_sensor_ego_state(
+    city_se3_egovehicle_df: pd.DataFrame,
+    lidar_timestamp_ns: int,
+    ego_metadata: EgoMetadata,
+) -> EgoStateSE3:
     """Extract ego state from AV2 sensor dataset city_SE3_egovehicle dataframe."""
     ego_state_slice = get_slice_with_timestamp_ns(city_se3_egovehicle_df, lidar_timestamp_ns)
     assert len(ego_state_slice) == 1, (
@@ -329,7 +337,7 @@ def _extract_av2_sensor_ego_state(city_se3_egovehicle_df: pd.DataFrame, lidar_ti
     ego_imu_se3 = _row_dict_to_pose_se3(ego_pose_dict)
     return EgoStateSE3.from_imu(
         imu_se3=ego_imu_se3,
-        vehicle_parameters=get_av2_ford_fusion_hybrid_parameters(),
+        vehicle_parameters=ego_metadata,
         dynamic_state_se3=None,
         timestamp=Timestamp.from_ns(lidar_timestamp_ns),
     )

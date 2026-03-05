@@ -5,10 +5,9 @@ from typing import Iterator, List
 import numpy as np
 import shapely.geometry as geom
 
-from py123d.datatypes import BaseMapObject
-from py123d.datatypes.map_objects.map_layer_types import RoadEdgeType
-from py123d.datatypes.map_objects.map_objects import Carpark, GenericDrivable, RoadEdge, Walkway
-from py123d.geometry.polyline import Polyline3D
+from py123d.datatypes import BaseMapObject, Carpark, GenericDrivable, MapMetadata, RoadEdge, RoadEdgeType, Walkway
+from py123d.geometry import Polyline3D
+from py123d.parser.abstract_dataset_parser import MapParser
 from py123d.parser.kitti360.utils.kitti360_helper import KITTI360_MAP_Bbox3D
 from py123d.parser.utils.map_utils.road_edge.road_edge_2d_utils import (
     get_road_edge_linear_rings,
@@ -24,6 +23,30 @@ KITTI360_MAP_BBOX = [
     # "ground",
     "driveway",
 ]
+
+
+class Kitti360MapParser(MapParser):
+    """Lightweight, picklable handle to one KITTI-360 map."""
+
+    def __init__(self, log_name: str, split: str, bbox_root: Path) -> None:
+        self._log_name = log_name
+        self._split = split
+        self._bbox_root = bbox_root
+
+    def get_map_metadata(self) -> MapMetadata:
+        """Returns metadata for this KITTI-360 map."""
+        return MapMetadata(
+            dataset="kitti360",
+            split=self._split,
+            log_name=self._log_name,
+            location=self._log_name,
+            map_has_z=True,
+            map_is_per_log=True,
+        )
+
+    def iter_map_objects(self) -> Iterator[BaseMapObject]:
+        """Yields map objects lazily from the KITTI-360 3D bounding box XML files."""
+        yield from iter_kitti360_map_objects(self._log_name, self._bbox_root)
 
 
 def iter_kitti360_map_objects(log_name: str, bbox_root: Path) -> Iterator[BaseMapObject]:

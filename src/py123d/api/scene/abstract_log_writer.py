@@ -9,18 +9,22 @@ from typing import Dict, List, Optional, Union
 import numpy as np
 import numpy.typing as npt
 
-from py123d.datatypes.custom.custom_modality import CustomModality
-from py123d.datatypes.detections.box_detection_label_metadata import BoxDetectionMetadata
-from py123d.datatypes.detections.box_detections import BoxDetectionsSE3
-from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetections
-from py123d.datatypes.metadata import LogMetadata
-from py123d.datatypes.metadata.sensor_metadata import FisheyeMEICameraMetadatas, LidarMetadatas, PinholeCameraMetadatas
-from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraID
-from py123d.datatypes.sensors.lidar import LidarID
-from py123d.datatypes.sensors.pinhole_camera import PinholeCameraID
-from py123d.datatypes.time.timestamp import Timestamp
-from py123d.datatypes.vehicle_state.ego_metadata import EgoMetadata
-from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
+from py123d.datatypes import (
+    BoxDetectionMetadata,
+    BoxDetectionsSE3,
+    CustomModality,
+    EgoMetadata,
+    EgoStateSE3,
+    FisheyeMEICameraID,
+    FisheyeMEICameraMetadatas,
+    LidarID,
+    LidarMetadatas,
+    LogMetadata,
+    PinholeCameraID,
+    PinholeCameraMetadatas,
+    Timestamp,
+    TrafficLightDetections,
+)
 from py123d.geometry import PoseSE3
 
 

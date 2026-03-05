@@ -42,19 +42,21 @@ from py123d.common.io.lidar.path_lidar_io import load_point_cloud_data_from_path
 from py123d.common.utils.msgpack_utils import msgpack_encode_with_numpy
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.datatypes import (
+    AbstractMetadata,
+    BoxDetectionMetadata,
     BoxDetectionsSE3,
     CustomModality,
+    EgoMetadata,
     EgoStateSE3,
+    FisheyeMEICameraMetadatas,
     LidarID,
+    LidarMetadata,
+    LidarMetadatas,
     LogMetadata,
+    PinholeCameraMetadatas,
     Timestamp,
     TrafficLightDetections,
 )
-from py123d.datatypes.detections.box_detection_label_metadata import BoxDetectionMetadata
-from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
-from py123d.datatypes.metadata.sensor_metadata import FisheyeMEICameraMetadatas, LidarMetadatas, PinholeCameraMetadatas
-from py123d.datatypes.sensors.lidar import LidarMetadata
-from py123d.datatypes.vehicle_state.ego_metadata import EgoMetadata
 from py123d.parser.dataset_converter_config import DatasetConverterConfig
 
 

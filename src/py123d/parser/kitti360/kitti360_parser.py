@@ -11,32 +11,32 @@ import numpy as np
 import yaml
 
 from py123d.datatypes import (
-    BaseMapObject,
     BoxDetectionAttributes,
+    BoxDetectionMetadata,
     BoxDetectionSE3,
     BoxDetectionsSE3,
     DynamicStateSE3,
+    EgoMetadata,
     EgoStateSE3,
     FisheyeMEICameraID,
     FisheyeMEICameraMetadata,
+    FisheyeMEICameraMetadatas,
     FisheyeMEIDistortion,
     FisheyeMEIProjection,
     LidarID,
     LidarMetadata,
+    LidarMetadatas,
     LogMetadata,
-    MapMetadata,
     PinholeCameraID,
     PinholeCameraMetadata,
+    PinholeCameraMetadatas,
     PinholeDistortion,
     PinholeIntrinsics,
     Timestamp,
 )
-from py123d.datatypes.detections.box_detection_label_metadata import BoxDetectionMetadata
-from py123d.datatypes.metadata.sensor_metadata import FisheyeMEICameraMetadatas, LidarMetadatas, PinholeCameraMetadatas
-from py123d.datatypes.vehicle_state.ego_metadata import EgoMetadata, get_kitti360_vw_passat_parameters
 from py123d.geometry import BoundingBoxSE3, PoseSE3, Quaternion, Vector3D
 from py123d.parser.abstract_dataset_parser import CameraData, DatasetParser, FrameData, LidarData, LogParser, MapParser
-from py123d.parser.kitti360.kitti360_map_conversion import iter_kitti360_map_objects
+from py123d.parser.kitti360.kitti360_map_parser import Kitti360MapParser
 from py123d.parser.kitti360.utils.kitti360_helper import (
     KITTI3602NUPLAN_IMU_CALIBRATION,
     KITTI360Bbox3D,
@@ -224,23 +224,6 @@ class Kitti360Parser(DatasetParser):
         ]
 
 
-class Kitti360MapParser(MapParser):
-    """Lightweight, picklable handle to one KITTI-360 map."""
-
-    def __init__(self, log_name: str, split: str, bbox_root: Path) -> None:
-        self._log_name = log_name
-        self._split = split
-        self._bbox_root = bbox_root
-
-    def get_map_metadata(self) -> MapMetadata:
-        """Returns metadata for this KITTI-360 map."""
-        return _get_kitti360_map_metadata(self._split, self._log_name)
-
-    def iter_map_objects(self) -> Iterator[BaseMapObject]:
-        """Yields map objects lazily from the KITTI-360 3D bounding box XML files."""
-        yield from iter_kitti360_map_objects(self._log_name, self._bbox_root)
-
-
 class Kitti360LogParser(LogParser):
     """Lightweight, picklable handle to one KITTI-360 log."""
 
@@ -270,7 +253,44 @@ class Kitti360LogParser(LogParser):
         )
 
     def get_ego_metadata(self) -> Optional[EgoMetadata]:
-        return get_kitti360_vw_passat_parameters()
+        # NOTE: The parameters in KITTI-360 are estimates based on the vehicle model used in the dataset
+        # Uses a 2006 VW Passat Variant B6 [1]. Vertical distance is estimated based on the Lidar.
+        # KITTI-360 is currently the only dataset where the IMU has a lateral offset to the rear axle [2].
+        # The rear axle is at (0.05, -0.32, 0.0) from the IMU in the body frame.
+        # [1] https://en.wikipedia.org/wiki/Volkswagen_Passat_(B6)
+        # [2] https://www.cvlibs.net/datasets/kitti-360/documentation.php
+
+        rear_axle_to_center_longitudinal = 1.3369
+        rear_axle_to_center_vertical = 1.516 / 2 - 0.9
+        # Displacement from IMU to rear axle in the body frame
+        rear_axle_in_imu_x = 0.05
+        rear_axle_in_imu_y = -0.32
+
+        return EgoMetadata(
+            vehicle_name="kitti360_vw_passat",
+            width=1.820,
+            length=4.775,
+            height=1.516,
+            wheel_base=2.709,
+            center_to_imu_se3=PoseSE3(
+                x=rear_axle_to_center_longitudinal + rear_axle_in_imu_x,
+                y=rear_axle_in_imu_y,
+                z=rear_axle_to_center_vertical,
+                qw=1.0,
+                qx=0.0,
+                qy=0.0,
+                qz=0.0,
+            ),
+            rear_axle_to_imu_se3=PoseSE3(
+                x=rear_axle_in_imu_x,
+                y=rear_axle_in_imu_y,
+                z=0.0,
+                qw=1.0,
+                qx=0.0,
+                qy=0.0,
+                qz=0.0,
+            ),
+        )
 
     def get_box_detection_metadata(self) -> Optional[BoxDetectionMetadata]:
         return BoxDetectionMetadata(box_detection_label_class=KITTI360BoxDetectionLabel)
@@ -287,12 +307,14 @@ class Kitti360LogParser(LogParser):
     def iter_frames(self) -> Iterator[FrameData]:
         """Yields one FrameData per valid timestamp in the log."""
         timestamps_dict: Dict[str, List[Timestamp]] = _read_timestamps(self._log_name, self._kitti360_folders)
+        ego_metadata = self.get_ego_metadata()
+        assert ego_metadata is not None
 
         # NOTE: We use the Lidar timestamps as reference timestamps for the log
         assert KITTI360_LIDAR_NAME in timestamps_dict, "Lidar timestamps must be available, as main reference."
         reference_timestamps = timestamps_dict[KITTI360_LIDAR_NAME]
 
-        ego_state_all, valid_timestamp = _extract_ego_state_all(self._log_name, self._kitti360_folders)
+        ego_state_all, valid_timestamp = _extract_ego_state_all(self._log_name, self._kitti360_folders, ego_metadata)
         ego_states_xyz = np.array(
             [ego_state.center_se3.point_3d.array[:3] for ego_state in ego_state_all], dtype=np.float64
         )
@@ -434,18 +456,6 @@ def _get_kitti360_fisheye_mei_camera_metadata(
     return FisheyeMEICameraMetadatas(fisheye_cam_metadatas)
 
 
-def _get_kitti360_map_metadata(split: str, log_name: str) -> MapMetadata:
-    """Gets the KITTI-360 map metadata."""
-    return MapMetadata(
-        dataset="kitti360",
-        split=split,
-        log_name=log_name,
-        location=log_name,
-        map_has_z=True,
-        map_is_per_log=True,
-    )
-
-
 def _get_kitti360_lidar_metadata(kitti360_folders: Dict[str, Path]) -> LidarMetadatas:
     """Gets the KITTI-360 Lidar metadata from calibration files."""
     extrinsic = get_kitti360_lidar_extrinsic(kitti360_folders[DIR_CALIB])
@@ -525,7 +535,11 @@ def _read_timestamps(log_name: str, kitti360_folders: Dict[str, Path]) -> Dict[s
     return timestamps
 
 
-def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> Tuple[List[EgoStateSE3], List[int]]:
+def _extract_ego_state_all(
+    log_name: str,
+    kitti360_folders: Dict[str, Path],
+    ego_metadata: EgoMetadata,
+) -> Tuple[List[EgoStateSE3], List[int]]:
     """Extracts all ego states for the given sequence."""
 
     ego_state_all: List[EgoStateSE3] = []
@@ -538,8 +552,6 @@ def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> 
     oxts_path = kitti360_folders[DIR_POSES] / log_name / "oxts" / "data"
 
     for idx in range(len(valid_timestamp)):
-        vehicle_parameters = get_kitti360_vw_passat_parameters()
-
         pos = idx
         if log_name == "2013_05_28_drive_0004_sync" and pos == 0:
             pos = 1
@@ -575,7 +587,7 @@ def _extract_ego_state_all(log_name: str, kitti360_folders: Dict[str, Path]) -> 
         ego_state_all.append(
             EgoStateSE3.from_imu(
                 imu_se3=imu_pose_se3,
-                vehicle_parameters=vehicle_parameters,
+                vehicle_parameters=ego_metadata,
                 dynamic_state_se3=dynamic_state_se3,
                 timestamp=Timestamp.from_us(valid_timestamp[idx] * 1_000_000),
             )
