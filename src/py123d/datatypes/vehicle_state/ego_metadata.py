@@ -121,38 +121,6 @@ class EgoMetadata(AbstractMetadata):
         }
 
 
-def get_nuplan_chrysler_pacifica_parameters() -> EgoMetadata:
-    """Helper function to get nuPlan Chrysler Pacifica vehicle parameters."""
-    # NOTE: These parameters are mostly available in nuPlan, except for the rear_axle_to_center_vertical.
-    # The value is estimated based the Lidar point cloud.
-    # [1] https://en.wikipedia.org/wiki/Chrysler_Pacifica_(minivan)
-
-    return EgoMetadata(
-        vehicle_name="nuplan_chrysler_pacifica",
-        width=2.297,
-        length=5.176,
-        height=1.777,
-        wheel_base=3.089,
-        center_to_imu_se3=PoseSE3(x=1.461, y=0.0, z=0.45, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
-        rear_axle_to_imu_se3=PoseSE3.identity(),
-    )
-
-
-def get_nuscenes_renault_zoe_parameters() -> EgoMetadata:
-    """Helper function to get nuScenes Renault Zoe vehicle parameters."""
-    # NOTE: The parameters in nuScenes are estimates, and partially taken from the Renault Zoe model [1].
-    # [1] https://en.wikipedia.org/wiki/Renault_Zoe
-    return EgoMetadata(
-        vehicle_name="nuscenes_renault_zoe",
-        width=1.730,
-        length=4.084,
-        height=1.562,
-        wheel_base=2.588,
-        center_to_imu_se3=PoseSE3(x=1.385, y=0.0, z=1.562 / 2, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
-        rear_axle_to_imu_se3=PoseSE3.identity(),
-    )
-
-
 def get_carla_lincoln_mkz_2020_parameters() -> EgoMetadata:
     """Helper function to get CARLA Lincoln MKZ 2020 vehicle parameters."""
     # NOTE: These parameters are taken from the CARLA simulator vehicle model. The rear axles to center transform
@@ -251,22 +219,6 @@ def get_av2_ford_fusion_hybrid_parameters() -> EgoMetadata:
         height=1.476,
         wheel_base=2.850,
         center_to_imu_se3=PoseSE3(x=1.339, y=0.0, z=0.438, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
-        rear_axle_to_imu_se3=PoseSE3.identity(),
-    )
-
-
-def get_pandaset_chrysler_pacifica_parameters() -> EgoMetadata:
-    """Helper function to get PandaSet Chrysler Pacifica vehicle parameters."""
-    # NOTE: Some parameters are available in PandaSet [1], others are estimated based on the vehicle model [2].
-    # [1] https://arxiv.org/pdf/2112.12610 (Figure 3 (a))
-    # [2] https://en.wikipedia.org/wiki/Chrysler_Pacifica_(minivan)
-    return EgoMetadata(
-        vehicle_name="pandaset_chrysler_pacifica",
-        width=2.297,
-        length=5.176,
-        height=1.777,
-        wheel_base=3.089,
-        center_to_imu_se3=PoseSE3(x=1.461, y=0.0, z=0.45, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
         rear_axle_to_imu_se3=PoseSE3.identity(),
     )
 

@@ -26,7 +26,7 @@ from py123d.datatypes import (
 )
 from py123d.datatypes.detections.box_detection_label_metadata import BoxDetectionMetadata
 from py123d.datatypes.metadata.sensor_metadata import FisheyeMEICameraMetadatas, LidarMetadatas, PinholeCameraMetadatas
-from py123d.datatypes.vehicle_state.ego_metadata import EgoMetadata, get_nuscenes_renault_zoe_parameters
+from py123d.datatypes.vehicle_state.ego_metadata import EgoMetadata
 from py123d.geometry import BoundingBoxSE3, PoseSE3, Vector3D
 from py123d.parser.abstract_dataset_parser import (
     CameraData,
@@ -182,7 +182,17 @@ class NuScenesLogParser(LogParser):
     @typing.override
     def get_ego_metadata(self) -> Optional[EgoMetadata]:
         """Inherited, see superclass."""
-        return get_nuscenes_renault_zoe_parameters()
+        # NOTE: The parameters in nuScenes are estimates, and partially taken from the Renault Zoe model [1].
+        # [1] https://en.wikipedia.org/wiki/Renault_Zoe
+        return EgoMetadata(
+            vehicle_name="nuscenes_renault_zoe",
+            width=1.730,
+            length=4.084,
+            height=1.562,
+            wheel_base=2.588,
+            center_to_imu_se3=PoseSE3(x=1.385, y=0.0, z=1.562 / 2, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
+            rear_axle_to_imu_se3=PoseSE3.identity(),
+        )
 
     @typing.override
     def get_box_detection_metadata(self) -> Optional[BoxDetectionMetadata]:

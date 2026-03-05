@@ -134,6 +134,7 @@ lint.ignore = [
     "PLR0904",  # Checks for classes with too many public methods
     "PLR0917",  # Checks for function definitions that include too many positional arguments.
     "PLR0914",  # Checks for functions that include too many local variables.
+    "PLR6301",  # Checks for the presence of unused self parameter in methods definitions.
 ]
 
 exclude = [
