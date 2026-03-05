@@ -1,10 +1,10 @@
 import numpy as np
 
 from py123d.api.scene.scene_api import SceneAPI
-from py123d.conversion.utils.sensor_utils.camera_conventions import convert_camera_convention
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import EulerAngles, PoseSE3, PoseSE3Index, Vector3D
 from py123d.geometry.transform.transform_se3 import translate_se3_along_body_frame
+from py123d.parser.utils.sensor_utils.camera_conventions import convert_camera_convention
 
 
 def get_ego_3rd_person_view_position(

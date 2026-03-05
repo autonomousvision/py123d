@@ -1,4 +1,4 @@
-_target_: py123d.conversion.dataset_converter_config.DatasetConverterConfig
+_target_: py123d.parser.dataset_converter_config.DatasetConverterConfig
 _convert_: 'all'
 
 force_log_conversion: ${force_log_conversion}

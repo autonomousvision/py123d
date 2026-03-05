@@ -21,27 +21,26 @@ from py123d.api.utils.arrow_schema import (
     TRAFFIC_LIGHTS,
 )
 from py123d.common.dataset_paths import get_dataset_paths
-from py123d.common.utils.msgpack_utils import msgpack_encode_with_numpy
-from py123d.common.utils.uuid_utils import create_deterministic_uuid
-from py123d.conversion.dataset_converter_config import DatasetConverterConfig
-from py123d.conversion.sensor_io.camera.jpeg_camera_io import (
+from py123d.common.io.camera.jpeg_camera_io import (
     decode_image_from_jpeg_binary,
     encode_image_as_jpeg_binary,
     load_image_from_jpeg_file,
     load_jpeg_binary_from_jpeg_file,
 )
-from py123d.conversion.sensor_io.camera.png_camera_io import (
+from py123d.common.io.camera.png_camera_io import (
     encode_image_as_png_binary,
     load_image_from_png_file,
     load_png_binary_from_png_file,
 )
-from py123d.conversion.sensor_io.lidar.draco_lidar_io import encode_point_cloud_3d_as_draco_binary
-from py123d.conversion.sensor_io.lidar.ipc_lidar_io import (
+from py123d.common.io.lidar.draco_lidar_io import encode_point_cloud_3d_as_draco_binary
+from py123d.common.io.lidar.ipc_lidar_io import (
     encode_point_cloud_3d_as_ipc_binary,
     encode_point_cloud_features_as_ipc_binary,
 )
-from py123d.conversion.sensor_io.lidar.laz_lidar_io import encode_point_cloud_3d_as_laz_binary
-from py123d.conversion.sensor_io.lidar.path_lidar_io import load_point_cloud_data_from_path
+from py123d.common.io.lidar.laz_lidar_io import encode_point_cloud_3d_as_laz_binary
+from py123d.common.io.lidar.path_lidar_io import load_point_cloud_data_from_path
+from py123d.common.utils.msgpack_utils import msgpack_encode_with_numpy
+from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.datatypes import (
     BoxDetectionsSE3,
     CustomModality,
@@ -56,6 +55,7 @@ from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
 from py123d.datatypes.metadata.sensor_metadata import FisheyeMEICameraMetadatas, LidarMetadatas, PinholeCameraMetadatas
 from py123d.datatypes.sensors.lidar import LidarMetadata
 from py123d.datatypes.vehicle_state.ego_metadata import EgoMetadata
+from py123d.parser.dataset_converter_config import DatasetConverterConfig
 
 
 def _get_logs_root() -> Path:

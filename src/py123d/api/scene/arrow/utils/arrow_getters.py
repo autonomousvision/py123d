@@ -15,47 +15,47 @@ from py123d.api.utils.arrow_schema import (
     TRAFFIC_LIGHTS,
 )
 from py123d.common.dataset_paths import get_dataset_paths
-from py123d.common.utils.mixin import ArrayMixin
-from py123d.conversion.sensor_io.camera.jpeg_camera_io import (
+from py123d.common.io.camera.jpeg_camera_io import (
     decode_image_from_jpeg_binary,
     is_jpeg_binary,
     load_image_from_jpeg_file,
 )
-from py123d.conversion.sensor_io.camera.mp4_camera_io import get_mp4_reader_from_path
-from py123d.conversion.sensor_io.camera.png_camera_io import decode_image_from_png_binary, is_png_binary
-from py123d.conversion.sensor_io.lidar.draco_lidar_io import is_draco_binary, load_point_cloud_3d_from_draco_binary
-from py123d.conversion.sensor_io.lidar.ipc_lidar_io import (
+from py123d.common.io.camera.mp4_camera_io import get_mp4_reader_from_path
+from py123d.common.io.camera.png_camera_io import decode_image_from_png_binary, is_png_binary
+from py123d.common.io.lidar.draco_lidar_io import is_draco_binary, load_point_cloud_3d_from_draco_binary
+from py123d.common.io.lidar.ipc_lidar_io import (
     is_ipc_binary,
     load_point_cloud_3d_from_ipc_binary,
     load_point_cloud_features_from_ipc_binary,
 )
-from py123d.conversion.sensor_io.lidar.laz_lidar_io import is_laz_binary, load_point_cloud_3d_from_laz_binary
-from py123d.conversion.sensor_io.lidar.path_lidar_io import load_point_cloud_data_from_path
-from py123d.datatypes.detections import (
+from py123d.common.io.lidar.laz_lidar_io import is_laz_binary, load_point_cloud_3d_from_laz_binary
+from py123d.common.io.lidar.path_lidar_io import load_point_cloud_data_from_path
+from py123d.common.utils.mixin import ArrayMixin
+from py123d.datatypes import (
     BoxDetectionAttributes,
+    BoxDetectionMetadata,
     BoxDetectionSE3,
     BoxDetectionsSE3,
-    TrafficLightDetection,
-    TrafficLightDetections,
-    TrafficLightStatus,
-)
-from py123d.datatypes.detections.box_detection_label_metadata import BoxDetectionMetadata
-from py123d.datatypes.metadata import LogMetadata
-from py123d.datatypes.metadata.sensor_metadata import LidarMetadatas
-from py123d.datatypes.sensors import (
+    DynamicStateSE3,
+    EgoMetadata,
+    EgoStateSE3,
     FisheyeMEICamera,
     FisheyeMEICameraID,
     FisheyeMEICameraMetadata,
     Lidar,
+    LidarFeature,
     LidarID,
     LidarMetadata,
+    LidarMetadatas,
+    LogMetadata,
     PinholeCamera,
     PinholeCameraID,
     PinholeCameraMetadata,
+    Timestamp,
+    TrafficLightDetection,
+    TrafficLightDetections,
+    TrafficLightStatus,
 )
-from py123d.datatypes.sensors.lidar import LidarFeature
-from py123d.datatypes.time import Timestamp
-from py123d.datatypes.vehicle_state import DynamicStateSE3, EgoMetadata, EgoStateSE3
 from py123d.geometry import BoundingBoxSE3, PoseSE3, Vector3D
 
 

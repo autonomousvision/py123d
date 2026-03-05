@@ -1,0 +1,9 @@
+opendrive:
+  _target_: py123d.parser.opendrive.opendrive_parser.OpenDriveParser
+  _convert_: 'all'
+
+  xodr_paths: []
+  location: null
+  interpolation_step_size: 1.0
+  connection_distance_threshold: 0.1
+  internal_only: true

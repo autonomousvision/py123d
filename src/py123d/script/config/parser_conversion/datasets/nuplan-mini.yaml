@@ -1,5 +1,5 @@
 nuplan-mini:
-  _target_: py123d.conversion.datasets.nuplan.nuplan_parser.NuplanParser
+  _target_: py123d.parser.nuplan.nuplan_parser.NuplanParser
   _convert_: 'all'
 
   splits: ["nuplan-mini_train", "nuplan-mini_val", "nuplan-mini_test"]

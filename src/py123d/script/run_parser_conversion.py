@@ -8,7 +8,7 @@ import hydra
 from omegaconf import DictConfig
 
 from py123d.common.execution.utils import executor_map_chunked_list
-from py123d.conversion.abstract_dataset_parser import DatasetParser, LogParser, MapParser
+from py123d.parser.abstract_dataset_parser import DatasetParser, LogParser, MapParser
 from py123d.script.builders.dataset_parser_builder import build_dataset_parsers
 from py123d.script.builders.execution_builder import build_executor
 from py123d.script.builders.logging_builder import build_logger
