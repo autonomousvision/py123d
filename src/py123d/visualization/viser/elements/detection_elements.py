@@ -50,7 +50,7 @@ def add_box_detections_to_viser_server(
             #     batched_wxyzs=se3_array[:-1, PoseSE3Index.QUATERNION],
             #     batched_positions=se3_array[:-1, PoseSE3Index.XYZ],
             # )
-            # ego_rear_axle_se3 = scene.get_ego_state_at_iteration(scene_interation).rear_axle_se3.array
+            # ego_rear_axle_se3 = scene.get_ego_state_se3_at_iteration(scene_interation).rear_axle_se3.array
             # ego_rear_axle_se3[PoseSE3Index.XYZ] -= initial_ego_state.center_se3.array[PoseSE3Index.XYZ]
             # viser_server.scene.add_frame(
             #     "ego_rear_axle",
@@ -101,7 +101,7 @@ def _get_bounding_box_meshes(scene: SceneAPI, iteration: int, initial_ego_state:
 #     scene: AbstractScene, iteration: int, initial_ego_state: EgoStateSE3
 # ) -> npt.NDArray[np.float64]:
 
-#     ego_vehicle_state = scene.get_ego_state_at_iteration(iteration)
+#     ego_vehicle_state = scene.get_ego_state_se3_at_iteration(iteration)
 #     box_detections = scene.get_box_detections_at_iteration(iteration)
 
 #     # Load boxes to visualize, including ego vehicle at the last position
