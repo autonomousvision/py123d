@@ -1,9 +1,14 @@
-from typing import Dict, Final, List
+from typing import Dict, Final, List, Set
 
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraID
 from py123d.parser.registry import NuScenesBoxDetectionLabel
 
-NUSCENES_MAPS: List[str] = ["boston-seaport", "singapore-hollandvillage", "singapore-onenorth", "singapore-queenstown"]
+NUSCENES_MAP_LOCATIONS: Set[str] = {
+    "boston-seaport",
+    "singapore-hollandvillage",
+    "singapore-onenorth",
+    "singapore-queenstown",
+}
 
 NUSCENES_DATA_SPLITS: Final[List[str]] = [
     "nuscenes_train",

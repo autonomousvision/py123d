@@ -1,13 +1,14 @@
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Final, List
+from typing import Dict, Final, Iterator, List, Tuple
 
 import numpy as np
 from shapely.geometry import LineString, Polygon
 
-from py123d.api.map.abstract_map_writer import AbstractMapWriter
 from py123d.common.utils.dependencies import check_dependencies
-from py123d.datatypes import (
+from py123d.datatypes import BaseMapObject
+from py123d.datatypes.map_objects.map_layer_types import RoadEdgeType, RoadLineType, StopZoneType
+from py123d.datatypes.map_objects.map_objects import (
     Carpark,
     Crosswalk,
     GenericDrivable,
@@ -15,15 +16,15 @@ from py123d.datatypes import (
     Lane,
     LaneGroup,
     RoadEdge,
-    RoadEdgeType,
     RoadLine,
-    RoadLineType,
     StopZone,
-    StopZoneType,
     Walkway,
 )
+from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.geometry import OccupancyMap2D, Polyline2D, Polyline3D
+from py123d.geometry.point import Point2D
 from py123d.geometry.utils.polyline_utils import offset_points_perpendicular
+from py123d.parser.abstract_dataset_parser import MapParser
 from py123d.parser.nuscenes.utils.nuscenes_constants import NUSCENES_MAP_LOCATIONS
 from py123d.parser.nuscenes.utils.nuscenes_map_utils import (
     extract_lane_and_boundaries,
@@ -44,48 +45,56 @@ MAX_LANE_WIDTH: Final[float] = 4.0  # [m]
 MIN_LANE_WIDTH: Final[float] = 1.0  # [m]
 
 
-def write_nuscenes_map(nuscenes_maps_root: Path, location: str, map_writer: AbstractMapWriter) -> None:
-    """Converts the nuScenes map types to the 123D format, and sends elements to the map writer.
+class NuScenesMapParser(MapParser):
+    """Map parser for nuScenes maps, using the nuscenes-devkit's NuScenesMap API."""
 
-    :param nuscenes_maps_root: Path to the nuScenes maps root directory
-    :param location: Name of the specific map location to convert
-    :param map_writer: Map writer instance to write the converted elements
-    """
+    def __init__(self, nuscenes_maps_root: Path, location: str) -> None:
+        assert location in NUSCENES_MAP_LOCATIONS, (
+            f"Map name {location} is not supported. Supported maps: {NUSCENES_MAP_LOCATIONS}"
+        )
+        self._nuscenes_maps_root = nuscenes_maps_root
+        self._location = location
 
-    assert location in NUSCENES_MAP_LOCATIONS, f"Map name {location} is not supported."
-    nuscenes_map = NuScenesMap(dataroot=str(nuscenes_maps_root), map_name=location)
+    def get_map_metadata(self) -> MapMetadata:
+        return MapMetadata(
+            dataset="nuscenes",
+            split=None,
+            log_name=None,
+            location=self._location,
+            map_has_z=False,
+            map_is_per_log=False,
+        )
 
-    # 1. extract road edges (used later to determine lane connector widths)
-    road_edges = _extract_nuscenes_road_edges(nuscenes_map)
+    def iter_map_objects(self) -> Iterator[BaseMapObject]:
+        nuscenes_map = NuScenesMap(dataroot=str(self._nuscenes_maps_root), map_name=self._location)
 
-    # 2. extract lanes
-    lanes = _extract_nuscenes_lanes(nuscenes_map)
+        # 1. extract road edges (used later to determine lane connector widths)
+        road_edges = _extract_nuscenes_road_edges(nuscenes_map)
 
-    # 3. extract lane connectors (i.e. lanes on intersections)
-    lane_connectors = _extract_nuscenes_lane_connectors(nuscenes_map, road_edges)
+        # 2. extract lanes
+        lanes = _extract_nuscenes_lanes(nuscenes_map)
 
-    # 4. extract intersections (and store lane-connector to intersection assignment for lane groups)
-    intersection_assignment = _write_nuscenes_intersections(nuscenes_map, lane_connectors, map_writer)
+        # 3. extract lane connectors (i.e. lanes on intersections)
+        lane_connectors = _extract_nuscenes_lane_connectors(nuscenes_map, road_edges)
 
-    # 5. extract lane groups
-    lane_groups = _extract_nuscenes_lane_groups(nuscenes_map, lanes, lane_connectors, intersection_assignment)
+        # 4. extract intersections (and store lane-connector to intersection assignment for lane groups)
+        intersections, intersection_assignment = _extract_intersections_and_assignment(nuscenes_map, lane_connectors)
 
-    # Write remaining map elements
-    _write_nuscenes_crosswalks(nuscenes_map, map_writer)
-    _write_nuscenes_walkways(nuscenes_map, map_writer)
-    _write_nuscenes_carparks(nuscenes_map, map_writer)
-    _write_nuscenes_generic_drivables(nuscenes_map, map_writer)
-    _write_nuscenes_stop_zones(nuscenes_map, map_writer)
-    _write_nuscenes_road_lines(nuscenes_map, map_writer)
+        # 5. extract lane groups
+        lane_groups = _extract_nuscenes_lane_groups(lanes, lane_connectors, intersection_assignment)
 
-    for lane in lanes + lane_connectors:
-        yield lane
-
-    for road_edge in road_edges:
-        map_writer.write_road_edge(road_edge)
-
-    for lane_group in lane_groups:
-        map_writer.write_lane_group(lane_group)
+        # Yield all map objects
+        yield from lanes
+        yield from lane_connectors
+        yield from road_edges
+        yield from intersections
+        yield from lane_groups
+        yield from _extract_nuscenes_crosswalks(nuscenes_map)
+        yield from _extract_nuscenes_walkways(nuscenes_map)
+        yield from _extract_nuscenes_carparks(nuscenes_map)
+        yield from _extract_nuscenes_generic_drivables(nuscenes_map)
+        yield from _extract_nuscenes_stop_zones(nuscenes_map)
+        yield from _extract_nuscenes_road_lines(nuscenes_map)
 
 
 def _extract_nuscenes_lanes(nuscenes_map: NuScenesMap) -> List[Lane]:
@@ -98,7 +107,7 @@ def _extract_nuscenes_lanes(nuscenes_map: NuScenesMap) -> List[Lane]:
     # roadblock data is invalid [1], we assign a new lane group with only this lane.
     # [1] https://github.com/nutonomy/nuscenes-devkit/issues/862
 
-    road_blocks_invalid = nuscenes_map.map_name in {"singapore-queenstown", "singapore-hollandvillage"}
+    road_blocks_invalid = nuscenes_map.map_name in ["singapore-queenstown", "singapore-hollandvillage"]
 
     road_block_dict: Dict[str, Polygon] = {}
     if not road_blocks_invalid:
@@ -159,7 +168,6 @@ def _extract_nuscenes_lane_connectors(nuscenes_map: NuScenesMap, road_edges: Lis
     # TODO @DanielDauner: consider using connected lanes to estimate the lane width
 
     road_edge_map = OccupancyMap2D(geometries=[road_edge.shapely_linestring for road_edge in road_edges])
-
     lane_connectors: List[Lane] = []
     for lane_record in nuscenes_map.lane_connector:
         lane_connector_token: str = lane_record["token"]
@@ -180,7 +188,6 @@ def _extract_nuscenes_lane_connectors(nuscenes_map: NuScenesMap, road_edges: Lis
         successor_ids = nuscenes_map.get_outgoing_lane_ids(lane_connector_token)
 
         lane_group_id = lane_connector_token
-
         lane_connectors.append(
             Lane(
                 object_id=lane_connector_token,
@@ -190,8 +197,8 @@ def _extract_nuscenes_lane_connectors(nuscenes_map: NuScenesMap, road_edges: Lis
                 centerline=centerline,
                 left_lane_id=None,  # Not directly available in nuscenes
                 right_lane_id=None,  # Not directly available in nuscenes
-                predecessor_ids=predecessor_ids,
-                successor_ids=successor_ids,
+                predecessor_ids=predecessor_ids,  # type: ignore
+                successor_ids=successor_ids,  # type: ignore
                 speed_limit_mps=None,  # Default value
                 outline=None,
                 shapely_polygon=None,
@@ -202,7 +209,9 @@ def _extract_nuscenes_lane_connectors(nuscenes_map: NuScenesMap, road_edges: Lis
 
 
 def _extract_nuscenes_lane_groups(
-    nuscenes_map: NuScenesMap, lanes: List[Lane], lane_connectors: List[Lane], intersection_assignment: Dict[str, int]
+    lanes: List[Lane],
+    lane_connectors: List[Lane],
+    intersection_assignment: Dict[str, int],
 ) -> List[LaneGroup]:
     """Helper function to extract lane groups from a nuScenes map."""
 
@@ -212,7 +221,7 @@ def _extract_nuscenes_lane_groups(
     # 1. Gather all lane group ids that were previously assigned in the lanes (either roadblocks of lane themselves)
     lane_group_lane_dict: Dict[str, List[str]] = defaultdict(list)
     for lane in lanes + lane_connectors:
-        lane_group_lane_dict[lane.lane_group_id].append(lane.object_id)
+        lane_group_lane_dict[lane.lane_group_id].append(lane.object_id)  # type: ignore
 
     for lane_group_id, lane_ids in lane_group_lane_dict.items():
         if len(lane_ids) > 1:
@@ -266,11 +275,12 @@ def _extract_nuscenes_lane_groups(
     return lane_groups
 
 
-def _write_nuscenes_intersections(
-    nuscenes_map: NuScenesMap, lane_connectors: List[Lane], map_writer: AbstractMapWriter
-) -> None:
-    """Write intersection data to map_writer and return lane-connector to intersection assignment."""
+def _extract_intersections_and_assignment(
+    nuscenes_map: NuScenesMap, lane_connectors: List[Lane]
+) -> Tuple[List[Intersection], Dict[str, int]]:
+    """Return intersection data and lane-connector to intersection assignment."""
 
+    intersections: List[Intersection] = []
     intersection_assignment = {}
 
     # 1. Extract intersections and corresponding polygons
@@ -282,85 +292,77 @@ def _write_nuscenes_intersections(
                 intersection_polygons.append(polygon)
 
     # 2. Find lane connectors within each intersection polygon
-    lane_connector_center_point_dict = {
-        lane_connector.object_id: lane_connector.centerline.interpolate(0.5, normalized=True).shapely_point
-        for lane_connector in lane_connectors
-    }
-    centerpoint_map = OccupancyMap2D.from_dict(lane_connector_center_point_dict)
+    # For this, we collect all mid-points of lane connects and check whether they are located in a intersection polygon.
+    lane_connector_center_point_dict = {}
+    for lane_connector in lane_connectors:
+        lane_connector_midpoint = lane_connector.centerline.interpolate(0.5, normalized=True)
+        assert isinstance(lane_connector_midpoint, Point2D)
+        lane_connector_center_point_dict[lane_connector.object_id] = lane_connector_midpoint
+
+    centerpoint_map = OccupancyMap2D.from_dict(lane_connector_center_point_dict)  # type: ignore
     for idx, intersection_polygon in enumerate(intersection_polygons):
         intersecting_lane_connector_ids = centerpoint_map.intersects(intersection_polygon)
         for lane_connector_id in intersecting_lane_connector_ids:
             intersection_assignment[lane_connector_id] = idx
 
-        map_writer.write_intersection(
+        intersections.append(
             Intersection(
                 object_id=idx,
-                lane_group_ids=intersecting_lane_connector_ids,
+                lane_group_ids=intersecting_lane_connector_ids,  # type: ignore
                 outline=None,
                 shapely_polygon=intersection_polygon,
             )
         )
 
-    return intersection_assignment
+    return intersections, intersection_assignment
 
 
-def _write_nuscenes_crosswalks(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
-    """Write crosswalk data to map_writer."""
-
-    crosswalk_polygons = []
-    for crossing in nuscenes_map.ped_crossing:
+def _extract_nuscenes_crosswalks(nuscenes_map: NuScenesMap) -> List[Crosswalk]:
+    """Extract crosswalk data from a nuScenes map."""
+    crosswalks: List[Crosswalk] = []
+    for idx, crossing in enumerate(nuscenes_map.ped_crossing):
         if "polygon_token" in crossing:
             polygon = nuscenes_map.extract_polygon(crossing["polygon_token"])
-            crosswalk_polygons.append(polygon)
-
-    for idx, polygon in enumerate(crosswalk_polygons):
-        map_writer.write_crosswalk(Crosswalk(object_id=idx, shapely_polygon=polygon))
+            crosswalks.append(Crosswalk(object_id=idx, shapely_polygon=polygon))
+    return crosswalks
 
 
-def _write_nuscenes_walkways(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
-    """Write walkway data to map_writer."""
-    walkway_polygons = []
-    for walkway_record in nuscenes_map.walkway:
+def _extract_nuscenes_walkways(nuscenes_map: NuScenesMap) -> List[Walkway]:
+    """Extract walkway data from a nuScenes map."""
+    walkways: List[Walkway] = []
+    for idx, walkway_record in enumerate(nuscenes_map.walkway):
         if "polygon_token" in walkway_record:
             polygon = nuscenes_map.extract_polygon(walkway_record["polygon_token"])
-            walkway_polygons.append(polygon)
-
-    for idx, polygon in enumerate(walkway_polygons):
-        map_writer.write_walkway(Walkway(object_id=idx, shapely_polygon=polygon))
+            walkways.append(Walkway(object_id=idx, shapely_polygon=polygon))
+    return walkways
 
 
-def _write_nuscenes_carparks(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
-    """Write carpark data to map_writer."""
-    carpark_polygons = []
-    for carpark_record in nuscenes_map.carpark_area:
+def _extract_nuscenes_carparks(nuscenes_map: NuScenesMap) -> List[Carpark]:
+    """Extract carpark data from a nuScenes map."""
+    carparks: List[Carpark] = []
+    for idx, carpark_record in enumerate(nuscenes_map.carpark_area):
         if "polygon_token" in carpark_record:
             polygon = nuscenes_map.extract_polygon(carpark_record["polygon_token"])
-            carpark_polygons.append(polygon)
-
-    for idx, polygon in enumerate(carpark_polygons):
-        map_writer.write_carpark(Carpark(object_id=idx, shapely_polygon=polygon))
+            carparks.append(Carpark(object_id=idx, shapely_polygon=polygon))
+    return carparks
 
 
-def _write_nuscenes_generic_drivables(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
-    """Write generic drivable area data to map_writer."""
+def _extract_nuscenes_generic_drivables(nuscenes_map: NuScenesMap) -> List[GenericDrivable]:
+    """Extract generic drivable area data from a nuScenes map."""
     cell_size = 20.0
     drivable_polygons = []
     for drivable_area_record in nuscenes_map.drivable_area:
         drivable_area = nuscenes_map.get("drivable_area", drivable_area_record["token"])
         for polygon_token in drivable_area["polygon_tokens"]:
             polygon = nuscenes_map.extract_polygon(polygon_token)
-
             split_polygons = split_polygon_by_grid(polygon, cell_size=cell_size)
             drivable_polygons.extend(split_polygons)
-            # drivable_polygons.append(polygon)
 
-    for idx, geometry in enumerate(drivable_polygons):
-        map_writer.write_generic_drivable(GenericDrivable(object_id=idx, shapely_polygon=geometry))
+    return [GenericDrivable(object_id=idx, shapely_polygon=geometry) for idx, geometry in enumerate(drivable_polygons)]
 
 
-def _write_nuscenes_stop_zones(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
-    """Write stop line data to map_writer."""
-
+def _extract_nuscenes_stop_zones(nuscenes_map: NuScenesMap) -> List[StopZone]:
+    """Extract stop zone data from a nuScenes map."""
     NUSCENES_STOP_CUES_TO_STOP_ZONE_TYPE = {
         "PED_CROSSING": StopZoneType.PEDESTRIAN_CROSSING,
         "TURN_STOP": StopZoneType.TURN_STOP,
@@ -368,42 +370,40 @@ def _write_nuscenes_stop_zones(nuscenes_map: NuScenesMap, map_writer: AbstractMa
         "STOP_SIGN": StopZoneType.STOP_SIGN,
         "YIELD": StopZoneType.YIELD_SIGN,
     }
+    stop_zones: List[StopZone] = []
     for stop_line in nuscenes_map.stop_line:
         token = stop_line["token"]
-        if "polygon_token" in stop_line:
-            polygon = nuscenes_map.extract_polygon(stop_line["polygon_token"])
-        else:
+        if "polygon_token" not in stop_line:
             continue
+        polygon = nuscenes_map.extract_polygon(stop_line["polygon_token"])
         if not polygon.is_valid:
             continue
 
-        # Note: Stop lines are written as generic drivable for compatibility
         if "stop_line_type" in stop_line.keys():
             stop_zone_type = NUSCENES_STOP_CUES_TO_STOP_ZONE_TYPE.get(stop_line["stop_line_type"], StopZoneType.UNKNOWN)
         else:
             stop_zone_type = StopZoneType.UNKNOWN
 
-        map_writer.write_stop_zone(
+        stop_zones.append(
             StopZone(
                 object_id=token,
                 stop_zone_type=stop_zone_type,
                 shapely_polygon=polygon,
             )
         )
+    return stop_zones
 
 
-def _write_nuscenes_road_lines(nuscenes_map: NuScenesMap, map_writer: AbstractMapWriter) -> None:
-    """Write road line data (dividers) to map_writer."""
-    # Process road dividers
-    road_dividers = nuscenes_map.road_divider
+def _extract_nuscenes_road_lines(nuscenes_map: NuScenesMap) -> List[RoadLine]:
+    """Extract road line data (dividers) from a nuScenes map."""
+    road_lines: List[RoadLine] = []
     running_idx = 0
-    for divider in road_dividers:
+
+    # Process road dividers
+    for divider in nuscenes_map.road_divider:
         line = nuscenes_map.extract_line(divider["line_token"])
-
-        # Determine line type
         line_type = _get_road_line_type(divider["line_token"], nuscenes_map)
-
-        map_writer.write_road_line(
+        road_lines.append(
             RoadLine(
                 object_id=running_idx,
                 road_line_type=line_type,
@@ -413,12 +413,10 @@ def _write_nuscenes_road_lines(nuscenes_map: NuScenesMap, map_writer: AbstractMa
         running_idx += 1
 
     # Process lane dividers
-    lane_dividers = nuscenes_map.lane_divider
-    for divider in lane_dividers:
+    for divider in nuscenes_map.lane_divider:
         line = nuscenes_map.extract_line(divider["line_token"])
         line_type = _get_road_line_type(divider["line_token"], nuscenes_map)
-
-        map_writer.write_road_line(
+        road_lines.append(
             RoadLine(
                 object_id=running_idx,
                 road_line_type=line_type,
@@ -426,6 +424,8 @@ def _write_nuscenes_road_lines(nuscenes_map: NuScenesMap, map_writer: AbstractMa
             )
         )
         running_idx += 1
+
+    return road_lines
 
 
 def _extract_nuscenes_road_edges(nuscenes_map: NuScenesMap) -> List[RoadEdge]:

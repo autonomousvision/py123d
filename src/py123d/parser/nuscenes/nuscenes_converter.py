@@ -27,7 +27,7 @@ from py123d.datatypes import (
 from py123d.datatypes.vehicle_state.ego_metadata import get_nuscenes_renault_zoe_parameters
 from py123d.geometry import BoundingBoxSE3, PoseSE3, Vector3D
 from py123d.parser.dataset_converter_config import DatasetConverterConfig
-from py123d.parser.nuscenes.nuscenes_map_conversion import NUSCENES_MAPS, write_nuscenes_map
+from py123d.parser.nuscenes.nuscenes_map_conversion import NUSCENES_MAP_LOCATIONS, write_nuscenes_map
 from py123d.parser.nuscenes.utils.nuscenes_constants import (
     NUSCENES_CAMERA_IDS,
     NUSCENES_DATA_SPLITS,
@@ -131,7 +131,7 @@ class NuScenesConverter:
 
     def get_number_of_maps(self) -> int:
         """Inherited, see superclass."""
-        return len(NUSCENES_MAPS)
+        return len(NUSCENES_MAP_LOCATIONS)
 
     def get_number_of_logs(self) -> int:
         """Inherited, see superclass."""
@@ -139,7 +139,7 @@ class NuScenesConverter:
 
     def convert_map(self, map_index: int, map_writer: AbstractMapWriter) -> None:
         """Inherited, see superclass."""
-        map_name = NUSCENES_MAPS[map_index]
+        map_name = NUSCENES_MAP_LOCATIONS[map_index]
 
         map_metadata = _get_nuscenes_map_metadata(map_name)
         map_needs_writing = map_writer.reset(self.dataset_converter_config, map_metadata)
