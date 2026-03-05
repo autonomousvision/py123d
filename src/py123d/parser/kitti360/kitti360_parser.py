@@ -108,7 +108,7 @@ def _get_kitti360_required_modality_roots(kitti360_folders: Dict[str, Path]) -> 
     }
 
 
-class Kitti360Converter(DatasetParser):
+class Kitti360Parser(DatasetParser):
     """Dataset parser for the KITTI-360 dataset."""
 
     def __init__(

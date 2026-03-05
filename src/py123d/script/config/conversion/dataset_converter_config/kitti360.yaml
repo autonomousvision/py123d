@@ -29,5 +29,5 @@ lidar_point_feature_codec: null # None or "ipc_zstd", "ipc_lz4", "ipc"
 
 # Not available:
 include_traffic_lights: false
-include_scenario_tags: false
 include_route: false
+include_scenario_tags: false

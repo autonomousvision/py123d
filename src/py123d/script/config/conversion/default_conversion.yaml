@@ -9,14 +9,13 @@ hydra:
     env_set:
       HYDRA_FULL_ERROR: 1
     chdir: False
-#
+
 defaults:
   - default_common
   - default_dataset_paths
   - log_writer: arrow_log_writer
   - map_writer: arrow_map_writer
-  - datasets:
-      - av2-sensor
+  - dataset: av2-sensor
   - _self_
 
 
