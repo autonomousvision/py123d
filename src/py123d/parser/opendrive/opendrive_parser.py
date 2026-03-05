@@ -5,6 +5,9 @@ from typing import List, Optional, Union
 from py123d.parser.abstract_dataset_parser import DatasetParser, LogParser, MapParser
 from py123d.parser.opendrive.opendrive_map_parser import OpenDriveMapParser
 
+_CARLA_MAPS_DIR = Path(__file__).parent / "carla_maps"
+_VALID_SUFFIXES = {".xodr", ".gz"}
+
 
 class OpenDriveParser(DatasetParser):
     """Dataset parser for OpenDRIVE (.xodr) map files.
@@ -22,16 +25,17 @@ class OpenDriveParser(DatasetParser):
     ) -> None:
         """Initializes the OpenDriveParser.
 
-        :param xodr_paths: List of paths to OpenDRIVE (.xodr) files.
+        :param xodr_paths: List of paths to OpenDRIVE (.xodr or .xodr.gz) files.
+            Relative paths are resolved against the bundled ``carla_maps/`` directory.
         :param location: Optional location name for map metadata.
         :param interpolation_step_size: Step size for interpolating polylines, defaults to 1.0
         :param connection_distance_threshold: Distance threshold for connecting road elements, defaults to 0.1
         :param internal_only: If True, only write internal road lines, defaults to True
         """
-        self._xodr_paths = [Path(p) for p in xodr_paths]
+        self._xodr_paths = [Path(p) if Path(p).is_absolute() else _CARLA_MAPS_DIR / p for p in xodr_paths]
         for p in self._xodr_paths:
             assert p.exists(), f"XODR file not found: {p}"
-            assert p.suffix == ".xodr", f"Expected .xodr file, got: {p}"
+            assert p.suffix in _VALID_SUFFIXES, f"Expected .xodr or .xodr.gz file, got: {p}"
         self._location = location
         self._interpolation_step_size = interpolation_step_size
         self._connection_distance_threshold = connection_distance_threshold

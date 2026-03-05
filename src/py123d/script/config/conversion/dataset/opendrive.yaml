@@ -2,7 +2,20 @@ parser:
   _target_: py123d.parser.opendrive.opendrive_parser.OpenDriveParser
   _convert_: 'all'
 
-  xodr_paths: []
+  xodr_paths:
+    - "Town01.xodr.gz"
+    - "Town02.xodr.gz"
+    - "Town03.xodr.gz"
+    - "Town04.xodr.gz"
+    - "Town05.xodr.gz"
+    - "Town06.xodr.gz"
+    - "Town07.xodr.gz"
+    - "Town10HD.xodr.gz"
+    - "Town11.xodr.gz"
+    - "Town12.xodr.gz"
+    - "Town13.xodr.gz"
+    - "Town15.xodr.gz"
+
   location: null
   interpolation_step_size: 1.0
   connection_distance_threshold: 0.1

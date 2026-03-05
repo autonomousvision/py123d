@@ -66,9 +66,11 @@ class OpenDriveMapParser(MapParser):
 
     def get_map_metadata(self) -> MapMetadata:
         """Returns metadata for this OpenDRIVE map."""
+        # If location is not provided, use the file name as location
+        _location = self._location or self._xodr_path.stem
         return MapMetadata(
             dataset="opendrive",
-            location=self._location,
+            location=_location,
             map_has_z=True,
             map_is_per_log=False,
         )
@@ -447,13 +449,20 @@ def _extract_intersection_outline(lane_group_helpers: List[OpenDriveLaneGroupHel
 
     # NOTE: When the intersection has multiple non-overlapping outlines, we cannot return a single outline in 3D.
     # For now, we return the longest outline.
-    valid_outlines = [outline for outline in intersection_outlines if outline.array.shape[0] > 2]
+    valid_outlines = [
+        outline for outline in intersection_outlines if outline.array.shape[0] > 2 and outline.array.shape[1] >= 3
+    ]
     if len(valid_outlines) == 0:
         logger.warning(
             f"Could not extract valid outline for intersection {junction_id} with {len(intersection_edges)} edges!"
         )
         longest_outline_2d = max(intersection_edges, key=lambda outline: outline.length)
-        average_z = sum(outline.array[:, 2].mean() for outline in intersection_outlines) / len(intersection_outlines)
+        outlines_with_z = [o for o in intersection_outlines if o.array.shape[1] >= 3 and o.array.shape[0] > 0]
+        average_z = (
+            sum(outline.array[:, 2].mean() for outline in outlines_with_z) / len(outlines_with_z)
+            if outlines_with_z
+            else 0.0
+        )
 
         outline_3d_array = np.zeros((len(longest_outline_2d.coords), 3))
         outline_3d_array[:, Point3DIndex.XY] = np.array(longest_outline_2d.coords)

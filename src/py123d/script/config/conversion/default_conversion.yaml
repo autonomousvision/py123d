@@ -23,5 +23,5 @@ logger_level: info  # "debug", "info", "warning", "error"
 
 terminate_on_exception: True
 
-force_map_conversion: False
+force_map_conversion: True
 force_log_conversion: True

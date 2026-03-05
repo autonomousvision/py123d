@@ -14,6 +14,7 @@
 *.out
 *.err
 *.gz
+!src/py123d/parser/opendrive/carla_maps/*.xodr.gz
 
 *.pdf
 *.gpkg

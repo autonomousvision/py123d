@@ -96,7 +96,7 @@ ffmpeg = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-py123d = ["**/*.yaml", "**/*.yml", "**/*.proto"]
+py123d = ["**/*.yaml", "**/*.yml", "**/*.proto", "**/*.xodr.gz"]
 
 [project.urls]
 "Homepage" = "https://github.com/autonomousvision/py123d"

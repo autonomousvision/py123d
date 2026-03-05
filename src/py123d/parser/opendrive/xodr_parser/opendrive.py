@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,7 +52,11 @@ class XODR:
 
     @classmethod
     def parse_from_file(cls, file_path: Path) -> XODR:
-        tree = parse(file_path)
+        if file_path.suffix == ".gz":
+            with gzip.open(file_path, "rb") as f:
+                tree = parse(f)
+        else:
+            tree = parse(file_path)
         return XODR.parse(tree.getroot())
 
 
