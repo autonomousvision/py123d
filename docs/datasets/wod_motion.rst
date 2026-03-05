@@ -53,7 +53,7 @@ Available Modalities
      - The bounding boxes are available with the :class:`~py123d.conversion.registry.WODMotionBoxDetectionLabel`. For more information, :class:`~py123d.datatypes.detections.BoxDetectionWrapper`.
    * - Traffic Lights
      - ✓
-     - Traffic lights include the status and the lane id they are associated with, see :class:`~py123d.datatypes.detections.TrafficLightDetectionWrapper`.
+     - Traffic lights include the status and the lane id they are associated with, see :class:`~py123d.datatypes.detections.TrafficLightDetections`.
    * - Pinhole Cameras
      - X
      - n/a
@@ -121,19 +121,8 @@ The Waymo Open Dataset requires additional dependencies that are included as opt
 
       pip install -e .[waymo]
 
-These dependencies are notoriously difficult to install due to compatibility issues.
-We recommend using a dedicated conda environment for this purpose. Using `uv <https://docs.astral.sh/uv/>`_ can significantly speed up the installation.
-Here is an example of how to set it up:
-
-.. code-block:: bash
-
-  conda create -n py123d_waymo python=3.10
-  conda activate py123d_waymo
-  uv pip install -e .[waymo]
-  # If something goes wrong: conda deactivate; conda remove -n py123d_waymo --all
-
-You only need the Waymo Open Dataset specific dependencies if you convert the dataset or read from the raw TFRecord files.
-After conversion, you may use any other ``py123d`` installation.
+The optional dependencies (``tensorflow-cpu`` and ``protobuf``) are only needed to convert the dataset or read from the raw TFRecord files.
+After conversion, you may use any other ``py123d`` installation without these dependencies.
 
 
 Dataset Specific Issues

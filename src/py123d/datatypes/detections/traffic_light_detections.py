@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from py123d.common.utils.enums import SerialIntEnum
-from py123d.datatypes.time import Timestamp
+from py123d.datatypes.time.timestamp import Timestamp
 
 
 class TrafficLightStatus(SerialIntEnum):
@@ -27,23 +27,20 @@ class TrafficLightStatus(SerialIntEnum):
 
 class TrafficLightDetection:
     """
-    Single traffic light detection if a lane, that includes the lane id, status (green, yellow, red, off, unknown),
-    and optional timestamp of the detection.
+    Single traffic light detection of a lane, that includes the lane id and status (green, yellow, red, off, unknown).
     """
 
-    __slots__ = ("_lane_id", "_status", "_timestamp")
+    __slots__ = ("_lane_id", "_status")
 
-    def __init__(self, lane_id: int, status: TrafficLightStatus, timestamp: Optional[Timestamp] = None) -> None:
+    def __init__(self, lane_id: int, status: TrafficLightStatus) -> None:
         """Initialize a TrafficLightDetection instance.
 
         :param lane_id: The lane id associated with the traffic light detection.
         :param status: The status of the traffic light (green, yellow, red, off, unknown).
-        :param timestamp: The optional timestamp of the detection.
         """
 
         self._lane_id = lane_id
         self._status = status
-        self._timestamp = timestamp
 
     @property
     def lane_id(self) -> int:
@@ -55,31 +52,33 @@ class TrafficLightDetection:
         """The :class:`TrafficLightStatus` of the traffic light detection."""
         return self._status
 
-    @property
-    def timestamp(self) -> Optional[Timestamp]:
-        """The optional :class:`~py123d.datatypes.time.Timestamp` of the traffic light detection."""
-        return self._timestamp
 
-
-class TrafficLightDetectionWrapper:
-    """The TrafficLightDetectionWrapper is a container for multiple traffic light detections.
+class TrafficLightDetections:
+    """The TrafficLightDetections is a container for multiple traffic light detections.
     It provides methods to access individual detections as well as to retrieve a detection by lane id.
-    The wrapper is is used in to read and write traffic light detections from/to logs.
+    The wrapper is used to read and write traffic light detections from/to logs.
     """
 
-    __slots__ = ("_traffic_light_detections",)
+    __slots__ = ("_detections", "_timestamp")
 
-    def __init__(self, traffic_light_detections: List[TrafficLightDetection]) -> None:
-        """Initialize a TrafficLightDetectionWrapper instance.
+    def __init__(self, detections: List[TrafficLightDetection], timestamp: Timestamp) -> None:
+        """Initialize a TrafficLightDetections instance.
 
-        :param traffic_light_detections: List of :class:`TrafficLightDetection`.
+        :param detections: List of :class:`TrafficLightDetection`.
+        :param timestamp: The :class:`~py123d.datatypes.time.Timestamp` of the traffic light detections.
         """
-        self._traffic_light_detections = traffic_light_detections
+        self._detections = detections
+        self._timestamp = timestamp
 
     @property
-    def traffic_light_detections(self) -> List[TrafficLightDetection]:
+    def detections(self) -> List[TrafficLightDetection]:
         """List of individual :class:`TrafficLightDetection`."""
-        return self._traffic_light_detections
+        return self._detections
+
+    @property
+    def timestamp(self) -> Timestamp:
+        """The :class:`~py123d.datatypes.time.Timestamp` of the traffic light detections."""
+        return self._timestamp
 
     def __getitem__(self, index: int) -> TrafficLightDetection:
         """Retrieve a traffic light detection by its index.
@@ -87,25 +86,23 @@ class TrafficLightDetectionWrapper:
         :param index: The index of the traffic light detection.
         :return: :class:`TrafficLightDetection` at the given index.
         """
-        return self.traffic_light_detections[index]
+        return self.detections[index]
 
     def __len__(self) -> int:
         """The number of traffic light detections in the wrapper."""
-        return len(self.traffic_light_detections)
+        return len(self.detections)
 
     def __iter__(self):
         """Iterator over the traffic light detections in the wrapper."""
-        return iter(self.traffic_light_detections)
+        return iter(self.detections)
 
-    def get_detection_by_lane_id(self, lane_id: int) -> Optional[TrafficLightDetection]:
+    def get_by_lane_id(self, lane_id: int) -> Optional[TrafficLightDetection]:
         """Retrieve a traffic light detection by its lane id.
 
         :param lane_id: The lane id to search for.
         :return: The traffic light detection for the given lane id, or None if not found.
         """
-        traffic_light_detection: Optional[TrafficLightDetection] = None
-        for detection in self.traffic_light_detections:
+        for detection in self.detections:
             if int(detection.lane_id) == int(lane_id):
-                traffic_light_detection = detection
-                break
-        return traffic_light_detection
+                return detection
+        return None

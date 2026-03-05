@@ -1,28 +1,28 @@
+import logging
 import random
+import traceback
 from functools import partial
 from pathlib import Path
 from typing import List, Optional, Union
 
-from py123d.api.scene.arrow.arrow_scene import ArrowSceneAPI
-from py123d.api.scene.arrow.utils.arrow_metadata_utils import get_log_metadata_from_arrow_schema
+logger = logging.getLogger(__name__)
+
+from py123d.api.scene.arrow.arrow_scene_api import ArrowSceneAPI
+from py123d.api.scene.arrow.utils.arrow_metadata_utils import get_metadata_from_arrow_schema
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_builder import SceneBuilder
 from py123d.api.scene.scene_filter import SceneFilter
 from py123d.api.scene.scene_metadata import SceneMetadata
+from py123d.api.utils.arrow_helper import open_arrow_table
+from py123d.api.utils.arrow_schema import FISHEYE_MEI, LIDAR, PINHOLE_CAMERA, SYNC
 from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.execution import Executor, executor_map_chunked_list
-from py123d.common.utils.arrow_column_names import (
-    FISHEYE_CAMERA_DATA_COLUMN,
-    LIDAR_PATH_COLUMN,
-    PINHOLE_CAMERA_DATA_COLUMN,
-    UUID_COLUMN,
-)
-from py123d.common.utils.arrow_helper import open_arrow_table
 from py123d.common.utils.uuid_utils import convert_to_str_uuid
+from py123d.datatypes.metadata.log_metadata import LogMetadata
 
 
 class ArrowSceneBuilder(SceneBuilder):
-    """Class for building scenes from Arrow log files."""
+    """Class for building scenes from Arrow log directories."""
 
     def __init__(
         self,
@@ -84,45 +84,53 @@ def _discover_split_names(logs_root: Path, filter: SceneFilter) -> List[str]:
 
 
 def _discover_log_paths(logs_root: Path, split_names: List[str], log_names: Optional[List[str]]) -> List[Path]:
-    """Discovers log file paths in the logs root directory based on the specified split names and log names."""
+    """Discovers log directory paths in the logs root directory based on the specified split names and log names."""
     log_paths: List[Path] = []
     for split_name in split_names:
-        for log_path in (logs_root / split_name).iterdir():
-            if log_path.is_file() and log_path.name.endswith(".arrow"):
-                if log_names is None or log_path.stem in log_names:
+        split_dir = logs_root / split_name
+        if not split_dir.exists():
+            continue
+        for log_path in split_dir.iterdir():
+            if log_path.is_dir() and (log_path / f"{SYNC.prefix()}.arrow").exists():
+                if log_names is None or log_path.name in log_names:
                     log_paths.append(log_path)
     return log_paths
 
 
 def _extract_scenes_from_logs(log_paths: List[Path], filter: SceneFilter) -> List[SceneAPI]:
-    """Extracts scenes from log files based on the given filter."""
+    """Extracts scenes from log directories based on the given filter."""
     scenes: List[SceneAPI] = []
-    for log_path in log_paths:
+    for log_dir in log_paths:
         try:
-            scene_extraction_metadatas = _get_scene_extraction_metadatas(log_path, filter)
-        except Exception as e:
-            print(f"Error extracting scenes from {log_path}: {e}")
+            scene_extraction_metadatas = _get_scene_extraction_metadatas(log_dir, filter)
+        except Exception:
+            # logger.warning("Error extracting scenes from %s: %s", log_dir, e)
+            # logger.debug("Full traceback for %s:", log_dir, exc_info=True)
+            traceback.print_exc()  # noqa: F821
             continue
         for scene_extraction_metadata in scene_extraction_metadatas:
             scenes.append(
                 ArrowSceneAPI(
-                    arrow_file_path=log_path,
+                    log_dir=log_dir,
                     scene_metadata=scene_extraction_metadata,
                 )
             )
     return scenes
 
 
-def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFilter) -> List[SceneMetadata]:
-    """Gets the scene metadatas from a log file based on the given filter.
+def _get_scene_extraction_metadatas(log_dir: Union[str, Path], filter: SceneFilter) -> List[SceneMetadata]:
+    """Gets the scene metadatas from a log directory based on the given filter.
 
     TODO: This needs refactoring, clean-up, and tests. It's a mess.
     """
 
+    log_dir = Path(log_dir)
+    sync_path = log_dir / f"{SYNC.prefix()}.arrow"
+
     scene_metadatas: List[SceneMetadata] = []
-    recording_table = open_arrow_table(str(log_path))
-    log_metadata = get_log_metadata_from_arrow_schema(recording_table.schema)
-    num_log_iterations = len(recording_table)
+    sync_table = open_arrow_table(str(sync_path))
+    log_metadata = get_metadata_from_arrow_schema(sync_table.schema, LogMetadata)
+    num_log_iterations = len(sync_table)
 
     start_idx = int(filter.history_s / log_metadata.timestep_seconds) if filter.history_s is not None else 0
     end_idx = (
@@ -132,19 +140,19 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
     )
 
     # 1. Filter location & whether map API is required
-    if filter.map_api_required and log_metadata.map_metadata is None:
+    if filter.map_api_required and log_metadata.location is None:
         pass
     elif (
         filter.locations is not None
-        and log_metadata.map_metadata is not None
-        and log_metadata.map_metadata.location not in filter.locations
+        and log_metadata.location is not None
+        and log_metadata.location not in filter.locations
     ):
         pass
 
     elif filter.duration_s is None:
         scene_metadatas.append(
             SceneMetadata(
-                initial_uuid=convert_to_str_uuid(recording_table[UUID_COLUMN][start_idx].as_py()),
+                initial_uuid=convert_to_str_uuid(sync_table[SYNC.col("uuid")][start_idx].as_py()),
                 initial_idx=start_idx,
                 duration_s=(end_idx - start_idx) * log_metadata.timestep_seconds,
                 history_s=filter.history_s if filter.history_s is not None else 0.0,
@@ -154,7 +162,7 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
     else:
         scene_uuid_set = set(filter.scene_uuids) if filter.scene_uuids is not None else None
         step_idx = int(filter.duration_s / log_metadata.timestep_seconds)
-        all_row_uuids = recording_table[UUID_COLUMN].to_pylist()
+        all_row_uuids = sync_table[SYNC.col("uuid")].to_pylist()
         history_s = filter.history_s if filter.history_s is not None else 0.0
 
         for idx in range(start_idx, end_idx, step_idx):
@@ -192,42 +200,21 @@ def _get_scene_extraction_metadatas(log_path: Union[str, Path], filter: SceneFil
         add_scene = True
         start_idx = scene_extraction_metadata.initial_idx
         if filter.pinhole_camera_ids is not None:
-            for pinhole_camera_id in filter.pinhole_camera_ids:
-                column_name = PINHOLE_CAMERA_DATA_COLUMN(pinhole_camera_id.serialize())
-
-                if (
-                    pinhole_camera_id in log_metadata.pinhole_camera_metadata
-                    and column_name in recording_table.schema.names
-                    and recording_table[column_name][start_idx].as_py() is not None
-                ):
-                    continue
-                else:
-                    add_scene = False
-                    break
+            cam_file = log_dir / f"{PINHOLE_CAMERA.prefix()}.arrow"
+            if not cam_file.exists():
+                add_scene = False
 
         if filter.fisheye_mei_camera_ids is not None:
-            for fisheye_mei_camera_id in filter.fisheye_mei_camera_ids:
-                column_name = FISHEYE_CAMERA_DATA_COLUMN(fisheye_mei_camera_id.serialize())
-
-                if (
-                    fisheye_mei_camera_id in log_metadata.fisheye_mei_camera_metadata
-                    and column_name in recording_table.schema.names
-                    and recording_table[column_name][start_idx].as_py() is not None
-                ):
-                    continue
-                else:
-                    add_scene = False
-                    break
+            cam_file = log_dir / f"{FISHEYE_MEI.prefix()}.arrow"
+            if not cam_file.exists():
+                add_scene = False
 
         if filter.lidar_ids is not None:
-            for lidar_id in filter.lidar_ids:
-                column_name = LIDAR_PATH_COLUMN(lidar_id.serialize())
-                if lidar_id not in log_metadata.lidar_metadata and column_name not in recording_table.schema.names:
-                    add_scene = False
-                    break
+            lidar_file = log_dir / f"{LIDAR.prefix()}.arrow"
+            if not lidar_file.exists():
+                add_scene = False
         if add_scene:
             scene_extraction_metadatas_.append(scene_extraction_metadata)
-        # scene_extraction_metadata = scene_extraction_metadatas_
 
-    del recording_table
+    del sync_table
     return scene_extraction_metadatas_

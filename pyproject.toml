@@ -13,10 +13,11 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: Apache Software License",
 ]
 name = "py123d"
-version = "0.0.9"
+version = "0.1.0"
 authors = [{ name = "Daniel Dauner", email = "daniel.dauner@gmail.com" }]
 description = "A Library for Driving Datasets."
 readme = "README.md"
@@ -84,7 +85,8 @@ nuscenes = [
     "nuscenes-devkit==1.2.0",
 ]
 waymo = [
-    "waymo-open-dataset-tf-2-12-0==1.6.7",
+    "tensorflow-cpu>=2.13",
+    "protobuf>=6.31",
 ]
 ffmpeg = [
     "imageio[ffmpeg]",
@@ -94,7 +96,7 @@ ffmpeg = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-py123d = ["**/*.yaml", "**/*.yml"]
+py123d = ["**/*.yaml", "**/*.yml", "**/*.proto"]
 
 [project.urls]
 "Homepage" = "https://github.com/autonomousvision/py123d"
@@ -131,9 +133,14 @@ lint.ignore = [
     "PLW0642",  # Reassigned self in instance method.
     "PLR0904",  # Checks for classes with too many public methods
     "PLR0917",  # Checks for function definitions that include too many positional arguments.
+    "PLR0914",  # Checks for functions that include too many local variables.
+    "PLR6301",  # Checks for the presence of unused self parameter in methods definitions.
 ]
 
-exclude = ["__init__.py"]
+exclude = [
+    "__init__.py",
+    "src/py123d/conversion/datasets/wod/waymo_open_dataset/protos",
+]
 fixable = ["ALL"]
 unfixable = []
 

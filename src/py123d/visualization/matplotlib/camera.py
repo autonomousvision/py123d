@@ -6,8 +6,8 @@ import numpy as np
 import numpy.typing as npt
 from pyquaternion import Quaternion
 
-from py123d.conversion.registry import DefaultBoxDetectionLabel
-from py123d.datatypes.detections import BoxDetectionSE3, BoxDetectionWrapper
+from py123d.datatypes.detections import BoxDetectionsSE3
+from py123d.datatypes.detections.box_detection_label import DefaultBoxDetectionLabel
 from py123d.datatypes.sensors import Lidar, PinholeCamera, PinholeIntrinsics
 from py123d.datatypes.vehicle_state import EgoStateSE3
 from py123d.geometry import BoundingBoxSE3Index, Corners3DIndex
@@ -57,7 +57,7 @@ def add_lidar_to_camera_ax(ax: plt.Axes, camera: PinholeCamera, lidar: Lidar, un
 def add_box_detections_to_camera_ax(
     ax: plt.Axes,
     camera: PinholeCamera,
-    box_detections: BoxDetectionWrapper,
+    box_detections: BoxDetectionsSE3,
     ego_state_se3: EgoStateSE3,
 ) -> plt.Axes:
     """Add box detections to camera image on matplotlib axis
@@ -74,9 +74,6 @@ def add_box_detections_to_camera_ax(
         [detection.metadata.default_label for detection in box_detections.box_detections], dtype=object
     )
     for idx, box_detection in enumerate(box_detections.box_detections):
-        assert isinstance(box_detection, BoxDetectionSE3), (
-            f"Box detection must be of type BoxDetectionSE3, got {type(box_detection)}"
-        )
         box_detection_array[idx] = box_detection.bounding_box_se3.array
 
     # FIXME

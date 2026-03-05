@@ -8,9 +8,9 @@
 
 
 project = "py123d"
-copyright = "2025"
+copyright = "2026"
 author = "DanielDauner"
-release = "v0.0.9"
+release = "v0.1.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -129,6 +129,4 @@ html_sidebars = {
 # Your conf.py already references it in html_css_files = ["custom.css"]
 
 # If you want to add custom CSS via configuration, you can use:
-html_css_files = [
-    "custom.css",
-]
+html_css_files = ["custom.css"]

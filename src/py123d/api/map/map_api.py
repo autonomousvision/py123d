@@ -5,9 +5,9 @@ from typing import Dict, Iterable, List, Literal, Optional, Union
 
 import shapely.geometry as geom
 
+from py123d.datatypes import MapMetadata
 from py123d.datatypes.map_objects import BaseMapObject, MapLayer
 from py123d.datatypes.map_objects.base_map_objects import MapObjectIDType
-from py123d.datatypes.metadata import MapMetadata
 from py123d.geometry import Point2D, Point3D
 
 
@@ -165,9 +165,9 @@ class MapAPI(abc.ABC):
         return self.map_metadata.location
 
     @property
-    def map_is_local(self) -> bool:
-        """Indicates if the map is local (map for each log) or global (map for multiple logs in dataset)."""
-        return self.map_metadata.map_is_local
+    def map_is_per_log(self) -> bool:
+        """Indicates if the map is per-log (map for each log) or global (map for multiple logs in dataset)."""
+        return self.map_metadata.map_is_per_log
 
     @property
     def map_has_z(self) -> bool:

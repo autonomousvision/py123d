@@ -1,3 +1,4 @@
+from py123d.datatypes.custom import *
 from py123d.datatypes.detections import *
 from py123d.datatypes.map_objects import *
 from py123d.datatypes.metadata import *

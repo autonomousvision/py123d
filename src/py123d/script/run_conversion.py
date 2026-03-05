@@ -2,13 +2,13 @@ import gc
 import logging
 import traceback
 from functools import partial
-from typing import Dict, List
+from typing import List
 
 import hydra
 from omegaconf import DictConfig
 
 from py123d.common.execution.utils import executor_map_chunked_list
-from py123d.script.builders.dataset_converter_builder import AbstractDatasetConverter, build_dataset_converters
+from py123d.parser.abstract_dataset_parser import DatasetParser, LogParser, MapParser
 from py123d.script.builders.execution_builder import build_executor
 from py123d.script.builders.logging_builder import build_logger
 from py123d.script.builders.writer_builder import build_log_writer, build_map_writer
@@ -30,63 +30,76 @@ def main(cfg: DictConfig) -> None:
     build_logger(cfg)
     setup_dataset_paths(cfg.dataset_paths)
 
-    logger.info("Starting Dataset Caching...")
-    dataset_converters: List[AbstractDatasetConverter] = build_dataset_converters(cfg.datasets)
+    logger.info("Starting Dataset Conversion...")
+    dataset_parser: DatasetParser = hydra.utils.instantiate(cfg.dataset.parser)
 
-    for dataset_converter in dataset_converters:
-        executor = build_executor(cfg)
-        convert_class_name = dataset_converter.__class__.__name__
+    executor = build_executor(cfg)
+    parser_class_name = dataset_parser.__class__.__name__
 
-        logger.info(f"Processing dataset: {convert_class_name}")
-        map_args = [{"map_index": i} for i in range(dataset_converter.get_number_of_maps())]
-        logger.info(f"Found maps: {dataset_converter.get_number_of_maps()} for dataset: {convert_class_name}")
-        executor_map_chunked_list(
-            executor,
-            partial(_convert_maps, cfg=cfg, dataset_converter=dataset_converter),
-            map_args,
-            name=f"Maps {convert_class_name}",
-        )
-        logger.info(f"Finished maps: {convert_class_name}")
+    map_parsers: List[MapParser] = dataset_parser.get_map_parsers()
+    executor_map_chunked_list(
+        executor,
+        partial(_convert_maps, cfg=cfg),
+        map_parsers,
+        name=f"Maps {parser_class_name}",
+    )
 
-        log_args = [{"log_index": i} for i in range(dataset_converter.get_number_of_logs())]
-        logger.info(f"Found logs: {dataset_converter.get_number_of_logs()} for dataset: {convert_class_name}")
-        executor_map_chunked_list(
-            executor,
-            partial(_convert_logs, cfg=cfg, dataset_converter=dataset_converter),
-            log_args,
-            name=f"Logs {convert_class_name}",
-        )
-        logger.info(f"Finished logs: {convert_class_name}")
-        logger.info(f"Finished processing dataset: {convert_class_name}")
+    executor_map_chunked_list(
+        executor,
+        partial(_convert_logs, cfg=cfg),
+        dataset_parser.get_log_parsers(),
+        name=f"Logs {parser_class_name}",
+    )
 
 
-def _convert_maps(args: List[Dict[str, int]], cfg: DictConfig, dataset_converter: AbstractDatasetConverter) -> List:
+def _convert_maps(args: List[MapParser], cfg: DictConfig) -> List:
     map_writer = build_map_writer(cfg.map_writer)
-    for arg in args:
+    for map_parser in args:
         try:
-            dataset_converter.convert_map(arg["map_index"], map_writer)
+            map_metadata = map_parser.get_map_metadata()
+            map_needs_writing = map_writer.reset(map_metadata)
+            if map_needs_writing:
+                for map_object in map_parser.iter_map_objects():
+                    map_writer.write_map_object(map_object)
+            map_writer.close()
         except Exception as e:
-            logger.error(f"Error converting map index {arg['map_index']}: {e}")
-            logger.error(traceback.format_exc())  # noqa: F821
+            logger.error(f"Error converting map: {e}")
+            logger.error(traceback.format_exc())
             map_writer.close()
             gc.collect()
-            # if cfg.terminate_on_failure:
-            #     raise e
     return []
 
 
-def _convert_logs(args: List[Dict[str, int]], cfg: DictConfig, dataset_converter: AbstractDatasetConverter) -> List:
+def _convert_logs(args: List[LogParser], cfg: DictConfig) -> List:
     log_writer = build_log_writer(cfg.log_writer)
-    for arg in args:
+    for log_parser in args:
         try:
-            dataset_converter.convert_log(arg["log_index"], log_writer)
+            log_metadata = log_parser.get_log_metadata()
+            ego_metadata = log_parser.get_ego_metadata()
+            box_detection_metadata = log_parser.get_box_detection_metadata()
+            pinhole_camera_metadatas = log_parser.get_pinhole_camera_metadatas()
+            fisheye_mei_camera_metadatas = log_parser.get_fisheye_mei_camera_metadatas()
+            lidar_metadatas = log_parser.get_lidar_metadatas()
+
+            log_needs_writing = log_writer.reset(
+                log_metadata,
+                ego_metadata,
+                box_detection_metadata,
+                pinhole_camera_metadatas,
+                fisheye_mei_camera_metadatas,
+                lidar_metadatas,
+            )
+
+            if log_needs_writing:
+                for frame in log_parser.iter_frames():
+                    log_writer.write(**frame.to_writer_kwargs())
+
+            log_writer.close()
         except Exception as e:
-            logger.error(f"Error converting log index {arg['log_index']}: {e}")
-            logger.error(traceback.format_exc())  # noqa: F821
+            logger.error(f"Error converting log: {e}")
+            logger.error(traceback.format_exc())
             log_writer.close()
             gc.collect()
-            # if cfg.terminate_on_failure:
-            #     raise e
     return []
 
 

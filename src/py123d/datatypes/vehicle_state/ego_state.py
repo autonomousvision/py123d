@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import Final, Optional
 
-from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
-from py123d.datatypes.detections.box_detections import BoxDetectionMetadata, BoxDetectionSE2, BoxDetectionSE3
-from py123d.datatypes.time.time_point import Timestamp
+from py123d.datatypes.detections.box_detection_label import DefaultBoxDetectionLabel
+from py123d.datatypes.detections.box_detections import BoxDetectionAttributes, BoxDetectionSE2, BoxDetectionSE3
+from py123d.datatypes.time.timestamp import Timestamp
 from py123d.datatypes.vehicle_state.dynamic_state import DynamicStateSE2, DynamicStateSE3
-from py123d.datatypes.vehicle_state.vehicle_parameters import (
-    VehicleParameters,
+from py123d.datatypes.vehicle_state.ego_metadata import (
+    EgoMetadata,
     center_se2_to_imu_se2,
     center_se3_to_imu_se3,
     imu_se2_to_center_se2,
@@ -32,24 +32,24 @@ class EgoStateSE3:
     __slots__ = (
         "_imu_se3",
         "_vehicle_parameters",
-        "_dynamic_state_se3",
         "_timestamp",
+        "_dynamic_state_se3",
         "_tire_steering_angle",
     )
 
     _imu_se3: PoseSE3
-    _vehicle_parameters: VehicleParameters
+    _vehicle_parameters: EgoMetadata
+    _timestamp: Timestamp
     _dynamic_state_se3: Optional[DynamicStateSE3]
-    _timestamp: Optional[Timestamp]
     _tire_steering_angle: Optional[float]
 
     @classmethod
     def from_imu(
         cls,
         imu_se3: PoseSE3,
-        vehicle_parameters: VehicleParameters,
+        vehicle_parameters: EgoMetadata,
+        timestamp: Timestamp,
         dynamic_state_se3: Optional[DynamicStateSE3] = None,
-        timestamp: Optional[Timestamp] = None,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE3:
         """Create an :class:`EgoStateSE3` from the IMU pose.
@@ -58,16 +58,16 @@ class EgoStateSE3:
 
         :param imu_se3: The pose of the IMU in the global frame.
         :param vehicle_parameters: The parameters of the vehicle.
+        :param timestamp: The timestamp of the state.
         :param dynamic_state_se3: The dynamic state of the vehicle, defaults to None.
-        :param timestamp: The timestamp of the state, defaults to None.
         :param tire_steering_angle: The tire steering angle, defaults to 0.0.
         :return: An :class:`EgoStateSE3` instance.
         """
         instance = object.__new__(cls)
         instance._imu_se3 = imu_se3
         instance._vehicle_parameters = vehicle_parameters
-        instance._dynamic_state_se3 = dynamic_state_se3
         instance._timestamp = timestamp
+        instance._dynamic_state_se3 = dynamic_state_se3
         instance._tire_steering_angle = tire_steering_angle
         return instance
 
@@ -75,9 +75,9 @@ class EgoStateSE3:
     def from_rear_axle(
         cls,
         rear_axle_se3: PoseSE3,
-        vehicle_parameters: VehicleParameters,
+        vehicle_parameters: EgoMetadata,
+        timestamp: Timestamp,
         dynamic_state_se3: Optional[DynamicStateSE3] = None,
-        timestamp: Optional[Timestamp] = None,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE3:
         """Create an :class:`EgoStateSE3` from the rear axle pose.
@@ -87,8 +87,8 @@ class EgoStateSE3:
 
         :param rear_axle_se3: The pose of the rear axle in SE3.
         :param vehicle_parameters: The parameters of the vehicle.
+        :param timestamp: The timestamp of the state
         :param dynamic_state_se3: The dynamic state of the vehicle, defaults to None.
-        :param timestamp: The timestamp of the state, defaults to None.
         :param tire_steering_angle: The tire steering angle, defaults to 0.0.
         :return: An :class:`EgoStateSE3` instance.
         """
@@ -99,8 +99,8 @@ class EgoStateSE3:
         return EgoStateSE3.from_imu(
             imu_se3=imu_se3,
             vehicle_parameters=vehicle_parameters,
-            dynamic_state_se3=dynamic_state_se3,
             timestamp=timestamp,
+            dynamic_state_se3=dynamic_state_se3,
             tire_steering_angle=tire_steering_angle,
         )
 
@@ -108,9 +108,9 @@ class EgoStateSE3:
     def from_center(
         cls,
         center_se3: PoseSE3,
-        vehicle_parameters: VehicleParameters,
+        vehicle_parameters: EgoMetadata,
+        timestamp: Timestamp,
         dynamic_state_se3: Optional[DynamicStateSE3] = None,
-        timestamp: Optional[Timestamp] = None,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE3:
         """Create an :class:`EgoStateSE3` from the center pose.
@@ -120,8 +120,8 @@ class EgoStateSE3:
 
         :param center_se3: The center pose in SE3.
         :param vehicle_parameters: The parameters of the vehicle.
+        :param timestamp: The timestamp of the state.
         :param dynamic_state_se3: The dynamic state of the vehicle, defaults to None.
-        :param timestamp: The timestamp of the state, defaults to None.
         :param tire_steering_angle: The tire steering angle, defaults to 0.0.
         :return: An :class:`EgoStateSE3` instance.
         """
@@ -132,8 +132,8 @@ class EgoStateSE3:
         return EgoStateSE3.from_imu(
             imu_se3=imu_se3,
             vehicle_parameters=vehicle_parameters,
-            dynamic_state_se3=dynamic_state_se3,
             timestamp=timestamp,
+            dynamic_state_se3=dynamic_state_se3,
             tire_steering_angle=tire_steering_angle,
         )
 
@@ -158,8 +158,8 @@ class EgoStateSE3:
         return self.rear_axle_se3.pose_se2
 
     @property
-    def vehicle_parameters(self) -> VehicleParameters:
-        """The :class:`~py123d.datatypes.vehicle_state.VehicleParameters` of the vehicle."""
+    def vehicle_parameters(self) -> EgoMetadata:
+        """The :class:`~py123d.datatypes.vehicle_state.EgoMetadata` of the vehicle."""
         return self._vehicle_parameters
 
     @property
@@ -168,8 +168,8 @@ class EgoStateSE3:
         return self._dynamic_state_se3
 
     @property
-    def timestamp(self) -> Optional[Timestamp]:
-        """The :class:`~py123d.datatypes.time.Timestamp` of the ego state, if available."""
+    def timestamp(self) -> Timestamp:
+        """The :class:`~py123d.datatypes.time.Timestamp` of the ego state."""
         return self._timestamp
 
     @property
@@ -206,11 +206,9 @@ class EgoStateSE3:
     def box_detection_se3(self) -> BoxDetectionSE3:
         """The :class:`~py123d.datatypes.detections.BoxDetectionSE3` projection of the ego vehicle."""
         return BoxDetectionSE3(
-            metadata=BoxDetectionMetadata(
+            metadata=BoxDetectionAttributes(
                 label=DefaultBoxDetectionLabel.EGO,
-                timestamp=self.timestamp,
                 track_token=EGO_TRACK_TOKEN,
-                num_lidar_points=None,
             ),
             bounding_box_se3=self.bounding_box_se3,
             velocity_3d=self.dynamic_state_se3.velocity_3d if self.dynamic_state_se3 else None,
@@ -240,21 +238,21 @@ class EgoStateSE2:
     poses are computed on demand via the vehicle parameters.
     """
 
-    __slots__ = ("_imu_se2", "_vehicle_parameters", "_dynamic_state_se2", "_timestamp", "_tire_steering_angle")
+    __slots__ = ("_imu_se2", "_vehicle_parameters", "_timestamp", "_dynamic_state_se2", "_tire_steering_angle")
 
     _imu_se2: PoseSE2
-    _vehicle_parameters: VehicleParameters
+    _vehicle_parameters: EgoMetadata
+    _timestamp: Timestamp
     _dynamic_state_se2: Optional[DynamicStateSE2]
-    _timestamp: Optional[Timestamp]
     _tire_steering_angle: Optional[float]
 
     @classmethod
     def from_imu(
         cls,
         imu_se2: PoseSE2,
-        vehicle_parameters: VehicleParameters,
+        vehicle_parameters: EgoMetadata,
+        timestamp: Timestamp,
         dynamic_state_se2: Optional[DynamicStateSE2] = None,
-        timestamp: Optional[Timestamp] = None,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE2:
         """Create an :class:`EgoStateSE2` from the IMU pose.
@@ -263,8 +261,8 @@ class EgoStateSE2:
 
         :param imu_se2: The pose of the IMU in the global frame (SE2).
         :param vehicle_parameters: The parameters of the vehicle.
+        :param timestamp: The timestamp of the state.
         :param dynamic_state_se2: The dynamic state of the vehicle in SE2, defaults to None.
-        :param timestamp: The timestamp of the state, defaults to None.
         :param tire_steering_angle: The tire steering angle, defaults to 0.0.
         :return: An instance of :class:`EgoStateSE2`.
         """
@@ -280,9 +278,9 @@ class EgoStateSE2:
     def from_rear_axle(
         cls,
         rear_axle_se2: PoseSE2,
-        vehicle_parameters: VehicleParameters,
+        vehicle_parameters: EgoMetadata,
+        timestamp: Timestamp,
         dynamic_state_se2: Optional[DynamicStateSE2] = None,
-        timestamp: Optional[Timestamp] = None,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE2:
         """Create an :class:`EgoStateSE2` from the rear axle pose.
@@ -292,8 +290,8 @@ class EgoStateSE2:
 
         :param rear_axle_se2: The pose of the rear axle in SE2.
         :param vehicle_parameters: The parameters of the vehicle.
+        :param timestamp: The timestamp of the state.
         :param dynamic_state_se2: The dynamic state of the vehicle in SE2, defaults to None.
-        :param timestamp: The timestamp of the state, defaults to None.
         :param tire_steering_angle: The tire steering angle, defaults to 0.0.
         :return: An instance of :class:`EgoStateSE2`.
         """
@@ -313,9 +311,9 @@ class EgoStateSE2:
     def from_center(
         cls,
         center_se2: PoseSE2,
-        vehicle_parameters: VehicleParameters,
+        vehicle_parameters: EgoMetadata,
+        timestamp: Timestamp,
         dynamic_state_se2: Optional[DynamicStateSE2] = None,
-        timestamp: Optional[Timestamp] = None,
         tire_steering_angle: float = 0.0,
     ) -> EgoStateSE2:
         """Create an :class:`EgoStateSE2` from the center pose.
@@ -325,8 +323,8 @@ class EgoStateSE2:
 
         :param center_se2: The pose of the center in SE2.
         :param vehicle_parameters: The parameters of the vehicle.
+        :param timestamp: The timestamp of the state.
         :param dynamic_state_se2: The dynamic state of the vehicle in SE2, defaults to None.
-        :param timestamp: The timestamp of the state, defaults to None.
         :param tire_steering_angle: The tire steering angle, defaults to 0.0.
         :return: An instance of :class:`EgoStateSE2`.
         """
@@ -337,8 +335,8 @@ class EgoStateSE2:
         return EgoStateSE2.from_imu(
             imu_se2=imu_se2,
             vehicle_parameters=vehicle_parameters,
-            dynamic_state_se2=dynamic_state_se2,
             timestamp=timestamp,
+            dynamic_state_se2=dynamic_state_se2,
             tire_steering_angle=tire_steering_angle,
         )
 
@@ -353,19 +351,19 @@ class EgoStateSE2:
         return imu_se2_to_rear_axle_se2(imu_se2=self._imu_se2, vehicle_parameters=self._vehicle_parameters)
 
     @property
-    def vehicle_parameters(self) -> VehicleParameters:
-        """The :class:`~py123d.datatypes.vehicle_state.VehicleParameters` of the vehicle."""
+    def vehicle_parameters(self) -> EgoMetadata:
+        """The :class:`~py123d.datatypes.vehicle_state.EgoMetadata` of the vehicle."""
         return self._vehicle_parameters
+
+    @property
+    def timestamp(self) -> Timestamp:
+        """The :class:`~py123d.datatypes.time.Timestamp` of the ego state"""
+        return self._timestamp
 
     @property
     def dynamic_state_se2(self) -> Optional[DynamicStateSE2]:
         """The :class:`~py123d.datatypes.vehicle_state.DynamicStateSE2` of the vehicle."""
         return self._dynamic_state_se2
-
-    @property
-    def timestamp(self) -> Optional[Timestamp]:
-        """The :class:`~py123d.datatypes.time.Timestamp` of the ego state, if available."""
-        return self._timestamp
 
     @property
     def tire_steering_angle(self) -> Optional[float]:
@@ -390,11 +388,9 @@ class EgoStateSE2:
     def box_detection_se2(self) -> BoxDetectionSE2:
         """The :class:`~py123d.datatypes.detections.BoxDetectionSE2` projection of the ego vehicle."""
         return BoxDetectionSE2(
-            metadata=BoxDetectionMetadata(
+            metadata=BoxDetectionAttributes(
                 label=DefaultBoxDetectionLabel.EGO,
-                timestamp=self.timestamp,
                 track_token=EGO_TRACK_TOKEN,
-                num_lidar_points=None,
             ),
             bounding_box_se2=self.bounding_box_se2,
             velocity_2d=self.dynamic_state_se2.velocity_2d if self.dynamic_state_se2 else None,

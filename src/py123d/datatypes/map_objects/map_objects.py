@@ -18,6 +18,8 @@ if TYPE_CHECKING:
 class Lane(BaseMapSurfaceObject):
     """Class representing a lane in a map."""
 
+    # TODO: @DanielDauner, should we accept 3D and 2D polylines instead?
+
     __slots__ = (
         "_lane_group_id",
         "_left_boundary",
@@ -35,15 +37,15 @@ class Lane(BaseMapSurfaceObject):
         self,
         object_id: MapObjectIDType,
         lane_group_id: MapObjectIDType,
-        left_boundary: Polyline3D,
-        right_boundary: Polyline3D,
-        centerline: Polyline3D,
+        left_boundary: Union[Polyline2D, Polyline3D],
+        right_boundary: Union[Polyline2D, Polyline3D],
+        centerline: Union[Polyline2D, Polyline3D],
         left_lane_id: Optional[MapObjectIDType] = None,
         right_lane_id: Optional[MapObjectIDType] = None,
         predecessor_ids: List[MapObjectIDType] = [],
         successor_ids: List[MapObjectIDType] = [],
         speed_limit_mps: Optional[float] = None,
-        outline: Optional[Polyline3D] = None,
+        outline: Optional[Union[Polyline2D, Polyline3D]] = None,
         shapely_polygon: Optional[geom.Polygon] = None,
         map_api: Optional["MapAPI"] = None,
     ) -> None:

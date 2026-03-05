@@ -1,25 +1,24 @@
 import numpy as np
 import pytest
 
-from py123d.conversion.registry.box_detection_label_registry import DefaultBoxDetectionLabel
-from py123d.datatypes.time import Timestamp
-from py123d.datatypes.vehicle_state import (
+from py123d.datatypes import (
     DynamicStateSE2,
     DynamicStateSE3,
+    EgoMetadata,
     EgoStateSE2,
     EgoStateSE3,
-    VehicleParameters,
+    Timestamp,
 )
+from py123d.datatypes.detections.box_detection_label import DefaultBoxDetectionLabel
 from py123d.datatypes.vehicle_state.ego_state import EGO_TRACK_TOKEN
-from py123d.geometry import PoseSE2, PoseSE3, Vector2D, Vector3D
-from py123d.geometry.bounding_box import BoundingBoxSE2
+from py123d.geometry import BoundingBoxSE2, PoseSE2, PoseSE3, Vector2D, Vector3D
 
 
 class TestEgoStateSE2:
     def setup_method(self):
         """Set up test fixtures for EgoStateSE2 tests."""
         self.rear_axle_pose = PoseSE2(x=0.0, y=0.0, yaw=0.0)
-        self.vehicle_params = VehicleParameters(
+        self.vehicle_params = EgoMetadata(
             vehicle_name="test_vehicle",
             length=4.5,
             width=2.0,
@@ -69,14 +68,18 @@ class TestEgoStateSE2:
     def test_rear_axle_property(self):
         """Test rear_axle property."""
         ego_state = EgoStateSE2.from_rear_axle(
-            rear_axle_se2=self.rear_axle_pose, vehicle_parameters=self.vehicle_params
+            rear_axle_se2=self.rear_axle_pose,
+            vehicle_parameters=self.vehicle_params,
+            timestamp=self.timestamp,
         )
         assert ego_state.rear_axle_se2 == self.rear_axle_pose
 
     def test_center_property(self):
         """Test center property calculation."""
         ego_state = EgoStateSE2.from_rear_axle(
-            rear_axle_se2=self.rear_axle_pose, vehicle_parameters=self.vehicle_params
+            rear_axle_se2=self.rear_axle_pose,
+            vehicle_parameters=self.vehicle_params,
+            timestamp=self.timestamp,
         )
 
         center = ego_state.center_se2
@@ -88,7 +91,9 @@ class TestEgoStateSE2:
     def test_bounding_box_property(self):
         """Test bounding box properties."""
         ego_state = EgoStateSE2.from_rear_axle(
-            rear_axle_se2=self.rear_axle_pose, vehicle_parameters=self.vehicle_params
+            rear_axle_se2=self.rear_axle_pose,
+            vehicle_parameters=self.vehicle_params,
+            timestamp=self.timestamp,
         )
 
         bbox = ego_state.bounding_box_se2
@@ -111,17 +116,17 @@ class TestEgoStateSE2:
         assert box_det is not None
         assert box_det.metadata.label == DefaultBoxDetectionLabel.EGO
         assert box_det.metadata.track_token == EGO_TRACK_TOKEN
-        assert box_det.metadata.timestamp == self.timestamp
 
     def test_optional_parameters_default(self):
         """Test EgoStateSE2 with default optional parameters."""
         ego_state = EgoStateSE2.from_rear_axle(
             rear_axle_se2=self.rear_axle_pose,
             vehicle_parameters=self.vehicle_params,
+            timestamp=self.timestamp,
         )
 
         assert ego_state.dynamic_state_se2 is None
-        assert ego_state.timestamp is None
+        assert ego_state.timestamp == self.timestamp
         assert ego_state.tire_steering_angle == 0.0
 
     def test_no_init(self):
@@ -130,6 +135,7 @@ class TestEgoStateSE2:
             EgoStateSE2(
                 rear_axle_se2=self.rear_axle_pose,
                 vehicle_parameters=self.vehicle_params,
+                timestamp=self.timestamp,
             )
 
 
@@ -138,7 +144,7 @@ class TestEgoStateSE3:
         """Set up test fixtures for EgoStateSE3 tests."""
 
         self.rear_axle_pose = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
-        self.vehicle_params = VehicleParameters(
+        self.vehicle_params = EgoMetadata(
             vehicle_name="test_vehicle",
             length=4.5,
             width=2.0,
@@ -207,7 +213,7 @@ class TestEgoStateSE3:
 
     def test_from_imu_with_offset(self):
         """Test creating EgoStateSE3 from IMU pose with a lateral offset (e.g. KITTI-360)."""
-        vehicle_params_with_offset = VehicleParameters(
+        vehicle_params_with_offset = EgoMetadata(
             vehicle_name="test_vehicle_offset",
             length=4.5,
             width=2.0,
@@ -234,7 +240,7 @@ class TestEgoStateSE3:
         # IMU rotated 90 degrees around Z axis
         imu_pose = PoseSE3(x=0.0, y=0.0, z=0.0, qw=np.cos(np.pi / 4), qx=0.0, qy=0.0, qz=np.sin(np.pi / 4))
 
-        vehicle_params_with_offset = VehicleParameters(
+        vehicle_params_with_offset = EgoMetadata(
             vehicle_name="test_vehicle_offset",
             length=4.5,
             width=2.0,
@@ -247,25 +253,34 @@ class TestEgoStateSE3:
         ego_state = EgoStateSE3.from_imu(
             imu_se3=imu_pose,
             vehicle_parameters=vehicle_params_with_offset,
+            timestamp=self.timestamp,
         )
 
         # With 90-deg yaw rotation, a +1.0 x-offset in IMU frame becomes +1.0 y-offset in world
         assert ego_state.rear_axle_se3.x == pytest.approx(0.0, abs=1e-10)
         assert ego_state.rear_axle_se3.y == pytest.approx(1.0, abs=1e-10)
+        assert ego_state.rear_axle_se3.z == pytest.approx(0.0, abs=1e-10)
+        assert ego_state.vehicle_parameters == vehicle_params_with_offset
+        assert ego_state.timestamp == self.timestamp
 
     def test_rear_axle_properties(self):
         """Test rear_axle properties."""
         ego_state = EgoStateSE3.from_rear_axle(
-            rear_axle_se3=self.rear_axle_pose, vehicle_parameters=self.vehicle_params
+            rear_axle_se3=self.rear_axle_pose,
+            vehicle_parameters=self.vehicle_params,
+            timestamp=self.timestamp,
         )
 
         assert ego_state.rear_axle_se3 == self.rear_axle_pose
         assert ego_state.rear_axle_se2 is not None
+        assert ego_state.timestamp == self.timestamp
 
     def test_center_properties(self):
         """Test center property calculation."""
         ego_state = EgoStateSE3.from_rear_axle(
-            rear_axle_se3=self.rear_axle_pose, vehicle_parameters=self.vehicle_params
+            rear_axle_se3=self.rear_axle_pose,
+            vehicle_parameters=self.vehicle_params,
+            timestamp=self.timestamp,
         )
 
         center = ego_state.center_se3
@@ -279,7 +294,9 @@ class TestEgoStateSE3:
     def test_bounding_box_properties(self):
         """Test bounding box properties."""
         ego_state = EgoStateSE3.from_rear_axle(
-            rear_axle_se3=self.rear_axle_pose, vehicle_parameters=self.vehicle_params
+            rear_axle_se3=self.rear_axle_pose,
+            vehicle_parameters=self.vehicle_params,
+            timestamp=self.timestamp,
         )
 
         bbox_se3 = ego_state.bounding_box_se3
@@ -305,13 +322,11 @@ class TestEgoStateSE3:
         assert box_det_se3 is not None
         assert box_det_se3.metadata.label == DefaultBoxDetectionLabel.EGO
         assert box_det_se3.metadata.track_token == EGO_TRACK_TOKEN
-        assert box_det_se3.metadata.timestamp == self.timestamp
 
         box_det_se2 = ego_state.box_detection_se2
         assert box_det_se2 is not None
         assert box_det_se2.metadata.label == DefaultBoxDetectionLabel.EGO
         assert box_det_se2.metadata.track_token == EGO_TRACK_TOKEN
-        assert box_det_se2.metadata.timestamp == self.timestamp
 
     def test_ego_state_se2_projection(self):
         """Test projection to EgoStateSE2."""
@@ -335,10 +350,11 @@ class TestEgoStateSE3:
         ego_state = EgoStateSE3.from_rear_axle(
             rear_axle_se3=self.rear_axle_pose,
             vehicle_parameters=self.vehicle_params,
+            timestamp=self.timestamp,
         )
 
         assert ego_state.dynamic_state_se3 is None
-        assert ego_state.timestamp is None
+        assert ego_state.timestamp == self.timestamp
         assert ego_state.tire_steering_angle == 0.0
 
     def test_no_init(self):
@@ -347,4 +363,5 @@ class TestEgoStateSE3:
             EgoStateSE3(
                 rear_axle_se3=self.rear_axle_pose,
                 vehicle_parameters=self.vehicle_params,
+                timestamp=self.timestamp,
             )

@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
 from py123d.datatypes.sensors.pinhole_camera import (
     PinholeCamera,
     PinholeCameraID,
@@ -288,6 +289,8 @@ class TestPinholeMetadata:
             "distortion": [0.1, 0.01, 0.001, 0.001, 0.001],
             "width": 800,
             "height": 600,
+            "camera_to_imu_se3": PoseSE3.identity().to_list(),
+            "is_undistorted": False,
         }
 
         metadata = PinholeCameraMetadata.from_dict(data_dict)
@@ -308,7 +311,8 @@ class TestPinholeMetadata:
             "distortion": None,
             "width": 800,
             "height": 600,
-            "camera_to_imu_se3": None,
+            "camera_to_imu_se3": PoseSE3.identity().to_list(),
+            "is_undistorted": False,
         }
 
         metadata = PinholeCameraMetadata.from_dict(data_dict)
@@ -329,6 +333,7 @@ class TestPinholeMetadata:
             distortion=None,
             width=1920,
             height=1080,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         assert metadata_16_9.aspect_ratio == pytest.approx(16 / 9)
 
@@ -340,6 +345,7 @@ class TestPinholeMetadata:
             distortion=None,
             width=640,
             height=480,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         assert metadata_4_3.aspect_ratio == pytest.approx(4 / 3)
 
@@ -355,6 +361,7 @@ class TestPinholeMetadata:
             distortion=None,
             width=640,
             height=480,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         metadata_wide = PinholeCameraMetadata(
             camera_name="TestCamera",
@@ -363,6 +370,7 @@ class TestPinholeMetadata:
             distortion=None,
             width=640,
             height=480,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
 
         # Wider focal length should result in larger FOV
@@ -383,6 +391,7 @@ class TestPinholeMetadata:
             distortion=distortion,
             width=1280,
             height=720,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
 
         data_dict = metadata.to_dict()
@@ -406,8 +415,49 @@ class TestPinholeMetadata:
                 distortion=None,
                 width=640,
                 height=480,
+                camera_to_imu_se3=PoseSE3.identity(),
             )
             assert metadata.camera_id == camera_id
+
+    def test_is_instance_of_abstract_metadata(self):
+        """PinholeCameraMetadata is an instance of AbstractMetadata."""
+        intrinsics = PinholeIntrinsics(fx=500.0, fy=500.0, cx=320.0, cy=240.0)
+        metadata = PinholeCameraMetadata(
+            camera_name="TestCamera",
+            camera_id=PinholeCameraID.PCAM_F0,
+            intrinsics=intrinsics,
+            distortion=None,
+            width=640,
+            height=480,
+            camera_to_imu_se3=PoseSE3.identity(),
+        )
+        assert isinstance(metadata, AbstractMetadata)
+
+    def test_roundtrip_serialization(self):
+        """to_dict and from_dict are inverses."""
+        intrinsics = PinholeIntrinsics(fx=600.0, fy=600.0, cx=400.0, cy=300.0)
+        distortion = PinholeDistortion(k1=0.1, k2=0.02, p1=0.003, p2=0.004, k3=0.005)
+        extrinsic = PoseSE3.from_list([0.1, 0.2, 0.3, 1.0, 0.0, 0.0, 0.0])
+        original = PinholeCameraMetadata(
+            camera_name="RoundtripCam",
+            camera_id=PinholeCameraID.PCAM_L0,
+            intrinsics=intrinsics,
+            distortion=distortion,
+            width=1280,
+            height=720,
+            camera_to_imu_se3=extrinsic,
+            is_undistorted=True,
+        )
+        restored = PinholeCameraMetadata.from_dict(original.to_dict())
+
+        assert restored.camera_name == original.camera_name
+        assert restored.camera_id == original.camera_id
+        assert restored.width == original.width
+        assert restored.height == original.height
+        assert restored.is_undistorted == original.is_undistorted
+        assert restored.intrinsics.fx == pytest.approx(original.intrinsics.fx)
+        assert restored.distortion.k1 == pytest.approx(original.distortion.k1)
+        assert restored.camera_to_imu_se3 == original.camera_to_imu_se3
 
     def test_metadata_square_image(self):
         """Test metadata with square image dimensions."""
@@ -419,6 +469,7 @@ class TestPinholeMetadata:
             distortion=None,
             width=512,
             height=512,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
 
         assert metadata.aspect_ratio == 1.0
@@ -434,6 +485,7 @@ class TestPinholeMetadata:
             distortion=None,
             width=640,
             height=480,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
 
         expected_fov_x = 2 * np.arctan(640 / (2 * 500.0))
@@ -456,6 +508,7 @@ class TestPinholeCamera:
             distortion=None,
             width=640,
             height=480,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         image = np.zeros((480, 640, 3), dtype=np.uint8)
         extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
@@ -477,6 +530,7 @@ class TestPinholeCamera:
             distortion=None,
             width=640,
             height=480,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         image = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
         extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
@@ -497,6 +551,7 @@ class TestPinholeCamera:
             distortion=None,
             width=640,
             height=480,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         image = np.random.randint(0, 255, (480, 640), dtype=np.uint8)
         extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
@@ -517,6 +572,7 @@ class TestPinholeCamera:
             distortion=distortion,
             width=640,
             height=480,
+            camera_to_imu_se3=PoseSE3.identity(),
         )
         image = np.zeros((480, 640, 3), dtype=np.uint8)
         extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
@@ -546,6 +602,7 @@ class TestPinholeCamera:
                 distortion=None,
                 width=640,
                 height=480,
+                camera_to_imu_se3=PoseSE3.identity(),
             )
             camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic)
             assert camera.metadata.camera_id == camera_id
@@ -565,6 +622,7 @@ class TestPinholeCamera:
                 distortion=None,
                 width=width,
                 height=height,
+                camera_to_imu_se3=PoseSE3.identity(),
             )
             image = np.zeros((height, width, 3), dtype=np.uint8)
             camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic)

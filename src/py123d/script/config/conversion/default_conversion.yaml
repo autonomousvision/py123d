@@ -9,14 +9,13 @@ hydra:
     env_set:
       HYDRA_FULL_ERROR: 1
     chdir: False
-#
+
 defaults:
   - default_common
   - default_dataset_paths
   - log_writer: arrow_log_writer
   - map_writer: arrow_map_writer
-  - datasets:
-      - av2-sensor
+  - dataset: av2-sensor
   - _self_
 
 
@@ -24,5 +23,5 @@ logger_level: info  # "debug", "info", "warning", "error"
 
 terminate_on_exception: True
 
-force_map_conversion: True
+force_map_conversion: False
 force_log_conversion: True

@@ -1,3 +1,6 @@
+import pytest
+
+from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
 
 
@@ -10,7 +13,7 @@ class TestMapMetadata:
             log_name="log_001",
             location="test_location",
             map_has_z=True,
-            map_is_local=False,
+            map_is_per_log=False,
         )
 
         assert metadata.dataset == "test_dataset"
@@ -18,7 +21,7 @@ class TestMapMetadata:
         assert metadata.log_name == "log_001"
         assert metadata.location == "test_location"
         assert metadata.map_has_z is True
-        assert metadata.map_is_local is False
+        assert metadata.map_is_per_log is False
         assert metadata.version is not None
 
     def test_map_metadata_to_dict(self):
@@ -29,7 +32,7 @@ class TestMapMetadata:
             log_name="log_002",
             location="test_location",
             map_has_z=False,
-            map_is_local=True,
+            map_is_per_log=True,
         )
 
         result = metadata.to_dict()
@@ -40,7 +43,7 @@ class TestMapMetadata:
         assert result["log_name"] == "log_002"
         assert result["location"] == "test_location"
         assert result["map_has_z"] is False
-        assert result["map_is_local"] is True
+        assert result["map_is_per_log"] is True
         assert "version" in result
 
     def test_map_metadata_from_dict(self):
@@ -51,7 +54,7 @@ class TestMapMetadata:
             "log_name": "log_003",
             "location": "test_location",
             "map_has_z": True,
-            "map_is_local": False,
+            "map_is_per_log": False,
             "version": "1.0.0",
         }
 
@@ -62,7 +65,7 @@ class TestMapMetadata:
         assert metadata.log_name == "log_003"
         assert metadata.location == "test_location"
         assert metadata.map_has_z is True
-        assert metadata.map_is_local is False
+        assert metadata.map_is_per_log is False
         assert metadata.version == "1.0.0"
 
     def test_map_metadata_with_none_values(self):
@@ -73,7 +76,7 @@ class TestMapMetadata:
             log_name=None,
             location="test_location",
             map_has_z=True,
-            map_is_local=True,
+            map_is_per_log=False,
         )
 
         assert metadata.split is None
@@ -88,7 +91,7 @@ class TestMapMetadata:
             log_name="log_roundtrip",
             location="location_test",
             map_has_z=False,
-            map_is_local=True,
+            map_is_per_log=True,
             version="2.0.0",
         )
 
@@ -100,5 +103,37 @@ class TestMapMetadata:
         assert restored.log_name == original.log_name
         assert restored.location == original.location
         assert restored.map_has_z == original.map_has_z
-        assert restored.map_is_local == original.map_is_local
+        assert restored.map_is_per_log == original.map_is_per_log
         assert restored.version == original.version
+
+    def test_is_instance_of_abstract_metadata(self):
+        """MapMetadata is an instance of AbstractMetadata."""
+        metadata = MapMetadata(
+            dataset="test_dataset",
+            location="test_location",
+            map_has_z=True,
+            map_is_per_log=False,
+        )
+        assert isinstance(metadata, AbstractMetadata)
+
+    def test_per_log_map_requires_split_and_log_name(self):
+        """Test that per-log maps raise AssertionError when split or log_name is missing."""
+        with pytest.raises(AssertionError, match="split must be provided"):
+            MapMetadata(
+                dataset="test_dataset",
+                location="test_location",
+                map_has_z=True,
+                map_is_per_log=True,
+                split=None,
+                log_name="log_001",
+            )
+
+        with pytest.raises(AssertionError, match="log_name must be provided"):
+            MapMetadata(
+                dataset="test_dataset",
+                location="test_location",
+                map_has_z=True,
+                map_is_per_log=True,
+                split="train",
+                log_name=None,
+            )

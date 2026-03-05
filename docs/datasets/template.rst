@@ -44,7 +44,7 @@ Available Modalities
      - ..., see :class:`~py123d.datatypes.detections.BoxDetectionWrapper`.
    * - Traffic Lights
      - ✓ / (✓) / X
-     - ..., see :class:`~py123d.datatypes.detections.TrafficLightDetectionWrapper`.
+     - ..., see :class:`~py123d.datatypes.detections.TrafficLightDetections`.
    * - Pinhole Cameras
      - ✓ / (✓) / X
      - ..., see :class:`~py123d.datatypes.sensors.PinholeCamera`.

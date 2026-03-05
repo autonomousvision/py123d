@@ -1,13 +1,14 @@
 import pytest
 
-from py123d.conversion.registry.box_detection_label_registry import BoxDetectionLabel, DefaultBoxDetectionLabel
 from py123d.datatypes.detections import (
-    BoxDetectionMetadata,
+    BoxDetectionAttributes,
     BoxDetectionSE2,
     BoxDetectionSE3,
-    BoxDetectionWrapper,
+    BoxDetectionsSE2,
+    BoxDetectionsSE3,
 )
-from py123d.datatypes.time.time_point import Timestamp
+from py123d.datatypes.detections.box_detection_label import BoxDetectionLabel, DefaultBoxDetectionLabel
+from py123d.datatypes.time.timestamp import Timestamp
 from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, PoseSE2, PoseSE3, Vector2D, Vector3D
 
 
@@ -25,25 +26,25 @@ class DummyBoxDetectionLabel(BoxDetectionLabel):
         return mapping[self]
 
 
+DUMMY_TIMESTAMP = Timestamp.from_s(0.0)
+
 sample_metadata_args = {
     "label": DummyBoxDetectionLabel.CAR,
     "track_token": "sample_token",
     "num_lidar_points": 10,
-    "timestamp": Timestamp.from_s(0.0),
 }
 
 
-class TestBoxDetectionMetadata:
+class TestBoxDetectionAttributes:
     def test_initialization(self):
-        metadata = BoxDetectionMetadata(**sample_metadata_args)
-        assert isinstance(metadata, BoxDetectionMetadata)
+        metadata = BoxDetectionAttributes(**sample_metadata_args)
+        assert isinstance(metadata, BoxDetectionAttributes)
         assert metadata.label == DummyBoxDetectionLabel.CAR
         assert metadata.track_token == "sample_token"
         assert metadata.num_lidar_points == 10
-        assert isinstance(metadata.timestamp, Timestamp)
 
     def test_default_label(self):
-        metadata = BoxDetectionMetadata(**sample_metadata_args)
+        metadata = BoxDetectionAttributes(**sample_metadata_args)
         label = metadata.label
         default_label = metadata.default_label
         assert label == DummyBoxDetectionLabel.CAR
@@ -53,7 +54,7 @@ class TestBoxDetectionMetadata:
     def test_default_label_with_default_label(self):
         sample_args = sample_metadata_args.copy()
         sample_args["label"] = DefaultBoxDetectionLabel.PERSON
-        metadata = BoxDetectionMetadata(**sample_args)
+        metadata = BoxDetectionAttributes(**sample_args)
         label = metadata.label
         default_label = metadata.default_label
         assert label == DefaultBoxDetectionLabel.PERSON
@@ -64,36 +65,29 @@ class TestBoxDetectionMetadata:
             "label": DummyBoxDetectionLabel.BICYCLE,
             "track_token": "another_token",
         }
-        metadata = BoxDetectionMetadata(**sample_args)
-        assert isinstance(metadata, BoxDetectionMetadata)
+        metadata = BoxDetectionAttributes(**sample_args)
+        assert isinstance(metadata, BoxDetectionAttributes)
         assert metadata.label == DummyBoxDetectionLabel.BICYCLE
         assert metadata.track_token == "another_token"
         assert metadata.num_lidar_points is None
-        assert metadata.timestamp is None
 
     def test_missing_args(self):
         sample_args = {
             "label": DummyBoxDetectionLabel.CAR,
         }
         with pytest.raises(TypeError):
-            BoxDetectionMetadata(**sample_args)
+            BoxDetectionAttributes(**sample_args)
 
         sample_args = {
             "track_token": "token_only",
         }
         with pytest.raises(TypeError):
-            BoxDetectionMetadata(**sample_args)
-
-        sample_args = {
-            "timestamp": Timestamp.from_s(0.0),
-        }
-        with pytest.raises(TypeError):
-            BoxDetectionMetadata(**sample_args)
+            BoxDetectionAttributes(**sample_args)
 
 
 class TestBoxDetectionSE2:
     def setup_method(self):
-        self.metadata = BoxDetectionMetadata(**sample_metadata_args)
+        self.metadata = BoxDetectionAttributes(**sample_metadata_args)
         self.bounding_box_se2 = BoundingBoxSE2(
             center_se2=PoseSE2(x=0.0, y=0.0, yaw=0.0),
             length=4.0,
@@ -141,7 +135,7 @@ class TestBoxDetectionSE2:
 
 class TestBoxBoxDetectionSE3:
     def setup_method(self):
-        self.metadata = BoxDetectionMetadata(**sample_metadata_args)
+        self.metadata = BoxDetectionAttributes(**sample_metadata_args)
         self.bounding_box_se3 = BoundingBoxSE3(
             center_se3=PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
             length=4.0,
@@ -226,25 +220,17 @@ class TestBoxBoxDetectionSE3:
         assert box_detection_velo.velocity_3d == Vector3D(x=1.0, y=0.0, z=0.0)
 
 
-class TestBoxDetectionWrapper:
+class TestBoxDetectionsSE2:
     def setup_method(self):
-        self.metadata1 = BoxDetectionMetadata(
+        self.metadata1 = BoxDetectionAttributes(
             label=DummyBoxDetectionLabel.CAR,
             track_token="token1",
             num_lidar_points=10,
-            timestamp=Timestamp.from_s(0.0),
         )
-        self.metadata2 = BoxDetectionMetadata(
+        self.metadata2 = BoxDetectionAttributes(
             label=DummyBoxDetectionLabel.PEDESTRIAN,
             track_token="token2",
             num_lidar_points=5,
-            timestamp=Timestamp.from_s(0.0),
-        )
-        self.metadata3 = BoxDetectionMetadata(
-            label=DummyBoxDetectionLabel.BICYCLE,
-            track_token="token3",
-            num_lidar_points=8,
-            timestamp=Timestamp.from_s(0.0),
         )
 
         self.box_detection1 = BoxDetectionSE2(
@@ -265,6 +251,129 @@ class TestBoxDetectionWrapper:
             ),
             velocity_2d=Vector2D(x=0.5, y=0.5),
         )
+
+    def test_initialization(self):
+        wrapper = BoxDetectionsSE2(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
+        assert isinstance(wrapper, BoxDetectionsSE2)
+        assert len(wrapper.box_detections) == 2
+
+    def test_empty_initialization(self):
+        wrapper = BoxDetectionsSE2(box_detections=[], timestamp=DUMMY_TIMESTAMP)
+        assert isinstance(wrapper, BoxDetectionsSE2)
+        assert len(wrapper.box_detections) == 0
+
+    def test_getitem(self):
+        wrapper = BoxDetectionsSE2(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
+        assert wrapper[0] == self.box_detection1
+        assert wrapper[1] == self.box_detection2
+
+    def test_getitem_out_of_range(self):
+        wrapper = BoxDetectionsSE2(box_detections=[self.box_detection1], timestamp=DUMMY_TIMESTAMP)
+        with pytest.raises(IndexError):
+            _ = wrapper[1]
+
+    def test_len(self):
+        wrapper = BoxDetectionsSE2(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
+        assert len(wrapper) == 2
+
+    def test_len_empty(self):
+        wrapper = BoxDetectionsSE2(box_detections=[], timestamp=DUMMY_TIMESTAMP)
+        assert len(wrapper) == 0
+
+    def test_iter(self):
+        wrapper = BoxDetectionsSE2(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
+        detections = list(wrapper)
+        assert len(detections) == 2
+        assert detections[0] == self.box_detection1
+        assert detections[1] == self.box_detection2
+
+    def test_get_detection_by_track_token_found(self):
+        wrapper = BoxDetectionsSE2(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
+        detection = wrapper.get_detection_by_track_token("token2")
+        assert detection is not None
+        assert detection == self.box_detection2
+        assert detection.metadata.track_token == "token2"
+
+    def test_get_detection_by_track_token_not_found(self):
+        wrapper = BoxDetectionsSE2(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
+        detection = wrapper.get_detection_by_track_token("nonexistent_token")
+        assert detection is None
+
+    def test_get_detection_by_track_token_empty_wrapper(self):
+        wrapper = BoxDetectionsSE2(box_detections=[], timestamp=DUMMY_TIMESTAMP)
+        detection = wrapper.get_detection_by_track_token("token1")
+        assert detection is None
+
+    def test_occupancy_map(self):
+        wrapper = BoxDetectionsSE2(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
+        occupancy_map = wrapper.occupancy_map_2d
+        assert occupancy_map is not None
+        assert len(occupancy_map.geometries) == 2
+        assert len(occupancy_map.ids) == 2
+        assert "token1" in occupancy_map.ids
+        assert "token2" in occupancy_map.ids
+
+    def test_occupancy_map_cached(self):
+        wrapper = BoxDetectionsSE2(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
+        occupancy_map1 = wrapper.occupancy_map_2d
+        occupancy_map2 = wrapper.occupancy_map_2d
+        assert occupancy_map1 is occupancy_map2
+
+    def test_occupancy_map_empty(self):
+        wrapper = BoxDetectionsSE2(box_detections=[], timestamp=DUMMY_TIMESTAMP)
+        occupancy_map = wrapper.occupancy_map_2d
+        assert occupancy_map is not None
+        assert len(occupancy_map.geometries) == 0
+        assert len(occupancy_map.ids) == 0
+
+    def test_timestamp(self):
+        wrapper = BoxDetectionsSE2(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
+        assert wrapper.timestamp == DUMMY_TIMESTAMP
+
+    def test_items_are_se2(self):
+        wrapper = BoxDetectionsSE2(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
+        for detection in wrapper:
+            assert isinstance(detection, BoxDetectionSE2)
+
+
+class TestBoxDetectionsSE3:
+    def setup_method(self):
+        self.metadata1 = BoxDetectionAttributes(
+            label=DummyBoxDetectionLabel.CAR,
+            track_token="token1",
+            num_lidar_points=10,
+        )
+        self.metadata2 = BoxDetectionAttributes(
+            label=DummyBoxDetectionLabel.PEDESTRIAN,
+            track_token="token2",
+            num_lidar_points=5,
+        )
+        self.metadata3 = BoxDetectionAttributes(
+            label=DummyBoxDetectionLabel.BICYCLE,
+            track_token="token3",
+            num_lidar_points=8,
+        )
+
+        self.box_detection1 = BoxDetectionSE3(
+            metadata=self.metadata1,
+            bounding_box_se3=BoundingBoxSE3(
+                center_se3=PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
+                length=4.0,
+                width=2.0,
+                height=1.5,
+            ),
+            velocity_3d=Vector3D(x=1.0, y=0.0, z=0.0),
+        )
+        self.box_detection2 = BoxDetectionSE3(
+            metadata=self.metadata2,
+            bounding_box_se3=BoundingBoxSE3(
+                center_se3=PoseSE3(x=5.0, y=5.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
+                length=1.0,
+                width=0.5,
+                height=1.8,
+            ),
+            velocity_3d=Vector3D(x=0.5, y=0.5, z=0.0),
+        )
         self.box_detection3 = BoxDetectionSE3(
             metadata=self.metadata3,
             bounding_box_se3=BoundingBoxSE3(
@@ -277,59 +386,63 @@ class TestBoxDetectionWrapper:
         )
 
     def test_initialization(self):
-        wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2])
-        assert isinstance(wrapper, BoxDetectionWrapper)
+        wrapper = BoxDetectionsSE3(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
+        assert isinstance(wrapper, BoxDetectionsSE3)
         assert len(wrapper.box_detections) == 2
 
     def test_empty_initialization(self):
-        wrapper = BoxDetectionWrapper(box_detections=[])
-        assert isinstance(wrapper, BoxDetectionWrapper)
+        wrapper = BoxDetectionsSE3(box_detections=[], timestamp=DUMMY_TIMESTAMP)
+        assert isinstance(wrapper, BoxDetectionsSE3)
         assert len(wrapper.box_detections) == 0
 
     def test_getitem(self):
-        wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2])
+        wrapper = BoxDetectionsSE3(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
         assert wrapper[0] == self.box_detection1
         assert wrapper[1] == self.box_detection2
 
     def test_getitem_out_of_range(self):
-        wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1])
+        wrapper = BoxDetectionsSE3(box_detections=[self.box_detection1], timestamp=DUMMY_TIMESTAMP)
         with pytest.raises(IndexError):
             _ = wrapper[1]
 
     def test_len(self):
-        wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2, self.box_detection3])
+        wrapper = BoxDetectionsSE3(
+            box_detections=[self.box_detection1, self.box_detection2, self.box_detection3], timestamp=DUMMY_TIMESTAMP
+        )
         assert len(wrapper) == 3
 
     def test_len_empty(self):
-        wrapper = BoxDetectionWrapper(box_detections=[])
+        wrapper = BoxDetectionsSE3(box_detections=[], timestamp=DUMMY_TIMESTAMP)
         assert len(wrapper) == 0
 
     def test_iter(self):
-        wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2])
+        wrapper = BoxDetectionsSE3(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
         detections = list(wrapper)
         assert len(detections) == 2
         assert detections[0] == self.box_detection1
         assert detections[1] == self.box_detection2
 
     def test_get_detection_by_track_token_found(self):
-        wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2, self.box_detection3])
+        wrapper = BoxDetectionsSE3(
+            box_detections=[self.box_detection1, self.box_detection2, self.box_detection3], timestamp=DUMMY_TIMESTAMP
+        )
         detection = wrapper.get_detection_by_track_token("token2")
         assert detection is not None
         assert detection == self.box_detection2
         assert detection.metadata.track_token == "token2"
 
     def test_get_detection_by_track_token_not_found(self):
-        wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2])
+        wrapper = BoxDetectionsSE3(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
         detection = wrapper.get_detection_by_track_token("nonexistent_token")
         assert detection is None
 
     def test_get_detection_by_track_token_empty_wrapper(self):
-        wrapper = BoxDetectionWrapper(box_detections=[])
+        wrapper = BoxDetectionsSE3(box_detections=[], timestamp=DUMMY_TIMESTAMP)
         detection = wrapper.get_detection_by_track_token("token1")
         assert detection is None
 
     def test_occupancy_map(self):
-        wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2])
+        wrapper = BoxDetectionsSE3(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
         occupancy_map = wrapper.occupancy_map_2d
         assert occupancy_map is not None
         assert len(occupancy_map.geometries) == 2
@@ -338,20 +451,25 @@ class TestBoxDetectionWrapper:
         assert "token2" in occupancy_map.ids
 
     def test_occupancy_map_cached(self):
-        wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection2])
+        wrapper = BoxDetectionsSE3(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
         occupancy_map1 = wrapper.occupancy_map_2d
         occupancy_map2 = wrapper.occupancy_map_2d
         assert occupancy_map1 is occupancy_map2
 
     def test_occupancy_map_empty(self):
-        wrapper = BoxDetectionWrapper(box_detections=[])
+        wrapper = BoxDetectionsSE3(box_detections=[], timestamp=DUMMY_TIMESTAMP)
         occupancy_map = wrapper.occupancy_map_2d
         assert occupancy_map is not None
         assert len(occupancy_map.geometries) == 0
         assert len(occupancy_map.ids) == 0
 
-    def test_mixed_detection_types(self):
-        wrapper = BoxDetectionWrapper(box_detections=[self.box_detection1, self.box_detection3])
-        assert len(wrapper) == 2
-        assert isinstance(wrapper[0], BoxDetectionSE2)
-        assert isinstance(wrapper[1], BoxDetectionSE3)
+    def test_timestamp(self):
+        wrapper = BoxDetectionsSE3(box_detections=[self.box_detection1, self.box_detection2], timestamp=DUMMY_TIMESTAMP)
+        assert wrapper.timestamp == DUMMY_TIMESTAMP
+
+    def test_items_are_se3(self):
+        wrapper = BoxDetectionsSE3(
+            box_detections=[self.box_detection1, self.box_detection2, self.box_detection3], timestamp=DUMMY_TIMESTAMP
+        )
+        for detection in wrapper:
+            assert isinstance(detection, BoxDetectionSE3)

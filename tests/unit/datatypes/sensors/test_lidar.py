@@ -1,5 +1,6 @@
 import numpy as np
 
+from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
 from py123d.datatypes.sensors.lidar import LIDAR_FEATURE_DTYPES, Lidar, LidarFeature, LidarID, LidarMetadata
 from py123d.geometry import PoseSE3
 
@@ -62,8 +63,8 @@ class TestLidarMetadata:
         self.lidar_id = LidarID.LIDAR_TOP
         self.lidar_to_imu_se3 = PoseSE3.from_list([1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0])
 
-    def test_lidar_metadata_creation_with_extrinsic(self):
-        """Test creating LidarMetadata with extrinsic."""
+    def test_lidar_metadata_creation_with_lidar_to_imu_se3(self):
+        """Test creating LidarMetadata with lidar_to_imu_se3."""
         metadata = LidarMetadata(
             lidar_name=self.lidar_name,
             lidar_id=self.lidar_id,
@@ -72,52 +73,52 @@ class TestLidarMetadata:
         assert metadata.lidar_id == self.lidar_id
         assert metadata.lidar_to_imu_se3 == self.lidar_to_imu_se3
 
-    def test_lidar_metadata_creation_without_extrinsic(self):
-        """Test creating LidarMetadata without extrinsic."""
+    def test_lidar_metadata_creation_without_lidar_to_imu_se3(self):
+        """Test creating LidarMetadata without lidar_to_imu_se3."""
         metadata = LidarMetadata(lidar_name=self.lidar_name, lidar_id=self.lidar_id)
         assert metadata.lidar_id == self.lidar_id
         assert metadata.lidar_to_imu_se3 == PoseSE3.identity()
 
-    def test_lidar_metadata_to_dict_with_extrinsic(self):
-        """Test serializing LidarMetadata to dict with extrinsic."""
+    def test_lidar_metadata_to_dict_with_lidar_to_imu_se3(self):
+        """Test serializing LidarMetadata to dict with lidar_to_imu_se3."""
         metadata = LidarMetadata(
             lidar_name=self.lidar_name, lidar_id=self.lidar_id, lidar_to_imu_se3=self.lidar_to_imu_se3
         )
         data_dict = metadata.to_dict()
-        assert data_dict["lidar_id"] == self.lidar_id.name
+        assert data_dict["lidar_id"] == int(self.lidar_id)
         assert isinstance(data_dict["lidar_to_imu_se3"], list)
 
-    def test_lidar_metadata_to_dict_without_extrinsic(self):
-        """Test serializing LidarMetadata to dict without extrinsic."""
+    def test_lidar_metadata_to_dict_without_lidar_to_imu_se3(self):
+        """Test serializing LidarMetadata to dict without lidar_to_imu_se3."""
         metadata = LidarMetadata(lidar_name=self.lidar_name, lidar_id=self.lidar_id)
         data_dict = metadata.to_dict()
-        assert data_dict["lidar_id"] == self.lidar_id.name
+        assert data_dict["lidar_id"] == int(self.lidar_id)
         assert data_dict["lidar_to_imu_se3"] == PoseSE3.identity().to_list()
 
-    def test_lidar_metadata_from_dict_with_extrinsic(self):
-        """Test deserializing LidarMetadata from dict with extrinsic."""
+    def test_lidar_metadata_from_dict_with_lidar_to_imu_se3(self):
+        """Test deserializing LidarMetadata from dict with lidar_to_imu_se3."""
         data_dict = {
             "lidar_name": self.lidar_name,
-            "lidar_id": self.lidar_id.name,
+            "lidar_id": int(self.lidar_id),
             "lidar_to_imu_se3": [1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0],
         }
         metadata = LidarMetadata.from_dict(data_dict)
         assert metadata.lidar_id == self.lidar_id
         assert metadata.lidar_to_imu_se3 == PoseSE3.from_list(data_dict["lidar_to_imu_se3"])
 
-    def test_lidar_metadata_from_dict_without_extrinsic(self):
-        """Test deserializing LidarMetadata from dict without extrinsic."""
+    def test_lidar_metadata_from_dict_without_lidar_to_imu_se3(self):
+        """Test deserializing LidarMetadata from dict without lidar_to_imu_se3."""
         data_dict = {
             "lidar_name": self.lidar_name,
-            "lidar_id": self.lidar_id.name,
+            "lidar_id": int(self.lidar_id),
             "lidar_to_imu_se3": PoseSE3.identity().to_list(),
         }
         metadata = LidarMetadata.from_dict(data_dict)
         assert metadata.lidar_id == self.lidar_id
         assert metadata.lidar_to_imu_se3 == PoseSE3.identity()
 
-    def test_lidar_metadata_roundtrip_with_extrinsic(self):
-        """Test roundtrip serialization/deserialization with extrinsic."""
+    def test_lidar_metadata_roundtrip_with_lidar_to_imu_se3(self):
+        """Test roundtrip serialization/deserialization with lidar_to_imu_se3."""
         metadata = LidarMetadata(
             lidar_name=self.lidar_name,
             lidar_id=self.lidar_id,
@@ -128,8 +129,8 @@ class TestLidarMetadata:
         assert restored_metadata.lidar_id == metadata.lidar_id
         assert restored_metadata.lidar_to_imu_se3 == metadata.lidar_to_imu_se3
 
-    def test_lidar_metadata_roundtrip_without_extrinsic(self):
-        """Test roundtrip serialization/deserialization without extrinsic."""
+    def test_lidar_metadata_roundtrip_without_lidar_to_imu_se3(self):
+        """Test roundtrip serialization/deserialization without lidar_to_imu_se3."""
         metadata = LidarMetadata(
             lidar_name=self.lidar_name,
             lidar_id=self.lidar_id,
@@ -139,6 +140,11 @@ class TestLidarMetadata:
         assert restored_metadata.lidar_id == metadata.lidar_id
         assert restored_metadata.lidar_to_imu_se3 == PoseSE3.identity()
 
+    def test_is_instance_of_abstract_metadata(self):
+        """LidarMetadata is an instance of AbstractMetadata."""
+        metadata = LidarMetadata(lidar_name=self.lidar_name, lidar_id=self.lidar_id)
+        assert isinstance(metadata, AbstractMetadata)
+
 
 class TestLidar:
     """Test Lidar functionality."""
@@ -147,11 +153,11 @@ class TestLidar:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.extrinsic = PoseSE3.from_list([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
+        self.lidar_to_imu_se3 = PoseSE3.from_list([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
         self.metadata = LidarMetadata(
             lidar_name="TestLidar",
             lidar_id=LidarID.LIDAR_TOP,
-            lidar_to_imu_se3=self.extrinsic,
+            lidar_to_imu_se3=self.lidar_to_imu_se3,
         )
         self.point_cloud_3d = np.random.rand(self.NUM_POINTS, 3).astype(np.float32)
         self.point_cloud_features = {

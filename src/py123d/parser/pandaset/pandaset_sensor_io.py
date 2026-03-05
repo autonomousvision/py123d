@@ -1,0 +1,51 @@
+from pathlib import Path
+from typing import Dict, Optional, Tuple, Union
+
+import numpy as np
+
+from py123d.datatypes import LidarFeature, LidarID
+from py123d.geometry.transform import abs_to_rel_points_3d_array
+from py123d.parser.pandaset.utils.pandaset_utlis import (
+    global_main_lidar_to_global_imu,
+    pandaset_pose_dict_to_pose_se3,
+    read_json,
+    read_pkl_gz,
+)
+
+
+def load_pandaset_point_cloud_data_from_path(
+    pkl_gz_path: Union[Path, str],
+    iteration: Optional[int],
+) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
+    """Loads Pandaset Lidar point clouds from a gzip-pickle file and converts them to ego frame."""
+
+    pkl_gz_path = Path(pkl_gz_path)
+    assert pkl_gz_path.exists(), f"Pandaset Lidar file not found: {pkl_gz_path}"
+
+    # NOTE @DanielDauner: Pickled pandas DataFrame with columns:
+    #  - PC: "x", "y", "z",
+    #  - Features: "i" = Intensity [0,255], "t" = Time in absolute seconds, "d" = Lidar ID (0 for top, 1 for front)
+    all_lidar_df = read_pkl_gz(pkl_gz_path)
+
+    # Use float64 precision for global coordinates.
+    point_cloud_3d_global_frame = all_lidar_df[["x", "y", "z"]].to_numpy(dtype=np.float64)
+
+    # Convert global point cloud to ego frame using the pose information from the "poses.json" file.
+    ego_pose = global_main_lidar_to_global_imu(
+        pandaset_pose_dict_to_pose_se3(read_json(pkl_gz_path.parent / "poses.json")[iteration])
+    )
+    point_cloud_3d = abs_to_rel_points_3d_array(ego_pose, point_cloud_3d_global_frame)
+
+    # Convert lidar ids of PandaSet to 123D LidarIDs.
+    lidar_id = np.zeros(len(point_cloud_3d), dtype=np.uint8)
+    lidar_id[all_lidar_df["d"] == 0] = int(LidarID.LIDAR_TOP)
+    lidar_id[all_lidar_df["d"] == 1] = int(LidarID.LIDAR_FRONT)
+
+    # Load lidar features.
+    point_cloud_features = {
+        LidarFeature.INTENSITY.serialize(): all_lidar_df["i"].to_numpy(dtype=np.uint8),
+        LidarFeature.TIMESTAMP.serialize(): (all_lidar_df["t"].to_numpy(dtype=np.float64) * 1e6).astype(np.int64),
+        LidarFeature.IDS.serialize(): lidar_id,
+    }
+
+    return point_cloud_3d.astype(np.float32), point_cloud_features
