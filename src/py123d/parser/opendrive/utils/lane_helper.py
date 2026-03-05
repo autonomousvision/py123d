@@ -97,7 +97,7 @@ class OpenDriveLaneHelper:
         polyline_array = np.flip(outer_polyline, axis=0) if self.id > 0 else outer_polyline
         return Polyline3D.from_array(polyline_array)
 
-    @property
+    @cached_property
     def center_polyline_se2(self) -> PolylineSE2:
         return PolylineSE2.from_array(
             np.concatenate(
@@ -109,7 +109,7 @@ class OpenDriveLaneHelper:
             ).mean(axis=0)
         )
 
-    @property
+    @cached_property
     def center_polyline_3d(self) -> Polyline3D:
         return Polyline3D.from_array(
             np.concatenate(

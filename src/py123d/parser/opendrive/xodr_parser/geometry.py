@@ -62,14 +62,17 @@ class XODRLine(XODRGeometry):
 
     def interpolate_se2_batch(self, s: npt.NDArray[np.float64], t: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         n = len(s)
-        result = np.broadcast_to(self.start_se2, (n, len(PoseSE2Index))).copy()
-        result[:, PoseSE2Index.X] += s * np.cos(self.hdg)
-        result[:, PoseSE2Index.Y] += s * np.sin(self.hdg)
+        cos_hdg = np.cos(self.hdg)
+        sin_hdg = np.sin(self.hdg)
+        result = np.empty((n, 3), dtype=np.float64)
+        result[:, 0] = self.x + s * cos_hdg
+        result[:, 1] = self.y + s * sin_hdg
+        result[:, 2] = self.hdg
         mask = t != 0.0
         if np.any(mask):
-            yaw_half_pi = result[mask, PoseSE2Index.YAW] + np.pi / 2
-            result[mask, PoseSE2Index.X] += t[mask] * np.cos(yaw_half_pi)
-            result[mask, PoseSE2Index.Y] += t[mask] * np.sin(yaw_half_pi)
+            yaw_half_pi = self.hdg + np.pi / 2
+            result[mask, 0] += t[mask] * np.cos(yaw_half_pi)
+            result[mask, 1] += t[mask] * np.sin(yaw_half_pi)
         return result
 
 
@@ -116,20 +119,19 @@ class XODRArc(XODRGeometry):
     def interpolate_se2_batch(self, s: npt.NDArray[np.float64], t: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         kappa = self.curvature
         radius = 1.0 / kappa if kappa != 0 else float("inf")
-        initial_heading = self.hdg
-        final_heading = initial_heading + s * kappa
-        dx = radius * (np.sin(final_heading) - np.sin(initial_heading))
-        dy = -radius * (np.cos(final_heading) - np.cos(initial_heading))
+        final_heading = self.hdg + s * kappa
+        sin_initial = np.sin(self.hdg)
+        cos_initial = np.cos(self.hdg)
         n = len(s)
-        result = np.broadcast_to(self.start_se2, (n, len(PoseSE2Index))).copy()
-        result[:, PoseSE2Index.X] += dx
-        result[:, PoseSE2Index.Y] += dy
-        result[:, PoseSE2Index.YAW] = final_heading
+        result = np.empty((n, 3), dtype=np.float64)
+        result[:, 0] = self.x + radius * (np.sin(final_heading) - sin_initial)
+        result[:, 1] = self.y - radius * (np.cos(final_heading) - cos_initial)
+        result[:, 2] = final_heading
         mask = t != 0.0
         if np.any(mask):
-            yaw_half_pi = result[mask, PoseSE2Index.YAW] + np.pi / 2
-            result[mask, PoseSE2Index.X] += t[mask] * np.cos(yaw_half_pi)
-            result[mask, PoseSE2Index.Y] += t[mask] * np.sin(yaw_half_pi)
+            yaw_half_pi = result[mask, 2] + np.pi / 2
+            result[mask, 0] += t[mask] * np.cos(yaw_half_pi)
+            result[mask, 1] += t[mask] * np.sin(yaw_half_pi)
         return result
 
 
@@ -177,15 +179,15 @@ class XODRSpiral(XODRGeometry):
         gamma = (self.curvature_end - self.curvature_start) / self.length
         dx, dy = self._compute_spiral_position_batch(s, gamma)
         n = len(s)
-        result = np.broadcast_to(self.start_se2, (n, len(PoseSE2Index))).copy()
-        result[:, PoseSE2Index.X] += dx
-        result[:, PoseSE2Index.Y] += dy
-        result[:, PoseSE2Index.YAW] += gamma * s**2 / 2 + self.curvature_start * s
+        result = np.empty((n, 3), dtype=np.float64)
+        result[:, 0] = self.x + dx
+        result[:, 1] = self.y + dy
+        result[:, 2] = self.hdg + gamma * s**2 / 2 + self.curvature_start * s
         mask = t != 0.0
         if np.any(mask):
-            yaw_half_pi = result[mask, PoseSE2Index.YAW] + np.pi / 2
-            result[mask, PoseSE2Index.X] += t[mask] * np.cos(yaw_half_pi)
-            result[mask, PoseSE2Index.Y] += t[mask] * np.sin(yaw_half_pi)
+            yaw_half_pi = result[mask, 2] + np.pi / 2
+            result[mask, 0] += t[mask] * np.cos(yaw_half_pi)
+            result[mask, 1] += t[mask] * np.sin(yaw_half_pi)
         return result
 
     def _compute_spiral_position_batch(
