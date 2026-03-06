@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 import numpy as np
-from pyquaternion import Quaternion
 from typing_extensions import override
 
 from py123d.common.utils.dependencies import check_dependencies
@@ -49,7 +48,6 @@ from py123d.parser.registry import NuScenesBoxDetectionLabel
 check_dependencies(["nuscenes"], "nuscenes")
 from nuscenes import NuScenes
 from nuscenes.can_bus.can_bus_api import NuScenesCanBus
-from nuscenes.utils.data_classes import Box
 from nuscenes.utils.splits import create_splits_scenes
 
 
@@ -345,16 +343,12 @@ def _extract_nuscenes_ego_state(
     """Extracts the ego state from a nuScenes sample."""
     lidar_data = nusc.get("sample_data", sample["data"]["LIDAR_TOP"])
     ego_pose = nusc.get("ego_pose", lidar_data["ego_pose_token"])
-    quat = Quaternion(ego_pose["rotation"])
-    imu_pose = PoseSE3(
-        x=ego_pose["translation"][0],
-        y=ego_pose["translation"][1],
-        z=ego_pose["translation"][2],
-        qw=quat.w,
-        qx=quat.x,
-        qy=quat.y,
-        qz=quat.z,
+
+    imu_pose = PoseSE3.from_R_t(
+        rotation=np.array(ego_pose["rotation"], dtype=np.float64),
+        translation=np.array(ego_pose["translation"], dtype=np.float64),
     )
+
     scene_name = nusc.get("scene", sample["scene_token"])["name"]
     try:
         pose_msgs = can_bus.get_messages(scene_name, "pose")
@@ -396,23 +390,16 @@ def _extract_nuscenes_box_detections(nusc: NuScenes, sample: Dict[str, Any]) -> 
     box_detections: List[BoxDetectionSE3] = []
     for ann_token in sample["anns"]:
         ann = nusc.get("sample_annotation", ann_token)
-        box = Box(ann["translation"], ann["size"], Quaternion(ann["rotation"]))
-
-        center_quat = box.orientation
-        center = PoseSE3(
-            box.center[0],
-            box.center[1],
-            box.center[2],
-            center_quat.w,
-            center_quat.x,
-            center_quat.y,
-            center_quat.z,
+        center_se3 = PoseSE3.from_R_t(
+            rotation=np.array(ann["rotation"], dtype=np.float64),
+            translation=np.array(ann["translation"], dtype=np.float64),
         )
+        width, length, height = ann["size"]
         bounding_box = BoundingBoxSE3(
-            center_se3=center,
-            length=box.wlh[1],
-            width=box.wlh[0],
-            height=box.wlh[2],
+            center_se3=center_se3,
+            length=length,
+            width=width,
+            height=height,
         )
         category = ann["category_name"]
         label = NUSCENES_DETECTION_NAME_DICT[category]
