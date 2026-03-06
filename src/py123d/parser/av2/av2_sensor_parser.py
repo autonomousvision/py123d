@@ -337,7 +337,7 @@ def _extract_av2_sensor_ego_state(
     ego_imu_se3 = _row_dict_to_pose_se3(ego_pose_dict)
     return EgoStateSE3.from_imu(
         imu_se3=ego_imu_se3,
-        vehicle_parameters=ego_metadata,
+        ego_metadata=ego_metadata,
         dynamic_state_se3=None,
         timestamp=Timestamp.from_ns(lidar_timestamp_ns),
     )

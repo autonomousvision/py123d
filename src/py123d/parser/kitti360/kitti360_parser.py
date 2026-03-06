@@ -587,7 +587,7 @@ def _extract_ego_state_all(
         ego_state_all.append(
             EgoStateSE3.from_imu(
                 imu_se3=imu_pose_se3,
-                vehicle_parameters=ego_metadata,
+                ego_metadata=ego_metadata,
                 dynamic_state_se3=dynamic_state_se3,
                 timestamp=Timestamp.from_us(valid_timestamp[idx] * 1_000_000),
             )

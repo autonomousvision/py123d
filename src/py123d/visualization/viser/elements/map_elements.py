@@ -115,7 +115,7 @@ def _get_map_trimesh_dict(
                 # If the map does not have z-values, we place the surfaces on the ground level of the ego vehicle.
                 if not scene.map_metadata.map_has_z:
                     trimesh_mesh.vertices[..., Point3DIndex.Z] += (
-                        scene_query_position.z - initial_ego_state.vehicle_parameters.height / 2
+                        scene_query_position.z - initial_ego_state.ego_metadata.height / 2
                     )
 
                 # Color the mesh based on the map layer type.

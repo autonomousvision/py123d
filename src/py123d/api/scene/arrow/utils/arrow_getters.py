@@ -73,18 +73,18 @@ def get_timestamp_from_arrow_table(arrow_table: pa.Table, index: int) -> Timesta
 def get_ego_state_se3_from_arrow_table(
     arrow_table: pa.Table,
     index: int,
-    vehicle_parameters: Optional[EgoMetadata],
+    ego_metadata: Optional[EgoMetadata],
 ) -> Optional[EgoStateSE3]:
     """Builds a :class:`~py123d.datatypes.vehicle_state.EgoStateSE3` from an Arrow table at a given index.
 
     :param arrow_table: The Arrow table containing the ego state data.
     :param index: The index to extract the ego state from.
-    :param vehicle_parameters: The vehicle parameters used to build the ego state.
+    :param ego_metadata: The ego metadata used to build the ego state.
     :return: The ego state at the given index, or None if not available.
     """
 
     ego_state_se3: Optional[EgoStateSE3] = None
-    if _all_columns_in_schema(arrow_table, EGO_STATE_SE3.all_columns()) and vehicle_parameters is not None:
+    if _all_columns_in_schema(arrow_table, EGO_STATE_SE3.all_columns()) and ego_metadata is not None:
         timestamp = Timestamp.from_us(arrow_table[EGO_STATE_SE3.col("timestamp_us")][index].as_py())
         imu_se3 = PoseSE3.from_list(arrow_table[EGO_STATE_SE3.col("imu_se3")][index].as_py())
         dynamic_state_se3 = _get_optional_array_mixin(
@@ -93,7 +93,7 @@ def get_ego_state_se3_from_arrow_table(
         )
         ego_state_se3 = EgoStateSE3.from_imu(
             imu_se3=imu_se3,
-            vehicle_parameters=vehicle_parameters,
+            ego_metadata=ego_metadata,
             dynamic_state_se3=dynamic_state_se3,  # type: ignore
             timestamp=timestamp,
         )

@@ -266,7 +266,7 @@ def _extract_pandaset_sensor_ego_state(
     dynamic_state_se3 = None
     return EgoStateSE3.from_imu(
         imu_se3=imu_se3,
-        vehicle_parameters=ego_metadata,
+        ego_metadata=ego_metadata,
         dynamic_state_se3=dynamic_state_se3,
         timestamp=timestamp,
     )

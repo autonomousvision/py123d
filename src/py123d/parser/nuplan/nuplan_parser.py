@@ -395,7 +395,7 @@ def _extract_nuplan_ego_state(nuplan_lidar_pc: LidarPc, ego_metadata: EgoMetadat
     )
     return EgoStateSE3.from_imu(
         imu_se3=imu_pose,
-        vehicle_parameters=ego_metadata,
+        ego_metadata=ego_metadata,
         dynamic_state_se3=dynamic_state_se3,
         timestamp=Timestamp.from_us(nuplan_lidar_pc.ego_pose.timestamp),
     )

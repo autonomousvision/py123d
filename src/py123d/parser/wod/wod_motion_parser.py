@@ -264,7 +264,7 @@ def _extract_all_ego_states(
             assert ego_metadata.height == state.height, "Ego vehicle height does not match vehicle parameters."
             ego_state = EgoStateSE3.from_center(
                 center_se3=center_se3,
-                vehicle_parameters=ego_metadata,
+                ego_metadata=ego_metadata,
                 dynamic_state_se3=None,
                 timestamp=all_timestamps[len(all_ego_states)],
             )

@@ -386,7 +386,7 @@ def _extract_nuscenes_ego_state(
     return EgoStateSE3.from_imu(
         imu_se3=imu_pose,
         dynamic_state_se3=dynamic_state,
-        vehicle_parameters=ego_metadata,
+        ego_metadata=ego_metadata,
         timestamp=Timestamp.from_us(sample["timestamp"]),
     )
 
