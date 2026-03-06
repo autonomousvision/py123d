@@ -97,6 +97,7 @@ class WODPerceptionParser(DatasetParser):
         zero_roll_pitch: bool,
         keep_polar_features: bool,
         add_map_pose_offset: bool,
+        add_dummy_lane_groups: bool,
     ) -> None:
         """Initializes the :class:`WODPerceptionParser`.
 
@@ -105,6 +106,8 @@ class WODPerceptionParser(DatasetParser):
         :param zero_roll_pitch: Whether to zero out roll and pitch angles in the vehicle pose
         :param keep_polar_features: Whether to keep polar features in the Lidar point clouds
         :param add_map_pose_offset: Whether to add a pose offset to the map
+        :param add_dummy_lane_groups: Whether to add dummy lane groups. \
+            If True, creates a lane group for each lane since WOD does not provide lane groups.
         """
         for split in splits:
             assert split in WOD_PERCEPTION_AVAILABLE_SPLITS, (
@@ -116,6 +119,7 @@ class WODPerceptionParser(DatasetParser):
         self._zero_roll_pitch: bool = zero_roll_pitch
         self._keep_polar_features: bool = keep_polar_features
         self._add_map_pose_offset: bool = add_map_pose_offset
+        self._add_dummy_lane_groups: bool = add_dummy_lane_groups
 
         self._split_tf_record_pairs: List[Tuple[str, Path]] = self._collect_split_tf_record_pairs()
 
@@ -137,6 +141,22 @@ class WODPerceptionParser(DatasetParser):
 
         return split_tf_record_pairs
 
+    def get_map_parsers(self) -> List[MapParser]:
+        """Inherited, see superclass."""
+        map_parsers: List[MapParser] = []
+        for split, source_tf_record_path in self._split_tf_record_pairs:
+            initial_frame = _get_initial_frame_from_tfrecord(source_tf_record_path)
+            map_parsers.append(
+                WODMapParser(
+                    dataset="wod_perception",
+                    split=split,
+                    log_name=str(initial_frame.context.name),
+                    source_tf_record_path=source_tf_record_path,
+                    add_dummy_lane_groups=self._add_dummy_lane_groups,
+                )
+            )
+        return map_parsers
+
     def get_log_parsers(self) -> List[LogParser]:
         """Inherited, see superclass."""
         return [
@@ -150,21 +170,6 @@ class WODPerceptionParser(DatasetParser):
             )
             for split, source_tf_record_path in self._split_tf_record_pairs
         ]
-
-    def get_map_parsers(self) -> List[MapParser]:
-        """Inherited, see superclass."""
-        map_parsers: List[MapParser] = []
-        for split, source_tf_record_path in self._split_tf_record_pairs:
-            initial_frame = _get_initial_frame_from_tfrecord(source_tf_record_path)
-            map_parsers.append(
-                WODMapParser(
-                    dataset="wod_perception",
-                    split=split,
-                    log_name=str(initial_frame.context.name),
-                    source_tf_record_path=source_tf_record_path,
-                )
-            )
-        return map_parsers
 
 
 class WODPerceptionLogParser(LogParser):

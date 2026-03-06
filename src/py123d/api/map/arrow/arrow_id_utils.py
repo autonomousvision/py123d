@@ -102,14 +102,15 @@ class ToIntMapping:
     def map(self, str_like: Any) -> Optional[int]:
         """Maps a string-like ID to its corresponding integer ID."""
 
-        if isinstance(str_like, float):
-            key = str(int(str_like))  # Convert float to int first to avoid decimal point
-        elif isinstance(str_like, int):
-            key = str(str_like)
-        else:
-            key = str(str_like)
+        result: Optional[int] = None
+        if str_like is not None:
+            if isinstance(str_like, float):
+                key = str(int(str_like))  # Convert float to int first to avoid decimal point
+            else:
+                key = str(str_like)
+            result = self.str_to_int.get(key, None)
 
-        return self.str_to_int.get(key, None)
+        return result
 
     def map_list(self, id_list: Optional[List[str]]) -> List[int]:
         """Maps a list of string-like IDs to their corresponding integer IDs."""

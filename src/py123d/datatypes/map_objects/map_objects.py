@@ -27,10 +27,10 @@ class Lane(BaseMapSurfaceObject):
 
     __slots__ = (
         "_lane_type",
-        "_lane_group_id",
         "_left_boundary",
         "_right_boundary",
         "_centerline",
+        "_lane_group_id",
         "_left_lane_id",
         "_right_lane_id",
         "_predecessor_ids",
@@ -43,10 +43,10 @@ class Lane(BaseMapSurfaceObject):
         self,
         object_id: MapObjectIDType,
         lane_type: LaneType,
-        lane_group_id: MapObjectIDType,
         left_boundary: Union[Polyline2D, Polyline3D],
         right_boundary: Union[Polyline2D, Polyline3D],
         centerline: Union[Polyline2D, Polyline3D],
+        lane_group_id: Optional[MapObjectIDType] = None,
         left_lane_id: Optional[MapObjectIDType] = None,
         right_lane_id: Optional[MapObjectIDType] = None,
         predecessor_ids: List[MapObjectIDType] = [],
@@ -67,7 +67,7 @@ class Lane(BaseMapSurfaceObject):
 
         :param object_id: The unique identifier for the lane.
         :param lane_type: The type of the lane, according to :class:`~py123d.datatypes.map_objects.map_layer_types.LaneType`.
-        :param lane_group_id: The unique identifier for the lane group this lane belongs to.
+        :param lane_group_id: The unique identifier for the lane group this lane belongs to, defaults to None.
         :param left_boundary: Polyline of left boundary of the lane.
         :param right_boundary: Polyline of right boundary of the lane.
         :param centerline: Polyline of centerline of the lane.
@@ -123,15 +123,15 @@ class Lane(BaseMapSurfaceObject):
         return self._lane_type
 
     @property
-    def lane_group_id(self) -> MapObjectIDType:
-        """ID of the lane group this lane belongs to."""
+    def lane_group_id(self) -> Optional[MapObjectIDType]:
+        """ID of the lane group this lane belongs to, or None if not assigned."""
         return self._lane_group_id
 
     @property
     def lane_group(self) -> Optional[LaneGroup]:
         """The :class:`LaneGroup` this lane belongs to."""
         lane_group: Optional[LaneGroup] = None
-        if self._map_api is not None:
+        if self._map_api is not None and self.lane_group_id is not None:
             lane_group_ = self._map_api.get_map_object(self.lane_group_id, MapLayer.LANE_GROUP)
             if isinstance(lane_group_, LaneGroup):
                 lane_group = lane_group_

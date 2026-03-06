@@ -7,6 +7,7 @@ parser:
   zero_roll_pitch: true
   keep_polar_features: false
   add_map_pose_offset: false
+  add_dummy_lane_groups: false
 
 dataset_converter_config:
   _target_: py123d.parser.dataset_converter_config.DatasetConverterConfig

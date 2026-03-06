@@ -100,6 +100,7 @@ class WODMotionParser(DatasetParser):
         self,
         splits: List[str],
         wod_motion_data_root: Union[str, Path],
+        add_dummy_lane_groups: bool,
     ) -> None:
         for split in splits:
             assert split in WOD_MOTION_AVAILABLE_SPLITS, (
@@ -108,6 +109,8 @@ class WODMotionParser(DatasetParser):
 
         self._splits: List[str] = splits
         self._wod_motion_data_root: Path = Path(wod_motion_data_root)
+        self._add_dummy_lane_groups: bool = add_dummy_lane_groups
+
         self._split_tf_record_pairs: List[Tuple[str, Path, str]] = self._collect_split_tf_record_pairs()
 
     def _collect_split_tf_record_pairs(self) -> List[Tuple[str, Path, str]]:
@@ -130,17 +133,6 @@ class WODMotionParser(DatasetParser):
 
         return split_tf_record_pairs
 
-    def get_log_parsers(self) -> List[LogParser]:
-        """Inherited, see superclass."""
-        return [
-            WODMotionLogParser(
-                split=split,
-                source_tf_record_path=source_tf_record_path,
-                scenario_id=scenario_id,
-            )
-            for split, source_tf_record_path, scenario_id in self._split_tf_record_pairs
-        ]
-
     def get_map_parsers(self) -> List[MapParser]:
         """Inherited, see superclass."""
         return [
@@ -148,6 +140,18 @@ class WODMotionParser(DatasetParser):
                 dataset="wod-motion",
                 split=split,
                 log_name=scenario_id,
+                source_tf_record_path=source_tf_record_path,
+                scenario_id=scenario_id,
+                add_dummy_lane_groups=self._add_dummy_lane_groups,
+            )
+            for split, source_tf_record_path, scenario_id in self._split_tf_record_pairs
+        ]
+
+    def get_log_parsers(self) -> List[LogParser]:
+        """Inherited, see superclass."""
+        return [
+            WODMotionLogParser(
+                split=split,
                 source_tf_record_path=source_tf_record_path,
                 scenario_id=scenario_id,
             )

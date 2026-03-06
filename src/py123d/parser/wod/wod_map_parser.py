@@ -44,6 +44,8 @@ class WODMapParser(MapParser):
     :param source_tf_record_path: Path to the TFRecord file containing map features.
     :param scenario_id: If provided, load a specific scenario from the TFRecord (WOD Motion).
         If ``None``, load the initial frame (WOD Perception).
+    :param add_dummy_lane_groups: Whether to add dummy lane groups. \
+        If True, creates a lane group for each lane since WOD does not provide lane groups.
     """
 
     def __init__(
@@ -53,12 +55,14 @@ class WODMapParser(MapParser):
         log_name: str,
         source_tf_record_path: Path,
         scenario_id: Optional[str] = None,
+        add_dummy_lane_groups: bool = False,
     ) -> None:
         self._dataset = dataset
         self._split = split
         self._log_name = log_name
         self._source_tf_record_path = source_tf_record_path
         self._scenario_id = scenario_id
+        self._add_dummy_lane_groups = add_dummy_lane_groups
 
     def get_map_metadata(self) -> MapMetadata:
         """Inherited, see superclass."""
@@ -74,7 +78,7 @@ class WODMapParser(MapParser):
     def iter_map_objects(self) -> Iterator[BaseMapObject]:
         """Inherited, see superclass."""
         map_features = self._load_map_features()
-        yield from iter_wod_map_objects(map_features)
+        yield from iter_wod_map_objects(map_features, self._add_dummy_lane_groups)
 
     def _load_map_features(self) -> List[map_pb2.MapFeature]:
         """Loads map features from the TFRecord file."""
@@ -120,24 +124,28 @@ class WODMapParser(MapParser):
             raise ValueError(f"No frames found in TFRecord: {self._source_tf_record_path}")
 
 
-def iter_wod_map_objects(map_features: List[map_pb2.MapFeature]) -> Iterator[BaseMapObject]:
+def iter_wod_map_objects(
+    map_features: List[map_pb2.MapFeature], add_dummy_lane_groups: bool
+) -> Iterator[BaseMapObject]:
     """Yields all map objects from WOD map features.
 
     :param map_features: Protobuf map features from a WOD frame or scenario.
+    :param add_dummy_lane_groups: Whether to add dummy lane groups. If True, creates a lane group for each lane since WOD does not provide lane groups.
     :yields: BaseMapObject instances (RoadLine, RoadEdge, Lane, LaneGroup, Carpark, Crosswalk, StopZone).
     """
     # We first extract all road lines, road edges, and lanes.
     # NOTE: road lines and edges are needed to extract lane boundaries.
     road_lines = _get_waymo_road_lines(map_features)
     road_edges = _get_waymo_road_edges(map_features)
-    lanes = _get_waymo_lanes(map_features, road_lines, road_edges)
+    lanes = _get_waymo_lanes(map_features, road_lines, road_edges, add_dummy_lane_groups)
 
     yield from road_lines
     yield from road_edges
     yield from lanes
 
-    # Yield lane groups based on the extracted lanes
-    yield from _get_waymo_lane_groups(lanes)
+    if add_dummy_lane_groups:
+        # Yield lane groups based on the extracted lanes
+        yield from _get_waymo_lane_groups(lanes)
 
     # Yield miscellaneous surfaces (carparks, crosswalks, stop zones, etc.)
     lane_dict = {lane.object_id: lane for lane in lanes}
@@ -184,6 +192,7 @@ def _get_waymo_lanes(
     map_features: List[map_pb2.MapFeature],
     road_lines: List[RoadLine],
     road_edges: List[RoadEdge],
+    add_dummy_lane_groups: bool,
 ) -> List[Lane]:
     # 1. Load lane data from Waymo frame proto
     lane_data_dict: Dict[int, WaymoLaneData] = {}
@@ -230,10 +239,10 @@ def _get_waymo_lanes(
             Lane(
                 object_id=lane_data.object_id,
                 lane_type=lane_data.lane_type,
-                lane_group_id=lane_data.object_id,
                 left_boundary=lane_data.left_boundary,
                 right_boundary=lane_data.right_boundary,
                 centerline=lane_data.centerline,
+                lane_group_id=lane_data.object_id if add_dummy_lane_groups else None,
                 left_lane_id=_get_majority_neighbor(lane_data.left_neighbors),
                 right_lane_id=_get_majority_neighbor(lane_data.right_neighbors),
                 predecessor_ids=lane_data.predecessor_ids,

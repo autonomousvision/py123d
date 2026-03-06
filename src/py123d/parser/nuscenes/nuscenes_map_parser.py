@@ -229,7 +229,8 @@ def _extract_nuscenes_lane_groups(
     # 1. Gather all lane group ids that were previously assigned in the lanes (either roadblocks of lane themselves)
     lane_group_lane_dict: Dict[str, List[str]] = defaultdict(list)
     for lane in lanes + lane_connectors:
-        lane_group_lane_dict[lane.lane_group_id].append(lane.object_id)  # type: ignore
+        if lane.lane_group_id is not None:
+            lane_group_lane_dict[lane.lane_group_id].append(lane.object_id)  # type: ignore
 
     for lane_group_id, lane_ids in lane_group_lane_dict.items():
         if len(lane_ids) > 1:
@@ -253,11 +254,11 @@ def _extract_nuscenes_lane_groups(
                 continue
             for pred_id in lane.predecessor_ids:
                 pred_lane = lanes_dict.get(pred_id)
-                if pred_lane is not None:
+                if pred_lane is not None and pred_lane.lane_group_id is not None:
                     predecessor_ids.add(pred_lane.lane_group_id)
             for succ_id in lane.successor_ids:
                 succ_lane = lanes_dict.get(succ_id)
-                if succ_lane is not None:
+                if succ_lane is not None and succ_lane.lane_group_id is not None:
                     successor_ids.add(succ_lane.lane_group_id)
 
         intersection_ids = set(

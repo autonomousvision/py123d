@@ -4,6 +4,7 @@ parser:
 
   splits: ["wod-motion_train", "wod-motion_val"]
   wod_motion_data_root: ${dataset_paths.wod_motion_data_root}
+  add_dummy_lane_groups: false
 
 dataset_converter_config:
   _target_: py123d.parser.dataset_converter_config.DatasetConverterConfig
