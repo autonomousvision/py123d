@@ -3,6 +3,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+import numpy as np
 import pyarrow as pa
 
 from py123d.api.map.abstract_map_writer import AbstractMapWriter
@@ -26,7 +27,7 @@ from py123d.datatypes import (
     Walkway,
 )
 from py123d.datatypes.map_objects.base_map_objects import BaseMapObject
-from py123d.geometry import Point2DIndex, Point3DIndex, Polyline3D
+from py123d.geometry import Point2DIndex, Point3DIndex, Polyline2D, Polyline3D
 
 
 class ArrowMapWriter(AbstractMapWriter):
@@ -342,9 +343,17 @@ class ArrowMapWriter(AbstractMapWriter):
         """
         self._assert_initialized()
         self._map_data[layer]["id"].append(surface_object.object_id)
-        # NOTE: if the outline has a z-coordinate, we store it, otherwise we infer from the outline from the polygon
         if isinstance(surface_object.outline, Polyline3D):
             self._map_data[layer]["outline"].append(surface_object.outline.array)
+        elif isinstance(surface_object.outline, Polyline2D):
+            array_2d = surface_object.outline.array
+            self._map_data[layer]["outline"].append(np.column_stack([array_2d, np.zeros(len(array_2d))]))
+        else:
+            # Infer 3D outline from polygon exterior coordinates
+            coords = np.array(surface_object.shapely_polygon.exterior.coords)
+            if coords.shape[1] == 2:
+                coords = np.column_stack([coords, np.zeros(len(coords))])
+            self._map_data[layer]["outline"].append(coords)
         self._map_data[layer]["wkb"].append(surface_object.shapely_polygon.wkb)
 
     def _write_line_layer(self, layer: MapLayer, line_object: BaseMapLineObject) -> None:
