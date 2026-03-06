@@ -35,6 +35,9 @@ def main(cfg: DictConfig) -> None:
     # Get scenes from scene builder
     scenes = scene_builder.get_scenes(scene_filter, executor=executor)
 
+    if len(scenes) == 0:
+        raise ValueError("No scenes found for the given filter. Please check your filter criteria and dataset paths.")
+
     # Build Viser config
     viser_config = build_viser_config(cfg.viser_config)
 
