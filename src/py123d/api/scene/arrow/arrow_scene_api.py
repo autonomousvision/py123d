@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Final, Optional, Union
+from typing import Final, List, Optional, Union
 
 import pyarrow as pa
 
@@ -128,6 +128,20 @@ class ArrowSceneAPI(SceneAPI):
         table_index = self.get_scene_metadata().initial_idx + iteration
         return table_index
 
+    @staticmethod
+    def _get_first_sync_index(sync_table: pa.Table, column_name: str, idx: int) -> Optional[int]:
+        """Extracts the first row index from a sync table column.
+
+        Handles both scalar (pa.int64) and list-typed (pa.list_(pa.int64())) sync columns.
+        For list-typed columns, returns the first element of the list (earliest observation in the interval).
+        """
+        value = sync_table[column_name][idx].as_py()
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return value[0] if len(value) > 0 else None
+        return value
+
     def _get_map_file(self) -> Optional[Path]:
         # FIXME: THis is hacky af.
         if self._map_file is None:
@@ -237,7 +251,7 @@ class ArrowSceneAPI(SceneAPI):
         if ego_table is not None:
             sync_table = self._get_sync_table()
             idx = self._get_table_index(iteration)
-            row_idx = sync_table[EGO_STATE_SE3.prefix()][idx].as_py()
+            row_idx = self._get_first_sync_index(sync_table, EGO_STATE_SE3.prefix(), idx)
             if row_idx is not None:
                 ego_metadata = get_metadata_from_arrow_schema(ego_table.schema, EgoMetadata)
                 ego_state = get_ego_state_se3_from_arrow_table(ego_table, row_idx, ego_metadata)
@@ -250,7 +264,7 @@ class ArrowSceneAPI(SceneAPI):
         if box_table is not None:
             sync_table = self._get_sync_table()
             idx = self._get_table_index(iteration)
-            row_idx = sync_table[BOX_DETECTIONS_SE3.prefix()][idx].as_py()
+            row_idx = self._get_first_sync_index(sync_table, BOX_DETECTIONS_SE3.prefix(), idx)
             if row_idx is not None:
                 box_detection_metadata = get_metadata_from_arrow_schema(box_table.schema, BoxDetectionMetadata)
                 if box_detection_metadata is not None:
@@ -267,7 +281,7 @@ class ArrowSceneAPI(SceneAPI):
         if tl_table is not None:
             sync_table = self._get_sync_table()
             idx = self._get_table_index(iteration)
-            row_idx = sync_table[TRAFFIC_LIGHTS.prefix()][idx].as_py()
+            row_idx = self._get_first_sync_index(sync_table, TRAFFIC_LIGHTS.prefix(), idx)
             if row_idx is not None:
                 traffic_light_detections = get_traffic_light_detections_from_arrow_table(tl_table, row_idx)
         return traffic_light_detections
@@ -282,7 +296,7 @@ class ArrowSceneAPI(SceneAPI):
             if cam_meta is not None:
                 sync_table = self._get_sync_table()
                 idx = self._get_table_index(iteration)
-                row_idx = sync_table[camera_id.serialize()][idx].as_py()
+                row_idx = self._get_first_sync_index(sync_table, camera_id.serialize(), idx)
                 if row_idx is not None:
                     pinhole_camera = get_camera_from_arrow_table(
                         cam_table, row_idx, camera_id, cam_meta, self.log_metadata
@@ -301,7 +315,7 @@ class ArrowSceneAPI(SceneAPI):
             if cam_meta is not None:
                 sync_table = self._get_sync_table()
                 idx = self._get_table_index(iteration)
-                row_idx = sync_table[camera_id.serialize()][idx].as_py()
+                row_idx = self._get_first_sync_index(sync_table, camera_id.serialize(), idx)
                 if row_idx is not None:
                     fisheye_mei_camera = get_camera_from_arrow_table(
                         cam_table, row_idx, camera_id, cam_meta, self.log_metadata
@@ -314,16 +328,41 @@ class ArrowSceneAPI(SceneAPI):
         lidar_table = self._get_modality_table(LIDAR.prefix())
         if lidar_table is not None:
             lidar_metadatas = self.get_lidar_metadatas()
-
             if lidar_metadatas is not None and lidar_id in list(lidar_metadatas.keys()) + [LidarID.LIDAR_MERGED]:
                 sync_table = self._get_sync_table()
                 idx = self._get_table_index(iteration)
-                row_idx = sync_table[LidarID.LIDAR_MERGED.serialize()][idx].as_py()
+                row_idx = self._get_first_sync_index(sync_table, LidarID.LIDAR_MERGED.serialize(), idx)
                 if row_idx is not None:
                     lidar = get_lidar_from_arrow_table(
                         lidar_table, row_idx, lidar_id, lidar_metadatas, self.log_metadata
                     )
         return lidar
+
+    def get_ego_states_se3_in_window(self, start_timestamp: Timestamp, end_timestamp: Timestamp) -> List[EgoStateSE3]:
+        """Returns all ego states with timestamps in [start_timestamp, end_timestamp).
+
+        Reads the ego state table directly by timestamp, independent of the sync table.
+
+        :param start_timestamp: Inclusive start of the window.
+        :param end_timestamp: Exclusive end of the window.
+        :return: List of ego states within the window, sorted by timestamp.
+        """
+        ego_table = self._get_modality_table(EGO_STATE_SE3.prefix())
+        if ego_table is None:
+            return []
+
+        ego_metadata = get_metadata_from_arrow_schema(ego_table.schema, EgoMetadata)
+        ts_column = ego_table[EGO_STATE_SE3.col("timestamp_us")]
+
+        result: List[EgoStateSE3] = []
+        for row_idx in range(ego_table.num_rows):
+            ts_us = ts_column[row_idx].as_py()
+            if start_timestamp.time_us <= ts_us < end_timestamp.time_us:
+                ego_state = get_ego_state_se3_from_arrow_table(ego_table, row_idx, ego_metadata)
+                if ego_state is not None:
+                    result.append(ego_state)
+
+        return result
 
     def get_custom_modality_at_iteration(self, iteration: int, name: str) -> Optional[CustomModality]:
         """Inherited, see superclass."""

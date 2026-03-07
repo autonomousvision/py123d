@@ -207,6 +207,97 @@ class Av2SensorLogParser(LogParser):
                 lidar=_extract_av2_sensor_lidar(self._source_log_path, lidar_timestamp_ns),
             )
 
+    @override
+    def iter_ego_states_se3(self) -> Iterator[EgoStateSE3]:
+        """Yields all ego state observations at native rate from city_SE3_egovehicle.feather."""
+        ego_metadata = self.get_ego_metadata()
+        assert ego_metadata is not None
+        city_se3_egovehicle_df = pd.read_feather(self._source_log_path / "city_SE3_egovehicle.feather")
+
+        for _, row in city_se3_egovehicle_df.iterrows():
+            row_dict = row.to_dict()
+            ego_imu_se3 = _row_dict_to_pose_se3(row_dict)
+            yield EgoStateSE3.from_imu(
+                imu_se3=ego_imu_se3,
+                ego_metadata=ego_metadata,
+                dynamic_state_se3=None,
+                timestamp=Timestamp.from_ns(int(row_dict["timestamp_ns"])),
+            )
+
+    @override
+    def iter_box_detections_se3(self) -> Iterator[BoxDetectionsSE3]:
+        """Yields box detections at each annotated timestamp."""
+        if not (self._source_log_path / "annotations.feather").exists():
+            return
+
+        ego_metadata = self.get_ego_metadata()
+        assert ego_metadata is not None
+        annotations_df = pd.read_feather(self._source_log_path / "annotations.feather")
+        city_se3_egovehicle_df = pd.read_feather(self._source_log_path / "city_SE3_egovehicle.feather")
+
+        for timestamp_ns, group_df in annotations_df.groupby("timestamp_ns"):
+            timestamp_ns = int(timestamp_ns)
+            ego_state = _extract_av2_sensor_ego_state(city_se3_egovehicle_df, timestamp_ns, ego_metadata)
+            yield _extract_av2_sensor_box_detections(annotations_df, timestamp_ns, ego_state)
+
+    @override
+    def iter_pinhole_cameras(self) -> Iterator[CameraData]:
+        """Yields all pinhole camera observations at native rate (~20Hz per camera)."""
+        egovehicle_se3_sensor_df = pd.read_feather(
+            self._source_log_path / "calibration" / "egovehicle_SE3_sensor.feather"
+        )
+        av2_sensor_data_root = self._source_log_path.parent.parent
+        split_type = self._source_log_path.parent.name
+        log_name = self._source_log_path.name
+
+        for _, row in egovehicle_se3_sensor_df.iterrows():
+            row_dict = row.to_dict()
+            sensor_name = row_dict["sensor_name"]
+            if sensor_name not in AV2_CAMERA_ID_MAPPING:
+                continue
+
+            camera_id = AV2_CAMERA_ID_MAPPING[sensor_name]
+            camera_to_imu_se3 = _row_dict_to_pose_se3(row_dict)
+            camera_dir = self._source_log_path / "sensors" / "cameras" / sensor_name
+
+            image_files = sorted(camera_dir.glob("*.jpg"))
+            for image_file in image_files:
+                timestamp_ns = int(image_file.stem)
+                relative_path = f"{split_type}/{log_name}/sensors/cameras/{sensor_name}/{image_file.name}"
+                yield CameraData(
+                    camera_name=str(sensor_name),
+                    camera_id=camera_id,
+                    timestamp=Timestamp.from_ns(timestamp_ns),
+                    extrinsic=camera_to_imu_se3,
+                    dataset_root=av2_sensor_data_root,
+                    relative_path=relative_path,
+                )
+
+    @override
+    def iter_lidars(self) -> Iterator[LidarData]:
+        """Yields all lidar sweeps at native rate (~10Hz)."""
+        lidar_dir = self._source_log_path / "sensors" / "lidar"
+        av2_sensor_data_root = self._source_log_path.parent.parent
+        split_type = self._source_log_path.parent.name
+        log_name = self._source_log_path.name
+
+        feather_files = sorted(lidar_dir.glob("*.feather"))
+        for feather_file in feather_files:
+            timestamp_ns = int(feather_file.stem)
+            relative_path = f"{split_type}/{log_name}/sensors/lidar/{feather_file.name}"
+
+            start_timestamp_ns = timestamp_ns
+            end_timestamp_ns = timestamp_ns + 99_000_000  # Assume each sweep covers 100ms, consistent with AV2 API
+
+            yield LidarData(
+                lidar_name=LidarID.LIDAR_MERGED.serialize(),
+                lidar_type=LidarID.LIDAR_MERGED,
+                start_timestamp=Timestamp.from_ns(start_timestamp_ns),
+                end_timestamp=Timestamp.from_ns(end_timestamp_ns),
+                dataset_root=av2_sensor_data_root,
+                relative_path=relative_path,
+            )
+
 
 # ------------------------------------------------------------------------------------------------------------------
 # Sensor extraction helpers

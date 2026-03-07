@@ -1,9 +1,14 @@
 parser:
-  _target_: py123d.parser.av2.av2_sensor_parser.Av2SensorParser
+  _target_: py123d.parser.nuplan.nuplan_parser.NuplanParser
   _convert_: 'all'
 
-  splits: ["av2-sensor_train"]
-  av2_data_root: ${dataset_paths.av2_data_root}
+  splits: ["nuplan-mini_train", "nuplan-mini_val", "nuplan-mini_test"]
+  nuplan_data_root: ${dataset_paths.nuplan_data_root}
+  nuplan_maps_root: ${dataset_paths.nuplan_maps_root}
+  nuplan_sensor_root: ${dataset_paths.nuplan_sensor_root}
+  log_names:
+    - "2021.08.24.13.12.55_veh-45_00386_00472"
+    - "2021.10.11.07.12.18_veh-50_00211_00304"
 
 dataset_converter_config:
   _target_: py123d.parser.dataset_converter_config.DatasetConverterConfig
@@ -11,6 +16,7 @@ dataset_converter_config:
 
   force_log_conversion: ${force_log_conversion}
   force_map_conversion: ${force_map_conversion}
+  async_conversion: ${async_conversion}
 
   # Map
   include_map: true
@@ -20,6 +26,9 @@ dataset_converter_config:
 
   # Box Detections
   include_box_detections: true
+
+  # Traffic Lights
+  include_traffic_lights: true
 
   # Pinhole Cameras
   include_pinhole_cameras: true
@@ -31,10 +40,9 @@ dataset_converter_config:
   lidar_point_cloud_codec: null # None or "laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"
   lidar_point_feature_codec: null # None or "ipc_zstd", "ipc_lz4", "ipc"
 
-  # Not available:
-  include_traffic_lights: false
-  include_scenario_tags: false
-  include_route: false
-  include_fisheye_mei_cameras: false
+  # Scenario tag / Route
+  include_scenario_tags: true
+  include_route: true
 
-  async_conversion: False
+  # Not available:
+  include_fisheye_mei_cameras: false

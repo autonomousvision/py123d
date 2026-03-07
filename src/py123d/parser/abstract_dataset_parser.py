@@ -93,6 +93,46 @@ class LogParser(abc.ABC):
     def iter_frames(self) -> Iterator[FrameData]:
         pass
 
+    # ------------------------------------------------------------------------------------------------------------------
+    # Per-modality iterators (optional, default to extracting from iter_frames)
+    # ------------------------------------------------------------------------------------------------------------------
+
+    def iter_ego_states_se3(self) -> Iterator[EgoStateSE3]:
+        """Yields all ego state observations. Override for native-rate async iteration."""
+        for frame in self.iter_frames():
+            if frame.ego_state_se3 is not None:
+                yield frame.ego_state_se3
+
+    def iter_box_detections_se3(self) -> Iterator[BoxDetectionsSE3]:
+        """Yields all box detection frames. Override for native-rate async iteration."""
+        for frame in self.iter_frames():
+            if frame.box_detections_se3 is not None:
+                yield frame.box_detections_se3
+
+    def iter_traffic_lights(self) -> Iterator[TrafficLightDetections]:
+        """Yields all traffic light detection frames. Override for native-rate async iteration."""
+        for frame in self.iter_frames():
+            if frame.traffic_lights is not None:
+                yield frame.traffic_lights
+
+    def iter_pinhole_cameras(self) -> Iterator[CameraData]:
+        """Yields individual pinhole camera observations. Override for native-rate async iteration."""
+        for frame in self.iter_frames():
+            if frame.pinhole_cameras is not None:
+                yield from frame.pinhole_cameras
+
+    def iter_fisheye_mei_cameras(self) -> Iterator[CameraData]:
+        """Yields individual fisheye MEI camera observations. Override for native-rate async iteration."""
+        for frame in self.iter_frames():
+            if frame.fisheye_mei_cameras is not None:
+                yield from frame.fisheye_mei_cameras
+
+    def iter_lidars(self) -> Iterator[LidarData]:
+        """Yields individual lidar observations. Override for native-rate async iteration."""
+        for frame in self.iter_frames():
+            if frame.lidar is not None:
+                yield frame.lidar
+
 
 @dataclass
 class FrameData:

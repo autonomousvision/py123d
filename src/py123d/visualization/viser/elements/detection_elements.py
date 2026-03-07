@@ -72,8 +72,13 @@ def _get_bounding_box_meshes(scene: SceneAPI, iteration: int, initial_ego_state:
     box_detections = scene.get_box_detections_at_iteration(iteration)
 
     # Load boxes to visualize, including ego vehicle at the last position
-    boxes = [bd.bounding_box_se3 for bd in box_detections.box_detections] + [ego_vehicle_state.bounding_box_se3]
-    boxes_labels = [bd.metadata.default_label for bd in box_detections.box_detections] + [DefaultBoxDetectionLabel.EGO]
+    if box_detections is None:
+        box_detections = []
+    else:
+        box_detections = box_detections.box_detections
+
+    boxes = [bd.bounding_box_se3 for bd in box_detections] + [ego_vehicle_state.bounding_box_se3]
+    boxes_labels = [bd.metadata.default_label for bd in box_detections] + [DefaultBoxDetectionLabel.EGO]
 
     # create meshes for all boxes
     box_se3_array = np.array([box.array for box in boxes])

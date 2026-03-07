@@ -8,6 +8,7 @@ from typing import Literal, Optional
 class DatasetConverterConfig:
     force_log_conversion: bool = False
     force_map_conversion: bool = False
+    async_conversion: bool = False
 
     # Map
     include_map: bool = False

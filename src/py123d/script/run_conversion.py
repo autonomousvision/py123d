@@ -44,9 +44,10 @@ def main(cfg: DictConfig) -> None:
         name=f"Maps {parser_class_name}",
     )
 
+    convert_fn = _convert_logs_async if cfg.get("async_conversion", False) else _convert_logs
     executor_map_chunked_list(
         executor,
-        partial(_convert_logs, cfg=cfg),
+        partial(convert_fn, cfg=cfg),
         dataset_parser.get_log_parsers(),
         name=f"Logs {parser_class_name}",
     )
@@ -94,6 +95,55 @@ def _convert_logs(args: List[LogParser], cfg: DictConfig) -> List:
                 for frame in log_parser.iter_frames():
                     log_writer.write(**frame.to_writer_kwargs())
 
+            log_writer.close()
+        except Exception as e:
+            logger.error(f"Error converting log: {e}")
+            logger.error(traceback.format_exc())
+            log_writer.close()
+            gc.collect()
+    return []
+
+
+def _convert_logs_async(args: List[LogParser], cfg: DictConfig) -> List:
+    log_writer = build_log_writer(cfg.log_writer)
+    for log_parser in args:
+        try:
+            log_metadata = log_parser.get_log_metadata()
+            ego_metadata = log_parser.get_ego_metadata()
+            box_detection_metadata = log_parser.get_box_detection_metadata()
+            pinhole_camera_metadatas = log_parser.get_pinhole_camera_metadatas()
+            fisheye_mei_camera_metadatas = log_parser.get_fisheye_mei_camera_metadatas()
+            lidar_metadatas = log_parser.get_lidar_metadatas()
+
+            log_needs_writing = log_writer.reset(
+                log_metadata,
+                ego_metadata,
+                box_detection_metadata,
+                pinhole_camera_metadatas,
+                fisheye_mei_camera_metadatas,
+                lidar_metadatas,
+                deferred_sync=True,
+            )
+            if log_needs_writing:
+                for ego_state_se3 in log_parser.iter_ego_states_se3():
+                    log_writer.write_ego_state_se3(ego_state_se3)
+
+                for box_detections_se3 in log_parser.iter_box_detections_se3():
+                    log_writer.write_box_detections_se3(box_detections_se3)
+
+                for traffic_lights in log_parser.iter_traffic_lights():
+                    log_writer.write_traffic_lights(traffic_lights)
+
+                for pinhole_camera in log_parser.iter_pinhole_cameras():
+                    log_writer.write_pinhole_camera(pinhole_camera)
+
+                for fisheye_mei_camera in log_parser.iter_fisheye_mei_cameras():
+                    log_writer.write_fisheye_mei_camera(fisheye_mei_camera)
+
+                for lidar in log_parser.iter_lidars():
+                    log_writer.write_lidar(lidar)
+
+            # Sync table is built from buffered timestamps at close()
             log_writer.close()
         except Exception as e:
             logger.error(f"Error converting log: {e}")

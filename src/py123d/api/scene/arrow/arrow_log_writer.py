@@ -1,4 +1,6 @@
+import bisect
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
@@ -134,6 +136,9 @@ class ArroLogWriterState:
     sync_addons: List[str] = field(default_factory=list)
     lidar_metadatas: Optional[Dict[LidarID, LidarMetadata]] = None
     modality_writers: Dict[str, _ModalityWriter] = field(default_factory=dict)
+    deferred_sync: bool = False
+    # addon_key -> list of (row_idx, timestamp_us), used to build sync table at close()
+    timestamp_log: Dict[str, List[Tuple[int, int]]] = field(default_factory=lambda: defaultdict(list))
 
 
 class ArrowLogWriter(AbstractLogWriter):
@@ -202,8 +207,14 @@ class ArrowLogWriter(AbstractLogWriter):
         pinhole_camera_metadatas: Optional[PinholeCameraMetadatas] = None,
         fisheye_mei_camera_metadatas: Optional[FisheyeMEICameraMetadatas] = None,
         lidar_metadatas: Optional[LidarMetadatas] = None,
+        deferred_sync: bool = False,
     ) -> bool:
-        """Inherited, see superclass."""
+        """Inherited, see superclass.
+
+        :param deferred_sync: When True, the sync table is not written inline during write().
+            Instead, individual write methods buffer timestamps and the sync table is built
+            at close() using lidar sweep start timestamps as reference intervals.
+        """
         log_needs_writing: bool = False
         log_dir: Path = self._logs_root / log_metadata.split / log_metadata.log_name
         sync_file_path = log_dir / f"{SYNC.prefix()}.arrow"
@@ -222,6 +233,7 @@ class ArrowLogWriter(AbstractLogWriter):
                 log_metadata=log_metadata,
                 log_dir=log_dir,
                 lidar_metadatas=lidar_metadatas,
+                deferred_sync=deferred_sync,
             )
             sync_addons = []
 
@@ -289,11 +301,12 @@ class ArrowLogWriter(AbstractLogWriter):
 
             # --- Create sync writer with addon columns for each active modality ---
             self._state.sync_addons = sync_addons
-            sync_schema_dict = SYNC.schema_dict()
-            for addon in sync_addons:
-                sync_schema_dict[addon] = pa.int64()
 
-            self._create_modality_writer(name=SYNC.prefix(), schema_dict=sync_schema_dict, metadata=log_metadata)
+            if not deferred_sync:
+                sync_schema_dict = SYNC.schema_dict()
+                for addon in sync_addons:
+                    sync_schema_dict[addon] = pa.list_(pa.int64())
+                self._create_modality_writer(name=SYNC.prefix(), schema_dict=sync_schema_dict, metadata=log_metadata)
 
         return log_needs_writing
 
@@ -328,25 +341,26 @@ class ArrowLogWriter(AbstractLogWriter):
             )
 
         # Initialize all addon columns to None (no data written for this frame)
-        sync_addon_data: Dict[str, Optional[int]] = {addon: None for addon in self._state.sync_addons}
+        # Map the default to an empty list (meaning no events)
+        sync_addon_data: Dict[str, Optional[List[int]]] = {addon: [] for addon in self._state.sync_addons}
 
         # Write each modality, capturing the row index it will be written to
         if ego_state_se3 is not None:
             ego_writer = self._modality_writers.get(EGO_STATE_SE3.prefix())
             if ego_writer is not None:
-                sync_addon_data[EGO_STATE_SE3.prefix()] = ego_writer.row_count
+                sync_addon_data[EGO_STATE_SE3.prefix()] = [ego_writer.row_count]
             self.write_ego_state_se3(ego_state_se3)
 
         if box_detections_se3 is not None:
             box_writer = self._modality_writers.get(BOX_DETECTIONS_SE3.prefix())
             if box_writer is not None:
-                sync_addon_data[BOX_DETECTIONS_SE3.prefix()] = box_writer.row_count
+                sync_addon_data[BOX_DETECTIONS_SE3.prefix()] = [box_writer.row_count]
             self.write_box_detections_se3(box_detections_se3)
 
         if traffic_lights is not None:
             tl_writer = self._modality_writers.get(TRAFFIC_LIGHTS.prefix())
             if tl_writer is not None:
-                sync_addon_data[TRAFFIC_LIGHTS.prefix()] = tl_writer.row_count
+                sync_addon_data[TRAFFIC_LIGHTS.prefix()] = [tl_writer.row_count]
             self.write_traffic_lights(traffic_lights)
 
         if pinhole_cameras is not None:
@@ -354,7 +368,7 @@ class ArrowLogWriter(AbstractLogWriter):
             for camera_data in sorted(pinhole_cameras, key=lambda c: c.timestamp.time_us):
                 cam_key = camera_data.camera_id.serialize()
                 if pinhole_writer is not None and cam_key in sync_addon_data:
-                    sync_addon_data[cam_key] = pinhole_writer.row_count
+                    sync_addon_data[cam_key] = [pinhole_writer.row_count]
                 self.write_pinhole_camera(camera_data)
 
         if fisheye_mei_cameras is not None:
@@ -362,28 +376,28 @@ class ArrowLogWriter(AbstractLogWriter):
             for camera_data in sorted(fisheye_mei_cameras, key=lambda c: c.timestamp.time_us):
                 cam_key = camera_data.camera_id.serialize()
                 if fisheye_writer is not None and cam_key in sync_addon_data:
-                    sync_addon_data[cam_key] = fisheye_writer.row_count
+                    sync_addon_data[cam_key] = [fisheye_writer.row_count]
                 self.write_fisheye_mei_camera(camera_data)
 
         if lidar is not None:
             lidar_writer = self._modality_writers.get(LIDAR.prefix())
             if lidar_writer is not None:
-                sync_addon_data[LidarID.LIDAR_MERGED.serialize()] = lidar_writer.row_count
+                sync_addon_data[LidarID.LIDAR_MERGED.serialize()] = [lidar_writer.row_count]
             self.write_lidar(lidar)
 
         if custom_modalities is not None:
             self.write_custom_modalities(custom_modalities)
 
-        # Write sync row: uuid + timestamp + row index per modality (None if not written this frame)
-        sync_data: Dict[str, Any] = {
-            SYNC.col("uuid"): [uuid.bytes],
-            SYNC.col("timestamp_us"): [timestamp.time_us],
-        }
-        for addon, row_idx in sync_addon_data.items():
-            sync_data[addon] = [row_idx]
-
-        sync_writer = self._modality_writers[SYNC.prefix()]
-        sync_writer.write_batch(sync_data)
+        # Write sync row: uuid + timestamp + row index per modality (empty list if not written this frame)
+        sync_writer = self._modality_writers.get(SYNC.prefix())
+        if sync_writer is not None:
+            sync_data: Dict[str, Any] = {
+                SYNC.col("uuid"): [uuid.bytes],
+                SYNC.col("timestamp_us"): [timestamp.time_us],
+            }
+            for addon, row_idx in sync_addon_data.items():
+                sync_data[addon] = [row_idx]
+            sync_writer.write_batch(sync_data)
 
     # ------------------------------------------------------------------------------------------------------------------
     # Individual modality writers (usable independently for async writing)
@@ -395,6 +409,10 @@ class ArrowLogWriter(AbstractLogWriter):
             assert ego_state_se3.timestamp is not None, "EgoStateSE3 must have a timestamp for writing."
 
             writer = self._modality_writers[EGO_STATE_SE3.prefix()]
+            if self._state is not None and self._state.deferred_sync:
+                self._state.timestamp_log[EGO_STATE_SE3.prefix()].append(
+                    (writer.row_count, ego_state_se3.timestamp.time_us)
+                )
             writer.write_batch(
                 {
                     EGO_STATE_SE3.col("imu_se3"): [ego_state_se3.imu_se3.array],
@@ -407,6 +425,10 @@ class ArrowLogWriter(AbstractLogWriter):
         """Write box detections to ``box_detections_se3.arrow`` (one row per detection)."""
         if self._dataset_converter_config.include_box_detections:
             writer = self._modality_writers[BOX_DETECTIONS_SE3.prefix()]
+            if self._state is not None and self._state.deferred_sync:
+                self._state.timestamp_log[BOX_DETECTIONS_SE3.prefix()].append(
+                    (writer.row_count, box_detections_se3.timestamp.time_us)
+                )
             bounding_box_se3_list = []
             tokens_list = []
             labels_list = []
@@ -434,6 +456,10 @@ class ArrowLogWriter(AbstractLogWriter):
         """Write traffic lights to ``traffic_lights.arrow`` (one row per traffic light)."""
         if self._dataset_converter_config.include_traffic_lights:
             writer = self._modality_writers[TRAFFIC_LIGHTS.prefix()]
+            if self._state is not None and self._state.deferred_sync:
+                self._state.timestamp_log[TRAFFIC_LIGHTS.prefix()].append(
+                    (writer.row_count, traffic_lights.timestamp.time_us)
+                )
 
             lane_ids = []
             statuses = []
@@ -458,6 +484,10 @@ class ArrowLogWriter(AbstractLogWriter):
 
             assert camera_data.timestamp is not None, "CameraData must have a timestamp for writing."
 
+            if self._state is not None and self._state.deferred_sync:
+                cam_key = camera_data.camera_id.serialize()
+                self._state.timestamp_log[cam_key].append((writer.row_count, camera_data.timestamp.time_us))
+
             store_option = self._dataset_converter_config.pinhole_camera_store_option
             data_value = self._get_camera_data_value(camera_data, store_option)
 
@@ -478,6 +508,10 @@ class ArrowLogWriter(AbstractLogWriter):
 
             assert camera_data.timestamp is not None, "CameraData must have a timestamp for writing."
 
+            if self._state.deferred_sync:
+                cam_key = camera_data.camera_id.serialize()
+                self._state.timestamp_log[cam_key].append((writer.row_count, camera_data.timestamp.time_us))
+
             store_option = self._dataset_converter_config.fisheye_mei_camera_store_option
             data_value = self._get_camera_data_value(camera_data, store_option)
 
@@ -494,6 +528,9 @@ class ArrowLogWriter(AbstractLogWriter):
         """Write a single lidar observation to ``lidar.arrow``."""
         if self._dataset_converter_config.include_lidars:
             writer = self._modality_writers[LIDAR.prefix()]
+            if self._state is not None and self._state.deferred_sync:
+                lidar_key = LidarID.LIDAR_MERGED.serialize()
+                self._state.timestamp_log[lidar_key].append((writer.row_count, lidar_data.start_timestamp.time_us))
             if self._dataset_converter_config.lidar_store_option == "path":
                 data_path: Optional[str] = str(lidar_data.relative_path) if lidar_data.has_file_path else None
                 writer.write_batch(
@@ -547,10 +584,79 @@ class ArrowLogWriter(AbstractLogWriter):
 
     def close(self) -> None:
         """Inherited, see superclass."""
+        if self._state is not None and self._state.deferred_sync:
+            self._build_deferred_sync_table()
+
         self._close_writers()
 
         del self._state
         self._state = None
+
+    def _build_deferred_sync_table(self) -> None:
+        """Build the sync table from buffered timestamps using lidar sweep intervals.
+
+        Each sync row corresponds to one lidar sweep. The interval for sweep *i* is
+        ``[lidar_start_ts_i, lidar_start_ts_{i+1})``. For each modality addon, the row
+        contains the list of modality row indices whose timestamps fall within that interval.
+        """
+        assert self._state is not None
+
+        lidar_key = LidarID.LIDAR_MERGED.serialize()
+        lidar_entries = self._state.timestamp_log.get(lidar_key, [])
+        if not lidar_entries:
+            return
+
+        # Sort lidar entries by timestamp
+        lidar_entries.sort(key=lambda e: e[1])
+        lidar_timestamps_us = [ts for _, ts in lidar_entries]
+
+        # Create sync writer
+        sync_schema_dict = SYNC.schema_dict()
+        for addon in self._state.sync_addons:
+            sync_schema_dict[addon] = pa.list_(pa.int64())
+        self._create_modality_writer(
+            name=SYNC.prefix(), schema_dict=sync_schema_dict, metadata=self._state.log_metadata
+        )
+        sync_writer = self._modality_writers[SYNC.prefix()]
+
+        # Pre-sort each addon's timestamp log for efficient interval lookup
+        sorted_logs: Dict[str, List[Tuple[int, int]]] = {}
+        for addon in self._state.sync_addons:
+            entries = self._state.timestamp_log.get(addon, [])
+            sorted_logs[addon] = sorted(entries, key=lambda e: e[1])
+
+        # Build one sync row per lidar sweep
+        for sweep_idx, (_, lidar_ts) in enumerate(lidar_entries):
+            next_ts = lidar_timestamps_us[sweep_idx + 1] if sweep_idx + 1 < len(lidar_entries) else None
+
+            sync_addon_data: Dict[str, List[int]] = {}
+            for addon in self._state.sync_addons:
+                addon_entries = sorted_logs[addon]
+                addon_timestamps = [ts for _, ts in addon_entries]
+
+                # Find indices in [lidar_ts, next_ts)
+                lo = bisect.bisect_left(addon_timestamps, lidar_ts)
+                if next_ts is not None:
+                    hi = bisect.bisect_left(addon_timestamps, next_ts)
+                else:
+                    hi = len(addon_timestamps)
+
+                sync_addon_data[addon] = [addon_entries[i][0] for i in range(lo, hi)]
+
+            sync_uuid = create_deterministic_uuid(
+                split=self._state.log_metadata.split,
+                log_name=self._state.log_metadata.log_name,
+                timestamp_us=lidar_ts,
+            )
+
+            sync_data: Dict[str, Any] = {
+                SYNC.col("uuid"): [sync_uuid.bytes],
+                SYNC.col("timestamp_us"): [lidar_ts],
+            }
+            for addon, row_indices in sync_addon_data.items():
+                sync_data[addon] = [row_indices]
+
+            sync_writer.write_batch(sync_data)
 
     # ------------------------------------------------------------------------------------------------------------------
     # Data preparation helpers

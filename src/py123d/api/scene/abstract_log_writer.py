@@ -44,8 +44,13 @@ class AbstractLogWriter(abc.ABC):
         pinhole_camera_metadatas: Optional[PinholeCameraMetadatas] = None,
         fisheye_mei_camera_metadatas: Optional[FisheyeMEICameraMetadatas] = None,
         lidar_metadatas: Optional[LidarMetadatas] = None,
+        deferred_sync: bool = False,
     ) -> bool:
-        """Resets the log writer to start writing a new log according to the provided configuration and metadata."""
+        """Resets the log writer to start writing a new log according to the provided configuration and metadata.
+
+        :param deferred_sync: When True, the sync table is built at close() from buffered timestamps
+            rather than written inline during write(). Use with per-modality iterators for async data.
+        """
 
     def write(
         self,

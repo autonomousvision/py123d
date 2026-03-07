@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import pickle
+from itertools import groupby
 from pathlib import Path
 from typing import Dict, Final, Iterator, List, Optional, Tuple, Union
 
@@ -12,6 +13,7 @@ from typing_extensions import override
 import py123d.parser.nuplan.utils as nuplan_utils
 from py123d.common.utils.dependencies import check_dependencies
 from py123d.datatypes import (
+    BoxDetectionAttributes,
     BoxDetectionMetadata,
     BoxDetectionSE3,
     BoxDetectionsSE3,
@@ -32,8 +34,9 @@ from py123d.datatypes import (
     TrafficLightDetection,
     TrafficLightDetections,
 )
-from py123d.geometry import PoseSE3, Vector3D
+from py123d.geometry import BoundingBoxSE3, EulerAngles, PoseSE3, Vector3D
 from py123d.geometry.transform import reframe_se3_array
+from py123d.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from py123d.parser.abstract_dataset_parser import (
     CameraData,
     DatasetParser,
@@ -45,6 +48,7 @@ from py123d.parser.nuplan.nuplan_map_parser import NuplanMapParser
 from py123d.parser.nuplan.utils.nuplan_constants import (
     NUPLAN_DATA_SPLITS,
     NUPLAN_DEFAULT_DT,
+    NUPLAN_DETECTION_NAME_DICT,
     NUPLAN_LIDAR_DICT,
     NUPLAN_MAP_LOCATIONS,
     NUPLAN_ROLLING_SHUTTER_S,
@@ -53,6 +57,11 @@ from py123d.parser.nuplan.utils.nuplan_constants import (
 from py123d.parser.nuplan.utils.nuplan_sql_helper import (
     get_box_detections_for_lidarpc_token_from_db,
     get_nearest_ego_pose_for_timestamp_from_db,
+    iter_all_box_detections_from_db,
+    iter_all_ego_poses_from_db,
+    iter_all_images_from_db,
+    iter_all_lidar_pc_from_db,
+    iter_all_traffic_lights_from_db,
 )
 from py123d.parser.registry import NuPlanBoxDetectionLabel
 
@@ -93,6 +102,7 @@ class NuplanParser(DatasetParser):
     def __init__(
         self,
         splits: List[str],
+        log_names: Optional[List[str]],
         nuplan_data_root: Union[Path, str],
         nuplan_maps_root: Union[Path, str],
         nuplan_sensor_root: Union[Path, str],
@@ -100,6 +110,7 @@ class NuplanParser(DatasetParser):
         """Initializes the NuplanParser.
 
         :param splits: List of splits to convert, e.g. ["nuplan_train", "nuplan_val"].
+        :param log_names: Optional list of log names to convert. If None, all logs in the specified splits will be converted.
         :param nuplan_data_root: Root directory of the nuPlan data.
         :param nuplan_maps_root: Root directory of the nuPlan maps.
         :param nuplan_sensor_root: Root directory of the nuPlan sensor data.
@@ -114,6 +125,7 @@ class NuplanParser(DatasetParser):
             )
 
         self._splits = splits
+        self._log_names = log_names
         self._nuplan_data_root = Path(nuplan_data_root)
         self._nuplan_maps_root = Path(nuplan_maps_root)
         self._nuplan_sensor_root = Path(nuplan_sensor_root)
@@ -141,6 +153,9 @@ class NuplanParser(DatasetParser):
             all_log_names = {str(log_file.stem) for log_file in all_log_files_in_path}
             log_names_in_split = set(log_names_per_split[split_type])
             valid_log_names = list(all_log_names & log_names_in_split)
+
+            if self._log_names is not None:
+                valid_log_names = [log_name for log_name in valid_log_names if log_name in self._log_names]
 
             for log_name in valid_log_names:
                 log_path = nuplan_split_folder / f"{log_name}.db"
@@ -293,6 +308,146 @@ class NuplanLogParser(LogParser):
             nuplan_log_db.detach_tables()
             nuplan_log_db.remove_ref()
             del nuplan_log_db
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # Per-modality iterators for async conversion (native-rate, bypasses NuPlanDB ORM)
+    # ------------------------------------------------------------------------------------------------------------------
+
+    @override
+    def iter_ego_states_se3(self) -> Iterator[EgoStateSE3]:
+        """Yields all ego state observations at native rate from the ego_pose table."""
+        ego_metadata = self.get_ego_metadata()
+        assert ego_metadata is not None
+
+        for row in iter_all_ego_poses_from_db(str(self._source_log_path)):
+            imu_pose = PoseSE3(
+                x=row["x"],
+                y=row["y"],
+                z=row["z"],
+                qw=row["qw"],
+                qx=row["qx"],
+                qy=row["qy"],
+                qz=row["qz"],
+            )
+            dynamic_state = DynamicStateSE3(
+                velocity=Vector3D(x=row["vx"], y=row["vy"], z=row["vz"]),
+                acceleration=Vector3D(
+                    x=row["acceleration_x"],
+                    y=row["acceleration_y"],
+                    z=row["acceleration_z"],
+                ),
+                angular_velocity=Vector3D(
+                    x=row["angular_rate_x"],
+                    y=row["angular_rate_y"],
+                    z=row["angular_rate_z"],
+                ),
+            )
+            yield EgoStateSE3.from_imu(
+                imu_se3=imu_pose,
+                ego_metadata=ego_metadata,
+                dynamic_state_se3=dynamic_state,
+                timestamp=Timestamp.from_us(row["timestamp"]),
+            )
+
+    @override
+    def iter_box_detections_se3(self) -> Iterator[BoxDetectionsSE3]:
+        """Yields all box detection frames at native lidar rate."""
+        for timestamp, rows in groupby(
+            iter_all_box_detections_from_db(str(self._source_log_path)),
+            key=lambda r: r["timestamp"],
+        ):
+            box_detections: List[BoxDetectionSE3] = []
+            for row in rows:
+                quaternion = EulerAngles(roll=DEFAULT_ROLL, pitch=DEFAULT_PITCH, yaw=row["yaw"]).quaternion
+                bounding_box = BoundingBoxSE3(
+                    center_se3=PoseSE3(
+                        x=row["x"],
+                        y=row["y"],
+                        z=row["z"],
+                        qw=quaternion.qw,
+                        qx=quaternion.qx,
+                        qy=quaternion.qy,
+                        qz=quaternion.qz,
+                    ),
+                    length=row["length"],
+                    width=row["width"],
+                    height=row["height"],
+                )
+                box_detections.append(
+                    BoxDetectionSE3(
+                        metadata=BoxDetectionAttributes(
+                            label=NUPLAN_DETECTION_NAME_DICT[row["category_name"]],
+                            track_token=row["track_token"].hex(),
+                        ),
+                        bounding_box_se3=bounding_box,
+                        velocity_3d=Vector3D(x=row["vx"], y=row["vy"], z=row["vz"]),
+                    )
+                )
+            yield BoxDetectionsSE3(box_detections=box_detections, timestamp=Timestamp.from_us(timestamp))
+
+    @override
+    def iter_traffic_lights(self) -> Iterator[TrafficLightDetections]:
+        """Yields all traffic light detection frames at native lidar rate."""
+        for timestamp, rows in groupby(
+            iter_all_traffic_lights_from_db(str(self._source_log_path)),
+            key=lambda r: r["timestamp"],
+        ):
+            detections: List[TrafficLightDetection] = [
+                TrafficLightDetection(
+                    lane_id=int(row["lane_connector_id"]),
+                    status=NUPLAN_TRAFFIC_STATUS_DICT[row["status"]],
+                )
+                for row in rows
+            ]
+            yield TrafficLightDetections(detections=detections, timestamp=Timestamp.from_us(timestamp))
+
+    @override
+    def iter_pinhole_cameras(self) -> Iterator[CameraData]:
+        """Yields all pinhole camera observations at native rate (~10Hz per camera)."""
+        # Build reverse mapping: channel string -> PinholeCameraID
+        channel_to_camera_id = {str(v.value): k for k, v in NUPLAN_CAMERA_MAPPING.items()}
+
+        camera_metadata_dict = _get_nuplan_camera_metadata(self._source_log_path, self._nuplan_sensor_root)
+        if not camera_metadata_dict:
+            return
+
+        for row in iter_all_images_from_db(str(self._source_log_path)):
+            channel = row["channel"]
+            if channel not in channel_to_camera_id:
+                continue
+
+            camera_id = channel_to_camera_id[channel]
+            if camera_id not in camera_metadata_dict:
+                continue
+
+            filename_jpg = row["filename_jpg"]
+            full_path = self._nuplan_sensor_root / filename_jpg
+            if not full_path.exists():
+                continue
+
+            yield CameraData(
+                camera_name=channel,
+                camera_id=camera_id,
+                extrinsic=camera_metadata_dict[camera_id].camera_to_imu_se3,
+                timestamp=Timestamp.from_us(row["timestamp"]),
+                dataset_root=self._nuplan_sensor_root,
+                relative_path=filename_jpg,
+            )
+
+    @override
+    def iter_lidars(self) -> Iterator[LidarData]:
+        """Yields all lidar sweeps at native rate (20Hz)."""
+        for row in iter_all_lidar_pc_from_db(str(self._source_log_path)):
+            lidar_full_path = self._nuplan_sensor_root / row["filename"]
+            if lidar_full_path.exists() and lidar_full_path.is_file():
+                yield LidarData(
+                    lidar_name=LidarID.LIDAR_MERGED.serialize(),
+                    lidar_type=LidarID.LIDAR_MERGED,
+                    start_timestamp=Timestamp.from_us(row["timestamp"]),
+                    end_timestamp=Timestamp.from_us(row["timestamp"]),
+                    dataset_root=self._nuplan_sensor_root,
+                    relative_path=row["filename"],
+                )
 
 
 # ------------------------------------------------------------------------------------------------------------------
