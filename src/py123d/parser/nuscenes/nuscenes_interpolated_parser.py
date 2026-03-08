@@ -302,7 +302,7 @@ class NuScenesInterpolatedLogParser(LogParser):
                             sample=sample,
                             nuscenes_data_root=self._nuscenes_data_root,
                         ),
-                        lidar=_extract_lidar_from_sample_data(
+                        lidars=_extract_lidar_from_sample_data(
                             sweep,
                             nuscenes_data_root=self._nuscenes_data_root,
                         ),
@@ -342,7 +342,7 @@ class NuScenesInterpolatedLogParser(LogParser):
                         ego_state_se3=ego_state,
                         box_detections_se3=box_detections,
                         pinhole_cameras=cameras,
-                        lidar=_extract_lidar_from_sample_data(
+                        lidars=_extract_lidar_from_sample_data(
                             sweep,
                             nuscenes_data_root=self._nuscenes_data_root,
                         ),

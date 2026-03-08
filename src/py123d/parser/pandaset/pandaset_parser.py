@@ -215,7 +215,7 @@ class PandasetLogParser(LogParser):
                     camera_poses,
                     camera_timestamps_s,
                 ),
-                lidar=_extract_pandaset_lidar(
+                lidars=_extract_pandaset_lidar(
                     source_log_path,
                     iteration,
                     timestamp,

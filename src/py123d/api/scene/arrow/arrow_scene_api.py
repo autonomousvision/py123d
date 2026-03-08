@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Final, List, Optional, Union
+from typing import Dict, Final, List, Optional, Union
 
 import pyarrow as pa
 
@@ -22,11 +22,11 @@ from py123d.api.utils.arrow_schema import (
     BOX_DETECTIONS_SE3,
     CUSTOM_MODALITY,
     EGO_STATE_SE3,
-    FISHEYE_MEI,
+    FISHEYE_MEI_CAMERA,
     LIDAR,
     PINHOLE_CAMERA,
     SYNC,
-    TRAFFIC_LIGHTS,
+    TRAFFIC_LIGHT_DETECTIONS,
 )
 from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.utils.msgpack_utils import msgpack_decode_with_numpy
@@ -39,18 +39,19 @@ from py123d.datatypes import (
     EgoStateSE3,
     FisheyeMEICamera,
     FisheyeMEICameraID,
-    FisheyeMEICameraMetadatas,
+    FisheyeMEICameraMetadata,
     Lidar,
     LidarID,
-    LidarMetadatas,
+    LidarMetadata,
     LogMetadata,
     MapMetadata,
     PinholeCamera,
     PinholeCameraID,
-    PinholeCameraMetadatas,
+    PinholeCameraMetadata,
     Timestamp,
     TrafficLightDetections,
 )
+from py123d.datatypes.sensors.lidar import LidarMergedMetadata
 
 # TODO: Refactor
 MAX_LRU_CACHED_LOG_METADATA: Final[int] = 1_000
@@ -166,7 +167,7 @@ class ArrowSceneAPI(SceneAPI):
     # Per-modality metadata retrieval (read from the corresponding Arrow schema)
     # ------------------------------------------------------------------------------------------------------------------
 
-    def get_ego_metadata(self) -> Optional[EgoMetadata]:
+    def get_ego_state_se3_metadata(self) -> Optional[EgoMetadata]:
         """Returns the :class:`~py123d.datatypes.vehicle_state.EgoMetadata` read from ``ego_state_se3.arrow``."""
         ego_metadata: Optional[EgoMetadata] = None
         ego_table = self._get_modality_table(EGO_STATE_SE3.prefix())
@@ -174,7 +175,7 @@ class ArrowSceneAPI(SceneAPI):
             ego_metadata = get_metadata_from_arrow_schema(ego_table.schema, EgoMetadata)
         return ego_metadata
 
-    def get_box_detection_metadata(self) -> Optional[BoxDetectionMetadata]:
+    def get_box_detections_se3_metadata(self) -> Optional[BoxDetectionMetadata]:
         """Returns the :class:`~py123d.datatypes.detections.BoxDetectionMetadata` from ``box_detections_se3.arrow``."""
         box_detection_metadata: Optional[BoxDetectionMetadata] = None
         box_table = self._get_modality_table(BOX_DETECTIONS_SE3.prefix())
@@ -182,29 +183,52 @@ class ArrowSceneAPI(SceneAPI):
             box_detection_metadata = get_metadata_from_arrow_schema(box_table.schema, BoxDetectionMetadata)
         return box_detection_metadata
 
-    def get_pinhole_camera_metadatas(self) -> Optional[PinholeCameraMetadatas]:
-        """Returns per-camera :class:`~py123d.datatypes.sensors.PinholeCameraMetadata` from the Arrow schema."""
-        pinhole_camera_metadatas: Optional[PinholeCameraMetadatas] = None
-        cam_table = self._get_modality_table(PINHOLE_CAMERA.prefix())
-        if cam_table is not None:
-            pinhole_camera_metadatas = get_metadata_from_arrow_schema(cam_table.schema, PinholeCameraMetadatas)
-        return pinhole_camera_metadatas
+    def get_pinhole_camera_metadatas(self) -> Optional[Dict[PinholeCameraID, PinholeCameraMetadata]]:
+        """Returns per-camera :class:`~py123d.datatypes.sensors.PinholeCameraMetadata` from the Arrow schema.
 
-    def get_fisheye_mei_camera_metadatas(self) -> Optional[FisheyeMEICameraMetadatas]:
-        """Returns per-camera :class:`~py123d.datatypes.sensors.FisheyeMEICameraMetadata` from the Arrow schema."""
-        fisheye_mei_camera_metadatas: Optional[FisheyeMEICameraMetadatas] = None
-        cam_table = self._get_modality_table(FISHEYE_MEI.prefix())
-        if cam_table is not None:
-            fisheye_mei_camera_metadatas = get_metadata_from_arrow_schema(cam_table.schema, FisheyeMEICameraMetadatas)
-        return fisheye_mei_camera_metadatas
+        Discovers ``pinhole_camera.{instance}.arrow`` files in the log directory and reads
+        :class:`PinholeCameraMetadata` from each file's Arrow schema metadata.
+        """
+        result: Dict[PinholeCameraID, PinholeCameraMetadata] = {}
+        for arrow_file in sorted(self._log_dir.glob("pinhole_camera.*.arrow")):
+            instance = arrow_file.stem.split(".", 1)[1]  # e.g. "pcam_f0" from "pinhole_camera.pcam_f0"
+            camera_id: PinholeCameraID = PinholeCameraID.deserialize(instance)  # type: ignore[assignment]
+            schema = open_arrow_schema(arrow_file)
+            cam_meta = get_metadata_from_arrow_schema(schema, PinholeCameraMetadata)
+            result[camera_id] = cam_meta
+        return result if result else None
 
-    def get_lidar_metadatas(self) -> Optional[LidarMetadatas]:
-        """Returns per-lidar :class:`~py123d.datatypes.sensors.LidarMetadata` from the lidar Arrow schema."""
-        lidar_metadatas: Optional[LidarMetadatas] = None
-        lidar_table = self._get_modality_table(LIDAR.prefix())
-        if lidar_table is not None:
-            lidar_metadatas = get_metadata_from_arrow_schema(lidar_table.schema, LidarMetadatas)
-        return lidar_metadatas
+    def get_fisheye_mei_camera_metadatas(self) -> Optional[Dict[FisheyeMEICameraID, FisheyeMEICameraMetadata]]:
+        """Returns per-camera :class:`~py123d.datatypes.sensors.FisheyeMEICameraMetadata` from the Arrow schema.
+
+        Discovers ``fisheye_mei_camera.{instance}.arrow`` files in the log directory.
+        """
+        result: Dict[FisheyeMEICameraID, FisheyeMEICameraMetadata] = {}
+        for arrow_file in sorted(self._log_dir.glob("fisheye_mei_camera.*.arrow")):
+            instance = arrow_file.stem.split(".", 1)[1]
+            camera_id: FisheyeMEICameraID = FisheyeMEICameraID.deserialize(instance)  # type: ignore[assignment]
+            schema = open_arrow_schema(arrow_file)
+            cam_meta = get_metadata_from_arrow_schema(schema, FisheyeMEICameraMetadata)
+            result[camera_id] = cam_meta
+        return result if result else None
+
+    def get_lidar_metadatas(self) -> Optional[Dict[LidarID, LidarMetadata]]:
+        """Returns per-lidar :class:`~py123d.datatypes.sensors.LidarMetadata` from the lidar Arrow schema.
+
+        Discovers ``lidar.{instance}.arrow`` files in the log directory.
+        """
+        result: Dict[LidarID, LidarMetadata] = {}
+        for arrow_file in sorted(self._log_dir.glob("lidar.*.arrow")):
+            schema = open_arrow_schema(arrow_file)
+            if "lidar_merged" in arrow_file.stem:
+                lidar_merged_meta = get_metadata_from_arrow_schema(schema, LidarMergedMetadata)
+                result.update(lidar_merged_meta._data)  # type: ignore[union-attr]
+            else:
+                instance = arrow_file.stem.split(".", 1)[1]
+                lidar_id: LidarID = LidarID.deserialize(instance)  # type: ignore[assignment]
+                lidar_meta = get_metadata_from_arrow_schema(schema, LidarMetadata)
+                result[lidar_id] = lidar_meta
+        return result if result else None
 
     # Implementation of abstract methods
     # ------------------------------------------------------------------------------------------------------------------
@@ -277,11 +301,11 @@ class ArrowSceneAPI(SceneAPI):
     def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetections]:
         """Inherited, see superclass."""
         traffic_light_detections: Optional[TrafficLightDetections] = None
-        tl_table = self._get_modality_table(TRAFFIC_LIGHTS.prefix())
+        tl_table = self._get_modality_table(TRAFFIC_LIGHT_DETECTIONS.prefix())
         if tl_table is not None:
             sync_table = self._get_sync_table()
             idx = self._get_table_index(iteration)
-            row_idx = self._get_first_sync_index(sync_table, TRAFFIC_LIGHTS.prefix(), idx)
+            row_idx = self._get_first_sync_index(sync_table, TRAFFIC_LIGHT_DETECTIONS.prefix(), idx)
             if row_idx is not None:
                 traffic_light_detections = get_traffic_light_detections_from_arrow_table(tl_table, row_idx)
         return traffic_light_detections
@@ -289,18 +313,16 @@ class ArrowSceneAPI(SceneAPI):
     def get_pinhole_camera_at_iteration(self, iteration: int, camera_id: PinholeCameraID) -> Optional[PinholeCamera]:
         """Inherited, see superclass."""
         pinhole_camera: Optional[PinholeCamera] = None
-        cam_table = self._get_modality_table(PINHOLE_CAMERA.prefix())
+        camera_instance = camera_id.serialize()
+        modality_name = PINHOLE_CAMERA.prefix(camera_instance)
+        cam_table = self._get_modality_table(modality_name)
         if cam_table is not None:
-            cam_metadatas = self.get_pinhole_camera_metadatas()
-            cam_meta = cam_metadatas.get(camera_id) if cam_metadatas is not None else None
-            if cam_meta is not None:
-                sync_table = self._get_sync_table()
-                idx = self._get_table_index(iteration)
-                row_idx = self._get_first_sync_index(sync_table, camera_id.serialize(), idx)
-                if row_idx is not None:
-                    pinhole_camera = get_camera_from_arrow_table(
-                        cam_table, row_idx, camera_id, cam_meta, self.log_metadata
-                    )  # type: ignore[return-value]
+            cam_meta = get_metadata_from_arrow_schema(cam_table.schema, PinholeCameraMetadata)
+            sync_table = self._get_sync_table()
+            idx = self._get_table_index(iteration)
+            row_idx = self._get_first_sync_index(sync_table, modality_name, idx)
+            if row_idx is not None:
+                pinhole_camera = get_camera_from_arrow_table(cam_table, row_idx, camera_id, cam_meta, self.log_metadata)  # type: ignore[return-value]
         return pinhole_camera
 
     def get_fisheye_mei_camera_at_iteration(
@@ -308,33 +330,35 @@ class ArrowSceneAPI(SceneAPI):
     ) -> Optional[FisheyeMEICamera]:
         """Inherited, see superclass."""
         fisheye_mei_camera: Optional[FisheyeMEICamera] = None
-        cam_table = self._get_modality_table(FISHEYE_MEI.prefix())
+        camera_instance = camera_id.serialize()
+        modality_name = FISHEYE_MEI_CAMERA.prefix(camera_instance)
+        cam_table = self._get_modality_table(modality_name)
         if cam_table is not None:
-            cam_metadatas = self.get_fisheye_mei_camera_metadatas()
-            cam_meta = cam_metadatas.get(camera_id) if cam_metadatas is not None else None
-            if cam_meta is not None:
-                sync_table = self._get_sync_table()
-                idx = self._get_table_index(iteration)
-                row_idx = self._get_first_sync_index(sync_table, camera_id.serialize(), idx)
-                if row_idx is not None:
-                    fisheye_mei_camera = get_camera_from_arrow_table(
-                        cam_table, row_idx, camera_id, cam_meta, self.log_metadata
-                    )  # type: ignore[return-value]
+            cam_meta = get_metadata_from_arrow_schema(cam_table.schema, FisheyeMEICameraMetadata)
+            sync_table = self._get_sync_table()
+            idx = self._get_table_index(iteration)
+            row_idx = self._get_first_sync_index(sync_table, modality_name, idx)
+            if row_idx is not None:
+                fisheye_mei_camera = get_camera_from_arrow_table(
+                    cam_table, row_idx, camera_id, cam_meta, self.log_metadata
+                )  # type: ignore[return-value]
         return fisheye_mei_camera
 
     def get_lidar_at_iteration(self, iteration: int, lidar_id: LidarID) -> Optional[Lidar]:
         """Inherited, see superclass."""
         lidar: Optional[Lidar] = None
-        lidar_table = self._get_modality_table(LIDAR.prefix())
+        lidar_instance = LidarID.LIDAR_MERGED.serialize()
+        modality_name = LIDAR.prefix(lidar_instance)
+        lidar_table = self._get_modality_table(modality_name)
         if lidar_table is not None:
             lidar_metadatas = self.get_lidar_metadatas()
             if lidar_metadatas is not None and lidar_id in list(lidar_metadatas.keys()) + [LidarID.LIDAR_MERGED]:
                 sync_table = self._get_sync_table()
                 idx = self._get_table_index(iteration)
-                row_idx = self._get_first_sync_index(sync_table, LidarID.LIDAR_MERGED.serialize(), idx)
+                row_idx = self._get_first_sync_index(sync_table, modality_name, idx)
                 if row_idx is not None:
                     lidar = get_lidar_from_arrow_table(
-                        lidar_table, row_idx, lidar_id, lidar_metadatas, self.log_metadata
+                        lidar_table, row_idx, lidar_id, lidar_instance, lidar_metadatas, self.log_metadata
                     )
         return lidar
 

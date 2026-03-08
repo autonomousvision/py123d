@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
+from py123d.datatypes.metadata.base_metadata import BaseMetadata
 from py123d.datatypes.sensors.fisheye_mei_camera import (
     FisheyeMEICamera,
     FisheyeMEICameraID,
@@ -291,7 +291,7 @@ class TestFisheyeMEICameraMetadata:
             height=480,
             camera_to_imu_se3=PoseSE3.identity(),
         )
-        assert isinstance(metadata, AbstractMetadata)
+        assert isinstance(metadata, BaseMetadata)
 
     def test_aspect_ratio_calculation(self):
         """Test aspect ratio calculation."""

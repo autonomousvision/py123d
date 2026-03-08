@@ -361,7 +361,7 @@ class Kitti360LogParser(LogParser):
                 box_detections_se3=box_detection_wrapper_all[valid_idx],
                 pinhole_cameras=pinhole_cameras,
                 fisheye_mei_cameras=fisheye_cameras,
-                lidar=lidar,
+                lidars=lidar,
             )
 
 

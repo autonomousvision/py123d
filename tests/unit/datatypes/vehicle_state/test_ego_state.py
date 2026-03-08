@@ -114,8 +114,8 @@ class TestEgoStateSE2:
 
         box_det = ego_state.box_detection_se2
         assert box_det is not None
-        assert box_det.metadata.label == DefaultBoxDetectionLabel.EGO
-        assert box_det.metadata.track_token == EGO_TRACK_TOKEN
+        assert box_det.attributes.label == DefaultBoxDetectionLabel.EGO
+        assert box_det.attributes.track_token == EGO_TRACK_TOKEN
 
     def test_optional_parameters_default(self):
         """Test EgoStateSE2 with default optional parameters."""
@@ -325,8 +325,8 @@ class TestEgoStateSE3:
 
         box_det_se2 = ego_state.box_detection_se2
         assert box_det_se2 is not None
-        assert box_det_se2.metadata.label == DefaultBoxDetectionLabel.EGO
-        assert box_det_se2.metadata.track_token == EGO_TRACK_TOKEN
+        assert box_det_se2.attributes.label == DefaultBoxDetectionLabel.EGO
+        assert box_det_se2.attributes.track_token == EGO_TRACK_TOKEN
 
     def test_ego_state_se2_projection(self):
         """Test projection to EgoStateSE2."""

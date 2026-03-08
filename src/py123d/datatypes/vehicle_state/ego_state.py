@@ -388,7 +388,7 @@ class EgoStateSE2:
     def box_detection_se2(self) -> BoxDetectionSE2:
         """The :class:`~py123d.datatypes.detections.BoxDetectionSE2` projection of the ego vehicle."""
         return BoxDetectionSE2(
-            metadata=BoxDetectionAttributes(
+            attributes=BoxDetectionAttributes(
                 label=DefaultBoxDetectionLabel.EGO,
                 track_token=EGO_TRACK_TOKEN,
             ),

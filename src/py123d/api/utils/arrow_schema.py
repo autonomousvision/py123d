@@ -104,51 +104,52 @@ EGO_STATE_SE3 = ModalitySchema(
 BOX_DETECTIONS_SE3 = ModalitySchema(
     "box_detections_se3",
     {
+        "timestamp_us": pa.int64(),
         "bounding_box_se3": pa.list_(pa.list_(pa.float64(), len(BoundingBoxSE3Index))),
-        "token": pa.list_(pa.string()),
+        "track_token": pa.list_(pa.string()),
         "label": pa.list_(pa.uint16()),
         "velocity_3d": pa.list_(pa.list_(pa.float64(), len(Vector3DIndex))),
         "num_lidar_points": pa.list_(pa.int32()),
     },
 )
 
-TRAFFIC_LIGHTS = ModalitySchema(
-    "traffic_lights",
+TRAFFIC_LIGHT_DETECTIONS = ModalitySchema(
+    "traffic_light_detections",
     {
+        "timestamp_us": pa.int64(),
         "lane_id": pa.list_(pa.int32()),
         "status": pa.list_(pa.uint8()),
-        "timestamp_us": pa.int64(),
     },
 )
 
 PINHOLE_CAMERA = ModalitySchema(
     "pinhole_camera",
     {
-        "camera_id": pa.uint8(),
+        "timestamp_us": pa.int64(),
         "data": pa.string(),
         "state_se3": pa.list_(pa.float64(), len(PoseSE3Index)),
-        "timestamp_us": pa.int64(),
     },
+    parametric=True,
 )
 
-FISHEYE_MEI = ModalitySchema(
-    "fisheye_mei",
+FISHEYE_MEI_CAMERA = ModalitySchema(
+    "fisheye_mei_camera",
     {
-        "camera_id": pa.uint8(),
+        "timestamp_us": pa.int64(),
         "data": pa.string(),
         "state_se3": pa.list_(pa.float64(), len(PoseSE3Index)),
-        "timestamp_us": pa.int64(),
     },
+    parametric=True,
 )
 
 LIDAR = ModalitySchema(
     "lidar",
     {
-        "lidar_id": pa.uint8(),
-        "data": pa.string(),
         "start_timestamp_us": pa.int64(),
         "end_timestamp_us": pa.int64(),
+        "data": pa.string(),
     },
+    parametric=True,
 )
 
 CUSTOM_MODALITY = ModalitySchema(

@@ -266,7 +266,7 @@ class WODPerceptionLogParser(LogParser):
                     frame, map_pose_offset, self._zero_roll_pitch, timestamp
                 ),
                 pinhole_cameras=_extract_wod_perception_cameras(frame),
-                lidar=_extract_wod_perception_lidars(
+                lidars=_extract_wod_perception_lidars(
                     frame,
                     self._keep_polar_features,
                     frame_idx,

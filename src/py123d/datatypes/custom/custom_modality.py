@@ -2,7 +2,42 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterator, List, Optional
 
+from py123d.datatypes.metadata.base_metadata import BaseModalityMetadata
 from py123d.datatypes.time.timestamp import Timestamp
+
+
+class CustomModalityMetadata(BaseModalityMetadata):
+    """Metadata for a custom modality."""
+
+    __slots__ = ("_modality_id", "_metadata")
+
+    def __init__(self, modality_id: str, metadata: Dict[str, Any] = {}) -> None:
+        """Initializes a CustomModalityMetadata instance.
+
+        :param modality_id: The ID of the custom modality that this metadata describes.
+        :param metadata: The metadata dictionary for the custom modality.
+        """
+        self._modality_id = modality_id
+        self._metadata = metadata
+
+    @property
+    def modality_name(self) -> str:
+        """Returns the name of the modality that this metadata describes."""
+        return f"custom.{self._modality_id}"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"modality_id": self._modality_id, "metadata": self._metadata}
+
+    @classmethod
+    def from_dict(cls, data_dict: Dict[str, Any]) -> CustomModalityMetadata:
+        """Deserializes a CustomModalityMetadata from a dictionary.
+
+        :param data_dict: A dictionary containing the metadata fields.
+        :return: A CustomModalityMetadata instance.
+        """
+        modality_id = data_dict["modality_id"]
+        metadata = data_dict.get("metadata", {})
+        return cls(modality_id=modality_id, metadata=metadata)
 
 
 class CustomModality:
@@ -14,23 +49,22 @@ class CustomModality:
     ``bool``, ``None``) or ``numpy.ndarray``.
     """
 
-    __slots__ = ("_data", "_timestamp")
+    __slots__ = ("_data", "_metadata", "_timestamp")
 
-    def __init__(self, data: Dict[str, Any], timestamp: Timestamp) -> None:
-        """Initializes a CustomModality instance.
-
-        :param data: The custom data to be stored. Must be a dictionary with string keys.
-            Values can be any msgpack-serializable type: ``dict``, ``list``, ``str``,
-            ``int``, ``float``, ``bytes``, ``bool``, ``None``, or ``numpy.ndarray``.
-        :param timestamp: The :class:`~py123d.datatypes.time.Timestamp` associated with the custom modality data.
-        """
+    def __init__(self, data: Dict[str, Any], metadata: CustomModalityMetadata, timestamp: Timestamp) -> None:
         self._data = data
+        self._metadata = metadata
         self._timestamp = timestamp
 
     @property
     def data(self) -> Dict[str, Any]:
         """The custom data dictionary."""
         return self._data
+
+    @property
+    def metadata(self) -> CustomModalityMetadata:
+        """The :class:`CustomModalityMetadata` associated with this custom modality."""
+        return self._metadata
 
     @property
     def timestamp(self) -> Timestamp:

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Iterator, Mapping, Optional, Type, Union
 
 import numpy as np
 import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
-from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
+from py123d.datatypes import BaseModalityMetadata
 from py123d.geometry import Point3DIndex, PoseSE3
 
 
@@ -70,7 +70,7 @@ LIDAR_FEATURE_DTYPES: Dict[LidarFeature, Type] = {
 }
 
 
-class LidarMetadata(AbstractMetadata):
+class LidarMetadata(BaseModalityMetadata):
     """Metadata for Lidar sensor, static for a given sensor."""
 
     __slots__ = ("_lidar_name", "_lidar_id", "_lidar_to_imu_se3")
@@ -111,6 +111,11 @@ class LidarMetadata(AbstractMetadata):
         """The extrinsic :class:`~py123d.geometry.PoseSE3` of the Lidar sensor, relative to the IMU frame."""
         return self._lidar_to_imu_se3
 
+    @property
+    def modality_name(self) -> str:
+        """Returns the name of the modality that this metadata describes."""
+        return f"lidar.{self.lidar_id.serialize()}"
+
     @classmethod
     def from_dict(cls, data_dict: dict) -> LidarMetadata:
         """Construct the Lidar metadata from a dictionary.
@@ -137,6 +142,44 @@ class LidarMetadata(AbstractMetadata):
         }
 
 
+class LidarMergedMetadata(BaseModalityMetadata, Mapping[LidarID, LidarMetadata]):
+    __slots__ = ("_data",)
+
+    def __init__(self, lidar_metadata_dict: Dict[LidarID, LidarMetadata]):
+        self._data = lidar_metadata_dict
+
+    def __getitem__(self, key: LidarID) -> LidarMetadata:
+        return self._data[key]
+
+    def __iter__(self) -> Iterator[LidarID]:
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    @property
+    def modality_name(self) -> str:
+        return f"lidar.{LidarID.LIDAR_MERGED.serialize()}"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize the metadata instance to a plain Python dictionary.
+
+        :return: A dictionary representation using only default Python types.
+        """
+        return {str(int(lid)): meta.to_dict() for lid, meta in self._data.items()}
+
+    @classmethod
+    def from_dict(cls, data_dict: Dict[str, Any]) -> LidarMergedMetadata:
+        """Construct a metadata instance from a plain Python dictionary.
+
+        :param data_dict: A dictionary containing the metadata fields.
+        :return: A metadata instance.
+        """
+        return LidarMergedMetadata(
+            lidar_metadata_dict={LidarID(int(k)): LidarMetadata.from_dict(v) for k, v in data_dict.items()}
+        )
+
+
 class Lidar:
     """Data structure for Lidar point cloud data and associated metadata."""
 
@@ -144,7 +187,7 @@ class Lidar:
 
     def __init__(
         self,
-        metadata: LidarMetadata,
+        metadata: Union[LidarMetadata, LidarMergedMetadata],
         point_cloud_3d: npt.NDArray[np.float32],
         point_cloud_features: Optional[Dict[str, npt.NDArray]] = None,
     ) -> None:
@@ -160,7 +203,7 @@ class Lidar:
         self._point_cloud_features = point_cloud_features
 
     @property
-    def metadata(self) -> LidarMetadata:
+    def metadata(self) -> Union[LidarMetadata, LidarMergedMetadata]:
         """The :class:`LidarMetadata` associated with this Lidar recording."""
         return self._metadata
 

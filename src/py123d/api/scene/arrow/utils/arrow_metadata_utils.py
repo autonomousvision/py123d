@@ -3,9 +3,9 @@ from typing import TypeVar
 
 import pyarrow as pa
 
-from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
+from py123d.datatypes.metadata.base_metadata import BaseMetadata
 
-T = TypeVar("T", bound=AbstractMetadata)
+T = TypeVar("T", bound=BaseMetadata)
 
 # _LOG_METADATA_KEY = b"log_metadata"
 _METADATA_KEY = b"metadata"
@@ -29,12 +29,12 @@ def get_metadata_from_arrow_schema(
     except AssertionError as e:
         available_keys = [k.decode() for k in arrow_schema.metadata.keys()] if arrow_schema.metadata else []
         raise ValueError(f"{str(e)} Available metadata keys: {available_keys}") from e
-    return deserialized_metadata
+    return deserialized_metadata  # type: ignore
 
 
 def add_metadata_to_arrow_schema(
     schema: pa.Schema,
-    metadata: AbstractMetadata,
+    metadata: BaseMetadata,
     modality_key: bytes = _METADATA_KEY,
 ) -> pa.Schema:
     """Adds metadata for a specific modality to an Arrow schema."""

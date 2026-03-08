@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import Dict, Optional
 
 import py123d
-from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
+from py123d.datatypes.metadata.base_metadata import BaseMetadata
 
 
-class LogMetadata(AbstractMetadata):
+class LogMetadata(BaseMetadata):
     """Class to hold metadata information about a log."""
 
     __slots__ = ("_dataset", "_split", "_log_name", "_location", "_timestep_seconds", "_version")

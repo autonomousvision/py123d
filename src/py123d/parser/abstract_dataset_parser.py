@@ -4,29 +4,25 @@ import abc
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
 
 from py123d.datatypes import (
     BaseMapObject,
-    BoxDetectionMetadata,
     BoxDetectionsSE3,
     CustomModality,
-    EgoMetadata,
     EgoStateSE3,
     FisheyeMEICameraID,
-    FisheyeMEICameraMetadatas,
     LidarID,
-    LidarMetadatas,
     LogMetadata,
     MapMetadata,
     PinholeCameraID,
-    PinholeCameraMetadatas,
     Timestamp,
     TrafficLightDetections,
 )
+from py123d.datatypes.metadata.base_metadata import BaseModalityMetadata
 from py123d.geometry import PoseSE3
 
 
@@ -69,69 +65,17 @@ class LogParser(abc.ABC):
     def get_log_metadata(self) -> LogMetadata:
         pass
 
-    @abc.abstractmethod
-    def get_ego_metadata(self) -> Optional[EgoMetadata]:
-        pass
-
-    @abc.abstractmethod
-    def get_box_detection_metadata(self) -> Optional[BoxDetectionMetadata]:
-        pass
-
-    @abc.abstractmethod
-    def get_pinhole_camera_metadatas(self) -> Optional[PinholeCameraMetadatas]:
-        pass
-
-    @abc.abstractmethod
-    def get_fisheye_mei_camera_metadatas(self) -> Optional[FisheyeMEICameraMetadatas]:
-        pass
-
-    @abc.abstractmethod
-    def get_lidar_metadatas(self) -> Optional[LidarMetadatas]:
-        pass
+    def get_modality_metadatas(self) -> List[BaseModalityMetadata]:
+        """Returns metadata for all modalities in this log. By default, returns an empty list."""
+        return []
 
     @abc.abstractmethod
     def iter_frames(self) -> Iterator[FrameData]:
         pass
 
-    # ------------------------------------------------------------------------------------------------------------------
-    # Per-modality iterators (optional, default to extracting from iter_frames)
-    # ------------------------------------------------------------------------------------------------------------------
-
-    def iter_ego_states_se3(self) -> Iterator[EgoStateSE3]:
-        """Yields all ego state observations. Override for native-rate async iteration."""
-        for frame in self.iter_frames():
-            if frame.ego_state_se3 is not None:
-                yield frame.ego_state_se3
-
-    def iter_box_detections_se3(self) -> Iterator[BoxDetectionsSE3]:
-        """Yields all box detection frames. Override for native-rate async iteration."""
-        for frame in self.iter_frames():
-            if frame.box_detections_se3 is not None:
-                yield frame.box_detections_se3
-
-    def iter_traffic_lights(self) -> Iterator[TrafficLightDetections]:
-        """Yields all traffic light detection frames. Override for native-rate async iteration."""
-        for frame in self.iter_frames():
-            if frame.traffic_lights is not None:
-                yield frame.traffic_lights
-
-    def iter_pinhole_cameras(self) -> Iterator[CameraData]:
-        """Yields individual pinhole camera observations. Override for native-rate async iteration."""
-        for frame in self.iter_frames():
-            if frame.pinhole_cameras is not None:
-                yield from frame.pinhole_cameras
-
-    def iter_fisheye_mei_cameras(self) -> Iterator[CameraData]:
-        """Yields individual fisheye MEI camera observations. Override for native-rate async iteration."""
-        for frame in self.iter_frames():
-            if frame.fisheye_mei_cameras is not None:
-                yield from frame.fisheye_mei_cameras
-
-    def iter_lidars(self) -> Iterator[LidarData]:
-        """Yields individual lidar observations. Override for native-rate async iteration."""
-        for frame in self.iter_frames():
-            if frame.lidar is not None:
-                yield frame.lidar
+    @abc.abstractmethod
+    def iter_modality_async(self, modality_metadata: BaseModalityMetadata) -> Iterator[FrameData]:
+        pass
 
 
 @dataclass
@@ -152,29 +96,34 @@ class FrameData:
     traffic_lights: Optional[TrafficLightDetections] = None
     pinhole_cameras: Optional[List[CameraData]] = None
     fisheye_mei_cameras: Optional[List[CameraData]] = None
-    lidar: Optional[LidarData] = None
+    lidars: Optional[List[LidarData]] = None
     custom_modalities: Optional[Dict[str, CustomModality]] = None
 
-    def to_writer_kwargs(self) -> dict:
-        """Returns a dict suitable for ``writer.write(**frame.to_writer_kwargs())``."""
-        kwargs: dict = {"timestamp": self.timestamp}
-        if self.uuid is not None:
-            kwargs["uuid"] = self.uuid
+    def iter_modalities(self) -> Iterator[Tuple[str, Any]]:
+        """Yields ``(modality_name, data)`` pairs for every populated modality field.
+
+        The *modality_name* matches :attr:`BaseModalityMetadata.modality_name` so the
+        log writer can look up the correct writer by key. List-valued fields (cameras,
+        lidars) are expanded into one pair per element.
+        """
         if self.ego_state_se3 is not None:
-            kwargs["ego_state_se3"] = self.ego_state_se3
+            yield "ego_state_se3", self.ego_state_se3
         if self.box_detections_se3 is not None:
-            kwargs["box_detections_se3"] = self.box_detections_se3
+            yield "box_detections_se3", self.box_detections_se3
         if self.traffic_lights is not None:
-            kwargs["traffic_lights"] = self.traffic_lights
+            yield "traffic_light_detections", self.traffic_lights
         if self.pinhole_cameras is not None:
-            kwargs["pinhole_cameras"] = self.pinhole_cameras
+            for cam_data in self.pinhole_cameras:
+                yield f"pinhole_camera.{cam_data.camera_id.serialize()}", cam_data
         if self.fisheye_mei_cameras is not None:
-            kwargs["fisheye_mei_cameras"] = self.fisheye_mei_cameras
-        if self.lidar is not None:
-            kwargs["lidar"] = self.lidar
+            for cam_data in self.fisheye_mei_cameras:
+                yield f"fisheye_mei_camera.{cam_data.camera_id.serialize()}", cam_data
+        if self.lidars is not None:
+            for lidar_data in self.lidars:
+                yield f"lidar.{lidar_data.lidar_type.serialize()}", lidar_data
         if self.custom_modalities is not None:
-            kwargs["custom_modalities"] = self.custom_modalities
-        return kwargs
+            for _name, modality in self.custom_modalities.items():
+                yield modality.metadata.modality_name, modality
 
 
 @dataclass

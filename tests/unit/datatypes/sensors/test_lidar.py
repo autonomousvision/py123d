@@ -1,6 +1,6 @@
 import numpy as np
 
-from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
+from py123d.datatypes.metadata.base_metadata import BaseMetadata
 from py123d.datatypes.sensors.lidar import LIDAR_FEATURE_DTYPES, Lidar, LidarFeature, LidarID, LidarMetadata
 from py123d.geometry import PoseSE3
 
@@ -143,7 +143,7 @@ class TestLidarMetadata:
     def test_is_instance_of_abstract_metadata(self):
         """LidarMetadata is an instance of AbstractMetadata."""
         metadata = LidarMetadata(lidar_name=self.lidar_name, lidar_id=self.lidar_id)
-        assert isinstance(metadata, AbstractMetadata)
+        assert isinstance(metadata, BaseMetadata)
 
 
 class TestLidar:

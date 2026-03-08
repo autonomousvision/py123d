@@ -9,23 +9,21 @@ from typing_extensions import override
 
 from py123d.datatypes import (
     BoxDetectionAttributes,
-    BoxDetectionMetadata,
     BoxDetectionSE3,
     BoxDetectionsSE3,
-    EgoMetadata,
     EgoStateSE3,
-    FisheyeMEICameraMetadatas,
     LidarID,
     LidarMetadata,
-    LidarMetadatas,
     LogMetadata,
-    PinholeCameraID,
     PinholeCameraMetadata,
-    PinholeCameraMetadatas,
     PinholeDistortion,
     PinholeIntrinsics,
     Timestamp,
 )
+from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3Metadata
+from py123d.datatypes.metadata.base_metadata import BaseModalityMetadata
+from py123d.datatypes.sensors.lidar import LidarMergedMetadata
+from py123d.datatypes.vehicle_state.ego_metadata import EgoStateSE3Metadata
 from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, PoseSE3, Vector3D, Vector3DIndex
 from py123d.geometry.transform import reframe_se3_array, rel_to_abs_se3_array
 from py123d.parser.abstract_dataset_parser import (
@@ -36,7 +34,11 @@ from py123d.parser.abstract_dataset_parser import (
     LogParser,
 )
 from py123d.parser.av2.av2_map_parser import Av2MapParser, get_av2_map_metadata
-from py123d.parser.av2.utils.av2_constants import AV2_CAMERA_ID_MAPPING, AV2_SENSOR_SPLITS
+from py123d.parser.av2.utils.av2_constants import (
+    AV2_CAMERA_ID_MAPPING,
+    AV2_SENSOR_EGO_STATE_SE3_METADATA,
+    AV2_SENSOR_SPLITS,
+)
 from py123d.parser.av2.utils.av2_helper import (
     build_sensor_dataframe,
     build_synchronization_dataframe,
@@ -129,44 +131,27 @@ class Av2SensorLogParser(LogParser):
         )
 
     @override
-    def get_ego_metadata(self) -> Optional[EgoMetadata]:
+    def get_modality_metadatas(self) -> List[BaseModalityMetadata]:
         """Inherited, see superclass."""
-        # [1] https://en.wikipedia.org/wiki/Ford_Fusion_Hybrid#Second_generation
-        # https://github.com/argoverse/av2-api/blob/6b22766247eda941cb1953d6a58e8d5631c561da/tests/unit/map/test_map_api.py#L375
-        return EgoMetadata(
-            vehicle_name="av2_ford_fusion_hybrid",
-            width=1.852 + 0.275,  # 0.275 is the estimated width of the side mirrors
-            length=4.869,
-            height=1.476,
-            wheel_base=2.850,
-            center_to_imu_se3=PoseSE3(x=1.339, y=0.0, z=0.438, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
-            rear_axle_to_imu_se3=PoseSE3.identity(),
-        )
+        modality_metadatas: List[BaseModalityMetadata] = []
 
-    @override
-    def get_box_detection_metadata(self) -> Optional[BoxDetectionMetadata]:
-        """Inherited, see superclass."""
-        return BoxDetectionMetadata(box_detection_label_class=AV2SensorBoxDetectionLabel)
+        # 1. Ego metadata
+        modality_metadatas.append(AV2_SENSOR_EGO_STATE_SE3_METADATA)
 
-    @override
-    def get_pinhole_camera_metadatas(self) -> Optional[PinholeCameraMetadatas]:
-        """Inherited, see superclass."""
-        return _get_av2_pinhole_camera_metadatas(self._source_log_path)
+        # 2. Box detection metadata
+        modality_metadatas.append(BoxDetectionsSE3Metadata(box_detection_label_class=AV2SensorBoxDetectionLabel))
 
-    @override
-    def get_fisheye_mei_camera_metadatas(self) -> Optional[FisheyeMEICameraMetadatas]:
-        """Inherited, see superclass."""
-        return None  # NOTE: AV2 sensor dataset does not have fisheye MEI cameras
+        # 3. Pinhole camera metadata (one per camera)
+        modality_metadatas.extend(_get_av2_pinhole_camera_metadatas(self._source_log_path))
 
-    @override
-    def get_lidar_metadatas(self) -> Optional[LidarMetadatas]:
-        """Inherited, see superclass."""
-        return _get_av2_lidar_metadata(self._source_log_path)
+        # 4. Lidar merged metadata
+        modality_metadatas.append(_get_av2_lidar_merged_metadata(self._source_log_path))
+
+        return modality_metadatas
 
     def iter_frames(self) -> Iterator[FrameData]:
         """Inherited, see superclass."""
-        ego_metadata = self.get_ego_metadata()
-        assert ego_metadata is not None
+        ego_state_se3_metadata = AV2_SENSOR_EGO_STATE_SE3_METADATA
         sensor_df = build_sensor_dataframe(self._source_log_path)
         synchronization_df = build_synchronization_dataframe(
             sensor_df,
@@ -188,7 +173,10 @@ class Av2SensorLogParser(LogParser):
         )
 
         for lidar_timestamp_ns in lidar_timestamps_ns:
-            ego_state = _extract_av2_sensor_ego_state(city_se3_egovehicle_df, lidar_timestamp_ns, ego_metadata)
+            ego_state = _extract_av2_sensor_ego_state(
+                city_se3_egovehicle_df, lidar_timestamp_ns, ego_state_se3_metadata
+            )
+            lidar_data = _extract_av2_sensor_lidar(self._source_log_path, lidar_timestamp_ns)
             yield FrameData(
                 timestamp=Timestamp.from_ns(int(lidar_timestamp_ns)),
                 ego_state_se3=ego_state,
@@ -204,14 +192,42 @@ class Av2SensorLogParser(LogParser):
                     synchronization_df,
                     self._source_log_path,
                 ),
-                lidar=_extract_av2_sensor_lidar(self._source_log_path, lidar_timestamp_ns),
+                lidars=[lidar_data] if lidar_data is not None else None,
             )
 
     @override
-    def iter_ego_states_se3(self) -> Iterator[EgoStateSE3]:
+    def iter_modality_async(self, modality_metadata: BaseModalityMetadata) -> Iterator[FrameData]:
+        """Inherited, see superclass.
+
+        Dispatches to the appropriate per-modality iterator based on the metadata type.
+        Each yielded :class:`FrameData` contains only the relevant modality field.
+        """
+        if isinstance(modality_metadata, EgoStateSE3Metadata):
+            for ego_state in self._iter_ego_states_se3():
+                yield FrameData(timestamp=ego_state.timestamp, ego_state_se3=ego_state)
+
+        elif isinstance(modality_metadata, BoxDetectionsSE3Metadata):
+            for box_detections in self._iter_box_detections_se3():
+                yield FrameData(timestamp=box_detections.timestamp, box_detections_se3=box_detections)
+
+        elif isinstance(modality_metadata, PinholeCameraMetadata):
+            for cam_data in self._iter_pinhole_camera(modality_metadata):
+                yield FrameData(timestamp=cam_data.timestamp, pinhole_cameras=[cam_data])
+
+        elif isinstance(modality_metadata, LidarMergedMetadata):
+            for lidar_data in self._iter_lidar_merged():
+                yield FrameData(timestamp=lidar_data.start_timestamp, lidars=[lidar_data])
+
+        else:
+            raise ValueError(f"Unsupported modality metadata type: {type(modality_metadata)}")
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # Per-modality iterators (async / native-rate)
+    # ------------------------------------------------------------------------------------------------------------------
+
+    def _iter_ego_states_se3(self) -> Iterator[EgoStateSE3]:
         """Yields all ego state observations at native rate from city_SE3_egovehicle.feather."""
-        ego_metadata = self.get_ego_metadata()
-        assert ego_metadata is not None
+        ego_metadata = AV2_SENSOR_EGO_STATE_SE3_METADATA
         city_se3_egovehicle_df = pd.read_feather(self._source_log_path / "city_SE3_egovehicle.feather")
 
         for _, row in city_se3_egovehicle_df.iterrows():
@@ -224,14 +240,12 @@ class Av2SensorLogParser(LogParser):
                 timestamp=Timestamp.from_ns(int(row_dict["timestamp_ns"])),
             )
 
-    @override
-    def iter_box_detections_se3(self) -> Iterator[BoxDetectionsSE3]:
+    def _iter_box_detections_se3(self) -> Iterator[BoxDetectionsSE3]:
         """Yields box detections at each annotated timestamp."""
         if not (self._source_log_path / "annotations.feather").exists():
             return
 
-        ego_metadata = self.get_ego_metadata()
-        assert ego_metadata is not None
+        ego_metadata = AV2_SENSOR_EGO_STATE_SE3_METADATA
         annotations_df = pd.read_feather(self._source_log_path / "annotations.feather")
         city_se3_egovehicle_df = pd.read_feather(self._source_log_path / "city_SE3_egovehicle.feather")
 
@@ -240,9 +254,11 @@ class Av2SensorLogParser(LogParser):
             ego_state = _extract_av2_sensor_ego_state(city_se3_egovehicle_df, timestamp_ns, ego_metadata)
             yield _extract_av2_sensor_box_detections(annotations_df, timestamp_ns, ego_state)
 
-    @override
-    def iter_pinhole_cameras(self) -> Iterator[CameraData]:
-        """Yields all pinhole camera observations at native rate (~20Hz per camera)."""
+    def _iter_pinhole_camera(self, pinhole_camera_metadata: PinholeCameraMetadata) -> Iterator[CameraData]:
+        """Yields pinhole camera observations for a specific camera at native rate (~20Hz)."""
+        target_camera_name = pinhole_camera_metadata.camera_name
+        target_camera_id = pinhole_camera_metadata.camera_id
+
         egovehicle_se3_sensor_df = pd.read_feather(
             self._source_log_path / "calibration" / "egovehicle_SE3_sensor.feather"
         )
@@ -250,31 +266,31 @@ class Av2SensorLogParser(LogParser):
         split_type = self._source_log_path.parent.name
         log_name = self._source_log_path.name
 
-        for _, row in egovehicle_se3_sensor_df.iterrows():
-            row_dict = row.to_dict()
-            sensor_name = row_dict["sensor_name"]
-            if sensor_name not in AV2_CAMERA_ID_MAPPING:
-                continue
+        # Find the calibration row for this specific camera
+        camera_row = egovehicle_se3_sensor_df[egovehicle_se3_sensor_df["sensor_name"] == target_camera_name]
+        if camera_row.empty:
+            return
 
-            camera_id = AV2_CAMERA_ID_MAPPING[sensor_name]
-            camera_to_imu_se3 = _row_dict_to_pose_se3(row_dict)
-            camera_dir = self._source_log_path / "sensors" / "cameras" / sensor_name
+        camera_to_imu_se3 = _row_dict_to_pose_se3(camera_row.iloc[0].to_dict())
+        camera_dir = self._source_log_path / "sensors" / "cameras" / target_camera_name
 
-            image_files = sorted(camera_dir.glob("*.jpg"))
-            for image_file in image_files:
-                timestamp_ns = int(image_file.stem)
-                relative_path = f"{split_type}/{log_name}/sensors/cameras/{sensor_name}/{image_file.name}"
-                yield CameraData(
-                    camera_name=str(sensor_name),
-                    camera_id=camera_id,
-                    timestamp=Timestamp.from_ns(timestamp_ns),
-                    extrinsic=camera_to_imu_se3,
-                    dataset_root=av2_sensor_data_root,
-                    relative_path=relative_path,
-                )
+        if not camera_dir.exists():
+            return
 
-    @override
-    def iter_lidars(self) -> Iterator[LidarData]:
+        image_files = sorted(camera_dir.glob("*.jpg"))
+        for image_file in image_files:
+            timestamp_ns = int(image_file.stem)
+            relative_path = f"{split_type}/{log_name}/sensors/cameras/{target_camera_name}/{image_file.name}"
+            yield CameraData(
+                camera_name=target_camera_name,
+                camera_id=target_camera_id,
+                timestamp=Timestamp.from_ns(timestamp_ns),
+                extrinsic=camera_to_imu_se3,
+                dataset_root=av2_sensor_data_root,
+                relative_path=relative_path,
+            )
+
+    def _iter_lidar_merged(self) -> Iterator[LidarData]:
         """Yields all lidar sweeps at native rate (~10Hz)."""
         lidar_dir = self._source_log_path / "sensors" / "lidar"
         av2_sensor_data_root = self._source_log_path.parent.parent
@@ -300,13 +316,13 @@ class Av2SensorLogParser(LogParser):
 
 
 # ------------------------------------------------------------------------------------------------------------------
-# Sensor extraction helpers
+# Metadata helpers
 # ------------------------------------------------------------------------------------------------------------------
 
 
-def _get_av2_pinhole_camera_metadatas(source_log_path: Path) -> PinholeCameraMetadatas:
-    """Helper to get pinhole camera metadata for AV2 sensor dataset."""
-    metadata_dict: Dict[PinholeCameraID, PinholeCameraMetadata] = {}
+def _get_av2_pinhole_camera_metadatas(source_log_path: Path) -> List[PinholeCameraMetadata]:
+    """Returns a list of pinhole camera metadata for AV2 sensor dataset (one per camera)."""
+    metadatas: List[PinholeCameraMetadata] = []
     intrinsics_file = source_log_path / "calibration" / "intrinsics.feather"
     intrinsics_df = pd.read_feather(intrinsics_file)
 
@@ -318,32 +334,34 @@ def _get_av2_pinhole_camera_metadatas(source_log_path: Path) -> PinholeCameraMet
         if row_callib["sensor_name"] in AV2_CAMERA_ID_MAPPING.keys():
             row_intrinsics = intrinsics_df[intrinsics_df["sensor_name"] == row_callib["sensor_name"]].iloc[0].to_dict()
             camera_id = AV2_CAMERA_ID_MAPPING[row_callib["sensor_name"]]
-            metadata_dict[camera_id] = PinholeCameraMetadata(
-                camera_name=str(row_callib["sensor_name"]),
-                camera_id=camera_id,
-                width=row_intrinsics["width_px"],
-                height=row_intrinsics["height_px"],
-                intrinsics=PinholeIntrinsics(
-                    fx=row_intrinsics["fx_px"],
-                    fy=row_intrinsics["fy_px"],
-                    cx=row_intrinsics["cx_px"],
-                    cy=row_intrinsics["cy_px"],
-                ),
-                distortion=PinholeDistortion(
-                    k1=row_intrinsics["k1"],
-                    k2=row_intrinsics["k2"],
-                    p1=0.0,
-                    p2=0.0,
-                    k3=row_intrinsics["k3"],
-                ),
-                camera_to_imu_se3=_row_dict_to_pose_se3(row_callib),
-                is_undistorted=True,
+            metadatas.append(
+                PinholeCameraMetadata(
+                    camera_name=str(row_callib["sensor_name"]),
+                    camera_id=camera_id,
+                    width=row_intrinsics["width_px"],
+                    height=row_intrinsics["height_px"],
+                    intrinsics=PinholeIntrinsics(
+                        fx=row_intrinsics["fx_px"],
+                        fy=row_intrinsics["fy_px"],
+                        cx=row_intrinsics["cx_px"],
+                        cy=row_intrinsics["cy_px"],
+                    ),
+                    distortion=PinholeDistortion(
+                        k1=row_intrinsics["k1"],
+                        k2=row_intrinsics["k2"],
+                        p1=0.0,
+                        p2=0.0,
+                        k3=row_intrinsics["k3"],
+                    ),
+                    camera_to_imu_se3=_row_dict_to_pose_se3(row_callib),
+                    is_undistorted=True,
+                )
             )
 
-    return PinholeCameraMetadatas(metadata_dict)
+    return metadatas
 
 
-def _get_av2_lidar_metadata(source_log_path: Path) -> LidarMetadatas:
+def _get_av2_lidar_merged_metadata(source_log_path: Path) -> LidarMergedMetadata:
     """Helper to get Lidar metadata for AV2 sensor dataset."""
     metadata_dict: Dict[LidarID, LidarMetadata] = {}
     calibration_file = source_log_path / "calibration" / "egovehicle_SE3_sensor.feather"
@@ -363,7 +381,12 @@ def _get_av2_lidar_metadata(source_log_path: Path) -> LidarMetadatas:
             calibration_df[calibration_df["sensor_name"] == "down_lidar"].iloc[0].to_dict()
         ),
     )
-    return LidarMetadatas(metadata_dict)
+    return LidarMergedMetadata(metadata_dict)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# Sensor extraction helpers
+# ------------------------------------------------------------------------------------------------------------------
 
 
 def _extract_av2_sensor_box_detections(
@@ -401,7 +424,7 @@ def _extract_av2_sensor_box_detections(
     for detection_idx in range(num_detections):
         box_detections.append(
             BoxDetectionSE3(
-                metadata=BoxDetectionAttributes(
+                attributes=BoxDetectionAttributes(
                     label=detections_labels[detection_idx],
                     track_token=detections_token[detection_idx],
                     num_lidar_points=detections_num_lidar_points[detection_idx],
@@ -417,7 +440,7 @@ def _extract_av2_sensor_box_detections(
 def _extract_av2_sensor_ego_state(
     city_se3_egovehicle_df: pd.DataFrame,
     lidar_timestamp_ns: int,
-    ego_metadata: EgoMetadata,
+    ego_metadata: EgoStateSE3Metadata,
 ) -> EgoStateSE3:
     """Extract ego state from AV2 sensor dataset city_SE3_egovehicle dataframe."""
     ego_state_slice = get_slice_with_timestamp_ns(city_se3_egovehicle_df, lidar_timestamp_ns)

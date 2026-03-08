@@ -296,7 +296,7 @@ class NuplanLogParser(LogParser):
                         source_log_path=self._source_log_path,
                         nuplan_sensor_root=self._nuplan_sensor_root,
                     ),
-                    lidar=_extract_nuplan_lidar_data(
+                    lidars=_extract_nuplan_lidar_data(
                         nuplan_lidar_pc=nuplan_lidar_pc,
                         nuplan_sensor_root=self._nuplan_sensor_root,
                     ),

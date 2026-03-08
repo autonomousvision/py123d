@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from py123d.api.map.map_api import MapAPI
 from py123d.api.scene.scene_metadata import SceneMetadata
@@ -13,19 +13,17 @@ from py123d.datatypes import (
     EgoStateSE3,
     FisheyeMEICamera,
     FisheyeMEICameraID,
+    FisheyeMEICameraMetadata,
     Lidar,
     LidarID,
+    LidarMetadata,
     LogMetadata,
     MapMetadata,
     PinholeCamera,
     PinholeCameraID,
+    PinholeCameraMetadata,
     Timestamp,
     TrafficLightDetections,
-)
-from py123d.datatypes.metadata.sensor_metadata import (
-    FisheyeMEICameraMetadatas,
-    LidarMetadatas,
-    PinholeCameraMetadatas,
 )
 
 
@@ -61,39 +59,36 @@ class SceneAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_ego_metadata(self) -> Optional[EgoMetadata]:
+    def get_ego_state_se3_metadata(self) -> Optional[EgoMetadata]:
         """Returns the :class:`~py123d.datatypes.EgoMetadata` of the ego vehicle, if available.
 
         :return: The ego metadata, or None if not available.
         """
 
     @abc.abstractmethod
-    def get_box_detection_metadata(self) -> Optional[BoxDetectionMetadata]:
+    def get_box_detections_se3_metadata(self) -> Optional[BoxDetectionMetadata]:
         """Returns the :class:`~py123d.datatypes.detections.BoxDetectionMetadata` of the scene, if available.
 
         :return: The box detection metadata, or None if not available.
         """
 
     @abc.abstractmethod
-    def get_pinhole_camera_metadatas(self) -> Optional[PinholeCameraMetadatas]:
-        """Returns the :class:`~py123d.datatypes.metadata.sensor_metadata.PinholeCameraMetadatas` for all available \
-            pinhole cameras in the scene, if available.
+    def get_pinhole_camera_metadatas(self) -> Optional[Dict[PinholeCameraID, PinholeCameraMetadata]]:
+        """Returns per-camera pinhole camera metadata, if available.
 
         :return: The pinhole camera metadatas, or None if not available.
         """
 
     @abc.abstractmethod
-    def get_fisheye_mei_camera_metadatas(self) -> Optional[FisheyeMEICameraMetadatas]:
-        """Returns the :class:`~py123d.datatypes.metadata.sensor_metadata.FisheyeMEICameraMetadatas` for all available \
-            fisheye MEI cameras in the scene, if available.
+    def get_fisheye_mei_camera_metadatas(self) -> Optional[Dict[FisheyeMEICameraID, FisheyeMEICameraMetadata]]:
+        """Returns per-camera fisheye MEI camera metadata, if available.
 
         :return: The fisheye MEI camera metadatas, or None if not available.
         """
 
     @abc.abstractmethod
-    def get_lidar_metadatas(self) -> Optional[LidarMetadatas]:
-        """Returns the :class:`~py123d.datatypes.metadata.sensor_metadata.LidarMetadatas` for all available \
-            lidars in the scene, if available.
+    def get_lidar_metadatas(self) -> Optional[Dict[LidarID, LidarMetadata]]:
+        """Returns per-lidar metadata, if available.
 
         :return: The lidar metadatas, or None if not available.
         """
@@ -237,7 +232,7 @@ class SceneAPI(abc.ABC):
     @property
     def ego_metadata(self) -> Optional[EgoMetadata]:
         """The :class:`~py123d.datatypes.vehicle_state.EgoMetadata` of the ego vehicle, if available."""
-        return self.get_ego_metadata()
+        return self.get_ego_state_se3_metadata()
 
     @property
     def map_api(self) -> Optional[MapAPI]:

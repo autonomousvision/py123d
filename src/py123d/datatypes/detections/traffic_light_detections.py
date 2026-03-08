@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from py123d.common.utils.enums import SerialIntEnum
+from py123d.datatypes.metadata.base_metadata import BaseModalityMetadata
 from py123d.datatypes.time.timestamp import Timestamp
 
 
@@ -51,6 +52,16 @@ class TrafficLightDetection:
     def status(self) -> TrafficLightStatus:
         """The :class:`TrafficLightStatus` of the traffic light detection."""
         return self._status
+
+
+class TrafficLightDetectionsMetadata(BaseModalityMetadata):
+    @property
+    def modality_name(self) -> str:
+        """The modality name for this metadata, which is 'traffic_light_detections'."""
+        return "traffic_light_detections"
+
+    def __repr__(self) -> str:
+        return f"TrafficLightDetectionsMetadata(modality_name={self.modality_name})"
 
 
 class TrafficLightDetections:

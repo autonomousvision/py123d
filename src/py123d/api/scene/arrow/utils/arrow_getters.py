@@ -8,11 +8,11 @@ import pyarrow as pa
 from py123d.api.utils.arrow_schema import (
     BOX_DETECTIONS_SE3,
     EGO_STATE_SE3,
-    FISHEYE_MEI,
+    FISHEYE_MEI_CAMERA,
     LIDAR,
     PINHOLE_CAMERA,
     SYNC,
-    TRAFFIC_LIGHTS,
+    TRAFFIC_LIGHT_DETECTIONS,
 )
 from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.io.camera.jpeg_camera_io import (
@@ -46,7 +46,6 @@ from py123d.datatypes import (
     LidarFeature,
     LidarID,
     LidarMetadata,
-    LidarMetadatas,
     LogMetadata,
     PinholeCamera,
     PinholeCameraID,
@@ -118,22 +117,22 @@ def get_box_detections_se3_from_arrow_table(
     box_detections: Optional[BoxDetectionsSE3] = None
     if _all_columns_in_schema(arrow_table, BOX_DETECTIONS_SE3.all_columns()):
         if timestamp is None:
-            if SYNC.col("timestamp_us") in arrow_table.schema.names:
-                timestamp = get_timestamp_from_arrow_table(arrow_table, index)
+            if BOX_DETECTIONS_SE3.col("timestamp_us") in arrow_table.schema.names:
+                timestamp = Timestamp.from_us(arrow_table[BOX_DETECTIONS_SE3.col("timestamp_us")][index].as_py())
             else:
                 timestamp = Timestamp.from_us(0)
         box_detections_list: List[BoxDetectionSE3] = []
         box_detection_label_class = box_detection_metadata.box_detection_label_class
         for _bounding_box_se3, _token, _label, _velocity, _num_lidar_points in zip(
             arrow_table[BOX_DETECTIONS_SE3.col("bounding_box_se3")][index].as_py(),
-            arrow_table[BOX_DETECTIONS_SE3.col("token")][index].as_py(),
+            arrow_table[BOX_DETECTIONS_SE3.col("track_token")][index].as_py(),
             arrow_table[BOX_DETECTIONS_SE3.col("label")][index].as_py(),
             arrow_table[BOX_DETECTIONS_SE3.col("velocity_3d")][index].as_py(),
             arrow_table[BOX_DETECTIONS_SE3.col("num_lidar_points")][index].as_py(),
         ):
             box_detections_list.append(
                 BoxDetectionSE3(
-                    metadata=BoxDetectionAttributes(
+                    attributes=BoxDetectionAttributes(
                         label=box_detection_label_class(_label),
                         track_token=_token,
                         num_lidar_points=_num_lidar_points,
@@ -158,12 +157,12 @@ def get_traffic_light_detections_from_arrow_table(
     :return: The TrafficLightDetections at the given index, or None if not available.
     """
     traffic_lights: Optional[TrafficLightDetections] = None
-    if _all_columns_in_schema(arrow_table, TRAFFIC_LIGHTS.all_columns()):
-        timestamp = Timestamp.from_us(arrow_table[TRAFFIC_LIGHTS.col("timestamp_us")][index].as_py())
+    if _all_columns_in_schema(arrow_table, TRAFFIC_LIGHT_DETECTIONS.all_columns()):
+        timestamp = Timestamp.from_us(arrow_table[TRAFFIC_LIGHT_DETECTIONS.col("timestamp_us")][index].as_py())
         detections: List[TrafficLightDetection] = []
         for lane_id, status in zip(
-            arrow_table[TRAFFIC_LIGHTS.col("lane_id")][index].as_py(),
-            arrow_table[TRAFFIC_LIGHTS.col("status")][index].as_py(),
+            arrow_table[TRAFFIC_LIGHT_DETECTIONS.col("lane_id")][index].as_py(),
+            arrow_table[TRAFFIC_LIGHT_DETECTIONS.col("status")][index].as_py(),
         ):
             detections.append(
                 TrafficLightDetection(
@@ -201,11 +200,12 @@ def get_camera_from_arrow_table(
     camera: Optional[Union[PinholeCamera, FisheyeMEICamera]] = None
 
     is_pinhole = isinstance(camera_id, PinholeCameraID)
-    schema = PINHOLE_CAMERA if is_pinhole else FISHEYE_MEI
+    schema = PINHOLE_CAMERA if is_pinhole else FISHEYE_MEI_CAMERA
+    instance = camera_id.serialize()
 
-    camera_data_column = schema.col("data")
-    camera_extrinsic_column = schema.col("state_se3")
-    camera_timestamp_column = schema.col("timestamp_us")
+    camera_data_column = schema.col("data", instance)
+    camera_extrinsic_column = schema.col("state_se3", instance)
+    camera_timestamp_column = schema.col("timestamp_us", instance)
 
     if _all_columns_in_schema(arrow_table, [camera_data_column, camera_extrinsic_column, camera_timestamp_column]):
         table_data = arrow_table[camera_data_column][index].as_py()
@@ -237,7 +237,8 @@ def get_camera_from_arrow_table(
                 image = _unoptimized_demo_mp4_read(log_metadata, camera_id.serialize(), table_data)
             else:
                 raise NotImplementedError(
-                    f"Only string file paths, bytes, or int frame indices are supported for camera data, got {type(table_data)}"
+                    f"Only string file paths, bytes, or int frame indices are supported for camera data, "
+                    f"got {type(table_data)}"
                 )
 
             if is_pinhole:
@@ -276,8 +277,10 @@ def get_camera_timestamp_from_arrow_table(
     )
 
     camera_timestamp: Optional[Timestamp] = None
-    schema = PINHOLE_CAMERA if isinstance(camera_id, PinholeCameraID) else FISHEYE_MEI
-    camera_timestamp_column = schema.col("timestamp_us")
+    is_pinhole = isinstance(camera_id, PinholeCameraID)
+    schema = PINHOLE_CAMERA if is_pinhole else FISHEYE_MEI_CAMERA
+    instance = camera_id.serialize()
+    camera_timestamp_column = schema.col("timestamp_us", instance)
 
     if camera_timestamp_column in arrow_table.schema.names:
         timestamp_data = arrow_table[camera_timestamp_column][index].as_py()
@@ -291,7 +294,8 @@ def get_lidar_from_arrow_table(
     arrow_table: pa.Table,
     index: int,
     lidar_type: LidarID,
-    lidar_metadatas: LidarMetadatas,
+    lidar_instance: str,
+    lidar_metadatas: Dict[LidarID, LidarMetadata],
     log_metadata: LogMetadata,
 ) -> Optional[Lidar]:
     """Builds a Lidar object from an Arrow table at a given index.
@@ -299,6 +303,7 @@ def get_lidar_from_arrow_table(
     :param arrow_table: The Arrow table containing the Lidar data.
     :param index: The index to extract the Lidar data from.
     :param lidar_type: The type of Lidar to build.
+    :param lidar_instance: The lidar instance name for parametric column lookup.
     :param lidar_metadatas: Per-sensor lidar metadata dict.
     :param log_metadata: Metadata about the log (used for dataset path resolution).
     :raises ValueError: If the Lidar data format is unsupported.
@@ -307,9 +312,14 @@ def get_lidar_from_arrow_table(
     """
     point_cloud_3d: Optional[np.ndarray] = None
     point_cloud_feature: Optional[Dict[str, np.ndarray]] = None
-    if LIDAR.col("data") in arrow_table.schema.names:
+
+    data_col = LIDAR.col("data", lidar_instance)
+    pc3d_col = LIDAR.col("point_cloud_3d", lidar_instance)
+    pcf_col = LIDAR.col("point_cloud_features", lidar_instance)
+
+    if data_col in arrow_table.schema.names:
         # 1. Load lidar sweep from origin dataset using a relative file path.
-        lidar_data = arrow_table[LIDAR.col("data")][index].as_py()
+        lidar_data = arrow_table[data_col][index].as_py()
         if lidar_data is not None:
             assert isinstance(lidar_data, str), f"Lidar path data must be a string file path, got {type(lidar_data)}"
             point_cloud_3d, point_cloud_feature = load_point_cloud_data_from_path(
@@ -319,9 +329,9 @@ def get_lidar_from_arrow_table(
                 lidar_metadatas=lidar_metadatas,
             )
 
-    elif LIDAR.col("point_cloud_3d") in arrow_table.schema.names:
+    elif pc3d_col in arrow_table.schema.names:
         # 2.1 Loading the lidar xyz point cloud from blob in the Arrow table.
-        lidar_data = arrow_table[LIDAR.col("point_cloud_3d")][index].as_py()
+        lidar_data = arrow_table[pc3d_col][index].as_py()
         if lidar_data is not None:
             if is_draco_binary(lidar_data):
                 point_cloud_3d = load_point_cloud_3d_from_draco_binary(lidar_data)
@@ -331,8 +341,8 @@ def get_lidar_from_arrow_table(
                 point_cloud_3d = load_point_cloud_3d_from_ipc_binary(lidar_data)
 
         # 2.2 Load lidar features from blob in the Arrow table, if available.
-        if LIDAR.col("point_cloud_features") in arrow_table.schema.names:
-            lidar_point_cloud_feature_data = arrow_table[LIDAR.col("point_cloud_features")][index].as_py()
+        if pcf_col in arrow_table.schema.names:
+            lidar_point_cloud_feature_data = arrow_table[pcf_col][index].as_py()
             if lidar_point_cloud_feature_data is not None:
                 if is_ipc_binary(lidar_point_cloud_feature_data):
                     point_cloud_feature = load_point_cloud_features_from_ipc_binary(lidar_point_cloud_feature_data)

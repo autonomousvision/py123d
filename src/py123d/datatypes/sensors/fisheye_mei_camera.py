@@ -8,7 +8,7 @@ import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.common.utils.mixin import ArrayMixin, indexed_array_repr
-from py123d.datatypes.metadata.abstract_metadata import AbstractMetadata
+from py123d.datatypes.metadata.base_metadata import BaseModalityMetadata
 from py123d.datatypes.time import Timestamp
 from py123d.geometry import PoseSE3
 from py123d.geometry.geometry_index import Point3DIndex
@@ -231,7 +231,7 @@ class FisheyeMEIProjection(ArrayMixin):
         return indexed_array_repr(self, FisheyeMEIProjectionIndex)
 
 
-class FisheyeMEICameraMetadata(AbstractMetadata):
+class FisheyeMEICameraMetadata(BaseModalityMetadata):
     """Metadata for a fisheye MEI camera."""
 
     __slots__ = (
@@ -299,6 +299,11 @@ class FisheyeMEICameraMetadata(AbstractMetadata):
             height=data_dict["height"],
             camera_to_imu_se3=PoseSE3.from_list(data_dict["camera_to_imu_se3"]),
         )
+
+    @property
+    def modality_name(self) -> str:
+        """Returns the name of the modality that this metadata describes."""
+        return f"fisheye_mei_camera.{self.camera_id.serialize()}"
 
     @property
     def camera_name(self) -> str:

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, Optional
 from unittest.mock import Mock
 
 import pytest
@@ -24,11 +24,6 @@ from py123d.datatypes import (
     TrafficLightDetections,
 )
 from py123d.datatypes.custom.custom_modality import CustomModality
-from py123d.datatypes.metadata.sensor_metadata import (
-    FisheyeMEICameraMetadatas,
-    LidarMetadatas,
-    PinholeCameraMetadatas,
-)
 
 
 class ConcreteSceneAPI(SceneAPI):
@@ -61,23 +56,23 @@ class ConcreteSceneAPI(SceneAPI):
         """Inherited, see super class."""
         return self._map_metadata
 
-    def get_ego_metadata(self) -> Optional[EgoMetadata]:
+    def get_ego_state_se3_metadata(self) -> Optional[EgoMetadata]:
         """Inherited, see super class."""
         return self._ego_metadata
 
-    def get_box_detection_metadata(self) -> Optional[BoxDetectionMetadata]:
+    def get_box_detections_se3_metadata(self) -> Optional[BoxDetectionMetadata]:
         """Inherited, see super class."""
         return self._box_detection_metadata
 
-    def get_pinhole_camera_metadatas(self) -> Optional[PinholeCameraMetadatas]:
+    def get_pinhole_camera_metadatas(self) -> Optional[Dict[PinholeCameraID, PinholeCameraMetadata]]:
         """Inherited, see super class."""
         return self._pinhole_camera_metadatas
 
-    def get_fisheye_mei_camera_metadatas(self) -> Optional[FisheyeMEICameraMetadatas]:
+    def get_fisheye_mei_camera_metadatas(self) -> Optional[Dict[FisheyeMEICameraID, FisheyeMEICameraMetadata]]:
         """Inherited, see super class."""
         return self._fisheye_mei_camera_metadatas
 
-    def get_lidar_metadatas(self) -> Optional[LidarMetadatas]:
+    def get_lidar_metadatas(self) -> Optional[Dict[LidarID, LidarMetadata]]:
         """Inherited, see super class."""
         return self._lidar_metadatas
 
@@ -134,15 +129,15 @@ def scene_api():
 
     pcam_meta = Mock(spec=PinholeCameraMetadata)
     pcam_meta.camera_name = "pcam_b0"
-    api._pinhole_camera_metadatas = PinholeCameraMetadatas({PinholeCameraID.PCAM_B0: pcam_meta})
+    api._pinhole_camera_metadatas = {PinholeCameraID.PCAM_B0: pcam_meta}
 
     fcam_meta = Mock(spec=FisheyeMEICameraMetadata)
     fcam_meta.camera_name = "fcam_l"
-    api._fisheye_mei_camera_metadatas = FisheyeMEICameraMetadatas({FisheyeMEICameraID.FCAM_L: fcam_meta})
+    api._fisheye_mei_camera_metadatas = {FisheyeMEICameraID.FCAM_L: fcam_meta}
 
     lidar_meta = Mock(spec=LidarMetadata)
     lidar_meta.lidar_name = "lidar_top"
-    api._lidar_metadatas = LidarMetadatas({LidarID.LIDAR_TOP: lidar_meta})
+    api._lidar_metadatas = {LidarID.LIDAR_TOP: lidar_meta}
 
     api._scene_metadata.initial_uuid = "test-uuid-123"
     api._scene_metadata.number_of_iterations = 100

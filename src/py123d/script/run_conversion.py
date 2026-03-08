@@ -77,24 +77,13 @@ def _convert_logs(args: List[LogParser], cfg: DictConfig) -> List:
     for log_parser in args:
         try:
             log_metadata = log_parser.get_log_metadata()
-            ego_metadata = log_parser.get_ego_metadata()
-            box_detection_metadata = log_parser.get_box_detection_metadata()
-            pinhole_camera_metadatas = log_parser.get_pinhole_camera_metadatas()
-            fisheye_mei_camera_metadatas = log_parser.get_fisheye_mei_camera_metadatas()
-            lidar_metadatas = log_parser.get_lidar_metadatas()
+            modality_metadatas = log_parser.get_modality_metadatas()
 
-            log_needs_writing = log_writer.reset(
-                log_metadata,
-                ego_metadata,
-                box_detection_metadata,
-                pinhole_camera_metadatas,
-                fisheye_mei_camera_metadatas,
-                lidar_metadatas,
-            )
+            log_needs_writing = log_writer.reset(log_metadata, modality_metadatas)
 
             if log_needs_writing:
                 for frame in log_parser.iter_frames():
-                    log_writer.write(**frame.to_writer_kwargs())
+                    log_writer.write_sync(frame)
 
             log_writer.close()
         except Exception as e:
@@ -110,39 +99,14 @@ def _convert_logs_async(args: List[LogParser], cfg: DictConfig) -> List:
     for log_parser in args:
         try:
             log_metadata = log_parser.get_log_metadata()
-            ego_metadata = log_parser.get_ego_metadata()
-            box_detection_metadata = log_parser.get_box_detection_metadata()
-            pinhole_camera_metadatas = log_parser.get_pinhole_camera_metadatas()
-            fisheye_mei_camera_metadatas = log_parser.get_fisheye_mei_camera_metadatas()
-            lidar_metadatas = log_parser.get_lidar_metadatas()
+            modality_metadatas = log_parser.get_modality_metadatas()
 
-            log_needs_writing = log_writer.reset(
-                log_metadata,
-                ego_metadata,
-                box_detection_metadata,
-                pinhole_camera_metadatas,
-                fisheye_mei_camera_metadatas,
-                lidar_metadatas,
-                deferred_sync=True,
-            )
+            log_needs_writing = log_writer.reset(log_metadata, modality_metadatas, deferred_sync=True)
+
             if log_needs_writing:
-                for ego_state_se3 in log_parser.iter_ego_states_se3():
-                    log_writer.write_ego_state_se3(ego_state_se3)
-
-                for box_detections_se3 in log_parser.iter_box_detections_se3():
-                    log_writer.write_box_detections_se3(box_detections_se3)
-
-                for traffic_lights in log_parser.iter_traffic_lights():
-                    log_writer.write_traffic_lights(traffic_lights)
-
-                for pinhole_camera in log_parser.iter_pinhole_cameras():
-                    log_writer.write_pinhole_camera(pinhole_camera)
-
-                for fisheye_mei_camera in log_parser.iter_fisheye_mei_cameras():
-                    log_writer.write_fisheye_mei_camera(fisheye_mei_camera)
-
-                for lidar in log_parser.iter_lidars():
-                    log_writer.write_lidar(lidar)
+                for modality_metadata in modality_metadatas:
+                    for frame in log_parser.iter_modality_async(modality_metadata):
+                        log_writer.write_async(frame, modality_metadata.modality_name)
 
             # Sync table is built from buffered timestamps at close()
             log_writer.close()

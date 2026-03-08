@@ -14,7 +14,7 @@ from py123d.api.scene.scene_builder import SceneBuilder
 from py123d.api.scene.scene_filter import SceneFilter
 from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.api.utils.arrow_helper import open_arrow_table
-from py123d.api.utils.arrow_schema import FISHEYE_MEI, LIDAR, PINHOLE_CAMERA, SYNC
+from py123d.api.utils.arrow_schema import SYNC
 from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.execution import Executor, executor_map_chunked_list
 from py123d.common.utils.uuid_utils import convert_to_str_uuid
@@ -200,18 +200,18 @@ def _get_scene_extraction_metadatas(log_dir: Union[str, Path], filter: SceneFilt
         add_scene = True
         start_idx = scene_extraction_metadata.initial_idx
         if filter.pinhole_camera_ids is not None:
-            cam_file = log_dir / f"{PINHOLE_CAMERA.prefix()}.arrow"
-            if not cam_file.exists():
+            has_pinhole = any(log_dir.glob("pinhole_camera.*.arrow"))
+            if not has_pinhole:
                 add_scene = False
 
         if filter.fisheye_mei_camera_ids is not None:
-            cam_file = log_dir / f"{FISHEYE_MEI.prefix()}.arrow"
-            if not cam_file.exists():
+            has_fisheye = any(log_dir.glob("fisheye_mei_camera.*.arrow"))
+            if not has_fisheye:
                 add_scene = False
 
         if filter.lidar_ids is not None:
-            lidar_file = log_dir / f"{LIDAR.prefix()}.arrow"
-            if not lidar_file.exists():
+            has_lidar = any(log_dir.glob("lidar.*.arrow"))
+            if not has_lidar:
                 add_scene = False
         if add_scene:
             scene_extraction_metadatas_.append(scene_extraction_metadata)

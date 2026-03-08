@@ -5,7 +5,7 @@ import numpy as np
 
 from py123d.common.dataset_paths import get_dataset_paths
 from py123d.datatypes.metadata.log_metadata import LogMetadata
-from py123d.datatypes.metadata.sensor_metadata import LidarMetadatas
+from py123d.datatypes.sensors.lidar import LidarID, LidarMetadata
 
 
 def load_point_cloud_data_from_path(
@@ -13,7 +13,7 @@ def load_point_cloud_data_from_path(
     log_metadata: LogMetadata,
     index: Optional[int] = None,
     sensor_root: Optional[Union[str, Path]] = None,
-    lidar_metadatas: Optional[LidarMetadatas] = None,
+    lidar_metadatas: Optional[Dict[LidarID, LidarMetadata]] = None,
 ) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
     # NOTE @DanielDauner: This function is designed s.t. it can load multiple lidar types at the same time.
     # Several datasets (e.g., PandaSet, nuScenes) have multiple Lidar sensors stored in one file.

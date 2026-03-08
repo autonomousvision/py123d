@@ -23,7 +23,7 @@ from py123d.datatypes import (
     PinholeIntrinsics,
     Timestamp,
 )
-from py123d.datatypes.detections.box_detection_label_metadata import BoxDetectionMetadata
+from py123d.datatypes.detections.box_detections_metadata import BoxDetectionMetadata
 from py123d.datatypes.metadata.sensor_metadata import FisheyeMEICameraMetadatas, LidarMetadatas, PinholeCameraMetadatas
 from py123d.datatypes.vehicle_state.ego_metadata import EgoMetadata
 from py123d.geometry import BoundingBoxSE3, PoseSE3, Vector3D
@@ -261,7 +261,7 @@ class NuScenesLogParser(LogParser):
                         sample=sample,
                         nuscenes_data_root=self._nuscenes_data_root,
                     ),
-                    lidar=lidar_data,
+                    lidars=lidar_data,
                 )
 
                 sample_token = sample["next"]
