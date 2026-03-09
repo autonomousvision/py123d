@@ -12,7 +12,7 @@ from py123d.datatypes.detections.box_detections import (
     BoxDetectionsSE2,
     BoxDetectionsSE3,
 )
-from py123d.datatypes.detections.box_detections_metadata import BoxDetectionMetadata, BoxDetectionsSE3Metadata
+from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3Metadata
 from py123d.datatypes.detections.traffic_light_detections import (
     TrafficLightDetection,
     TrafficLightDetections,

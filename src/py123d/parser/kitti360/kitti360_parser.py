@@ -12,9 +12,9 @@ import yaml
 
 from py123d.datatypes import (
     BoxDetectionAttributes,
-    BoxDetectionMetadata,
     BoxDetectionSE3,
     BoxDetectionsSE3,
+    BoxDetectionsSE3Metadata,
     DynamicStateSE3,
     EgoMetadata,
     EgoStateSE3,
@@ -35,7 +35,14 @@ from py123d.datatypes import (
     Timestamp,
 )
 from py123d.geometry import BoundingBoxSE3, PoseSE3, Quaternion, Vector3D
-from py123d.parser.abstract_dataset_parser import CameraData, DatasetParser, FrameData, LidarData, LogParser, MapParser
+from py123d.parser.abstract_dataset_parser import (
+    DatasetParser,
+    LogParser,
+    MapParser,
+    ParsedCamera,
+    ParsedFrame,
+    ParsedLidar,
+)
 from py123d.parser.kitti360.kitti360_map_parser import Kitti360MapParser
 from py123d.parser.kitti360.utils.kitti360_helper import (
     KITTI3602NUPLAN_IMU_CALIBRATION,
@@ -292,8 +299,8 @@ class Kitti360LogParser(LogParser):
             ),
         )
 
-    def get_box_detection_metadata(self) -> Optional[BoxDetectionMetadata]:
-        return BoxDetectionMetadata(box_detection_label_class=KITTI360BoxDetectionLabel)
+    def get_box_detection_metadata(self) -> Optional[BoxDetectionsSE3Metadata]:
+        return BoxDetectionsSE3Metadata(box_detection_label_class=KITTI360BoxDetectionLabel)
 
     def get_pinhole_camera_metadatas(self) -> Optional[PinholeCameraMetadatas]:
         return _get_kitti360_pinhole_camera_metadata(self._kitti360_folders, self._camera_calibration)
@@ -304,7 +311,7 @@ class Kitti360LogParser(LogParser):
     def get_lidar_metadatas(self) -> Optional[LidarMetadatas]:
         return _get_kitti360_lidar_metadata(self._kitti360_folders)
 
-    def iter_frames(self) -> Iterator[FrameData]:
+    def iter_frames(self) -> Iterator[ParsedFrame]:
         """Yields one FrameData per valid timestamp in the log."""
         timestamps_dict: Dict[str, List[Timestamp]] = _read_timestamps(self._log_name, self._kitti360_folders)
         ego_metadata = self.get_ego_metadata()
@@ -355,7 +362,7 @@ class Kitti360LogParser(LogParser):
                 self._kitti360_folders,
             )
 
-            yield FrameData(
+            yield ParsedFrame(
                 timestamp=reference_timestamps[valid_idx],
                 ego_state_se3=ego_state_all[idx],
                 box_detections_se3=box_detection_wrapper_all[valid_idx],
@@ -738,7 +745,7 @@ def _extract_kitti360_lidar(
     idx: int,
     timestamp: Timestamp,
     kitti360_folders: Dict[str, Path],
-) -> Optional[LidarData]:
+) -> Optional[ParsedLidar]:
     """Extracts KITTI-360 Lidar data for the given sequence and index."""
 
     # NOTE special case for sequence 2013_05_28_drive_0002_sync which has no lidar data before frame 4391
@@ -747,7 +754,7 @@ def _extract_kitti360_lidar(
 
     lidar_full_path = kitti360_folders[DIR_3D_RAW] / log_name / "velodyne_points" / "data" / f"{idx:010d}.bin"
     if lidar_full_path.exists():
-        return LidarData(
+        return ParsedLidar(
             lidar_name=KITTI360_LIDAR_NAME,
             lidar_type=LidarID.LIDAR_TOP,
             start_timestamp=timestamp,
@@ -766,17 +773,17 @@ def _extract_kitti360_pinhole_cameras(
     camera_calibration: Dict[str, PoseSE3],
     timestamps_dict: Dict[str, List[Timestamp]],
     kitti360_folders: Dict[str, Path],
-) -> List[CameraData]:
+) -> List[ParsedCamera]:
     """Extracts KITTI-360 pinhole camera data for the given sequence and index."""
 
-    pinhole_camera_data_list: List[CameraData] = []
+    pinhole_camera_data_list: List[ParsedCamera] = []
     for camera_type, camera_name in KITTI360_PINHOLE_CAMERA_IDS.items():
         img_path_png = kitti360_folders[DIR_2D_RAW] / log_name / camera_name / "data_rect" / f"{idx:010d}.png"
         camera_extrinsic = camera_calibration[camera_name]
         camera_timestamp = timestamps_dict[camera_name][idx]
         if img_path_png.exists():
             pinhole_camera_data_list.append(
-                CameraData(
+                ParsedCamera(
                     camera_name=camera_name,
                     camera_id=camera_type,
                     extrinsic=camera_extrinsic,
@@ -795,16 +802,16 @@ def _extract_kitti360_fisheye_mei_cameras(
     camera_calibration: Dict[str, PoseSE3],
     timestamps_dict: Dict[str, List[Timestamp]],
     kitti360_folders: Dict[str, Path],
-) -> List[CameraData]:
+) -> List[ParsedCamera]:
     """Extracts KITTI-360 fisheye MEI camera data for the given sequence and index."""
-    fisheye_camera_data_list: List[CameraData] = []
+    fisheye_camera_data_list: List[ParsedCamera] = []
     for camera_type, cam_dir_name in KITTI360_FISHEYE_MEI_CAMERA_IDS.items():
         img_path_png = kitti360_folders[DIR_2D_RAW] / log_name / cam_dir_name / "data_rgb" / f"{idx:010d}.png"
         camera_extrinsic = camera_calibration[cam_dir_name]
         camera_timestamp = timestamps_dict[cam_dir_name][idx]
         if img_path_png.exists():
             fisheye_camera_data_list.append(
-                CameraData(
+                ParsedCamera(
                     camera_name=cam_dir_name,
                     camera_id=camera_type,
                     extrinsic=camera_extrinsic,

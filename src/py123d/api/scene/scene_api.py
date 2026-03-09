@@ -6,8 +6,8 @@ from typing import Dict, List, Optional
 from py123d.api.map.map_api import MapAPI
 from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.datatypes import (
-    BoxDetectionMetadata,
     BoxDetectionsSE3,
+    BoxDetectionsSE3Metadata,
     CustomModality,
     EgoMetadata,
     EgoStateSE3,
@@ -66,8 +66,8 @@ class SceneAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_box_detections_se3_metadata(self) -> Optional[BoxDetectionMetadata]:
-        """Returns the :class:`~py123d.datatypes.detections.BoxDetectionMetadata` of the scene, if available.
+    def get_box_detections_se3_metadata(self) -> Optional[BoxDetectionsSE3Metadata]:
+        """Returns the :class:`~py123d.datatypes.detections.BoxDetectionsSE3Metadata` of the scene, if available.
 
         :return: The box detection metadata, or None if not available.
         """

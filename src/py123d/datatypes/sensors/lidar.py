@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
-from py123d.datatypes import BaseModalityMetadata
+from py123d.datatypes.metadata.base_metadata import BaseModalityMetadata
 from py123d.geometry import Point3DIndex, PoseSE3
 
 

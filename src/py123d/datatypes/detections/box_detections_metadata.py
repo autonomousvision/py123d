@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import importlib
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Type
 
 from py123d.datatypes.detections.box_detection_label import BOX_DETECTION_LABEL_REGISTRY, BoxDetectionLabel
 from py123d.datatypes.metadata.base_metadata import BaseModalityMetadata
 
 
 class BoxDetectionsSE3Metadata(BaseModalityMetadata):
-    __slots__ = ("_box_detection_label_class", "_suffix")
+    __slots__ = ("_box_detection_label_class",)
 
-    def __init__(self, box_detection_label_class: Type[BoxDetectionLabel], suffix: Optional[str] = None) -> None:
-        self._suffix = suffix
+    def __init__(self, box_detection_label_class: Type[BoxDetectionLabel]) -> None:
         self._box_detection_label_class = box_detection_label_class
 
     @property
@@ -22,7 +21,7 @@ class BoxDetectionsSE3Metadata(BaseModalityMetadata):
     @property
     def modality_name(self) -> str:
         """The modality name for this metadata, which is 'box_detections'."""
-        return "box_detections_se3" if self._suffix is None else f"box_detections_se3.{self._suffix}"
+        return "box_detections_se3"
 
     @classmethod
     def from_dict(cls, data_dict: Dict[str, Any]) -> BoxDetectionsSE3Metadata:
@@ -42,7 +41,7 @@ class BoxDetectionsSE3Metadata(BaseModalityMetadata):
         else:
             raise ValueError(f"Unknown box detection label class: {qualified_name}")
 
-        return cls(box_detection_label_class=label_class, suffix=data_dict.get("box_type", "se3"))
+        return cls(box_detection_label_class=label_class)
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize the metadata to a dictionary.
@@ -50,14 +49,7 @@ class BoxDetectionsSE3Metadata(BaseModalityMetadata):
         :return: Dictionary with the fully qualified label class path.
         """
         cls = self._box_detection_label_class
-        return {
-            "box_detection_label_class": f"{cls.__module__}.{cls.__qualname__}",
-            "box_type": self._suffix,
-        }
+        return {"box_detection_label_class": f"{cls.__module__}.{cls.__qualname__}"}
 
     def __repr__(self) -> str:
-        return f"BoxDetectionsSE3Metadata(box_detection_label_class={self._box_detection_label_class.__name__}, suffix={self._suffix})"
-
-
-# Backward-compat alias
-BoxDetectionMetadata = BoxDetectionsSE3Metadata
+        return f"BoxDetectionsSE3Metadata(box_detection_label_class={self._box_detection_label_class.__name__})"

@@ -44,7 +44,9 @@ def main(cfg: DictConfig) -> None:
         name=f"Maps {parser_class_name}",
     )
 
-    async_conversion = cfg.get("async_conversion", False) or cfg.dataset_converter_config.get("async_conversion", False)
+    async_conversion = cfg.get("async_conversion", False) or cfg.dataset.dataset_converter_config.get(
+        "async_conversion", False
+    )
     convert_fn = _convert_logs_async if async_conversion else _convert_logs
     executor_map_chunked_list(
         executor,
@@ -55,7 +57,7 @@ def main(cfg: DictConfig) -> None:
 
 
 def _convert_maps(args: List[MapParser], cfg: DictConfig) -> List:
-    map_writer = build_map_writer(cfg.map_writer)
+    map_writer = build_map_writer(cfg.dataset.map_writer)
     for map_parser in args:
         try:
             map_metadata = map_parser.get_map_metadata()
@@ -73,13 +75,11 @@ def _convert_maps(args: List[MapParser], cfg: DictConfig) -> List:
 
 
 def _convert_logs(args: List[LogParser], cfg: DictConfig) -> List:
-    log_writer = build_log_writer(cfg.log_writer)
+    log_writer = build_log_writer(cfg.dataset.log_writer)
     for log_parser in args:
         try:
             log_metadata = log_parser.get_log_metadata()
-            modality_metadatas = log_parser.get_modality_metadatas()
-
-            log_needs_writing = log_writer.reset(log_metadata, modality_metadatas)
+            log_needs_writing = log_writer.reset(log_metadata)
 
             if log_needs_writing:
                 for frame in log_parser.iter_frames():
@@ -95,18 +95,16 @@ def _convert_logs(args: List[LogParser], cfg: DictConfig) -> List:
 
 
 def _convert_logs_async(args: List[LogParser], cfg: DictConfig) -> List:
-    log_writer = build_log_writer(cfg.log_writer)
+    log_writer = build_log_writer(cfg.dataset.log_writer)
     for log_parser in args:
         try:
             log_metadata = log_parser.get_log_metadata()
-            modality_metadatas = log_parser.get_modality_metadatas()
-
-            log_needs_writing = log_writer.reset(log_metadata, modality_metadatas, deferred_sync=True)
+            log_needs_writing = log_writer.reset(log_metadata, deferred_sync=True)
 
             if log_needs_writing:
-                for modality_metadata in modality_metadatas:
-                    for frame in log_parser.iter_modality_async(modality_metadata):
-                        log_writer.write_async(frame, modality_metadata.modality_name)
+                for modality_metadata in log_metadata.all_modality_metadatas:
+                    for modality in log_parser.iter_modality_async(modality_metadata):
+                        log_writer.write_async(modality, modality_metadata)
 
             # Sync table is built from buffered timestamps at close()
             log_writer.close()

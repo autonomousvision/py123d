@@ -14,7 +14,6 @@ from py123d.api.scene.scene_builder import SceneBuilder
 from py123d.api.scene.scene_filter import SceneFilter
 from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.api.utils.arrow_helper import open_arrow_table
-from py123d.api.utils.arrow_schema import SYNC
 from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.execution import Executor, executor_map_chunked_list
 from py123d.common.utils.uuid_utils import convert_to_str_uuid
@@ -91,7 +90,7 @@ def _discover_log_paths(logs_root: Path, split_names: List[str], log_names: Opti
         if not split_dir.exists():
             continue
         for log_path in split_dir.iterdir():
-            if log_path.is_dir() and (log_path / f"{SYNC.prefix()}.arrow").exists():
+            if log_path.is_dir() and (log_path / "sync.arrow").exists():
                 if log_names is None or log_path.name in log_names:
                     log_paths.append(log_path)
     return log_paths
@@ -125,7 +124,7 @@ def _get_scene_extraction_metadatas(log_dir: Union[str, Path], filter: SceneFilt
     """
 
     log_dir = Path(log_dir)
-    sync_path = log_dir / f"{SYNC.prefix()}.arrow"
+    sync_path = log_dir / "sync.arrow"
 
     scene_metadatas: List[SceneMetadata] = []
     sync_table = open_arrow_table(str(sync_path))
@@ -152,7 +151,7 @@ def _get_scene_extraction_metadatas(log_dir: Union[str, Path], filter: SceneFilt
     elif filter.duration_s is None:
         scene_metadatas.append(
             SceneMetadata(
-                initial_uuid=convert_to_str_uuid(sync_table[SYNC.col("uuid")][start_idx].as_py()),
+                initial_uuid=convert_to_str_uuid(sync_table["sync.uuid"][start_idx].as_py()),
                 initial_idx=start_idx,
                 duration_s=(end_idx - start_idx) * log_metadata.timestep_seconds,
                 history_s=filter.history_s if filter.history_s is not None else 0.0,
@@ -162,7 +161,7 @@ def _get_scene_extraction_metadatas(log_dir: Union[str, Path], filter: SceneFilt
     else:
         scene_uuid_set = set(filter.scene_uuids) if filter.scene_uuids is not None else None
         step_idx = int(filter.duration_s / log_metadata.timestep_seconds)
-        all_row_uuids = sync_table[SYNC.col("uuid")].to_pylist()
+        all_row_uuids = sync_table["sync.uuid"].to_pylist()
         history_s = filter.history_s if filter.history_s is not None else 0.0
 
         for idx in range(start_idx, end_idx, step_idx):

@@ -141,7 +141,7 @@ class TestLidarMetadata:
         assert restored_metadata.lidar_to_imu_se3 == PoseSE3.identity()
 
     def test_is_instance_of_abstract_metadata(self):
-        """LidarMetadata is an instance of AbstractMetadata."""
+        """LidarMetadata is an instance of BaseMetadata."""
         metadata = LidarMetadata(lidar_name=self.lidar_name, lidar_id=self.lidar_id)
         assert isinstance(metadata, BaseMetadata)
 

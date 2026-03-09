@@ -1,9 +1,3 @@
-# Backward-compat: deprecated, use Dict[ID, Metadata] instead
-from py123d.datatypes.metadata.sensor_metadata import (
-    FisheyeMEICameraMetadatas,
-    LidarMetadatas,
-    PinholeCameraMetadatas,
-)
 from py123d.datatypes.sensors.fisheye_mei_camera import (
     FisheyeMEICamera,
     FisheyeMEICameraID,

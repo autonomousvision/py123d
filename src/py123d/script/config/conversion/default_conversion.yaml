@@ -13,8 +13,6 @@ hydra:
 defaults:
   - default_common
   - default_dataset_paths
-  - log_writer: arrow_log_writer
-  - map_writer: arrow_map_writer
   - dataset: av2-sensor
   - _self_
 

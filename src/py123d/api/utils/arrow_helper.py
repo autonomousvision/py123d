@@ -8,6 +8,15 @@ import pyarrow as pa
 MAX_LRU_CACHED_TABLES: Final[int] = 5_000
 
 
+# def _get_uuid_arrow_type():
+#     """Gets the appropriate Arrow UUID data type based on pyarrow version."""
+#     # NOTE @DanielDauner: pyarrow introduced native UUID type in version 18.0.0
+#     if pa.__version__ >= "18.0.0":
+#         return pa.uuid()
+#     else:
+#         return pa.binary(16)
+
+
 def open_arrow_table(arrow_file_path: Union[str, Path]) -> pa.Table:
     """Open an `.arrow` file as memory map.
 

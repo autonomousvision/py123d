@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Tuple, Union
 
 from py123d.datatypes import (
     BoxDetectionAttributes,
-    BoxDetectionMetadata,
     BoxDetectionSE3,
     BoxDetectionsSE3,
+    BoxDetectionsSE3Metadata,
     EgoMetadata,
     EgoStateSE3,
     FisheyeMEICameraMetadatas,
@@ -27,9 +27,9 @@ from py123d.geometry import (
 )
 from py123d.parser.abstract_dataset_parser import (
     DatasetParser,
-    FrameData,
     LogParser,
     MapParser,
+    ParsedFrame,
 )
 from py123d.parser.registry import WODMotionBoxDetectionLabel
 from py123d.parser.wod.utils.wod_constants import WOD_MOTION_AVAILABLE_SPLITS, WOD_MOTION_TRAFFIC_LIGHT_MAPPING
@@ -194,9 +194,9 @@ class WODMotionLogParser(LogParser):
             rear_axle_to_imu_se3=PoseSE3.identity(),
         )
 
-    def get_box_detection_metadata(self) -> Optional[BoxDetectionMetadata]:
+    def get_box_detection_metadata(self) -> Optional[BoxDetectionsSE3Metadata]:
         """Inherited, see superclass."""
-        return BoxDetectionMetadata(box_detection_label_class=WODMotionBoxDetectionLabel)
+        return BoxDetectionsSE3Metadata(box_detection_label_class=WODMotionBoxDetectionLabel)
 
     def get_pinhole_camera_metadatas(self) -> Optional[PinholeCameraMetadatas]:
         """Inherited, see superclass."""
@@ -210,7 +210,7 @@ class WODMotionLogParser(LogParser):
         """Inherited, see superclass."""
         return None  # WOD-Motion Lidar metadata extraction is not yet implemented.
 
-    def iter_frames(self) -> Iterator[FrameData]:
+    def iter_frames(self) -> Iterator[ParsedFrame]:
         """Yields one FrameData per timestep in the scenario."""
         ego_metadata = self.get_ego_metadata()
         assert ego_metadata is not None
@@ -229,7 +229,7 @@ class WODMotionLogParser(LogParser):
         )
 
         for time_idx in range(len(all_timestamps)):
-            yield FrameData(
+            yield ParsedFrame(
                 timestamp=all_timestamps[time_idx],
                 ego_state_se3=all_ego_states[time_idx],
                 box_detections_se3=all_box_detections[time_idx],

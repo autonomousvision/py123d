@@ -8,9 +8,9 @@ import pandas as pd
 
 from py123d.datatypes import (
     BoxDetectionAttributes,
-    BoxDetectionMetadata,
     BoxDetectionSE3,
     BoxDetectionsSE3,
+    BoxDetectionsSE3Metadata,
     EgoMetadata,
     EgoStateSE3,
     FisheyeMEICameraMetadatas,
@@ -29,12 +29,12 @@ from py123d.geometry.transform import abs_to_rel_se3_array
 from py123d.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from py123d.geometry.utils.rotation_utils import get_quaternion_array_from_euler_array
 from py123d.parser.abstract_dataset_parser import (
-    CameraData,
     DatasetParser,
-    FrameData,
-    LidarData,
     LogParser,
     MapParser,
+    ParsedCamera,
+    ParsedFrame,
+    ParsedLidar,
 )
 from py123d.parser.pandaset.utils.pandaset_constants import (
     PANDASET_BOX_DETECTION_FROM_STR,
@@ -151,9 +151,9 @@ class PandasetLogParser(LogParser):
             rear_axle_to_imu_se3=PoseSE3.identity(),
         )
 
-    def get_box_detection_metadata(self) -> Optional[BoxDetectionMetadata]:
+    def get_box_detection_metadata(self) -> Optional[BoxDetectionsSE3Metadata]:
         """Inherited, see superclass."""
-        return BoxDetectionMetadata(box_detection_label_class=PandasetBoxDetectionLabel)
+        return BoxDetectionsSE3Metadata(box_detection_label_class=PandasetBoxDetectionLabel)
 
     def get_pinhole_camera_metadatas(self) -> Optional[PinholeCameraMetadatas]:
         """Inherited, see superclass."""
@@ -175,7 +175,7 @@ class PandasetLogParser(LogParser):
 
         return LidarMetadatas(lidar_metadata)
 
-    def iter_frames(self) -> Iterator[FrameData]:
+    def iter_frames(self) -> Iterator[ParsedFrame]:
         """Yields one FrameData per timestep in the log."""
         source_log_path = self._source_log_path
 
@@ -204,7 +204,7 @@ class PandasetLogParser(LogParser):
                 ego_metadata=ego_metadata,
                 timestamp=timestamp,
             )
-            yield FrameData(
+            yield ParsedFrame(
                 timestamp=timestamp,
                 ego_state_se3=ego_state,
                 box_detections_se3=_extract_pandaset_box_detections(source_log_path, iteration, timestamp),
@@ -371,9 +371,9 @@ def _extract_pandaset_pinhole_cameras(
     ego_state_se3: EgoStateSE3,
     camera_poses: Dict[str, List[Dict[str, Dict[str, float]]]],
     camera_timestamps_s: Dict[str, List[float]],
-) -> List[CameraData]:
+) -> List[ParsedCamera]:
     """Extracts the pinhole camera data from a Pandaset scene at a given iteration."""
-    camera_data_list: List[CameraData] = []
+    camera_data_list: List[ParsedCamera] = []
     iteration_str = f"{iteration:02d}"
 
     for camera_name, camera_type in PANDASET_CAMERA_MAPPING.items():
@@ -388,7 +388,7 @@ def _extract_pandaset_pinhole_cameras(
         camera_timestamp = Timestamp.from_s(camera_timestamps_s[camera_name][iteration])
 
         camera_data_list.append(
-            CameraData(
+            ParsedCamera(
                 camera_name=camera_name,
                 camera_id=camera_type,
                 timestamp=camera_timestamp,
@@ -401,13 +401,13 @@ def _extract_pandaset_pinhole_cameras(
     return camera_data_list
 
 
-def _extract_pandaset_lidar(source_log_path: Path, iteration: int, timestamp: Timestamp) -> Optional[LidarData]:
+def _extract_pandaset_lidar(source_log_path: Path, iteration: int, timestamp: Timestamp) -> Optional[ParsedLidar]:
     """Extracts the Lidar data from a Pandaset scene at a given iteration."""
     iteration_str = f"{iteration:02d}"
     lidar_absolute_path = source_log_path / "lidar" / f"{iteration_str}.pkl.gz"
     assert lidar_absolute_path.exists(), f"Lidar file {str(lidar_absolute_path)} does not exist."
 
-    return LidarData(
+    return ParsedLidar(
         lidar_name=LidarID.LIDAR_MERGED.serialize(),
         lidar_type=LidarID.LIDAR_MERGED,
         start_timestamp=timestamp,

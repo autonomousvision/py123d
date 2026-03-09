@@ -4,10 +4,10 @@ from py123d.datatypes.metadata.base_metadata import BaseMetadata
 
 
 class TestAbstractMetadata:
-    """Tests for the AbstractMetadata ABC contract."""
+    """Tests for the BaseMetadata ABC contract."""
 
     def test_cannot_instantiate_directly(self):
-        """AbstractMetadata cannot be instantiated directly."""
+        """BaseMetadata cannot be instantiated directly."""
         with pytest.raises(TypeError):
             BaseMetadata()
 
@@ -33,7 +33,7 @@ class TestAbstractMetadata:
             MissingFromDict()
 
     def test_concrete_subclass_is_instance_of_abstract_metadata(self):
-        """A fully implemented subclass is an instance of AbstractMetadata."""
+        """A fully implemented subclass is an instance of BaseMetadata."""
 
         class ConcreteMetadata(BaseMetadata):
             def to_dict(self):

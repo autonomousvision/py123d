@@ -8,9 +8,9 @@ import numpy as np
 
 from py123d.datatypes import (
     BoxDetectionAttributes,
-    BoxDetectionMetadata,
     BoxDetectionSE3,
     BoxDetectionsSE3,
+    BoxDetectionsSE3Metadata,
     EgoMetadata,
     EgoStateSE3,
     FisheyeMEICameraMetadatas,
@@ -42,12 +42,12 @@ from py123d.geometry.utils.rotation_utils import (
     get_quaternion_array_from_euler_array,
 )
 from py123d.parser.abstract_dataset_parser import (
-    CameraData,
     DatasetParser,
-    FrameData,
-    LidarData,
     LogParser,
     MapParser,
+    ParsedCamera,
+    ParsedFrame,
+    ParsedLidar,
 )
 from py123d.parser.registry import WODPerceptionBoxDetectionLabel
 from py123d.parser.utils.sensor_utils.camera_conventions import CameraConvention, convert_camera_convention
@@ -217,9 +217,9 @@ class WODPerceptionLogParser(LogParser):
             rear_axle_to_imu_se3=PoseSE3.identity(),
         )
 
-    def get_box_detection_metadata(self) -> Optional[BoxDetectionMetadata]:
+    def get_box_detection_metadata(self) -> Optional[BoxDetectionsSE3Metadata]:
         """Inherited, see superclass."""
-        return BoxDetectionMetadata(box_detection_label_class=WODPerceptionBoxDetectionLabel)
+        return BoxDetectionsSE3Metadata(box_detection_label_class=WODPerceptionBoxDetectionLabel)
 
     def get_pinhole_camera_metadatas(self) -> Optional[PinholeCameraMetadatas]:
         """Inherited, see superclass."""
@@ -235,7 +235,7 @@ class WODPerceptionLogParser(LogParser):
         initial_frame = _get_initial_frame_from_tfrecord(self._source_tf_record_path)
         return _get_wod_perception_lidar_metadata(initial_frame, self._keep_polar_features)
 
-    def iter_frames(self) -> Iterator[FrameData]:
+    def iter_frames(self) -> Iterator[ParsedFrame]:
         """Yields one FrameData per frame in the TFRecord."""
         tf, dataset_pb2 = _lazy_import_tf_and_pb2()
 
@@ -257,7 +257,7 @@ class WODPerceptionLogParser(LogParser):
 
             timestamp = Timestamp.from_us(frame.timestamp_micros)
 
-            yield FrameData(
+            yield ParsedFrame(
                 timestamp=timestamp,
                 ego_state_se3=_extract_wod_perception_ego_state(
                     frame, map_pose_offset, ego_metadata, timestamp=timestamp
@@ -438,9 +438,9 @@ def _extract_wod_perception_box_detections(
     return BoxDetectionsSE3(box_detections=box_detections, timestamp=timestamp)
 
 
-def _extract_wod_perception_cameras(frame: dataset_pb2.Frame) -> List[CameraData]:
+def _extract_wod_perception_cameras(frame: dataset_pb2.Frame) -> List[ParsedCamera]:
     """Extracts the camera data from a WOD Perception frame."""
-    camera_data_list: List[CameraData] = []
+    camera_data_list: List[ParsedCamera] = []
 
     # NOTE @DanielDauner: The extrinsic matrix in frame.context.camera_calibration is fixed to model the ego to camera transformation.
     # The poses in frame.images[idx] are the motion compensated ego poses when the camera triggers.
@@ -464,7 +464,7 @@ def _extract_wod_perception_cameras(frame: dataset_pb2.Frame) -> List[CameraData
         # NOTE @DanielDauner: We store the pose_timestamp of each camera. WOD-Perception also provides:
         # {shutter, camera_trigger_time, camera_readout_done_time}
         camera_data_list.append(
-            CameraData(
+            ParsedCamera(
                 camera_name=str(image_proto.name),
                 camera_id=camera_type,
                 extrinsic=camera_extrinsic[camera_type],
@@ -483,10 +483,10 @@ def _extract_wod_perception_lidars(
     absolute_tf_record_path: Path,
     wod_perception_data_root: Path,
     timestamp: Timestamp,
-) -> Optional[LidarData]:
+) -> Optional[ParsedLidar]:
     """Extracts the Lidar data from a WOD Perception frame."""
     relative_path = absolute_tf_record_path.relative_to(wod_perception_data_root)
-    return LidarData(
+    return ParsedLidar(
         lidar_name=LidarID.LIDAR_MERGED.serialize(),
         lidar_type=LidarID.LIDAR_MERGED,
         start_timestamp=timestamp,

@@ -280,7 +280,7 @@ class TestFisheyeMEICameraMetadata:
         assert metadata.camera_to_imu_se3 == metadata_restored.camera_to_imu_se3
 
     def test_is_instance_of_abstract_metadata(self):
-        """FisheyeMEICameraMetadata is an instance of AbstractMetadata."""
+        """FisheyeMEICameraMetadata is an instance of BaseMetadata."""
         metadata = FisheyeMEICameraMetadata(
             camera_name="TestCamera",
             camera_id=FisheyeMEICameraID.FCAM_L,

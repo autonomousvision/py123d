@@ -4,7 +4,7 @@ import abc
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -65,21 +65,22 @@ class LogParser(abc.ABC):
     def get_log_metadata(self) -> LogMetadata:
         pass
 
-    def get_modality_metadatas(self) -> List[BaseModalityMetadata]:
-        """Returns metadata for all modalities in this log. By default, returns an empty list."""
-        return []
+    @abc.abstractmethod
+    def iter_frames(self) -> Iterator[ParsedFrame]:
+        """Yields ``(timestamp, modalities)`` tuples.
+
+        Each tuple contains the frame timestamp and a dict mapping modality names
+        to their data objects. The orchestrator forwards these to
+        ``writer.write_sync(timestamp, **modalities)``.
+        """
 
     @abc.abstractmethod
-    def iter_frames(self) -> Iterator[FrameData]:
-        pass
-
-    @abc.abstractmethod
-    def iter_modality_async(self, modality_metadata: BaseModalityMetadata) -> Iterator[FrameData]:
-        pass
+    def iter_modality_async(self, modality_metadata: BaseModalityMetadata) -> Iterator[ParsedModality]:
+        """Yields ``(timestamp, data)`` tuples for a single modality at its native rate."""
 
 
 @dataclass
-class FrameData:
+class ParsedFrame:
     """One synchronized frame of data, as produced by a :class:`LogParser`.
 
     Fields mirror the ``AbstractLogWriter.write()`` signature so that an orchestrator
@@ -94,40 +95,14 @@ class FrameData:
     ego_state_se3: Optional[EgoStateSE3] = None
     box_detections_se3: Optional[BoxDetectionsSE3] = None
     traffic_lights: Optional[TrafficLightDetections] = None
-    pinhole_cameras: Optional[List[CameraData]] = None
-    fisheye_mei_cameras: Optional[List[CameraData]] = None
-    lidars: Optional[List[LidarData]] = None
+    pinhole_cameras: Optional[List[ParsedCamera]] = None
+    fisheye_mei_cameras: Optional[List[ParsedCamera]] = None
+    lidars: Optional[List[ParsedLidar]] = None
     custom_modalities: Optional[Dict[str, CustomModality]] = None
-
-    def iter_modalities(self) -> Iterator[Tuple[str, Any]]:
-        """Yields ``(modality_name, data)`` pairs for every populated modality field.
-
-        The *modality_name* matches :attr:`BaseModalityMetadata.modality_name` so the
-        log writer can look up the correct writer by key. List-valued fields (cameras,
-        lidars) are expanded into one pair per element.
-        """
-        if self.ego_state_se3 is not None:
-            yield "ego_state_se3", self.ego_state_se3
-        if self.box_detections_se3 is not None:
-            yield "box_detections_se3", self.box_detections_se3
-        if self.traffic_lights is not None:
-            yield "traffic_light_detections", self.traffic_lights
-        if self.pinhole_cameras is not None:
-            for cam_data in self.pinhole_cameras:
-                yield f"pinhole_camera.{cam_data.camera_id.serialize()}", cam_data
-        if self.fisheye_mei_cameras is not None:
-            for cam_data in self.fisheye_mei_cameras:
-                yield f"fisheye_mei_camera.{cam_data.camera_id.serialize()}", cam_data
-        if self.lidars is not None:
-            for lidar_data in self.lidars:
-                yield f"lidar.{lidar_data.lidar_type.serialize()}", lidar_data
-        if self.custom_modalities is not None:
-            for _name, modality in self.custom_modalities.items():
-                yield modality.metadata.modality_name, modality
 
 
 @dataclass
-class LidarData:
+class ParsedLidar:
     """Helper dataclass to pass Lidar data to log writers."""
 
     lidar_name: str
@@ -160,7 +135,7 @@ class LidarData:
 
 
 @dataclass
-class CameraData:
+class ParsedCamera:
     """Helper dataclass to pass Camera data to log writers."""
 
     camera_name: str
@@ -201,3 +176,6 @@ class CameraData:
     @property
     def has_numpy_image(self) -> bool:
         return self.numpy_image is not None
+
+
+ParsedModality = Union[EgoStateSE3, BoxDetectionsSE3, TrafficLightDetections, ParsedCamera, ParsedLidar, CustomModality]

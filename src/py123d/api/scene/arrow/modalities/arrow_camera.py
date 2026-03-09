@@ -19,7 +19,7 @@ from py123d.common.io.camera.png_camera_io import (
 from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraMetadata
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata
 from py123d.geometry.geometry_index import PoseSE3Index
-from py123d.parser.abstract_dataset_parser import CameraData
+from py123d.parser.abstract_dataset_parser import ParsedCamera
 
 
 class ArrowPinholeCameraWriter(BaseModalityWriter):
@@ -58,8 +58,8 @@ class ArrowPinholeCameraWriter(BaseModalityWriter):
             max_batch_size=max_batch_size,
         )
 
-    def write_modality(self, camera_data: CameraData):
-        assert isinstance(camera_data, CameraData), f"Expected CameraData, got {type(camera_data)}"
+    def write_modality(self, camera_data: ParsedCamera):
+        assert isinstance(camera_data, ParsedCamera), f"Expected CameraData, got {type(camera_data)}"
         if self._data_codec == "jpeg_binary":
             data = _get_jpeg_binary_from_camera_data(camera_data)
         elif self._data_codec == "png_binary":
@@ -113,8 +113,8 @@ class ArrowFisheyeMEICameraWriter(BaseModalityWriter):
             max_batch_size=max_batch_size,
         )
 
-    def write_modality(self, camera_data: CameraData):
-        assert isinstance(camera_data, CameraData), f"Expected CameraData, got {type(camera_data)}"
+    def write_modality(self, camera_data: ParsedCamera):
+        assert isinstance(camera_data, ParsedCamera), f"Expected CameraData, got {type(camera_data)}"
         if self._data_codec == "jpeg_binary":
             data = _get_jpeg_binary_from_camera_data(camera_data)
         elif self._data_codec == "png_binary":
@@ -130,7 +130,7 @@ class ArrowFisheyeMEICameraWriter(BaseModalityWriter):
         )
 
 
-def _get_jpeg_binary_from_camera_data(camera_data: CameraData) -> bytes:
+def _get_jpeg_binary_from_camera_data(camera_data: ParsedCamera) -> bytes:
     if camera_data.has_jpeg_binary:
         return camera_data.jpeg_binary  # type: ignore
     elif camera_data.has_jpeg_file_path:
@@ -146,7 +146,7 @@ def _get_jpeg_binary_from_camera_data(camera_data: CameraData) -> bytes:
         raise NotImplementedError("Camera data must provide jpeg_binary, numpy_image, or file path for binary storage.")
 
 
-def _get_png_binary_from_camera_data(camera_data: CameraData) -> bytes:
+def _get_png_binary_from_camera_data(camera_data: ParsedCamera) -> bytes:
     if camera_data.has_png_file_path:
         absolute_path = Path(camera_data.dataset_root) / camera_data.relative_path  # type: ignore
         return load_png_binary_from_png_file(absolute_path)

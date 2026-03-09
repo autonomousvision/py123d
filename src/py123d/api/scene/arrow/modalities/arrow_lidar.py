@@ -15,7 +15,7 @@ from py123d.common.io.lidar.laz_lidar_io import encode_point_cloud_3d_as_laz_bin
 from py123d.common.io.lidar.path_lidar_io import load_point_cloud_data_from_path
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.sensors.lidar import LidarMergedMetadata, LidarMetadata
-from py123d.parser.abstract_dataset_parser import LidarData
+from py123d.parser.abstract_dataset_parser import ParsedLidar
 
 
 class ArrowLidarWriter(BaseModalityWriter):
@@ -67,7 +67,7 @@ class ArrowLidarWriter(BaseModalityWriter):
             max_batch_size=1000,
         )
 
-    def write_modality(self, lidar_data: LidarData) -> None:
+    def write_modality(self, lidar_data: ParsedLidar) -> None:
         batch: Dict[str, Union[List[int], List[Optional[str]], List[Optional[bytes]]]] = {
             f"{self._modality_name}.start_timestamp_us": [lidar_data.start_timestamp.time_us],
             f"{self._modality_name}.end_timestamp_us": [lidar_data.end_timestamp.time_us],
@@ -85,7 +85,7 @@ class ArrowLidarWriter(BaseModalityWriter):
 
         self.write_batch(batch)
 
-    def _prepare_lidar_data(self, lidar_data: LidarData) -> Tuple[Optional[bytes], Optional[bytes]]:
+    def _prepare_lidar_data(self, lidar_data: ParsedLidar) -> Tuple[Optional[bytes], Optional[bytes]]:
         """Load and/or encode the lidar data in binary for point cloud and features.
 
         :param lidar_data: Helper class referencing the lidar observation.

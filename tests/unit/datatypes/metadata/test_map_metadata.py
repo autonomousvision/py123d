@@ -107,7 +107,7 @@ class TestMapMetadata:
         assert restored.version == original.version
 
     def test_is_instance_of_abstract_metadata(self):
-        """MapMetadata is an instance of AbstractMetadata."""
+        """MapMetadata is an instance of BaseMetadata."""
         metadata = MapMetadata(
             dataset="test_dataset",
             location="test_location",

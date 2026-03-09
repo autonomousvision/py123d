@@ -18,22 +18,12 @@ from py123d.api.scene.arrow.utils.arrow_metadata_utils import get_metadata_from_
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.api.utils.arrow_helper import get_lru_cached_arrow_table, open_arrow_schema
-from py123d.api.utils.arrow_schema import (
-    BOX_DETECTIONS_SE3,
-    CUSTOM_MODALITY,
-    EGO_STATE_SE3,
-    FISHEYE_MEI_CAMERA,
-    LIDAR,
-    PINHOLE_CAMERA,
-    SYNC,
-    TRAFFIC_LIGHT_DETECTIONS,
-)
 from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.utils.msgpack_utils import msgpack_decode_with_numpy
 from py123d.common.utils.uuid_utils import convert_to_str_uuid
 from py123d.datatypes import (
-    BoxDetectionMetadata,
     BoxDetectionsSE3,
+    BoxDetectionsSE3Metadata,
     CustomModality,
     EgoMetadata,
     EgoStateSE3,
@@ -59,9 +49,9 @@ MAX_LRU_CACHED_LOG_METADATA: Final[int] = 1_000
 
 def _get_complete_log_scene_metadata(log_dir: Union[Path, str], log_metadata: LogMetadata) -> SceneMetadata:
     """Helper function to get the scene metadata for a complete log from a log directory."""
-    sync_path = Path(log_dir) / f"{SYNC.prefix()}.arrow"
+    sync_path = Path(log_dir) / "sync.arrow"
     table = get_lru_cached_arrow_table(sync_path)
-    initial_uuid = convert_to_str_uuid(table[SYNC.col("uuid")][0].as_py())
+    initial_uuid = convert_to_str_uuid(table["sync.uuid"][0].as_py())
     num_rows = table.num_rows
     return SceneMetadata(
         initial_uuid=initial_uuid,
@@ -75,7 +65,7 @@ def _get_complete_log_scene_metadata(log_dir: Union[Path, str], log_metadata: Lo
 @lru_cache(maxsize=MAX_LRU_CACHED_LOG_METADATA)
 def _get_lru_cached_log_metadata(log_dir: Union[Path, str]) -> LogMetadata:
     """Helper function to get the log metadata for a log directory."""
-    sync_schema = open_arrow_schema(Path(log_dir) / f"{SYNC.prefix()}.arrow")
+    sync_schema = open_arrow_schema(Path(log_dir) / "sync.arrow")
     return get_metadata_from_arrow_schema(sync_schema, LogMetadata)
 
 
@@ -119,7 +109,7 @@ class ArrowSceneAPI(SceneAPI):
 
     def _get_sync_table(self) -> pa.Table:
         """Load the sync table. This must always exist."""
-        table = self._get_modality_table(SYNC.prefix())
+        table = self._get_modality_table("sync")
         assert table is not None, f"sync.arrow not found in {self._log_dir}"
         return table
 
@@ -170,17 +160,17 @@ class ArrowSceneAPI(SceneAPI):
     def get_ego_state_se3_metadata(self) -> Optional[EgoMetadata]:
         """Returns the :class:`~py123d.datatypes.vehicle_state.EgoMetadata` read from ``ego_state_se3.arrow``."""
         ego_metadata: Optional[EgoMetadata] = None
-        ego_table = self._get_modality_table(EGO_STATE_SE3.prefix())
+        ego_table = self._get_modality_table("ego_state_se3")
         if ego_table is not None:
             ego_metadata = get_metadata_from_arrow_schema(ego_table.schema, EgoMetadata)
         return ego_metadata
 
-    def get_box_detections_se3_metadata(self) -> Optional[BoxDetectionMetadata]:
-        """Returns the :class:`~py123d.datatypes.detections.BoxDetectionMetadata` from ``box_detections_se3.arrow``."""
-        box_detection_metadata: Optional[BoxDetectionMetadata] = None
-        box_table = self._get_modality_table(BOX_DETECTIONS_SE3.prefix())
+    def get_box_detections_se3_metadata(self) -> Optional[BoxDetectionsSE3Metadata]:
+        """Returns the :class:`~py123d.datatypes.detections.BoxDetectionsSE3Metadata` from ``box_detections_se3.arrow``."""
+        box_detection_metadata: Optional[BoxDetectionsSE3Metadata] = None
+        box_table = self._get_modality_table("box_detections_se3")
         if box_table is not None:
-            box_detection_metadata = get_metadata_from_arrow_schema(box_table.schema, BoxDetectionMetadata)
+            box_detection_metadata = get_metadata_from_arrow_schema(box_table.schema, BoxDetectionsSE3Metadata)
         return box_detection_metadata
 
     def get_pinhole_camera_metadatas(self) -> Optional[Dict[PinholeCameraID, PinholeCameraMetadata]]:
@@ -271,11 +261,11 @@ class ArrowSceneAPI(SceneAPI):
     def get_ego_state_se3_at_iteration(self, iteration: int) -> Optional[EgoStateSE3]:
         """Inherited, see superclass."""
         ego_state: Optional[EgoStateSE3] = None
-        ego_table = self._get_modality_table(EGO_STATE_SE3.prefix())
+        ego_table = self._get_modality_table("ego_state_se3")
         if ego_table is not None:
             sync_table = self._get_sync_table()
             idx = self._get_table_index(iteration)
-            row_idx = self._get_first_sync_index(sync_table, EGO_STATE_SE3.prefix(), idx)
+            row_idx = self._get_first_sync_index(sync_table, "ego_state_se3", idx)
             if row_idx is not None:
                 ego_metadata = get_metadata_from_arrow_schema(ego_table.schema, EgoMetadata)
                 ego_state = get_ego_state_se3_from_arrow_table(ego_table, row_idx, ego_metadata)
@@ -284,13 +274,13 @@ class ArrowSceneAPI(SceneAPI):
     def get_box_detections_se3_at_iteration(self, iteration: int) -> Optional[BoxDetectionsSE3]:
         """Inherited, see superclass."""
         box_detections: Optional[BoxDetectionsSE3] = None
-        box_table = self._get_modality_table(BOX_DETECTIONS_SE3.prefix())
+        box_table = self._get_modality_table("box_detections_se3")
         if box_table is not None:
             sync_table = self._get_sync_table()
             idx = self._get_table_index(iteration)
-            row_idx = self._get_first_sync_index(sync_table, BOX_DETECTIONS_SE3.prefix(), idx)
+            row_idx = self._get_first_sync_index(sync_table, "box_detections_se3", idx)
             if row_idx is not None:
-                box_detection_metadata = get_metadata_from_arrow_schema(box_table.schema, BoxDetectionMetadata)
+                box_detection_metadata = get_metadata_from_arrow_schema(box_table.schema, BoxDetectionsSE3Metadata)
                 if box_detection_metadata is not None:
                     timestamp = self.get_timestamp_at_iteration(iteration)
                     box_detections = get_box_detections_se3_from_arrow_table(
@@ -301,11 +291,11 @@ class ArrowSceneAPI(SceneAPI):
     def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetections]:
         """Inherited, see superclass."""
         traffic_light_detections: Optional[TrafficLightDetections] = None
-        tl_table = self._get_modality_table(TRAFFIC_LIGHT_DETECTIONS.prefix())
+        tl_table = self._get_modality_table("traffic_light_detections")
         if tl_table is not None:
             sync_table = self._get_sync_table()
             idx = self._get_table_index(iteration)
-            row_idx = self._get_first_sync_index(sync_table, TRAFFIC_LIGHT_DETECTIONS.prefix(), idx)
+            row_idx = self._get_first_sync_index(sync_table, "traffic_light_detections", idx)
             if row_idx is not None:
                 traffic_light_detections = get_traffic_light_detections_from_arrow_table(tl_table, row_idx)
         return traffic_light_detections
@@ -314,7 +304,7 @@ class ArrowSceneAPI(SceneAPI):
         """Inherited, see superclass."""
         pinhole_camera: Optional[PinholeCamera] = None
         camera_instance = camera_id.serialize()
-        modality_name = PINHOLE_CAMERA.prefix(camera_instance)
+        modality_name = f"pinhole_camera.{camera_instance}"
         cam_table = self._get_modality_table(modality_name)
         if cam_table is not None:
             cam_meta = get_metadata_from_arrow_schema(cam_table.schema, PinholeCameraMetadata)
@@ -331,7 +321,7 @@ class ArrowSceneAPI(SceneAPI):
         """Inherited, see superclass."""
         fisheye_mei_camera: Optional[FisheyeMEICamera] = None
         camera_instance = camera_id.serialize()
-        modality_name = FISHEYE_MEI_CAMERA.prefix(camera_instance)
+        modality_name = f"fisheye_mei_camera.{camera_instance}"
         cam_table = self._get_modality_table(modality_name)
         if cam_table is not None:
             cam_meta = get_metadata_from_arrow_schema(cam_table.schema, FisheyeMEICameraMetadata)
@@ -348,7 +338,7 @@ class ArrowSceneAPI(SceneAPI):
         """Inherited, see superclass."""
         lidar: Optional[Lidar] = None
         lidar_instance = LidarID.LIDAR_MERGED.serialize()
-        modality_name = LIDAR.prefix(lidar_instance)
+        modality_name = f"lidar.{lidar_instance}"
         lidar_table = self._get_modality_table(modality_name)
         if lidar_table is not None:
             lidar_metadatas = self.get_lidar_metadatas()
@@ -371,12 +361,12 @@ class ArrowSceneAPI(SceneAPI):
         :param end_timestamp: Exclusive end of the window.
         :return: List of ego states within the window, sorted by timestamp.
         """
-        ego_table = self._get_modality_table(EGO_STATE_SE3.prefix())
+        ego_table = self._get_modality_table("ego_state_se3")
         if ego_table is None:
             return []
 
         ego_metadata = get_metadata_from_arrow_schema(ego_table.schema, EgoMetadata)
-        ts_column = ego_table[EGO_STATE_SE3.col("timestamp_us")]
+        ts_column = ego_table["ego_state_se3.timestamp_us"]
 
         result: List[EgoStateSE3] = []
         for row_idx in range(ego_table.num_rows):
@@ -391,11 +381,12 @@ class ArrowSceneAPI(SceneAPI):
     def get_custom_modality_at_iteration(self, iteration: int, name: str) -> Optional[CustomModality]:
         """Inherited, see superclass."""
         custom_modality: Optional[CustomModality] = None
-        table = self._get_modality_table(CUSTOM_MODALITY.prefix(name))
+        modality_prefix = f"custom.{name}"
+        table = self._get_modality_table(modality_prefix)
         if table is not None:
             idx = self._get_table_index(iteration)
-            encoded_data: bytes = table[CUSTOM_MODALITY.col("data", name)][idx].as_py()
-            timestamp_us: int = table[CUSTOM_MODALITY.col("timestamp_us", name)][idx].as_py()
+            encoded_data: bytes = table[f"{modality_prefix}.data"][idx].as_py()
+            timestamp_us: int = table[f"{modality_prefix}.timestamp_us"][idx].as_py()
             data = msgpack_decode_with_numpy(encoded_data)
             custom_modality = CustomModality(data=data, timestamp=Timestamp.from_us(timestamp_us))
         return custom_modality

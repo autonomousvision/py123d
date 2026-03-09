@@ -420,7 +420,7 @@ class TestPinholeMetadata:
             assert metadata.camera_id == camera_id
 
     def test_is_instance_of_abstract_metadata(self):
-        """PinholeCameraMetadata is an instance of AbstractMetadata."""
+        """PinholeCameraMetadata is an instance of BaseMetadata."""
         intrinsics = PinholeIntrinsics(fx=500.0, fy=500.0, cx=320.0, cy=240.0)
         metadata = PinholeCameraMetadata(
             camera_name="TestCamera",

@@ -5,8 +5,8 @@ import pytest
 
 from py123d.api import MapAPI, SceneAPI, SceneMetadata
 from py123d.datatypes import (
-    BoxDetectionMetadata,
     BoxDetectionsSE3,
+    BoxDetectionsSE3Metadata,
     EgoMetadata,
     EgoStateSE3,
     FisheyeMEICamera,
@@ -60,7 +60,7 @@ class ConcreteSceneAPI(SceneAPI):
         """Inherited, see super class."""
         return self._ego_metadata
 
-    def get_box_detections_se3_metadata(self) -> Optional[BoxDetectionMetadata]:
+    def get_box_detections_se3_metadata(self) -> Optional[BoxDetectionsSE3Metadata]:
         """Inherited, see super class."""
         return self._box_detection_metadata
 
