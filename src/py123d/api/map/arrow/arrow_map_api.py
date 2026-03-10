@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable, Dict, Final, Iterable, List, Literal, Optional, Tuple, Union
+from typing import Callable, Dict, Final, Generator, Iterable, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import pyarrow as pa
@@ -109,9 +109,25 @@ class ArrowMapAPI(MapAPI):
         """Inherited, see superclass."""
         return list(self._occupancy_maps.keys())
 
-    def get_map_object(self, object_id: MapObjectIDType, layer: MapLayer) -> Optional[BaseMapObject]:
+    def get_map_object_in_layer(self, object_id: MapObjectIDType, layer: MapLayer) -> Optional[BaseMapObject]:
         """Inherited, see superclass."""
         return self._map_object_getter[layer](object_id)
+
+    def get_all_map_object_ids_in_layer(self, layer: MapLayer) -> List[MapObjectIDType]:
+        """Inherited, see superclass."""
+        map_object_ids: List[MapObjectIDType] = []
+        if layer in self._object_ids_to_row_idx.keys():
+            map_object_ids = list(self._object_ids_to_row_idx[layer].keys())
+        return map_object_ids
+
+    def get_all_map_objects_in_layer(self, layer: MapLayer) -> Generator[BaseMapObject]:
+        """Inherited, see superclass."""
+        for map_object_id in self.get_all_map_object_ids_in_layer(layer):
+            map_object = self.get_map_object_in_layer(map_object_id, layer)
+            assert map_object is not None, (
+                f"Queried map object should exist. Cannot find object {map_object_id} in layer {layer.name}"
+            )
+            yield map_object
 
     def get_map_objects_in_radius(
         self,
@@ -197,7 +213,7 @@ class ArrowMapAPI(MapAPI):
             query_dict: Dict[int, List[BaseMapObject]] = defaultdict(list)
             for geometry_idx, occ_idx in zip(query_result[0], query_result[1]):
                 map_object_id = occupancy_map.ids[occ_idx]
-                map_object = self.get_map_object(map_object_id, layer)
+                map_object = self.get_map_object_in_layer(map_object_id, layer)
                 assert map_object is not None, (
                     f"Queried map object should exist. Cannot find object {map_object_id} in layer {layer.name}"
                 )

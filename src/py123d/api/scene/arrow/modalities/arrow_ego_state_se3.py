@@ -55,6 +55,10 @@ class ArrowEgoStateSE3Writer(BaseModalityWriter):
         )
 
 
+class ArrowEgoStateSE3Reader:
+    pass
+
+
 def get_ego_state_se3_from_arrow_table(
     modality_table: pa.Table,
     index: int,

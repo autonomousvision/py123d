@@ -320,9 +320,9 @@ class TestSceneAPIDeprecatedMethods:
         result = scene_api.get_ego_state_at_iteration(0)
         assert result is not None
 
-    def test_get_box_detections_at_iteration(self, scene_api):
-        """Test deprecated get_box_detections_at_iteration delegates to get_box_detections_se3_at_iteration."""
-        result = scene_api.get_box_detections_at_iteration(0)
+    def test_get_box_detections_se3_at_iteration(self, scene_api):
+        """Test deprecated get_box_detections_se3_at_iteration delegates to get_box_detections_se3_at_iteration."""
+        result = scene_api.get_box_detections_se3_at_iteration(0)
         assert result is not None
 
     def test_get_route_lane_group_ids(self, scene_api):

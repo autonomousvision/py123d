@@ -36,7 +36,7 @@ from py123d.visualization.matplotlib.utils import (
 
 def add_scene_on_ax(ax: plt.Axes, scene: SceneAPI, iteration: int = 0, radius: float = 80) -> plt.Axes:
     ego_vehicle_state = scene.get_ego_state_se3_at_iteration(iteration)
-    box_detections = scene.get_box_detections_at_iteration(iteration)
+    box_detections = scene.get_box_detections_se3_at_iteration(iteration)
     traffic_light_detections = scene.get_traffic_light_detections_at_iteration(iteration)
     map_api = scene.get_map_api()
 
@@ -163,7 +163,7 @@ def add_ego_vehicle_to_ax(ax: plt.Axes, ego_vehicle_state: Union[EgoStateSE3, Eg
 
 def add_traffic_lights_to_ax(ax: plt.Axes, traffic_light_detections: TrafficLightDetections, map_api: MapAPI) -> None:
     for traffic_light_detection in traffic_light_detections:
-        lane = map_api.get_map_object(traffic_light_detection.lane_id, MapLayer.LANE)
+        lane = map_api.get_map_object_in_layer(traffic_light_detection.lane_id, MapLayer.LANE)
         assert isinstance(lane, Lane), f"Lane with id {traffic_light_detection.lane_id} not found."
         if lane is not None:
             add_shapely_linestring_to_ax(

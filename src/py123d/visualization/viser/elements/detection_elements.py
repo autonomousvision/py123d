@@ -69,7 +69,7 @@ def add_box_detections_to_viser_server(
 
 def _get_bounding_box_meshes(scene: SceneAPI, iteration: int, initial_ego_state: EgoStateSE3) -> trimesh.Trimesh:
     ego_vehicle_state = scene.get_ego_state_se3_at_iteration(iteration)
-    box_detections = scene.get_box_detections_at_iteration(iteration)
+    box_detections = scene.get_box_detections_se3_at_iteration(iteration)
 
     # Load boxes to visualize, including ego vehicle at the last position
     if box_detections is None:
@@ -107,7 +107,7 @@ def _get_bounding_box_meshes(scene: SceneAPI, iteration: int, initial_ego_state:
 # ) -> npt.NDArray[np.float64]:
 
 #     ego_vehicle_state = scene.get_ego_state_se3_at_iteration(iteration)
-#     box_detections = scene.get_box_detections_at_iteration(iteration)
+#     box_detections = scene.get_box_detections_se3_at_iteration(iteration)
 
 #     # Load boxes to visualize, including ego vehicle at the last position
 #     boxes = [bd.bounding_box_se3 for bd in box_detections.box_detections] + [ego_vehicle_state.bounding_box_se3]
@@ -134,7 +134,7 @@ def _get_bounding_box_outlines(
     scene: SceneAPI, iteration: int, initial_ego_state: EgoStateSE3
 ) -> npt.NDArray[np.float64]:
     ego_vehicle_state = scene.get_ego_state_se3_at_iteration(iteration)
-    box_detections = scene.get_box_detections_at_iteration(iteration)
+    box_detections = scene.get_box_detections_se3_at_iteration(iteration)
 
     # Load boxes to visualize, including ego vehicle at the last position
     boxes = [bd.bounding_box_se3 for bd in box_detections.box_detections] + [ego_vehicle_state.bounding_box_se3]
