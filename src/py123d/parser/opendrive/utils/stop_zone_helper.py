@@ -126,6 +126,11 @@ def create_stop_zones_from_signals(
             continue
 
         helpers = [lane_helper_dict[lid] for lid in signal_helper.lane_ids if lid in lane_helper_dict]
+        # Filter out lanes with zero-area rectangles. This happens when a lane starts with
+        # 0 width (e.g. lane-add/merge) and the stop zone is placed at s_range[0] where the
+        # lane hasn't widened yet. A proper fix would place the stop zone at the downstream
+        # end of travel (s_range[1] for id<0 lanes) where the lane has full width.
+        helpers = [h for h in helpers if _lane_rectangle_2d(h) is not None]
         if not helpers:
             continue
 
