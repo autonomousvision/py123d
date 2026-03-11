@@ -1,4 +1,4 @@
-from typing import Dict, Generator, Iterable, List, Optional, Union
+from typing import Dict, Iterable, Iterator, List, Optional, Union
 
 import shapely.geometry as geom
 from typing_extensions import Literal
@@ -87,7 +87,7 @@ class MockMapAPI(MapAPI):
         target_layer = self._layers.get(layer, [])
         return [obj.object_id for obj in target_layer]
 
-    def get_all_map_objects_in_layer(self, layer: MapLayer) -> Generator[BaseMapObject]:
+    def get_all_map_objects_in_layer(self, layer: MapLayer) -> Iterator[BaseMapObject]:
         target_layer = self._layers.get(layer, [])
         for obj in target_layer:
             yield obj

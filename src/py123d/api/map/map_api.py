@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Dict, Generator, Iterable, List, Literal, Optional, Union
+from typing import Dict, Iterable, Iterator, List, Literal, Optional, Union
 
 import shapely.geometry as geom
 
@@ -51,12 +51,12 @@ class MapAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_all_map_objects_in_layer(self, layer: MapLayer) -> Generator[BaseMapObject]:
-        """Returns a generator of all :class:`~p123d.datatypes.map_objects.base_map_object.BaseMapObject` in a given
+    def get_all_map_objects_in_layer(self, layer: MapLayer) -> Iterator[BaseMapObject]:
+        """Returns an iterator of all :class:`~p123d.datatypes.map_objects.base_map_object.BaseMapObject` in a given
             :class:`~p123d.datatypes.map_objects.map_layer_types.MapLayer`.
 
         :param layer: The map layer to retrieve objects from.
-        :return: A generator of all map objects in the specified layer.
+        :return: An iterator of all map objects in the specified layer.
         """
 
     @abc.abstractmethod

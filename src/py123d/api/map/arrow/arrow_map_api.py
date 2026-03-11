@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable, Dict, Final, Generator, Iterable, List, Literal, Optional, Tuple, Union
+from typing import Callable, Dict, Final, Iterable, Iterator, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import pyarrow as pa
@@ -120,7 +120,7 @@ class ArrowMapAPI(MapAPI):
             map_object_ids = list(self._object_ids_to_row_idx[layer].keys())
         return map_object_ids
 
-    def get_all_map_objects_in_layer(self, layer: MapLayer) -> Generator[BaseMapObject]:
+    def get_all_map_objects_in_layer(self, layer: MapLayer) -> Iterator[BaseMapObject]:
         """Inherited, see superclass."""
         for map_object_id in self.get_all_map_object_ids_in_layer(layer):
             map_object = self.get_map_object_in_layer(map_object_id, layer)
