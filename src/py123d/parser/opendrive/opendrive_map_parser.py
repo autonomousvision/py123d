@@ -152,7 +152,7 @@ def _extract_lanes(lane_group_helper_dict: Dict[str, OpenDriveLaneGroupHelper]) 
             lanes.append(
                 Lane(
                     object_id=lane_helper.lane_id,
-                    lane_type=LaneType.UNDEFINED,
+                    lane_type=LaneType.SURFACE_STREET,
                     lane_group_id=lane_group_id,
                     left_boundary=lane_helper.inner_polyline_3d,
                     right_boundary=lane_helper.outer_polyline_3d,
