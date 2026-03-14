@@ -138,6 +138,7 @@ lint.ignore = [
     "PLR0917",  # Checks for function definitions that include too many positional arguments.
     "PLR0914",  # Checks for functions that include too many local variables.
     "PLR6301",  # Checks for the presence of unused self parameter in methods definitions.
+    "PLC0206",  # Checks for dictionary iterations that extract the dictionary value via explicit indexing, instead of using .items().
 ]
 
 exclude = [

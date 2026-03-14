@@ -168,7 +168,7 @@ class TestLidar:
             LidarFeature.IDS.serialize(): np.arange(self.NUM_POINTS, dtype=np.uint8),
             LidarFeature.INTENSITY.serialize(): np.random.randint(0, 255, self.NUM_POINTS, dtype=np.uint8),
             LidarFeature.CHANNEL.serialize(): np.random.randint(0, 64, self.NUM_POINTS, dtype=np.uint8),
-            LidarFeature.TIMESTAMP.serialize(): np.arange(self.NUM_POINTS, dtype=np.int64),
+            LidarFeature.TIMESTAMPS.serialize(): np.arange(self.NUM_POINTS, dtype=np.int64),
             LidarFeature.RANGE.serialize(): np.random.rand(self.NUM_POINTS).astype(np.float32),
             LidarFeature.ELONGATION.serialize(): np.random.rand(self.NUM_POINTS).astype(np.float32),
         }

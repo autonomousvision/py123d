@@ -8,21 +8,19 @@ import pyarrow as pa
 from py123d.api.scene.arrow.modalities.arrow_base import ArrowBaseModalityReader, ArrowBaseModalityWriter
 from py123d.api.utils.arrow_metadata_utils import add_metadata_to_arrow_schema
 from py123d.common.io.lidar.draco_lidar_io import (
-    encode_point_cloud_3d_as_draco_binary,
+    encode_point_cloud_as_draco_binary,
     is_draco_binary,
-    load_point_cloud_3d_from_draco_binary,
+    load_point_cloud_from_draco_binary,
 )
 from py123d.common.io.lidar.ipc_lidar_io import (
-    encode_point_cloud_3d_as_ipc_binary,
-    encode_point_cloud_features_as_ipc_binary,
+    encode_point_cloud_as_ipc_binary,
     is_ipc_binary,
-    load_point_cloud_3d_from_ipc_binary,
-    load_point_cloud_features_from_ipc_binary,
+    load_point_cloud_from_ipc_binary,
 )
 from py123d.common.io.lidar.laz_lidar_io import (
-    encode_point_cloud_3d_as_laz_binary,
+    encode_point_cloud_as_laz_binary,
     is_laz_binary,
-    load_point_cloud_3d_from_laz_binary,
+    load_point_cloud_from_laz_binary,
 )
 from py123d.common.io.lidar.path_lidar_io import load_point_cloud_data_from_path
 from py123d.datatypes.metadata.log_metadata import LogMetadata
@@ -39,8 +37,7 @@ class ArrowLidarWriter(ArrowBaseModalityWriter):
         metadata: Union[LidarMetadata, LidarMergedMetadata],
         log_metadata: LogMetadata,
         lidar_store_option: Literal["path", "binary"],
-        lidar_point_cloud_codec: Optional[Literal["laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"]],
-        lidar_point_feature_codec: Optional[Literal["ipc_zstd", "ipc_lz4", "ipc"]],  # None drops features.
+        lidar_codec: Optional[Literal["laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"]],
         ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
         ipc_compression_level: Optional[int] = None,
     ) -> None:
@@ -54,8 +51,7 @@ class ArrowLidarWriter(ArrowBaseModalityWriter):
         self._log_metadata = log_metadata
 
         self._lidar_store_option = lidar_store_option
-        self._lidar_point_cloud_codec = lidar_point_cloud_codec
-        self._lidar_point_feature_codec = lidar_point_feature_codec
+        self._lidar_codec = lidar_codec
 
         file_path = log_dir / f"{metadata.modality_key}.arrow"
 
@@ -64,9 +60,7 @@ class ArrowLidarWriter(ArrowBaseModalityWriter):
             (f"{metadata.modality_key}.end_timestamp_us", pa.int64()),
         ]
         if lidar_store_option == "binary":
-            schema_list.append((f"{metadata.modality_key}.point_cloud_3d", pa.binary()))
-            if lidar_point_feature_codec:
-                schema_list.append((f"{metadata.modality_key}.point_cloud_features", pa.binary()))
+            schema_list.append((f"{metadata.modality_key}.data", pa.binary()))
         elif lidar_store_option == "path":
             schema_list.append((f"{metadata.modality_key}.data", pa.string()))
         else:
@@ -102,20 +96,18 @@ class ArrowLidarWriter(ArrowBaseModalityWriter):
             batch[f"{self._modality_key}.data"] = [data_path]
 
         elif self._lidar_store_option == "binary":
-            point_cloud_binary, features_binary = self._prepare_lidar_data(modality)
-            batch[f"{self._modality_key}.point_cloud_3d"] = [point_cloud_binary]
-            if self._lidar_point_feature_codec:
-                batch[f"{self._modality_key}.point_cloud_features"] = [features_binary]
+            data_binary = self._prepare_lidar_data(modality)
+            batch[f"{self._modality_key}.data"] = [data_binary]
 
         self.write_batch(batch)
 
-    def _prepare_lidar_data(self, modality: Union[ParsedLidar, Lidar]) -> Tuple[Optional[bytes], Optional[bytes]]:
-        """Load and/or encode the lidar data in binary for point cloud and features.
+    def _prepare_lidar_data(self, modality: Union[ParsedLidar, Lidar]) -> Optional[bytes]:
+        """Load and encode the lidar data (xyz + features) into a single binary blob.
 
         :param modality: The lidar modality data (ParsedLidar or Lidar).
-        :return: Tuple of (point_cloud_binary, point_cloud_features_binary)
+        :return: Encoded binary blob, or None if no point cloud data.
         """
-        # 1. Load point cloud and point features
+        # 1. Load point cloud and features.
         point_cloud_3d: Optional[npt.NDArray] = None
         point_cloud_features: Optional[Dict[str, npt.NDArray]] = None
         if isinstance(modality, Lidar):
@@ -138,40 +130,23 @@ class ArrowLidarWriter(ArrowBaseModalityWriter):
         else:
             raise ValueError(f"Unsupported lidar modality type: {type(modality)}")
 
-        # 2. Compress point clouds with target codec
-        point_cloud_3d_output: Optional[bytes] = None
-        if point_cloud_3d is not None:
-            codec = self._lidar_point_cloud_codec
-            if codec == "draco":
-                point_cloud_3d_output = encode_point_cloud_3d_as_draco_binary(point_cloud_3d)
-            elif codec == "laz":
-                point_cloud_3d_output = encode_point_cloud_3d_as_laz_binary(point_cloud_3d)
-            elif codec == "ipc":
-                point_cloud_3d_output = encode_point_cloud_3d_as_ipc_binary(point_cloud_3d, codec=None)
-            elif codec == "ipc_zstd":
-                point_cloud_3d_output = encode_point_cloud_3d_as_ipc_binary(point_cloud_3d, codec="zstd")
-            elif codec == "ipc_lz4":
-                point_cloud_3d_output = encode_point_cloud_3d_as_ipc_binary(point_cloud_3d, codec="lz4")
-            else:
-                raise NotImplementedError(f"Unsupported lidar point cloud codec: {codec}")
+        # 2. Encode xyz + features together with the target codec.
+        if point_cloud_3d is None:
+            return None
 
-        # 3. Compress point cloud features with target codec, if specified
-        point_cloud_feature_output: Optional[bytes] = None
-        if self._lidar_point_feature_codec is not None and point_cloud_features is not None:
-            if self._lidar_point_feature_codec == "ipc":
-                point_cloud_feature_output = encode_point_cloud_features_as_ipc_binary(point_cloud_features, codec=None)
-            elif self._lidar_point_feature_codec == "ipc_zstd":
-                point_cloud_feature_output = encode_point_cloud_features_as_ipc_binary(
-                    point_cloud_features, codec="zstd"
-                )
-            elif self._lidar_point_feature_codec == "ipc_lz4":
-                point_cloud_feature_output = encode_point_cloud_features_as_ipc_binary(
-                    point_cloud_features, codec="lz4"
-                )
-            else:
-                raise NotImplementedError(f"Unsupported lidar point feature codec: {self._lidar_point_feature_codec}")
-
-        return point_cloud_3d_output, point_cloud_feature_output
+        codec = self._lidar_codec
+        if codec == "draco":
+            return encode_point_cloud_as_draco_binary(point_cloud_3d, point_cloud_features)
+        elif codec == "laz":
+            return encode_point_cloud_as_laz_binary(point_cloud_3d, point_cloud_features)
+        elif codec == "ipc":
+            return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec=None)
+        elif codec == "ipc_zstd":
+            return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec="zstd")
+        elif codec == "ipc_lz4":
+            return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec="lz4")
+        else:
+            raise NotImplementedError(f"Unsupported lidar codec: {codec}")
 
 
 # ------------------------------------------------------------------------------------------------------------------
@@ -208,6 +183,48 @@ class ArrowLidarReader(ArrowBaseModalityReader):
 # ------------------------------------------------------------------------------------------------------------------
 
 
+def _decode_lidar_binary(blob: bytes) -> Tuple[npt.NDArray[np.float32], Optional[Dict[str, npt.NDArray]]]:
+    """Auto-detect codec and decode a lidar binary blob into xyz + features."""
+    if is_draco_binary(blob):
+        return load_point_cloud_from_draco_binary(blob)
+    elif is_laz_binary(blob):
+        return load_point_cloud_from_laz_binary(blob)
+    elif is_ipc_binary(blob):
+        return load_point_cloud_from_ipc_binary(blob)
+    else:
+        raise ValueError("Unknown lidar binary format (not Draco, LAZ, or IPC).")
+
+
+def _decode_legacy_lidar_binary(
+    arrow_table: pa.Table,
+    index: int,
+    modality_key: str,
+) -> Tuple[Optional[npt.NDArray[np.float32]], Optional[Dict[str, npt.NDArray]]]:
+    """Decode lidar data from the legacy two-column format (point_cloud_3d + point_cloud_features).
+
+    Kept for backward compatibility with Arrow files written before the unified data column.
+    """
+    from py123d.common.io.lidar.ipc_lidar_io import _load_dict_from_ipc_binary
+
+    pc3d_col = f"{modality_key}.point_cloud_3d"
+    pcf_col = f"{modality_key}.point_cloud_features"
+
+    point_cloud_3d: Optional[npt.NDArray[np.float32]] = None
+    point_cloud_features: Optional[Dict[str, npt.NDArray]] = None
+
+    lidar_data = arrow_table[pc3d_col][index].as_py()
+    if lidar_data is not None:
+        # Old format stored only xyz in this column (no features), so discard the second element.
+        point_cloud_3d, _ = _decode_lidar_binary(lidar_data)
+
+    if pcf_col in arrow_table.schema.names:
+        features_data = arrow_table[pcf_col][index].as_py()
+        if features_data is not None and is_ipc_binary(features_data):
+            point_cloud_features = _load_dict_from_ipc_binary(features_data)
+
+    return point_cloud_3d, point_cloud_features
+
+
 def _deserialize_lidar(
     arrow_table: pa.Table,
     index: int,
@@ -223,8 +240,7 @@ def _deserialize_lidar(
     start_ts_col = f"{modality_key}.start_timestamp_us"
     end_ts_col = f"{modality_key}.end_timestamp_us"
     data_col = f"{modality_key}.data"
-    pc3d_col = f"{modality_key}.point_cloud_3d"
-    pcf_col = f"{modality_key}.point_cloud_features"
+    legacy_pc3d_col = f"{modality_key}.point_cloud_3d"
 
     # Read timestamps
     start_timestamp_us = arrow_table[start_ts_col][index].as_py() if start_ts_col in arrow_table.schema.names else None
@@ -235,34 +251,23 @@ def _deserialize_lidar(
     timestamp_end = Timestamp.from_us(end_timestamp_us)
 
     if data_col in arrow_table.schema.names:
-        # 1. Load lidar sweep from origin dataset using a relative file path.
         lidar_data = arrow_table[data_col][index].as_py()
         if lidar_data is not None:
-            assert isinstance(lidar_data, str), f"Lidar path data must be a string file path, got {type(lidar_data)}"
-            point_cloud_3d, point_cloud_feature = load_point_cloud_data_from_path(
-                relative_path=lidar_data,
-                dataset=dataset,
-                index=index,
-                lidar_metadatas=lidar_metadatas,
-            )
+            if isinstance(lidar_data, str):
+                # Path storage: load from original dataset file.
+                point_cloud_3d, point_cloud_feature = load_point_cloud_data_from_path(
+                    relative_path=lidar_data,
+                    dataset=dataset,
+                    index=index,
+                    lidar_metadatas=lidar_metadatas,
+                )
+            elif isinstance(lidar_data, bytes):
+                # Unified binary storage: single blob with xyz + features.
+                point_cloud_3d, point_cloud_feature = _decode_lidar_binary(lidar_data)
 
-    elif pc3d_col in arrow_table.schema.names:
-        # 2.1 Loading the lidar xyz point cloud from blob in the Arrow table.
-        lidar_data = arrow_table[pc3d_col][index].as_py()
-        if lidar_data is not None:
-            if is_draco_binary(lidar_data):
-                point_cloud_3d = load_point_cloud_3d_from_draco_binary(lidar_data)
-            elif is_laz_binary(lidar_data):
-                point_cloud_3d = load_point_cloud_3d_from_laz_binary(lidar_data)
-            elif is_ipc_binary(lidar_data):
-                point_cloud_3d = load_point_cloud_3d_from_ipc_binary(lidar_data)
-
-        # 2.2 Load lidar features from blob in the Arrow table, if available.
-        if pcf_col in arrow_table.schema.names:
-            lidar_point_cloud_feature_data = arrow_table[pcf_col][index].as_py()
-            if lidar_point_cloud_feature_data is not None:
-                if is_ipc_binary(lidar_point_cloud_feature_data):
-                    point_cloud_feature = load_point_cloud_features_from_ipc_binary(lidar_point_cloud_feature_data)
+    elif legacy_pc3d_col in arrow_table.schema.names:
+        # Backward compatibility: legacy two-column format.
+        point_cloud_3d, point_cloud_feature = _decode_legacy_lidar_binary(arrow_table, index, modality_key)
 
     if point_cloud_3d is None:
         return None

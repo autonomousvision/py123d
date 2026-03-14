@@ -152,7 +152,7 @@ class ViserViewer:
             )
             option_lidar_point_color = self._viser_server.gui.add_dropdown(
                 "Lidar Coloring",
-                ("none", "distance", "ids", "intensity", "channel", "timestamp", "range", "elongation"),
+                ("none", "distance", "ids", "intensity", "channel", "timestamps", "range", "elongation"),
                 initial_value=self._viser_config.lidar_point_color,
             )
 

@@ -79,7 +79,7 @@ class ViserConfig:
     lidar_ids: List[LidarID] = field(default_factory=lambda: [LidarID.LIDAR_MERGED])
     lidar_point_size: float = 0.05
     lidar_point_shape: Literal["square", "diamond", "circle", "rounded", "sparkle"] = "circle"
-    lidar_point_color: Literal["none", "distance", "intensity", "channel", "timestamp", "range", "elongation"] = "none"
+    lidar_point_color: Literal["none", "distance", "intensity", "channel", "timestamps", "range", "elongation"] = "none"
 
     # internal use
     _force_map_update: bool = False

@@ -174,8 +174,7 @@ class ArrowLogWriter(AbstractLogWriter):
                 metadata=modality_metadata,
                 log_metadata=self._state.log_metadata,
                 lidar_store_option=self._log_writer_config.lidar_store_option,
-                lidar_point_cloud_codec=self._log_writer_config.lidar_point_cloud_codec,
-                lidar_point_feature_codec=self._log_writer_config.lidar_point_feature_codec,
+                lidar_codec=self._log_writer_config.lidar_codec,
                 ipc_compression=self._ipc_compression,
                 ipc_compression_level=self._ipc_compression_level,
             )

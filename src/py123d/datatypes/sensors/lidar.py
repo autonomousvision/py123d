@@ -51,7 +51,7 @@ class LidarFeature(SerialIntEnum):
     CHANNEL = 2
     """Ring feature index."""
 
-    TIMESTAMP = 3
+    TIMESTAMPS = 3
     """Timestamp feature index."""
 
     RANGE = 4
@@ -65,7 +65,7 @@ LIDAR_FEATURE_DTYPES: Dict[LidarFeature, Type] = {
     LidarFeature.IDS: np.uint8,
     LidarFeature.INTENSITY: np.uint8,
     LidarFeature.CHANNEL: np.uint8,
-    LidarFeature.TIMESTAMP: np.int64,
+    LidarFeature.TIMESTAMPS: np.int64,
     LidarFeature.RANGE: np.float32,
     LidarFeature.ELONGATION: np.float32,
 }
@@ -307,7 +307,7 @@ class Lidar(BaseModality):
     def timestamps(self) -> Optional[npt.NDArray[np.int64]]:
         """The point cloud as an Nx1 array of timestamps in microseconds, if available."""
         timestamp: Optional[npt.NDArray[np.int64]] = None
-        key = LidarFeature.TIMESTAMP.serialize()
+        key = LidarFeature.TIMESTAMPS.serialize()
         if self._point_cloud_features is not None and key in self._point_cloud_features:
             timestamp = self._point_cloud_features[key].astype(np.int64)  # type: ignore
         return timestamp

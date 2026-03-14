@@ -21,8 +21,7 @@ class LogWriterConfig:
 
     # Lidars
     lidar_store_option: Literal["path", "binary"] = "path"
-    lidar_point_cloud_codec: Optional[Literal["laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"]] = None
-    lidar_point_feature_codec: Optional[Literal["ipc_zstd", "ipc_lz4", "ipc"]] = None  # None drops features.
+    lidar_codec: Optional[Literal["laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"]] = None
 
     # IPC write options
     ipc_max_batch_size: Optional[int] = None
@@ -46,15 +45,10 @@ class LogWriterConfig:
         }, f"Invalid Lidar store option, got {self.lidar_store_option}."
 
         if self.lidar_store_option == "binary":
-            assert self.lidar_point_cloud_codec in {
+            assert self.lidar_codec in {
                 "laz",
                 "draco",
                 "ipc_zstd",
                 "ipc_lz4",
                 "ipc",
-            }, f"Invalid Lidar point cloud codec, got {self.lidar_point_cloud_codec}."
-            assert self.lidar_point_feature_codec is None or self.lidar_point_feature_codec in {
-                "ipc_zstd",
-                "ipc_lz4",
-                "ipc",
-            }, f"Invalid Lidar point feature codec, got {self.lidar_point_feature_codec}."
+            }, f"Invalid Lidar codec, got {self.lidar_codec}."
