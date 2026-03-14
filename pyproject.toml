@@ -49,6 +49,7 @@ dependencies = [
     "omegaconf",
     "typing-extensions",
     "requests",
+    "cachetools", # Should be remove again, if functools are use
 ]
 
 [project.scripts]

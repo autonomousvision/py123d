@@ -6,8 +6,6 @@ hydra:
     - pkg://py123d.script.config
     - pkg://py123d.script.config.common
   job:
-    env_set:
-      HYDRA_FULL_ERROR: 1
     chdir: False
 
 defaults:
@@ -23,4 +21,4 @@ terminate_on_exception: True
 
 force_map_conversion: True
 force_log_conversion: True
-async_conversion: true
+async_conversion: False

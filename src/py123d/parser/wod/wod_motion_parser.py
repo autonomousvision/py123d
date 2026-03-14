@@ -11,10 +11,7 @@ from py123d.datatypes import (
     BoxDetectionsSE3Metadata,
     EgoStateSE3,
     EgoStateSE3Metadata,
-    FisheyeMEICameraMetadatas,
-    LidarMetadatas,
     LogMetadata,
-    PinholeCameraMetadatas,
     Timestamp,
     TrafficLightDetection,
     TrafficLightDetections,
@@ -29,16 +26,34 @@ from py123d.parser.base_dataset_parser import (
     BaseDatasetParser,
     BaseLogParser,
     BaseMapParser,
-    ParsedFrame,
+    ModalitiesSync,
 )
 from py123d.parser.registry import WODMotionBoxDetectionLabel
 from py123d.parser.wod.utils.wod_constants import WOD_MOTION_AVAILABLE_SPLITS, WOD_MOTION_TRAFFIC_LIGHT_MAPPING
 from py123d.parser.wod.wod_map_parser import WODMapParser
 
 if TYPE_CHECKING:
+    from py123d.datatypes.modalities.base_modality import BaseModality
     from py123d.parser.wod.waymo_open_dataset.protos import scenario_pb2
 
 logger = logging.getLogger(__name__)
+
+# NOTE: These parameters are estimates based on the vehicle model used in the WOD Motion dataset.
+# The vehicle is a Chrysler Pacifica (minivan).
+# [1] https://en.wikipedia.org/wiki/Chrysler_Pacifica_(minivan)
+WOD_MOTION_EGO_STATE_SE3_METADATA = EgoStateSE3Metadata(
+    vehicle_name="wod-motion_chrysler_pacifica",
+    width=2.3320000171661377,
+    length=5.285999774932861,
+    height=2.3299999237060547,
+    wheel_base=3.089,
+    center_to_imu_se3=PoseSE3(x=1.461, y=0.0, z=2.3299999237060547 / 2, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
+    rear_axle_to_imu_se3=PoseSE3.identity(),
+)
+
+WOD_MOTION_BOX_DETECTIONS_SE3_METADATA = BoxDetectionsSE3Metadata(
+    box_detection_label_class=WODMotionBoxDetectionLabel,
+)
 
 
 def _lazy_import_tf_and_scenario_pb2():
@@ -102,6 +117,10 @@ class WODMotionParser(BaseDatasetParser):
         wod_motion_data_root: Union[str, Path],
         add_dummy_lane_groups: bool,
     ) -> None:
+        assert wod_motion_data_root is not None, "The variable `wod_motion_data_root` must be provided."
+        assert Path(wod_motion_data_root).exists(), (
+            f"The provided `wod_motion_data_root` path {wod_motion_data_root} does not exist."
+        )
         for split in splits:
             assert split in WOD_MOTION_AVAILABLE_SPLITS, (
                 f"Split {split} is not available. Available splits: {WOD_MOTION_AVAILABLE_SPLITS}"
@@ -182,38 +201,11 @@ class WODMotionLogParser(BaseLogParser):
             timestep_seconds=0.1,
         )
 
-    def get_ego_metadata(self) -> Optional[EgoStateSE3Metadata]:
+    def iter_modalities_sync(self) -> Iterator[ModalitiesSync]:
         """Inherited, see superclass."""
-        return EgoStateSE3Metadata(
-            vehicle_name="wod-motion_chrysler_pacifica",
-            width=2.3320000171661377,
-            length=5.285999774932861,
-            height=2.3299999237060547,
-            wheel_base=3.089,
-            center_to_imu_se3=PoseSE3(x=1.461, y=0.0, z=2.3299999237060547 / 2, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
-            rear_axle_to_imu_se3=PoseSE3.identity(),
-        )
+        ego_metadata = WOD_MOTION_EGO_STATE_SE3_METADATA
+        box_detections_metadata = WOD_MOTION_BOX_DETECTIONS_SE3_METADATA
 
-    def get_box_detection_metadata(self) -> Optional[BoxDetectionsSE3Metadata]:
-        """Inherited, see superclass."""
-        return BoxDetectionsSE3Metadata(box_detection_label_class=WODMotionBoxDetectionLabel)
-
-    def get_pinhole_camera_metadatas(self) -> Optional[PinholeCameraMetadatas]:
-        """Inherited, see superclass."""
-        return None  # WOD-Motion does not have camera data.
-
-    def get_fisheye_mei_camera_metadatas(self) -> Optional[FisheyeMEICameraMetadatas]:
-        """Inherited, see superclass."""
-        return None
-
-    def get_lidar_metadatas(self) -> Optional[LidarMetadatas]:
-        """Inherited, see superclass."""
-        return None  # WOD-Motion Lidar metadata extraction is not yet implemented.
-
-    def iter_frames(self) -> Iterator[ParsedFrame]:
-        """Yields one FrameData per timestep in the scenario."""
-        ego_metadata = self.get_ego_metadata()
-        assert ego_metadata is not None
         scenario = _get_scenario_from_tfrecord(self._source_tf_record_path, self._scenario_id)
         assert scenario is not None, (
             f"Scenario ID {self._scenario_id} not found in Waymo file: {self._source_tf_record_path}"
@@ -221,7 +213,7 @@ class WODMotionLogParser(BaseLogParser):
 
         all_timestamps = _extract_all_timestamps(scenario)
         all_ego_states = _extract_all_ego_states(scenario, all_timestamps, ego_metadata)
-        all_box_detections = _extract_all_wod_motion_box_detections(scenario, all_timestamps)
+        all_box_detections = _extract_all_wod_motion_box_detections(scenario, all_timestamps, box_detections_metadata)
         all_traffic_lights = _extract_all_traffic_lights(scenario)
 
         assert len(all_timestamps) == len(all_ego_states) == len(all_box_detections) == len(all_traffic_lights), (
@@ -229,12 +221,18 @@ class WODMotionLogParser(BaseLogParser):
         )
 
         for time_idx in range(len(all_timestamps)):
-            yield ParsedFrame(
+            yield ModalitiesSync(
                 timestamp=all_timestamps[time_idx],
-                ego_state_se3=all_ego_states[time_idx],
-                box_detections_se3=all_box_detections[time_idx],
-                traffic_lights=all_traffic_lights[time_idx],
+                modalities=[
+                    all_ego_states[time_idx],
+                    all_box_detections[time_idx],
+                    all_traffic_lights[time_idx],
+                ],
             )
+
+    def iter_modalities_async(self) -> Iterator[BaseModality]:
+        """Inherited, see superclass."""
+        raise NotImplementedError("Async per-modality iteration is not implemented for WOD Motion.")
 
 
 def _extract_all_timestamps(scenario: scenario_pb2.Scenario) -> List[Timestamp]:
@@ -268,7 +266,7 @@ def _extract_all_ego_states(
             assert ego_metadata.height == state.height, "Ego vehicle height does not match vehicle parameters."
             ego_state = EgoStateSE3.from_center(
                 center_se3=center_se3,
-                ego_metadata=ego_metadata,
+                metadata=ego_metadata,
                 dynamic_state_se3=None,
                 timestamp=all_timestamps[len(all_ego_states)],
             )
@@ -281,7 +279,9 @@ def _extract_all_ego_states(
 
 
 def _extract_all_wod_motion_box_detections(
-    scenario: scenario_pb2.Scenario, all_timestamps: List[Timestamp]
+    scenario: scenario_pb2.Scenario,
+    all_timestamps: List[Timestamp],
+    box_detections_metadata: BoxDetectionsSE3Metadata,
 ) -> List[BoxDetectionsSE3]:
     """Extracts all box detections from the WOD-Motion scenario."""
 
@@ -314,7 +314,7 @@ def _extract_all_wod_motion_box_detections(
                     height=state.height,
                 )
                 box_detection = BoxDetectionSE3(
-                    metadata=BoxDetectionAttributes(
+                    attributes=BoxDetectionAttributes(
                         label=label,
                         track_token=track_id,
                     ),
@@ -343,8 +343,9 @@ def _extract_all_wod_motion_box_detections(
             BoxDetectionsSE3(
                 box_detections=box_detections_at_time_idx,
                 timestamp=all_timestamps[time_idx],
+                metadata=box_detections_metadata,
             )
-        )  # type: ignore
+        )
 
     assert len(all_box_detections) == num_timesteps, (
         "Number of box detection timesteps does not match number of scenario timesteps."

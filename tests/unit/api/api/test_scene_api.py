@@ -22,6 +22,7 @@ from py123d.datatypes import (
     PinholeCameraMetadata,
     Timestamp,
     TrafficLightDetections,
+    TrafficLightDetectionsMetadata,
 )
 from py123d.datatypes.custom.custom_modality import CustomModality, CustomModalityMetadata
 
@@ -36,6 +37,7 @@ class ConcreteSceneAPI(SceneAPI):
         self._map_metadata = None
         self._ego_metadata = None
         self._box_detection_metadata = None
+        self._traffic_light_detections_metadata = None
         self._pinhole_camera_metadatas = None
         self._fisheye_mei_camera_metadatas = None
         self._lidar_metadatas = None
@@ -63,6 +65,10 @@ class ConcreteSceneAPI(SceneAPI):
     def get_box_detections_se3_metadata(self) -> Optional[BoxDetectionsSE3Metadata]:
         """Inherited, see super class."""
         return self._box_detection_metadata
+
+    def get_traffic_light_detections_metadata(self) -> Optional[TrafficLightDetectionsMetadata]:
+        """Inherited, see super class."""
+        return self._traffic_light_detections_metadata
 
     def get_pinhole_camera_metadatas(self) -> Optional[Dict[PinholeCameraID, PinholeCameraMetadata]]:
         """Inherited, see super class."""

@@ -15,10 +15,8 @@ from py123d.datatypes import (
     BoxDetectionAttributes,
     BoxDetectionSE3,
     BoxDetectionsSE3,
-    BoxDetectionsSE3Metadata,
     DynamicStateSE3,
     EgoStateSE3,
-    EgoStateSE3Metadata,
     LidarID,
     LidarMetadata,
     LogMetadata,
@@ -29,27 +27,29 @@ from py123d.datatypes import (
     Timestamp,
     TrafficLightDetection,
     TrafficLightDetections,
-    TrafficLightDetectionsMetadata,
 )
-from py123d.datatypes.metadata.base_metadata import BaseModalityMetadata
+from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3Metadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
+from py123d.datatypes.modalities.base_modality import BaseModality
 from py123d.datatypes.sensors.lidar import LidarMergedMetadata
+from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadata
 from py123d.geometry import BoundingBoxSE3, EulerAngles, PoseSE3, Vector3D
 from py123d.geometry.transform import reframe_se3_array
 from py123d.geometry.utils.constants import DEFAULT_PITCH, DEFAULT_ROLL
 from py123d.parser.base_dataset_parser import (
     BaseDatasetParser,
     BaseLogParser,
+    ModalitiesSync,
     ParsedCamera,
-    ParsedFrame,
     ParsedLidar,
-    ParsedModality,
 )
 from py123d.parser.nuplan.nuplan_map_parser import NuplanMapParser
 from py123d.parser.nuplan.utils.nuplan_constants import (
+    NUPLAN_BOX_DETECTIONS_SE3_METADATA,
     NUPLAN_DATA_SPLITS,
     NUPLAN_DEFAULT_DT,
     NUPLAN_DETECTION_NAME_DICT,
+    NUPLAN_EGO_STATE_SE3_METADATA,
     NUPLAN_LIDAR_DICT,
     NUPLAN_MAP_LOCATIONS,
     NUPLAN_ROLLING_SHUTTER_S,
@@ -64,7 +64,6 @@ from py123d.parser.nuplan.utils.nuplan_sql_helper import (
     iter_all_lidar_pc_from_db,
     iter_all_traffic_lights_from_db,
 )
-from py123d.parser.registry import NuPlanBoxDetectionLabel
 
 check_dependencies(["nuplan"], "nuplan")
 from nuplan.database.nuplan_db.nuplan_scenario_queries import get_cameras, get_images_from_lidar_tokens
@@ -199,10 +198,8 @@ class NuplanLogParser(BaseLogParser):
         self._nuplan_data_root = nuplan_data_root
         self._nuplan_sensor_root = nuplan_sensor_root
 
-        # Build lazily
-        self._log_metadata: Optional[LogMetadata] = None
-
-    def _build_log_metadata(self) -> None:
+    def get_log_metadata(self) -> LogMetadata:
+        """Inherited, see superclass."""
         nuplan_log_db = NuPlanDB(str(self._nuplan_data_root), str(self._source_log_path), None)
         log_name = nuplan_log_db.log_name
         location = nuplan_log_db.log.map_version
@@ -211,33 +208,7 @@ class NuplanLogParser(BaseLogParser):
         nuplan_log_db.remove_ref()
         del nuplan_log_db
 
-        # NOTE: These parameters are mostly available in nuPlan, except for the rear_axle_to_center_vertical.
-        # The value is estimated based the Lidar point cloud.
-        # [1] https://en.wikipedia.org/wiki/Chrysler_Pacifica_(minivan)
-        ego_state_se3_metadata = EgoStateSE3Metadata(
-            vehicle_name="nuplan_chrysler_pacifica",
-            width=2.297,
-            length=5.176,
-            height=1.777,
-            wheel_base=3.089,
-            center_to_imu_se3=PoseSE3(x=1.461, y=0.0, z=0.45, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
-            rear_axle_to_imu_se3=PoseSE3.identity(),
-        )
-
-        box_detections_se3_metadata = BoxDetectionsSE3Metadata(box_detection_label_class=NuPlanBoxDetectionLabel)
-        traffic_light_detections_metadata = TrafficLightDetectionsMetadata()
-
-        pinhole_cameras_metadata = _get_nuplan_camera_metadata(
-            self._source_log_path,
-            self._nuplan_sensor_root,
-        )
-
-        lidars_metadata = _get_nuplan_lidar_metadata(
-            self._nuplan_sensor_root,
-            self._source_log_path.stem,
-        )
-
-        self._log_metadata = LogMetadata(
+        return LogMetadata(
             dataset="nuplan",
             split=self._split,
             log_name=log_name,
@@ -249,29 +220,16 @@ class NuplanLogParser(BaseLogParser):
                 map_has_z=False,
                 map_is_per_log=False,
             ),
-            ego_state_se3_metadata=ego_state_se3_metadata,
-            box_detections_se3_metadata=box_detections_se3_metadata,
-            traffic_light_detections_metadata=traffic_light_detections_metadata,
-            pinhole_cameras_metadata=pinhole_cameras_metadata,
-            lidar_merged_metadata=LidarMergedMetadata(lidars_metadata),
         )
 
-    def get_log_metadata(self) -> LogMetadata:
-        """Returns the :class:`LogMetadata` for this log, building it if necessary."""
-        if self._log_metadata is None:
-            self._build_log_metadata()
-        assert self._log_metadata is not None
-        return self._log_metadata
-
-    def iter_frames(self) -> Iterator[ParsedFrame]:
+    def iter_modalities_sync(self) -> Iterator[ModalitiesSync]:
         """Inherited, see superclass."""
-        if self._log_metadata is None:
-            self._build_log_metadata()
-        assert self._log_metadata is not None
+        ego_state_se3_metadata = NUPLAN_EGO_STATE_SE3_METADATA
+        box_detections_se3_metadata = NUPLAN_BOX_DETECTIONS_SE3_METADATA
+        pinhole_camera_metadatas = _get_nuplan_camera_metadata(self._source_log_path, self._nuplan_sensor_root)
+        lidar_merged_metadata = _get_nuplan_lidar_merged_metadata(self._nuplan_sensor_root, self._source_log_path.stem)
 
         nuplan_log_db = NuPlanDB(str(self._nuplan_data_root), str(self._source_log_path), None)
-        ego_metadata = self._log_metadata._ego_state_se3_metadata
-        assert ego_metadata is not None
 
         try:
             step_interval: int = int(TARGET_DT / NUPLAN_DEFAULT_DT)
@@ -283,28 +241,30 @@ class NuplanLogParser(BaseLogParser):
                 lidar_pc_token: str = nuplan_lidar_pc.token
                 timestamp = Timestamp.from_us(nuplan_lidar_pc.timestamp)
 
-                lidar = _extract_nuplan_lidar_data(
+                ego_state_se3 = _extract_nuplan_ego_state(nuplan_lidar_pc, ego_state_se3_metadata)
+                box_detections_se3 = _extract_nuplan_box_detections(
+                    nuplan_lidar_pc, self._source_log_path, timestamp, box_detections_se3_metadata
+                )
+                traffic_lights = _extract_nuplan_traffic_lights(nuplan_log_db, lidar_pc_token, timestamp)
+                parsed_pinhole_cameras = _extract_nuplan_cameras(
+                    nuplan_log_db=nuplan_log_db,
+                    nuplan_lidar_pc=nuplan_lidar_pc,
+                    source_log_path=self._source_log_path,
+                    nuplan_sensor_root=self._nuplan_sensor_root,
+                    metadatas=pinhole_camera_metadatas,
+                )
+                parsed_lidar = _extract_nuplan_lidar_data(
                     nuplan_lidar_pc=nuplan_lidar_pc,
                     nuplan_sensor_root=self._nuplan_sensor_root,
+                    metadata=lidar_merged_metadata,
                 )
 
-                yield ParsedFrame(
-                    timestamp=timestamp,
-                    ego_state_se3=_extract_nuplan_ego_state(nuplan_lidar_pc, ego_metadata),
-                    box_detections_se3=_extract_nuplan_box_detections(
-                        nuplan_lidar_pc,
-                        self._source_log_path,
-                        timestamp,
-                    ),
-                    traffic_lights=_extract_nuplan_traffic_lights(nuplan_log_db, lidar_pc_token, timestamp),
-                    pinhole_cameras=_extract_nuplan_cameras(
-                        nuplan_log_db=nuplan_log_db,
-                        nuplan_lidar_pc=nuplan_lidar_pc,
-                        source_log_path=self._source_log_path,
-                        nuplan_sensor_root=self._nuplan_sensor_root,
-                    ),
-                    lidars=[lidar] if lidar is not None else None,
-                )
+                modalities: List[BaseModality] = [ego_state_se3, box_detections_se3, traffic_lights]
+                modalities.extend(parsed_pinhole_cameras)
+                if parsed_lidar is not None:
+                    modalities.append(parsed_lidar)
+
+                yield ModalitiesSync(timestamp=timestamp, modalities=modalities)
                 del nuplan_lidar_pc
         finally:
             # NOTE: The nuPlanDB class has several internal references, which makes memory management tricky.
@@ -313,45 +273,26 @@ class NuplanLogParser(BaseLogParser):
             nuplan_log_db.remove_ref()
             del nuplan_log_db
 
+    def iter_modalities_async(self) -> Iterator[BaseModality]:
+        """Inherited, see superclass."""
+        ego_state_se3_metadata = NUPLAN_EGO_STATE_SE3_METADATA
+        box_detections_se3_metadata = NUPLAN_BOX_DETECTIONS_SE3_METADATA
+        pinhole_camera_metadatas = _get_nuplan_camera_metadata(self._source_log_path, self._nuplan_sensor_root)
+        lidar_merged_metadata = _get_nuplan_lidar_merged_metadata(self._nuplan_sensor_root, self._source_log_path.stem)
+
+        yield from self._iter_ego_states_se3(ego_state_se3_metadata)
+        yield from self._iter_box_detections_se3(box_detections_se3_metadata)
+        yield from self._iter_traffic_lights()
+        yield from self._iter_lidars(lidar_merged_metadata)
+        for pinhole_camera_metadata in pinhole_camera_metadatas.values():
+            yield from self._iter_pinhole_camera(pinhole_camera_metadata)
+
     # ------------------------------------------------------------------------------------------------------------------
-    # Per-modality iterators for async conversion (native-rate, bypasses NuPlanDB ORM)
+    # Per-modality iterators (async / native-rate)
     # ------------------------------------------------------------------------------------------------------------------
 
-    def iter_modalities_async(self, modality_metadata: BaseModalityMetadata) -> Iterator[ParsedModality]:
-        """Dispatches to per-modality async iterators based on metadata type."""
-        if self._log_metadata is None:
-            self._build_log_metadata()
-        assert self._log_metadata is not None
-
-        if isinstance(modality_metadata, EgoStateSE3Metadata):
-            for ego_state in self._iter_ego_states_se3():
-                yield ego_state
-
-        elif isinstance(modality_metadata, BoxDetectionsSE3Metadata):
-            for box_detections in self._iter_box_detections_se3():
-                yield box_detections
-
-        elif isinstance(modality_metadata, TrafficLightDetectionsMetadata):
-            for traffic_lights in self._iter_traffic_lights():
-                yield traffic_lights
-
-        elif isinstance(modality_metadata, PinholeCameraMetadata):
-            for cam_data in self._iter_pinhole_cameras(modality_metadata):
-                yield cam_data
-
-        elif isinstance(modality_metadata, LidarMergedMetadata):
-            for lidar_data in self._iter_lidars():
-                yield lidar_data
-
-        else:
-            raise ValueError(f"Unsupported modality metadata type: {type(modality_metadata)}")
-
-    def _iter_ego_states_se3(self) -> Iterator[EgoStateSE3]:
+    def _iter_ego_states_se3(self, modality_metadata: EgoStateSE3Metadata) -> Iterator[EgoStateSE3]:
         """Yields all ego state observations at native rate from the ego_pose table."""
-        assert self._log_metadata is not None
-        ego_metadata = self._log_metadata._ego_state_se3_metadata
-        assert ego_metadata is not None
-
         for row in iter_all_ego_poses_from_db(str(self._source_log_path)):
             imu_pose = PoseSE3(
                 x=row["x"],
@@ -377,12 +318,12 @@ class NuplanLogParser(BaseLogParser):
             )
             yield EgoStateSE3.from_imu(
                 imu_se3=imu_pose,
-                ego_metadata=ego_metadata,
+                metadata=modality_metadata,
                 dynamic_state_se3=dynamic_state,
                 timestamp=Timestamp.from_us(row["timestamp"]),
             )
 
-    def _iter_box_detections_se3(self) -> Iterator[BoxDetectionsSE3]:
+    def _iter_box_detections_se3(self, modality_metadata: BoxDetectionsSE3Metadata) -> Iterator[BoxDetectionsSE3]:
         """Yields all box detection frames at native lidar rate."""
         for timestamp, rows in groupby(
             iter_all_box_detections_from_db(str(self._source_log_path)),
@@ -415,7 +356,11 @@ class NuplanLogParser(BaseLogParser):
                         velocity_3d=Vector3D(x=row["vx"], y=row["vy"], z=row["vz"]),
                     )
                 )
-            yield BoxDetectionsSE3(box_detections=box_detections, timestamp=Timestamp.from_us(timestamp))
+            yield BoxDetectionsSE3(
+                box_detections=box_detections,
+                timestamp=Timestamp.from_us(timestamp),
+                metadata=modality_metadata,
+            )
 
     def _iter_traffic_lights(self) -> Iterator[TrafficLightDetections]:
         """Yields all traffic light detection frames at native lidar rate."""
@@ -432,16 +377,11 @@ class NuplanLogParser(BaseLogParser):
             ]
             yield TrafficLightDetections(detections=detections, timestamp=Timestamp.from_us(timestamp))
 
-    def _iter_pinhole_cameras(self, modality_metadata: PinholeCameraMetadata) -> Iterator[ParsedCamera]:
-        """Yields all pinhole camera observations at native rate (~10Hz per camera)."""
-        # Build reverse mapping: channel string -> PinholeCameraID
+    def _iter_pinhole_camera(self, pinhole_camera_metadata: PinholeCameraMetadata) -> Iterator[ParsedCamera]:
+        """Yields pinhole camera observations for a specific camera at native rate (~10Hz)."""
         channel_to_camera_id = {str(v.value): k for k, v in NUPLAN_CAMERA_MAPPING.items()}
 
-        camera_metadata_dict = _get_nuplan_camera_metadata(self._source_log_path, self._nuplan_sensor_root)
-        if not camera_metadata_dict:
-            return
-
-        target_camera_id = modality_metadata.camera_id
+        target_camera_id = pinhole_camera_metadata.camera_id
 
         for row in iter_all_images_from_db(str(self._source_log_path)):
             channel = row["channel"]
@@ -452,31 +392,26 @@ class NuplanLogParser(BaseLogParser):
             if camera_id != target_camera_id:
                 continue
 
-            if camera_id not in camera_metadata_dict:
-                continue
-
             filename_jpg = row["filename_jpg"]
             full_path = self._nuplan_sensor_root / filename_jpg
             if not full_path.exists():
                 continue
 
             yield ParsedCamera(
-                camera_name=channel,
-                camera_id=camera_id,
-                extrinsic=camera_metadata_dict[camera_id].camera_to_imu_se3,
+                metadata=pinhole_camera_metadata,
                 timestamp=Timestamp.from_us(row["timestamp"]),
+                extrinsic=pinhole_camera_metadata.camera_to_imu_se3,
                 dataset_root=self._nuplan_sensor_root,
                 relative_path=filename_jpg,
             )
 
-    def _iter_lidars(self) -> Iterator[ParsedLidar]:
+    def _iter_lidars(self, modality_metadata: LidarMergedMetadata) -> Iterator[ParsedLidar]:
         """Yields all lidar sweeps at native rate (20Hz)."""
         for row in iter_all_lidar_pc_from_db(str(self._source_log_path)):
             lidar_full_path = self._nuplan_sensor_root / row["filename"]
             if lidar_full_path.exists() and lidar_full_path.is_file():
                 yield ParsedLidar(
-                    lidar_name=LidarID.LIDAR_MERGED.serialize(),
-                    lidar_id=LidarID.LIDAR_MERGED,
+                    metadata=modality_metadata,
                     start_timestamp=Timestamp.from_us(row["timestamp"]),
                     end_timestamp=Timestamp.from_us(row["timestamp"]),
                     dataset_root=self._nuplan_sensor_root,
@@ -531,10 +466,10 @@ def _get_nuplan_camera_metadata(
     return camera_metadata
 
 
-def _get_nuplan_lidar_metadata(
+def _get_nuplan_lidar_merged_metadata(
     nuplan_sensor_root: Path,
     log_name: str,
-) -> Dict[LidarID, LidarMetadata]:
+) -> LidarMergedMetadata:
     """Extracts the nuPlan Lidar metadata for a given log."""
     metadata: Dict[LidarID, LidarMetadata] = {}
     log_lidar_folder = nuplan_sensor_root / log_name / "MergedPointCloud"
@@ -546,7 +481,7 @@ def _get_nuplan_lidar_metadata(
                 lidar_id=lidar_type,
                 lidar_to_imu_se3=PoseSE3.identity(),  # NOTE: Lidar extrinsic are unknown
             )
-    return metadata
+    return LidarMergedMetadata(metadata)
 
 
 # ------------------------------------------------------------------------------------------------------------------
@@ -554,7 +489,10 @@ def _get_nuplan_lidar_metadata(
 # ------------------------------------------------------------------------------------------------------------------
 
 
-def _extract_nuplan_ego_state(nuplan_lidar_pc: LidarPc, ego_metadata: EgoStateSE3Metadata) -> EgoStateSE3:
+def _extract_nuplan_ego_state(
+    nuplan_lidar_pc: LidarPc,
+    ego_state_se3_metadata: EgoStateSE3Metadata,
+) -> EgoStateSE3:
     """Extracts the nuPlan ego state from a given LidarPc database object."""
     imu_pose = PoseSE3(
         x=nuplan_lidar_pc.ego_pose.x,
@@ -584,18 +522,27 @@ def _extract_nuplan_ego_state(nuplan_lidar_pc: LidarPc, ego_metadata: EgoStateSE
     )
     return EgoStateSE3.from_imu(
         imu_se3=imu_pose,
-        ego_metadata=ego_metadata,
+        metadata=ego_state_se3_metadata,
         dynamic_state_se3=dynamic_state_se3,
         timestamp=Timestamp.from_us(nuplan_lidar_pc.ego_pose.timestamp),
     )
 
 
-def _extract_nuplan_box_detections(lidar_pc: LidarPc, source_log_path: Path, timestamp: Timestamp) -> BoxDetectionsSE3:
+def _extract_nuplan_box_detections(
+    lidar_pc: LidarPc,
+    source_log_path: Path,
+    timestamp: Timestamp,
+    box_detections_se3_metadata: BoxDetectionsSE3Metadata,
+) -> BoxDetectionsSE3:
     """Extracts the nuPlan box detections from a given LidarPc database object."""
     box_detections: List[BoxDetectionSE3] = get_box_detections_for_lidarpc_token_from_db(
         str(source_log_path), lidar_pc.token
     )
-    return BoxDetectionsSE3(box_detections=box_detections, timestamp=timestamp)  # type: ignore
+    return BoxDetectionsSE3(
+        box_detections=box_detections,
+        timestamp=timestamp,
+        metadata=box_detections_se3_metadata,
+    )
 
 
 def _extract_nuplan_traffic_lights(
@@ -617,6 +564,7 @@ def _extract_nuplan_cameras(
     nuplan_lidar_pc: LidarPc,
     source_log_path: Path,
     nuplan_sensor_root: Path,
+    metadatas: Dict[PinholeCameraID, PinholeCameraMetadata],
 ) -> List[ParsedCamera]:
     """Extracts the nuPlan camera data from a given LidarPc database object."""
     camera_data_list: List[ParsedCamera] = []
@@ -624,6 +572,9 @@ def _extract_nuplan_cameras(
 
     log_cam_infos = {camera.token: camera for camera in nuplan_log_db.log.cameras}
     for camera_type, camera_channel in NUPLAN_CAMERA_MAPPING.items():
+        if camera_type not in metadatas:
+            continue
+
         image_class = list(
             get_images_from_lidar_tokens(
                 log_file=str(source_log_path), tokens=[nuplan_lidar_pc.token], channels=[str(camera_channel.value)]
@@ -650,12 +601,11 @@ def _extract_nuplan_cameras(
 
                 camera_data_list.append(
                     ParsedCamera(
-                        camera_name=str(camera_channel.value),
-                        camera_id=camera_type,
+                        metadata=metadatas[camera_type],
+                        timestamp=Timestamp.from_us(image.timestamp),  # type: ignore
                         extrinsic=extrinsic,
                         dataset_root=nuplan_sensor_root,
                         relative_path=filename_jpg.relative_to(nuplan_sensor_root),
-                        timestamp=Timestamp.from_us(image.timestamp),  # type: ignore
                     )
                 )
     return camera_data_list
@@ -664,14 +614,13 @@ def _extract_nuplan_cameras(
 def _extract_nuplan_lidar_data(
     nuplan_lidar_pc: LidarPc,
     nuplan_sensor_root: Path,
+    metadata: LidarMergedMetadata,
 ) -> Optional[ParsedLidar]:
     """Extracts the nuPlan Lidar data from a given LidarPc database object."""
-
     lidar_full_path: Path = nuplan_sensor_root / nuplan_lidar_pc.filename
     if lidar_full_path.exists() and lidar_full_path.is_file():
         return ParsedLidar(
-            lidar_name=LidarID.LIDAR_MERGED.serialize(),
-            lidar_id=LidarID.LIDAR_MERGED,
+            metadata=metadata,
             start_timestamp=Timestamp.from_us(nuplan_lidar_pc.timestamp),
             end_timestamp=Timestamp.from_us(nuplan_lidar_pc.timestamp),
             dataset_root=nuplan_sensor_root,

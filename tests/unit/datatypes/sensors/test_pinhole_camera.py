@@ -10,7 +10,10 @@ from py123d.datatypes.sensors.pinhole_camera import (
     PinholeDistortionIndex,
     PinholeIntrinsics,
 )
+from py123d.datatypes.time.timestamp import Timestamp
 from py123d.geometry import PoseSE3
+
+DUMMY_TIMESTAMP = Timestamp.from_s(0.0)
 
 
 class TestPinholeCameraID:
@@ -513,7 +516,7 @@ class TestPinholeCamera:
         image = np.zeros((480, 640, 3), dtype=np.uint8)
         extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
 
-        camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic)
+        camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic, timestamp=DUMMY_TIMESTAMP)
 
         assert camera.metadata == metadata
         assert np.array_equal(camera.image, image)
@@ -535,7 +538,7 @@ class TestPinholeCamera:
         image = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
         extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
 
-        camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic)
+        camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic, timestamp=DUMMY_TIMESTAMP)
 
         assert camera.image.shape == (480, 640, 3)
         assert camera.image.dtype == np.uint8
@@ -556,7 +559,7 @@ class TestPinholeCamera:
         image = np.random.randint(0, 255, (480, 640), dtype=np.uint8)
         extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
 
-        camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic)
+        camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic, timestamp=DUMMY_TIMESTAMP)
 
         assert camera.image.shape == (480, 640)
 
@@ -577,7 +580,7 @@ class TestPinholeCamera:
         image = np.zeros((480, 640, 3), dtype=np.uint8)
         extrinsic = PoseSE3(x=0.0, y=0.0, z=0.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0)
 
-        camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic)
+        camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic, timestamp=DUMMY_TIMESTAMP)
 
         assert camera.metadata.distortion is not None
         assert camera.metadata.distortion.k1 == 0.1
@@ -604,7 +607,7 @@ class TestPinholeCamera:
                 height=480,
                 camera_to_imu_se3=PoseSE3.identity(),
             )
-            camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic)
+            camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic, timestamp=DUMMY_TIMESTAMP)
             assert camera.metadata.camera_id == camera_id
 
     def test_pinhole_camera_with_different_resolutions(self):
@@ -625,7 +628,7 @@ class TestPinholeCamera:
                 camera_to_imu_se3=PoseSE3.identity(),
             )
             image = np.zeros((height, width, 3), dtype=np.uint8)
-            camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic)
+            camera = PinholeCamera(metadata=metadata, image=image, extrinsic=extrinsic, timestamp=DUMMY_TIMESTAMP)
 
             assert camera.metadata.width == width
             assert camera.metadata.height == height

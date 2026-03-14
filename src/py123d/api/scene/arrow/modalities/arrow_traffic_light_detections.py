@@ -5,6 +5,7 @@ import pyarrow as pa
 
 from py123d.api.scene.arrow.modalities.arrow_base import ArrowBaseModalityReader, ArrowBaseModalityWriter
 from py123d.api.scene.arrow.modalities.utils import all_columns_in_schema
+from py123d.api.utils.arrow_metadata_utils import add_metadata_to_arrow_schema
 from py123d.datatypes import (
     Timestamp,
     TrafficLightDetection,
@@ -39,6 +40,7 @@ class ArrowTrafficLightDetectionsWriter(ArrowBaseModalityWriter):
                 (f"{self._modality_key}.status", pa.list_(pa.uint8())),
             ]
         )
+        schema = add_metadata_to_arrow_schema(schema, metadata)
         super().__init__(
             file_path=file_path,
             schema=schema,
