@@ -1,9 +1,7 @@
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Literal, Optional, Tuple, Type, Union
 
-import pyarrow as pa
-
-from py123d.api.map.arrow.arrow_map_api import get_lru_cached_map_api
+from py123d.api.map.arrow.arrow_map_api import get_map_api_for_log
 from py123d.api.map.map_api import MapAPI
 from py123d.api.scene.arrow.modalities.arrow_base import ArrowBaseModalityReader
 from py123d.api.scene.arrow.modalities.arrow_box_detections_se3 import ArrowBoxDetectionsSE3Reader
@@ -25,7 +23,6 @@ from py123d.api.scene.arrow.utils.arrow_scene_caches import (
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.api.utils.arrow_metadata_utils import LogDirectoryMetadata, parse_log_directory_metadata
-from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.datatypes import (
     BoxDetectionsSE3,
@@ -135,27 +132,7 @@ class ArrowSceneAPI(SceneAPI):
 
     def get_map_api(self) -> Optional[MapAPI]:
         """Inherited, see superclass."""
-        map_file = self._resolve_map_file()
-        if map_file is not None:
-            return get_lru_cached_map_api(map_file)
-        return None
-
-    def _resolve_map_file(self) -> Optional[Path]:
-        """Find the map file: first check per-log, then global maps directory."""
-        # 1. Per-log map
-        map_file = self._log_dir / "map.arrow"
-        if map_file.exists():
-            return map_file
-        # 2. Global map
-        log_metadata = self.get_log_metadata()
-        dataset, location = log_metadata.dataset, log_metadata.location
-        if dataset is not None and location is not None:
-            maps_root = get_dataset_paths().py123d_maps_root
-            if maps_root is not None:
-                map_file = maps_root / dataset / f"{dataset}_{location}.arrow"
-                if map_file.exists():
-                    return map_file
-        return None
+        return get_map_api_for_log(self._log_dir, self.get_log_metadata())
 
     # ------------------------------------------------------------------------------------------------------------------
     # 4. General modality access
@@ -183,7 +160,7 @@ class ArrowSceneAPI(SceneAPI):
     def get_modality_metadata(
         self,
         modality_type: Union[str, ModalityType],
-        modality_id: Optional[Union[int, str, SerialIntEnum]] = None,
+        modality_id: Optional[Union[str, SerialIntEnum]] = None,
     ) -> Optional[BaseModalityMetadata]:
         """Returns the metadata for a specific modality.
 
@@ -191,8 +168,9 @@ class ArrowSceneAPI(SceneAPI):
         :param modality_id: Optional modality id (e.g. sensor id).
         :return: The metadata, or None if the modality is not present.
         """
-        modality_key = self._resolve_modality_key(modality_type, modality_id)
-        return self._get_log_dir_metadatas().modality_metadatas.get(modality_key)
+        _modality_type = ModalityType.from_arbitrary(modality_type)
+        _modality_key = get_modality_key(_modality_type, modality_id)
+        return self._get_log_dir_metadatas().modality_metadatas.get(_modality_key)
 
     def get_modality_timestamps(
         self,
@@ -205,6 +183,8 @@ class ArrowSceneAPI(SceneAPI):
         :param modality_id: Optional modality id (e.g. sensor id).
         :return: List of timestamps, empty if the modality is not present.
         """
+
+        # FIXME: @DanielDauner: Clean this function
         _modality_type = ModalityType.from_arbitrary(modality_type)
         _modality_key = get_modality_key(_modality_type, modality_id)
         sync_table = get_sync_table(self._log_dir)
@@ -229,7 +209,7 @@ class ArrowSceneAPI(SceneAPI):
         modality_type: Union[str, ModalityType],
         modality_id: Optional[Union[str, SerialIntEnum]] = None,
         **kwargs,
-    ) -> Optional[pa.Table]:
+    ) -> Optional[BaseModality]:
         """Returns the raw Arrow row(s) for a modality at the given iteration.
 
         This is a generic accessor that returns the raw Arrow data. For typed access,
@@ -262,15 +242,31 @@ class ArrowSceneAPI(SceneAPI):
                 )
         return modality
 
-    # TODO: implement in the future.
-    # def get_modality_at_timestamp(
-    #     self,
-    #     timestamp: Timestamp,
-    #     modality_type: str,
-    #     modality_id: Optional[Union[int, str, SerialIntEnum]] = None,
-    #     criteria: Literal["exact", "forward", "backward"] = "exact",
-    # ) -> Optional[CustomModality]:
-    #     pass
+    def get_modality_at_timestamp(
+        self,
+        timestamp: Union[Timestamp, int],
+        modality_type: Union[str, ModalityType],
+        modality_id: Optional[Union[str, SerialIntEnum]] = None,
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+        **kwargs,
+    ) -> Optional[BaseModality]:
+        _timestamp = Timestamp.from_us(timestamp) if not isinstance(timestamp, Timestamp) else timestamp
+        _modality_type = ModalityType.from_arbitrary(modality_type)
+        _modality_key = get_modality_key(_modality_type, modality_id)
+
+        modality: Optional[BaseModality] = None
+        modality_table = get_modality_table(self._log_dir, _modality_key)
+        modality_metadata = self.get_modality_metadata(_modality_type, modality_id)
+        if modality_table is not None and modality_metadata is not None:
+            modality = MODALITY_READERS[_modality_type].read_at_timestamp(
+                timestamp=_timestamp,
+                table=modality_table,
+                metadata=modality_metadata,
+                dataset=self.dataset,
+                criteria=criteria,
+                **kwargs,
+            )
+        return modality
 
     # ------------------------------------------------------------------------------------------------------------------
     # 3. EgoStateSE3
@@ -287,6 +283,20 @@ class ArrowSceneAPI(SceneAPI):
     def get_ego_state_se3_at_iteration(self, iteration: int) -> Optional[EgoStateSE3]:
         """Inherited, see superclass."""
         modality = self.get_modality_at_iteration(iteration, ModalityType.EGO_STATE_SE3)
+        assert isinstance(modality, (EgoStateSE3, type(None))), f"Expected EgoStateSE3 or None, got {type(modality)}"
+        return modality
+
+    def get_ego_state_se3_at_timestamp(
+        self,
+        timestamp: Union[Timestamp, int],
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+    ) -> Optional[EgoStateSE3]:
+        """Inherited, see superclass."""
+        modality = self.get_modality_at_timestamp(
+            timestamp=timestamp,
+            modality_type=ModalityType.EGO_STATE_SE3,
+            criteria=criteria,
+        )
         assert isinstance(modality, (EgoStateSE3, type(None))), f"Expected EgoStateSE3 or None, got {type(modality)}"
         return modality
 
@@ -310,6 +320,22 @@ class ArrowSceneAPI(SceneAPI):
         )
         return modality
 
+    def get_box_detections_se3_at_timestamp(
+        self,
+        timestamp: Union[Timestamp, int],
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+    ) -> Optional[BoxDetectionsSE3]:
+        """Inherited, see superclass."""
+        modality = self.get_modality_at_timestamp(
+            timestamp=timestamp,
+            modality_type=ModalityType.BOX_DETECTIONS_SE3,
+            criteria=criteria,
+        )
+        assert isinstance(modality, (BoxDetectionsSE3, type(None))), (
+            f"Expected BoxDetectionsSE3 or None, got {type(modality)}"
+        )
+        return modality
+
     # ------------------------------------------------------------------------------------------------------------------
     # 5. Traffic Light Detections
     # ------------------------------------------------------------------------------------------------------------------
@@ -317,6 +343,10 @@ class ArrowSceneAPI(SceneAPI):
     def get_traffic_light_detections_metadata(self) -> Optional[TrafficLightDetectionsMetadata]:
         """Inherited, see superclass."""
         return self._get_log_dir_metadatas().modality_metadatas.get("traffic_light_detections")  # type: ignore
+
+    def get_all_traffic_light_detections_timestamps(self) -> List[Timestamp]:
+        """Inherited, see superclass."""
+        return self.get_modality_timestamps(modality_type=ModalityType.TRAFFIC_LIGHT_DETECTIONS)
 
     def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetections]:
         """Inherited, see superclass."""
@@ -326,9 +356,21 @@ class ArrowSceneAPI(SceneAPI):
         )
         return modality
 
-    def get_all_traffic_light_detections_timestamps(self) -> List[Timestamp]:
+    def get_traffic_light_detections_at_timestamp(
+        self,
+        timestamp: Union[Timestamp, int],
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+    ) -> Optional[TrafficLightDetections]:
         """Inherited, see superclass."""
-        return self.get_modality_timestamps(modality_type=ModalityType.TRAFFIC_LIGHT_DETECTIONS)
+        modality = self.get_modality_at_timestamp(
+            timestamp=timestamp,
+            modality_type=ModalityType.TRAFFIC_LIGHT_DETECTIONS,
+            criteria=criteria,
+        )
+        assert isinstance(modality, (TrafficLightDetections, type(None))), (
+            f"Expected TrafficLightDetections or None, got {type(modality)}"
+        )
+        return modality
 
     # ------------------------------------------------------------------------------------------------------------------
     # 6. Pinhole Camera
@@ -358,6 +400,26 @@ class ArrowSceneAPI(SceneAPI):
         )
         return modality
 
+    def get_pinhole_camera_at_timestamp(
+        self,
+        timestamp: Union[Timestamp, int],
+        camera_id: PinholeCameraID,
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+        scaling_factor: Optional[Tuple[int, int]] = None,
+    ) -> Optional[PinholeCamera]:
+        """Inherited, see superclass."""
+        modality = self.get_modality_at_timestamp(
+            timestamp=timestamp,
+            modality_type=ModalityType.PINHOLE_CAMERA,
+            modality_id=camera_id,
+            criteria=criteria,
+            scaling_factor=scaling_factor,
+        )
+        assert isinstance(modality, (PinholeCamera, type(None))), (
+            f"Expected PinholeCamera or None, got {type(modality)}"
+        )
+        return modality
+
     # ------------------------------------------------------------------------------------------------------------------
     # 7. Fisheye MEI Camera
     # ------------------------------------------------------------------------------------------------------------------
@@ -376,6 +438,24 @@ class ArrowSceneAPI(SceneAPI):
     ) -> Optional[FisheyeMEICamera]:
         """Inherited, see superclass."""
         modality = self.get_modality_at_iteration(iteration, ModalityType.FISHEYE_MEI_CAMERA, camera_id)
+        assert isinstance(modality, (FisheyeMEICamera, type(None))), (
+            f"Expected FisheyeMEICamera or None, got {type(modality)}"
+        )
+        return modality
+
+    def get_fisheye_mei_camera_at_timestamp(
+        self,
+        timestamp: Union[Timestamp, int],
+        camera_id: FisheyeMEICameraID,
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+    ) -> Optional[FisheyeMEICamera]:
+        """Inherited, see superclass."""
+        modality = self.get_modality_at_timestamp(
+            timestamp=timestamp,
+            modality_type=ModalityType.FISHEYE_MEI_CAMERA,
+            modality_id=camera_id,
+            criteria=criteria,
+        )
         assert isinstance(modality, (FisheyeMEICamera, type(None))), (
             f"Expected FisheyeMEICamera or None, got {type(modality)}"
         )
@@ -423,7 +503,7 @@ class ArrowSceneAPI(SceneAPI):
         2. Individual lidar table exists -> read from individual table.
         3. LIDAR_MERGED requested but no merged table -> merge all individual lidars on the fly.
         """
-        lidar: Optional[Lidar] = None
+        lidar = None
         merged_meta = self._get_log_dir_metadatas().modality_metadatas.get("lidar.lidar_merged")
 
         if isinstance(merged_meta, LidarMergedMetadata) and (
@@ -435,7 +515,7 @@ class ArrowSceneAPI(SceneAPI):
                 modality_type=ModalityType.LIDAR,
                 modality_id=LidarID.LIDAR_MERGED,
             )
-            lidar = merged_lidar if lidar_id == LidarID.LIDAR_MERGED else get_individual_lidar(merged_lidar, lidar_id)
+            lidar = merged_lidar if lidar_id == LidarID.LIDAR_MERGED else get_individual_lidar(merged_lidar, lidar_id)  # type: ignore
         else:
             if lidar_id != LidarID.LIDAR_MERGED:
                 # Case 2: Merge lidar from individual tables on the fly
@@ -457,6 +537,51 @@ class ArrowSceneAPI(SceneAPI):
                     modality_id=lidar_id,
                 )
 
+        assert isinstance(lidar, (Lidar, type(None))), f"Expected Lidar or None, got {type(lidar)}"
+        return lidar
+
+    def get_lidar_at_timestamp(
+        self,
+        timestamp: Union[Timestamp, int],
+        lidar_id: LidarID,
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+    ) -> Optional[Lidar]:
+        """Inherited, see superclass."""
+        lidar = None
+        merged_meta = self._get_log_dir_metadatas().modality_metadatas.get("lidar.lidar_merged")
+
+        if isinstance(merged_meta, LidarMergedMetadata) and (
+            lidar_id in merged_meta or lidar_id == LidarID.LIDAR_MERGED
+        ):
+            merged_lidar = self.get_modality_at_timestamp(
+                timestamp=timestamp,
+                modality_type=ModalityType.LIDAR,
+                modality_id=LidarID.LIDAR_MERGED,
+                criteria=criteria,
+            )
+            lidar = merged_lidar if lidar_id == LidarID.LIDAR_MERGED else get_individual_lidar(merged_lidar, lidar_id)  # type: ignore
+        else:
+            if lidar_id != LidarID.LIDAR_MERGED:
+                all_lidars = []
+                for individual_lidar_id in self.get_lidar_metadatas().keys():
+                    individual_lidar = self.get_modality_at_timestamp(
+                        timestamp=timestamp,
+                        modality_type=ModalityType.LIDAR,
+                        modality_id=individual_lidar_id,
+                        criteria=criteria,
+                    )
+                    if individual_lidar is not None:
+                        all_lidars.append(individual_lidar)
+                lidar = get_merged_lidar(all_lidars)
+            else:
+                lidar = self.get_modality_at_timestamp(
+                    timestamp=timestamp,
+                    modality_type=ModalityType.LIDAR,
+                    modality_id=lidar_id,
+                    criteria=criteria,
+                )
+
+        assert isinstance(lidar, (Lidar, type(None))), f"Expected Lidar or None, got {type(lidar)}"
         return lidar
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -475,6 +600,24 @@ class ArrowSceneAPI(SceneAPI):
     def get_custom_modality_at_iteration(self, iteration: int, modality_id: str) -> Optional[CustomModality]:
         """Inherited, see superclass."""
         modality = self.get_modality_at_iteration(iteration, ModalityType.CUSTOM, modality_id)
+        assert isinstance(modality, (CustomModality, type(None))), (
+            f"Expected CustomModality or None, got {type(modality)}"
+        )
+        return modality
+
+    def get_custom_modality_at_timestamp(
+        self,
+        timestamp: Union[Timestamp, int],
+        modality_id: str,
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+    ) -> Optional[CustomModality]:
+        """Inherited, see superclass."""
+        modality = self.get_modality_at_timestamp(
+            timestamp=timestamp,
+            modality_type=ModalityType.CUSTOM,
+            modality_id=modality_id,
+            criteria=criteria,
+        )
         assert isinstance(modality, (CustomModality, type(None))), (
             f"Expected CustomModality or None, got {type(modality)}"
         )

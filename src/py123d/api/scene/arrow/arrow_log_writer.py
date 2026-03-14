@@ -44,7 +44,7 @@ class SyncConfig:
     """Configuration for deferred sync table construction.
 
     :param reference_column: Fully qualified column name used as the sync reference,
-        e.g. ``"lidar.lidar_merged.start_timestamp_us"``.
+        e.g. ``"lidar.lidar_merged.timestamp_us"``.
     :param direction: Sync direction. ``"forward"`` uses intervals ``[ref_i, ref_{i+1})``,
         ``"backward"`` uses intervals ``(ref_{i-1}, ref_i]``.
     """
@@ -62,7 +62,7 @@ class SyncConfig:
 
     @property
     def reference_timestamp_field(self) -> str:
-        """The timestamp field name, e.g. ``"start_timestamp_us"``."""
+        """The timestamp field name, e.g. ``"timestamp_us"``."""
         return self.reference_column.rsplit(".", 1)[-1]
 
 
@@ -362,10 +362,10 @@ class ArrowLogWriter(AbstractLogWriter):
         ``timestamp_us``), and builds the sync table using the reference modality
         from :class:`SyncConfig`.
 
-        Lidars are the only modality with two timestamp columns (``start_timestamp_us``
-        and ``end_timestamp_us``). Which one to use is determined by the
-        :attr:`SyncConfig.reference_column` when the lidar is the reference modality.
-        For non-reference lidar addons, the first ``*timestamp_us`` column is used.
+        Lidars have two timestamp columns (``timestamp_us`` and ``end_timestamp_us``).
+        Which one to use is determined by the :attr:`SyncConfig.reference_column` when
+        the lidar is the reference modality. For non-reference lidar addons, the first
+        ``*timestamp_us`` column is used.
         """
         assert self._state is not None
         assert self._sync_config is not None, "SyncConfig is required for deferred sync."

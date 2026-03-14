@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
+import numpy as np
 import pyarrow as pa
 
 from py123d.api.scene.arrow.modalities.sync_utils import get_all_modality_timestamps
@@ -119,3 +120,119 @@ class ArrowBaseModalityReader(ABC):
         return get_all_modality_timestamps(
             log_dir, sync_table, scene_metadata, modality_key, f"{modality_key}.timestamp_us"
         )
+
+    @classmethod
+    def read_at_timestamp(
+        cls,
+        timestamp: Timestamp,
+        table: pa.Table,
+        metadata: BaseModalityMetadata,
+        dataset: str,
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+        **kwargs,
+    ) -> Optional[BaseModality]:
+        """Read a modality entry by timestamp lookup.
+
+        :param timestamp: The target timestamp.
+        :param table: The Arrow modality table.
+        :param metadata: The modality metadata.
+        :param dataset: The dataset name (for sensor path resolution).
+        :param criteria: Matching strategy: ``"exact"`` requires an exact match,
+            ``"nearest"`` picks the entry with the smallest absolute time difference,
+            ``"forward"`` picks the first entry at or after the target,
+            ``"backward"`` picks the last entry at or before the target.
+        :param kwargs: Additional keyword arguments forwarded to :meth:`read_at_index`.
+        :return: The deserialized modality, or None if no matching timestamp is found.
+        """
+        ts_column = f"{metadata.modality_key}.timestamp_us"
+        ts_array = table[ts_column].to_numpy()
+        target_us = timestamp.time_us
+
+        index: Optional[int] = None
+        if criteria == "exact":
+            indices = np.where(ts_array == target_us)[0]
+            if len(indices) > 0:
+                index = int(indices[0])
+        elif criteria == "nearest":
+            if len(ts_array) > 0:
+                index = int(np.argmin(np.abs(ts_array - target_us)))
+        elif criteria == "forward":
+            indices = np.where(ts_array >= target_us)[0]
+            if len(indices) > 0:
+                index = int(indices[0])
+        elif criteria == "backward":
+            indices = np.where(ts_array <= target_us)[0]
+            if len(indices) > 0:
+                index = int(indices[-1])
+
+        modality: Optional[BaseModality] = None
+        if index is not None:
+            modality = cls.read_at_index(index, table, metadata, dataset, **kwargs)
+        return modality
+
+    # @classmethod
+    # def read_all_within_iterations(
+    #     cls,
+    #     table: pa.Table,
+    #     sync_table: pa.Table,
+    #     metadata: BaseModalityMetadata,
+    #     dataset: str,
+    #     start_iteration: int,
+    #     end_iteration: int,
+    #     initial_idx: int,
+    #     **kwargs,
+    # ) -> Iterator[BaseModality]:
+    #     """Yield all modality entries for sync iterations in ``[start_iteration, end_iteration)``.
+
+    #     :param table: The Arrow modality table.
+    #     :param sync_table: The sync Arrow table.
+    #     :param metadata: The modality metadata.
+    #     :param dataset: The dataset name.
+    #     :param start_iteration: First iteration (inclusive).
+    #     :param end_iteration: Last iteration (exclusive).
+    #     :param initial_idx: The scene's initial sync index (added to iterations).
+    #     :param kwargs: Additional keyword arguments forwarded to :meth:`read_at_index`.
+    #     """
+    #     from py123d.api.scene.arrow.modalities.sync_utils import get_modality_index_from_sync_index
+
+    #     modality_key = metadata.modality_key
+    #     if modality_key not in sync_table.column_names:
+    #         return
+
+    #     for iteration in range(start_iteration, end_iteration):
+    #         sync_index = initial_idx + iteration
+    #         modality_index = get_modality_index_from_sync_index(sync_table, modality_key, sync_index)
+    #         if modality_index is not None:
+    #             modality = cls.read_at_index(modality_index, table, metadata, dataset, **kwargs)
+    #             if modality is not None:
+    #                 yield modality
+
+    # @classmethod
+    # def read_all_within_timestamps(
+    #     cls,
+    #     table: pa.Table,
+    #     metadata: BaseModalityMetadata,
+    #     dataset: str,
+    #     start_timestamp: Timestamp,
+    #     end_timestamp: Timestamp,
+    #     **kwargs,
+    # ) -> Iterator[BaseModality]:
+    #     """Yield all modality entries with timestamps in ``[start_timestamp, end_timestamp]``.
+
+    #     :param table: The Arrow modality table.
+    #     :param metadata: The modality metadata.
+    #     :param dataset: The dataset name.
+    #     :param start_timestamp: Earliest timestamp (inclusive).
+    #     :param end_timestamp: Latest timestamp (inclusive).
+    #     :param kwargs: Additional keyword arguments forwarded to :meth:`read_at_index`.
+    #     """
+    #     ts_column = f"{metadata.modality_key}.timestamp_us"
+    #     ts_array = table[ts_column].to_numpy()
+
+    #     mask = (ts_array >= start_timestamp.time_us) & (ts_array <= end_timestamp.time_us)
+    #     indices = np.where(mask)[0]
+
+    #     for index in indices:
+    #         modality = cls.read_at_index(int(index), table, metadata, dataset, **kwargs)
+    #         if modality is not None:
+    #             yield modality

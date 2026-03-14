@@ -35,8 +35,10 @@ from py123d.datatypes.map_objects.map_objects import (
     StopZone,
     Walkway,
 )
+from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.geometry import OccupancyMap2D, Point2D, Point3D, Polyline3D
+from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
 # TODO: add to some configs
 MAX_LRU_CACHED_MAPS: Final[int] = 128
@@ -453,4 +455,30 @@ def get_lru_cached_map_api(arrow_file_path: Union[Path, str]) -> ArrowMapAPI:
     arrow_file_path = Path(arrow_file_path)
     assert arrow_file_path.exists(), f"Arrow file of map not found: {arrow_file_path}"
     map_api = ArrowMapAPI(arrow_file_path)
+    return map_api
+
+
+def get_map_api_for_log(log_dir: Path, log_metadata: LogMetadata) -> Optional[ArrowMapAPI]:
+    """Get the map API for a given log metadata, if map metadata is available."""
+
+    def _resolve_map_file() -> Optional[Path]:
+        """Find the map file: first check per-log, then global maps directory."""
+        # 1. Per-log map
+        map_file = log_dir / "map.arrow"
+        if map_file.exists():
+            return map_file
+        # 2. Global map
+        dataset, location = log_metadata.dataset, log_metadata.location
+        if dataset is not None and location is not None:
+            maps_root = get_dataset_paths().py123d_maps_root
+            if maps_root is not None:
+                map_file = maps_root / dataset / f"{dataset}_{location}.arrow"
+                if map_file.exists():
+                    return map_file
+        return None
+
+    map_api: Optional[ArrowMapAPI] = None
+    map_file = _resolve_map_file()
+    if map_file is not None:
+        map_api = get_lru_cached_map_api(map_file)
     return map_api

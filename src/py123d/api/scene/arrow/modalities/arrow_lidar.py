@@ -56,7 +56,7 @@ class ArrowLidarWriter(ArrowBaseModalityWriter):
         file_path = log_dir / f"{metadata.modality_key}.arrow"
 
         schema_list = [
-            (f"{metadata.modality_key}.start_timestamp_us", pa.int64()),
+            (f"{metadata.modality_key}.timestamp_us", pa.int64()),
             (f"{metadata.modality_key}.end_timestamp_us", pa.int64()),
         ]
         if lidar_store_option == "binary":
@@ -79,14 +79,14 @@ class ArrowLidarWriter(ArrowBaseModalityWriter):
         assert isinstance(modality, (ParsedLidar, Lidar)), f"Expected ParsedLidar or Lidar, got {type(modality)}"
 
         if isinstance(modality, ParsedLidar):
-            start_timestamp_us = modality.timestamp.time_us
+            timestamp_us = modality.timestamp.time_us
             end_timestamp_us = modality.end_timestamp.time_us
         else:
-            start_timestamp_us = modality.timestamp.time_us
+            timestamp_us = modality.timestamp.time_us
             end_timestamp_us = modality.timestamp_end.time_us
 
         batch: Dict[str, Union[List[int], List[Optional[str]], List[Optional[bytes]]]] = {
-            f"{self._modality_key}.start_timestamp_us": [start_timestamp_us],
+            f"{self._modality_key}.timestamp_us": [timestamp_us],
             f"{self._modality_key}.end_timestamp_us": [end_timestamp_us],
         }
 
@@ -170,6 +170,7 @@ class ArrowLidarReader(ArrowBaseModalityReader):
         table: pa.Table,
         metadata: BaseModalityMetadata,
         dataset: str,
+        **kwargs,
     ) -> Optional[Lidar]:
         assert isinstance(metadata, (LidarMetadata, LidarMergedMetadata))
         modality_key = metadata.modality_key
@@ -195,36 +196,6 @@ def _decode_lidar_binary(blob: bytes) -> Tuple[npt.NDArray[np.float32], Optional
         raise ValueError("Unknown lidar binary format (not Draco, LAZ, or IPC).")
 
 
-def _decode_legacy_lidar_binary(
-    arrow_table: pa.Table,
-    index: int,
-    modality_key: str,
-) -> Tuple[Optional[npt.NDArray[np.float32]], Optional[Dict[str, npt.NDArray]]]:
-    """Decode lidar data from the legacy two-column format (point_cloud_3d + point_cloud_features).
-
-    Kept for backward compatibility with Arrow files written before the unified data column.
-    """
-    from py123d.common.io.lidar.ipc_lidar_io import _load_dict_from_ipc_binary
-
-    pc3d_col = f"{modality_key}.point_cloud_3d"
-    pcf_col = f"{modality_key}.point_cloud_features"
-
-    point_cloud_3d: Optional[npt.NDArray[np.float32]] = None
-    point_cloud_features: Optional[Dict[str, npt.NDArray]] = None
-
-    lidar_data = arrow_table[pc3d_col][index].as_py()
-    if lidar_data is not None:
-        # Old format stored only xyz in this column (no features), so discard the second element.
-        point_cloud_3d, _ = _decode_lidar_binary(lidar_data)
-
-    if pcf_col in arrow_table.schema.names:
-        features_data = arrow_table[pcf_col][index].as_py()
-        if features_data is not None and is_ipc_binary(features_data):
-            point_cloud_features = _load_dict_from_ipc_binary(features_data)
-
-    return point_cloud_3d, point_cloud_features
-
-
 def _deserialize_lidar(
     arrow_table: pa.Table,
     index: int,
@@ -237,24 +208,22 @@ def _deserialize_lidar(
     point_cloud_3d: Optional[np.ndarray] = None
     point_cloud_feature: Optional[Dict[str, np.ndarray]] = None
 
-    start_ts_col = f"{modality_key}.start_timestamp_us"
+    ts_col = f"{modality_key}.timestamp_us"
     end_ts_col = f"{modality_key}.end_timestamp_us"
     data_col = f"{modality_key}.data"
-    legacy_pc3d_col = f"{modality_key}.point_cloud_3d"
 
     # Read timestamps
-    start_timestamp_us = arrow_table[start_ts_col][index].as_py() if start_ts_col in arrow_table.schema.names else None
+    timestamp_us = arrow_table[ts_col][index].as_py() if ts_col in arrow_table.schema.names else None
     end_timestamp_us = arrow_table[end_ts_col][index].as_py() if end_ts_col in arrow_table.schema.names else None
-    if start_timestamp_us is None or end_timestamp_us is None:
+    if timestamp_us is None or end_timestamp_us is None:
         return None
-    timestamp = Timestamp.from_us(start_timestamp_us)
+    timestamp = Timestamp.from_us(timestamp_us)
     timestamp_end = Timestamp.from_us(end_timestamp_us)
 
     if data_col in arrow_table.schema.names:
         lidar_data = arrow_table[data_col][index].as_py()
         if lidar_data is not None:
             if isinstance(lidar_data, str):
-                # Path storage: load from original dataset file.
                 point_cloud_3d, point_cloud_feature = load_point_cloud_data_from_path(
                     relative_path=lidar_data,
                     dataset=dataset,
@@ -262,12 +231,7 @@ def _deserialize_lidar(
                     lidar_metadatas=lidar_metadatas,
                 )
             elif isinstance(lidar_data, bytes):
-                # Unified binary storage: single blob with xyz + features.
                 point_cloud_3d, point_cloud_feature = _decode_lidar_binary(lidar_data)
-
-    elif legacy_pc3d_col in arrow_table.schema.names:
-        # Backward compatibility: legacy two-column format.
-        point_cloud_3d, point_cloud_feature = _decode_legacy_lidar_binary(arrow_table, index, modality_key)
 
     if point_cloud_3d is None:
         return None
