@@ -13,7 +13,8 @@ from py123d.api.scene.arrow.modalities.arrow_custom_modality import ArrowCustomM
 from py123d.api.scene.arrow.modalities.arrow_ego_state_se3 import ArrowEgoStateSE3Writer
 from py123d.api.scene.arrow.modalities.arrow_lidar import ArrowLidarWriter
 from py123d.api.scene.arrow.modalities.arrow_traffic_light_detections import ArrowTrafficLightDetectionsWriter
-from py123d.api.scene.arrow.utils.dataset_converter_config import LogWriterConfig
+from py123d.api.scene.arrow.utils.log_writer_config import LogWriterConfig
+from py123d.api.utils.arrow_metadata_utils import add_metadata_to_arrow_schema
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.datatypes import LogMetadata, PinholeCameraMetadata
 from py123d.datatypes.custom.custom_modality import CustomModalityMetadata
@@ -76,7 +77,7 @@ class ArrowLogWriterState:
 class ArrowLogWriter(AbstractLogWriter):
     def __init__(
         self,
-        dataset_converter_config: LogWriterConfig,
+        log_writer_config: LogWriterConfig,
         logs_root: Union[str, Path],
         sensors_root: Union[str, Path],
         ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
@@ -85,14 +86,14 @@ class ArrowLogWriter(AbstractLogWriter):
     ) -> None:
         """Initializes the :class:`ArrowLogWriter`.
 
-        :param dataset_converter_config: The dataset converter configuration.
+        :param log_writer_config: The log writer configuration.
         :param logs_root: The root directory for logs.
         :param sensors_root: The root directory for sensors (e.g. MP4 video files).
         :param ipc_compression: The IPC compression method, defaults to None.
         :param ipc_compression_level: The IPC compression level, defaults to None.
         :param sync_config: Configuration for deferred sync table construction, defaults to None.
         """
-        self._dataset_converter_config = dataset_converter_config
+        self._log_writer_config = log_writer_config
         self._logs_root = Path(logs_root)
         self._sensors_root = Path(sensors_root)
         self._ipc_compression: Optional[Literal["lz4", "zstd"]] = ipc_compression
@@ -114,8 +115,8 @@ class ArrowLogWriter(AbstractLogWriter):
     def _include_modality(self, modality_metadata: BaseModalityMetadata) -> bool:
         """Determine whether to include a modality based on the dataset converter config."""
         _include_modality: bool = True
-        if (modality_metadata.modality_key in self._dataset_converter_config.exclude_modality_keys) or (
-            modality_metadata.modality_type.serialize() in self._dataset_converter_config.exclude_modality_types
+        if (modality_metadata.modality_key in self._log_writer_config.exclude_modality_keys) or (
+            modality_metadata.modality_type.serialize() in self._log_writer_config.exclude_modality_types
         ):
             _include_modality = False
         return _include_modality
@@ -153,7 +154,7 @@ class ArrowLogWriter(AbstractLogWriter):
             modality_writer = ArrowCameraWriter(
                 log_dir=self._state.log_dir,
                 metadata=modality_metadata,
-                camera_codec=self._dataset_converter_config.pinhole_camera_store_option,
+                camera_codec=self._log_writer_config.pinhole_camera_store_option,
                 ipc_compression=self._ipc_compression,
                 ipc_compression_level=self._ipc_compression_level,
             )
@@ -162,7 +163,7 @@ class ArrowLogWriter(AbstractLogWriter):
             modality_writer = ArrowCameraWriter(
                 log_dir=self._state.log_dir,
                 metadata=modality_metadata,
-                camera_codec=self._dataset_converter_config.fisheye_mei_camera_store_option,
+                camera_codec=self._log_writer_config.fisheye_mei_camera_store_option,
                 ipc_compression=self._ipc_compression,
                 ipc_compression_level=self._ipc_compression_level,
             )
@@ -172,9 +173,9 @@ class ArrowLogWriter(AbstractLogWriter):
                 log_dir=self._state.log_dir,
                 metadata=modality_metadata,
                 log_metadata=self._state.log_metadata,
-                lidar_store_option=self._dataset_converter_config.lidar_store_option,
-                lidar_point_cloud_codec=self._dataset_converter_config.lidar_point_cloud_codec,
-                lidar_point_feature_codec=self._dataset_converter_config.lidar_point_feature_codec,
+                lidar_store_option=self._log_writer_config.lidar_store_option,
+                lidar_point_cloud_codec=self._log_writer_config.lidar_point_cloud_codec,
+                lidar_point_feature_codec=self._log_writer_config.lidar_point_feature_codec,
                 ipc_compression=self._ipc_compression,
                 ipc_compression_level=self._ipc_compression_level,
             )
@@ -220,7 +221,7 @@ class ArrowLogWriter(AbstractLogWriter):
         log_dir: Path = self._logs_root / log_metadata.split / log_metadata.log_name
         sync_file_path = log_dir / "sync.arrow"
         _write_log: bool = False
-        if not sync_file_path.exists() or self._dataset_converter_config.force_log_conversion:
+        if not sync_file_path.exists() or self._log_writer_config.force_log_conversion:
             log_dir.mkdir(parents=True, exist_ok=True)
             self._state = ArrowLogWriterState(log_dir=log_dir, log_metadata=log_metadata)
             _write_log = True
@@ -286,6 +287,7 @@ class ArrowLogWriter(AbstractLogWriter):
         :param rows: Each element is a single-row dict (values are single-element lists).
         """
         assert self._state is not None
+        schema = add_metadata_to_arrow_schema(schema, self._state.log_metadata)
         sync_path = self._state.log_dir / "sync.arrow"
 
         options = None

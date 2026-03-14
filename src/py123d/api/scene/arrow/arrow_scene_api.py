@@ -13,10 +13,10 @@ from py123d.api.scene.arrow.modalities.arrow_traffic_light_detections import Arr
 from py123d.api.scene.arrow.modalities.sync_utils import get_sync_table
 from py123d.api.scene.arrow.utils.arrow_scene_caches import (
     _get_complete_log_scene_metadata,
-    _get_lru_cached_log_metadata,
 )
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_metadata import SceneMetadata
+from py123d.api.utils.arrow_metadata_utils import LogDirectoryMetadata, parse_log_directory_metadata
 from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.datatypes import (
@@ -41,7 +41,8 @@ from py123d.datatypes import (
 )
 from py123d.datatypes.custom.custom_modality import CustomModalityMetadata
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionsMetadata
-from py123d.datatypes.modalities.base_modality import BaseModalityMetadata
+from py123d.datatypes.modalities.base_modality import BaseModalityMetadata, ModalityType
+from py123d.datatypes.sensors.lidar import LidarMergedMetadata
 
 
 class ArrowSceneAPI(SceneAPI):
@@ -75,6 +76,10 @@ class ArrowSceneAPI(SceneAPI):
         assert -self.number_of_history_iterations <= iteration < self.number_of_iterations, "Iteration out of bounds"
         return self.get_scene_metadata().initial_idx + iteration
 
+    def _get_log_dir_metadatas(self) -> LogDirectoryMetadata:
+        """Helper to get modality metadata for a given modality type and optional id."""
+        return parse_log_directory_metadata(self._log_dir)
+
     # ------------------------------------------------------------------------------------------------------------------
     # 1. Scene / Log Metadata
     # ------------------------------------------------------------------------------------------------------------------
@@ -88,7 +93,7 @@ class ArrowSceneAPI(SceneAPI):
 
     def get_log_metadata(self) -> LogMetadata:
         """Inherited, see superclass."""
-        return _get_lru_cached_log_metadata(self._log_dir)
+        return self._get_log_dir_metadatas().log_metadata
 
     def get_timestamp_at_iteration(self, iteration: int) -> Timestamp:
         """Inherited, see superclass."""
@@ -178,7 +183,7 @@ class ArrowSceneAPI(SceneAPI):
 
     def get_ego_state_se3_metadata(self) -> Optional[EgoStateSE3Metadata]:
         """Inherited, see superclass."""
-        return self.get_modality_metadata("ego_state_se3")
+        return self._get_log_dir_metadatas().modality_metadatas.get("ego_state_se3")  # type: ignore
 
     def get_all_ego_state_se3_timestamps(self) -> List[Timestamp]:
         """Inherited, see superclass."""
@@ -207,7 +212,7 @@ class ArrowSceneAPI(SceneAPI):
 
     def get_box_detections_se3_metadata(self) -> Optional[BoxDetectionsSE3Metadata]:
         """Inherited, see superclass."""
-        return self.get_log_metadata().box_detections_se3_metadata
+        return self._get_log_dir_metadatas().modality_metadatas.get("box_detections_se3")  # type: ignore
 
     def get_all_box_detections_se3_timestamps(self) -> List[Timestamp]:
         """Inherited, see superclass."""
@@ -251,7 +256,8 @@ class ArrowSceneAPI(SceneAPI):
 
     def get_pinhole_camera_metadatas(self) -> Dict[PinholeCameraID, PinholeCameraMetadata]:
         """Inherited, see superclass."""
-        return self.get_log_metadata().pinhole_cameras_metadata
+        by_type = self._get_log_dir_metadatas().get_by_type(ModalityType.PINHOLE_CAMERA)
+        return {meta.modality_id: meta for meta in by_type.values()}  # type: ignore[misc]
 
     def get_all_pinhole_camera_timestamps(self, camera_id: PinholeCameraID) -> List[Timestamp]:
         """Inherited, see superclass."""
@@ -277,7 +283,8 @@ class ArrowSceneAPI(SceneAPI):
 
     def get_fisheye_mei_camera_metadatas(self) -> Dict[FisheyeMEICameraID, FisheyeMEICameraMetadata]:
         """Inherited, see superclass."""
-        return self.get_log_metadata().fisheye_mei_cameras_metadata
+        by_type = self._get_log_dir_metadatas().get_by_type(ModalityType.FISHEYE_MEI_CAMERA)
+        return {meta.modality_id: meta for meta in by_type.values()}  # type: ignore[misc]
 
     def get_all_fisheye_mei_camera_timestamps(self, camera_id: FisheyeMEICameraID) -> List[Timestamp]:
         """Inherited, see superclass."""
@@ -305,12 +312,15 @@ class ArrowSceneAPI(SceneAPI):
 
     def get_lidar_metadatas(self) -> Dict[LidarID, LidarMetadata]:
         """Inherited, see superclass."""
-        lidar_metadatas: Dict[LidarID, LidarMetadata] = self.get_log_metadata().lidars_metadata
-        if lidar_metadatas is None or len(lidar_metadatas) == 0:
-            lidar_merged_metadata = self.get_log_metadata().lidar_merged_metadata
-            if lidar_merged_metadata is not None:
-                lidar_metadatas = lidar_merged_metadata.lidars_metadata
-        return lidar_metadatas if lidar_metadatas else {}
+        dir_meta = self._get_log_dir_metadatas()
+        by_type = dir_meta.get_by_type(ModalityType.LIDAR)
+        lidar_metadatas: Dict[LidarID, LidarMetadata] = {}
+        for meta in by_type.values():
+            if isinstance(meta, LidarMergedMetadata):
+                lidar_metadatas.update(meta.lidar_metadatas)
+            elif isinstance(meta, LidarMetadata):
+                lidar_metadatas[meta.lidar_id] = meta
+        return lidar_metadatas
 
     def get_all_lidar_timestamps(self, lidar_id: LidarID) -> List[Timestamp]:
         """Inherited, see superclass."""
@@ -320,13 +330,14 @@ class ArrowSceneAPI(SceneAPI):
 
     def get_lidar_at_iteration(self, iteration: int, lidar_id: LidarID) -> Optional[Lidar]:
         """Inherited, see superclass."""
+        merged_meta = self._get_log_dir_metadatas().modality_metadatas.get("lidar.lidar_merged")
         return ArrowLidarReader.read_at_iteration(
             self._log_dir,
             get_sync_table(self._log_dir),
             self._get_table_index(iteration),
             lidar_id,
             self.get_lidar_metadatas(),
-            self.get_log_metadata().lidar_merged_metadata,
+            merged_meta if isinstance(merged_meta, LidarMergedMetadata) else None,
             self.log_metadata,
         )
 
@@ -336,8 +347,8 @@ class ArrowSceneAPI(SceneAPI):
 
     def get_all_custom_modality_metadatas(self) -> Dict[str, CustomModalityMetadata]:
         """Inherited, see superclass."""
-        log_metadata = self.get_log_metadata()
-        return log_metadata._custom_modalities_metadata if log_metadata._custom_modalities_metadata is not None else {}
+        by_type = self._get_log_dir_metadatas().get_by_type(ModalityType.CUSTOM)
+        return {meta.modality_id: meta for meta in by_type.values()}  # type: ignore[misc]
 
     def get_all_custom_modality_timestamps(self, name: str) -> List[Timestamp]:
         """Inherited, see superclass."""

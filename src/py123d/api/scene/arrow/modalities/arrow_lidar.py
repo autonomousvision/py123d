@@ -223,7 +223,7 @@ class ArrowLidarReader:
 
         # Case 1: Read from pre-merged lidar table.
         if has_merged_lidar_table and (
-            lidar_id in merged_lidar_metadata.lidars_metadata or lidar_id == LidarID.LIDAR_MERGED  # type: ignore
+            lidar_id in merged_lidar_metadata.lidar_metadatas or lidar_id == LidarID.LIDAR_MERGED  # type: ignore
         ):
             return _read_single_lidar(
                 log_dir,
@@ -231,7 +231,7 @@ class ArrowLidarReader:
                 table_index,
                 lidar_id,
                 LidarID.LIDAR_MERGED.serialize(),
-                merged_lidar_metadata.lidars_metadata,  # type: ignore
+                merged_lidar_metadata.lidar_metadatas,  # type: ignore
                 log_metadata,
             )
 

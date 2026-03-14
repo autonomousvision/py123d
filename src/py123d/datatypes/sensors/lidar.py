@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
-from py123d.datatypes.modalities.base_modality import BaseModalityMetadata, ModalityType
+from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata, ModalityType
 from py123d.datatypes.time.timestamp import Timestamp
 from py123d.geometry import Point3DIndex, PoseSE3
 
@@ -18,7 +18,6 @@ class LidarID(SerialIntEnum):
     """Unknown Lidar type."""
 
     LIDAR_MERGED = 1
-    """Merged Lidar type."""
 
     LIDAR_TOP = 2
     """Top-facing Lidar type."""
@@ -108,11 +107,6 @@ class LidarMetadata(BaseModalityMetadata):
         return self._lidar_to_imu_se3
 
     @property
-    def extrinsic(self) -> PoseSE3:
-        """The extrinsic :class:`~py123d.geometry.PoseSE3` of the Lidar sensor, relative to the IMU frame."""
-        return self._lidar_to_imu_se3
-
-    @property
     def modality_type(self) -> ModalityType:
         return ModalityType.LIDAR
 
@@ -170,7 +164,7 @@ class LidarMergedMetadata(BaseModalityMetadata, Mapping[LidarID, LidarMetadata])
         return LidarID.LIDAR_MERGED
 
     @property
-    def lidars_metadata(self) -> Dict[LidarID, LidarMetadata]:
+    def lidar_metadatas(self) -> Dict[LidarID, LidarMetadata]:
         """Returns the dictionary of per-lidar metadata contained in this merged metadata."""
         return self._lidar_metadata_dict
 
@@ -193,7 +187,7 @@ class LidarMergedMetadata(BaseModalityMetadata, Mapping[LidarID, LidarMetadata])
         )
 
 
-class Lidar:
+class Lidar(BaseModality):
     """Data structure for Lidar point cloud data and associated metadata."""
 
     __slots__ = (
@@ -229,6 +223,20 @@ class Lidar:
     def metadata(self) -> Union[LidarMetadata, LidarMergedMetadata]:
         """The :class:`LidarMetadata` associated with this Lidar recording."""
         return self._metadata
+
+    @property
+    def lidar_metadatas(self) -> Dict[LidarID, LidarMetadata]:
+        """Returns the dictionary of per-lidar metadata contained in this Lidar's metadata.
+
+        If the metadata is a :class:`LidarMergedMetadata`, returns its internal dictionary.
+        If the metadata is a single :class:`LidarMetadata`, returns a dictionary with one entry.
+        """
+        lidar_metadatas = {}
+        if isinstance(self._metadata, LidarMergedMetadata):
+            lidar_metadatas = self._metadata.lidar_metadatas
+        else:
+            lidar_metadatas = {self._metadata.lidar_id: self._metadata}
+        return lidar_metadatas
 
     @property
     def timestamp(self) -> Timestamp:

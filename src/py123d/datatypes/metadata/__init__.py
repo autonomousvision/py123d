@@ -1,4 +1,4 @@
-from py123d.datatypes.metadata.base_metadata import BaseMetadata, BaseModalityMetadata
+from py123d.datatypes.metadata.base_metadata import BaseMetadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
 
 
