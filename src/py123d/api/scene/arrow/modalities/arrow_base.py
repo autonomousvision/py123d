@@ -104,6 +104,7 @@ class ArrowBaseModalityReader(ABC):
         table: pa.Table,
         metadata: BaseModalityMetadata,
         dataset: str,
+        **kwargs,
     ) -> Optional[BaseModality]:
         pass
 

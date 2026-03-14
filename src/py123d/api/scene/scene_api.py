@@ -179,12 +179,15 @@ class SceneAPI(abc.ABC):
         self,
         iteration: int,
         camera_id: PinholeCameraID,
+        scaling_factor: Optional[tuple[int, int]] = None,
     ) -> Optional[PinholeCamera]:
         """Returns the :class:`~py123d.datatypes.sensors.PinholeCamera` of a given \
             :class:`~py123d.datatypes.sensors.PinholeCameraID` at a given iteration, if available.
 
         :param iteration: The iteration to get the pinhole camera for.
         :param camera_id: The :type:`~py123d.datatypes.sensors.PinholeCameraID` of the pinhole camera.
+        :param scaling_factor: Optional (numerator, denominator) tuple for downscaling JPEG images during decode,
+            e.g. (1, 2) for half size. Requires the ``turbojpeg`` package.
         :return: The pinhole camera, or None if not available.
         """
 

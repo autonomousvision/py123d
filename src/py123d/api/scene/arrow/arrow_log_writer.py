@@ -296,12 +296,18 @@ class ArrowLogWriter(AbstractLogWriter):
                 compression=pa.Codec(self._ipc_compression, compression_level=self._ipc_compression_level)
             )
 
+        # Merge single-row dicts into one multi-row dict so the entire sync
+        # table is written as a single record batch (avoids 1-row-per-batch
+        # chunking which hurts downstream read performance).
+        merged: Dict[str, List[Any]] = {col: [] for col in schema.names}
+        for row in rows:
+            for col in schema.names:
+                merged[col].append(row[col][0])
+
         source = pa.OSFile(str(sync_path), "wb")
         writer = pa.ipc.new_file(source, schema=schema, options=options)
         try:
-            for row in rows:
-                batch = pa.record_batch(row, schema=schema)
-                writer.write_batch(batch)
+            writer.write_batch(pa.record_batch(merged, schema=schema))
         finally:
             writer.close()
             source.close()

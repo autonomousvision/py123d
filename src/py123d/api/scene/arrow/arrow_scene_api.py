@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Optional, Type, Union
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 import pyarrow as pa
 
@@ -228,6 +228,7 @@ class ArrowSceneAPI(SceneAPI):
         iteration: int,
         modality_type: Union[str, ModalityType],
         modality_id: Optional[Union[str, SerialIntEnum]] = None,
+        **kwargs,
     ) -> Optional[pa.Table]:
         """Returns the raw Arrow row(s) for a modality at the given iteration.
 
@@ -237,6 +238,7 @@ class ArrowSceneAPI(SceneAPI):
         :param iteration: The iteration index (supports negative for history).
         :param modality_type: The modality type as a string or :class:`ModalityType`.
         :param modality_id: Optional modality id (e.g. sensor id).
+        :param kwargs: Additional keyword arguments passed to the modality reader.
         :return: An Arrow table slice for the matched rows, or None if unavailable.
         """
         _modality_type = ModalityType.from_arbitrary(modality_type)
@@ -256,6 +258,7 @@ class ArrowSceneAPI(SceneAPI):
                     table=modality_table,
                     metadata=modality_metadata,
                     dataset=self.dataset,
+                    **kwargs,
                 )
         return modality
 
@@ -340,9 +343,16 @@ class ArrowSceneAPI(SceneAPI):
         """Inherited, see superclass."""
         return self.get_modality_timestamps(modality_type=ModalityType.PINHOLE_CAMERA, modality_id=camera_id)
 
-    def get_pinhole_camera_at_iteration(self, iteration: int, camera_id: PinholeCameraID) -> Optional[PinholeCamera]:
+    def get_pinhole_camera_at_iteration(
+        self,
+        iteration: int,
+        camera_id: PinholeCameraID,
+        scaling_factor: Optional[Tuple[int, int]] = None,
+    ) -> Optional[PinholeCamera]:
         """Inherited, see superclass."""
-        modality = self.get_modality_at_iteration(iteration, ModalityType.PINHOLE_CAMERA, camera_id)
+        modality = self.get_modality_at_iteration(
+            iteration, ModalityType.PINHOLE_CAMERA, camera_id, scaling_factor=scaling_factor
+        )
         assert isinstance(modality, (PinholeCamera, type(None))), (
             f"Expected PinholeCamera or None, got {type(modality)}"
         )

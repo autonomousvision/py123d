@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -182,9 +182,10 @@ class ArrowCameraReader(ArrowBaseModalityReader):
         table: pa.Table,
         metadata: BaseModalityMetadata,
         dataset: str,
+        scaling_factor: Optional[Tuple[int, int]] = None,
     ) -> Optional[Union[PinholeCamera, FisheyeMEICamera]]:
         assert isinstance(metadata, (PinholeCameraMetadata, FisheyeMEICameraMetadata))
-        return _deserialize_camera(table, index, metadata, dataset)
+        return _deserialize_camera(table, index, metadata, dataset, scaling_factor=scaling_factor)
 
 
 # ------------------------------------------------------------------------------------------------------------------
@@ -197,6 +198,7 @@ def _deserialize_camera(
     index: int,
     camera_metadata: Union[PinholeCameraMetadata, FisheyeMEICameraMetadata],
     dataset: str,
+    scaling_factor: Optional[Tuple[int, int]] = None,
 ) -> Optional[Union[PinholeCamera, FisheyeMEICamera]]:
     """Deserialize a camera observation from Arrow table columns at the given row index."""
     modality_key = camera_metadata.modality_key
@@ -223,10 +225,10 @@ def _deserialize_camera(
         assert sensor_root is not None, f"Dataset path for sensor loading not found for dataset: {dataset}"
         full_image_path = Path(sensor_root) / table_data
         assert full_image_path.exists(), f"Camera file not found: {full_image_path}"
-        image = load_image_from_jpeg_file(full_image_path)
+        image = load_image_from_jpeg_file(full_image_path, scaling_factor=scaling_factor)
     elif isinstance(table_data, bytes):
         if is_jpeg_binary(table_data):
-            image = decode_image_from_jpeg_binary(table_data)
+            image = decode_image_from_jpeg_binary(table_data, scaling_factor=scaling_factor)
         elif is_png_binary(table_data):
             image = decode_image_from_png_binary(table_data)
         else:
