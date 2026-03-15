@@ -156,7 +156,7 @@ def _get_scene_extraction_metadatas(log_dir: Union[str, Path], filter: SceneFilt
                 split=log_metadata.split,
                 initial_uuid=convert_to_str_uuid(sync_table["sync.uuid"][start_idx].as_py()),
                 initial_idx=start_idx,
-                duration_s=(end_idx - start_idx) * log_metadata.timestep_seconds,
+                duration_s=(end_idx - start_idx - 1) * log_metadata.timestep_seconds,
                 history_s=filter.history_s if filter.history_s is not None else 0.0,
                 iteration_duration_s=log_metadata.timestep_seconds,
             )

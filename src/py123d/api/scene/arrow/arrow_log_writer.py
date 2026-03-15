@@ -401,14 +401,14 @@ class ArrowLogWriter(AbstractLogWriter):
         ref_timestamps_us = [ts for _, ts in ref_entries]
         addon_names = list(timestamp_logs.keys())
 
-        # Build schema: uuid, timestamp_us, then one list<int64> column per modality.
+        # Build schema: uuid, timestamp_us, then one int64 column per modality.
         uuid_type = _get_uuid_arrow_type()
         fields: List[pa.Field] = [
             pa.field(_SYNC_COL_UUID, uuid_type),
             pa.field(_SYNC_COL_TIMESTAMP_US, pa.int64()),
         ]
         for addon in addon_names:
-            fields.append(pa.field(addon, pa.list_(pa.int64())))
+            fields.append(pa.field(addon, pa.int64()))
         schema = pa.schema(fields)
 
         # Pre-extract sorted timestamp arrays for efficient bisect lookups
@@ -416,26 +416,29 @@ class ArrowLogWriter(AbstractLogWriter):
         for addon in addon_names:
             addon_timestamps[addon] = [ts for _, ts in timestamp_logs[addon]]
 
-        # Build one sync row per reference timestamp
+        # Build one sync row per reference timestamp, picking the single closest
+        # modality observation within the interval defined by the sync direction.
         sync_rows: List[Dict[str, Any]] = []
         for ref_idx, (_, ref_ts) in enumerate(ref_entries):
-            sync_addon_data: Dict[str, List[int]] = {}
+            sync_addon_data: Dict[str, Optional[int]] = {}
 
             for addon in addon_names:
                 ts_list = addon_timestamps[addon]
 
                 if direction == "forward":
-                    # Interval: [ref_ts, next_ref_ts)
+                    # Interval: [ref_ts, next_ref_ts) — pick first (closest to sync ts)
                     next_ts = ref_timestamps_us[ref_idx + 1] if ref_idx + 1 < len(ref_entries) else None
                     lo = bisect.bisect_left(ts_list, ref_ts)
                     hi = bisect.bisect_left(ts_list, next_ts) if next_ts is not None else len(ts_list)
+                    best_idx = timestamp_logs[addon][lo][0] if lo < hi else None
                 else:
-                    # Interval: (prev_ref_ts, ref_ts]
+                    # Interval: (prev_ref_ts, ref_ts] — pick last (closest to sync ts)
                     prev_ts = ref_timestamps_us[ref_idx - 1] if ref_idx > 0 else None
                     lo = bisect.bisect_right(ts_list, prev_ts) if prev_ts is not None else 0
                     hi = bisect.bisect_right(ts_list, ref_ts)
+                    best_idx = timestamp_logs[addon][hi - 1][0] if lo < hi else None
 
-                sync_addon_data[addon] = [timestamp_logs[addon][i][0] for i in range(lo, hi)]
+                sync_addon_data[addon] = best_idx
 
             sync_uuid = create_deterministic_uuid(
                 split=self._state.log_metadata.split,
@@ -447,8 +450,8 @@ class ArrowLogWriter(AbstractLogWriter):
                 _SYNC_COL_UUID: [sync_uuid.bytes],
                 _SYNC_COL_TIMESTAMP_US: [ref_ts],
             }
-            for addon, row_indices in sync_addon_data.items():
-                sync_row[addon] = [row_indices]
+            for addon, best_index in sync_addon_data.items():
+                sync_row[addon] = [best_index]
             sync_rows.append(sync_row)
 
         self._write_sync_arrow_file(schema, sync_rows)

@@ -18,18 +18,18 @@ class SceneMetadata:
     """Index of the starting frame of the scene in the log."""
 
     duration_s: float
-    """Duration of the scene in seconds."""
+    """Forward reach of the scene from the current frame in seconds (e.g. 0.3s with 0.1s steps → 4 frames)."""
 
     history_s: float
-    """History duration of the scene in seconds."""
+    """Backward reach of history before the current frame in seconds (e.g. 0.2s with 0.1s steps → 2 frames)."""
 
     iteration_duration_s: float
     """Duration of each iteration in seconds."""
 
     @property
     def number_of_iterations(self) -> int:
-        """Number of iterations in the scene."""
-        return round(self.duration_s / self.iteration_duration_s)
+        """Number of iterations in the scene (includes current frame)."""
+        return round(self.duration_s / self.iteration_duration_s) + 1
 
     @property
     def number_of_history_iterations(self) -> int:

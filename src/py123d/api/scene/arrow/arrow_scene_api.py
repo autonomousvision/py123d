@@ -12,6 +12,7 @@ from py123d.api.scene.arrow.modalities.arrow_lidar import ArrowLidarReader
 from py123d.api.scene.arrow.modalities.arrow_sync import get_timestamp_from_arrow_table
 from py123d.api.scene.arrow.modalities.arrow_traffic_light_detections import ArrowTrafficLightDetectionsReader
 from py123d.api.scene.arrow.modalities.sync_utils import (
+    _get_scene_sync_range,
     get_all_modality_timestamps,
     get_modality_index_from_sync_index,
     get_modality_table,
@@ -25,22 +26,14 @@ from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.api.utils.arrow_metadata_utils import LogDirectoryMetadata, parse_log_directory_metadata
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.datatypes import (
-    BoxDetectionsSE3,
-    BoxDetectionsSE3Metadata,
-    CustomModality,
-    Lidar,
-    LidarID,
-    LidarMetadata,
+    BaseModality,
+    BaseModalityMetadata,
     LogMetadata,
     MapMetadata,
+    ModalityType,
     Timestamp,
-    TrafficLightDetections,
+    get_modality_key,
 )
-from py123d.datatypes.custom.custom_modality import CustomModalityMetadata
-from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionsMetadata
-from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata, ModalityType, get_modality_key
-from py123d.datatypes.sensors import BaseCameraMetadata, Camera, CameraID
-from py123d.datatypes.sensors.lidar import LidarMergedMetadata
 
 MODALITY_READERS: Dict[ModalityType, Type[ArrowBaseModalityReader]] = {
     ModalityType.EGO_STATE_SE3: ArrowEgoStateSE3Reader,
@@ -87,6 +80,10 @@ class ArrowSceneAPI(SceneAPI):
         """Helper to get modality metadata for a given modality type and optional id."""
         return parse_log_directory_metadata(self._log_dir)
 
+    def _get_modality_timestamp_boundaries(self, modality_key: str) -> Optional[Tuple[Timestamp, Timestamp]]:
+        """Helper to get the first and last timestamps for a modality in the log directory."""
+        return None
+
     # ------------------------------------------------------------------------------------------------------------------
     # 1. Scene / Log Metadata
     # ------------------------------------------------------------------------------------------------------------------
@@ -107,12 +104,23 @@ class ArrowSceneAPI(SceneAPI):
         sync_table = get_sync_table(self._log_dir)
         return get_timestamp_from_arrow_table(sync_table, self._get_sync_index(iteration))
 
-    def get_all_iteration_timestamps(self) -> List[Timestamp]:
+    def get_all_iteration_timestamps(self, include_history: bool = False) -> List[Timestamp]:
         """Inherited, see superclass."""
         sync_table = get_sync_table(self._log_dir)
         scene_metadata = self.get_scene_metadata()
+        start_idx, end_idx = _get_scene_sync_range(scene_metadata, include_history)
         ts_column = sync_table["sync.timestamp_us"].to_numpy()
-        return [Timestamp.from_us(ts_column[i]) for i in range(scene_metadata.initial_idx, scene_metadata.end_idx)]
+        return [Timestamp.from_us(ts_column[i]) for i in range(start_idx, end_idx)]
+
+    def get_scene_timestamp_boundaries(self, include_history: bool = False) -> Tuple[Timestamp, Timestamp]:
+        """Inherited, see superclass."""
+        sync_table = get_sync_table(self._log_dir)
+        scene_metadata = self.get_scene_metadata()
+        start_idx, end_idx = _get_scene_sync_range(scene_metadata, include_history)
+        return (
+            get_timestamp_from_arrow_table(sync_table, start_idx),
+            get_timestamp_from_arrow_table(sync_table, end_idx - 1),
+        )
 
     # ------------------------------------------------------------------------------------------------------------------
     # 2. Map
@@ -156,15 +164,15 @@ class ArrowSceneAPI(SceneAPI):
         self,
         modality_type: Union[str, ModalityType],
         modality_id: Optional[Union[str, SerialIntEnum]] = None,
+        include_history: bool = False,
     ) -> List[Timestamp]:
         """Returns all timestamps for a specific modality within the scene range.
 
         :param modality_type: The modality type as a string or :class:`ModalityType`.
         :param modality_id: Optional modality id (e.g. sensor id).
+        :param include_history: If True, include history iterations before the scene start.
         :return: List of timestamps, empty if the modality is not present.
         """
-
-        # FIXME: @DanielDauner: Clean this function
         _modality_type = ModalityType.from_arbitrary(modality_type)
         _modality_key = get_modality_key(_modality_type, modality_id)
         sync_table = get_sync_table(self._log_dir)
@@ -180,7 +188,7 @@ class ArrowSceneAPI(SceneAPI):
             return []
 
         return get_all_modality_timestamps(
-            self._log_dir, sync_table, self.get_scene_metadata(), _modality_key, ts_col_name
+            self._log_dir, sync_table, self.get_scene_metadata(), _modality_key, ts_col_name, include_history
         )
 
     def get_modality_at_iteration(
@@ -271,229 +279,18 @@ class ArrowSceneAPI(SceneAPI):
         sync_table = get_sync_table(self._log_dir)
         sync_index = self._get_sync_index(iteration)
 
-        if _modality_key not in sync_table.column_names:
-            return None
+        modality: Optional[BaseModality] = None
+        if _modality_key in sync_table.column_names:
+            modality_table = get_modality_table(self._log_dir, _modality_key)
+            modality_index = get_modality_index_from_sync_index(sync_table, _modality_key, sync_index)
+            modality_metadata = self.get_modality_metadata(_modality_type, modality_id)
+            if modality_table is not None and modality_index is not None and modality_metadata is not None:
+                modality = MODALITY_READERS[_modality_type].get_column_at_index(
+                    index=modality_index,
+                    table=modality_table,
+                    metadata=modality_metadata,
+                    column=column,
+                    deserialize=deserialize,
+                )
 
-        modality_table = get_modality_table(self._log_dir, _modality_key)
-        modality_index = get_modality_index_from_sync_index(sync_table, _modality_key, sync_index)
-        modality_metadata = self.get_modality_metadata(_modality_type, modality_id)
-
-        if modality_table is None or modality_index is None or modality_metadata is None:
-            return None
-
-        reader = MODALITY_READERS[_modality_type]
-        return reader.get_column_at_index(
-            index=modality_index,
-            table=modality_table,
-            metadata=modality_metadata,
-            column=column,
-            deserialize=deserialize,
-        )
-
-    # ------------------------------------------------------------------------------------------------------------------
-    # 4. BoxDetectionsSE3
-    # ------------------------------------------------------------------------------------------------------------------
-
-    def get_box_detections_se3_metadata(self) -> Optional[BoxDetectionsSE3Metadata]:
-        """Inherited, see superclass."""
-        return self._get_log_dir_metadatas().modality_metadatas.get("box_detections_se3")  # type: ignore
-
-    def get_all_box_detections_se3_timestamps(self) -> List[Timestamp]:
-        """Inherited, see superclass."""
-        return self.get_all_modality_timestamps(modality_type=ModalityType.BOX_DETECTIONS_SE3)
-
-    def get_box_detections_se3_at_iteration(self, iteration: int) -> Optional[BoxDetectionsSE3]:
-        """Inherited, see superclass."""
-        modality = self.get_modality_at_iteration(iteration, ModalityType.BOX_DETECTIONS_SE3)
-        assert isinstance(modality, (BoxDetectionsSE3, type(None))), (
-            f"Expected BoxDetectionsSE3 or None, got {type(modality)}"
-        )
-        return modality
-
-    def get_box_detections_se3_at_timestamp(
-        self,
-        timestamp: Union[Timestamp, int],
-        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
-    ) -> Optional[BoxDetectionsSE3]:
-        """Inherited, see superclass."""
-        modality = self.get_modality_at_timestamp(
-            timestamp=timestamp,
-            modality_type=ModalityType.BOX_DETECTIONS_SE3,
-            criteria=criteria,
-        )
-        assert isinstance(modality, (BoxDetectionsSE3, type(None))), (
-            f"Expected BoxDetectionsSE3 or None, got {type(modality)}"
-        )
-        return modality
-
-    # ------------------------------------------------------------------------------------------------------------------
-    # 5. Traffic Light Detections
-    # ------------------------------------------------------------------------------------------------------------------
-
-    def get_traffic_light_detections_metadata(self) -> Optional[TrafficLightDetectionsMetadata]:
-        """Inherited, see superclass."""
-        return self._get_log_dir_metadatas().modality_metadatas.get("traffic_light_detections")  # type: ignore
-
-    def get_all_traffic_light_detections_timestamps(self) -> List[Timestamp]:
-        """Inherited, see superclass."""
-        return self.get_all_modality_timestamps(modality_type=ModalityType.TRAFFIC_LIGHT_DETECTIONS)
-
-    def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetections]:
-        """Inherited, see superclass."""
-        modality = self.get_modality_at_iteration(iteration, ModalityType.TRAFFIC_LIGHT_DETECTIONS)
-        assert isinstance(modality, (TrafficLightDetections, type(None))), (
-            f"Expected TrafficLightDetections or None, got {type(modality)}"
-        )
-        return modality
-
-    def get_traffic_light_detections_at_timestamp(
-        self,
-        timestamp: Union[Timestamp, int],
-        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
-    ) -> Optional[TrafficLightDetections]:
-        """Inherited, see superclass."""
-        modality = self.get_modality_at_timestamp(
-            timestamp=timestamp,
-            modality_type=ModalityType.TRAFFIC_LIGHT_DETECTIONS,
-            criteria=criteria,
-        )
-        assert isinstance(modality, (TrafficLightDetections, type(None))), (
-            f"Expected TrafficLightDetections or None, got {type(modality)}"
-        )
-        return modality
-
-    # ------------------------------------------------------------------------------------------------------------------
-    # 6. Camera
-    # ------------------------------------------------------------------------------------------------------------------
-
-    def get_camera_metadatas(self) -> Dict[CameraID, BaseCameraMetadata]:
-        """Inherited, see superclass."""
-        by_type = self._get_log_dir_metadatas().get_by_type(ModalityType.CAMERA)
-        return {meta.modality_id: meta for meta in by_type.values()}  # type: ignore[misc]
-
-    def get_all_camera_timestamps(self, camera_id: CameraID) -> List[Timestamp]:
-        """Inherited, see superclass."""
-        return self.get_all_modality_timestamps(modality_type=ModalityType.CAMERA, modality_id=camera_id)
-
-    def get_camera_at_iteration(
-        self,
-        iteration: int,
-        camera_id: CameraID,
-        scaling_factor: Optional[Tuple[int, int]] = None,
-    ) -> Optional[Camera]:
-        """Inherited, see superclass."""
-        modality = self.get_modality_at_iteration(
-            iteration, ModalityType.CAMERA, camera_id, scaling_factor=scaling_factor
-        )
-        assert isinstance(modality, (Camera, type(None))), f"Expected Camera or None, got {type(modality)}"
-        return modality
-
-    def get_camera_at_timestamp(
-        self,
-        timestamp: Union[Timestamp, int],
-        camera_id: CameraID,
-        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
-        scaling_factor: Optional[Tuple[int, int]] = None,
-    ) -> Optional[Camera]:
-        """Inherited, see superclass."""
-        modality = self.get_modality_at_timestamp(
-            timestamp=timestamp,
-            modality_type=ModalityType.CAMERA,
-            modality_id=camera_id,
-            criteria=criteria,
-            scaling_factor=scaling_factor,
-        )
-        assert isinstance(modality, (Camera, type(None))), f"Expected Camera or None, got {type(modality)}"
-        return modality
-
-    # ------------------------------------------------------------------------------------------------------------------
-    # 8. Lidar
-    # ------------------------------------------------------------------------------------------------------------------
-
-    def get_lidar_metadatas(self) -> Dict[LidarID, LidarMetadata]:
-        """Inherited, see superclass."""
-        dir_meta = self._get_log_dir_metadatas()
-        by_type = dir_meta.get_by_type(ModalityType.LIDAR)
-        lidar_metadatas: Dict[LidarID, LidarMetadata] = {}
-        for meta in by_type.values():
-            if isinstance(meta, LidarMergedMetadata):
-                lidar_metadatas.update(meta.lidar_metadatas)
-        return lidar_metadatas
-
-    def get_all_lidar_timestamps(self, lidar_id: LidarID) -> List[Timestamp]:
-        """Inherited, see superclass."""
-        return self.get_all_modality_timestamps(
-            modality_type=ModalityType.LIDAR,
-            modality_id=LidarID.LIDAR_MERGED,
-        )
-
-    def get_lidar_at_iteration(self, iteration: int, lidar_id: LidarID) -> Optional[Lidar]:
-        """Inherited, see superclass."""
-        merged_lidar_metadata = self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED)
-        _modality_id = LidarID.LIDAR_MERGED if merged_lidar_metadata is not None else lidar_id
-        lidar = self.get_modality_at_iteration(
-            iteration=iteration,
-            modality_type=ModalityType.LIDAR,
-            modality_id=_modality_id,
-            lidar_id=lidar_id,
-        )
-        assert isinstance(lidar, (Lidar, type(None))), f"Expected Lidar or None, got {type(lidar)}"
-        return lidar
-
-    def get_lidar_at_timestamp(
-        self,
-        timestamp: Union[Timestamp, int],
-        lidar_id: LidarID,
-        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
-    ) -> Optional[Lidar]:
-        """Inherited, see superclass."""
-        merged_lidar_metadata = self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED)
-        _modality_id = LidarID.LIDAR_MERGED if merged_lidar_metadata is not None else lidar_id
-        lidar = self.get_modality_at_timestamp(
-            timestamp=timestamp,
-            modality_type=ModalityType.LIDAR,
-            modality_id=_modality_id,
-            criteria=criteria,
-            lidar_id=lidar_id,
-        )
-        assert isinstance(lidar, (Lidar, type(None))), f"Expected Lidar or None, got {type(lidar)}"
-        return lidar
-
-    # ------------------------------------------------------------------------------------------------------------------
-    # 9. Custom Modalities
-    # ------------------------------------------------------------------------------------------------------------------
-
-    def get_all_custom_modality_metadatas(self) -> Dict[str, CustomModalityMetadata]:
-        """Inherited, see superclass."""
-        by_type = self._get_log_dir_metadatas().get_by_type(ModalityType.CUSTOM)
-        return {meta.modality_id: meta for meta in by_type.values()}  # type: ignore[misc]
-
-    def get_all_custom_modality_timestamps(self, modality_id: str) -> List[Timestamp]:
-        """Inherited, see superclass."""
-        return self.get_all_modality_timestamps(modality_type=ModalityType.CUSTOM, modality_id=modality_id)
-
-    def get_custom_modality_at_iteration(self, iteration: int, modality_id: str) -> Optional[CustomModality]:
-        """Inherited, see superclass."""
-        modality = self.get_modality_at_iteration(iteration, ModalityType.CUSTOM, modality_id)
-        assert isinstance(modality, (CustomModality, type(None))), (
-            f"Expected CustomModality or None, got {type(modality)}"
-        )
-        return modality
-
-    def get_custom_modality_at_timestamp(
-        self,
-        timestamp: Union[Timestamp, int],
-        modality_id: str,
-        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
-    ) -> Optional[CustomModality]:
-        """Inherited, see superclass."""
-        modality = self.get_modality_at_timestamp(
-            timestamp=timestamp,
-            modality_type=ModalityType.CUSTOM,
-            modality_id=modality_id,
-            criteria=criteria,
-        )
-        assert isinstance(modality, (CustomModality, type(None))), (
-            f"Expected CustomModality or None, got {type(modality)}"
-        )
         return modality

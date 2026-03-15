@@ -1,29 +1,34 @@
 from __future__ import annotations
 
 import abc
-from typing import Dict, List, Literal, Optional, TypeVar, Union
+from typing import Dict, List, Literal, Optional, Tuple, TypeVar, Union
 
 from py123d.api.map.map_api import MapAPI
 from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.datatypes import (
+    BaseCameraMetadata,
+    BaseModality,
+    BaseModalityMetadata,
     BoxDetectionsSE3,
     BoxDetectionsSE3Metadata,
+    Camera,
+    CameraID,
     CustomModality,
+    CustomModalityMetadata,
     EgoStateSE3,
     EgoStateSE3Metadata,
     Lidar,
     LidarID,
+    LidarMergedMetadata,
     LidarMetadata,
     LogMetadata,
     MapMetadata,
+    ModalityType,
     Timestamp,
     TrafficLightDetections,
+    TrafficLightDetectionsMetadata,
 )
-from py123d.datatypes.custom.custom_modality import CustomModalityMetadata
-from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionsMetadata
-from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata, ModalityType
-from py123d.datatypes.sensors import BaseCameraMetadata, Camera, CameraID
 
 T = TypeVar("T")
 
@@ -72,10 +77,19 @@ class SceneAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_all_iteration_timestamps(self) -> List[Timestamp]:
+    def get_all_iteration_timestamps(self, include_history: bool = False) -> List[Timestamp]:
         """Returns all sync timestamps for the current scene.
 
+        :param include_history: If True, include history iterations before the scene start.
         :return: List of timestamps, one per iteration in the scene.
+        """
+
+    @abc.abstractmethod
+    def get_scene_timestamp_boundaries(self, include_history: bool = False) -> Tuple[Timestamp, Timestamp]:
+        """Returns the first and last sync timestamps of the scene.
+
+        :param include_history: If True, extend the range to include history iterations.
+        :return: Tuple of (first_timestamp, last_timestamp).
         """
 
     # 1.2 Map
@@ -123,11 +137,13 @@ class SceneAPI(abc.ABC):
         self,
         modality_type: Union[str, ModalityType],
         modality_id: Optional[Union[str, SerialIntEnum]] = None,
+        include_history: bool = False,
     ) -> List[Timestamp]:
         """Returns all timestamps for a specific modality within the scene range.
 
         :param modality_type: The modality type as a string or :class:`ModalityType`.
         :param modality_id: Optional modality id (e.g. sensor id).
+        :param include_history: If True, include history iterations before the scene start.
         :return: List of timestamps, empty if the modality is not present.
         """
 
@@ -184,12 +200,15 @@ class SceneAPI(abc.ABC):
         ego_state_se3_metadata = self.get_modality_metadata(ModalityType.EGO_STATE_SE3)
         return checked_optional_cast(ego_state_se3_metadata, EgoStateSE3Metadata)
 
-    def get_all_ego_state_se3_timestamps(self) -> List[Timestamp]:
+    def get_all_ego_state_se3_timestamps(self, include_history: bool = False) -> List[Timestamp]:
         """Returns all ego state timestamps within the current scene.
 
+        :param include_history: If True, include history iterations before the scene start.
         :return: All ego state timestamps in the scene, ordered by time.
         """
-        return self.get_all_modality_timestamps(modality_type=ModalityType.EGO_STATE_SE3)
+        return self.get_all_modality_timestamps(
+            modality_type=ModalityType.EGO_STATE_SE3, include_history=include_history
+        )
 
     def get_ego_state_se3_at_iteration(self, iteration: int) -> Optional[EgoStateSE3]:
         """Returns the :class:`~py123d.datatypes.vehicle_state.EgoStateSE3` at a given iteration, if available.
@@ -231,12 +250,15 @@ class SceneAPI(abc.ABC):
         box_detections_se3_metadata = self.get_modality_metadata(ModalityType.BOX_DETECTIONS_SE3)
         return checked_optional_cast(box_detections_se3_metadata, BoxDetectionsSE3Metadata)
 
-    def get_all_box_detections_se3_timestamps(self) -> List[Timestamp]:
+    def get_all_box_detections_se3_timestamps(self, include_history: bool = False) -> List[Timestamp]:
         """Returns all box detection timestamps within the current scene.
 
+        :param include_history: If True, include history iterations before the scene start.
         :return: All box detection timestamps in the scene, ordered by time.
         """
-        return self.get_all_modality_timestamps(modality_type=ModalityType.BOX_DETECTIONS_SE3)
+        return self.get_all_modality_timestamps(
+            modality_type=ModalityType.BOX_DETECTIONS_SE3, include_history=include_history
+        )
 
     def get_box_detections_se3_at_iteration(self, iteration: int) -> Optional[BoxDetectionsSE3]:
         """Returns the :class:`~py123d.datatypes.detections.BoxDetectionsSE3` at a given iteration, if available.
@@ -269,6 +291,7 @@ class SceneAPI(abc.ABC):
 
     # 2.3 Traffic Light Detections
     # ------------------------------------------------------------------------------------------------------------------
+
     def get_traffic_light_detections_metadata(self) -> Optional[TrafficLightDetectionsMetadata]:
         """Returns the :class:`~py123d.datatypes.detections.TrafficLightDetectionsMetadata` of the scene, if available.
 
@@ -277,12 +300,15 @@ class SceneAPI(abc.ABC):
         traffic_light_detections_metadata = self.get_modality_metadata(ModalityType.TRAFFIC_LIGHT_DETECTIONS)
         return checked_optional_cast(traffic_light_detections_metadata, TrafficLightDetectionsMetadata)
 
-    def get_all_traffic_light_detections_timestamps(self) -> List[Timestamp]:
+    def get_all_traffic_light_detections_timestamps(self, include_history: bool = False) -> List[Timestamp]:
         """Returns all traffic light detection timestamps within the current scene.
 
+        :param include_history: If True, include history iterations before the scene start.
         :return: All traffic light detection timestamps in the scene, ordered by time.
         """
-        return self.get_all_modality_timestamps(modality_type=ModalityType.TRAFFIC_LIGHT_DETECTIONS)
+        return self.get_all_modality_timestamps(
+            modality_type=ModalityType.TRAFFIC_LIGHT_DETECTIONS, include_history=include_history
+        )
 
     def get_traffic_light_detections_at_iteration(self, iteration: int) -> Optional[TrafficLightDetections]:
         """Returns the :class:`~py123d.datatypes.detections.TrafficLightDetections` at a given iteration,
@@ -316,23 +342,24 @@ class SceneAPI(abc.ABC):
 
         :return: A dictionary mapping camera IDs to their metadata.
         """
-        metadatas = self.get_all_modality_metadatas()
         camera_metadatas = {
-            modality_id: metadata
-            for modality_id, metadata in metadatas.items()
+            metadata.camera_id: metadata
+            for metadata in self.get_all_modality_metadatas().values()
             if metadata.modality_type == ModalityType.CAMERA and isinstance(metadata, BaseCameraMetadata)
         }
         return camera_metadatas
 
-    def get_all_camera_timestamps(self, camera_id: CameraID) -> List[Timestamp]:
+    def get_all_camera_timestamps(self, camera_id: CameraID, include_history: bool = False) -> List[Timestamp]:
         """Returns all camera timestamps within the current scene.
 
         :param camera_id: The camera ID.
+        :param include_history: If True, include history iterations before the scene start.
         :return: All camera timestamps in the scene, ordered by time.
         """
-        return self.get_all_modality_timestamps(modality_type=ModalityType.CAMERA, modality_id=camera_id)
+        return self.get_all_modality_timestamps(
+            modality_type=ModalityType.CAMERA, modality_id=camera_id, include_history=include_history
+        )
 
-    @abc.abstractmethod
     def get_camera_at_iteration(
         self,
         iteration: int,
@@ -347,26 +374,72 @@ class SceneAPI(abc.ABC):
             e.g. (1, 2) for half size. Requires the ``turbojpeg`` package.
         :return: The camera, or None if not available.
         """
+        camera = self.get_modality_at_iteration(
+            iteration,
+            modality_type=ModalityType.CAMERA,
+            modality_id=camera_id,
+            scaling_factor=scaling_factor,
+        )
+        return checked_optional_cast(camera, Camera)
+
+    def get_camera_at_timestamp(
+        self,
+        timestamp: Union[Timestamp, int],
+        camera_id: CameraID,
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+        scaling_factor: Optional[tuple[int, int]] = None,
+    ) -> Optional[Camera]:
+        """Returns a :class:`~py123d.datatypes.sensors.Camera` at a given timestamp, if available.
+
+        :param timestamp: The timestamp to get the camera for, as a Timestamp object or integer nanoseconds.
+        :param camera_id: The camera ID.
+        :param criteria: Criteria for matching the timestamp if an exact match is not found. One of:
+            - "exact": Only return data if an exact timestamp match is found.
+            - "nearest": Return data from the nearest timestamp.
+            - "forward": Return data from the nearest timestamp that is greater than or equal to the requested timestamp.
+            - "backward": Return data from the nearest timestamp that is less than or equal to the requested timestamp.
+        :param scaling_factor: Optional (numerator, denominator) tuple for downscaling images during decode,
+            e.g. (1, 2) for half size. Requires the ``turbojpeg`` package.
+        :return: The camera, or None if not available.
+        """
+        camera = self.get_modality_at_timestamp(
+            timestamp,
+            modality_type=ModalityType.CAMERA,
+            modality_id=camera_id,
+            criteria=criteria,
+            scaling_factor=scaling_factor,
+        )
+        return checked_optional_cast(camera, Camera)
 
     # 2.5 Lidar
     # ------------------------------------------------------------------------------------------------------------------
-    @abc.abstractmethod
-    def get_lidar_metadatas(self) -> Optional[Dict[LidarID, LidarMetadata]]:
+
+    def get_lidar_metadatas(self) -> Dict[LidarID, LidarMetadata]:
         """Returns per-lidar metadata, if available.
 
         :return: The lidar metadatas, or None if not available.
         """
+        lidar_metadatas: Dict[LidarID, LidarMetadata] = {}
+        merged_lidar_metadata = self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED)
+        if merged_lidar_metadata is not None and isinstance(merged_lidar_metadata, LidarMergedMetadata):
+            lidar_metadatas.update(merged_lidar_metadata.lidar_metadatas)
+        else:
+            for metadata in self.get_all_modality_metadatas().values():
+                if metadata.modality_type == ModalityType.LIDAR and isinstance(metadata, LidarMetadata):
+                    lidar_metadatas[metadata.lidar_id] = metadata
+        return lidar_metadatas
 
-    @abc.abstractmethod
-    def get_all_lidar_timestamps(self, lidar_id: LidarID) -> List[Timestamp]:
+    def get_all_lidar_timestamps(self, lidar_id: LidarID, include_history: bool = False) -> List[Timestamp]:
         """Returns all lidar start timestamps within the current scene.
 
         :param lidar_id: The :type:`~py123d.datatypes.sensors.LidarID` of the Lidar.
+        :param include_history: If True, include history iterations before the scene start.
         :return: All lidar start timestamps in the scene, ordered by time.
         """
-        return self.get_all_modality_timestamps(modality_type=ModalityType.LIDAR, modality_id=lidar_id)
+        return self.get_all_modality_timestamps(
+            modality_type=ModalityType.LIDAR, modality_id=lidar_id, include_history=include_history
+        )
 
-    @abc.abstractmethod
     def get_lidar_at_iteration(self, iteration: int, lidar_id: LidarID) -> Optional[Lidar]:
         """Returns the :class:`~py123d.datatypes.sensors.Lidar` of a given :class:`~py123d.datatypes.sensors.LidarID`\
             at a given iteration, if available.
@@ -375,25 +448,69 @@ class SceneAPI(abc.ABC):
         :param lidar_id: The :type:`~py123d.datatypes.sensors.LidarID` of the Lidar.
         :return: The Lidar, or None if not available.
         """
+        merged_lidar_metadata = self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED)
+        _modality_id = LidarID.LIDAR_MERGED if merged_lidar_metadata is not None else lidar_id
+        lidar = self.get_modality_at_iteration(
+            iteration=iteration,
+            modality_type=ModalityType.LIDAR,
+            modality_id=_modality_id,
+            lidar_id=lidar_id,
+        )
+        return checked_optional_cast(lidar, Lidar)
+
+    def get_lidar_at_timestamp(
+        self,
+        timestamp: Union[Timestamp, int],
+        lidar_id: LidarID,
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+    ) -> Optional[Lidar]:
+        """Returns the :class:`~py123d.datatypes.sensors.Lidar` of a given :class:`~py123d.datatypes.sensors.LidarID`\
+            at a given timestamp, if available.
+
+        :param timestamp: The timestamp to get the Lidar for, as a Timestamp object or integer nanoseconds.
+        :param lidar_id: The :type:`~py123d.datatypes.sensors.LidarID` of the Lidar.
+        :param criteria: Criteria for matching the timestamp if an exact match is not found. One of:
+            - "exact": Only return data if an exact timestamp match is found.
+            - "nearest": Return data from the nearest timestamp.
+            - "forward": Return data from the nearest timestamp that is greater than or equal to the requested timestamp.
+            - "backward": Return data from the nearest timestamp that is less than or equal to the requested timestamp.
+        :return: The Lidar, or None if not available.
+        """
+        merged_lidar_metadata = self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED)
+        _modality_id = LidarID.LIDAR_MERGED if merged_lidar_metadata is not None else lidar_id
+        lidar = self.get_modality_at_timestamp(
+            timestamp=timestamp,
+            modality_type=ModalityType.LIDAR,
+            modality_id=_modality_id,
+            criteria=criteria,
+        )
+        return checked_optional_cast(lidar, Lidar)
 
     # 2.6 Custom Modalities
     # ------------------------------------------------------------------------------------------------------------------
-    @abc.abstractmethod
+
     def get_all_custom_modality_metadatas(self) -> Dict[str, CustomModalityMetadata]:
         """Returns the metadata for all custom modalities in the scene, keyed by modality ID.
 
         :return: A dictionary of custom modality metadata, keyed by modality ID.
         """
+        custom_modality_metadatas: Dict[str, CustomModalityMetadata] = {}
+        for metadata in self.get_all_modality_metadatas().values():
+            if metadata.modality_type == ModalityType.CUSTOM and isinstance(metadata, CustomModalityMetadata):
+                custom_modality_metadatas[str(metadata.modality_id)] = metadata
+        return custom_modality_metadatas
 
-    @abc.abstractmethod
-    def get_all_custom_modality_timestamps(self, modality_id: str) -> List[Timestamp]:
+    def get_all_custom_modality_timestamps(self, modality_id: str, include_history: bool = False) -> List[Timestamp]:
         """Returns all custom modality timestamps within the current scene.
 
         :param modality_id: The ID of the custom modality.
+        :param include_history: If True, include history iterations before the scene start.
         :return: All custom modality timestamps in the scene, ordered by time.
         """
+        return self.get_all_modality_timestamps(
+            modality_type=ModalityType.CUSTOM, modality_id=modality_id, include_history=include_history
+        )
 
-    @abc.abstractmethod
     def get_custom_modality_at_iteration(self, iteration: int, modality_id: str) -> Optional[CustomModality]:
         """Returns the :class:`~py123d.datatypes.custom.CustomModality` with the given ID at a given iteration,
             if available.
@@ -402,6 +519,36 @@ class SceneAPI(abc.ABC):
         :param modality_id: The ID of the custom modality (e.g. ``"route"``, ``"predictions"``).
         :return: The custom modality, or None if not available.
         """
+        custom_modality = self.get_modality_at_iteration(
+            iteration=iteration, modality_type=ModalityType.CUSTOM, modality_id=modality_id
+        )
+        return checked_optional_cast(custom_modality, CustomModality)
+
+    def get_custom_modality_at_timestamp(
+        self,
+        timestamp: Union[Timestamp, int],
+        modality_id: str,
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+    ) -> Optional[CustomModality]:
+        """Returns the :class:`~py123d.datatypes.custom.CustomModality` with the given ID at a given timestamp,
+            if available.
+
+        :param timestamp: The timestamp to get the custom modality for, as a Timestamp object or integer nanoseconds.
+        :param modality_id: The ID of the custom modality (e.g. ``"route"``, ``"predictions"``).
+        :param criteria: Criteria for matching the timestamp if an exact match is not found. One of:
+            - "exact": Only return data if an exact timestamp match is found.
+            - "nearest": Return data from the nearest timestamp.
+            - "forward": Return data from the nearest timestamp that is greater than or equal to the requested timestamp.
+            - "backward": Return data from the nearest timestamp that is less than or equal to the requested timestamp.
+        :return: The custom modality, or None if not available.
+        """
+        custom_modality = self.get_modality_at_timestamp(
+            timestamp=timestamp,
+            modality_type=ModalityType.CUSTOM,
+            modality_id=modality_id,
+            criteria=criteria,
+        )
+        return checked_optional_cast(custom_modality, CustomModality)
 
     # Syntactic Sugar / Properties, that are convenient to access and pass to subclasses
     # ------------------------------------------------------------------------------------------------------------------
@@ -454,23 +601,29 @@ class SceneAPI(abc.ABC):
     @property
     def available_camera_ids(self) -> List[CameraID]:
         """List of available camera IDs."""
-        metadatas = self.get_camera_metadatas()
-        return list(metadatas.keys()) if metadatas is not None else []
+        return list(self.get_camera_metadatas().keys())
 
     @property
     def available_camera_names(self) -> List[str]:
         """List of available camera names."""
-        metadatas = self.get_camera_metadatas()
-        return [camera.camera_name for camera in metadatas.values()] if metadatas is not None else []
+        return [camera.camera_name for camera in self.get_camera_metadatas().values()]
 
     @property
     def available_lidar_ids(self) -> List[LidarID]:
         """List of available :class:`~py123d.datatypes.sensors.LidarID`."""
-        metadatas = self.get_lidar_metadatas()
-        return list(metadatas.keys()) if metadatas is not None else []
+        available_lidar_ids: List[LidarID] = []
+        if self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED) is not None:
+            available_lidar_ids = [lidar_id for lidar_id in LidarID if lidar_id != LidarID.LIDAR_MERGED]
+        else:
+            available_lidar_ids = list(self.get_lidar_metadatas().keys())
+        return available_lidar_ids
 
     @property
     def available_lidar_names(self) -> List[str]:
         """List of available Lidar names."""
-        metadatas = self.get_lidar_metadatas()
-        return [lidar.lidar_name for lidar in metadatas.values()] if metadatas is not None else []
+        available_lidar_names: List[str] = [
+            lidar_metadata.lidar_name for lidar_metadata in self.get_lidar_metadatas().values()
+        ]
+        if self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED) is not None:
+            available_lidar_names.append(LidarID.LIDAR_MERGED.serialize())
+        return available_lidar_names

@@ -21,9 +21,10 @@ def get_modality_table(log_dir: Path, modality_key: str) -> Optional[pa.Table]:
     :return: The cached Arrow table, or None.
     """
     file_path = log_dir / f"{modality_key}.arrow"
+    table: Optional[pa.Table] = None
     if file_path.exists():
-        return get_lru_cached_arrow_table(file_path)
-    return None
+        table = get_lru_cached_arrow_table(file_path)
+    return table
 
 
 def get_sync_table(log_dir: Path) -> pa.Table:
@@ -40,41 +41,30 @@ def get_sync_table(log_dir: Path) -> pa.Table:
 
 
 def get_modality_index_from_sync_index(sync_table: pa.Table, column_name: str, idx: int) -> Optional[int]:
-    """Extracts the first row index from a sync table column.
-
-    Handles both scalar (``pa.int64``) and list-typed (``pa.list_(pa.int64())``) sync columns.
-    For list-typed columns, returns the first element of the list (earliest observation in the interval).
+    """Extracts the row index from a sync table column.
 
     :param sync_table: The sync Arrow table.
     :param column_name: The sync column name for the modality.
     :param idx: The row index into the sync table.
-    :return: The first referenced row index, or None.
+    :return: The referenced row index, or None if the modality has no observation at this sync frame.
     """
-    value = sync_table[column_name][idx].as_py()
-    if value is None:
-        return None
-    if isinstance(value, list):
-        return value[0] if len(value) > 0 else None
-    return value
+    return sync_table[column_name][idx].as_py()
 
 
-def get_last_sync_index(sync_table: pa.Table, column_name: str, idx: int) -> Optional[int]:
-    """Extracts the last row index from a sync table column.
+def _get_scene_sync_range(scene_metadata: SceneMetadata, include_history: bool = False) -> tuple:
+    """Returns the (start_idx, end_idx) range into the sync table for the scene.
 
-    Handles both scalar (``pa.int64``) and list-typed (``pa.list_(pa.int64())``) sync columns.
-    For list-typed columns, returns the last element of the list (latest observation in the interval).
-
-    :param sync_table: The sync Arrow table.
-    :param column_name: The sync column name for the modality.
-    :param idx: The row index into the sync table.
-    :return: The last referenced row index, or None.
+    :param scene_metadata: The scene metadata defining the iteration range.
+    :param include_history: If True, extend the range to include history iterations.
+    :return: Tuple of (start_idx, end_idx) where end_idx is exclusive.
     """
-    value = sync_table[column_name][idx].as_py()
-    if value is None:
-        return None
-    if isinstance(value, list):
-        return value[-1] if len(value) > 0 else None
-    return value
+    start_idx = (
+        scene_metadata.initial_idx - scene_metadata.number_of_history_iterations
+        if include_history
+        else scene_metadata.initial_idx
+    )
+    end_idx = scene_metadata.end_idx  # exclusive
+    return start_idx, end_idx
 
 
 def get_all_modality_timestamps(
@@ -83,31 +73,30 @@ def get_all_modality_timestamps(
     scene_metadata: SceneMetadata,
     modality_key: str,
     timestamp_column: str,
+    include_history: bool = False,
 ) -> List[Timestamp]:
     """Batch-read all timestamps for a modality within the current scene.
 
     Finds the first and last referenced row indices in the sync table for the scene range,
     then returns all timestamps from the modality table between those rows (inclusive).
-    This correctly handles async modalities (e.g. lidar) where multiple entries may exist
-    per sync frame.
 
     :param log_dir: Path to the log directory.
     :param sync_table: The sync Arrow table.
     :param scene_metadata: The scene metadata defining the iteration range.
     :param modality_key: The sync table column name / modality table name.
     :param timestamp_column: The column name in the modality table containing timestamps.
+    :param include_history: If True, include history iterations before the scene start.
     :return: All timestamps in the modality table within the scene range, ordered by time.
     """
     modality_table = get_modality_table(log_dir, modality_key)
     if modality_table is None:
         return []
 
-    initial_idx = scene_metadata.initial_idx
-    end_idx = scene_metadata.end_idx  # exclusive
+    start_idx, end_idx = _get_scene_sync_range(scene_metadata, include_history)
 
     # Find first referenced row index (scan forward)
     first_row: Optional[int] = None
-    for i in range(initial_idx, end_idx):
+    for i in range(start_idx, end_idx):
         first_row = get_modality_index_from_sync_index(sync_table, modality_key, i)
         if first_row is not None:
             break
@@ -117,8 +106,8 @@ def get_all_modality_timestamps(
 
     # Find last referenced row index (scan backward)
     last_row: Optional[int] = None
-    for i in range(end_idx - 1, initial_idx - 1, -1):
-        last_row = get_last_sync_index(sync_table, modality_key, i)
+    for i in range(end_idx - 1, start_idx - 1, -1):
+        last_row = get_modality_index_from_sync_index(sync_table, modality_key, i)
         if last_row is not None:
             break
 

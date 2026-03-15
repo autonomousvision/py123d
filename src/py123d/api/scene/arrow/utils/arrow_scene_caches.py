@@ -23,7 +23,7 @@ def _get_complete_log_scene_metadata(log_dir: Union[Path, str], log_metadata: Lo
         split=log_metadata.split,
         initial_uuid=initial_uuid,
         initial_idx=0,
-        duration_s=log_metadata.timestep_seconds * num_rows,
+        duration_s=log_metadata.timestep_seconds * (num_rows - 1),
         history_s=0.0,
         iteration_duration_s=log_metadata.timestep_seconds,
     )

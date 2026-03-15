@@ -134,7 +134,7 @@ class BaseCameraMetadata(BaseModalityMetadata, abc.ABC):
 
     @property
     @abc.abstractmethod
-    def camera_id(self) -> SerialIntEnum:
+    def camera_id(self) -> CameraID:
         """The camera ID, unique within a sensor rig."""
 
     @property
