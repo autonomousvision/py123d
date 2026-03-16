@@ -27,7 +27,7 @@ from py123d.parser.kitti360.utils.kitti360_helper import (
     get_kitti360_lidar_extrinsic,
 )
 from py123d.parser.kitti360.utils.kitti360_labels import (
-    BBOX_LABLES_TO_DETECTION_NAME_DICT,
+    BBOX_LABELS_TO_DETECTION_NAME_DICT,
     KITTI360_DETECTION_NAME_DICT,
     kittiId2label,
 )
@@ -61,16 +61,16 @@ def _collect_static_objects(kitti360_dataset_root: Path, log_name: str) -> List[
 
     for child in root:
         if child.find("semanticId") is not None:
-            semanticIdKITTI = int(child.find("semanticId").text)
+            semanticIdKITTI = int(child.find("semanticId").text)  # type: ignore
             name = kittiId2label[semanticIdKITTI].name
         else:
-            label = child.find("label").text
-            name = BBOX_LABLES_TO_DETECTION_NAME_DICT.get(label, "unknown")
-        timestamp = int(child.find("timestamp").text)  # -1 for static objects
+            label = child.find("label").text  # type: ignore
+            name = BBOX_LABELS_TO_DETECTION_NAME_DICT.get(label, "unknown")  # type: ignore
+        timestamp = int(child.find("timestamp").text)  # -1 for static objects # type: ignore
         if child.find("transform") is None or name not in KITTI360_DETECTION_NAME_DICT.keys() or timestamp != -1:
             continue
         obj = KITTI360Bbox3D()
-        obj.parseBbox(child)
+        obj.parse_bbox(child)
         static_objs.append(obj)
     return static_objs
 
@@ -95,13 +95,11 @@ def _collect_ego_states(kitti360_data_root: Path, log_name: str) -> Tuple[npt.ND
         r20, r21, r22 = poses[pos, 9:12]
         R_mat = np.array([[r00, r01, r02], [r10, r11, r12], [r20, r21, r22]], dtype=np.float64)
         R_mat_cali = R_mat @ KITTI3602NUPLAN_IMU_CALIBRATION[:3, :3]
-        ego_state_xyz = np.array(
-            [
-                poses[pos, 4],
-                poses[pos, 8],
-                poses[pos, 12],
-            ]
-        )
+        ego_state_xyz = np.array([
+            poses[pos, 4],
+            poses[pos, 8],
+            poses[pos, 12],
+        ])
 
         state_item[:3, :3] = R_mat_cali
         state_item[:3, 3] = ego_state_xyz
@@ -176,7 +174,7 @@ def process_detection(
                         record["points_in_box"] = points_in_box
                         break
 
-    max_workers = os.cpu_count() * 2
+    max_workers = os.cpu_count() * 2  # type: ignore
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         list(executor.map(process_one_frame, range(len(valid_timestamp))))
 

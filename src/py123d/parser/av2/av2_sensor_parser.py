@@ -267,7 +267,7 @@ class Av2SensorLogParser(BaseLogParser):
                 relative_path = f"{split_type}/{log_name}/sensors/cameras/{target_camera_name}/{image_file.name}"
 
                 nearest_pose = get_slice_with_timestamp_ns(city_se3_egovehicle_df, timestamp_ns).iloc[0].to_dict()
-                nearest_pose_se3 = av2_row_dict_to_pose_se3(nearest_pose)
+                nearest_pose_se3 = av2_row_dict_to_pose_se3(nearest_pose)  # type: ignore
                 camera_to_global_se3 = rel_to_abs_se3(
                     origin=nearest_pose_se3,
                     pose_se3=pinhole_camera_metadata.camera_to_imu_se3,
