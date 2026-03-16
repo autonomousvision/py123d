@@ -95,11 +95,13 @@ def _collect_ego_states(kitti360_data_root: Path, log_name: str) -> Tuple[npt.ND
         r20, r21, r22 = poses[pos, 9:12]
         R_mat = np.array([[r00, r01, r02], [r10, r11, r12], [r20, r21, r22]], dtype=np.float64)
         R_mat_cali = R_mat @ KITTI3602NUPLAN_IMU_CALIBRATION[:3, :3]
-        ego_state_xyz = np.array([
-            poses[pos, 4],
-            poses[pos, 8],
-            poses[pos, 12],
-        ])
+        ego_state_xyz = np.array(
+            [
+                poses[pos, 4],
+                poses[pos, 8],
+                poses[pos, 12],
+            ]
+        )
 
         state_item[:3, :3] = R_mat_cali
         state_item[:3, 3] = ego_state_xyz

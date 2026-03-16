@@ -165,10 +165,12 @@ class KITTI360Bbox3D:
         d = np.linalg.norm(ego_state_xyz - self.T[None, :], axis=1)
         idxs = np.where(d <= radius)[0]
         for idx in idxs:
-            self.valid_frames["records"].append({
-                "timestamp": valid_timestamp[idx],
-                "points_in_box": None,
-            })
+            self.valid_frames["records"].append(
+                {
+                    "timestamp": valid_timestamp[idx],
+                    "points_in_box": None,
+                }
+            )
 
     def box_visible_in_point_cloud(self, points: np.ndarray) -> Tuple[bool, int]:
         """Check if the bounding box is visible in the given point cloud (>40 points inside)."""
