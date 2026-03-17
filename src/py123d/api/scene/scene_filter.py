@@ -50,9 +50,6 @@ class SceneFilter:
     log_version: Optional[str] = None
     """Version of the log metadata to filter by. If None (default), does not filter by version."""
 
-    required_log_modalities: Optional[List[str]] = None
-    """List of modality ids or keys that must be present in the log for a scene to be included."""
-
     # 3. Category: Filter options that require reading scene data.
     # Answers: How to sample scenes from the log?
 
@@ -88,7 +85,13 @@ class SceneFilter:
     """Minimum number of iterations between two consecutive scenes, ignored if timestamp_threshold_s is provided."""
 
     required_scene_modalities: Optional[List[str]] = None
-    """List of modality ids or keys that must be present in a scene for it to be included."""
+    """List of modality requirements that must be satisfied at the scene level (no nulls in frame range).
+
+    Supports exact keys and type-level patterns:
+        - ``"camera.pcam_f0"`` — this modality must have no nulls across the scene's frames.
+        - ``"camera:any"`` — at least one modality of type ``camera`` must be complete.
+        - ``"camera:all"`` — every modality of type ``camera`` in the log must be complete.
+    """
 
     # 4. Category: Post-filtering options (applied after scenes are filtered by the above criteria, e.g. for sampling or shuffling).
     # Answers: What to do with the scenes after filtering?
@@ -159,11 +162,9 @@ class SceneFilter:
                 "Both timestamp_threshold_s and iteration_threshold set; timestamp_threshold_s takes priority."
             )
 
-        # Passing any required log modalities upward to category 2, for earlier log-level filtering.
-        _required_log_modalities = self.required_log_modalities or []
-        if self.required_scene_modalities is not None:
-            _required_log_modalities += self.required_scene_modalities
-        self.required_log_modalities = _deduplicate_optional(_required_log_modalities)
+        # Validate modality requirement syntax early.
+        for req in self.required_scene_modalities or []:
+            _validate_modality_requirement(req)
 
         # 4. Category
         if (
@@ -177,3 +178,17 @@ class SceneFilter:
         if self.num_chunks is not None and self.chunk_idx is not None:
             if self.chunk_idx >= self.num_chunks:
                 raise ValueError(f"chunk_idx ({self.chunk_idx}) must be < num_chunks ({self.num_chunks}).")
+
+
+def _validate_modality_requirement(requirement: str) -> None:
+    """Validate a modality requirement string.
+
+    :param requirement: Exact key (e.g., ``"camera.pcam_f0"``) or type pattern (``"camera:any"`` / ``"camera:all"``).
+    :raises ValueError: If the pattern syntax is invalid.
+    """
+    if ":" in requirement:
+        parts = requirement.split(":")
+        if len(parts) != 2 or parts[1] not in {"any", "all"}:
+            raise ValueError(
+                f"Invalid modality pattern '{requirement}'. Expected format: '<type>:any' or '<type>:all'."
+            )

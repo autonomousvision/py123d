@@ -9,6 +9,9 @@ import pytest
 
 from py123d.api.scene.arrow.arrow_scene_builder import _parse_valid_log_dirs
 from py123d.api.scene.arrow.utils.scene_builder_utils import (
+    _get_columns_matching_type,
+    _is_modality_pattern,
+    _parse_modality_pattern,
     check_log_passes_metadata_filters,
     filter_scene_metadata_candidates,
     generate_scene_metadatas,
@@ -17,7 +20,7 @@ from py123d.api.scene.arrow.utils.scene_builder_utils import (
     resolve_scene_uuid_indices,
     scene_uuids_to_binary,
 )
-from py123d.api.scene.scene_filter import SceneFilter
+from py123d.api.scene.scene_filter import SceneFilter, _validate_modality_requirement
 from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
@@ -98,6 +101,53 @@ def _make_sync_table(
             "sync.timestamp_us": pa.array(timestamps, type=pa.int64()),
             "camera.front": pa.array(camera_indices, type=pa.int64()),
             "lidar.top": pa.array(lidar_indices, type=pa.int64()),
+        },
+        schema=schema,
+    )
+    return table
+
+
+def _make_multi_camera_sync_table(
+    num_rows: int = 20,
+    timestep_us: int = 100_000,
+    front_nulls: Optional[List[int]] = None,
+    rear_nulls: Optional[List[int]] = None,
+    lidar_nulls: Optional[List[int]] = None,
+) -> pa.Table:
+    """Build a sync table with two camera columns and one lidar column.
+
+    :param num_rows: Number of rows.
+    :param timestep_us: Timestep between rows in microseconds.
+    :param front_nulls: Row indices where camera.front should be null.
+    :param rear_nulls: Row indices where camera.rear should be null.
+    :param lidar_nulls: Row indices where lidar.top should be null.
+    """
+    timestamps = np.arange(num_rows, dtype=np.int64) * timestep_us
+    uuids = [uuid.uuid4().bytes for _ in range(num_rows)]
+
+    def _make_column(nulls: Optional[List[int]]) -> List[Optional[int]]:
+        col: List[Optional[int]] = list(range(num_rows))
+        if nulls:
+            for i in nulls:
+                col[i] = None
+        return col
+
+    schema = pa.schema(
+        [
+            pa.field("sync.uuid", pa.binary(16)),
+            pa.field("sync.timestamp_us", pa.int64()),
+            pa.field("camera.front", pa.int64()),
+            pa.field("camera.rear", pa.int64()),
+            pa.field("lidar.top", pa.int64()),
+        ]
+    )
+    table = pa.table(
+        {
+            "sync.uuid": pa.array(uuids, type=pa.binary(16)),
+            "sync.timestamp_us": pa.array(timestamps, type=pa.int64()),
+            "camera.front": pa.array(_make_column(front_nulls), type=pa.int64()),
+            "camera.rear": pa.array(_make_column(rear_nulls), type=pa.int64()),
+            "lidar.top": pa.array(_make_column(lidar_nulls), type=pa.int64()),
         },
         schema=schema,
     )
@@ -202,11 +252,123 @@ class TestCheckLogPassesMetadataFilters:
 
     def test_required_modalities(self):
         columns = ["sync.uuid", "sync.timestamp_us", "camera.front", "lidar.top"]
-        f = SceneFilter(required_log_modalities=["camera.front"])
+        f = SceneFilter(required_scene_modalities=["camera.front"])
         assert check_log_passes_metadata_filters(_make_log_metadata(), columns, f) is True
 
-        f = SceneFilter(required_log_modalities=["camera.rear"])
+        f = SceneFilter(required_scene_modalities=["camera.rear"])
         assert check_log_passes_metadata_filters(_make_log_metadata(), columns, f) is False
+
+    def test_required_modalities_any_type(self):
+        columns = ["sync.uuid", "sync.timestamp_us", "camera.front", "lidar.top"]
+        meta = _make_log_metadata()
+
+        # "camera:any" passes when at least one camera column exists
+        f = SceneFilter(required_scene_modalities=["camera:any"])
+        assert check_log_passes_metadata_filters(meta, columns, f) is True
+
+        # "radar:any" fails when no radar columns exist
+        f = SceneFilter(required_scene_modalities=["radar:any"])
+        assert check_log_passes_metadata_filters(meta, columns, f) is False
+
+    def test_required_modalities_all_type(self):
+        columns = ["sync.uuid", "sync.timestamp_us", "camera.front", "lidar.top"]
+        meta = _make_log_metadata()
+
+        # "camera:all" at log level passes if at least one camera column exists
+        f = SceneFilter(required_scene_modalities=["camera:all"])
+        assert check_log_passes_metadata_filters(meta, columns, f) is True
+
+        # "radar:all" fails when no radar columns exist
+        f = SceneFilter(required_scene_modalities=["radar:all"])
+        assert check_log_passes_metadata_filters(meta, columns, f) is False
+
+    def test_required_modalities_type_matches_no_id(self):
+        """Type pattern matches modalities without an ID (e.g., ego_state_se3)."""
+        columns = ["sync.uuid", "sync.timestamp_us", "ego_state_se3", "camera.front"]
+        meta = _make_log_metadata()
+
+        f = SceneFilter(required_scene_modalities=["ego_state_se3:any"])
+        assert check_log_passes_metadata_filters(meta, columns, f) is True
+
+    def test_required_modalities_invalid_pattern(self):
+        with pytest.raises(ValueError, match="Invalid modality pattern"):
+            SceneFilter(required_scene_modalities=["camera:invalid"])
+
+        with pytest.raises(ValueError, match="Invalid modality pattern"):
+            SceneFilter(required_scene_modalities=["camera:any:3"])
+
+
+class TestValidateModalityRequirement:
+    def test_exact_key_with_dot(self):
+        _validate_modality_requirement("camera.pcam_f0")  # should not raise
+
+    def test_exact_key_without_dot(self):
+        _validate_modality_requirement("ego_state_se3")  # should not raise
+
+    def test_valid_any_pattern(self):
+        _validate_modality_requirement("camera:any")  # should not raise
+
+    def test_valid_all_pattern(self):
+        _validate_modality_requirement("camera:all")  # should not raise
+
+    def test_invalid_quantifier(self):
+        with pytest.raises(ValueError, match="Invalid modality pattern"):
+            _validate_modality_requirement("camera:some")
+
+    def test_too_many_colons(self):
+        with pytest.raises(ValueError, match="Invalid modality pattern"):
+            _validate_modality_requirement("camera:any:3")
+
+    def test_empty_quantifier(self):
+        with pytest.raises(ValueError, match="Invalid modality pattern"):
+            _validate_modality_requirement("camera:")
+
+
+class TestModalityMatchingHelpers:
+    def test_is_modality_pattern(self):
+        assert _is_modality_pattern("camera:any") is True
+        assert _is_modality_pattern("camera:all") is True
+        assert _is_modality_pattern("camera.front") is False
+        assert _is_modality_pattern("ego_state_se3") is False
+
+    def test_parse_modality_pattern(self):
+        assert _parse_modality_pattern("camera:any") == ("camera", "any")
+        assert _parse_modality_pattern("lidar:all") == ("lidar", "all")
+
+    def test_get_columns_matching_type_with_ids(self):
+        columns = {"sync.uuid", "sync.timestamp_us", "camera.front", "camera.rear", "lidar.top"}
+        result = _get_columns_matching_type("camera", columns)
+        assert sorted(result) == ["camera.front", "camera.rear"]
+
+    def test_get_columns_matching_type_without_id(self):
+        columns = {"sync.uuid", "ego_state_se3", "camera.front"}
+        result = _get_columns_matching_type("ego_state_se3", columns)
+        assert result == ["ego_state_se3"]
+
+    def test_get_columns_matching_type_no_match(self):
+        columns = {"sync.uuid", "camera.front", "lidar.top"}
+        result = _get_columns_matching_type("radar", columns)
+        assert result == []
+
+    def test_get_columns_matching_type_no_prefix_collision(self):
+        """'camera' should not match 'camera_info' — only exact or 'camera.' prefix."""
+        columns = {"camera.front", "camera_info"}
+        result = _get_columns_matching_type("camera", columns)
+        assert result == ["camera.front"]
+
+
+class TestSceneFilterModalityValidation:
+    def test_deduplicates_scene_modalities(self):
+        f = SceneFilter(required_scene_modalities=["camera.front", "camera.front", "lidar:any"])
+        assert f.required_scene_modalities == ["camera.front", "lidar:any"]
+
+    def test_rejects_invalid_scene_modality_pattern(self):
+        with pytest.raises(ValueError, match="Invalid modality pattern"):
+            SceneFilter(required_scene_modalities=["camera:invalid"])
+
+    def test_accepts_mixed_exact_and_pattern(self):
+        f = SceneFilter(required_scene_modalities=["camera.front", "lidar:any", "camera:all"])
+        assert f.required_scene_modalities == ["camera.front", "lidar:any", "camera:all"]
 
 
 class TestGenerateSceneMetadatas:
@@ -342,6 +504,226 @@ class TestFilterScenes:
         assert len(result) == 2
         assert result[0].initial_idx == 0
         assert result[1].initial_idx == 15
+
+    def test_required_scene_modalities_any_type(self):
+        """'camera:any' keeps scenes where at least one camera column is complete."""
+        # camera.front has nulls at [2, 3], camera.rear has nulls at [2, 3, 6, 7]
+        table = _make_multi_camera_sync_table(num_rows=20, front_nulls=[2, 3], rear_nulls=[2, 3, 6, 7])
+        candidates = [
+            SceneMetadata(
+                dataset="test",
+                split="test_train",
+                initial_uuid="a",
+                initial_idx=0,
+                num_future_iterations=4,
+                num_history_iterations=0,
+                future_duration_s=0.4,
+                history_duration_s=0.0,
+                iteration_duration_s=0.1,
+            ),
+            SceneMetadata(
+                dataset="test",
+                split="test_train",
+                initial_uuid="b",
+                initial_idx=5,
+                num_future_iterations=4,
+                num_history_iterations=0,
+                future_duration_s=0.4,
+                history_duration_s=0.0,
+                iteration_duration_s=0.1,
+            ),
+            SceneMetadata(
+                dataset="test",
+                split="test_train",
+                initial_uuid="c",
+                initial_idx=10,
+                num_future_iterations=4,
+                num_history_iterations=0,
+                future_duration_s=0.4,
+                history_duration_s=0.0,
+                iteration_duration_s=0.1,
+            ),
+        ]
+        f = SceneFilter(required_scene_modalities=["camera:any"])
+        result = filter_scene_metadata_candidates(candidates, f, table)
+        # Scene at idx 0 (0-4): both cameras have nulls → neither complete → filtered out
+        # Scene at idx 5 (5-9): front is complete, rear has nulls at 6,7 → front passes → kept
+        # Scene at idx 10 (10-14): both cameras complete → kept
+        assert len(result) == 2
+        assert result[0].initial_idx == 5
+        assert result[1].initial_idx == 10
+
+    def test_required_scene_modalities_all_type(self):
+        """'camera:all' keeps scenes where ALL camera columns are complete."""
+        # camera.front is clean, camera.rear has nulls at [6, 7]
+        table = _make_multi_camera_sync_table(num_rows=20, rear_nulls=[6, 7])
+        candidates = [
+            SceneMetadata(
+                dataset="test",
+                split="test_train",
+                initial_uuid="a",
+                initial_idx=0,
+                num_future_iterations=4,
+                num_history_iterations=0,
+                future_duration_s=0.4,
+                history_duration_s=0.0,
+                iteration_duration_s=0.1,
+            ),
+            SceneMetadata(
+                dataset="test",
+                split="test_train",
+                initial_uuid="b",
+                initial_idx=5,
+                num_future_iterations=4,
+                num_history_iterations=0,
+                future_duration_s=0.4,
+                history_duration_s=0.0,
+                iteration_duration_s=0.1,
+            ),
+            SceneMetadata(
+                dataset="test",
+                split="test_train",
+                initial_uuid="c",
+                initial_idx=10,
+                num_future_iterations=4,
+                num_history_iterations=0,
+                future_duration_s=0.4,
+                history_duration_s=0.0,
+                iteration_duration_s=0.1,
+            ),
+        ]
+        f = SceneFilter(required_scene_modalities=["camera:all"])
+        result = filter_scene_metadata_candidates(candidates, f, table)
+        # Scene at idx 0 (0-4): front ok, rear ok → kept
+        # Scene at idx 5 (5-9): front ok, rear has nulls at 6,7 → filtered out
+        # Scene at idx 10 (10-14): both ok → kept
+        assert len(result) == 2
+        assert result[0].initial_idx == 0
+        assert result[1].initial_idx == 10
+
+    def test_required_scene_modalities_any_type_no_match(self):
+        """'radar:any' when no radar columns exist keeps no scenes."""
+        table = _make_multi_camera_sync_table(num_rows=20)
+        candidates = [
+            SceneMetadata(
+                dataset="test",
+                split="test_train",
+                initial_uuid="a",
+                initial_idx=0,
+                num_future_iterations=4,
+                num_history_iterations=0,
+                future_duration_s=0.4,
+                history_duration_s=0.0,
+                iteration_duration_s=0.1,
+            ),
+        ]
+        f = SceneFilter(required_scene_modalities=["radar:any"])
+        result = filter_scene_metadata_candidates(candidates, f, table)
+        assert len(result) == 0
+
+    def test_required_scene_modalities_all_type_no_match(self):
+        """'radar:all' when no radar columns exist keeps no scenes."""
+        table = _make_multi_camera_sync_table(num_rows=20)
+        candidates = [
+            SceneMetadata(
+                dataset="test",
+                split="test_train",
+                initial_uuid="a",
+                initial_idx=0,
+                num_future_iterations=4,
+                num_history_iterations=0,
+                future_duration_s=0.4,
+                history_duration_s=0.0,
+                iteration_duration_s=0.1,
+            ),
+        ]
+        # "radar:all" expands to zero columns → all_complete_keys is empty → no filtering → keeps scene
+        f = SceneFilter(required_scene_modalities=["radar:all"])
+        result = filter_scene_metadata_candidates(candidates, f, table)
+        assert len(result) == 1
+
+    def test_required_scene_modalities_combined_exact_and_pattern(self):
+        """Combining exact key and type pattern in the same filter."""
+        # camera.front has nulls at [2,3], camera.rear is clean, lidar.top is clean
+        table = _make_multi_camera_sync_table(num_rows=20, front_nulls=[2, 3])
+        candidates = [
+            SceneMetadata(
+                dataset="test",
+                split="test_train",
+                initial_uuid="a",
+                initial_idx=0,
+                num_future_iterations=4,
+                num_history_iterations=0,
+                future_duration_s=0.4,
+                history_duration_s=0.0,
+                iteration_duration_s=0.1,
+            ),
+            SceneMetadata(
+                dataset="test",
+                split="test_train",
+                initial_uuid="b",
+                initial_idx=5,
+                num_future_iterations=4,
+                num_history_iterations=0,
+                future_duration_s=0.4,
+                history_duration_s=0.0,
+                iteration_duration_s=0.1,
+            ),
+        ]
+        # Require exact lidar.top AND at least one camera
+        f = SceneFilter(required_scene_modalities=["lidar.top", "camera:any"])
+        result = filter_scene_metadata_candidates(candidates, f, table)
+        # idx 0: lidar ok, camera.front has nulls but camera.rear is complete → camera:any passes → kept
+        # idx 5: lidar ok, both cameras clean → kept
+        assert len(result) == 2
+
+    def test_required_scene_modalities_mixed_any_and_all(self):
+        """Combining 'camera:all' and 'lidar:any' in the same filter."""
+        # camera.front has nulls at [6,7], camera.rear is clean, lidar.top is clean
+        table = _make_multi_camera_sync_table(num_rows=20, front_nulls=[6, 7])
+        candidates = [
+            SceneMetadata(
+                dataset="test",
+                split="test_train",
+                initial_uuid="a",
+                initial_idx=0,
+                num_future_iterations=4,
+                num_history_iterations=0,
+                future_duration_s=0.4,
+                history_duration_s=0.0,
+                iteration_duration_s=0.1,
+            ),
+            SceneMetadata(
+                dataset="test",
+                split="test_train",
+                initial_uuid="b",
+                initial_idx=5,
+                num_future_iterations=4,
+                num_history_iterations=0,
+                future_duration_s=0.4,
+                history_duration_s=0.0,
+                iteration_duration_s=0.1,
+            ),
+            SceneMetadata(
+                dataset="test",
+                split="test_train",
+                initial_uuid="c",
+                initial_idx=10,
+                num_future_iterations=4,
+                num_history_iterations=0,
+                future_duration_s=0.4,
+                history_duration_s=0.0,
+                iteration_duration_s=0.1,
+            ),
+        ]
+        f = SceneFilter(required_scene_modalities=["camera:all", "lidar:any"])
+        result = filter_scene_metadata_candidates(candidates, f, table)
+        # idx 0 (0-4): camera.front ok, camera.rear ok, lidar ok → kept
+        # idx 5 (5-9): camera.front has nulls at 6,7 → camera:all fails → filtered out
+        # idx 10 (10-14): all clean → kept
+        assert len(result) == 2
+        assert result[0].initial_idx == 0
+        assert result[1].initial_idx == 10
 
     def test_no_filters_passes_all(self):
         table = _make_sync_table(num_rows=20)

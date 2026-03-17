@@ -113,6 +113,39 @@ def resolve_iteration_counts(
     return future_iterations, history_iterations
 
 
+# --- Modality matching helpers ---
+
+
+def _is_modality_pattern(requirement: str) -> bool:
+    """Check whether a modality requirement string is a type pattern (contains ``:``)."""
+    return ":" in requirement
+
+
+def _parse_modality_pattern(requirement: str) -> Tuple[str, str]:
+    """Extract (modality_type, quantifier) from a pattern string like ``"camera:any"``.
+
+    :param requirement: A pattern requirement containing ``:``.
+    :return: Tuple of (modality_type, quantifier).
+    """
+    modality_type, quantifier = requirement.split(":")
+    return modality_type, quantifier
+
+
+def _get_columns_matching_type(modality_type: str, column_names: Set[str]) -> List[str]:
+    """Return all sync column names that belong to a modality type.
+
+    A column matches if it equals the type name exactly (e.g., ``"ego_state_se3"``)
+    or starts with ``"<type>."`` (e.g., ``"camera.pcam_f0"`` matches type ``"camera"``).
+
+    :param modality_type: The modality type prefix to match (e.g., ``"camera"``).
+    :param column_names: Set of sync table column names.
+    :return: List of matching column names.
+    """
+    prefix = modality_type + "."
+    result = [col for col in column_names if col == modality_type or col.startswith(prefix)]
+    return result
+
+
 # --- Category 2: Metadata & log-level filtering ---
 
 
@@ -159,11 +192,16 @@ def check_log_passes_metadata_filters(
         if log_metadata.version != filter.log_version:
             return False
 
-    if filter.required_log_modalities is not None:
+    if filter.required_scene_modalities is not None:
         sync_column_set = set(sync_column_names)
-        for modality_key in filter.required_log_modalities:
-            if modality_key not in sync_column_set:
-                return False
+        for req_str in filter.required_scene_modalities:
+            if _is_modality_pattern(req_str):
+                modality_type, _ = _parse_modality_pattern(req_str)
+                if len(_get_columns_matching_type(modality_type, sync_column_set)) == 0:
+                    return False
+            else:
+                if req_str not in sync_column_set:
+                    return False
 
     return True
 
@@ -299,11 +337,29 @@ def filter_scene_metadata_candidates(
 
     # 1. Required scene modalities: verify no nulls in scene's frame range
     if filter.required_scene_modalities is not None:
-        sync_column_names = set(sync_table.column_names)
-        modality_keys = [k for k in filter.required_scene_modalities if k in sync_column_names]
-        if modality_keys:
+        sync_column_set = set(sync_table.column_names)
+        all_complete_keys: List[str] = []
+        any_complete_groups: List[List[str]] = []
+
+        for req_str in filter.required_scene_modalities:
+            if _is_modality_pattern(req_str):
+                modality_type, quantifier = _parse_modality_pattern(req_str)
+                matching = _get_columns_matching_type(modality_type, sync_column_set)
+                if quantifier == "all":
+                    all_complete_keys.extend(matching)
+                elif quantifier == "any":
+                    any_complete_groups.append(matching)
+            else:
+                if req_str in sync_column_set:
+                    all_complete_keys.append(req_str)
+
+        if all_complete_keys:
             scene_metadatas = [
-                s for s in scene_metadatas if _scene_has_complete_modalities(s, sync_table, modality_keys)
+                s for s in scene_metadatas if _scene_has_complete_modalities(s, sync_table, all_complete_keys)
+            ]
+        for matching_keys in any_complete_groups:
+            scene_metadatas = [
+                s for s in scene_metadatas if _scene_has_any_complete_modality(s, sync_table, matching_keys)
             ]
 
     # 2. Timestamp threshold: enforce minimum time gap between consecutive scenes
@@ -352,3 +408,26 @@ def _scene_has_complete_modalities(
             if column[i].as_py() is None:
                 return False
     return True
+
+
+def _scene_has_any_complete_modality(
+    scene: SceneMetadata,
+    sync_table: pa.Table,
+    modality_keys: List[str],
+) -> bool:
+    """Check that at least one of the given modality columns is complete at the scene's strided frames.
+
+    :param scene: The scene metadata.
+    :param sync_table: The sync Arrow table.
+    :param modality_keys: List of sync table column names to check.
+    :return: True if at least one modality is complete (no nulls at strided indices).
+    """
+    stride = scene.target_iteration_stride
+    start = scene.initial_idx - scene.num_history_iterations * stride
+    end = scene.initial_idx + scene.num_future_iterations * stride + 1
+    for key in modality_keys:
+        column = sync_table.column(key)
+        is_complete = all(column[i].as_py() is not None for i in range(start, end, stride))
+        if is_complete:
+            return True
+    return False
