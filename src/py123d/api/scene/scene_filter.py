@@ -109,7 +109,7 @@ class SceneFilter:
     """Maximum number of scenes to return."""
 
     shuffle: bool = False
-    """Whether to shuffle the returned scenes."""
+    """Whether to shuffle the returned scenes, applied last after all other filtering and chunking."""
 
     def __post_init__(self):
         """Post-initialization to validate filter options and resolve any conflicts."""
