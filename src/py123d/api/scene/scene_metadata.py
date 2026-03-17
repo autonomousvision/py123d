@@ -33,12 +33,16 @@ class SceneMetadata:
     """Backward reach of history before the current frame in seconds."""
 
     iteration_duration_s: float
-    """Approximate duration of each iteration in seconds (inferred from sync table timestamps)."""
+    """Approximate duration of each iteration in seconds (inferred from sync table timestamps).
+    When target_iteration_stride > 1, this reflects the effective strided duration (raw_duration * stride)."""
+
+    target_iteration_stride: int = 1
+    """Number of raw sync-table frames per logical iteration. 1 (default) uses the native log frequency."""
 
     @property
     def end_idx(self) -> int:
-        """Index of the end frame of the scene (exclusive)."""
-        return self.initial_idx + self.num_future_iterations + 1
+        """Index of the end frame of the scene (exclusive), accounting for stride."""
+        return self.initial_idx + self.num_future_iterations * self.target_iteration_stride + 1
 
     @property
     def total_iterations(self) -> int:
@@ -64,10 +68,13 @@ class SceneMetadata:
                 )
 
     def __repr__(self) -> str:
+        stride_str = (
+            f", target_iteration_stride={self.target_iteration_stride}" if self.target_iteration_stride != 1 else ""
+        )
         return (
             f"SceneMetadata(dataset={self.dataset}, split={self.split}, "
             f"initial_uuid={self.initial_uuid}, initial_idx={self.initial_idx}, "
             f"num_future_iterations={self.num_future_iterations}, num_history_iterations={self.num_history_iterations}, "
             f"future_duration_s={self.future_duration_s}, history_duration_s={self.history_duration_s}, "
-            f"iteration_duration_s={self.iteration_duration_s})"
+            f"iteration_duration_s={self.iteration_duration_s}{stride_str})"
         )

@@ -32,6 +32,7 @@ def _get_complete_log_scene_metadata(log_dir: Union[Path, str], log_metadata: Lo
         future_duration_s=num_future_iterations * iteration_duration_s,
         history_duration_s=0.0,
         iteration_duration_s=iteration_duration_s,
+        target_iteration_stride=1,
     )
 
 

@@ -39,18 +39,64 @@ def infer_iteration_duration_s(sync_table: pa.Table) -> float:
     return iteration_duration_s
 
 
-def resolve_iteration_counts(filter: SceneFilter, iteration_duration_s: float) -> Tuple[Optional[int], int]:
+def resolve_iteration_stride(filter: SceneFilter, raw_iteration_duration_s: float) -> Optional[int]:
+    """Resolve the iteration stride from filter parameters.
+
+    ``target_iteration_duration_s`` takes priority over ``target_iteration_stride``.
+    Returns ``None`` when the stride is infeasible for the given log (caller should skip).
+
+    :param filter: The scene filter.
+    :param raw_iteration_duration_s: Raw (native) iteration duration in seconds.
+    :return: The resolved stride, or None if the target is infeasible.
+    """
+    _STRIDE_TOLERANCE = 0.15  # 15% relative deviation tolerance
+
+    stride: Optional[int] = 1
+    if filter.target_iteration_duration_s is not None:
+        raw_stride = filter.target_iteration_duration_s / raw_iteration_duration_s
+        stride = round(raw_stride)
+        if stride < 1:
+            logger.debug(
+                "Cannot upsample: target_iteration_duration_s=%.4fs < raw iteration duration=%.4fs. Skipping log.",
+                filter.target_iteration_duration_s,
+                raw_iteration_duration_s,
+            )
+            stride = None
+        elif abs(raw_stride - stride) / stride > _STRIDE_TOLERANCE:
+            logger.debug(
+                "Target iteration duration %.4fs not achievable with raw duration %.4fs "
+                "(computed stride=%d, deviation=%.1f%%). Skipping log.",
+                filter.target_iteration_duration_s,
+                raw_iteration_duration_s,
+                stride,
+                abs(raw_stride - stride) / stride * 100,
+            )
+            stride = None
+    elif filter.target_iteration_stride is not None:
+        stride = filter.target_iteration_stride
+
+    return stride
+
+
+def resolve_iteration_counts(
+    filter: SceneFilter, iteration_duration_s: float, stride: int = 1
+) -> Tuple[Optional[int], int]:
     """Resolve future/history iteration counts from filter parameters.
 
     Duration-based parameters take priority over iteration-based parameters.
+    When stride > 1, duration-based params are converted using the effective per-iteration
+    duration (``iteration_duration_s * stride``).
 
     :param filter: The scene filter.
-    :param iteration_duration_s: Inferred iteration duration in seconds.
+    :param iteration_duration_s: Raw (native) iteration duration in seconds.
+    :param stride: Iteration stride (number of raw frames per logical iteration).
     :return: Tuple of (future_iterations or None for full log, history_iterations).
     """
+    effective_duration_s = iteration_duration_s * stride
+
     # Future iterations
     if filter.future_duration_s is not None:
-        future_iterations: Optional[int] = round(filter.future_duration_s / iteration_duration_s)
+        future_iterations: Optional[int] = round(filter.future_duration_s / effective_duration_s)
     elif filter.future_num_iterations is not None:
         future_iterations = filter.future_num_iterations
     else:
@@ -58,7 +104,7 @@ def resolve_iteration_counts(filter: SceneFilter, iteration_duration_s: float) -
 
     # History iterations
     if filter.history_duration_s is not None:
-        history_iterations = round(filter.history_duration_s / iteration_duration_s)
+        history_iterations = round(filter.history_duration_s / effective_duration_s)
     elif filter.history_num_iterations is not None:
         history_iterations = filter.history_num_iterations
     else:
@@ -155,6 +201,7 @@ def generate_scene_metadatas(
     history_iterations: int,
     iteration_duration_s: float,
     scene_uuid_indices: Optional[Set[int]] = None,
+    stride: int = 1,
 ) -> List[SceneMetadata]:
     """Generate candidate SceneMetadata objects via temporal slicing.
 
@@ -165,13 +212,15 @@ def generate_scene_metadatas(
     :param log_metadata: The log metadata.
     :param future_iterations: Number of future iterations per scene, or None for full log.
     :param history_iterations: Number of history iterations per scene.
-    :param iteration_duration_s: Inferred iteration duration in seconds.
+    :param iteration_duration_s: Raw (native) iteration duration in seconds.
     :param scene_uuid_indices: If provided, only generate scenes at these indices.
+    :param stride: Iteration stride (number of raw frames per logical iteration).
     :return: List of candidate SceneMetadata objects.
     """
     num_log_iterations = sync_table.num_rows
     uuid_column = sync_table["sync.uuid"]
-    initial_idx = history_iterations
+    initial_idx = history_iterations * stride
+    effective_duration_s = iteration_duration_s * stride
 
     if future_iterations is None:
         # Mode A: No future duration — each scene spans from its start index to the end of the log.
@@ -184,7 +233,7 @@ def generate_scene_metadatas(
 
         scene_metadatas: List[SceneMetadata] = []
         for idx in candidate_indices:
-            num_future = max(num_log_iterations - idx - 1, 0)
+            num_future = max((num_log_iterations - idx - 1) // stride, 0)
             scene_metadatas.append(
                 SceneMetadata(
                     dataset=log_metadata.dataset,
@@ -193,9 +242,10 @@ def generate_scene_metadatas(
                     initial_idx=idx,
                     num_future_iterations=num_future,
                     num_history_iterations=history_iterations,
-                    future_duration_s=num_future * iteration_duration_s,
-                    history_duration_s=history_iterations * iteration_duration_s,
-                    iteration_duration_s=iteration_duration_s,
+                    future_duration_s=num_future * effective_duration_s,
+                    history_duration_s=history_iterations * effective_duration_s,
+                    iteration_duration_s=effective_duration_s,
+                    target_iteration_stride=stride,
                 )
             )
 
@@ -203,8 +253,8 @@ def generate_scene_metadatas(
         # Mode B: With future duration — each scene has fixed future and history iteration counts.
         # Without UUIDs: sliding window.
         # With UUIDs: scenes start at each UUID position, but only if a full future can fit until the end of the log.
-        end_idx = num_log_iterations - future_iterations
-        step_idx = max(future_iterations, 1)
+        end_idx = num_log_iterations - future_iterations * stride
+        step_idx = max(future_iterations * stride, stride)
         scene_metadatas: List[SceneMetadata] = []
 
         if scene_uuid_indices is not None:
@@ -221,9 +271,10 @@ def generate_scene_metadatas(
                     initial_idx=idx,
                     num_future_iterations=future_iterations,
                     num_history_iterations=history_iterations,
-                    future_duration_s=future_iterations * iteration_duration_s,
-                    history_duration_s=history_iterations * iteration_duration_s,
-                    iteration_duration_s=iteration_duration_s,
+                    future_duration_s=future_iterations * effective_duration_s,
+                    history_duration_s=history_iterations * effective_duration_s,
+                    iteration_duration_s=effective_duration_s,
+                    target_iteration_stride=stride,
                 )
             )
 
@@ -285,17 +336,19 @@ def _scene_has_complete_modalities(
     sync_table: pa.Table,
     modality_keys: List[str],
 ) -> bool:
-    """Check that all requested modality columns have no null values in the scene's frame range.
+    """Check that all requested modality columns have no null values at the scene's strided frames.
 
     :param scene: The scene metadata.
     :param sync_table: The sync Arrow table.
     :param modality_keys: List of sync table column names to check.
-    :return: True if all modalities are complete (no nulls).
+    :return: True if all modalities are complete (no nulls at strided indices).
     """
-    start = scene.initial_idx - scene.num_history_iterations
-    length = scene.num_future_iterations + 1 + scene.num_history_iterations
+    stride = scene.target_iteration_stride
+    start = scene.initial_idx - scene.num_history_iterations * stride
+    end = scene.initial_idx + scene.num_future_iterations * stride + 1
     for key in modality_keys:
-        column_slice = sync_table.column(key).slice(start, length)
-        if column_slice.null_count > 0:
-            return False
+        column = sync_table.column(key)
+        for i in range(start, end, stride):
+            if column[i].as_py() is None:
+                return False
     return True

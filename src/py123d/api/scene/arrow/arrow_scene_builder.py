@@ -13,6 +13,7 @@ from py123d.api.scene.arrow.utils.scene_builder_utils import (
     generate_scene_metadatas,
     infer_iteration_duration_s,
     resolve_iteration_counts,
+    resolve_iteration_stride,
     resolve_scene_uuid_indices,
     scene_uuids_to_binary,
 )
@@ -24,7 +25,7 @@ from py123d.api.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.api.utils.arrow_metadata_utils import get_metadata_from_arrow_schema
 from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.execution import Executor
-from py123d.common.execution.utils import executor_map_queued
+from py123d.common.execution.utils import executor_map_chunked_list
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 
 logger = logging.getLogger(__name__)
@@ -64,17 +65,17 @@ class ArrowSceneBuilder(SceneBuilder):
         # Categories 2 & 3: Metadata filtering + scene generation (parallelized across logs)
         # Pre-convert scene UUIDs to binary once (shared across all executor workers)
         target_uuids_binary = scene_uuids_to_binary(filter.scene_uuids) if filter.scene_uuids is not None else None
-        scenes_scattered: List[List[SceneAPI]] = executor_map_queued(
+        scenes: List[SceneAPI] = executor_map_chunked_list(
             executor,
             partial(
-                _extract_scenes_from_log_dir,
+                _extract_scenes_from_log_dirs,
                 filter=filter,
                 maps_root=self._maps_root,
                 target_uuids_binary=target_uuids_binary,
             ),
             log_paths,
+            name="Scene extraction",
         )
-        scenes = [scene for scene_list in scenes_scattered for scene in scene_list]
 
         # Category 4: Post-filtering
         scenes = _apply_post_filters(scenes, filter)
@@ -119,6 +120,26 @@ def _discover_split_names(logs_root: Path, filter: SceneFilter) -> List[str]:
 
 
 # --- Categories 2 & 3: Per-log scene extraction ---
+
+
+def _extract_scenes_from_log_dirs(
+    log_dirs: List[Path],
+    filter: SceneFilter,
+    maps_root: Optional[Path],
+    target_uuids_binary: Optional[pa.Array] = None,
+) -> List[SceneAPI]:
+    """Extract scenes from multiple log directories (chunked batch wrapper).
+
+    :param log_dirs: List of log directory paths to process.
+    :param filter: The scene filter.
+    :param maps_root: Root directory for map files.
+    :param target_uuids_binary: Pre-converted binary(16) Arrow array of target UUIDs, or None.
+    :return: Combined list of SceneAPI objects from all logs.
+    """
+    scenes: List[SceneAPI] = []
+    for log_dir in log_dirs:
+        scenes.extend(_extract_scenes_from_log_dir(log_dir, filter, maps_root, target_uuids_binary))
+    return scenes
 
 
 def _extract_scenes_from_log_dir(
@@ -166,9 +187,12 @@ def _get_scene_metadatas_from_log(
     if not check_log_passes_metadata_filters(log_metadata, sync_table.column_names, filter):
         return []
 
-    # Infer iteration duration from sync timestamps
+    # Infer iteration duration and resolve stride
     iteration_duration_s = infer_iteration_duration_s(sync_table)
-    future_iterations, history_iterations = resolve_iteration_counts(filter, iteration_duration_s)
+    stride = resolve_iteration_stride(filter, iteration_duration_s)
+    if stride is None:
+        return []  # Log incompatible with requested stride — warning already logged
+    future_iterations, history_iterations = resolve_iteration_counts(filter, iteration_duration_s, stride)
 
     # Phase 2: Category 3a — UUID pre-filtering (skip full scan if UUIDs specified)
     scene_uuid_indices = None
@@ -185,6 +209,7 @@ def _get_scene_metadatas_from_log(
         history_iterations,
         iteration_duration_s,
         scene_uuid_indices,
+        stride,
     )
 
     # Phase 3: Category 3c — scene-level filtering

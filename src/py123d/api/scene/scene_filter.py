@@ -59,6 +59,11 @@ class SceneFilter:
     scene_uuids: Optional[List[str]] = None
     """List of scene UUIDs to include."""
 
+    target_iteration_duration_s: Optional[float] = None
+    """Desired duration per iteration in seconds. The system computes the stride
+    from the raw iteration duration (e.g., 0.5 yields stride=5 on a 10 Hz log).
+    Takes priority over target_iteration_stride if both are set."""
+
     future_duration_s: Optional[float] = None
     """Duration of each scene in seconds."""
 
@@ -68,14 +73,10 @@ class SceneFilter:
     timestamp_threshold_s: Optional[float] = None
     """Minimum time between the start timestamps of two consecutive scenes in seconds."""
 
-    # TODO: Implement in the future.
-    # iteration_stride: int = 1
-    # """Redefines the unit of one iteration by skipping every N raw log frames.
-    # A stride of 1 (default) uses the native log frequency.
-    # A stride of 5 on a 10 Hz log yields an effective 2 Hz iteration rate.
-    # Only affects fields expressed in iterations (future_num_iterations,
-    # history_num_iterations, iteration_threshold); duration-based fields
-    # (future_duration_s etc.) are unaffected."""
+    target_iteration_stride: Optional[int] = None
+    """Redefines the unit of one iteration by skipping every N raw log frames.
+    A stride of 5 on a 10 Hz log yields an effective 2 Hz iteration rate.
+    Ignored if target_iteration_duration_s is provided."""
 
     future_num_iterations: Optional[int] = None
     """Number of iterations in the future for each scene, ignored if future_duration_s is provided."""
@@ -139,6 +140,15 @@ class SceneFilter:
             self.scene_uuids = [convert_to_str_uuid(s) for s in self.scene_uuids]
         self.scene_uuids = _deduplicate_optional(self.scene_uuids)
         self.required_scene_modalities = _deduplicate_optional(self.required_scene_modalities)
+
+        if self.target_iteration_stride is not None and self.target_iteration_stride < 1:
+            raise ValueError(f"target_iteration_stride must be >= 1, got {self.target_iteration_stride}.")
+        if self.target_iteration_duration_s is not None and self.target_iteration_duration_s <= 0:
+            raise ValueError(f"target_iteration_duration_s must be > 0, got {self.target_iteration_duration_s}.")
+        if self.target_iteration_stride is not None and self.target_iteration_duration_s is not None:
+            logger.warning(
+                "Both target_iteration_stride and target_iteration_duration_s set; target_iteration_duration_s takes priority."
+            )
 
         if self.future_duration_s is not None and self.future_num_iterations is not None:
             logger.warning("Both future_duration_s and future_num_iterations set; future_duration_s takes priority.")
