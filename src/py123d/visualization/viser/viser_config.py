@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Literal, Optional, Tuple, Union
 
 from py123d.common.utils.enums import SerialIntEnum
+from py123d.datatypes.map_objects.map_layer_types import MapLayer
 from py123d.datatypes.sensors.base_camera import ALL_FISHEYE_MEI_CAMERA_IDS, ALL_PINHOLE_CAMERA_IDS, CameraID
 from py123d.datatypes.sensors.lidar import LidarID
 from py123d.visualization.color.color import ELLIS_5
@@ -47,6 +48,21 @@ class MapConfig:
     radius: float = 200.0
     non_road_z_offset: float = 0.1
     requery: bool = True
+    visible_layers: List[MapLayer] = field(
+        default_factory=lambda: [
+            MapLayer.LANE,
+            MapLayer.LANE_GROUP,
+            MapLayer.INTERSECTION,
+            MapLayer.WALKWAY,
+            MapLayer.CROSSWALK,
+            MapLayer.CARPARK,
+            MapLayer.GENERIC_DRIVABLE,
+            MapLayer.STOP_ZONE,
+        ]
+    )
+
+    def __post_init__(self):
+        self.visible_layers = _resolve_enum_arguments(MapLayer, self.visible_layers)
 
 
 @dataclass
@@ -86,11 +102,12 @@ class CameraGuiConfig:
 class LidarConfig:
     visible: bool = True
     ids: List[LidarID] = field(default_factory=lambda: [LidarID.LIDAR_MERGED])
-    point_size: float = 0.05
+    point_size: float = 0.03
     point_shape: Literal["square", "diamond", "circle", "rounded", "sparkle"] = "circle"
     point_color: Literal["none", "distance", "ids", "intensity", "channel", "timestamps", "range", "elongation"] = (
         "none"
     )
+    stride_step: int = 1
 
     def __post_init__(self):
         self.ids = _resolve_enum_arguments(LidarID, self.ids)

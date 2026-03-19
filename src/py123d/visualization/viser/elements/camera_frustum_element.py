@@ -23,6 +23,7 @@ class CameraFrustumElement(ViewerElement):
         self._gui_visible: Optional[viser.GuiCheckboxHandle] = None
         self._gui_scale: Optional[viser.GuiInputHandle] = None
         self._gui_image_scale: Optional[viser.GuiDropdownHandle] = None
+        self._gui_camera_checkboxes: Dict[CameraID, viser.GuiCheckboxHandle] = {}
         self._all_types: List[CameraID] = list(config.pinhole_types) + list(config.fisheye_types)
         self._fisheye_set = set(config.fisheye_types)
         self._current_iteration: int = 0
@@ -50,6 +51,16 @@ class CameraFrustumElement(ViewerElement):
         self._gui_scale.on_update(self._on_scale_changed)
         self._gui_image_scale.on_update(self._on_image_scale_changed)
 
+        available_ids = set(self._context.scene.available_camera_ids)
+        server.gui.add_markdown("**Cameras**")
+        for camera_id in self._all_types:
+            if camera_id not in available_ids:
+                continue
+            label = camera_id.serialize(lower=False)
+            cb = server.gui.add_checkbox(label, True)
+            cb.on_update(self._on_camera_visibility_changed)
+            self._gui_camera_checkboxes[camera_id] = cb
+
     def update(self, iteration: int) -> None:
         self._current_iteration = iteration
         if not self._gui_visible.value:
@@ -58,6 +69,10 @@ class CameraFrustumElement(ViewerElement):
         scene_center_pose = get_scene_center_pose(self._context.scene_center_array)
 
         def _update_frustum(camera_type: CameraID) -> None:
+            camera_cb = self._gui_camera_checkboxes.get(camera_type)
+            if camera_cb is not None and not camera_cb.value:
+                return
+
             camera = self._context.scene.get_camera_at_iteration(iteration, camera_type, scale=self._config.image_scale)
             if camera is None:
                 return
@@ -94,9 +109,17 @@ class CameraFrustumElement(ViewerElement):
             handle.remove()
         self._handles.clear()
 
+    def _sync_visibility(self) -> None:
+        master = self._gui_visible.value
+        for camera_id, handle in self._handles.items():
+            camera_cb = self._gui_camera_checkboxes.get(camera_id)
+            handle.visible = master and (camera_cb is None or camera_cb.value)
+
     def _on_visibility_changed(self, _) -> None:
-        for handle in self._handles.values():
-            handle.visible = self._gui_visible.value
+        self._sync_visibility()
+
+    def _on_camera_visibility_changed(self, _) -> None:
+        self._sync_visibility()
 
     def _on_scale_changed(self, _) -> None:
         self._config.scale = self._gui_scale.value

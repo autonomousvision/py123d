@@ -61,6 +61,11 @@ def _build_viser_server(config: ViserConfig) -> viser.ViserServer:
         show_share_button=config.theme.show_share_button,
         brand_color=config.theme.brand_color,
     )
+
+    server.scene.configure_environment_map(
+        hdri="warehouse",
+        environment_intensity=0.4,  # down from default 1.0
+    )
     return server
 
 

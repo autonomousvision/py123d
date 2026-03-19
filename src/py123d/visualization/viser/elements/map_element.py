@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 import trimesh
@@ -17,6 +17,17 @@ from py123d.visualization.viser.viser_config import MapConfig
 
 logger = logging.getLogger(__name__)
 
+_MAP_DISPLAY_LAYERS: List[MapLayer] = [
+    MapLayer.LANE,
+    MapLayer.LANE_GROUP,
+    MapLayer.INTERSECTION,
+    MapLayer.WALKWAY,
+    MapLayer.CROSSWALK,
+    MapLayer.CARPARK,
+    MapLayer.GENERIC_DRIVABLE,
+    MapLayer.STOP_ZONE,
+]
+
 
 class MapElement(ViewerElement):
     """Visualizes map layers (lanes, crosswalks, etc.) in the 3D scene."""
@@ -30,6 +41,7 @@ class MapElement(ViewerElement):
         self._force_update: bool = False
         self._gui_visible: Optional[viser.GuiCheckboxHandle] = None
         self._gui_radius: Optional[viser.GuiSliderHandle] = None
+        self._gui_layer_checkboxes: Dict[MapLayer, viser.GuiCheckboxHandle] = {}
 
     @property
     def name(self) -> str:
@@ -46,6 +58,14 @@ class MapElement(ViewerElement):
         self._gui_visible.on_update(self._on_visibility_changed)
         self._gui_radius.on_update(self._on_radius_changed)
         gui_radius_options.on_click(self._on_radius_preset_clicked)
+
+        server.gui.add_markdown("**Layers**")
+        for layer in _MAP_DISPLAY_LAYERS:
+            label = layer.serialize(lower=False).replace("_", " ").title()
+            checked = layer in self._config.visible_layers
+            cb = server.gui.add_checkbox(label, checked)
+            cb.on_update(self._on_layer_visibility_changed)
+            self._gui_layer_checkboxes[layer] = cb
 
     def update(self, iteration: int) -> None:
         if not self._gui_visible.value:
@@ -81,10 +101,12 @@ class MapElement(ViewerElement):
 
         if map_trimesh_dict is not None:
             for map_layer, mesh in map_trimesh_dict.items():
+                layer_cb = self._gui_layer_checkboxes.get(map_layer)
+                is_visible = self._gui_visible.value and (layer_cb is None or layer_cb.value)
                 self._handles[map_layer] = self._server.scene.add_mesh_trimesh(
                     f"/map/{map_layer.serialize()}",
                     mesh,
-                    visible=True,
+                    visible=is_visible,
                 )
 
     def remove(self) -> None:
@@ -93,9 +115,17 @@ class MapElement(ViewerElement):
         self._handles.clear()
         self._last_query_position = None
 
+    def _sync_visibility(self) -> None:
+        master = self._gui_visible.value
+        for layer, handle in self._handles.items():
+            layer_cb = self._gui_layer_checkboxes.get(layer)
+            handle.visible = master and (layer_cb is None or layer_cb.value)
+
     def _on_visibility_changed(self, _) -> None:
-        for handle in self._handles.values():
-            handle.visible = self._gui_visible.value
+        self._sync_visibility()
+
+    def _on_layer_visibility_changed(self, _) -> None:
+        self._sync_visibility()
 
     def _on_radius_changed(self, _) -> None:
         self._config.radius = self._gui_radius.value

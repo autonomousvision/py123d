@@ -26,6 +26,7 @@ class LidarElement(ViewerElement):
         self._gui_coloring: Optional[viser.GuiDropdownHandle] = None
         self._gui_lidar_id: Optional[viser.GuiDropdownHandle] = None
         self._gui_point_size: Optional[viser.GuiInputHandle] = None
+        self._gui_stride_step: Optional[viser.GuiInputHandle] = None
         self._current_iteration: int = 0
 
     @property
@@ -51,16 +52,25 @@ class LidarElement(ViewerElement):
 
         self._gui_point_size = server.gui.add_slider(
             "Point Size",
-            min=0.01,
-            max=0.5,
-            step=0.01,
+            min=0.001,
+            max=0.2,
+            step=0.001,
             initial_value=self._config.point_size,
+        )
+
+        self._gui_stride_step = server.gui.add_slider(
+            "Stride Step",
+            min=1,
+            max=10,
+            step=1,
+            initial_value=self._config.stride_step,
         )
 
         self._gui_visible.on_update(self._on_visibility_changed)
         self._gui_coloring.on_update(self._on_coloring_changed)
         self._gui_lidar_id.on_update(self._on_lidar_id_changed)
         self._gui_point_size.on_update(self._on_point_size_changed)
+        self._gui_stride_step.on_update(self._on_stride_step_changed)
 
     def update(self, iteration: int) -> None:
         self._current_iteration = iteration
@@ -84,6 +94,8 @@ class LidarElement(ViewerElement):
         else:
             points = np.zeros((0, 3), dtype=np.float32)
             colors = np.zeros((0, 3), dtype=np.uint8)
+
+        points, colors = self._downsample(points, colors)
 
         if self._handles[active_id] is not None:
             self._handles[active_id].points = points
@@ -122,3 +134,13 @@ class LidarElement(ViewerElement):
         for handle in self._handles.values():
             if handle is not None:
                 handle.point_size = self._gui_point_size.value
+
+    def _on_stride_step_changed(self, _) -> None:
+        self._config.stride_step = self._gui_stride_step.value
+        self.update(self._current_iteration)
+
+    def _downsample(self, points: np.ndarray, colors: np.ndarray) -> tuple:
+        if len(points) == 0 or self._config.stride_step <= 1:
+            return points, colors
+        step = self._config.stride_step
+        return points[::step], colors[::step]
