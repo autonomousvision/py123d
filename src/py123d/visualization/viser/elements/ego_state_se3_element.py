@@ -94,20 +94,23 @@ class EgoElement(ViewerElement):
                 mesh.visual.vertex_colors = vertex_colors  # type: ignore
                 mesh.visual.material = trimesh.visual.material.PBRMaterial(alphaMode="BLEND")  # type: ignore
                 self._handles["mesh"] = self._server.scene.add_mesh_trimesh(
-                    "ego_mesh", mesh=mesh, visible=True, cast_shadow=False
+                    "ego_mesh",
+                    mesh=mesh,
+                    visible=True,
+                    cast_shadow=False,
                 )
                 visible_handle_keys.append("mesh")
 
             if display_type in {"lines", "mesh+lines"}:
-                box_outlines = corners_array_to_edge_lines(box_corners_array)
-                box_colors = np.zeros(box_outlines.shape, dtype=np.float32)
-                box_colors[0, ...] = BOX_DETECTION_CONFIG[DefaultBoxDetectionLabel.EGO].fill_color.rgb_norm
-                box_outlines = box_outlines.reshape(-1, *box_outlines.shape[2:])
-                box_colors = box_colors.reshape(-1, *box_colors.shape[2:])
+                box_outlines = corners_array_to_edge_lines(box_corners_array).reshape(-1, 2, 3)
+                colors = np.broadcast_to(
+                    np.array(BOX_DETECTION_CONFIG[DefaultBoxDetectionLabel.EGO].fill_color.rgb),
+                    (len(box_outlines), 2, 3),
+                )
                 self._handles["lines"] = self._server.scene.add_line_segments(
                     "ego_lines",
                     points=box_outlines,
-                    colors=box_colors,
+                    colors=colors,
                     line_width=self._config.line_width,
                     visible=True,
                 )

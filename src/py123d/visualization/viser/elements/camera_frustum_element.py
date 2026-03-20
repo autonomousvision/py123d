@@ -30,6 +30,7 @@ class CameraFrustumElement(ViewerElement):
     def __init__(self, context: ElementContext, config: CameraFrustumConfig) -> None:
         self._context = context
         self._config = config
+        self._dark_mode: bool = context.dark_mode
         self._server: Optional[viser.ViserServer] = None
         self._frustum_handles: Dict[CameraID, viser.CameraFrustumHandle] = {}
         self._frame_handles: Dict[CameraID, viser.FrameHandle] = {}
