@@ -58,7 +58,7 @@ class PlaybackController:
         num_frames = self._context.num_frames
 
         with self._server.gui.add_folder("Playback"):
-            self._server.gui.add_markdown(content=_get_scene_info_markdown(scene))
+            # self._server.gui.add_markdown(content=_get_scene_info_markdown(scene))
 
             self._gui_timestep = self._server.gui.add_slider(
                 "Timestep", min=0, max=num_frames - 1, step=1, initial_value=0, disabled=True
@@ -123,11 +123,11 @@ class PlaybackController:
         self._should_stop = True
 
 
-def _get_scene_info_markdown(scene: SceneAPI) -> str:
-    markdown = f"""
-    - Dataset: {scene.log_metadata.split}
-    - Location: {scene.log_metadata.location if scene.log_metadata.location else "N/A"}
-    - Log: {scene.log_metadata.log_name}
-    - UUID: {scene.scene_uuid}
-    """
-    return markdown
+# def _get_scene_info_markdown(scene: SceneAPI) -> str:
+#     markdown = f"""
+#     - Dataset: {scene.log_metadata.split}
+#     - Location: {scene.log_metadata.location if scene.log_metadata.location else "N/A"}
+#     - Log: {scene.log_metadata.log_name}
+#     - UUID: {scene.scene_uuid}
+#     """
+#     return markdown

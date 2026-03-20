@@ -174,12 +174,7 @@ class ViserViewer:
             manager.register(LidarElement(context, self._config.lidar))
 
         # Single camera frustum element handles both pinhole and fisheye
-        all_camera_types = list(self._config.camera_frustum.pinhole_types) + list(
-            self._config.camera_frustum.fisheye_types
-        )
-        available_camera_types = set(all_camera_types) & set(scene.available_camera_ids)
-        if len(available_camera_types) > 0:
-            manager.register(CameraFrustumElement(context, self._config.camera_frustum))
+        manager.register(CameraFrustumElement(context, self._config.camera_frustum))
 
         if len(scene.available_camera_ids) > 0:
             manager.register(CameraGuiElement(context, self._config.camera_gui))

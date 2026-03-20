@@ -49,13 +49,6 @@ viser_config:
     type: "mesh+lines" # ["mesh", "lines"]
     line_width: 4.0
 
-  camera_frustum:
-    visible: true
-    # pinhole_types: null  # Loads all pinhole cameras by default
-    # fisheye_types: null  # Loads all fisheye cameras by default
-    scale: 1.0
-    image_scale: 4
-    fisheye_fov: 185.0
 
   camera_gui:
     visible: true

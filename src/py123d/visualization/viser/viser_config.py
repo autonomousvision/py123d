@@ -18,6 +18,9 @@ def _resolve_enum_arguments(
     return [serial_enum_cls.from_arbitrary(value) for value in input]
 
 
+CONTRAST_COLOR = (255, 255, 255)
+
+
 @dataclass
 class ServerConfig:
     host: str = "localhost"
@@ -66,16 +69,12 @@ class DetectionConfig:
 @dataclass
 class CameraFrustumConfig:
     visible: bool = True
-    pinhole_types: List[CameraID] = field(default_factory=lambda: ALL_PINHOLE_CAMERA_IDS.copy())
-    fisheye_types: List[CameraID] = field(default_factory=lambda: ALL_FISHEYE_MEI_CAMERA_IDS.copy())
-    scale: float = 1.0
+    frustum_scale: float = 1.0
     image_scale: int = 4
     fisheye_fov: float = 185.0
-
-    def __post_init__(self):
-        self.pinhole_types = _resolve_enum_arguments(CameraID, self.pinhole_types)
-        self.fisheye_types = _resolve_enum_arguments(CameraID, self.fisheye_types)
-        self.image_scale = int(self.image_scale)
+    visible_camera_ids: List[CameraID] = field(
+        default_factory=lambda: ALL_PINHOLE_CAMERA_IDS + ALL_FISHEYE_MEI_CAMERA_IDS
+    )
 
 
 @dataclass

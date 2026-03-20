@@ -20,11 +20,13 @@ class ElementManager:
 
     def create_all_gui(self, server: viser.ViserServer) -> None:
         """Create a tab group with one tab per registered element."""
-        tab_group = server.gui.add_tab_group()
-        for element in self._elements:
-            tab = tab_group.add_tab(element.name)
-            with tab:
-                element.create_gui(server)
+        folder = server.gui.add_folder("Modalities", expand_by_default=True)
+        with folder:
+            tab_group = server.gui.add_tab_group()
+            for element in self._elements:
+                tab = tab_group.add_tab(element.name)
+                with tab:
+                    element.create_gui(server)
 
     def update_all(self, iteration: int) -> None:
         """Update all registered elements for the given iteration."""

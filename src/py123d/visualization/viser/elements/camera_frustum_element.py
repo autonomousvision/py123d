@@ -1,6 +1,5 @@
-import concurrent.futures
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import viser
 
@@ -19,13 +18,11 @@ class CameraFrustumElement(ViewerElement):
         self._context = context
         self._config = config
         self._server: Optional[viser.ViserServer] = None
-        self._handles: Dict[CameraID, viser.CameraFrustumHandle] = {}
-        self._gui_visible: Optional[viser.GuiCheckboxHandle] = None
-        self._gui_scale: Optional[viser.GuiInputHandle] = None
-        self._gui_image_scale: Optional[viser.GuiDropdownHandle] = None
+        self._frustum_handles: Dict[CameraID, viser.CameraFrustumHandle] = {}
+        self._gui_checkbox_handle: Optional[viser.GuiCheckboxHandle] = None
+        self._gui_frustum_scale_handle: Optional[viser.GuiInputHandle] = None
+        self._gui_image_scale_handle: Optional[viser.GuiDropdownHandle] = None
         self._gui_camera_checkboxes: Dict[CameraID, viser.GuiCheckboxHandle] = {}
-        self._all_types: List[CameraID] = list(config.pinhole_types) + list(config.fisheye_types)
-        self._fisheye_set = set(config.fisheye_types)
         self._current_iteration: int = 0
 
     @property
@@ -34,36 +31,43 @@ class CameraFrustumElement(ViewerElement):
 
     def create_gui(self, server: viser.ViserServer) -> None:
         self._server = server
-        self._gui_visible = server.gui.add_checkbox("Visible", self._config.visible)
-        self._gui_scale = server.gui.add_slider(
+        self._gui_checkbox_handle = server.gui.add_checkbox("Visible", self._config.visible)
+        self._gui_frustum_scale_handle = server.gui.add_slider(
             "Frustum Scale",
             min=0.1,
             max=5.0,
             step=0.1,
-            initial_value=self._config.scale,
+            initial_value=self._config.frustum_scale,
         )
-        self._gui_image_scale = server.gui.add_dropdown(
+        self._gui_image_scale_handle = server.gui.add_dropdown(
             "Image Scale",
-            ("1", "2", "4", "8"),
+            (
+                "1",
+                "2",
+                "4",
+                "8",
+            ),
             initial_value=str(self._config.image_scale),
         )
-        self._gui_visible.on_update(self._on_visibility_changed)
-        self._gui_scale.on_update(self._on_scale_changed)
-        self._gui_image_scale.on_update(self._on_image_scale_changed)
+        self._gui_checkbox_handle.on_update(self._on_visibility_changed)
+        self._gui_frustum_scale_handle.on_update(self._on_frustum_scale_changed)
+        self._gui_image_scale_handle.on_update(self._on_image_scale_changed)
 
         available_ids = set(self._context.scene.available_camera_ids)
         server.gui.add_markdown("**Cameras**")
-        for camera_id in self._all_types:
-            if camera_id not in available_ids:
-                continue
+        for camera_id in available_ids:
             label = camera_id.serialize(lower=False)
-            cb = server.gui.add_checkbox(label, True)
+            initially_visible = camera_id in self._config.visible_camera_ids
+            cb = server.gui.add_checkbox(label, initially_visible)
             cb.on_update(self._on_camera_visibility_changed)
             self._gui_camera_checkboxes[camera_id] = cb
 
     def update(self, iteration: int) -> None:
+        assert self._server is not None
+        assert self._gui_checkbox_handle is not None
+
         self._current_iteration = iteration
-        if not self._gui_visible.value:
+        if not self._gui_checkbox_handle.value:
             return
 
         scene_center_pose = get_scene_center_pose(self._context.scene_center_array)
@@ -83,16 +87,16 @@ class CameraFrustumElement(ViewerElement):
             is_fisheye = camera.metadata.camera_model == CameraModel.FISHEYE_MEI
             fov = self._config.fisheye_fov if is_fisheye else camera.metadata.fov_y
 
-            if camera_type in self._handles:
-                self._handles[camera_type].position = camera_position
-                self._handles[camera_type].wxyz = camera_quaternion
-                self._handles[camera_type].image = camera.image
+            if camera_type in self._frustum_handles:
+                self._frustum_handles[camera_type].position = camera_position
+                self._frustum_handles[camera_type].wxyz = camera_quaternion
+                self._frustum_handles[camera_type].image = camera.image
             else:
-                self._handles[camera_type] = self._server.scene.add_camera_frustum(
+                self._frustum_handles[camera_type] = self._server.scene.add_camera_frustum(
                     f"camera_frustums/{camera_type.serialize()}",
                     fov=fov,
                     aspect=camera.metadata.aspect_ratio,
-                    scale=self._config.scale,
+                    scale=self._config.frustum_scale,
                     image=camera.image,
                     position=camera_position,
                     cast_shadow=False,
@@ -100,37 +104,45 @@ class CameraFrustumElement(ViewerElement):
                     wxyz=camera_quaternion,
                 )
 
-        if len(self._all_types) > 0:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=len(self._all_types)) as executor:
-                futures = {executor.submit(_update_frustum, ct): ct for ct in self._all_types}
-                for future in concurrent.futures.as_completed(futures):
-                    future.result()
+        for camera_id, cb in self._gui_camera_checkboxes.items():
+            if cb.value:
+                _update_frustum(camera_id)
 
     def remove(self) -> None:
-        for handle in self._handles.values():
+        for handle in self._frustum_handles.values():
             handle.remove()
-        self._handles.clear()
+        self._frustum_handles.clear()
+
+    def _sync_config_visible_camera_ids(self) -> None:
+        """Update config.visible_camera_ids to match current GUI checkbox state."""
+        self._config.visible_camera_ids = [
+            camera_id for camera_id, cb in self._gui_camera_checkboxes.items() if cb.value
+        ]
 
     def _sync_visibility(self) -> None:
-        master = self._gui_visible.value
-        for camera_id, handle in self._handles.items():
+        assert self._gui_checkbox_handle is not None
+        master = self._gui_checkbox_handle.value
+        for camera_id, handle in self._frustum_handles.items():
             camera_cb = self._gui_camera_checkboxes.get(camera_id)
             handle.visible = master and (camera_cb is None or camera_cb.value)
 
     def _on_visibility_changed(self, _) -> None:
+        assert self._gui_checkbox_handle is not None
+        self._config.visible = self._gui_checkbox_handle.value
         self._sync_visibility()
 
     def _on_camera_visibility_changed(self, _) -> None:
+        self._sync_config_visible_camera_ids()
         self._sync_visibility()
 
-    def _on_scale_changed(self, _) -> None:
-        self._config.scale = self._gui_scale.value
-        # Frustum scale can't be updated in-place; remove and re-create
+    def _on_frustum_scale_changed(self, _) -> None:
+        assert self._gui_frustum_scale_handle is not None
+        self._config.frustum_scale = self._gui_frustum_scale_handle.value
         self.remove()
         self.update(self._current_iteration)
 
     def _on_image_scale_changed(self, _) -> None:
-        self._config.image_scale = int(self._gui_image_scale.value)
-        # Remove and re-create to reload images at new resolution
+        assert self._gui_image_scale_handle is not None
+        self._config.image_scale = int(self._gui_image_scale_handle.value)
         self.remove()
         self.update(self._current_iteration)
