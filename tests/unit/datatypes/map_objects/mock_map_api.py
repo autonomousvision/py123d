@@ -92,6 +92,10 @@ class MockMapAPI(MapAPI):
         for obj in target_layer:
             yield obj
 
+    def get_all_map_objects_in_layers(self, layers: List[MapLayer]) -> Iterator[BaseMapObject]:
+        for layer in layers:
+            yield from self.get_all_map_objects_in_layer(layer)
+
     def get_map_objects_in_radius(
         self,
         point: Union[Point2D, Point3D],

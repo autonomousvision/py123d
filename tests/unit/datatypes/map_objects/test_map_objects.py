@@ -941,3 +941,54 @@ class TestRoadLine:
         for line_type in RoadLineType:
             road_line = RoadLine(object_id=6, road_line_type=line_type, polyline=polyline)
             assert road_line.road_line_type == line_type
+
+
+class TestMockMapAPI:
+    def setup_method(self):
+        lanes, lane_groups, intersections = _get_linked_map_object_setup()
+        self.lanes = lanes
+        self.lane_groups = lane_groups
+        self.intersections = intersections
+        self.map_api = MockMapAPI(
+            lanes=self.lanes,
+            lane_groups=self.lane_groups,
+            intersections=self.intersections,
+        )
+
+    def test_get_all_map_objects_in_layer(self):
+        """Test that get_all_map_objects_in_layer returns all objects for a given layer."""
+        lane_objects = list(self.map_api.get_all_map_objects_in_layer(MapLayer.LANE))
+        assert len(lane_objects) == len(self.lanes)
+        for lane, expected in zip(lane_objects, self.lanes):
+            assert lane.object_id == expected.object_id
+
+    def test_get_all_map_objects_in_layer_empty(self):
+        """Test that get_all_map_objects_in_layer returns empty iterator for unpopulated layer."""
+        road_edges = list(self.map_api.get_all_map_objects_in_layer(MapLayer.ROAD_EDGE))
+        assert len(road_edges) == 0
+
+    def test_get_all_map_objects_in_layers_single(self):
+        """Test get_all_map_objects_in_layers with a single layer."""
+        objects = list(self.map_api.get_all_map_objects_in_layers([MapLayer.LANE]))
+        assert len(objects) == len(self.lanes)
+
+    def test_get_all_map_objects_in_layers_multiple(self):
+        """Test get_all_map_objects_in_layers with multiple layers."""
+        objects = list(self.map_api.get_all_map_objects_in_layers([MapLayer.LANE, MapLayer.LANE_GROUP]))
+        assert len(objects) == len(self.lanes) + len(self.lane_groups)
+
+    def test_get_all_map_objects_in_layers_preserves_order(self):
+        """Test that objects are yielded in layer order."""
+        objects = list(self.map_api.get_all_map_objects_in_layers([MapLayer.LANE_GROUP, MapLayer.INTERSECTION]))
+        expected_ids = [lg.object_id for lg in self.lane_groups] + [i.object_id for i in self.intersections]
+        assert [obj.object_id for obj in objects] == expected_ids
+
+    def test_get_all_map_objects_in_layers_empty_list(self):
+        """Test get_all_map_objects_in_layers with empty layer list."""
+        objects = list(self.map_api.get_all_map_objects_in_layers([]))
+        assert len(objects) == 0
+
+    def test_get_all_map_objects_in_layers_with_empty_layers(self):
+        """Test get_all_map_objects_in_layers when some requested layers have no objects."""
+        objects = list(self.map_api.get_all_map_objects_in_layers([MapLayer.LANE, MapLayer.ROAD_EDGE]))
+        assert len(objects) == len(self.lanes)
