@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Union
 
 import numpy as np
 import trimesh
+import trimesh.visual.material
 import viser
 
 from py123d.api.scene.scene_api import SceneAPI
@@ -34,6 +35,7 @@ class DetectionElement(ViewerElement):
         }
         self._gui_visible: Optional[viser.GuiCheckboxHandle] = None
         self._gui_type: Optional[viser.GuiDropdownHandle] = None
+        self._gui_opacity: Optional[viser.GuiSliderHandle] = None
         self._current_iteration: int = 0
 
     @property
@@ -43,25 +45,40 @@ class DetectionElement(ViewerElement):
     def create_gui(self, server: viser.ViserServer) -> None:
         self._server = server
         self._gui_visible = server.gui.add_checkbox("Visible", self._config.visible)
-        self._gui_type = server.gui.add_dropdown("Type", ("mesh", "lines"), initial_value=self._config.type)
+        self._gui_type = server.gui.add_dropdown(
+            "Type", ("mesh", "lines", "mesh+lines"), initial_value=self._config.type
+        )
+        self._gui_opacity = server.gui.add_slider(
+            "Opacity", min=0.0, max=1.0, step=0.05, initial_value=self._config.opacity
+        )
         self._gui_visible.on_update(self._on_visibility_changed)
         self._gui_type.on_update(self._on_type_changed)
+        self._gui_opacity.on_update(self._on_opacity_changed)
 
     def update(self, iteration: int) -> None:
         self._current_iteration = iteration
         visible_handle_keys: List[str] = []
+        display_type = self._gui_type.value
 
         if self._gui_visible.value:
-            if self._gui_type.value == "mesh":
-                mesh = _get_bounding_box_meshes(self._context.scene, iteration, self._context.initial_ego_state)
-                self._handles["mesh"] = self._server.scene.add_mesh_trimesh("box_detections", mesh=mesh, visible=True)
+            if display_type in {"mesh", "mesh+lines"}:
+                opacity = self._gui_opacity.value
+                mesh = _get_bounding_box_meshes(
+                    self._context.scene, iteration, self._context.initial_ego_state, opacity=opacity
+                )
+                self._handles["mesh"] = self._server.scene.add_mesh_trimesh(
+                    "box_detections_mesh",
+                    mesh=mesh,
+                    visible=True,
+                    cast_shadow=False,
+                )
                 visible_handle_keys.append("mesh")
-            elif self._gui_type.value == "lines":
+            if display_type in {"lines", "mesh+lines"}:
                 lines, colors, _ = _get_bounding_box_outlines(
                     self._context.scene, iteration, self._context.initial_ego_state
                 )
                 self._handles["lines"] = self._server.scene.add_line_segments(
-                    "box_detections",
+                    "box_detections_lines",
                     points=lines,
                     colors=colors,
                     line_width=self._config.line_width,
@@ -91,8 +108,14 @@ class DetectionElement(ViewerElement):
         self._config.type = self._gui_type.value
         self.update(self._current_iteration)
 
+    def _on_opacity_changed(self, _) -> None:
+        self._config.opacity = self._gui_opacity.value
+        self.update(self._current_iteration)
 
-def _get_bounding_box_meshes(scene: SceneAPI, iteration: int, initial_ego_state: EgoStateSE3) -> trimesh.Trimesh:
+
+def _get_bounding_box_meshes(
+    scene: SceneAPI, iteration: int, initial_ego_state: EgoStateSE3, opacity: float = 1.0
+) -> trimesh.Trimesh:
     ego_vehicle_state = scene.get_ego_state_se3_at_iteration(iteration)
     box_detections = scene.get_box_detections_se3_at_iteration(iteration)
 
@@ -109,15 +132,18 @@ def _get_bounding_box_meshes(scene: SceneAPI, iteration: int, initial_ego_state:
     box_corners_array = bbse3_array_to_corners_array(box_se3_array)
     box_vertices, box_faces = corners_array_to_3d_mesh(box_corners_array)
 
+    alpha = int(np.clip(opacity * 255, 0, 255))
     box_colors = []
     for box_label in boxes_labels:
-        box_colors.append(BOX_DETECTION_CONFIG[box_label].fill_color.rgba)
+        r, g, b, _ = BOX_DETECTION_CONFIG[box_label].fill_color.rgba
+        box_colors.append((r, g, b, alpha))
 
     box_colors = np.array(box_colors)
     vertex_colors = np.repeat(box_colors, len(Corners3DIndex), axis=0)
 
     mesh = trimesh.Trimesh(vertices=box_vertices, faces=box_faces)
     mesh.visual.vertex_colors = vertex_colors
+    mesh.visual.material = trimesh.visual.material.PBRMaterial(alphaMode="BLEND")
 
     return mesh
 

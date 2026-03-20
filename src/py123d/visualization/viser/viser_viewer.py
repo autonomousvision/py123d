@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Literal
 
 import viser
 from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
@@ -18,15 +18,21 @@ from py123d.visualization.viser.viser_config import ViserConfig
 
 logger = logging.getLogger(__name__)
 
+HDRI: Literal[
+    "apartment",
+    "city",
+    "dawn",
+    "forest",
+    "lobby",
+    "night",
+    "park",
+    "studio",
+    "sunset",
+    "warehouse",
+] = "studio"
 
-def _build_viser_server(config: ViserConfig) -> viser.ViserServer:
-    server = viser.ViserServer(
-        host=config.server.host,
-        port=config.server.port,
-        label=config.server.label,
-        verbose=config.server.verbose,
-    )
 
+def _build_titlebar() -> TitlebarConfig:
     buttons = (
         TitlebarButton(
             text="Getting Started",
@@ -50,7 +56,18 @@ def _build_viser_server(config: ViserConfig) -> viser.ViserServer:
         image_alt="123D",
         href="https://autonomousvision.github.io/py123d/",
     )
-    titlebar_theme = TitlebarConfig(buttons=buttons, image=image)
+    return TitlebarConfig(buttons=buttons, image=image)
+
+
+def _build_viser_server(config: ViserConfig) -> viser.ViserServer:
+    server = viser.ViserServer(
+        host=config.server.host,
+        port=config.server.port,
+        label=config.server.label,
+        verbose=config.server.verbose,
+    )
+
+    titlebar_theme = _build_titlebar()
 
     server.gui.configure_theme(
         titlebar_content=titlebar_theme,
@@ -63,10 +80,10 @@ def _build_viser_server(config: ViserConfig) -> viser.ViserServer:
     )
 
     server.scene.configure_environment_map(
-        hdri="warehouse",
-        environment_intensity=0.4,  # down from default 1.0
+        hdri=HDRI,
+        environment_intensity=0.25,  # down from default 1.0
     )
-    return server
+    return server, titlebar_theme
 
 
 class ViserViewer:
@@ -84,7 +101,9 @@ class ViserViewer:
         self._scenes = scenes
         self._config = viser_config
         self._scene_index = scene_index
-        self._server = _build_viser_server(self._config)
+        self._server, self._titlebar = _build_viser_server(self._config)
+        self._dark_mode = self._config.theme.dark_mode
+        self._environment_intensity = 0.25
         self._run_scene(self._scenes[self._scene_index % len(self._scenes)])
 
     def _run_scene(self, scene: SceneAPI) -> None:
@@ -98,10 +117,17 @@ class ViserViewer:
         playback = PlaybackController(self._server, self._config.playback, context)
         render = RenderController(self._server, context, playback)
 
-        # Create GUI in order: Playback -> Modality Tabs -> Render
+        # Create GUI in order: Playback -> Modality Tabs -> Render -> Settings
         playback.create_gui(scene)
         element_manager.create_all_gui(self._server)
         render.create_gui()
+        self._create_settings_gui()
+
+        # Re-apply persisted environment intensity (scene.reset() clears it)
+        self._server.scene.configure_environment_map(
+            hdri=HDRI,
+            environment_intensity=self._environment_intensity,
+        )
 
         # Wire iteration callback
         playback.set_on_iteration_changed(element_manager.update_all)
@@ -119,6 +145,25 @@ class ViserViewer:
         self._server.scene.reset()
         self._scene_index = (self._scene_index + 1) % len(self._scenes)
         self._run_scene(self._scenes[self._scene_index])
+
+    def _create_settings_gui(self) -> None:
+        """Create the Settings folder with dark mode toggle."""
+        theme = self._config.theme
+        with self._server.gui.add_folder("Settings", expand_by_default=False):
+            gui_dark_mode = self._server.gui.add_checkbox("Dark Mode", initial_value=self._dark_mode)
+
+            @gui_dark_mode.on_update
+            def _on_dark_mode_changed(_: viser.GuiEvent) -> None:
+                self._dark_mode = gui_dark_mode.value
+                self._server.gui.configure_theme(
+                    titlebar_content=self._titlebar,
+                    control_layout=theme.control_layout,
+                    control_width=theme.control_width,
+                    dark_mode=gui_dark_mode.value,
+                    show_logo=theme.show_logo,
+                    show_share_button=theme.show_share_button,
+                    brand_color=theme.brand_color,
+                )
 
     def _build_elements(self, context: ElementContext) -> ElementManager:
         """Conditionally register elements based on what the scene supports."""

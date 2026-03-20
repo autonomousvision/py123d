@@ -95,6 +95,8 @@ class CameraFrustumElement(ViewerElement):
                     scale=self._config.scale,
                     image=camera.image,
                     position=camera_position,
+                    cast_shadow=False,
+                    receive_shadow=False,
                     wxyz=camera_quaternion,
                 )
 

@@ -33,7 +33,7 @@ class ThemeConfig:
     dark_mode: bool = False
     show_logo: bool = True
     show_share_button: bool = True
-    brand_color: Optional[Tuple[int, int, int]] = ELLIS_5[4].rgb
+    brand_color: Optional[Tuple[int, int, int]] = ELLIS_5[0].rgb
 
 
 @dataclass
@@ -47,19 +47,9 @@ class MapConfig:
     visible: bool = True
     radius: float = 200.0
     non_road_z_offset: float = 0.1
+    opacity: float = 1.0
     requery: bool = True
-    visible_layers: List[MapLayer] = field(
-        default_factory=lambda: [
-            MapLayer.LANE,
-            MapLayer.LANE_GROUP,
-            MapLayer.INTERSECTION,
-            MapLayer.WALKWAY,
-            MapLayer.CROSSWALK,
-            MapLayer.CARPARK,
-            MapLayer.GENERIC_DRIVABLE,
-            MapLayer.STOP_ZONE,
-        ]
-    )
+    visible_layers: List[MapLayer] = field(default_factory=lambda: [])
 
     def __post_init__(self):
         self.visible_layers = _resolve_enum_arguments(MapLayer, self.visible_layers)
@@ -68,8 +58,9 @@ class MapConfig:
 @dataclass
 class DetectionConfig:
     visible: bool = True
-    type: Literal["mesh", "lines"] = "mesh"
+    type: Literal["mesh", "lines", "mesh+lines"] = "mesh+lines"
     line_width: float = 4.0
+    opacity: float = 0.5
 
 
 @dataclass

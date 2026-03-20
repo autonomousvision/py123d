@@ -30,7 +30,7 @@ viser_config:
   theme:
     control_layout: "collapsible" # ["floating", "collapsible", "fixed"]
     control_width: "large" # ["small", "medium", "large"]
-    dark_mode: false
+    dark_mode: true
     show_logo: true
     show_share_button: true
 
@@ -46,7 +46,7 @@ viser_config:
 
   detection:
     visible: true
-    type: "mesh" # ["mesh", "lines"]
+    type: "mesh+lines" # ["mesh", "lines"]
     line_width: 4.0
 
   camera_frustum:

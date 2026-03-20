@@ -1,17 +1,17 @@
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import trimesh
 import viser
 
 from py123d.api import SceneAPI
-from py123d.datatypes.map_objects.base_map_objects import BaseMapSurfaceObject
+from py123d.datatypes.map_objects.base_map_objects import BaseMapLineObject, BaseMapSurfaceObject
 from py123d.datatypes.map_objects.map_layer_types import MapLayer, StopZoneType
-from py123d.datatypes.map_objects.map_objects import StopZone
+from py123d.datatypes.map_objects.map_objects import Lane, StopZone
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import Point3D, Point3DIndex
-from py123d.visualization.color.default import MAP_SURFACE_CONFIG
+from py123d.visualization.color.default import CENTERLINE_CONFIG, MAP_SURFACE_CONFIG
 from py123d.visualization.viser.elements.base_element import ElementContext, ViewerElement
 from py123d.visualization.viser.viser_config import MapConfig
 
@@ -28,6 +28,10 @@ _MAP_DISPLAY_LAYERS: List[MapLayer] = [
     MapLayer.STOP_ZONE,
 ]
 
+_ROAD_EDGE_COLOR: Tuple[int, int, int] = (200, 200, 200)
+_CENTERLINE_COLOR: Tuple[int, int, int] = CENTERLINE_CONFIG.line_color.rgb
+_LINE_Z_OFFSET: float = 0.15
+
 
 class MapElement(ViewerElement):
     """Visualizes map layers (lanes, crosswalks, etc.) in the 3D scene."""
@@ -36,12 +40,16 @@ class MapElement(ViewerElement):
         self._context = context
         self._config = config
         self._server: Optional[viser.ViserServer] = None
-        self._handles: Dict[MapLayer, viser.MeshHandle] = {}
+        self._handles: Dict[str, Optional[Union[viser.MeshHandle, viser.LineSegmentsHandle]]] = {}
         self._last_query_position: Optional[Point3D] = None
         self._force_update: bool = False
+        self._current_iteration: int = 0
         self._gui_visible: Optional[viser.GuiCheckboxHandle] = None
         self._gui_radius: Optional[viser.GuiSliderHandle] = None
+        self._gui_opacity: Optional[viser.GuiSliderHandle] = None
         self._gui_layer_checkboxes: Dict[MapLayer, viser.GuiCheckboxHandle] = {}
+        self._gui_road_edges: Optional[viser.GuiCheckboxHandle] = None
+        self._gui_centerlines: Optional[viser.GuiCheckboxHandle] = None
 
     @property
     def name(self) -> str:
@@ -55,8 +63,17 @@ class MapElement(ViewerElement):
         )
         gui_radius_options = server.gui.add_button_group("Radius Options.", ("25", "50", "100", "500"))
 
+        self._gui_opacity = server.gui.add_slider(
+            "Opacity",
+            min=0.0,
+            max=1.0,
+            step=0.05,
+            initial_value=self._config.opacity,
+        )
+
         self._gui_visible.on_update(self._on_visibility_changed)
         self._gui_radius.on_update(self._on_radius_changed)
+        self._gui_opacity.on_update(self._on_opacity_changed)
         gui_radius_options.on_click(self._on_radius_preset_clicked)
 
         server.gui.add_markdown("**Layers**")
@@ -67,59 +84,106 @@ class MapElement(ViewerElement):
             cb.on_update(self._on_layer_visibility_changed)
             self._gui_layer_checkboxes[layer] = cb
 
+        server.gui.add_markdown("**Lines**")
+        self._gui_road_edges = server.gui.add_checkbox("Road Edges", True)
+        self._gui_centerlines = server.gui.add_checkbox("Centerlines", True)
+        self._gui_road_edges.on_update(self._on_line_visibility_changed)
+        self._gui_centerlines.on_update(self._on_line_visibility_changed)
+
     def update(self, iteration: int) -> None:
+        self._current_iteration = iteration
         if not self._gui_visible.value:
             return
 
-        map_trimesh_dict: Optional[Dict[MapLayer, trimesh.Trimesh]] = None
+        needs_update = len(self._handles) == 0 or self._force_update
+        current_ego_state = self._context.initial_ego_state
 
-        if len(self._handles) == 0 or self._force_update:
-            current_ego_state = self._context.initial_ego_state
-            map_trimesh_dict = _get_map_trimesh_dict(
-                self._context.scene,
-                self._context.initial_ego_state,
-                current_ego_state,
-                self._config.radius,
-                self._config.non_road_z_offset,
-            )
-            self._last_query_position = current_ego_state.center_se3.point_3d
-            self._force_update = False
-
-        elif self._config.requery:
+        if not needs_update and self._config.requery:
             current_ego_state = self._context.scene.get_ego_state_se3_at_iteration(iteration)
             current_position = current_ego_state.center_se3.point_3d
-
             if np.linalg.norm(current_position.array - self._last_query_position.array) > self._config.radius / 2:
-                self._last_query_position = current_position
-                map_trimesh_dict = _get_map_trimesh_dict(
-                    self._context.scene,
-                    self._context.initial_ego_state,
-                    current_ego_state,
-                    self._config.radius,
-                    self._config.non_road_z_offset,
-                )
+                needs_update = True
 
-        if map_trimesh_dict is not None:
-            for map_layer, mesh in map_trimesh_dict.items():
-                layer_cb = self._gui_layer_checkboxes.get(map_layer)
-                is_visible = self._gui_visible.value and (layer_cb is None or layer_cb.value)
-                self._handles[map_layer] = self._server.scene.add_mesh_trimesh(
-                    f"/map/{map_layer.serialize()}",
-                    mesh,
-                    visible=is_visible,
-                )
+        if not needs_update:
+            return
+
+        map_data = _get_map_data(
+            self._context.scene,
+            self._context.initial_ego_state,
+            current_ego_state,
+            self._config.radius,
+            self._config.non_road_z_offset,
+        )
+        self._last_query_position = current_ego_state.center_se3.point_3d
+        self._force_update = False
+
+        opacity = self._gui_opacity.value
+
+        # Surface layers
+        for map_layer, mesh in map_data["surfaces"].items():
+            layer_cb = self._gui_layer_checkboxes.get(map_layer)
+            is_visible = self._gui_visible.value and (layer_cb is None or layer_cb.value)
+            base_color = MAP_SURFACE_CONFIG[map_layer].fill_color.rgb
+            color = _blend_color(base_color, opacity)
+            self._handles[f"surface/{map_layer.serialize()}"] = self._server.scene.add_mesh_simple(
+                f"/map/{map_layer.serialize()}",
+                vertices=mesh.vertices.astype(np.float32),
+                faces=mesh.faces.astype(np.uint32),
+                color=color,
+                flat_shading=False,
+                side="double",
+                cast_shadow=False,
+                receive_shadow=False,
+                visible=is_visible,
+            )
+
+        # Road edge lines
+        road_edge_segments = map_data["road_edges"]
+        if road_edge_segments is not None and len(road_edge_segments) > 0:
+            colors = np.full(road_edge_segments.shape, np.array(_ROAD_EDGE_COLOR) / 255.0, dtype=np.float32)
+            self._handles["lines/road_edges"] = self._server.scene.add_line_segments(
+                "/map/road_edges",
+                points=road_edge_segments,
+                colors=colors,
+                line_width=2.0,
+                visible=self._gui_road_edges.value,
+            )
+
+        # Lane centerlines
+        centerline_segments = map_data["centerlines"]
+        if centerline_segments is not None and len(centerline_segments) > 0:
+            colors = np.full(centerline_segments.shape, np.array(_CENTERLINE_COLOR) / 255.0, dtype=np.float32)
+            self._handles["lines/centerlines"] = self._server.scene.add_line_segments(
+                "/map/centerlines",
+                points=centerline_segments,
+                colors=colors,
+                line_width=1.5,
+                visible=self._gui_centerlines.value,
+            )
 
     def remove(self) -> None:
         for handle in self._handles.values():
-            handle.remove()
+            if handle is not None:
+                handle.remove()
         self._handles.clear()
         self._last_query_position = None
 
     def _sync_visibility(self) -> None:
         master = self._gui_visible.value
-        for layer, handle in self._handles.items():
-            layer_cb = self._gui_layer_checkboxes.get(layer)
-            handle.visible = master and (layer_cb is None or layer_cb.value)
+        for layer in _MAP_DISPLAY_LAYERS:
+            key = f"surface/{layer.serialize()}"
+            handle = self._handles.get(key)
+            if handle is not None:
+                layer_cb = self._gui_layer_checkboxes.get(layer)
+                handle.visible = master and (layer_cb is None or layer_cb.value)
+
+        road_edge_handle = self._handles.get("lines/road_edges")
+        if road_edge_handle is not None:
+            road_edge_handle.visible = master and self._gui_road_edges.value
+
+        centerline_handle = self._handles.get("lines/centerlines")
+        if centerline_handle is not None:
+            centerline_handle.visible = master and self._gui_centerlines.value
 
     def _on_visibility_changed(self, _) -> None:
         self._sync_visibility()
@@ -127,29 +191,54 @@ class MapElement(ViewerElement):
     def _on_layer_visibility_changed(self, _) -> None:
         self._sync_visibility()
 
+    def _on_line_visibility_changed(self, _) -> None:
+        self._sync_visibility()
+
     def _on_radius_changed(self, _) -> None:
         self._config.radius = self._gui_radius.value
         self._force_update = True
+        self.update(self._current_iteration)
+
+    def _on_opacity_changed(self, _) -> None:
+        self._config.opacity = self._gui_opacity.value
+        self._force_update = True
+        self.update(self._current_iteration)
 
     def _on_radius_preset_clicked(self, event) -> None:
         self._gui_radius.value = float(event.target.value)
         self._force_update = True
+        self.update(self._current_iteration)
 
 
-def _get_map_trimesh_dict(
+def _blend_color(
+    color: Tuple[int, int, int], opacity: float, background: Tuple[int, int, int] = (255, 255, 255)
+) -> Tuple[int, int, int]:
+    """Blend a color toward a background color based on opacity (1.0 = original, 0.0 = background)."""
+    r = int(color[0] * opacity + background[0] * (1.0 - opacity))
+    g = int(color[1] * opacity + background[1] * (1.0 - opacity))
+    b = int(color[2] * opacity + background[2] * (1.0 - opacity))
+    return (r, g, b)
+
+
+def _polyline_to_segments(points: np.ndarray) -> np.ndarray:
+    """Convert a polyline (N, 3) to line segments (N-1, 2, 3) for viser."""
+    return np.stack([points[:-1], points[1:]], axis=1)
+
+
+def _get_map_data(
     scene: SceneAPI,
     initial_ego_state: EgoStateSE3,
     current_ego_state: EgoStateSE3,
     radius: float,
     non_road_z_offset: float,
-) -> Dict[MapLayer, trimesh.Trimesh]:
-    output_trimesh_dict: Dict[MapLayer, trimesh.Trimesh] = {}
+) -> dict:
+    output: dict = {"surfaces": {}, "road_edges": None, "centerlines": None}
 
     scene_center: Point3D = initial_ego_state.center_se3.point_3d
     scene_center_array = scene_center.array
     scene_query_position = current_ego_state.center_se3.point_3d
 
-    map_layers = [
+    surface_layers = [
         MapLayer.LANE,
         MapLayer.LANE_GROUP,
         MapLayer.INTERSECTION,
@@ -159,41 +248,83 @@ def _get_map_trimesh_dict(
         MapLayer.GENERIC_DRIVABLE,
         MapLayer.STOP_ZONE,
     ]
+    line_layers = [MapLayer.ROAD_EDGE]
+
     map_api = scene.get_map_api()
-    if map_api is not None:
-        map_objects_dict = map_api.get_map_objects_in_radius(
-            scene_query_position.point_2d,
-            radius=radius,
-            layers=map_layers,
-        )
+    if map_api is None:
+        return output
 
-        if len(map_objects_dict[MapLayer.LANE_GROUP]) == 0:
-            map_objects_dict.pop(MapLayer.LANE_GROUP)
-        else:
-            map_objects_dict.pop(MapLayer.LANE)
+    all_layers = surface_layers + line_layers
+    map_objects_dict = map_api.get_map_objects_in_radius(
+        scene_query_position.point_2d,
+        radius=radius,
+        layers=all_layers,
+    )
 
-        for map_layer in map_objects_dict.keys():
-            surface_meshes = []
-            for map_surface in map_objects_dict[map_layer]:
-                map_surface: BaseMapSurfaceObject
+    # Save lane objects for centerline extraction before the lane/lane_group pop
+    lane_objects = map_objects_dict.get(MapLayer.LANE, [])
 
-                if isinstance(map_surface, StopZone) and map_surface.stop_zone_type == StopZoneType.TURN_STOP:
-                    continue
+    # Handle lane vs lane_group preference for surface rendering
+    if len(map_objects_dict.get(MapLayer.LANE_GROUP, [])) == 0:
+        map_objects_dict.pop(MapLayer.LANE_GROUP, None)
+    else:
+        map_objects_dict.pop(MapLayer.LANE, None)
 
-                trimesh_mesh = map_surface.trimesh_mesh
-                trimesh_mesh.vertices -= scene_center_array
+    z_offset_no_z = 0.0
+    if not map_api.map_metadata.map_has_z:
+        z_offset_no_z = scene_query_position.z - initial_ego_state.metadata.height / 2
 
-                if map_layer in {MapLayer.WALKWAY, MapLayer.CROSSWALK, MapLayer.CARPARK, MapLayer.STOP_ZONE}:
-                    trimesh_mesh.vertices[..., Point3DIndex.Z] += non_road_z_offset
+    # Surface meshes
+    for map_layer in surface_layers:
+        if map_layer not in map_objects_dict:
+            continue
+        surface_meshes = []
+        for map_surface in map_objects_dict[map_layer]:
+            map_surface: BaseMapSurfaceObject
 
-                if not map_api.map_metadata.map_has_z:
-                    trimesh_mesh.vertices[..., Point3DIndex.Z] += (
-                        scene_query_position.z - initial_ego_state.metadata.height / 2
-                    )
+            if isinstance(map_surface, StopZone) and map_surface.stop_zone_type == StopZoneType.TURN_STOP:
+                continue
 
-                trimesh_mesh.visual.face_colors = MAP_SURFACE_CONFIG[map_layer].fill_color.rgba
-                surface_meshes.append(trimesh_mesh)
+            trimesh_mesh = map_surface.trimesh_mesh
+            trimesh_mesh.vertices -= scene_center_array
 
-            output_trimesh_dict[map_layer] = trimesh.util.concatenate(surface_meshes)
+            if map_layer in {MapLayer.WALKWAY, MapLayer.CROSSWALK, MapLayer.CARPARK, MapLayer.STOP_ZONE}:
+                trimesh_mesh.vertices[..., Point3DIndex.Z] += non_road_z_offset
 
-    return output_trimesh_dict
+            if z_offset_no_z != 0.0:
+                trimesh_mesh.vertices[..., Point3DIndex.Z] += z_offset_no_z
+
+            surface_meshes.append(trimesh_mesh)
+
+        if len(surface_meshes) > 0:
+            output["surfaces"][map_layer] = trimesh.util.concatenate(surface_meshes)
+
+    # Road edge line segments
+    road_edge_objects = map_objects_dict.get(MapLayer.ROAD_EDGE, [])
+    if len(road_edge_objects) > 0:
+        all_segments = []
+        for road_edge in road_edge_objects:
+            road_edge: BaseMapLineObject
+            pts = road_edge.polyline_3d.array.copy()
+            pts -= scene_center_array
+            pts[..., Point3DIndex.Z] += _LINE_Z_OFFSET + z_offset_no_z
+            if len(pts) >= 2:
+                all_segments.append(_polyline_to_segments(pts))
+        if len(all_segments) > 0:
+            output["road_edges"] = np.concatenate(all_segments, axis=0).astype(np.float32)
+
+    # Lane centerlines (extracted from Lane objects saved before lane/lane_group pop)
+    if len(lane_objects) > 0:
+        all_segments = []
+        for lane_obj in lane_objects:
+            if not isinstance(lane_obj, Lane):
+                continue
+            pts = lane_obj.centerline_3d.array.copy()
+            pts -= scene_center_array
+            pts[..., Point3DIndex.Z] += _LINE_Z_OFFSET + z_offset_no_z
+            if len(pts) >= 2:
+                all_segments.append(_polyline_to_segments(pts))
+        if len(all_segments) > 0:
+            output["centerlines"] = np.concatenate(all_segments, axis=0).astype(np.float32)
+
+    return output

@@ -64,7 +64,7 @@ def get_lidar_pc_color(
     point_cloud_3d = lidar.point_cloud_3d
     n_points = len(point_cloud_3d)
 
-    black = np.zeros((n_points, 3), dtype=np.uint8)
+    black = np.ones((n_points, 3), dtype=np.uint8) * 255
 
     if feature == "none":
         return black
