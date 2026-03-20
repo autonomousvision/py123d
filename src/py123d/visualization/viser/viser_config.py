@@ -9,6 +9,7 @@ from py123d.visualization.viser.elements.ego_state_se3_element import EgoConfig
 from py123d.visualization.viser.elements.lidar_element import LidarConfig
 from py123d.visualization.viser.elements.map_element import MapConfig
 from py123d.visualization.viser.playback_controller import PlaybackConfig
+from py123d.visualization.viser.render_controller import RenderConfig
 
 CONTRAST_COLOR = (255, 255, 255)
 
@@ -41,6 +42,7 @@ _SUB_CONFIG_FIELDS = {
     "camera_frustum": CameraFrustumConfig,
     "camera_gui": CameraGuiConfig,
     "lidar": LidarConfig,
+    "render": RenderConfig,
 }
 
 
@@ -55,6 +57,7 @@ class ViserConfig:
     camera_frustum: CameraFrustumConfig = field(default_factory=CameraFrustumConfig)
     camera_gui: CameraGuiConfig = field(default_factory=CameraGuiConfig)
     lidar: LidarConfig = field(default_factory=LidarConfig)
+    render: RenderConfig = field(default_factory=RenderConfig)
 
     def __post_init__(self):
         # Hydra instantiate with _convert_='all' produces plain dicts for nested configs.

@@ -18,7 +18,7 @@ class CameraGuiConfig:
     image_scale: int = 4
 
     def __post_init__(self):
-        self.types = resolve_enum_arguments(CameraID, self.types)
+        self.types = resolve_enum_arguments(CameraID, self.types)  # type: ignore
         self.image_scale = int(self.image_scale)
 
 
@@ -65,6 +65,8 @@ class CameraGuiElement(ViewerElement):
             self._gui_camera_checkboxes[camera_id] = cb
 
     def update(self, iteration: int) -> None:
+        assert self._server is not None, "Server must be set before updating element."
+        assert self._gui_visible is not None, "GUI must be created before updating element."
         self._current_iteration = iteration
         if not self._gui_visible.value:
             return
@@ -90,6 +92,7 @@ class CameraGuiElement(ViewerElement):
         self._handles.clear()
 
     def _sync_visibility(self) -> None:
+        assert self._gui_visible is not None, "GUI must be created before syncing visibility."
         master = self._gui_visible.value
         for camera_id, handle in self._handles.items():
             camera_cb = self._gui_camera_checkboxes.get(camera_id)
@@ -102,6 +105,7 @@ class CameraGuiElement(ViewerElement):
         self._sync_visibility()
 
     def _on_image_scale_changed(self, _) -> None:
+        assert self._gui_image_scale is not None, "GUI must be created before handling image scale change."
         self._config.image_scale = int(self._gui_image_scale.value)
         # Clear existing handles so they get recreated at new scale
         self._handles.clear()

@@ -33,7 +33,7 @@ class LidarConfig:
     show_sensor_frames: bool = False
 
     def __post_init__(self):
-        self.ids = resolve_enum_arguments(LidarID, self.ids)
+        self.ids = resolve_enum_arguments(LidarID, self.ids)  # type: ignore
 
 
 class LidarElement(ViewerElement):
@@ -101,6 +101,9 @@ class LidarElement(ViewerElement):
         self._gui_show_sensor_frames.on_update(self._on_show_sensor_frames_changed)
 
     def update(self, iteration: int) -> None:
+        assert self._server is not None
+        assert self._gui_visible is not None
+        assert self._gui_coloring is not None
         self._current_iteration = iteration
         active_id = self._config.ids[0]
 
@@ -109,15 +112,17 @@ class LidarElement(ViewerElement):
 
         if not self._gui_visible.value:
             if self._handles[active_id] is not None:
-                self._handles[active_id].visible = False
+                self._handles[active_id].visible = False  # type: ignore
             return
 
-        ego_pose = self._context.scene.get_ego_state_se3_at_iteration(iteration).imu_se3.array
+        ego_state_se3 = self._context.scene.get_ego_state_se3_at_iteration(iteration)
+        assert ego_state_se3 is not None, f"Ego state SE3 should be available at iteration {iteration}."
+        ego_pose = ego_state_se3.imu_se3.array
         ego_pose[PoseSE3Index.XYZ] -= self._context.scene_center_array
 
         lidar = self._context.scene.get_lidar_at_iteration(iteration, lidar_id=active_id)
         if lidar is not None:
-            points = rel_to_abs_points_3d_array(ego_pose, lidar.xyz)
+            points = rel_to_abs_points_3d_array(ego_pose, lidar.xyz.astype(np.float64))
             colors = get_lidar_pc_color(lidar, feature=self._config.point_color, dark_mode=self._dark_mode)
         else:
             points = np.zeros((0, 3), dtype=np.float32)
@@ -126,11 +131,11 @@ class LidarElement(ViewerElement):
         points, colors = self._downsample(points, colors)
 
         if self._handles[active_id] is not None:
-            self._handles[active_id].points = points
-            self._handles[active_id].colors = colors
-            self._handles[active_id].visible = True
+            self._handles[active_id].points = points  # type: ignore
+            self._handles[active_id].colors = colors  # type: ignore
+            self._handles[active_id].visible = True  # type: ignore
         else:
-            self._handles[active_id] = self._server.scene.add_point_cloud(
+            self._handles[active_id] = self._server.scene.add_point_cloud(  # type: ignore
                 "lidar_points",
                 points=points,
                 colors=colors,
@@ -148,6 +153,8 @@ class LidarElement(ViewerElement):
         self._remove_sensor_frames()
 
     def _on_visibility_changed(self, _) -> None:
+        assert self._gui_visible is not None
+        self._config.visible = self._gui_visible.value
         for handle in self._handles.values():
             if handle is not None:
                 handle.visible = self._gui_visible.value
@@ -155,20 +162,24 @@ class LidarElement(ViewerElement):
             self._remove_sensor_frames()
 
     def _on_coloring_changed(self, _) -> None:
+        assert self._gui_coloring is not None
         self._config.point_color = self._gui_coloring.value
         self.update(self._current_iteration)
 
     def _on_lidar_id_changed(self, _) -> None:
+        assert self._gui_lidar_id is not None
         self._config.ids = [LidarID[self._gui_lidar_id.value]]
         self.update(self._current_iteration)
 
     def _on_point_size_changed(self, _) -> None:
+        assert self._gui_point_size is not None
         self._config.point_size = self._gui_point_size.value
         for handle in self._handles.values():
             if handle is not None:
                 handle.point_size = self._gui_point_size.value
 
     def _on_stride_step_changed(self, _) -> None:
+        assert self._gui_stride_step is not None
         self._config.stride_step = self._gui_stride_step.value
         self.update(self._current_iteration)
 
@@ -182,6 +193,7 @@ class LidarElement(ViewerElement):
         self.update(self._current_iteration)
 
     def _remove_sensor_frames(self) -> None:
+        assert self._server is not None
         for handle in self._frame_handles:
             handle.remove()
         self._frame_handles.clear()
@@ -189,6 +201,7 @@ class LidarElement(ViewerElement):
     def _update_sensor_frames(self, iteration: int) -> None:
         assert self._server is not None
         assert self._gui_show_sensor_frames is not None
+        assert self._gui_visible is not None
 
         self._remove_sensor_frames()
 
@@ -200,7 +213,7 @@ class LidarElement(ViewerElement):
         if lidar is None:
             return
 
-        ego_pose = self._context.scene.get_ego_state_se3_at_iteration(iteration).imu_se3
+        ego_pose = self._context.scene.get_ego_state_se3_at_iteration(iteration).imu_se3  # type: ignore
         scene_center_pose = get_scene_center_pose(self._context.scene_center_array)
 
         for lidar_id, lidar_meta in lidar.lidar_metadatas.items():

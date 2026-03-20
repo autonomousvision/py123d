@@ -27,6 +27,8 @@ class MapConfig:
     opacity: float = 1.0
     requery: bool = True
     centerline_dash_length: float = 1 / 3
+    show_road_edges: bool = True
+    show_centerlines: bool = True
     visible_layers: List[MapLayer] = field(default_factory=lambda: [])
 
     def __post_init__(self):
@@ -104,8 +106,8 @@ class MapElement(ViewerElement):
             self._gui_layer_checkboxes[layer] = cb
 
         server.gui.add_markdown("**Lines**")
-        self._gui_road_edges = server.gui.add_checkbox("Road Edges", True)
-        self._gui_centerlines = server.gui.add_checkbox("Centerlines", True)
+        self._gui_road_edges = server.gui.add_checkbox("Road Edges", self._config.show_road_edges)
+        self._gui_centerlines = server.gui.add_checkbox("Centerlines", self._config.show_centerlines)
         self._gui_road_edges.on_update(self._on_line_visibility_changed)
         self._gui_centerlines.on_update(self._on_line_visibility_changed)
 
@@ -207,13 +209,21 @@ class MapElement(ViewerElement):
         if centerline_handle is not None:
             centerline_handle.visible = master and self._gui_centerlines.value
 
+    def _sync_config_visible_layers(self) -> None:
+        """Update config.visible_layers to match current GUI checkbox state."""
+        self._config.visible_layers = [layer for layer, cb in self._gui_layer_checkboxes.items() if cb.value]
+
     def _on_visibility_changed(self, _) -> None:
+        self._config.visible = self._gui_visible.value
         self._sync_visibility()
 
     def _on_layer_visibility_changed(self, _) -> None:
+        self._sync_config_visible_layers()
         self._sync_visibility()
 
     def _on_line_visibility_changed(self, _) -> None:
+        self._config.show_road_edges = self._gui_road_edges.value
+        self._config.show_centerlines = self._gui_centerlines.value
         self._sync_visibility()
 
     def _on_radius_changed(self, _) -> None:

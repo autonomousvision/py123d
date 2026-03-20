@@ -119,6 +119,7 @@ class BoxDetectionsSE3Element(ViewerElement):
 
     def _on_visibility_changed(self, _) -> None:
         assert self._gui_visible is not None, "GUI must be created before handling visibility change."
+        self._config.visible = self._gui_visible.value
         if self._gui_visible.value:
             self.update(self._current_iteration)
         else:

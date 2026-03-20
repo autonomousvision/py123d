@@ -1,5 +1,5 @@
 import logging
-from typing import List, Literal
+from typing import List, Literal, Tuple
 
 import viser
 from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
@@ -60,7 +60,7 @@ def _build_titlebar() -> TitlebarConfig:
     return TitlebarConfig(buttons=buttons, image=image)
 
 
-def _build_viser_server(config: ViserConfig) -> viser.ViserServer:
+def _build_viser_server(config: ViserConfig) -> Tuple[viser.ViserServer, TitlebarConfig]:
     server = viser.ViserServer(
         host=config.server.host,
         port=config.server.port,
@@ -121,13 +121,13 @@ class ViserViewer:
             context,
             on_dark_mode_changed=self._on_dark_mode_changed,
         )
-        render = RenderController(self._server, context, playback)
+        render = RenderController(self._server, self._config.render, context, playback)
 
         # Build camera GUI controller
         self._camera_gui = CameraGuiController(self._server, self._config.camera_gui, context)
 
         # Create GUI in order: Playback -> Modality Tabs -> Camera Image -> Render
-        playback.create_gui(scene, dark_mode=self._dark_mode)
+        playback.create_gui(scene)
         self._element_manager.create_all_gui(self._server)
         self._camera_gui.create_gui()
         render.create_gui()

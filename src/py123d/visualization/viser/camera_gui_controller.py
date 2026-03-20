@@ -61,6 +61,8 @@ class CameraGuiController:
 
             @self._gui_visible.on_update
             def _on_visible_changed(_) -> None:
+                assert self._gui_visible is not None, "GUI must be created before handling visibility change."
+                self._config.visible = self._gui_visible.value
                 if self._image_handle is not None:
                     self._image_handle.visible = self._gui_visible.value
                 else:
@@ -68,12 +70,14 @@ class CameraGuiController:
 
             @self._gui_camera_dropdown.on_update
             def _on_camera_changed(_) -> None:
+                assert self._gui_camera_dropdown is not None, "GUI must be created before handling camera change."
                 # self._image_handle = None
                 self._config.selected_camera = self._camera_ids[self._gui_camera_dropdown.value]
                 self._refresh_image()
 
             @self._gui_image_scale.on_update
             def _on_scale_changed(_) -> None:
+                assert self._gui_image_scale is not None, "GUI must be created before handling scale change."
                 self._config.image_scale = int(self._gui_image_scale.value)
                 # self._image_handle = None
                 self._refresh_image()

@@ -16,7 +16,7 @@ class PlaybackConfig:
     is_playing: bool = False
     speed: float = 1.0
     atomic: bool = False
-    darkmode: bool = False
+    dark_mode: bool = False
 
 
 class PlaybackController:
@@ -64,13 +64,11 @@ class PlaybackController:
         """Programmatically set the timestep (used by render controller)."""
         self._gui_timestep.value = value
 
-    def create_gui(self, scene: SceneAPI, dark_mode: bool = False) -> None:
+    def create_gui(self, scene: SceneAPI) -> None:
         """Create the Playback folder with all controls."""
         num_frames = self._context.num_frames
 
         with self._server.gui.add_folder("Playback"):
-            # self._server.gui.add_markdown(content=_get_scene_info_markdown(scene))
-
             self._gui_timestep = self._server.gui.add_slider(
                 "Timestep", min=0, max=num_frames - 1, step=1, initial_value=0, disabled=True
             )
@@ -83,14 +81,19 @@ class PlaybackController:
             )
             gui_speed_options = self._server.gui.add_button_group("Options.", ("0.5", "1.0", "2.0", "5.0", "10.0"))
             self._gui_atomic = self._server.gui.add_checkbox("Atomic Updates", self._config.atomic)
-            gui_dark_mode = self._server.gui.add_checkbox("Dark Mode", initial_value=dark_mode)
+            gui_dark_mode = self._server.gui.add_checkbox("Dark Mode", initial_value=self._config.dark_mode)
 
             @self._gui_atomic.on_update
             def _on_atomic_changed(_) -> None:
                 self._config.atomic = self._gui_atomic.value
 
+            @self._gui_speed.on_update
+            def _on_speed_changed(_) -> None:
+                self._config.speed = self._gui_speed.value
+
             @gui_dark_mode.on_update
             def _on_dark_mode_changed(_) -> None:
+                self._config.dark_mode = gui_dark_mode.value
                 if self._on_dark_mode_changed is not None:
                     self._on_dark_mode_changed(gui_dark_mode.value)
 
