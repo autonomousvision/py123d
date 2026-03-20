@@ -5,11 +5,11 @@ import viser
 from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
 
 from py123d.api.scene.scene_api import SceneAPI
+from py123d.visualization.viser.camera_gui_controller import CameraGuiController
 from py123d.visualization.viser.element_manager import ElementManager
 from py123d.visualization.viser.elements.base_element import ElementContext
-from py123d.visualization.viser.elements.box_detections_se3_element import DetectionElement
+from py123d.visualization.viser.elements.box_detections_se3_element import BoxDetectionsSE3Element
 from py123d.visualization.viser.elements.camera_frustum_element import CameraFrustumElement
-from py123d.visualization.viser.elements.camera_gui_element import CameraGuiElement
 from py123d.visualization.viser.elements.ego_state_se3_element import EgoElement
 from py123d.visualization.viser.elements.lidar_element import LidarElement
 from py123d.visualization.viser.elements.map_element import MapElement
@@ -30,7 +30,7 @@ HDRI: Literal[
     "studio",
     "sunset",
     "warehouse",
-] = "park"
+] = "warehouse"
 
 
 def _build_titlebar() -> TitlebarConfig:
@@ -82,7 +82,7 @@ def _build_viser_server(config: ViserConfig) -> viser.ViserServer:
 
     server.scene.configure_environment_map(
         hdri=HDRI,
-        environment_intensity=0.5,  # down from default 1.0
+        environment_intensity=0.75,  # down from default 1.0
     )
     return server, titlebar_theme
 
@@ -115,14 +115,22 @@ class ViserViewer:
         self._element_manager = self._build_elements(context)
 
         # Build controllers
-        playback = PlaybackController(self._server, self._config.playback, context)
+        playback = PlaybackController(
+            self._server,
+            self._config.playback,
+            context,
+            on_dark_mode_changed=self._on_dark_mode_changed,
+        )
         render = RenderController(self._server, context, playback)
 
-        # Create GUI in order: Playback -> Modality Tabs -> Render -> Settings
-        playback.create_gui(scene)
+        # Build camera GUI controller
+        self._camera_gui = CameraGuiController(self._server, self._config.camera_gui, context)
+
+        # Create GUI in order: Playback -> Modality Tabs -> Camera Image -> Render
+        playback.create_gui(scene, dark_mode=self._dark_mode)
         self._element_manager.create_all_gui(self._server)
+        self._camera_gui.create_gui()
         render.create_gui()
-        self._create_settings_gui()
 
         # Re-apply persisted environment intensity (scene.reset() clears it)
         self._server.scene.configure_environment_map(
@@ -131,15 +139,20 @@ class ViserViewer:
         )
 
         # Wire iteration callback
-        playback.set_on_iteration_changed(self._element_manager.update_all)
+        def _on_iteration_changed(iteration: int) -> None:
+            self._element_manager.update_all(iteration)
+            self._camera_gui.update(iteration)
+
+        playback.set_on_iteration_changed(_on_iteration_changed)
 
         # Initial render at frame 0
-        self._element_manager.update_all(0)
+        _on_iteration_changed(0)
 
         # Blocking playback loop -- returns on Next Scene
         playback.run_loop()
 
         # Cleanup and advance to next scene
+        self._camera_gui.remove()
         self._element_manager.remove_all()
         self._server.flush()
         self._server.gui.reset()
@@ -147,42 +160,37 @@ class ViserViewer:
         self._scene_index = (self._scene_index + 1) % len(self._scenes)
         self._run_scene(self._scenes[self._scene_index])
 
-    def _create_settings_gui(self) -> None:
-        """Create the Settings folder with dark mode toggle."""
+    def _on_dark_mode_changed(self, dark_mode: bool) -> None:
+        """Handle dark mode toggle from playback controller."""
         theme = self._config.theme
-        with self._server.gui.add_folder("Settings", expand_by_default=False):
-            gui_dark_mode = self._server.gui.add_checkbox("Dark Mode", initial_value=self._dark_mode)
-
-            @gui_dark_mode.on_update
-            def _on_dark_mode_changed(_: viser.GuiEvent) -> None:
-                self._dark_mode = gui_dark_mode.value
-                self._server.gui.configure_theme(
-                    titlebar_content=self._titlebar,
-                    control_layout=theme.control_layout,
-                    control_width=theme.control_width,
-                    dark_mode=gui_dark_mode.value,
-                    show_logo=theme.show_logo,
-                    show_share_button=theme.show_share_button,
-                    brand_color=theme.brand_color,
-                )
-                self._element_manager.notify_dark_mode_changed(gui_dark_mode.value)
+        self._dark_mode = dark_mode
+        self._server.gui.configure_theme(
+            titlebar_content=self._titlebar,
+            control_layout=theme.control_layout,
+            control_width=theme.control_width,
+            dark_mode=dark_mode,
+            show_logo=theme.show_logo,
+            show_share_button=theme.show_share_button,
+            brand_color=theme.brand_color,
+        )
+        self._element_manager.notify_dark_mode_changed(dark_mode)
 
     def _build_elements(self, context: ElementContext) -> ElementManager:
         """Conditionally register elements based on what the scene supports."""
         manager = ElementManager()
         scene = context.scene
 
-        if len(scene.available_lidar_ids) > 0:
+        if len(scene.get_lidar_metadatas()) > 0:
             manager.register(LidarElement(context, self._config.lidar))
 
-        # Single camera frustum element handles both pinhole and fisheye
-        manager.register(CameraFrustumElement(context, self._config.camera_frustum))
+        if scene.get_box_detections_se3_metadata() is not None:
+            manager.register(BoxDetectionsSE3Element(context, self._config.detection))
 
-        if len(scene.available_camera_ids) > 0:
-            manager.register(CameraGuiElement(context, self._config.camera_gui))
+        if len(scene.get_camera_metadatas()) > 0:
+            manager.register(CameraFrustumElement(context, self._config.camera_frustum))
 
-        manager.register(EgoElement(context, self._config.ego))
-        manager.register(DetectionElement(context, self._config.detection))
+        if scene.get_ego_state_se3_metadata() is not None:
+            manager.register(EgoElement(context, self._config.ego))
 
         if scene.get_map_api() is not None:
             manager.register(MapElement(context, self._config.map))

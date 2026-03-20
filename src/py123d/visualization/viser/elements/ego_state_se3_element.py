@@ -49,7 +49,7 @@ class EgoElement(ViewerElement):
 
     @property
     def name(self) -> str:
-        return "Ego Vehicle"
+        return "Ego State (SE3)"
 
     def create_gui(self, server: viser.ViserServer) -> None:
         self._server = server

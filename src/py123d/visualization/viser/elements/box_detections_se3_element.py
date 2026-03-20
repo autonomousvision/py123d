@@ -30,7 +30,7 @@ class DetectionConfig:
     show_center_frames: bool = False
 
 
-class DetectionElement(ViewerElement):
+class BoxDetectionsSE3Element(ViewerElement):
     """Visualizes 3D bounding box detections in the scene."""
 
     def __init__(self, context: ElementContext, config: DetectionConfig) -> None:
@@ -50,7 +50,7 @@ class DetectionElement(ViewerElement):
 
     @property
     def name(self) -> str:
-        return "Bounding Boxes"
+        return "Box Detections (SE3)"
 
     def create_gui(self, server: viser.ViserServer) -> None:
         self._server = server
@@ -205,7 +205,8 @@ def _get_bounding_box_meshes(
 
     mesh = trimesh.Trimesh(vertices=box_vertices, faces=box_faces)
     mesh.visual.vertex_colors = vertex_colors  # type: ignore
-    mesh.visual.material = trimesh.visual.material.PBRMaterial(alphaMode="BLEND")  # type: ignore
+    if opacity < 1.0:
+        mesh.visual.material = trimesh.visual.material.PBRMaterial(alphaMode="BLEND")  # type: ignore
 
     return mesh
 

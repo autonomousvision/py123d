@@ -16,6 +16,7 @@ class PlaybackConfig:
     is_playing: bool = False
     speed: float = 1.0
     atomic: bool = False
+    darkmode: bool = False
 
 
 class PlaybackController:
@@ -26,6 +27,7 @@ class PlaybackController:
         server: viser.ViserServer,
         config: PlaybackConfig,
         context: ElementContext,
+        on_dark_mode_changed: Optional[Callable[[bool], None]] = None,
     ) -> None:
         self._server = server
         self._config = config
@@ -33,6 +35,7 @@ class PlaybackController:
         self._should_stop: bool = False
         self._rendering: bool = False
         self._on_iteration_changed: Optional[Callable[[int], None]] = None
+        self._on_dark_mode_changed = on_dark_mode_changed
 
         # GUI handles (created in create_gui)
         self._gui_timestep: Optional[viser.GuiSliderHandle] = None
@@ -61,7 +64,7 @@ class PlaybackController:
         """Programmatically set the timestep (used by render controller)."""
         self._gui_timestep.value = value
 
-    def create_gui(self, scene: SceneAPI) -> None:
+    def create_gui(self, scene: SceneAPI, dark_mode: bool = False) -> None:
         """Create the Playback folder with all controls."""
         num_frames = self._context.num_frames
 
@@ -80,10 +83,16 @@ class PlaybackController:
             )
             gui_speed_options = self._server.gui.add_button_group("Options.", ("0.5", "1.0", "2.0", "5.0", "10.0"))
             self._gui_atomic = self._server.gui.add_checkbox("Atomic Updates", self._config.atomic)
+            gui_dark_mode = self._server.gui.add_checkbox("Dark Mode", initial_value=dark_mode)
 
             @self._gui_atomic.on_update
             def _on_atomic_changed(_) -> None:
                 self._config.atomic = self._gui_atomic.value
+
+            @gui_dark_mode.on_update
+            def _on_dark_mode_changed(_) -> None:
+                if self._on_dark_mode_changed is not None:
+                    self._on_dark_mode_changed(gui_dark_mode.value)
 
             # Timestep change -> update all elements
             @self._gui_timestep.on_update
@@ -121,10 +130,12 @@ class PlaybackController:
                 self._gui_timestep.disabled = self._gui_playing.value
                 gui_next_frame.disabled = self._gui_playing.value
                 gui_prev_frame.disabled = self._gui_playing.value
+                self._config.is_playing = self._gui_playing.value
 
             @gui_speed_options.on_click
             def _on_speed_preset(_) -> None:
                 self._gui_speed.value = float(gui_speed_options.value)
+                self._config.speed = self._gui_speed.value
 
     def run_loop(self) -> None:
         """Blocking playback loop. Returns when the user clicks Next Scene."""
