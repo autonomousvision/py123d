@@ -13,7 +13,8 @@ from py123d.api.scene.arrow.modalities.arrow_custom_modality import (
 )
 from py123d.datatypes import Timestamp
 from py123d.datatypes.custom.custom_modality import CustomModality
-from tests.unit.api.scene.conftest import make_custom_modality_metadata
+
+from ..conftest import make_custom_modality_metadata
 
 
 class TestCustomModalityRoundtrip:

@@ -11,7 +11,8 @@ from py123d.api.scene.arrow.modalities.arrow_lidar import ArrowLidarReader, Arro
 from py123d.datatypes import Timestamp
 from py123d.datatypes.sensors.lidar import Lidar, LidarFeature, LidarID, LidarMergedMetadata, LidarMetadata
 from py123d.geometry.pose import PoseSE3
-from tests.unit.api.scene.conftest import make_log_metadata
+
+from ..conftest import make_log_metadata
 
 
 def _make_lidar_metadata(lidar_id: LidarID = LidarID.LIDAR_TOP) -> LidarMetadata:

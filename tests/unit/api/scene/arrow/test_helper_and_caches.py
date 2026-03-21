@@ -13,7 +13,8 @@ from py123d.api.scene.arrow.modalities.utils import all_columns_in_schema, get_o
 from py123d.api.scene.arrow.utils.arrow_scene_caches import _get_complete_log_scene_metadata
 from py123d.datatypes import Timestamp
 from py123d.geometry.vector import Vector3D
-from tests.unit.api.scene.conftest import make_ego_metadata, make_log_metadata, write_sync_arrow
+
+from ..conftest import make_ego_metadata, make_log_metadata, write_sync_arrow
 
 # ===========================================================================
 # _get_complete_log_scene_metadata

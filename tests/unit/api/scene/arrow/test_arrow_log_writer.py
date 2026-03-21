@@ -15,7 +15,8 @@ from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry.pose import PoseSE3
 from py123d.geometry.vector import Vector3D
 from py123d.parser.base_dataset_parser import ModalitiesSync
-from tests.unit.api.scene.conftest import make_ego_metadata, make_log_metadata, make_traffic_light_metadata
+
+from ..conftest import make_ego_metadata, make_log_metadata, make_traffic_light_metadata
 
 
 def _make_ego(ts_us: int) -> EgoStateSE3:

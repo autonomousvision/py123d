@@ -18,7 +18,8 @@ from py123d.datatypes import (
     TrafficLightDetections,
 )
 from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadata
-from tests.unit.api.scene.conftest import (
+
+from ..conftest import (
     make_custom_modality_metadata,
     make_ego_metadata,
     make_log_metadata,
@@ -130,7 +131,7 @@ class TestGetModalityAtIteration:
         log_meta = make_log_metadata()
         ego_meta = make_ego_metadata()
 
-        from tests.unit.api.scene.conftest import write_ego_arrow
+        from ..conftest import write_ego_arrow
 
         write_ego_arrow(log_dir, num_rows=5, timestep_us=100_000, metadata=ego_meta)
         ego_key = ego_meta.modality_key
@@ -468,7 +469,7 @@ class TestCameraConvenienceMethods:
         lidar_key = lidar_meta.modality_key
 
         # Write ego
-        from tests.unit.api.scene.conftest import write_ego_arrow
+        from ..conftest import write_ego_arrow
 
         write_ego_arrow(log_dir, num_rows, timestep_us, ego_meta)
 

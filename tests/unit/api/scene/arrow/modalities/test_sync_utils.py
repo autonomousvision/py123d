@@ -14,7 +14,8 @@ from py123d.api.scene.arrow.modalities.sync_utils import (
     get_sync_table,
 )
 from py123d.api.scene.scene_metadata import SceneMetadata
-from tests.unit.api.scene.conftest import make_ego_metadata, make_log_metadata, write_ego_arrow, write_sync_arrow
+
+from ...conftest import make_ego_metadata, make_log_metadata, write_ego_arrow, write_sync_arrow
 
 
 def _make_scene_metadata(**kwargs) -> SceneMetadata:

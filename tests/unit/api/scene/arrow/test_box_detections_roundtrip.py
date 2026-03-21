@@ -17,7 +17,8 @@ from py123d.datatypes.detections.box_detections import BoxDetectionAttributes, B
 from py123d.geometry.bounding_box import BoundingBoxSE3
 from py123d.geometry.pose import PoseSE3
 from py123d.geometry.vector import Vector3D
-from tests.unit.api.scene.conftest import make_box_detections_metadata
+
+from ..conftest import make_box_detections_metadata
 
 
 def _make_detections(ts_us: int, num_boxes: int = 2) -> BoxDetectionsSE3:

@@ -16,7 +16,8 @@ from py123d.datatypes import (
     TrafficLightDetections,
     TrafficLightStatus,
 )
-from tests.unit.api.scene.conftest import make_traffic_light_metadata
+
+from ..conftest import make_traffic_light_metadata
 
 
 def _make_tl(ts_us: int, num_lights: int = 2) -> TrafficLightDetections:

@@ -17,7 +17,8 @@ from py123d.datatypes.vehicle_state.dynamic_state import DynamicStateSE3
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry.pose import PoseSE3
 from py123d.geometry.vector import Vector3D
-from tests.unit.api.scene.conftest import make_ego_metadata
+
+from ..conftest import make_ego_metadata
 
 
 class TestEgoStateSE3Roundtrip:
