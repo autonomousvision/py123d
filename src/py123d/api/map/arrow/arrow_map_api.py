@@ -113,7 +113,10 @@ class ArrowMapAPI(MapAPI):
 
     def get_map_object_in_layer(self, object_id: MapObjectIDType, layer: MapLayer) -> Optional[BaseMapObject]:
         """Inherited, see superclass."""
-        return self._map_object_getter[layer](object_id)
+        map_object: Optional[BaseMapObject] = None
+        if layer in self._object_ids_to_row_idx:
+            map_object = self._map_object_getter[layer](object_id)
+        return map_object
 
     def get_all_map_object_ids_in_layer(self, layer: MapLayer) -> List[MapObjectIDType]:
         """Inherited, see superclass."""
@@ -213,7 +216,7 @@ class ArrowMapAPI(MapAPI):
     ) -> Union[List[BaseMapObject], Dict[int, List[BaseMapObject]]]:
         """Helper method to query a single layer."""
         if layer not in self._occupancy_maps.keys():
-            return {} if not isinstance(geometry, Iterable) else []
+            return [] if not isinstance(geometry, Iterable) else {}
         occupancy_map = self._occupancy_maps[layer]
         query_result = occupancy_map.query(geometry, predicate=predicate, distance=distance)  # type: ignore
         if query_result.ndim == 2:
@@ -245,7 +248,7 @@ class ArrowMapAPI(MapAPI):
     ) -> Union[List[MapObjectIDType], Dict[int, List[MapObjectIDType]]]:
         """Helper method to query a single layer, while only returning object IDs."""
         if layer not in self._occupancy_maps.keys():
-            return {} if not isinstance(geometry, Iterable) else []
+            return [] if not isinstance(geometry, Iterable) else {}
 
         occupancy_map = self._occupancy_maps[layer]
         query_result = occupancy_map.query(geometry, predicate=predicate, distance=distance)  # type: ignore

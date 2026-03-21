@@ -27,7 +27,7 @@ from py123d.datatypes import (
     Walkway,
 )
 from py123d.datatypes.map_objects.base_map_objects import BaseMapObject
-from py123d.geometry import Point2DIndex, Point3DIndex, Polyline2D, Polyline3D
+from py123d.geometry import Polyline2D, Polyline3D
 
 
 class ArrowMapWriter(BaseMapWriter):
@@ -176,16 +176,14 @@ class ArrowMapWriter(BaseMapWriter):
             all_object_ids = []
             all_wkbs: List[bytes] = []
             all_map_layers: List[int] = []
-            all_types: List[int] = []
             all_features: List[bytes] = []
-            type_idx = 0
 
             # 1. Lanes
             for idx in range(len(self._map_data[MapLayer.LANE]["id"])):
                 all_object_ids.append(self._map_data[MapLayer.LANE]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.LANE]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.LANE))
-                all_types.append(type_idx)
+
                 lane_dict = {
                     "lane_type": self._map_data[MapLayer.LANE]["lane_type"][idx],
                     "lane_group_id": self._map_data[MapLayer.LANE]["lane_group_id"][idx],
@@ -206,7 +204,7 @@ class ArrowMapWriter(BaseMapWriter):
                 all_object_ids.append(self._map_data[MapLayer.LANE_GROUP]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.LANE_GROUP]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.LANE_GROUP))
-                all_types.append(type_idx)
+
                 lane_group_dict = {
                     "lane_ids": self._map_data[MapLayer.LANE_GROUP]["lane_ids"][idx],
                     "left_boundary": self._map_data[MapLayer.LANE_GROUP]["left_boundary"][idx],
@@ -223,7 +221,7 @@ class ArrowMapWriter(BaseMapWriter):
                 all_object_ids.append(self._map_data[MapLayer.INTERSECTION]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.INTERSECTION]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.INTERSECTION))
-                all_types.append(type_idx)
+
                 intersection_dict = {
                     "intersection_type": self._map_data[MapLayer.INTERSECTION]["intersection_type"][idx],
                     "lane_group_ids": self._map_data[MapLayer.INTERSECTION]["lane_group_ids"][idx],
@@ -236,7 +234,7 @@ class ArrowMapWriter(BaseMapWriter):
                 all_object_ids.append(self._map_data[MapLayer.CROSSWALK]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.CROSSWALK]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.CROSSWALK))
-                all_types.append(type_idx)
+
                 crosswalk_dict = {
                     "outline": self._map_data[MapLayer.CROSSWALK]["outline"][idx],
                 }
@@ -247,7 +245,6 @@ class ArrowMapWriter(BaseMapWriter):
                 all_object_ids.append(self._map_data[MapLayer.CARPARK]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.CARPARK]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.CARPARK))
-                all_types.append(type_idx)
 
                 carpark_dict = {
                     "outline": self._map_data[MapLayer.CARPARK]["outline"][idx],
@@ -259,7 +256,7 @@ class ArrowMapWriter(BaseMapWriter):
                 all_object_ids.append(self._map_data[MapLayer.WALKWAY]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.WALKWAY]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.WALKWAY))
-                all_types.append(type_idx)
+
                 walkway_dict = {
                     "outline": self._map_data[MapLayer.WALKWAY]["outline"][idx],
                 }
@@ -270,7 +267,7 @@ class ArrowMapWriter(BaseMapWriter):
                 all_object_ids.append(self._map_data[MapLayer.GENERIC_DRIVABLE]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.GENERIC_DRIVABLE]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.GENERIC_DRIVABLE))
-                all_types.append(type_idx)
+
                 generic_drivable_dict = {
                     "outline": self._map_data[MapLayer.GENERIC_DRIVABLE]["outline"][idx],
                 }
@@ -281,7 +278,7 @@ class ArrowMapWriter(BaseMapWriter):
                 all_object_ids.append(self._map_data[MapLayer.STOP_ZONE]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.STOP_ZONE]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.STOP_ZONE))
-                all_types.append(type_idx)
+
                 stop_zone_dict = {
                     "outline": self._map_data[MapLayer.STOP_ZONE]["outline"][idx],
                     "stop_zone_type": self._map_data[MapLayer.STOP_ZONE]["stop_zone_type"][idx],
@@ -294,7 +291,7 @@ class ArrowMapWriter(BaseMapWriter):
                 all_object_ids.append(self._map_data[MapLayer.ROAD_EDGE]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.ROAD_EDGE]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.ROAD_EDGE))
-                all_types.append(type_idx)
+
                 road_edge_dict = {
                     "road_edge_type": self._map_data[MapLayer.ROAD_EDGE]["road_edge_type"][idx],
                 }
@@ -305,7 +302,7 @@ class ArrowMapWriter(BaseMapWriter):
                 all_object_ids.append(self._map_data[MapLayer.ROAD_LINE]["id"][idx])
                 all_wkbs.append(self._map_data[MapLayer.ROAD_LINE]["wkb"][idx])
                 all_map_layers.append(int(MapLayer.ROAD_LINE))
-                all_types.append(type_idx)
+
                 road_line_dict = {
                     "road_line_type": self._map_data[MapLayer.ROAD_LINE]["road_line_type"][idx],
                 }
@@ -367,14 +364,6 @@ class ArrowMapWriter(BaseMapWriter):
         self._assert_initialized()
         self._map_data[layer]["id"].append(line_object.object_id)
         self._map_data[layer]["wkb"].append(line_object.shapely_linestring.wkb)
-
-    def _get_point_slice(self) -> slice:
-        """Helper to get a slice that selects all point coordinates in a 3D array."""
-        assert self._map_metadata is not None, "Call reset() before writing data."
-
-        if self._map_metadata.map_has_z:
-            return Point3DIndex.XYZ
-        return Point2DIndex.XY
 
 
 def _map_ids_to_integer(map_data: Dict[MapLayer, Dict[str, Any]]) -> None:
