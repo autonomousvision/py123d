@@ -55,13 +55,13 @@ class SceneMetadata:
             expected_future = round(self.future_duration_s / self.iteration_duration_s)
             expected_history = round(self.history_duration_s / self.iteration_duration_s)
             if expected_future != self.num_future_iterations:
-                logger.debug(
+                logger.warning(
                     "SceneMetadata: num_future_iterations=%d != round(future_duration_s/iteration_duration_s)=%d",
                     self.num_future_iterations,
                     expected_future,
                 )
             if expected_history != self.num_history_iterations:
-                logger.debug(
+                logger.warning(
                     "SceneMetadata: num_history_iterations=%d != round(history_duration_s/iteration_duration_s)=%d",
                     self.num_history_iterations,
                     expected_history,

@@ -174,7 +174,7 @@ class SceneAPI(abc.ABC):
     ) -> Optional[BaseModality]:
         """Returns the modality data at a given timestamp, if available.
 
-        :param timestamp: The timestamp to get the modality data for, as a Timestamp object or integer nanoseconds.
+        :param timestamp: The timestamp to get the modality data for, as a Timestamp object or integer microseconds.
         :param modality_type: The modality type as a string or :class:`ModalityType`.
         :param modality_id: Optional modality id (e.g. sensor id).
         :param criteria: Criteria for matching the timestamp if an exact match is not found. One of:
@@ -226,7 +226,7 @@ class SceneAPI(abc.ABC):
     ) -> Optional[EgoStateSE3]:
         """Returns the :class:`~py123d.datatypes.vehicle_state.EgoStateSE3` at a given timestamp, if available.
 
-        :param timestamp: The timestamp to get the ego state for, as a Timestamp object or integer nanoseconds.
+        :param timestamp: The timestamp to get the ego state for, as a Timestamp object or integer microseconds.
         :param criteria: Criteria for matching the timestamp if an exact match is not found. One of:
             - "exact": Only return data if an exact timestamp match is found.
             - "nearest": Return data from the nearest timestamp.
@@ -276,7 +276,7 @@ class SceneAPI(abc.ABC):
     ) -> Optional[BoxDetectionsSE3]:
         """Returns the :class:`~py123d.datatypes.detections.BoxDetectionsSE3` at a given timestamp, if available.
 
-        :param timestamp: The timestamp to get the box detections for, as a Timestamp object or integer nanoseconds.
+        :param timestamp: The timestamp to get the box detections for, as a Timestamp object or integer microseconds.
         :param criteria: Criteria for matching the timestamp if an exact match is not found. One of:
             - "exact": Only return data if an exact timestamp match is found.
             - "nearest": Return data from the nearest timestamp.
@@ -390,7 +390,7 @@ class SceneAPI(abc.ABC):
     ) -> Optional[Camera]:
         """Returns a :class:`~py123d.datatypes.sensors.Camera` at a given timestamp, if available.
 
-        :param timestamp: The timestamp to get the camera for, as a Timestamp object or integer nanoseconds.
+        :param timestamp: The timestamp to get the camera for, as a Timestamp object or integer microseconds.
         :param camera_id: The camera ID.
         :param criteria: Criteria for matching the timestamp if an exact match is not found. One of:
             - "exact": Only return data if an exact timestamp match is found.
@@ -465,7 +465,7 @@ class SceneAPI(abc.ABC):
         """Returns the :class:`~py123d.datatypes.sensors.Lidar` of a given :class:`~py123d.datatypes.sensors.LidarID`\
             at a given timestamp, if available.
 
-        :param timestamp: The timestamp to get the Lidar for, as a Timestamp object or integer nanoseconds.
+        :param timestamp: The timestamp to get the Lidar for, as a Timestamp object or integer microseconds.
         :param lidar_id: The :type:`~py123d.datatypes.sensors.LidarID` of the Lidar.
         :param criteria: Criteria for matching the timestamp if an exact match is not found. One of:
             - "exact": Only return data if an exact timestamp match is found.
@@ -531,7 +531,7 @@ class SceneAPI(abc.ABC):
         """Returns the :class:`~py123d.datatypes.custom.CustomModality` with the given ID at a given timestamp,
             if available.
 
-        :param timestamp: The timestamp to get the custom modality for, as a Timestamp object or integer nanoseconds.
+        :param timestamp: The timestamp to get the custom modality for, as a Timestamp object or integer microseconds.
         :param modality_id: The ID of the custom modality (e.g. ``"route"``, ``"predictions"``).
         :param criteria: Criteria for matching the timestamp if an exact match is not found. One of:
             - "exact": Only return data if an exact timestamp match is found.

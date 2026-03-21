@@ -52,13 +52,18 @@ class SyncConfig:
     reference_column: str
     direction: Literal["forward", "backward"] = "forward"
 
+    def __post_init__(self):
+        # Validate reference_column format: must contain at least one dot
+        parts = self.reference_column.rsplit(".", 1)
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            raise ValueError(f"reference_column must be '<modality>.<timestamp_field>', got '{self.reference_column}'")
+        if not parts[1].endswith("timestamp_us"):
+            raise ValueError(f"reference_column timestamp field must end with 'timestamp_us', got '{parts[1]}'")
+
     @property
     def reference_modality(self) -> str:
         """The modality name, e.g. ``"lidar.lidar_merged"``."""
-        parts = self.reference_column.rsplit(".", 1)
-        if len(parts) != 2:
-            raise ValueError(f"reference_column must be '<modality>.<timestamp_field>', got '{self.reference_column}'")
-        return parts[0]
+        return self.reference_column.rsplit(".", 1)[0]
 
     @property
     def reference_timestamp_field(self) -> str:
@@ -387,7 +392,12 @@ class ArrowLogWriter(BaseLogWriter):
                         ts_col_name = col_name
                         break
 
-            if ts_col_name is None or ts_col_name not in table.column_names:
+            if ts_col_name is not None and ts_col_name not in table.column_names:
+                raise ValueError(
+                    f"Timestamp column '{ts_col_name}' not found in '{arrow_path.name}'. "
+                    f"Available columns: {table.column_names}"
+                )
+            if ts_col_name is None:
                 continue
 
             timestamps = table.column(ts_col_name).to_pylist()
