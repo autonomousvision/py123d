@@ -253,7 +253,12 @@ def resolve_scene_uuid_indices(sync_table: pa.Table, target_uuids_binary: pa.Arr
     :param target_uuids_binary: Pre-converted binary(16) Arrow array of target UUIDs.
     :return: Set of matching row indices, or None if no UUIDs were found.
     """
-    mask = pa.compute.is_in(sync_table["sync.uuid"], value_set=target_uuids_binary)  # type: ignore
+    uuid_column = sync_table["sync.uuid"]
+    # PyArrow >= 18 stores UUIDs as extension<arrow.uuid>; is_in doesn't support extension types,
+    # so cast to the underlying binary(16) storage type.
+    if hasattr(uuid_column.type, "storage_type"):
+        uuid_column = uuid_column.cast(uuid_column.type.storage_type)
+    mask = pa.compute.is_in(uuid_column, value_set=target_uuids_binary)  # type: ignore
     indices = pa.compute.indices_nonzero(mask).to_pylist()  # type: ignore
     result: Optional[Set[int]] = set(indices) if len(indices) > 0 else None
     return result
