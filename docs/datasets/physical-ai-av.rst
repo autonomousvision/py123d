@@ -11,7 +11,7 @@ Physical AI AV
   Features may be incomplete, APIs may change, and unexpected bugs are possible.
 
   If you encounter any issues, please report them on our
-  `GitHub Issues <https://github.com/py123d/py123d/issues>`_ page. Your feedback helps us improve!
+  `GitHub Issues <https://github.com/autonomousvision/py123d/issues>`_ page. Your feedback helps us improve!
 
 The Physical AI AV dataset provides autonomous driving sensor data collected using the NVIDIA Hyperion 8 platform.
 It includes 7 f-theta (fisheye) cameras at ~30 fps, a 360-degree LiDAR at ~10 Hz, auto-labeled 3D bounding box detections,
@@ -28,6 +28,10 @@ timestamps and dual egomotion sources (real-time and offline-smoothed).
 
     * -
       -
+    * - :octicon:`download` Download
+      - `Hugging Face <https://huggingface.co/datasets/nvidia/PhysicalAI-Autonomous-Vehicles>`_
+    * - :octicon:`mark-github` Code
+      - `NVlabs/physical_ai_av <https://github.com/NVlabs/physical_ai_av>`_
     * - :octicon:`law` License
       - Please refer to the dataset's official license terms.
     * - :octicon:`database` Available splits
@@ -88,7 +92,8 @@ Available Modalities
 Download
 ~~~~~~~~
 
-Please refer to the official Physical AI AV dataset distribution channels for download instructions.
+The dataset can be downloaded from `Hugging Face <https://huggingface.co/datasets/nvidia/PhysicalAI-Autonomous-Vehicles>`_.
+For additional tools and documentation, see the `Physical AI AV devkit <https://github.com/NVlabs/physical_ai_av>`_.
 
 The downloaded dataset should have the following structure:
 
@@ -144,14 +149,6 @@ You can also override the file path directly:
 .. note::
   By default, the conversion stores camera data as JPEG binary and LiDAR data as IPC with LZ4 compression.
   You can adjust these options in the ``physical-ai-av.yaml`` converter configuration.
-
-.. note::
-  By default, ``max_clips`` is set to 3. Set it to ``null`` for converting all available clips:
-
-  .. code-block:: bash
-
-    py123d-conversion datasets=["physical-ai-av"] \
-    dataset.parser.max_clips=null
 
 
 Dataset Issues
