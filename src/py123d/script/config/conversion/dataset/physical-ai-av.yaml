@@ -4,7 +4,7 @@ parser:
 
   splits: ["physical-ai-av_train"]
   physical_ai_av_data_root: ${dataset_paths.physical_ai_av_data_root}
-  max_clips: 3 # set to 1 for a single clip, null for all available
+  max_clips: null
 
 log_writer_config:
   _target_: py123d.api.scene.arrow.utils.log_writer_config.LogWriterConfig
