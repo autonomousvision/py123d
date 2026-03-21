@@ -43,19 +43,22 @@ def load_physical_ai_av_point_cloud_data_from_path(
     lidar_to_ego = lidar_metadatas[LidarID.LIDAR_TOP].lidar_to_imu_se3
     points = rel_to_abs_points_3d_array(origin=lidar_to_ego, points_3d_array=points).astype(np.float32)
 
+    # Extract per-point features from Draco color channels.
+    # Physical AI AV encodes: Red = intensity (uint8), Green+Blue = 16-bit relative timestamp.
+    # Formula: raw = (Blue << 8) | Green, relative_us = 105000 - raw * 210000 / 65535
+    # Absolute timestamp = reference_timestamp + relative_us
     lidar_features: Dict[str, npt.NDArray] = {}
+    colors = mesh.colors
+    if colors is not None:
+        colors_arr = np.array(colors, dtype=np.uint8)
+        lidar_features[LidarFeature.INTENSITY.serialize()] = colors_arr[:, 0]
 
-    # Extract per-point features from Draco generic attributes if available.
-    named_attrs = [attr for attr in (mesh.attributes or []) if attr.get("name") is not None]
-    for attr in named_attrs:
-        name = attr["name"]
-        data = np.array(attr["data"])
-        if data.ndim > 1 and data.shape[1] == 1:
-            data = data.squeeze(axis=1)
-
-        if name == "timestamp":
-            lidar_features[LidarFeature.TIMESTAMPS.serialize()] = data.astype(np.int64)
-        elif name == "intensity":
-            lidar_features[LidarFeature.INTENSITY.serialize()] = data.astype(np.uint8)
+        green = colors_arr[:, 1].astype(np.int32)
+        blue = colors_arr[:, 2].astype(np.int32)
+        raw_ts = (blue << 8) | green
+        relative_us = 105000.0 - raw_ts * (210000.0 / 65535.0)
+        reference_timestamp = int(row["reference_timestamp"])
+        absolute_us = reference_timestamp + np.round(relative_us).astype(np.int64)
+        lidar_features[LidarFeature.TIMESTAMPS.serialize()] = absolute_us
 
     return points, lidar_features

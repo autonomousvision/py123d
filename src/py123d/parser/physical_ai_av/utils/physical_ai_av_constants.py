@@ -19,13 +19,13 @@ PHYSICAL_AI_AV_SPLITS: Set[str] = {"physical-ai-av_train", "physical-ai-av_val",
 # ]
 
 PHYSICAL_AI_AV_CAMERA_ID_MAPPING: Dict[str, CameraID] = {
-    "camera_front_wide_120fov": CameraID.PCAM_F0,
-    "camera_front_tele_30fov": CameraID.PCAM_STEREO_L,
-    "camera_cross_left_120fov": CameraID.PCAM_L0,
-    "camera_cross_right_120fov": CameraID.PCAM_R0,
-    "camera_rear_left_70fov": CameraID.PCAM_L2,
-    "camera_rear_right_70fov": CameraID.PCAM_R2,
-    "camera_rear_tele_30fov": CameraID.PCAM_B0,
+    "camera_front_wide_120fov": CameraID.FTCAM_F0,
+    "camera_front_tele_30fov": CameraID.FTCAM_TELE_F0,
+    "camera_cross_left_120fov": CameraID.FTCAM_L0,
+    "camera_cross_right_120fov": CameraID.FTCAM_R0,
+    "camera_rear_left_70fov": CameraID.FTCAM_L1,
+    "camera_rear_right_70fov": CameraID.FTCAM_R1,
+    "camera_rear_tele_30fov": CameraID.FTCAM_TELE_B0,
 }
 
 # Vehicle dimensions from calibration/vehicle_dimensions (Hyperion 8 platform).

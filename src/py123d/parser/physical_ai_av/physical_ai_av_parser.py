@@ -149,14 +149,30 @@ class PhysicalAIAVLogParser(BaseLogParser):
     # Synchronized iteration (lidar-rate)
     # ------------------------------------------------------------------------------------------------------------------
 
+    def _ego_offline_path(self) -> Path:
+        """Path to the offline (smoothed) egomotion file — matches obstacle.offline reference frame."""
+        return self._data_root / "labels" / "egomotion.offline" / f"{self._clip_id}.egomotion.offline.parquet"
+
+    def _ego_regular_path(self) -> Path:
+        """Path to the regular (raw) egomotion file — higher rate, includes velocity/acceleration."""
+        return self._data_root / "labels" / "egomotion" / f"{self._clip_id}.egomotion.parquet"
+
     def iter_modalities_sync(self) -> Iterator[ModalitiesSync]:
         """Inherited, see superclass."""
         ego_metadata = PHYSICAL_AI_AV_EGO_STATE_SE3_METADATA
         det_metadata = PHYSICAL_AI_AV_BOX_DETECTIONS_SE3_METADATA
 
         # 1. Load egomotion
-        ego_df = pd.read_parquet(self._data_root / "labels" / "egomotion" / f"{self._clip_id}.egomotion.parquet")
+        # Regular ego for ego states and camera poses (higher rate, has velocity/acceleration).
+        # Offline ego only for box detection transforms (its anchor frame matches obstacle.offline labels).
+        ego_df = pd.read_parquet(self._ego_regular_path())
         ego_timestamps = ego_df["timestamp"].to_numpy(dtype=np.int64)
+        if self._ego_offline_path().exists():
+            ego_offline_df = pd.read_parquet(self._ego_offline_path())
+            ego_offline_ts = ego_offline_df["timestamp"].to_numpy(dtype=np.int64)
+        else:
+            ego_offline_df = ego_df
+            ego_offline_ts = ego_timestamps
 
         # 2. Load LiDAR timestamps
         lidar_path = self._data_root / "lidar" / "lidar_top_360fov" / f"{self._clip_id}.lidar_top_360fov.parquet"
@@ -178,6 +194,7 @@ class PhysicalAIAVLogParser(BaseLogParser):
         # 5. Load obstacle labels (if available)
         obstacle_path = self._data_root / "labels" / "obstacle.offline" / f"{self._clip_id}.obstacle.offline.parquet"
         obstacle_df = pd.read_parquet(obstacle_path) if obstacle_path.exists() else None
+        obs_timestamps = obstacle_df["timestamp_us"].to_numpy(dtype=np.int64) if obstacle_df is not None else None
 
         # 6. Open camera video captures
         captures: Dict[str, cv2.VideoCapture] = {}
@@ -190,12 +207,12 @@ class PhysicalAIAVLogParser(BaseLogParser):
             for spin_idx, lidar_ts in enumerate(lidar_timestamps):
                 timestamp = Timestamp.from_us(int(lidar_ts))
 
-                # Ego state
+                # Ego state (from regular ego — higher rate, has velocity/acceleration)
                 ego_state = _extract_ego_state(ego_df, ego_timestamps, lidar_ts, ego_metadata)
 
-                # Box detections
+                # Box detections (transformed using offline ego to match obstacle.offline frame)
                 box_detections = _extract_box_detections(
-                    obstacle_df, lidar_ts, ego_df, ego_timestamps, ego_metadata, det_metadata
+                    obstacle_df, obs_timestamps, lidar_ts, ego_offline_df, ego_offline_ts, ego_metadata, det_metadata
                 )
 
                 # LiDAR
@@ -210,7 +227,7 @@ class PhysicalAIAVLogParser(BaseLogParser):
 
                 # Cameras
                 parsed_cameras = _extract_cameras(
-                    lidar_ts, ego_state, captures, cam_timestamps, ftheta_metadatas, ego_metadata
+                    lidar_ts, ego_df, ego_timestamps, captures, cam_timestamps, ftheta_metadatas
                 )
 
                 yield ModalitiesSync(
@@ -241,7 +258,7 @@ class PhysicalAIAVLogParser(BaseLogParser):
 
     def _iter_ego_states_se3(self, metadata: EgoStateSE3Metadata) -> Iterator[EgoStateSE3]:
         """Yields all ego state observations at native rate (~67-100Hz)."""
-        ego_df = pd.read_parquet(self._data_root / "labels" / "egomotion" / f"{self._clip_id}.egomotion.parquet")
+        ego_df = pd.read_parquet(self._ego_regular_path())
 
         for _, row in ego_df.iterrows():
             ego_pose = quat_scalar_last_to_pose_se3(
@@ -272,7 +289,11 @@ class PhysicalAIAVLogParser(BaseLogParser):
 
         ego_metadata = PHYSICAL_AI_AV_EGO_STATE_SE3_METADATA
         obstacle_df = pd.read_parquet(obstacle_path)
-        ego_df = pd.read_parquet(self._data_root / "labels" / "egomotion" / f"{self._clip_id}.egomotion.parquet")
+        ego_df = (
+            pd.read_parquet(self._ego_offline_path())
+            if self._ego_offline_path().exists()
+            else pd.read_parquet(self._ego_regular_path())
+        )
         ego_timestamps = ego_df["timestamp"].to_numpy(dtype=np.int64)
 
         lidar_path = self._data_root / "lidar" / "lidar_top_360fov" / f"{self._clip_id}.lidar_top_360fov.parquet"
@@ -311,7 +332,7 @@ class PhysicalAIAVLogParser(BaseLogParser):
             return
 
         ts_df = pd.read_parquet(ts_path)
-        ego_df = pd.read_parquet(self._data_root / "labels" / "egomotion" / f"{self._clip_id}.egomotion.parquet")
+        ego_df = pd.read_parquet(self._ego_regular_path())
         ego_timestamps = ego_df["timestamp"].to_numpy(dtype=np.int64)
 
         cap = cv2.VideoCapture(str(video_path))
@@ -338,8 +359,7 @@ class PhysicalAIAVLogParser(BaseLogParser):
                 ret, frame = cap.read()
                 if not ret:
                     continue
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                _, jpeg_bytes = cv2.imencode(".jpg", frame_rgb, [cv2.IMWRITE_JPEG_QUALITY, 95])
+                _, jpeg_bytes = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
 
                 yield ParsedCamera(
                     metadata=cam_metadata,
@@ -501,6 +521,7 @@ def _extract_ego_state(
 
 def _extract_box_detections(
     obstacle_df: Optional[pd.DataFrame],
+    obs_timestamps: Optional[np.ndarray],
     lidar_ts: int,
     ego_df: pd.DataFrame,
     ego_timestamps: np.ndarray,
@@ -516,6 +537,7 @@ def _extract_box_detections(
     detection's own timestamp, not the lidar timestamp.
 
     :param obstacle_df: DataFrame with obstacle detections, or None.
+    :param obs_timestamps: Pre-computed obstacle timestamps array, or None.
     :param lidar_ts: Reference lidar timestamp in microseconds.
     :param ego_df: Egomotion DataFrame.
     :param ego_timestamps: Sorted egomotion timestamps array.
@@ -525,11 +547,10 @@ def _extract_box_detections(
     """
     timestamp = Timestamp.from_us(int(lidar_ts))
 
-    if obstacle_df is None or len(obstacle_df) == 0:
+    if obstacle_df is None or obs_timestamps is None or len(obstacle_df) == 0:
         return BoxDetectionsSE3(box_detections=[], timestamp=timestamp, metadata=metadata)
 
     # Gather all detections within ±window_us of the lidar timestamp
-    obs_timestamps = obstacle_df["timestamp_us"].to_numpy()
     mask = (obs_timestamps >= lidar_ts - window_us) & (obs_timestamps < lidar_ts + window_us)
     group_df = obstacle_df[mask]
 
@@ -623,11 +644,11 @@ def _build_box_detections(
 
 def _extract_cameras(
     lidar_ts: int,
-    ego_state: EgoStateSE3,
+    ego_df: pd.DataFrame,
+    ego_timestamps: np.ndarray,
     captures: Dict[str, cv2.VideoCapture],
     cam_timestamps: Dict[str, np.ndarray],
     ftheta_metadatas: Dict[CameraID, FThetaCameraMetadata],
-    ego_metadata: EgoStateSE3Metadata,
 ) -> List[ParsedCamera]:
     """Extract camera frames closest to a lidar timestamp."""
     cameras: List[ParsedCamera] = []
@@ -644,8 +665,19 @@ def _extract_cameras(
         frame_idx = find_closest_index(cam_ts_array, lidar_ts)
         cam_ts = int(cam_ts_array[frame_idx])
 
-        # Compute camera-to-global pose
-        camera_to_global = rel_to_abs_se3(origin=ego_state.imu_se3, pose_se3=cam_metadata.camera_to_imu_se3)
+        # Look up ego pose at the camera's own timestamp (not the lidar timestamp)
+        ego_idx = find_closest_index(ego_timestamps, cam_ts)
+        ego_row = ego_df.iloc[ego_idx]
+        ego_pose = quat_scalar_last_to_pose_se3(
+            qx=ego_row["qx"],
+            qy=ego_row["qy"],
+            qz=ego_row["qz"],
+            qw=ego_row["qw"],
+            x=ego_row["x"],
+            y=ego_row["y"],
+            z=ego_row["z"],
+        )
+        camera_to_global = rel_to_abs_se3(origin=ego_pose, pose_se3=cam_metadata.camera_to_imu_se3)
 
         # Extract frame from video
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
@@ -654,8 +686,7 @@ def _extract_cameras(
             continue
 
         # Encode as JPEG
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        _, jpeg_bytes = cv2.imencode(".jpg", frame_rgb, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        _, jpeg_bytes = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
 
         cameras.append(
             ParsedCamera(

@@ -5,7 +5,11 @@ from typing import Dict, List, Optional
 import viser
 
 from py123d.datatypes import CameraID, FisheyeMEICameraMetadata, FThetaCameraMetadata, PinholeCameraMetadata
-from py123d.datatypes.sensors.base_camera import ALL_FISHEYE_MEI_CAMERA_IDS, ALL_PINHOLE_CAMERA_IDS
+from py123d.datatypes.sensors.base_camera import (
+    ALL_FISHEYE_MEI_CAMERA_IDS,
+    ALL_FTHETA_CAMERA_IDS,
+    ALL_PINHOLE_CAMERA_IDS,
+)
 from py123d.visualization.viser.elements.base_element import ElementContext, ViewerElement
 from py123d.visualization.viser.utils.view_utils import decompose_camera_pose, get_scene_center_pose
 
@@ -20,7 +24,9 @@ class CameraFrustumConfig:
     fisheye_fov: float = 185.0
     show_frames: bool = False
     visible_camera_ids: List[CameraID] = field(
-        default_factory=lambda: ALL_PINHOLE_CAMERA_IDS + ALL_FISHEYE_MEI_CAMERA_IDS
+        default_factory=lambda: [
+            cam_id for cam_id in ALL_PINHOLE_CAMERA_IDS + ALL_FISHEYE_MEI_CAMERA_IDS + ALL_FTHETA_CAMERA_IDS
+        ]
     )
 
 
