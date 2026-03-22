@@ -487,7 +487,3 @@ class NuScenesLogParser(BaseLogParser):
             )
             if parsed_lidar is not None:
                 yield parsed_lidar
-
-
-# Backwards compatibility alias for Hydra configs referencing the old class name
-NuScenesInterpolatedParser = NuScenesParser
