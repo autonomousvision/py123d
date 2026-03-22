@@ -26,7 +26,7 @@ class ServerConfig:
 class ThemeConfig:
     control_layout: Literal["floating", "collapsible", "fixed"] = "floating"
     control_width: Literal["small", "medium", "large"] = "large"
-    dark_mode: bool = False
+    dark_mode: bool = True
     show_logo: bool = True
     show_share_button: bool = True
     brand_color: Optional[Tuple[int, int, int]] = ELLIS_5[0].rgb

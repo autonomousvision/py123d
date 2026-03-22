@@ -52,7 +52,7 @@ def _discrete_colormap(values: npt.NDArray, cmap_name: str = "tab20") -> npt.NDA
 
 def get_lidar_pc_color(
     lidar: Lidar,
-    feature: Literal[
+    color_feature: Literal[
         "none",
         "height",
         "distance",
@@ -68,7 +68,7 @@ def get_lidar_pc_color(
     """Compute per-point RGB colors for a lidar point cloud based on a feature.
 
     :param lidar: Lidar object containing the point cloud and its metadata.
-    :param feature: The feature to color the point cloud by.
+    :param color_feature: The feature to color the point cloud by.
     :param dark_mode: If True, use white as the default color; otherwise use black.
     :return: Nx3 array of RGB uint8 values.
     """
@@ -78,12 +78,13 @@ def get_lidar_pc_color(
     default_value = 255 if dark_mode else 0
     default_color = np.ones((n_points, 3), dtype=np.uint8) * default_value
 
-    if feature == "none":
+    if color_feature == "none":
         return default_color
-    elif feature == "height":
+    elif color_feature == "height":
         return _continuous_colormap(-point_cloud_3d[:, 2], cmap_name="viridis", vmin=-6.0, vmax=2.0)
-    elif feature == "distance":
+    elif color_feature == "distance":
         distances = -np.linalg.norm(point_cloud_3d, axis=-1)
+        distances = np.clip(distances, -50.0, 0.0)
         return _continuous_colormap(distances)
 
     # Features that require point_cloud_features to be present
@@ -98,18 +99,18 @@ def get_lidar_pc_color(
         "elongation": lidar.elongation,
     }
 
-    values = feature_accessor.get(feature)
+    values = feature_accessor.get(color_feature)
     if values is None:
-        logger.warning(f"LiDAR point cloud does not contain {feature} feature. Falling back to black.")
+        logger.warning(f"LiDAR point cloud does not contain {color_feature} feature. Falling back to black.")
         return default_color
 
-    if feature in discrete_features:
+    if color_feature in discrete_features:
         return _discrete_colormap(values)
-    elif feature in continuous_features:
+    elif color_feature in continuous_features:
         if values.dtype == np.uint8:
             values = values.astype(np.float32)
         elif values.dtype == np.int64:
             values = values.astype(np.float64)
         return _continuous_colormap(values)
 
-    raise ValueError(f"Unknown feature: {feature}")
+    raise ValueError(f"Unknown feature: {color_feature}")

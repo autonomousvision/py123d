@@ -18,4 +18,3 @@ Each dataset entry includes installation instructions, available data types, kno
    physical-ai-av
    wod_motion
    wod_perception
-   template

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -226,6 +226,42 @@ class FThetaCameraMetadata(BaseCameraMetadata):
     def camera_to_imu_se3(self) -> PoseSE3:
         """The static extrinsic pose of the f-theta camera."""
         return self._camera_to_imu_se3
+
+    def project_to_image(
+        self,
+        points_cam: npt.NDArray[np.float64],
+    ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.bool_], npt.NDArray[np.float64]]:
+        """Project 3D points in camera frame to image pixel coordinates using the f-theta model.
+
+        Uses the forward polynomial to map ray angle to pixel distance from principal point.
+
+        :param points_cam: (N, 3) array of 3D points in the camera coordinate frame.
+        :return: A tuple of (pixel_coords (N,2), in_fov_mask (N,), depth (N,)).
+        :raises ValueError: If intrinsics are not set.
+        """
+        if self._intrinsics is None:
+            raise ValueError("Cannot project: f-theta intrinsics not set.")
+
+        x = points_cam[:, 0]
+        y = points_cam[:, 1]
+        z = points_cam[:, 2]
+        depth = z.copy()
+
+        r_xy = np.sqrt(x * x + y * y)
+        theta = np.arctan2(r_xy, z)
+
+        fw_poly = self._intrinsics.fw_poly
+        powers = np.column_stack([theta**i for i in range(len(fw_poly))])
+        r_px = powers @ fw_poly
+
+        phi = np.arctan2(y, x)
+        u = r_px * np.cos(phi) + self._intrinsics.cx
+        v = r_px * np.sin(phi) + self._intrinsics.cy
+
+        pixel_coords = np.column_stack([u, v])
+        in_fov_mask = self._compute_in_fov_mask(pixel_coords, depth)
+        result = (pixel_coords, in_fov_mask, depth)
+        return result
 
     def _evaluate_bw_poly(self, r: float) -> float:
         """Evaluate the backward polynomial at pixel radius *r*.

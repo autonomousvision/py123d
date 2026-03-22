@@ -306,6 +306,27 @@ class FisheyeMEICameraMetadata(BaseCameraMetadata):
         data_dict["camera_to_imu_se3"] = self._camera_to_imu_se3.to_list()
         return data_dict
 
+    def project_to_image(
+        self,
+        points_cam: npt.NDArray[np.float64],
+    ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.bool_], npt.NDArray[np.float64]]:
+        """Project 3D points in camera frame to image pixel coordinates using the fisheye MEI model.
+
+        Delegates to :meth:`cam2image` and wraps the result in the unified interface.
+
+        :param points_cam: (N, 3) array of 3D points in the camera coordinate frame.
+        :return: A tuple of (pixel_coords (N,2), in_fov_mask (N,), depth (N,)).
+        :raises ValueError: If mirror_parameter is not set.
+        """
+        if self._mirror_parameter is None:
+            raise ValueError("Cannot project: mirror_parameter not set.")
+
+        x, y, signed_depth = self.cam2image(points_cam)
+        pixel_coords = np.column_stack([x, y])
+        in_fov_mask = self._compute_in_fov_mask(pixel_coords, signed_depth)
+        result = (pixel_coords, in_fov_mask, signed_depth)
+        return result
+
     def cam2image(self, points_3d: npt.NDArray[np.float64]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """camera coordinate to image plane"""
         assert points_3d.ndim == 2

@@ -6,6 +6,11 @@ import numpy.typing as npt
 from shapely.geometry import Polygon
 
 from py123d.datatypes.sensors import PinholeCameraMetadata
+from py123d.datatypes.sensors.base_camera import BaseCameraMetadata, Camera, CameraID
+from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraMetadata
+from py123d.datatypes.sensors.ftheta_camera import FThetaCameraMetadata
+from py123d.datatypes.sensors.pinhole_camera import PinholeDistortion, PinholeIntrinsics
+from py123d.geometry.pose import PoseSE3
 
 _InterpolationMode = Literal["nearest", "linear", "cubic"]
 _UndistortMode = Literal["optimal", "keep_focal_length"]
@@ -251,3 +256,223 @@ def undistort_image_from_camera(
         return undistort_image_keep_focal_length(image, intrinsic, distortion, interpolation)
     else:
         raise ValueError(f"Invalid mode: {mode}")
+
+
+def undistort_camera(
+    camera: Camera,
+    interpolation: _InterpolationMode = "linear",
+) -> Camera:
+    """Convert any camera to an undistorted pinhole camera.
+
+    For pinhole cameras with distortion, the image is undistorted while preserving the
+    original focal length (K matrix). For f-theta and fisheye MEI cameras, the image is
+    remapped to a virtual pinhole camera derived from the original camera's field of view.
+
+    If the camera is already an undistorted pinhole, it is returned unchanged.
+
+    :param camera: The input camera (any model).
+    :param interpolation: Interpolation method for image remapping, defaults to ``"linear"``.
+    :return: A new :class:`Camera` with an undistorted pinhole image and matching metadata.
+    """
+    metadata = camera.metadata
+
+    if isinstance(metadata, PinholeCameraMetadata) and metadata.is_undistorted:
+        result = camera
+    elif isinstance(metadata, PinholeCameraMetadata):
+        result = _undistort_pinhole_camera(camera, metadata, interpolation)
+    elif isinstance(metadata, FThetaCameraMetadata):
+        result = _undistort_ftheta_camera(camera, metadata, interpolation)
+    elif isinstance(metadata, FisheyeMEICameraMetadata):
+        result = _undistort_fisheye_mei_camera(camera, metadata, interpolation)
+    else:
+        raise NotImplementedError(f"Undistortion not implemented for camera model: {type(metadata).__name__}")
+
+    return result
+
+
+def _undistort_pinhole_camera(
+    camera: Camera,
+    metadata: PinholeCameraMetadata,
+    interpolation: _InterpolationMode,
+) -> Camera:
+    """Undistort a distorted pinhole camera, preserving the K matrix."""
+    assert metadata.intrinsics is not None
+    assert metadata.distortion is not None
+
+    K = metadata.intrinsics.camera_matrix
+    dist = metadata.distortion.array
+    image_undistorted = undistort_image_keep_focal_length(camera.image, K, dist, interpolation)
+
+    new_metadata = PinholeCameraMetadata(
+        camera_name=metadata.camera_name,
+        camera_id=metadata.camera_id,
+        intrinsics=metadata.intrinsics,
+        distortion=metadata.distortion,
+        width=metadata.width,
+        height=metadata.height,
+        camera_to_imu_se3=metadata.camera_to_imu_se3,
+        is_undistorted=True,
+    )
+    result = Camera(
+        metadata=new_metadata,
+        image=image_undistorted,
+        camera_to_global_se3=camera.camera_to_global_se3,
+        timestamp=camera.timestamp,
+    )
+    return result
+
+
+def _build_pinhole_from_fov(
+    fov_x: float,
+    fov_y: float,
+    width: int,
+    height: int,
+    camera_id: CameraID,
+    camera_name: str,
+    camera_to_imu_se3: PoseSE3,
+) -> PinholeCameraMetadata:
+    """Build an undistorted pinhole camera metadata from a target field of view."""
+    fx = (width / 2.0) / np.tan(fov_x / 2.0)
+    fy = (height / 2.0) / np.tan(fov_y / 2.0)
+    cx = width / 2.0
+    cy = height / 2.0
+    intrinsics = PinholeIntrinsics(fx=fx, fy=fy, cx=cx, cy=cy)
+    distortion = PinholeDistortion(k1=0.0, k2=0.0, p1=0.0, p2=0.0, k3=0.0)
+    result = PinholeCameraMetadata(
+        camera_name=camera_name,
+        camera_id=camera_id,
+        intrinsics=intrinsics,
+        distortion=distortion,
+        width=width,
+        height=height,
+        camera_to_imu_se3=camera_to_imu_se3,
+        is_undistorted=True,
+    )
+    return result
+
+
+def _remap_to_pinhole(
+    image: npt.NDArray[np.uint8],
+    source_metadata: BaseCameraMetadata,
+    target_metadata: PinholeCameraMetadata,
+    interpolation: _InterpolationMode,
+) -> npt.NDArray[np.uint8]:
+    """Remap an image from an arbitrary camera model to a pinhole camera.
+
+    For each pixel (u, v) in the target pinhole image, computes the 3D ray direction,
+    then projects it through the source camera model to find the source pixel. Uses
+    OpenCV's ``cv2.remap`` for efficient interpolation.
+
+    :param image: Source image.
+    :param source_metadata: Source camera metadata (any model).
+    :param target_metadata: Target pinhole camera metadata (undistorted).
+    :param interpolation: Interpolation method.
+    :return: Remapped image matching the target pinhole camera.
+    """
+    interpolation_map = {"nearest": cv2.INTER_NEAREST, "linear": cv2.INTER_LINEAR, "cubic": cv2.INTER_CUBIC}
+
+    assert target_metadata.intrinsics is not None
+    h, w = target_metadata.height, target_metadata.width
+    fx = target_metadata.intrinsics.fx
+    fy = target_metadata.intrinsics.fy
+    cx = target_metadata.intrinsics.cx
+    cy = target_metadata.intrinsics.cy
+
+    # Build grid of pixel coordinates in the target pinhole image
+    u_grid, v_grid = np.meshgrid(np.arange(w, dtype=np.float64), np.arange(h, dtype=np.float64))
+
+    # Unproject pinhole pixels to 3D rays: (u - cx) / fx, (v - cy) / fy, 1
+    rays_x = (u_grid - cx) / fx
+    rays_y = (v_grid - cy) / fy
+    rays_z = np.ones_like(rays_x)
+
+    # Stack into (H*W, 3) array and project through the source camera model
+    rays = np.column_stack([rays_x.ravel(), rays_y.ravel(), rays_z.ravel()])
+    source_pixels, _mask, _depth = source_metadata.project_to_image(rays)
+
+    # Build remap arrays
+    map_x = source_pixels[:, 0].reshape(h, w).astype(np.float32)
+    map_y = source_pixels[:, 1].reshape(h, w).astype(np.float32)
+
+    image_remapped = cv2.remap(image, map_x, map_y, interpolation=interpolation_map[interpolation])
+    return image_remapped
+
+
+def _undistort_ftheta_camera(
+    camera: Camera,
+    metadata: FThetaCameraMetadata,
+    interpolation: _InterpolationMode,
+) -> Camera:
+    """Convert an f-theta camera to an undistorted pinhole camera."""
+    assert metadata.intrinsics is not None
+    fov_x = metadata.fov_x
+    fov_y = metadata.fov_y
+    assert fov_x is not None and fov_y is not None, "Cannot compute FOV from f-theta intrinsics."
+
+    # Clamp FOV to < 180 degrees (pinhole can't represent >= 180)
+    max_fov = np.deg2rad(170.0)
+    fov_x = min(fov_x, max_fov)
+    fov_y = min(fov_y, max_fov)
+
+    target_metadata = _build_pinhole_from_fov(
+        fov_x=fov_x,
+        fov_y=fov_y,
+        width=metadata.width,
+        height=metadata.height,
+        camera_id=metadata.camera_id,
+        camera_name=metadata.camera_name,
+        camera_to_imu_se3=metadata.camera_to_imu_se3,
+    )
+    image_remapped = _remap_to_pinhole(camera.image, metadata, target_metadata, interpolation)
+
+    result = Camera(
+        metadata=target_metadata,
+        image=image_remapped,
+        camera_to_global_se3=camera.camera_to_global_se3,
+        timestamp=camera.timestamp,
+    )
+    return result
+
+
+def _undistort_fisheye_mei_camera(
+    camera: Camera,
+    metadata: FisheyeMEICameraMetadata,
+    interpolation: _InterpolationMode,
+) -> Camera:
+    """Convert a fisheye MEI camera to an undistorted pinhole camera."""
+    assert metadata.projection is not None
+    assert metadata.mirror_parameter is not None
+
+    # Approximate FOV from projection parameters
+    u0 = metadata.projection.u0
+    v0 = metadata.projection.v0
+    gamma1 = metadata.projection.gamma1
+    gamma2 = metadata.projection.gamma2
+
+    half_w = max(u0, metadata.width - u0)
+    half_h = max(v0, metadata.height - v0)
+    fov_x = 2.0 * np.arctan(half_w / gamma1)
+    fov_y = 2.0 * np.arctan(half_h / gamma2)
+
+    max_fov = np.deg2rad(170.0)
+    fov_x = min(fov_x, max_fov)
+    fov_y = min(fov_y, max_fov)
+
+    target_metadata = _build_pinhole_from_fov(
+        fov_x=fov_x,
+        fov_y=fov_y,
+        width=metadata.width,
+        height=metadata.height,
+        camera_id=metadata.camera_id,
+        camera_name=metadata.camera_name,
+        camera_to_imu_se3=metadata.camera_to_imu_se3,
+    )
+    image_remapped = _remap_to_pinhole(camera.image, metadata, target_metadata, interpolation)
+
+    result = Camera(
+        metadata=target_metadata,
+        image=image_remapped,
+        camera_to_global_se3=camera.camera_to_global_se3,
+        timestamp=camera.timestamp,
+    )
+    return result
