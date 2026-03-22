@@ -1,5 +1,13 @@
 from py123d.datatypes.metadata.base_metadata import BaseMetadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
+from py123d.datatypes.metadata.scene_metadata import SceneMetadata
+
+__all__ = [
+    "BaseMetadata",
+    "LogMetadata",
+    "MapMetadata",
+    "SceneMetadata",
+]
 
 
 def __getattr__(name: str):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -382,6 +382,53 @@ class PinholeCameraMetadata(BaseCameraMetadata):
     def is_distorted(self) -> bool:
         """Whether the camera images are distorted."""
         return not self._is_undistorted
+
+    def project_to_image(
+        self,
+        points_cam: npt.NDArray[np.float64],
+    ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.bool_], npt.NDArray[np.float64]]:
+        """Project 3D points in camera frame to image pixel coordinates using the pinhole model.
+
+        If the camera has distortion parameters and images are not pre-undistorted,
+        the OpenCV radial-tangential distortion model is applied so that projected
+        pixels match the raw (distorted) image.
+
+        :param points_cam: (N, 3) array of 3D points in the camera coordinate frame.
+        :return: A tuple of (pixel_coords (N,2), in_fov_mask (N,), depth (N,)).
+        :raises ValueError: If intrinsics are not set.
+        """
+        if self._intrinsics is None:
+            raise ValueError("Cannot project: pinhole intrinsics not set.")
+
+        depth = points_cam[:, 2].copy()
+        eps = 1e-6
+        safe_z = np.where(np.abs(depth) < eps, eps, depth)
+        x_norm = points_cam[:, 0] / safe_z
+        y_norm = points_cam[:, 1] / safe_z
+
+        if self._is_undistorted or self._distortion is None:
+            u = self._intrinsics.fx * x_norm + self._intrinsics.skew * y_norm + self._intrinsics.cx
+            v = self._intrinsics.fy * y_norm + self._intrinsics.cy
+        else:
+            r2 = x_norm * x_norm + y_norm * y_norm
+            r4 = r2 * r2
+            r6 = r4 * r2
+            k1 = self._distortion.k1
+            k2 = self._distortion.k2
+            k3 = self._distortion.k3
+            p1 = self._distortion.p1
+            p2 = self._distortion.p2
+            radial = 1.0 + k1 * r2 + k2 * r4 + k3 * r6
+            xy = x_norm * y_norm
+            x_dist = x_norm * radial + 2.0 * p1 * xy + p2 * (r2 + 2.0 * x_norm * x_norm)
+            y_dist = y_norm * radial + p1 * (r2 + 2.0 * y_norm * y_norm) + 2.0 * p2 * xy
+            u = self._intrinsics.fx * x_dist + self._intrinsics.skew * y_dist + self._intrinsics.cx
+            v = self._intrinsics.fy * y_dist + self._intrinsics.cy
+
+        pixel_coords = np.column_stack([u, v])
+        in_fov_mask = self._compute_in_fov_mask(pixel_coords, depth)
+        result = (pixel_coords, in_fov_mask, depth)
+        return result
 
     @property
     def fov_x(self) -> Optional[float]:

@@ -20,12 +20,12 @@ from py123d.api.scene.arrow.utils.scene_builder_utils import (
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_builder import SceneBuilder
 from py123d.api.scene.scene_filter import SceneFilter
-from py123d.api.scene.scene_metadata import SceneMetadata
 from py123d.api.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.api.utils.arrow_metadata_utils import get_metadata_from_arrow_schema
 from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.execution import Executor
 from py123d.common.execution.utils import executor_map_chunked_list
+from py123d.datatypes.metadata import SceneMetadata
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 
 logger = logging.getLogger(__name__)
@@ -96,12 +96,11 @@ def _parse_valid_log_dirs(logs_root: Path, filter: SceneFilter) -> List[Path]:
     log_paths: List[Path] = []
     for split_name in split_names:
         split_dir = logs_root / split_name
-        if not split_dir.exists():
-            continue
-        for log_path in split_dir.iterdir():
-            if log_path.is_dir() and (log_path / "sync.arrow").exists():
-                if filter.log_names is None or log_path.name in filter.log_names:
-                    log_paths.append(log_path)
+        if split_dir.exists():
+            for log_path in split_dir.iterdir():
+                if log_path.is_dir() and (log_path / "sync.arrow").exists():
+                    if filter.log_names is None or log_path.name in filter.log_names:
+                        log_paths.append(log_path)
     return log_paths
 
 

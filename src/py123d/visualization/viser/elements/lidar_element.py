@@ -123,7 +123,7 @@ class LidarElement(ViewerElement):
         lidar = self._context.scene.get_lidar_at_iteration(iteration, lidar_id=active_id)
         if lidar is not None:
             points = rel_to_abs_points_3d_array(ego_pose, lidar.xyz.astype(np.float64))
-            colors = get_lidar_pc_color(lidar, feature=self._config.point_color, dark_mode=self._dark_mode)
+            colors = get_lidar_pc_color(lidar, color_feature=self._config.point_color, dark_mode=self._dark_mode)
         else:
             points = np.zeros((0, 3), dtype=np.float32)
             colors = np.zeros((0, 3), dtype=np.uint8)

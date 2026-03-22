@@ -84,6 +84,36 @@ class ArrowBaseModalityWriter:
         if self._source is not None:
             self._source.close()
             self._source = None
+        if self._row_count > 1:
+            self._validate_timestamp_order()
+
+    def _validate_timestamp_order(self) -> None:
+        """Read back the written file and verify that timestamps are monotonically increasing.
+
+        :raises ValueError: If any timestamp is less than or equal to its predecessor.
+        """
+        ts_column: Optional[str] = None
+        for name in self._schema.names:
+            if name.endswith(".timestamp_us"):
+                ts_column = name
+                break
+        if ts_column is None:
+            raise ValueError(
+                f"No timestamp column (ending with '.timestamp_us') found in schema of '{self._file_path.name}'. "
+                f"Available columns: {self._schema.names}"
+            )
+
+        with pa.memory_map(str(self._file_path), "rb") as source:
+            table = pa.ipc.open_file(source).read_all()
+        ts_array = table.column(ts_column).to_numpy()
+        diffs = np.diff(ts_array)
+        violating = np.where(diffs < 0)[0]
+        if len(violating) > 0:
+            idx = int(violating[0])
+            raise ValueError(
+                f"Timestamps must be monotonically increasing in '{self._file_path.name}'. "
+                f"Got {ts_array[idx + 1]} after {ts_array[idx]} at row {idx + 1}."
+            )
 
 
 class ArrowBaseModalityReader(ABC):
@@ -178,70 +208,3 @@ class ArrowBaseModalityReader(ABC):
         if index is not None:
             modality = cls.read_at_index(index, table, metadata, dataset, **kwargs)
         return modality
-
-    # @classmethod
-    # def read_all_within_iterations(
-    #     cls,
-    #     table: pa.Table,
-    #     sync_table: pa.Table,
-    #     metadata: BaseModalityMetadata,
-    #     dataset: str,
-    #     start_iteration: int,
-    #     end_iteration: int,
-    #     initial_idx: int,
-    #     **kwargs,
-    # ) -> Iterator[BaseModality]:
-    #     """Yield all modality entries for sync iterations in ``[start_iteration, end_iteration)``.
-
-    #     :param table: The Arrow modality table.
-    #     :param sync_table: The sync Arrow table.
-    #     :param metadata: The modality metadata.
-    #     :param dataset: The dataset name.
-    #     :param start_iteration: First iteration (inclusive).
-    #     :param end_iteration: Last iteration (exclusive).
-    #     :param initial_idx: The scene's initial sync index (added to iterations).
-    #     :param kwargs: Additional keyword arguments forwarded to :meth:`read_at_index`.
-    #     """
-    #     from py123d.api.scene.arrow.modalities.sync_utils import get_modality_index_from_sync_index
-
-    #     modality_key = metadata.modality_key
-    #     if modality_key not in sync_table.column_names:
-    #         return
-
-    #     for iteration in range(start_iteration, end_iteration):
-    #         sync_index = initial_idx + iteration
-    #         modality_index = get_modality_index_from_sync_index(sync_table, modality_key, sync_index)
-    #         if modality_index is not None:
-    #             modality = cls.read_at_index(modality_index, table, metadata, dataset, **kwargs)
-    #             if modality is not None:
-    #                 yield modality
-
-    # @classmethod
-    # def read_all_within_timestamps(
-    #     cls,
-    #     table: pa.Table,
-    #     metadata: BaseModalityMetadata,
-    #     dataset: str,
-    #     start_timestamp: Timestamp,
-    #     end_timestamp: Timestamp,
-    #     **kwargs,
-    # ) -> Iterator[BaseModality]:
-    #     """Yield all modality entries with timestamps in ``[start_timestamp, end_timestamp]``.
-
-    #     :param table: The Arrow modality table.
-    #     :param metadata: The modality metadata.
-    #     :param dataset: The dataset name.
-    #     :param start_timestamp: Earliest timestamp (inclusive).
-    #     :param end_timestamp: Latest timestamp (inclusive).
-    #     :param kwargs: Additional keyword arguments forwarded to :meth:`read_at_index`.
-    #     """
-    #     ts_column = f"{metadata.modality_key}.timestamp_us"
-    #     ts_array = table[ts_column].to_numpy()
-
-    #     mask = (ts_array >= start_timestamp.time_us) & (ts_array <= end_timestamp.time_us)
-    #     indices = np.where(mask)[0]
-
-    #     for index in indices:
-    #         modality = cls.read_at_index(int(index), table, metadata, dataset, **kwargs)
-    #         if modality is not None:
-    #             yield modality

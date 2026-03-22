@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Any, Dict, Optional, Type, TypeVar, Union
+from typing import Any, Dict, Optional, Tuple, Type, TypeVar, Union
 
 _T = TypeVar("_T")
 
@@ -12,6 +12,7 @@ from py123d.common.utils.enums import SerialIntEnum
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata, ModalityType
 from py123d.datatypes.time.timestamp import Timestamp
 from py123d.geometry.pose import PoseSE3
+from py123d.geometry.transform import abs_to_rel_points_3d_array
 
 
 class CameraChannelType(SerialIntEnum):
@@ -220,6 +221,35 @@ class BaseCameraMetadata(BaseModalityMetadata, abc.ABC):
         """The aspect ratio (width / height) of the camera."""
         return self.width / self.height
 
+    def _compute_in_fov_mask(
+        self,
+        pixel_coords: npt.NDArray[np.float64],
+        depth: npt.NDArray[np.float64],
+        eps: float = 1e-6,
+    ) -> npt.NDArray[np.bool_]:
+        """Compute a boolean mask for points in front of the camera and within image bounds.
+
+        :param pixel_coords: (N, 2) array of (u, v) pixel coordinates.
+        :param depth: (N,) array of depths (positive = in front of camera).
+        :param eps: minimum depth threshold, defaults to 1e-6.
+        :return: (N,) boolean mask.
+        """
+        mask = depth > eps
+        mask = mask & (pixel_coords[:, 0] >= 0) & (pixel_coords[:, 0] < self.width)
+        mask = mask & (pixel_coords[:, 1] >= 0) & (pixel_coords[:, 1] < self.height)
+        return mask
+
+    @abc.abstractmethod
+    def project_to_image(
+        self,
+        points_cam: npt.NDArray[np.float64],
+    ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.bool_], npt.NDArray[np.float64]]:
+        """Project 3D points in camera frame to image pixel coordinates.
+
+        :param points_cam: (N, 3) array of 3D points in the camera coordinate frame.
+        :return: A tuple of (pixel_coords (N,2), in_fov_mask (N,), depth (N,)).
+        """
+
 
 class Camera(BaseModality):
     """A camera observation: image, extrinsic pose, timestamp, and model-specific metadata."""
@@ -264,3 +294,22 @@ class Camera(BaseModality):
     def camera_to_global_se3(self) -> PoseSE3:
         """The extrinsic :class:`~py123d.geometry.PoseSE3` of the camera in global coordinates."""
         return self._camera_to_global_se3
+
+    def project_points_global(
+        self,
+        points_global: npt.NDArray[np.float64],
+    ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.bool_], npt.NDArray[np.float64]]:
+        """Project 3D points in global frame to image pixel coordinates.
+
+        Convenience method that transforms points from global to camera frame,
+        then delegates to :meth:`BaseCameraMetadata.project_to_image`.
+
+        :param points_global: (N, 3) array of 3D points in global coordinates.
+        :return: A tuple of:
+            - pixel_coords: (N, 2) array of (u, v) pixel coordinates.
+            - in_fov_mask: (N,) boolean mask.
+            - depth: (N,) array of signed depths.
+        """
+        points_cam = abs_to_rel_points_3d_array(self._camera_to_global_se3, points_global)
+        result = self._metadata.project_to_image(points_cam)
+        return result

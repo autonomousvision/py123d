@@ -19,3 +19,24 @@ from py123d.datatypes.detections.traffic_light_detections import (
     TrafficLightStatus,
     TrafficLightDetectionsMetadata,
 )
+
+__all__ = [
+    # Box detection labels
+    "BOX_DETECTION_LABEL_REGISTRY",
+    "BoxDetectionLabel",
+    "DefaultBoxDetectionLabel",
+    "register_box_detection_label",
+    # Box detections
+    "BoxDetection",
+    "BoxDetectionAttributes",
+    "BoxDetectionSE2",
+    "BoxDetectionSE3",
+    "BoxDetectionsSE2",
+    "BoxDetectionsSE3",
+    "BoxDetectionsSE3Metadata",
+    # Traffic light detections
+    "TrafficLightDetection",
+    "TrafficLightDetections",
+    "TrafficLightStatus",
+    "TrafficLightDetectionsMetadata",
+]

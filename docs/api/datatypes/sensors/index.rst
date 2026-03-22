@@ -7,4 +7,5 @@ Sensors
    01_camera
    02_pinhole_camera
    03_fisheye_mei_camera
-   04_lidar
+   04_ftheta_camera
+   05_lidar
