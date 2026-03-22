@@ -7,7 +7,6 @@ functions used by :class:`NuScenesParser` for both 2Hz and 10Hz modes.
 from __future__ import annotations
 
 import bisect
-import gc
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -67,12 +66,9 @@ def get_nuscenes_pinhole_camera_metadata_from_scene(
 ) -> Optional[Dict[CameraID, PinholeCameraMetadata]]:
     """Extracts the pinhole camera metadata from a nuScenes scene."""
     nusc = load_nusc_fn()
-    try:
-        scene = nusc.get("scene", scene_token)
-        return get_nuscenes_pinhole_camera_metadata(nusc, scene) or None
-    finally:
-        del nusc
-        gc.collect()
+    scene = nusc.get("scene", scene_token)
+    result = get_nuscenes_pinhole_camera_metadata(nusc, scene) or None
+    return result
 
 
 def get_nuscenes_pinhole_camera_metadata(
@@ -116,12 +112,9 @@ def get_nuscenes_lidar_metadata_from_scene(
 ) -> LidarMergedMetadata:
     """Extracts the Lidar merged metadata from a nuScenes scene."""
     nusc = load_nusc_fn()
-    try:
-        scene = nusc.get("scene", scene_token)
-        return get_nuscenes_lidar_merged_metadata(nusc, scene)
-    finally:
-        del nusc
-        gc.collect()
+    scene = nusc.get("scene", scene_token)
+    result = get_nuscenes_lidar_merged_metadata(nusc, scene)
+    return result
 
 
 def get_nuscenes_lidar_merged_metadata(

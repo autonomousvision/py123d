@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import gc
 from pathlib import Path
-from typing import Dict, Iterator, List, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 from py123d.common.utils.dependencies import check_dependencies
 from py123d.datatypes import (
@@ -158,6 +158,7 @@ class NuScenesParser(BaseDatasetParser):
                         nuscenes_data_root=self._nuscenes_data_root,
                         database_version=database_version,
                         target_dt=target_dt,
+                        nusc=nusc,
                     )
                 )
         return log_parsers
@@ -186,6 +187,7 @@ class NuScenesLogParser(BaseLogParser):
         nuscenes_data_root: Path,
         database_version: str,
         target_dt: float,
+        nusc: Optional[NuScenes] = None,
     ) -> None:
         self._split = split
         self._scene_token = scene_token
@@ -194,17 +196,37 @@ class NuScenesLogParser(BaseLogParser):
         self._nuscenes_data_root = nuscenes_data_root
         self._database_version = database_version
         self._target_dt = target_dt
+        self._shared_nusc: Optional[NuScenes] = nusc
+        self._owns_nusc: bool = False
 
     @property
     def _is_interpolated(self) -> bool:
         return self._target_dt < NUSCENES_DT
 
-    def _load_nusc(self) -> NuScenes:
-        return NuScenes(
-            version=self._database_version,
-            dataroot=str(self._nuscenes_data_root),
-            verbose=False,
-        )
+    def _get_or_load_nusc(self) -> NuScenes:
+        """Returns the shared NuScenes DB, loading it lazily if needed."""
+        if self._shared_nusc is None:
+            self._shared_nusc = NuScenes(
+                version=self._database_version,
+                dataroot=str(self._nuscenes_data_root),
+                verbose=False,
+            )
+            self._owns_nusc = True
+        return self._shared_nusc
+
+    def _release_nusc(self) -> None:
+        """Releases the NuScenes DB if this parser owns it (i.e. it was not shared)."""
+        if self._owns_nusc:
+            self._shared_nusc = None
+            self._owns_nusc = False
+            gc.collect()
+
+    def __getstate__(self) -> Dict[str, Any]:
+        """Exclude the NuScenes DB from pickle state for Ray/ProcessPool safety."""
+        state = self.__dict__.copy()
+        state["_shared_nusc"] = None
+        state["_owns_nusc"] = False
+        return state
 
     def get_log_metadata(self) -> LogMetadata:
         """Inherited, see superclass."""
@@ -230,10 +252,12 @@ class NuScenesLogParser(BaseLogParser):
         """Yields synchronized frames at 2Hz keyframe rate."""
         ego_metadata = NUSCENES_EGO_STATE_SE3_METADATA
         box_detections_metadata = NUSCENES_BOX_DETECTIONS_SE3_METADATA
-        pinhole_cameras_metadata = get_nuscenes_pinhole_camera_metadata_from_scene(self._load_nusc, self._scene_token)
-        lidar_metadata = get_nuscenes_lidar_metadata_from_scene(self._load_nusc, self._scene_token)
+        pinhole_cameras_metadata = get_nuscenes_pinhole_camera_metadata_from_scene(
+            self._get_or_load_nusc, self._scene_token
+        )
+        lidar_metadata = get_nuscenes_lidar_metadata_from_scene(self._get_or_load_nusc, self._scene_token)
 
-        nusc = self._load_nusc()
+        nusc = self._get_or_load_nusc()
         try:
             can_bus = NuScenesCanBus(dataroot=str(self._nuscenes_data_root))
             scene = nusc.get("scene", self._scene_token)
@@ -266,8 +290,7 @@ class NuScenesLogParser(BaseLogParser):
                 yield ModalitiesSync(timestamp=timestamp, modalities=modalities)
                 sample_token = sample["next"]
         finally:
-            del nusc
-            gc.collect()
+            self._release_nusc()
 
     def _iter_sync_interpolated(self) -> Iterator[ModalitiesSync]:
         """Yields synchronized frames at ~10Hz using intermediate lidar sweeps.
@@ -278,10 +301,12 @@ class NuScenesLogParser(BaseLogParser):
         """
         ego_metadata = NUSCENES_EGO_STATE_SE3_METADATA
         box_detections_metadata = NUSCENES_BOX_DETECTIONS_SE3_METADATA
-        pinhole_cameras_metadata = get_nuscenes_pinhole_camera_metadata_from_scene(self._load_nusc, self._scene_token)
-        lidar_metadata = get_nuscenes_lidar_metadata_from_scene(self._load_nusc, self._scene_token)
+        pinhole_cameras_metadata = get_nuscenes_pinhole_camera_metadata_from_scene(
+            self._get_or_load_nusc, self._scene_token
+        )
+        lidar_metadata = get_nuscenes_lidar_metadata_from_scene(self._get_or_load_nusc, self._scene_token)
 
-        nusc = self._load_nusc()
+        nusc = self._get_or_load_nusc()
         try:
             can_bus = NuScenesCanBus(dataroot=str(self._nuscenes_data_root))
             scene = nusc.get("scene", self._scene_token)
@@ -349,8 +374,7 @@ class NuScenesLogParser(BaseLogParser):
 
                 yield ModalitiesSync(timestamp=timestamp, modalities=modalities)
         finally:
-            del nusc
-            gc.collect()
+            self._release_nusc()
 
     # ------------------------------------------------------------------------------------------------------------------
     # Async iteration (identical for 2Hz and 10Hz — each modality at its native rate)
@@ -360,80 +384,75 @@ class NuScenesLogParser(BaseLogParser):
         """Inherited, see superclass."""
         ego_metadata = NUSCENES_EGO_STATE_SE3_METADATA
         box_detections_metadata = NUSCENES_BOX_DETECTIONS_SE3_METADATA
-        pinhole_cameras_metadata = get_nuscenes_pinhole_camera_metadata_from_scene(self._load_nusc, self._scene_token)
-        lidar_metadata = get_nuscenes_lidar_metadata_from_scene(self._load_nusc, self._scene_token)
+        pinhole_cameras_metadata = get_nuscenes_pinhole_camera_metadata_from_scene(
+            self._get_or_load_nusc, self._scene_token
+        )
+        lidar_metadata = get_nuscenes_lidar_metadata_from_scene(self._get_or_load_nusc, self._scene_token)
 
-        yield from self._iter_ego_states_se3(ego_metadata)
-        yield from self._iter_box_detections_se3(box_detections_metadata)
-        yield from self._iter_lidars(lidar_metadata)
-        if pinhole_cameras_metadata:
-            for camera_type, camera_metadata in pinhole_cameras_metadata.items():
-                yield from self._iter_pinhole_cameras(camera_type, camera_metadata, pinhole_cameras_metadata)
+        try:
+            yield from self._iter_ego_states_se3(ego_metadata)
+            yield from self._iter_box_detections_se3(box_detections_metadata)
+            yield from self._iter_lidars(lidar_metadata)
+            if pinhole_cameras_metadata:
+                for camera_type, camera_metadata in pinhole_cameras_metadata.items():
+                    yield from self._iter_pinhole_cameras(camera_type, camera_metadata, pinhole_cameras_metadata)
+        finally:
+            self._release_nusc()
 
     def _iter_ego_states_se3(self, ego_metadata: EgoStateSE3Metadata) -> Iterator[EgoStateSE3]:
         """Yields ego states at full lidar sweep rate (~20Hz)."""
-        nusc = self._load_nusc()
-        try:
-            can_bus = NuScenesCanBus(dataroot=str(self._nuscenes_data_root))
-            scene = nusc.get("scene", self._scene_token)
-            lidar_timeline = collect_lidar_sweep_timeline(nusc, scene)
+        nusc = self._get_or_load_nusc()
+        can_bus = NuScenesCanBus(dataroot=str(self._nuscenes_data_root))
+        scene = nusc.get("scene", self._scene_token)
+        lidar_timeline = collect_lidar_sweep_timeline(nusc, scene)
 
-            for sweep in lidar_timeline:
-                yield extract_ego_state_from_sample_data(nusc, sweep, can_bus, self._scene_name, ego_metadata)
-        finally:
-            del nusc
-            gc.collect()
+        for sweep in lidar_timeline:
+            yield extract_ego_state_from_sample_data(nusc, sweep, can_bus, self._scene_name, ego_metadata)
 
     def _iter_box_detections_se3(self, box_detections_metadata: BoxDetectionsSE3Metadata) -> Iterator[BoxDetectionsSE3]:
         """Yields box detections at keyframe rate (~2Hz), optionally interpolated to ~10Hz."""
-        nusc = self._load_nusc()
-        try:
-            scene = nusc.get("scene", self._scene_token)
+        nusc = self._get_or_load_nusc()
+        scene = nusc.get("scene", self._scene_token)
 
-            if not self._is_interpolated:
-                # 2Hz: yield keyframe annotations directly
-                sample_token = scene["first_sample_token"]
-                while sample_token:
-                    sample = nusc.get("sample", sample_token)
-                    yield extract_nuscenes_box_detections(nusc, sample, box_detections_metadata)
-                    sample_token = sample["next"]
-            else:
-                # 10Hz: yield keyframe annotations at keyframes, interpolated detections between
-                keyframe_samples = collect_keyframe_samples(nusc, scene)
-                keyframe_timestamps = [s["timestamp"] for s in keyframe_samples]
-                keyframe_detections: Dict[str, BoxDetectionsSE3] = {}
-                for sample in keyframe_samples:
-                    keyframe_detections[sample["token"]] = extract_nuscenes_box_detections(
-                        nusc, sample, box_detections_metadata
-                    )
+        if not self._is_interpolated:
+            # 2Hz: yield keyframe annotations directly
+            sample_token = scene["first_sample_token"]
+            while sample_token:
+                sample = nusc.get("sample", sample_token)
+                yield extract_nuscenes_box_detections(nusc, sample, box_detections_metadata)
+                sample_token = sample["next"]
+        else:
+            # 10Hz: yield keyframe annotations at keyframes, interpolated detections between
+            keyframe_samples = collect_keyframe_samples(nusc, scene)
+            keyframe_timestamps = [s["timestamp"] for s in keyframe_samples]
+            keyframe_detections: Dict[str, BoxDetectionsSE3] = {}
+            for sample in keyframe_samples:
+                keyframe_detections[sample["token"]] = extract_nuscenes_box_detections(
+                    nusc, sample, box_detections_metadata
+                )
 
-                lidar_timeline = collect_lidar_sweep_timeline(nusc, scene)
-                selected_sweeps = select_10hz_sweeps(lidar_timeline, keyframe_timestamps)
+            lidar_timeline = collect_lidar_sweep_timeline(nusc, scene)
+            selected_sweeps = select_10hz_sweeps(lidar_timeline, keyframe_timestamps)
 
-                for sweep in selected_sweeps:
-                    timestamp = Timestamp.from_us(sweep["timestamp"])
-                    if sweep["is_key_frame"]:
-                        yield keyframe_detections[sweep["sample_token"]]
+            for sweep in selected_sweeps:
+                timestamp = Timestamp.from_us(sweep["timestamp"])
+                if sweep["is_key_frame"]:
+                    yield keyframe_detections[sweep["sample_token"]]
+                else:
+                    prev_kf, next_kf = find_surrounding_keyframes(sweep["timestamp"], keyframe_samples)
+                    if prev_kf is not None and next_kf is not None:
+                        delta = next_kf["timestamp"] - prev_kf["timestamp"]
+                        t = (sweep["timestamp"] - prev_kf["timestamp"]) / delta
+                        yield interpolate_box_detections(
+                            keyframe_detections[prev_kf["token"]],
+                            keyframe_detections[next_kf["token"]],
+                            t,
+                            timestamp,
+                        )
+                    elif prev_kf is not None:
+                        yield keyframe_detections[prev_kf["token"]]
                     else:
-                        prev_kf, next_kf = find_surrounding_keyframes(sweep["timestamp"], keyframe_samples)
-                        if prev_kf is not None and next_kf is not None:
-                            delta = next_kf["timestamp"] - prev_kf["timestamp"]
-                            t = (sweep["timestamp"] - prev_kf["timestamp"]) / delta
-                            yield interpolate_box_detections(
-                                keyframe_detections[prev_kf["token"]],
-                                keyframe_detections[next_kf["token"]],
-                                t,
-                                timestamp,
-                            )
-                        elif prev_kf is not None:
-                            yield keyframe_detections[prev_kf["token"]]
-                        else:
-                            yield BoxDetectionsSE3(
-                                box_detections=[], timestamp=timestamp, metadata=box_detections_metadata
-                            )
-        finally:
-            del nusc
-            gc.collect()
+                        yield BoxDetectionsSE3(box_detections=[], timestamp=timestamp, metadata=box_detections_metadata)
 
     def _iter_pinhole_cameras(
         self,
@@ -444,38 +463,30 @@ class NuScenesLogParser(BaseLogParser):
         """Yields pinhole camera observations for a specific camera at native rate (~12Hz)."""
         target_camera_channel = modality_metadata.camera_name
 
-        nusc = self._load_nusc()
-        try:
-            scene = nusc.get("scene", self._scene_token)
-            camera_timelines = collect_camera_timelines(nusc, scene)
-            timeline = camera_timelines.get(target_camera_channel, [])
+        nusc = self._get_or_load_nusc()
+        scene = nusc.get("scene", self._scene_token)
+        camera_timelines = collect_camera_timelines(nusc, scene)
+        timeline = camera_timelines.get(target_camera_channel, [])
 
-            for cam_data in timeline:
-                parsed_camera = extract_cameras_from_timeline(
-                    nusc, cam_data, camera_type, self._nuscenes_data_root, pinhole_cameras_metadata
-                )
-                if parsed_camera is not None:
-                    yield parsed_camera
-        finally:
-            del nusc
-            gc.collect()
+        for cam_data in timeline:
+            parsed_camera = extract_cameras_from_timeline(
+                nusc, cam_data, camera_type, self._nuscenes_data_root, pinhole_cameras_metadata
+            )
+            if parsed_camera is not None:
+                yield parsed_camera
 
     def _iter_lidars(self, lidar_metadata: LidarMergedMetadata) -> Iterator[ParsedLidar]:
         """Yields all lidar sweeps at native rate (~20Hz)."""
-        nusc = self._load_nusc()
-        try:
-            scene = nusc.get("scene", self._scene_token)
-            lidar_timeline = collect_lidar_sweep_timeline(nusc, scene)
+        nusc = self._get_or_load_nusc()
+        scene = nusc.get("scene", self._scene_token)
+        lidar_timeline = collect_lidar_sweep_timeline(nusc, scene)
 
-            for sweep in lidar_timeline:
-                parsed_lidar = extract_lidar_from_sample_data(
-                    sweep, nuscenes_data_root=self._nuscenes_data_root, lidar_metadata=lidar_metadata
-                )
-                if parsed_lidar is not None:
-                    yield parsed_lidar
-        finally:
-            del nusc
-            gc.collect()
+        for sweep in lidar_timeline:
+            parsed_lidar = extract_lidar_from_sample_data(
+                sweep, nuscenes_data_root=self._nuscenes_data_root, lidar_metadata=lidar_metadata
+            )
+            if parsed_lidar is not None:
+                yield parsed_lidar
 
 
 # Backwards compatibility alias for Hydra configs referencing the old class name
