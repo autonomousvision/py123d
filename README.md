@@ -16,11 +16,11 @@
 - Fast dataformat based on [Apache Arrow](https://arrow.apache.org/).
 - Visualization tools with [matplotlib](https://matplotlib.org/) and [Viser](https://viser.studio/main/).
 
+## Viewer
 
-> **Warning**
->
-> This library is under active development and not stable. The API and features may change in future releases.
-> Please report issues, feature requests, or other feedback by opening an issue.
+<p align="center">
+  <img src="assets/viser.png" alt="Viser 3D Viewer" width="800" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);">
+</p>
 
 
 ## Changelog
