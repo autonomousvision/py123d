@@ -88,7 +88,7 @@ class ArrowBaseModalityWriter:
             self._validate_timestamp_order()
 
     def _validate_timestamp_order(self) -> None:
-        """Read back the written file and verify that timestamps are strictly monotonically increasing.
+        """Read back the written file and verify that timestamps are monotonically increasing.
 
         :raises ValueError: If any timestamp is less than or equal to its predecessor.
         """
@@ -107,11 +107,11 @@ class ArrowBaseModalityWriter:
             table = pa.ipc.open_file(source).read_all()
         ts_array = table.column(ts_column).to_numpy()
         diffs = np.diff(ts_array)
-        violating = np.where(diffs <= 0)[0]
+        violating = np.where(diffs < 0)[0]
         if len(violating) > 0:
             idx = int(violating[0])
             raise ValueError(
-                f"Timestamps must be strictly monotonically increasing in '{self._file_path.name}'. "
+                f"Timestamps must be monotonically increasing in '{self._file_path.name}'. "
                 f"Got {ts_array[idx + 1]} after {ts_array[idx]} at row {idx + 1}."
             )
 

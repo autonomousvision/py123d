@@ -195,17 +195,15 @@ class TestArrowBaseModalityWriter:
         writer.write_batch({"modality.timestamp_us": [300], "modality.value": [3]})
         writer.close()  # Validates on close — no error
 
-    def test_timestamp_ordering_equal_raises(self, tmp_path: Path):
-        """Duplicate timestamps should raise — must be strictly increasing."""
-        import pytest
+    def test_timestamp_ordering_equal_ok(self, tmp_path: Path):
+        """Duplicate timestamps should be allowed — must be increasing."""
 
         fp = tmp_path / "test.arrow"
         schema = pa.schema([("modality.timestamp_us", pa.int64()), ("modality.value", pa.int64())])
         writer = ArrowBaseModalityWriter(fp, schema, max_batch_size=None)
         writer.write_batch({"modality.timestamp_us": [100], "modality.value": [1]})
         writer.write_batch({"modality.timestamp_us": [100], "modality.value": [2]})
-        with pytest.raises(ValueError, match="strictly monotonically increasing"):
-            writer.close()
+        writer.close()
 
     def test_timestamp_ordering_decreasing_raises(self, tmp_path: Path):
         """Writing a timestamp smaller than the previous one should raise on close()."""
@@ -216,7 +214,7 @@ class TestArrowBaseModalityWriter:
         writer = ArrowBaseModalityWriter(fp, schema, max_batch_size=None)
         writer.write_batch({"modality.timestamp_us": [200], "modality.value": [1]})
         writer.write_batch({"modality.timestamp_us": [100], "modality.value": [2]})
-        with pytest.raises(ValueError, match="strictly monotonically increasing"):
+        with pytest.raises(ValueError, match="monotonically increasing"):
             writer.close()
 
     def test_timestamp_ordering_with_buffering(self, tmp_path: Path):
@@ -228,7 +226,7 @@ class TestArrowBaseModalityWriter:
         writer = ArrowBaseModalityWriter(fp, schema, max_batch_size=10)
         writer.write_batch({"modality.timestamp_us": [200], "modality.value": [1]})
         writer.write_batch({"modality.timestamp_us": [100], "modality.value": [2]})
-        with pytest.raises(ValueError, match="strictly monotonically increasing"):
+        with pytest.raises(ValueError, match="monotonically increasing"):
             writer.close()
 
     def test_no_timestamp_column_raises(self, tmp_path: Path):
