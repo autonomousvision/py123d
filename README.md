@@ -22,6 +22,7 @@
 - **Apache Arrow storage**: columnar, memory-mapped, zero-copy reads. Fast and memory efficient.
 - **Multiple sensor codecs**: MP4/JPEG/PNG for cameras; LAZ/Draco/Arrow IPC for lidar.
 - **Built-in visualization**: interactive 3D viewer ([Viser](https://viser.studio/main/)), and [matplotlib](https://matplotlib.org/) plotting.
+- **No sensor data duplication**: By default, converted logs reference original camera and lidar files via relative paths. No need to store sensor data twice.
 - **Hydra-based conversion CLI**: YAML configs to manage your data pipelines.
 
 ## Viewer
@@ -41,7 +42,7 @@
 | [PandaSet](https://pandaset.org/) | 6 | 2 | ✗ | ✓ | ✗ |
 | [Waymo Open - Perception](https://waymo.com/open/) | 5 | 5 | ✓ | ✓ | ✗ |
 | [Waymo Open - Motion](https://waymo.com/open/) | ✗ | ✗ | ✓ | ✓ | ✓ |
-| [CARLA / LEAD](https://github.com/autonomousvision/lead) | N | N | ✓ | ✓ | ✓ |
+| [CARLA / LEAD](https://github.com/autonomousvision/lead) | config. | config. | ✓ | ✓ | ✓ |
 | [NVIDIA Physical AI AV](https://huggingface.co/datasets/nvidia/PhysicalAI-Autonomous-Vehicles) *(experimental)* | 7 | 1 | ✗ | ✓ | ✗ |
 
 
