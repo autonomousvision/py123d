@@ -211,6 +211,7 @@ def _get_pandaset_camera_metadata(source_log_path: Path) -> Optional[Dict[Camera
             ),
             distortion=PANDASET_CAMERA_DISTORTIONS[camera_name],
             camera_to_imu_se3=extrinsic_to_imu(PANDASET_CAMERA_EXTRINSICS[camera_name]),
+            is_undistorted=True,
         )
 
     return camera_metadata if camera_metadata else None
