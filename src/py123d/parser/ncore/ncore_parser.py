@@ -4,7 +4,7 @@ import contextlib
 import logging
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Tuple, Union, cast
 
 import numpy as np
 
@@ -41,13 +41,21 @@ from py123d.parser.ncore.ncore_download import NCoreDownloader
 from py123d.parser.ncore.utils.ncore_constants import (
     NCORE_BOX_DETECTIONS_SE3_METADATA,
     NCORE_CAMERA_ID_MAPPING,
-    NCORE_EGO_STATE_SE3_METADATA,
     NCORE_LIDAR_SENSOR_ID,
     NCORE_RIG_FRAME_ID,
     NCORE_SPLITS,
     NCORE_WORLD_FRAME_ID,
     resolve_ncore_label,
 )
+
+# Wheel base by Hyperion platform — the upstream PAI→NCore converter drops `wheelbase`
+# from `calibration/vehicle_dimensions/`, so we recover it from `platform_class`.
+# Values cross-checked against the PAIAV vehicle_dimensions parquet on disk.
+_PLATFORM_TO_WHEEL_BASE_M: Dict[str, float] = {
+    "hyperion_8": 2.850,
+    "hyperion_8.1": 3.165,
+}
+_DEFAULT_WHEEL_BASE_M: float = 2.850
 from py123d.parser.ncore.utils.ncore_helper import (
     cuboid_bbox_to_rig_se3_array,
     find_closest_index,
@@ -250,7 +258,7 @@ class NCoreLogParser(BaseLogParser):
         with self._resolved_clip() as (data_root, manifest_path):
             ctx = _open_clip_context(manifest_path)
             try:
-                ego_metadata = NCORE_EGO_STATE_SE3_METADATA
+                ego_metadata = ctx.ego_state_metadata
                 det_metadata = NCORE_BOX_DETECTIONS_SE3_METADATA
 
                 lidar_start_ts = ctx.lidar_frame_start_ts
@@ -313,7 +321,7 @@ class NCoreLogParser(BaseLogParser):
         with self._resolved_clip() as (data_root, manifest_path):
             ctx = _open_clip_context(manifest_path)
             try:
-                ego_metadata = NCORE_EGO_STATE_SE3_METADATA
+                ego_metadata = ctx.ego_state_metadata
                 det_metadata = NCORE_BOX_DETECTIONS_SE3_METADATA
                 lidar_metadata = ctx.lidar_merged_metadata
                 rig_poses_ts = ctx.rig_poses_ts
@@ -383,6 +391,7 @@ class _ClipContext:
         "rig_poses_se3",
         "rig_poses_ts",
         "reference_to_rig",
+        "ego_state_metadata",
         "lidar_merged_metadata",
         "lidar_frame_start_ts",
         "lidar_frame_end_ts",
@@ -397,6 +406,7 @@ class _ClipContext:
         rig_poses_se3: np.ndarray,
         rig_poses_ts: np.ndarray,
         reference_to_rig: Dict[str, PoseSE3],
+        ego_state_metadata: EgoStateSE3Metadata,
         lidar_merged_metadata: LidarMergedMetadata,
         lidar_frame_start_ts: np.ndarray,
         lidar_frame_end_ts: np.ndarray,
@@ -408,6 +418,7 @@ class _ClipContext:
         self.rig_poses_se3 = rig_poses_se3
         self.rig_poses_ts = rig_poses_ts
         self.reference_to_rig = reference_to_rig
+        self.ego_state_metadata = ego_state_metadata
         self.lidar_merged_metadata = lidar_merged_metadata
         self.lidar_frame_start_ts = lidar_frame_start_ts
         self.lidar_frame_end_ts = lidar_frame_end_ts
@@ -508,17 +519,53 @@ def _open_clip_context(sequence_manifest_path: Path) -> _ClipContext:
         cuboids = list(cuboids_reader.get_observations())
         cuboids.sort(key=lambda o: o.timestamp_us)
 
+    # Ego vehicle dimensions: derived from the manifest's `vehicle-bbox` (length/width/height +
+    # rear_axle→bbox_center offset) plus a platform-class lookup for the wheel base, which the
+    # PAI→NCore converter does not preserve.
+    ego_state_metadata = _build_ego_state_metadata_from_manifest(seq_reader.generic_meta_data)
+
     return _ClipContext(
         sequence_reader=seq_reader,
         rig_poses_se3=rig_poses_se3,
         rig_poses_ts=rig_poses_ts,
         reference_to_rig=static_pose_table,
+        ego_state_metadata=ego_state_metadata,
         lidar_merged_metadata=lidar_merged_metadata,
         lidar_frame_start_ts=lidar_frame_start_ts,
         lidar_frame_end_ts=lidar_frame_end_ts,
         camera_readers=camera_readers,
         camera_metadatas=camera_metadatas,
         cuboids=cuboids,
+    )
+
+
+def _build_ego_state_metadata_from_manifest(generic_meta_data: Dict[str, object]) -> EgoStateSE3Metadata:
+    """Build per-clip ego metadata from the NCore manifest's ``generic_meta_data``.
+
+    The upstream PAI→NCore converter packs ego dimensions as
+    ``{"vehicle-bbox": {"centroid": [x, y, z], "dim": [length, width, height], ...}}`` plus a
+    ``platform_class`` field. The egomotion anchor frame is the rig (rear axle), so
+    ``rear_axle_to_imu_se3`` is identity and the bbox centroid is reused directly as the
+    rear_axle→center translation.
+
+    ``wheel_base`` is recovered from ``platform_class`` because the converter drops the
+    ``wheelbase`` column from the source ``vehicle_dimensions`` parquet.
+    """
+    bbox = cast(Dict[str, List[float]], generic_meta_data["vehicle-bbox"])
+    length, width, height = (float(v) for v in bbox["dim"])
+    cx, cy, cz = (float(v) for v in bbox["centroid"])
+
+    platform_class = str(generic_meta_data.get("platform_class", ""))
+    wheel_base = _PLATFORM_TO_WHEEL_BASE_M.get(platform_class, _DEFAULT_WHEEL_BASE_M)
+
+    return EgoStateSE3Metadata(
+        vehicle_name=platform_class or "hyperion_unknown",
+        width=width,
+        length=length,
+        height=height,
+        wheel_base=wheel_base,
+        center_to_imu_se3=PoseSE3(x=cx, y=cy, z=cz, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
+        rear_axle_to_imu_se3=PoseSE3.identity(),
     )
 
 
@@ -578,7 +625,8 @@ def _build_box_detections_in_window(
     if len(cuboids) == 0:
         return BoxDetectionsSE3(box_detections=[], timestamp=timestamp, metadata=metadata)
 
-    mask = (cuboid_obs_ts >= sweep_start_us) & (cuboid_obs_ts < sweep_end_us)
+    # Inclusive on both ends to match the upstream NCore visualizer's `[start, end + 1)` convention.
+    mask = (cuboid_obs_ts >= sweep_start_us) & (cuboid_obs_ts <= sweep_end_us)
     selected_idx = np.flatnonzero(mask)
     if selected_idx.size == 0:
         return BoxDetectionsSE3(box_detections=[], timestamp=timestamp, metadata=metadata)

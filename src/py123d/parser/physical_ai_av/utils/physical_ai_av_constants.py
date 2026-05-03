@@ -3,8 +3,6 @@ from typing import Dict, Set
 
 from py123d.datatypes import CameraID
 from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3Metadata
-from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadata
-from py123d.geometry.pose import PoseSE3
 from py123d.parser.registry import PhysicalAIAVBoxDetectionLabel
 
 logger = logging.getLogger(__name__)
@@ -31,18 +29,10 @@ PHYSICAL_AI_AV_CAMERA_ID_MAPPING: Dict[str, CameraID] = {
     "camera_rear_tele_30fov": CameraID.FTCAM_TELE_B0,
 }
 
-# Vehicle dimensions from calibration/vehicle_dimensions (Hyperion 8 platform).
-# center_to_imu_se3: rear_axle_to_bbox_center = 1.327 m longitudinal offset.
-# rear_axle_to_imu_se3: identity (egomotion anchor frame is the reference).
-PHYSICAL_AI_AV_EGO_STATE_SE3_METADATA = EgoStateSE3Metadata(
-    vehicle_name="nvidia_hyperion_8",
-    width=2.121,
-    length=4.872,
-    height=1.473,
-    wheel_base=2.850,
-    center_to_imu_se3=PoseSE3(x=1.327, y=0.0, z=1.473 / 2, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
-    rear_axle_to_imu_se3=PoseSE3.identity(),
-)
+# Per-clip ego-vehicle dimensions are read from `calibration/vehicle_dimensions/` at parse
+# time — see `physical_ai_av_parser._get_ego_state_metadata`. PAIAV ships at least two
+# Hyperion variants with different wheel bases, so a single static metadata instance would
+# misrepresent ~⅓ of clips.
 
 PHYSICAL_AI_AV_BOX_DETECTIONS_SE3_METADATA = BoxDetectionsSE3Metadata(
     box_detection_label_class=PhysicalAIAVBoxDetectionLabel,

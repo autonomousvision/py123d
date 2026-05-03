@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Tuple, Union
 
@@ -24,7 +25,7 @@ from py123d.datatypes.sensors.ftheta_camera import FThetaCameraMetadata, FThetaI
 from py123d.datatypes.sensors.lidar import LidarMergedMetadata
 from py123d.datatypes.vehicle_state.dynamic_state import DynamicStateSE3
 from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadata
-from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, Vector3D, Vector3DIndex
+from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, PoseSE3, Vector3D, Vector3DIndex
 from py123d.geometry.transform import rel_to_abs_se3_array
 from py123d.geometry.transform.transform_se3 import rel_to_abs_se3
 from py123d.parser.base_dataset_parser import (
@@ -38,7 +39,6 @@ from py123d.parser.base_dataset_parser import (
 from py123d.parser.physical_ai_av.utils.physical_ai_av_constants import (
     PHYSICAL_AI_AV_BOX_DETECTIONS_SE3_METADATA,
     PHYSICAL_AI_AV_CAMERA_ID_MAPPING,
-    PHYSICAL_AI_AV_EGO_STATE_SE3_METADATA,
     PHYSICAL_AI_AV_SPLITS,
     resolve_physical_ai_av_label,
 )
@@ -47,6 +47,10 @@ from py123d.parser.physical_ai_av.utils.physical_ai_av_helper import (
     quat_scalar_last_to_pose_se3,
 )
 from py123d.parser.registry import PhysicalAIAVBoxDetectionLabel
+
+# Per the PAIAV wiki (https://github.com/NVlabs/physical_ai_av/wiki/3.-Sensor-Details):
+# `reference_timestamp` marks the start of the 360° sweep and a complete rotation takes 100ms.
+_LIDAR_SPIN_DURATION_US = 100_000
 
 
 class PhysicalAIAVParser(BaseDatasetParser):
@@ -158,7 +162,7 @@ class PhysicalAIAVLogParser(BaseLogParser):
 
     def iter_modalities_sync(self) -> Iterator[ModalitiesSync]:
         """Inherited, see superclass."""
-        ego_metadata = PHYSICAL_AI_AV_EGO_STATE_SE3_METADATA
+        ego_metadata = _get_ego_state_metadata(self._data_root, self._clip_id, self._chunk)
         det_metadata = PHYSICAL_AI_AV_BOX_DETECTIONS_SE3_METADATA
 
         # 1. Load egomotion
@@ -218,7 +222,7 @@ class PhysicalAIAVLogParser(BaseLogParser):
                 parsed_lidar = ParsedLidar(
                     metadata=lidar_metadata,
                     start_timestamp=timestamp,
-                    end_timestamp=Timestamp.from_us(int(lidar_ts) + 100_000),  # ~100ms sweep
+                    end_timestamp=Timestamp.from_us(int(lidar_ts) + _LIDAR_SPIN_DURATION_US),
                     dataset_root=self._data_root,
                     relative_path=f"lidar/lidar_top_360fov/{self._clip_id}.lidar_top_360fov.parquet",
                     iteration=spin_idx,
@@ -243,7 +247,7 @@ class PhysicalAIAVLogParser(BaseLogParser):
 
     def iter_modalities_async(self) -> Iterator[BaseModality]:
         """Inherited, see superclass."""
-        ego_metadata = PHYSICAL_AI_AV_EGO_STATE_SE3_METADATA
+        ego_metadata = _get_ego_state_metadata(self._data_root, self._clip_id, self._chunk)
         det_metadata = PHYSICAL_AI_AV_BOX_DETECTIONS_SE3_METADATA
         ftheta_metadatas = _get_ftheta_camera_metadatas(self._data_root, self._clip_id, self._chunk)
         lidar_metadata = _get_lidar_metadata(self._data_root, self._clip_id, self._chunk)
@@ -279,14 +283,14 @@ class PhysicalAIAVLogParser(BaseLogParser):
         """Yields obstacle detections grouped into lidar-rate windows.
 
         Each detection in Physical AI AV has its own unique timestamp, so we accumulate
-        all detections within each lidar sweep interval (±50ms) and yield one
-        BoxDetectionsSE3 per lidar timestamp.
+        all detections falling within each lidar sweep interval [start, start + 100ms]
+        and yield one BoxDetectionsSE3 per lidar timestamp.
         """
         obstacle_path = self._data_root / "labels" / "obstacle.offline" / f"{self._clip_id}.obstacle.offline.parquet"
         if not obstacle_path.exists():
             return
 
-        ego_metadata = PHYSICAL_AI_AV_EGO_STATE_SE3_METADATA
+        ego_metadata = _get_ego_state_metadata(self._data_root, self._clip_id, self._chunk)
         obstacle_df = pd.read_parquet(obstacle_path)
         ego_df = (
             pd.read_parquet(self._ego_offline_path())
@@ -301,9 +305,11 @@ class PhysicalAIAVLogParser(BaseLogParser):
         obs_timestamps = obstacle_df["timestamp_us"].to_numpy()
 
         for lidar_ts in lidar_timestamps:
-            mask = (obs_timestamps >= lidar_ts - 50_000) & (obs_timestamps < lidar_ts + 50_000)
+            sweep_start = int(lidar_ts)
+            sweep_end = sweep_start + _LIDAR_SPIN_DURATION_US
+            mask = (obs_timestamps >= sweep_start) & (obs_timestamps <= sweep_end)
             group_df = obstacle_df[mask]
-            yield _build_box_detections(group_df, int(lidar_ts), ego_df, ego_timestamps, ego_metadata, metadata)
+            yield _build_box_detections(group_df, sweep_start, ego_df, ego_timestamps, ego_metadata, metadata)
 
     def _iter_lidar(self, metadata: LidarMergedMetadata) -> Iterator[ParsedLidar]:
         """Yields all LiDAR spins at native rate (~10Hz)."""
@@ -315,7 +321,7 @@ class PhysicalAIAVLogParser(BaseLogParser):
             yield ParsedLidar(
                 metadata=metadata,
                 start_timestamp=Timestamp.from_us(ts),
-                end_timestamp=Timestamp.from_us(ts + 100_000),
+                end_timestamp=Timestamp.from_us(ts + _LIDAR_SPIN_DURATION_US),
                 dataset_root=self._data_root,
                 relative_path=f"lidar/lidar_top_360fov/{self._clip_id}.lidar_top_360fov.parquet",
                 iteration=int(spin_idx),  # type: ignore[arg-type]
@@ -452,6 +458,45 @@ def _get_ftheta_camera_metadatas(data_root: Path, clip_id: str, chunk: int) -> D
     return metadatas
 
 
+@lru_cache(maxsize=4)
+def _read_vehicle_dimensions_parquet(parquet_path: str) -> pd.DataFrame:
+    """Read and cache the (chunked) vehicle_dimensions parquet — one chunk holds ~100 clips."""
+    return pd.read_parquet(parquet_path)
+
+
+def _get_ego_state_metadata(data_root: Path, clip_id: str, chunk: int) -> EgoStateSE3Metadata:
+    """Build per-clip :class:`EgoStateSE3Metadata` from ``calibration/vehicle_dimensions``.
+
+    PAIAV stores six per-clip dimensions: ``length, width, height, rear_axle_to_bbox_center,
+    wheelbase, track_width``. The egomotion anchor frame is the rear axle, so
+    ``rear_axle_to_imu_se3`` is identity and the bbox center is offset longitudinally by
+    ``rear_axle_to_bbox_center`` and vertically by ``height / 2``.
+    """
+    chunk_str = f"{chunk:04d}"
+    path = data_root / "calibration" / "vehicle_dimensions" / f"vehicle_dimensions.chunk_{chunk_str}.parquet"
+    df = _read_vehicle_dimensions_parquet(str(path))
+    row = df.loc[clip_id]
+
+    length = float(row["length"])
+    width = float(row["width"])
+    height = float(row["height"])
+    wheelbase = float(row["wheelbase"])
+    rear_axle_to_bbox_center = float(row["rear_axle_to_bbox_center"])
+
+    # PAIAV ships two known platform variants distinguishable by wheelbase (8 ↔ 2.85 m, 8.1 ↔ 3.165 m).
+    vehicle_name = "hyperion_8.1" if wheelbase > 3.0 else "hyperion_8"
+
+    return EgoStateSE3Metadata(
+        vehicle_name=vehicle_name,
+        width=width,
+        length=length,
+        height=height,
+        wheel_base=wheelbase,
+        center_to_imu_se3=PoseSE3(x=rear_axle_to_bbox_center, y=0.0, z=height / 2.0, qw=1.0, qx=0.0, qy=0.0, qz=0.0),
+        rear_axle_to_imu_se3=PoseSE3.identity(),
+    )
+
+
 def _get_lidar_metadata(data_root: Path, clip_id: str, chunk: int) -> LidarMergedMetadata:
     """Returns LiDAR metadata for the clip."""
     chunk_str = f"{chunk:04d}"
@@ -529,34 +574,33 @@ def _extract_box_detections(
     ego_timestamps: np.ndarray,
     ego_metadata: EgoStateSE3Metadata,
     metadata: BoxDetectionsSE3Metadata,
-    window_us: int = 50_000,
 ) -> BoxDetectionsSE3:
-    """Extract obstacle detections within a time window around a lidar timestamp.
+    """Extract obstacle detections falling within one lidar sweep.
 
     Each detection in Physical AI AV has its own unique timestamp (not grouped into
-    synchronous frames), so we gather all detections within ±window_us of the lidar timestamp.
+    synchronous frames), so we gather all detections in [lidar_ts, lidar_ts + 100ms].
     Each detection is transformed from ego frame to global using the ego pose at the
     detection's own timestamp, not the lidar timestamp.
 
     :param obstacle_df: DataFrame with obstacle detections, or None.
     :param obs_timestamps: Pre-computed obstacle timestamps array, or None.
-    :param lidar_ts: Reference lidar timestamp in microseconds.
+    :param lidar_ts: Reference lidar timestamp in microseconds (sweep start).
     :param ego_df: Egomotion DataFrame.
     :param ego_timestamps: Sorted egomotion timestamps array.
     :param ego_metadata: Ego state metadata.
     :param metadata: Box detections metadata.
-    :param window_us: Half-window size in microseconds (default 50ms = half a lidar sweep).
     """
     timestamp = Timestamp.from_us(int(lidar_ts))
 
     if obstacle_df is None or obs_timestamps is None or len(obstacle_df) == 0:
         return BoxDetectionsSE3(box_detections=[], timestamp=timestamp, metadata=metadata)
 
-    # Gather all detections within ±window_us of the lidar timestamp
-    mask = (obs_timestamps >= lidar_ts - window_us) & (obs_timestamps < lidar_ts + window_us)
+    sweep_start = int(lidar_ts)
+    sweep_end = sweep_start + _LIDAR_SPIN_DURATION_US
+    mask = (obs_timestamps >= sweep_start) & (obs_timestamps <= sweep_end)
     group_df = obstacle_df[mask]
 
-    return _build_box_detections(group_df, int(lidar_ts), ego_df, ego_timestamps, ego_metadata, metadata)
+    return _build_box_detections(group_df, sweep_start, ego_df, ego_timestamps, ego_metadata, metadata)
 
 
 def _build_box_detections(

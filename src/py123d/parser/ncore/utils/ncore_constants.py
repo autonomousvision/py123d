@@ -1,9 +1,10 @@
 """Constants for the NVIDIA NCore V4 dataset.
 
-NCore (PhysicalAI-Autonomous-Vehicles-NCore) ships on the same Hyperion 8.1 sensor
-platform and the same 10-class cuboid taxonomy as the PhysicalAI-AV dataset, so all
-sensor IDs, label classes, vehicle metadata, and the registry enum are re-used from
-``py123d.parser.physical_ai_av`` to avoid drift.
+NCore (PhysicalAI-Autonomous-Vehicles-NCore) ships on the same Hyperion 8.x sensor
+platforms and the same 10-class cuboid taxonomy as the PhysicalAI-AV dataset, so the
+sensor IDs, label classes, and the registry enum are re-used from
+``py123d.parser.physical_ai_av`` to avoid drift. Per-clip ego-vehicle dimensions are
+read from each clip's manifest at parse time (see ``ncore_parser._build_ego_state_metadata_from_manifest``).
 """
 
 from typing import Set
@@ -13,9 +14,6 @@ from py123d.parser.physical_ai_av.utils.physical_ai_av_constants import (
 )
 from py123d.parser.physical_ai_av.utils.physical_ai_av_constants import (
     PHYSICAL_AI_AV_CAMERA_ID_MAPPING as NCORE_CAMERA_ID_MAPPING,
-)
-from py123d.parser.physical_ai_av.utils.physical_ai_av_constants import (
-    PHYSICAL_AI_AV_EGO_STATE_SE3_METADATA as NCORE_EGO_STATE_SE3_METADATA,
 )
 from py123d.parser.physical_ai_av.utils.physical_ai_av_constants import (
     PHYSICAL_AI_AV_LABEL_CLASS_MAPPING as NCORE_LABEL_CLASS_MAPPING,
@@ -37,7 +35,6 @@ __all__ = [
     "NCORE_WORLD_FRAME_ID",
     "NCORE_CAMERA_ID_MAPPING",
     "NCORE_LABEL_CLASS_MAPPING",
-    "NCORE_EGO_STATE_SE3_METADATA",
     "NCORE_BOX_DETECTIONS_SE3_METADATA",
     "resolve_ncore_label",
 ]
