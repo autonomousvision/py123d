@@ -1,0 +1,21 @@
+downloader:
+  _target_: py123d.parser.lead123d.lead123d_download.Lead123dDownloader
+  _convert_: 'all'
+
+  # Destination. The dataset already ships in py123d Arrow format, so files land
+  # directly under $PY123D_DATA_ROOT/{logs,maps}/... — no conversion step.
+  output_dir: ${dataset_paths.py123d_data_root}
+
+  revision: main            # HF branch / tag / commit
+  hf_token: null            # falls back to $HF_TOKEN / $HUGGINGFACE_HUB_TOKEN (mirror is public, so null is fine)
+
+  # Log subsetting — mutually exclusive. When both are null, every log under each
+  # default split is pulled with a single wildcard pattern (no catalog listing required).
+  log_names: null           # explicit list, e.g. ["Town01_Rep0_Town01_Scenario4_33_route0_04_16_23_18_39"]
+  num_logs: null            # first N logs, or N random if sample_random=true (triggers a catalog listing)
+  sample_random: false
+  seed: 0
+
+  include_maps: true        # also fetch maps/carla/*.arrow
+  max_workers: 8
+  dry_run: false

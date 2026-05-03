@@ -81,7 +81,7 @@ def _require_hf_hub():
     except ImportError as exc:
         raise SystemExit(
             "huggingface_hub is required for PandaSet downloads. Install it with:\n"
-            "  pip install py123d[pandaset]\n"
+            "  pip install py123d[hf]\n"
             "or directly:\n"
             "  pip install huggingface_hub\n"
         ) from exc

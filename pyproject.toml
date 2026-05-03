@@ -98,12 +98,12 @@ av2 = [
 ffmpeg = [
     "imageio[ffmpeg]",
 ]
-ncore = [
+hf = [
     "huggingface_hub>=0.23",
-    "nvidia-ncore",
 ]
-pandaset = [
-    "huggingface_hub>=0.23",
+ncore = [
+    "py123d[hf]",
+    "nvidia-ncore",
 ]
 
 [tool.setuptools.packages.find]
