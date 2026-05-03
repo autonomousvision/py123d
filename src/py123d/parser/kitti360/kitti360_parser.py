@@ -56,7 +56,6 @@ from py123d.parser.kitti360.utils.kitti360_constants import (
     KITTI360_EGO_STATE_SE3_METADATA,
     KITTI360_FISHEYE_MEI_CAMERA_IDS,
     KITTI360_LIDAR_NAME,
-    KITTI360_LIDAR_SWEEP_DURATION_US,
     KITTI360_PINHOLE_CAMERA_IDS,
     KITTI360_SPLITS,
 )
@@ -754,8 +753,8 @@ def _extract_kitti360_lidar(
             # The Velodyne HDL-64E rotates at 10Hz, so each sweep covers 100ms.
             parsed_lidar = ParsedLidar(
                 metadata=lidar_metadata,
-                start_timestamp=timestamp,
-                end_timestamp=Timestamp.from_us(timestamp.time_us + KITTI360_LIDAR_SWEEP_DURATION_US),
+                start_timestamp=Timestamp.from_us(timestamp.time_us - 50_000),
+                end_timestamp=Timestamp.from_us(timestamp.time_us + 50_000),
                 iteration=idx,
                 dataset_root=kitti360_folders[DIR_ROOT],
                 relative_path=lidar_full_path.relative_to(kitti360_folders[DIR_ROOT]),

@@ -10,7 +10,7 @@ parser:
   # The bounding boxes are preprocessed into a per-frame format based on the ego distance and
   # visibility based on the lidar point cloud.
   detection_cache_root: ${dataset_paths.kitti360_data_root}/preprocessed_detections
-  detection_radius: 60.0
+  detection_radius: 80.0
 
   # NOTE: KITTI-360 does not have official splits, so we just put all sequences in the training set.
   train_sequences:

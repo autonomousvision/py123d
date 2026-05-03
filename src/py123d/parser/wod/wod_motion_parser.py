@@ -137,7 +137,7 @@ class WODMotionParser(BaseDatasetParser):
 
             - ``wod-motion_{train,val,test}`` — standard 9s scenarios at 10 Hz (91 frames).
             - ``wod-motion-20s_train`` — long-horizon ~20s variant (variable length, typically
-              197–200 frames; some shards also have trailing pad-states in the proto). No val/test.
+              197-200 frames; some shards also have trailing pad-states in the proto). No val/test.
             - ``wod-motion-interactive_{val,test}`` — hand-curated interactive scenarios with
               :attr:`objects_of_interest` populated. No training split.
 

@@ -61,8 +61,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 DATASET_NAME = "ncore"
-_LIDAR_WINDOW_US = 50_000
-_LIDAR_SPIN_DURATION_US = 100_000
 
 
 def _import_ncore_v4():
@@ -255,6 +253,7 @@ class NCoreLogParser(BaseLogParser):
                 ego_metadata = NCORE_EGO_STATE_SE3_METADATA
                 det_metadata = NCORE_BOX_DETECTIONS_SE3_METADATA
 
+                lidar_start_ts = ctx.lidar_frame_start_ts
                 lidar_end_ts = ctx.lidar_frame_end_ts
                 rig_poses_ts = ctx.rig_poses_ts
                 rig_poses_se3 = ctx.rig_poses_se3
@@ -264,15 +263,18 @@ class NCoreLogParser(BaseLogParser):
                 lidar_relative_path = self._lidar_relative_path()
                 lidar_metadata = ctx.lidar_merged_metadata
 
-                for lidar_ts in lidar_end_ts:
-                    ts_us = int(lidar_ts)
-                    timestamp = Timestamp.from_us(ts_us)
+                for start_ts, end_ts in zip(lidar_start_ts, lidar_end_ts):
+                    start_us = int(start_ts)
+                    end_us = int(end_ts)
+                    # Sync anchor = sweep start (matches ParsedLidar.timestamp, which returns start_timestamp).
+                    timestamp = Timestamp.from_us(start_us)
 
-                    ego_state = _ego_state_from_rig_trajectory(rig_poses_se3, rig_poses_ts, ts_us, ego_metadata)
+                    ego_state = _ego_state_from_rig_trajectory(rig_poses_se3, rig_poses_ts, start_us, ego_metadata)
                     box_detections = _build_box_detections_in_window(
                         cuboids,
                         cuboid_obs_ts,
-                        ts_us,
+                        start_us,
+                        end_us,
                         ctx.reference_to_rig,
                         rig_poses_se3,
                         rig_poses_ts,
@@ -282,14 +284,14 @@ class NCoreLogParser(BaseLogParser):
                     parsed_lidar = ParsedLidar(
                         metadata=lidar_metadata,
                         start_timestamp=timestamp,
-                        end_timestamp=Timestamp.from_us(ts_us + _LIDAR_SPIN_DURATION_US),
+                        end_timestamp=Timestamp.from_us(end_us),
                         dataset_root=data_root,
                         relative_path=lidar_relative_path,
-                        iteration=ts_us,
+                        iteration=end_us,  # NCore keys frames by end-of-frame timestamp.
                     )
 
                     parsed_cameras = _extract_cameras_at_ts(
-                        ts_us,
+                        start_us,
                         ctx,
                         rig_poses_se3,
                         rig_poses_ts,
@@ -323,25 +325,26 @@ class NCoreLogParser(BaseLogParser):
                     yield _ego_state_at_index(rig_poses_se3, int(ts), idx, ego_metadata)
 
                 # 2. Lidar spins at native rate (~10 Hz)
-                for lidar_ts in ctx.lidar_frame_end_ts:
-                    ts_us = int(lidar_ts)
+                for start_ts, end_ts in zip(ctx.lidar_frame_start_ts, ctx.lidar_frame_end_ts):
+                    start_us = int(start_ts)
+                    end_us = int(end_ts)
                     yield ParsedLidar(
                         metadata=lidar_metadata,
-                        start_timestamp=Timestamp.from_us(ts_us),
-                        end_timestamp=Timestamp.from_us(ts_us + _LIDAR_SPIN_DURATION_US),
+                        start_timestamp=Timestamp.from_us(start_us),
+                        end_timestamp=Timestamp.from_us(end_us),
                         dataset_root=data_root,
                         relative_path=lidar_relative_path,
-                        iteration=ts_us,
+                        iteration=end_us,  # NCore keys frames by end-of-frame timestamp.
                     )
 
                 # 3. Box detections grouped into lidar-rate windows (same as sync path).
                 cuboid_obs_ts = np.asarray([obs.timestamp_us for obs in ctx.cuboids], dtype=np.int64)
-                for lidar_ts in ctx.lidar_frame_end_ts:
-                    ts_us = int(lidar_ts)
+                for start_ts, end_ts in zip(ctx.lidar_frame_start_ts, ctx.lidar_frame_end_ts):
                     yield _build_box_detections_in_window(
                         ctx.cuboids,
                         cuboid_obs_ts,
-                        ts_us,
+                        int(start_ts),
+                        int(end_ts),
                         ctx.reference_to_rig,
                         rig_poses_se3,
                         rig_poses_ts,
@@ -381,6 +384,7 @@ class _ClipContext:
         "rig_poses_ts",
         "reference_to_rig",
         "lidar_merged_metadata",
+        "lidar_frame_start_ts",
         "lidar_frame_end_ts",
         "camera_readers",
         "camera_metadatas",
@@ -394,6 +398,7 @@ class _ClipContext:
         rig_poses_ts: np.ndarray,
         reference_to_rig: Dict[str, PoseSE3],
         lidar_merged_metadata: LidarMergedMetadata,
+        lidar_frame_start_ts: np.ndarray,
         lidar_frame_end_ts: np.ndarray,
         camera_readers: Dict[str, object],
         camera_metadatas: Dict[CameraID, FThetaCameraMetadata],
@@ -404,6 +409,7 @@ class _ClipContext:
         self.rig_poses_ts = rig_poses_ts
         self.reference_to_rig = reference_to_rig
         self.lidar_merged_metadata = lidar_merged_metadata
+        self.lidar_frame_start_ts = lidar_frame_start_ts
         self.lidar_frame_end_ts = lidar_frame_end_ts
         self.camera_readers = camera_readers
         self.camera_metadatas = camera_metadatas
@@ -457,6 +463,10 @@ def _open_clip_context(sequence_manifest_path: Path) -> _ClipContext:
     lidar_readers = seq_reader.open_component_readers(LidarSensorComponent.Reader)
     assert lidar_readers, f"No lidar component in {sequence_manifest_path}"
     lidar_reader = next(iter(lidar_readers.values()))
+    # frames_timestamps_us is Nx2: column 0 = sweep start, column 1 = sweep end.
+    # Reference: NVIDIA/ncore tools/data_converter/pai/converter.py packs
+    # `np.array([spin_start_timestamp, spin_end_timestamp])`.
+    lidar_frame_start_ts = np.asarray(lidar_reader.frames_timestamps_us[:, 0], dtype=np.int64)
     lidar_frame_end_ts = np.asarray(lidar_reader.frames_timestamps_us[:, 1], dtype=np.int64)
     lidar_to_rig = static_pose_table.get(NCORE_LIDAR_SENSOR_ID, PoseSE3.identity())
     lidar_merged_metadata = LidarMergedMetadata(
@@ -504,6 +514,7 @@ def _open_clip_context(sequence_manifest_path: Path) -> _ClipContext:
         rig_poses_ts=rig_poses_ts,
         reference_to_rig=static_pose_table,
         lidar_merged_metadata=lidar_merged_metadata,
+        lidar_frame_start_ts=lidar_frame_start_ts,
         lidar_frame_end_ts=lidar_frame_end_ts,
         camera_readers=camera_readers,
         camera_metadatas=camera_metadatas,
@@ -555,17 +566,19 @@ def _ego_state_at_index(
 def _build_box_detections_in_window(
     cuboids: List["CuboidTrackObservation"],
     cuboid_obs_ts: np.ndarray,
-    lidar_ts_us: int,
+    sweep_start_us: int,
+    sweep_end_us: int,
     reference_to_rig: Dict[str, PoseSE3],
     rig_poses_se3: np.ndarray,
     rig_poses_ts: np.ndarray,
     metadata: BoxDetectionsSE3Metadata,
 ) -> BoxDetectionsSE3:
-    timestamp = Timestamp.from_us(lidar_ts_us)
+    # Box timestamp anchors on sweep start to match ParsedLidar.timestamp.
+    timestamp = Timestamp.from_us(sweep_start_us)
     if len(cuboids) == 0:
         return BoxDetectionsSE3(box_detections=[], timestamp=timestamp, metadata=metadata)
 
-    mask = (cuboid_obs_ts >= lidar_ts_us - _LIDAR_WINDOW_US) & (cuboid_obs_ts < lidar_ts_us + _LIDAR_WINDOW_US)
+    mask = (cuboid_obs_ts >= sweep_start_us) & (cuboid_obs_ts < sweep_end_us)
     selected_idx = np.flatnonzero(mask)
     if selected_idx.size == 0:
         return BoxDetectionsSE3(box_detections=[], timestamp=timestamp, metadata=metadata)

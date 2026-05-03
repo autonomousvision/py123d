@@ -11,6 +11,7 @@ from py123d.api.scene.arrow.arrow_scene_api import ArrowSceneAPI
 from py123d.api.scene.scene_api import checked_optional_cast
 from py123d.datatypes import (
     BoxDetectionsSE3,
+    CameraID,
     EgoStateSE3,
     ModalityType,
     Timestamp,
@@ -606,6 +607,75 @@ class TestCameraConvenienceMethods:
         api = ArrowSceneAPI(log_dir, scene_meta)
         ts = api.get_all_lidar_timestamps(LidarID.LIDAR_MERGED)
         assert len(ts) > 0
+
+    # -------------------------------------------------------------------------
+    # String-coercion ergonomics: sensor accessors should accept lowercase
+    # names interchangeably with the enum (see SerialIntEnum.from_arbitrary).
+    # -------------------------------------------------------------------------
+
+    def test_get_camera_at_iteration_accepts_string(self, camera_log):
+        log_dir, scene_meta, _, _ = camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        result_str = api.get_camera_at_iteration(0, "pcam_f0")
+        result_enum = api.get_camera_at_iteration(0, CameraID.PCAM_F0)
+        assert result_str is not None and result_enum is not None
+        assert result_str.timestamp == result_enum.timestamp
+
+    def test_get_camera_at_iteration_accepts_uppercase_string(self, camera_log):
+        log_dir, scene_meta, _, _ = camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        # SerialIntEnum.deserialize is case-insensitive.
+        result = api.get_camera_at_iteration(0, "PCAM_F0")
+        assert result is not None
+
+    def test_get_camera_at_timestamp_accepts_string(self, camera_log):
+        log_dir, scene_meta, _, _ = camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        result = api.get_camera_at_timestamp(Timestamp.from_us(0), "pcam_f0", criteria="exact")
+        assert result is not None
+
+    def test_get_all_camera_timestamps_accepts_string(self, camera_log):
+        log_dir, scene_meta, _, _ = camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        ts_str = api.get_all_camera_timestamps("pcam_f0")
+        ts_enum = api.get_all_camera_timestamps(CameraID.PCAM_F0)
+        assert ts_str == ts_enum
+        assert len(ts_str) > 0
+
+    def test_get_lidar_at_iteration_accepts_string(self, camera_log):
+        log_dir, scene_meta, _, _ = camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        result = api.get_lidar_at_iteration(0, "lidar_merged")
+        assert result is not None
+        assert result.point_cloud_3d.shape[1] == 3
+
+    def test_get_lidar_at_timestamp_accepts_string(self, camera_log):
+        log_dir, scene_meta, _, _ = camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        result = api.get_lidar_at_timestamp(Timestamp.from_us(0), "lidar_merged", criteria="exact")
+        assert result is not None
+
+    def test_get_all_lidar_timestamps_accepts_string(self, camera_log):
+        from py123d.datatypes.sensors.lidar import LidarID
+
+        log_dir, scene_meta, _, _ = camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        ts_str = api.get_all_lidar_timestamps("lidar_merged")
+        ts_enum = api.get_all_lidar_timestamps(LidarID.LIDAR_MERGED)
+        assert ts_str == ts_enum
+        assert len(ts_str) > 0
+
+    def test_invalid_camera_id_string_raises(self, camera_log):
+        log_dir, scene_meta, _, _ = camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        with pytest.raises(KeyError):
+            api.get_camera_at_iteration(0, "not_a_camera")
+
+    def test_invalid_lidar_id_string_raises(self, camera_log):
+        log_dir, scene_meta, _, _ = camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        with pytest.raises(KeyError):
+            api.get_lidar_at_iteration(0, "not_a_lidar")
 
 
 # ===========================================================================
