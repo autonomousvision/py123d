@@ -65,17 +65,111 @@ Open `http://localhost:8080` to browse the converted scenes interactively.
 
 ## Supported Datasets
 
-| Dataset | Cameras | LiDARs | Map | 3D Boxes | Traffic Lights |
-|:--------|:-------:|:------:|:---:|:--------:|:--------------:|
-| [Argoverse 2 - Sensor](https://www.argoverse.org/) | 9 | 2 | ✓ | ✓ | ✗ |
-| [nuScenes](https://www.nuscenes.org/) | 6 | 1 | ✓ | ✓ | ✗ |
-| [nuPlan](https://www.nuscenes.org/nuplan) | 8 | 5 | ✓ | ✓ | ✓ |
-| [KITTI-360](https://www.cvlibs.net/datasets/kitti-360/) | 4 | 1 | ✓ | ✓ | ✗ |
-| [PandaSet](https://pandaset.org/) | 6 | 2 | ✗ | ✓ | ✗ |
-| [Waymo Open - Perception](https://waymo.com/open/) | 5 | 5 | ✓ | ✓ | ✗ |
-| [Waymo Open - Motion](https://waymo.com/open/) | ✗ | ✗ | ✓ | ✓ | ✓ |
-| [CARLA / LEAD](https://github.com/kesai-labs/lead) | config. | config. | ✓ | ✓ | ✓ |
-| [NVIDIA Physical AI AV](https://huggingface.co/datasets/nvidia/PhysicalAI-Autonomous-Vehicles) *(experimental)* | 7 | 1 | ✗ | ✓ | ✗ |
+<table>
+  <thead>
+    <tr>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th colspan="3" align="center">Scale</th>
+      <th colspan="2" align="center">Sensors [#/Hz]</th>
+      <th colspan="3" align="center">Annotations [✓/Hz]</th>
+    </tr>
+    <tr>
+      <th></th>
+      <th align="left">Dataset</th>
+      <th>Year</th>
+      <th>Dur. [h]</th>
+      <th>Dist. [km]</th>
+      <th>Logs [#]</th>
+      <th>Cam.</th>
+      <th>LiDAR</th>
+      <th>3D Box</th>
+      <th>Tls.</th>
+      <th>Map</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td rowspan="5"><b>Manual</b></td>
+      <td align="left"><a href="https://www.nuscenes.org/">nuScenes</a></td>
+      <td>2020</td><td>5.6</td><td>100.9</td><td>1,000</td>
+      <td>6&nbsp;/&nbsp;12</td><td>1&nbsp;/&nbsp;20</td>
+      <td>✓&nbsp;/&nbsp;2</td><td>✗</td><td>✓</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="https://waymo.com/open/">WOD-Perc.</a></td>
+      <td>2020</td><td>6.4</td><td>154.0</td><td>1,150</td>
+      <td>5&nbsp;/&nbsp;10</td><td>5&nbsp;/&nbsp;10</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✗</td><td>✓</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="https://www.argoverse.org/">AV2-Sens.</a></td>
+      <td>2021</td><td>4.4</td><td>87.5</td><td>1,000</td>
+      <td>9&nbsp;/&nbsp;20</td><td>2&nbsp;/&nbsp;10</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✗</td><td>✓</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="https://pandaset.org/">PandaSet</a></td>
+      <td>2021</td><td>0.2</td><td>8.3</td><td>103</td>
+      <td>6&nbsp;/&nbsp;10</td><td>2&nbsp;/&nbsp;10</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✗</td><td>✗</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="https://www.cvlibs.net/datasets/kitti-360/">KITTI-360</a></td>
+      <td>2022</td><td>2.7</td><td>73.7</td><td>9</td>
+      <td>4&nbsp;/&nbsp;10</td><td>1&nbsp;/&nbsp;10</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✗</td><td>✓</td>
+    </tr>
+    <tr>
+      <td rowspan="5"><b>Auto-labeled</b></td>
+      <td align="left"><a href="https://waymo.com/open/">WOD-Mot.</a></td>
+      <td>2021</td><td>574.1</td><td>10,323.5*</td><td>103,354</td>
+      <td>✗</td><td>✗</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✓&nbsp;/&nbsp;10</td><td>✓</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="https://www.nuscenes.org/nuplan">nuPlan</a></td>
+      <td>2024</td><td>1,174.3</td><td>17,808.6</td><td>15,910</td>
+      <td>8&nbsp;/&nbsp;10†</td><td>5&nbsp;/&nbsp;20†</td>
+      <td>✓&nbsp;/&nbsp;20</td><td>✓&nbsp;/&nbsp;20</td><td>✓</td>
+    </tr>
+    <tr>
+      <td align="left">&nbsp;&nbsp;– <a href="https://www.nuscenes.org/nuplan">nuPlan-mini</a></td>
+      <td>2024</td><td>7.2</td><td>103.0</td><td>64</td>
+      <td>8&nbsp;/&nbsp;10†</td><td>5&nbsp;/&nbsp;20†</td>
+      <td>✓&nbsp;/&nbsp;20</td><td>✓&nbsp;/&nbsp;20</td><td>✓</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="https://huggingface.co/datasets/nvidia/PhysicalAI-Autonomous-Vehicles">PAI-AV</a></td>
+      <td>2025</td><td>1,707.0</td><td>69,265.7</td><td>307,332</td>
+      <td>7&nbsp;/&nbsp;30</td><td>1&nbsp;/&nbsp;10</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✗</td><td>✗</td>
+    </tr>
+    <tr>
+      <td align="left">&nbsp;&nbsp;– <a href="https://github.com/NVIDIA/ncore">NCore</a></td>
+      <td>2026</td><td>6.3</td><td>167.6</td><td>1,147</td>
+      <td>7&nbsp;/&nbsp;30</td><td>1&nbsp;/&nbsp;10</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✗</td><td>✗</td>
+    </tr>
+    <tr>
+      <td rowspan="2"><b>Synth.</b></td>
+      <td align="left"><a href="https://carla.org/">CARLA</a></td>
+      <td>2017</td><td><i>var.</i></td><td><i>var.</i></td><td><i>var.</i></td>
+      <td><i>var.</i></td><td><i>var.</i></td>
+      <td>✓</td><td>✓</td><td>✓</td>
+    </tr>
+    <tr>
+      <td align="left">&nbsp;&nbsp;– <a href="https://github.com/kesai-labs/lead">LEAD</a></td>
+      <td>2026</td><td>7.3</td><td>138.7</td><td>789</td>
+      <td>6&nbsp;/&nbsp;10</td><td>2&nbsp;/&nbsp;10</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✓&nbsp;/&nbsp;10</td><td>✓</td>
+    </tr>
+  </tbody>
+</table>
+
+<sub><i>* Computed only from the non-overlapping 20&nbsp;s training files. &nbsp;
+† Released for a 120&nbsp;h subset; full coverage on mini.</i></sub>
 
 
 ## Changelog
