@@ -638,7 +638,7 @@ def _build_box_detections_in_window(
         ref_to_rig = reference_to_rig.get(obs.reference_frame_id, PoseSE3.identity())
         bbox_in_rig = cuboid_bbox_to_rig_se3_array(obs, ref_to_rig)
 
-        rig_to_world_at_obs = _nearest_rig_pose(rig_poses_se3, rig_poses_ts, int(obs.reference_frame_timestamp_us))
+        rig_to_world_at_obs = _nearest_rig_pose(rig_poses_se3, rig_poses_ts, sweep_end_us)
         bbox_in_rig[BoundingBoxSE3Index.SE3] = rel_to_abs_se3_array(
             origin=rig_to_world_at_obs,
             pose_se3_array=bbox_in_rig[BoundingBoxSE3Index.SE3].reshape(1, -1),

@@ -4,7 +4,7 @@
     <source media="(prefers-color-scheme: light)" srcset="https://kesai.eu/py123d/_static/123D_logo_transparent_black.svg" width="500">
     <img alt="Logo" src="https://kesai.eu/py123d/_static/123D_logo_transparent_black.svg" width="500">
   </picture>
-  <h2 align="center">123D: An Open-Source Library for<br>Multi-Modal Autonomous Driving Datasets</h2>
+  <h2 align="center">123D: Unifying Multi-Modal Autonomous Driving Data at Scale</h2>
   <h3 align="center"><a href="https://youtu.be/Q4q29fpXnx8">Video</a> | <a href="https://kesai.eu/py123d/">Documentation</a></h3>
 </h1>
 
@@ -14,7 +14,7 @@
   <a href="https://github.com/kesai-labs/py123d/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-green"></a>
 </p>
 
-**One library for autonomous driving datasets.** 123D converts raw data from Argoverse 2, nuScenes, nuPlan, KITTI-360, PandaSet, and Waymo into a fast, unified [Apache Arrow](https://arrow.apache.org/) format, and then gives you a single API to read cameras, lidar, HD maps, and labels across all of them.
+**One library for autonomous driving datasets.** 123D converts raw data from Argoverse 2, nuScenes, nuPlan, KITTI-360, PandaSet, and Waymo into a unified [Apache Arrow](https://arrow.apache.org/) format, and then gives you a single API to read cameras, lidar, HD maps, and labels across all of them.
 
 ## Features
 

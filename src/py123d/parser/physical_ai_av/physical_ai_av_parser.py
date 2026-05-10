@@ -170,12 +170,12 @@ class PhysicalAIAVLogParser(BaseLogParser):
         # Offline ego only for box detection transforms (its anchor frame matches obstacle.offline labels).
         ego_df = pd.read_parquet(self._ego_regular_path())
         ego_timestamps = ego_df["timestamp"].to_numpy(dtype=np.int64)
-        if self._ego_offline_path().exists():
-            ego_offline_df = pd.read_parquet(self._ego_offline_path())
-            ego_offline_ts = ego_offline_df["timestamp"].to_numpy(dtype=np.int64)
-        else:
-            ego_offline_df = ego_df
-            ego_offline_ts = ego_timestamps
+        # if self._ego_offline_path().exists():
+        #     ego_offline_df = pd.read_parquet(self._ego_offline_path())
+        #     ego_offline_ts = ego_offline_df["timestamp"].to_numpy(dtype=np.int64)
+        # else:
+        #     ego_offline_df = ego_df
+        #     ego_offline_ts = ego_timestamps
 
         # 2. Load LiDAR timestamps
         lidar_path = self._data_root / "lidar" / "lidar_top_360fov" / f"{self._clip_id}.lidar_top_360fov.parquet"
@@ -215,7 +215,13 @@ class PhysicalAIAVLogParser(BaseLogParser):
 
                 # Box detections (transformed using offline ego to match obstacle.offline frame)
                 box_detections = _extract_box_detections(
-                    obstacle_df, obs_timestamps, lidar_ts, ego_offline_df, ego_offline_ts, ego_metadata, det_metadata
+                    obstacle_df=obstacle_df,
+                    obs_timestamps=obs_timestamps,
+                    lidar_ts=lidar_ts,
+                    ego_df=ego_df,
+                    ego_timestamps=ego_timestamps,
+                    ego_metadata=ego_metadata,
+                    metadata=det_metadata,
                 )
 
                 # LiDAR
@@ -230,7 +236,12 @@ class PhysicalAIAVLogParser(BaseLogParser):
 
                 # Cameras
                 parsed_cameras = _extract_cameras(
-                    lidar_ts, ego_df, ego_timestamps, captures, cam_timestamps, ftheta_metadatas
+                    lidar_ts=lidar_ts,
+                    ego_df=ego_df,
+                    ego_timestamps=ego_timestamps,
+                    captures=captures,
+                    cam_timestamps=cam_timestamps,
+                    ftheta_metadatas=ftheta_metadatas,
                 )
 
                 yield ModalitiesSync(
@@ -292,11 +303,7 @@ class PhysicalAIAVLogParser(BaseLogParser):
 
         ego_metadata = _get_ego_state_metadata(self._data_root, self._clip_id, self._chunk)
         obstacle_df = pd.read_parquet(obstacle_path)
-        ego_df = (
-            pd.read_parquet(self._ego_offline_path())
-            if self._ego_offline_path().exists()
-            else pd.read_parquet(self._ego_regular_path())
-        )
+        ego_df = pd.read_parquet(self._ego_regular_path())
         ego_timestamps = ego_df["timestamp"].to_numpy(dtype=np.int64)
 
         lidar_path = self._data_root / "lidar" / "lidar_top_360fov" / f"{self._clip_id}.lidar_top_360fov.parquet"
@@ -309,7 +316,14 @@ class PhysicalAIAVLogParser(BaseLogParser):
             sweep_end = sweep_start + _LIDAR_SPIN_DURATION_US
             mask = (obs_timestamps >= sweep_start) & (obs_timestamps <= sweep_end)
             group_df = obstacle_df[mask]
-            yield _build_box_detections(group_df, sweep_start, ego_df, ego_timestamps, ego_metadata, metadata)
+            yield _build_box_detections(
+                group_df=group_df,
+                timestamp_us=sweep_start,
+                ego_df=ego_df,
+                ego_timestamps=ego_timestamps,
+                ego_metadata=ego_metadata,
+                metadata=metadata,
+            )
 
     def _iter_lidar(self, metadata: LidarMergedMetadata) -> Iterator[ParsedLidar]:
         """Yields all LiDAR spins at native rate (~10Hz)."""
@@ -626,7 +640,7 @@ def _build_box_detections(
     det_velocity = np.zeros((num_dets, len(Vector3DIndex)), dtype=np.float64)
     det_labels: List[PhysicalAIAVBoxDetectionLabel] = []
     det_tokens: List[str] = []
-    det_timestamps_us = group_df["timestamp_us"].to_numpy(dtype=np.int64)
+    # det_timestamps_us = group_df["timestamp_us"].to_numpy(dtype=np.int64)
 
     for det_idx, (_, det_row) in enumerate(group_df.iterrows()):
         # Position (in rig/ego frame at the detection's own timestamp)
@@ -653,19 +667,23 @@ def _build_box_detections(
         det_labels.append(label)
         det_tokens.append(str(det_row["track_id"]))
 
+    # NOTE @DanielDauner: PAI-AV is somewhat ambiguous about how to reference boxes and ego poses.
+    # We tried start lidar sweep, end lidar sweep and the detection timestamp itself.
+    # The best visual alignment is using the end sweep ego pose.
+
     # Transform each detection from ego frame (at detection's own timestamp) to global
+    ego_idx = find_closest_index(ego_timestamps, timestamp_us + _LIDAR_SPIN_DURATION_US)
+    ego_row = ego_df.iloc[ego_idx]
+    ego_pose = quat_scalar_last_to_pose_se3(
+        qx=ego_row["qx"],
+        qy=ego_row["qy"],
+        qz=ego_row["qz"],
+        qw=ego_row["qw"],
+        x=ego_row["x"],
+        y=ego_row["y"],
+        z=ego_row["z"],
+    )
     for det_idx in range(num_dets):
-        ego_idx = find_closest_index(ego_timestamps, int(det_timestamps_us[det_idx]))
-        ego_row = ego_df.iloc[ego_idx]
-        ego_pose = quat_scalar_last_to_pose_se3(
-            qx=ego_row["qx"],
-            qy=ego_row["qy"],
-            qz=ego_row["qz"],
-            qw=ego_row["qw"],
-            x=ego_row["x"],
-            y=ego_row["y"],
-            z=ego_row["z"],
-        )
         det_state[det_idx, BoundingBoxSE3Index.SE3] = rel_to_abs_se3_array(
             origin=ego_pose,
             pose_se3_array=det_state[det_idx : det_idx + 1, BoundingBoxSE3Index.SE3],
