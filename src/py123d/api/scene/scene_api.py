@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Dict, List, Literal, Optional, Tuple, TypeVar, Union
+from typing import Dict, Iterator, List, Literal, Optional, Tuple, TypeVar, Union
 
 from py123d.api.map.map_api import MapAPI
 from py123d.common.utils.enums import SerialIntEnum
@@ -183,6 +183,34 @@ class SceneAPI(abc.ABC):
             - "forward": Return data from the nearest timestamp that is greater than or equal to the requested timestamp.
             - "backward": Return data from the nearest timestamp that is less than or equal to the requested timestamp.
         :return: The modality data at the given timestamp, or None if not available.
+        """
+
+    @abc.abstractmethod
+    def get_modality_between_timestamps(
+        self,
+        start_timestamp: Union[Timestamp, int],
+        end_timestamp: Union[Timestamp, int],
+        modality_type: Union[str, ModalityType],
+        modality_id: Optional[Union[str, SerialIntEnum]] = None,
+        inclusive: Literal["left", "right", "both", "neither"] = "left",
+        **kwargs,
+    ) -> Iterator[BaseModality]:
+        """Yields modality entries whose timestamps fall between ``start_timestamp`` and ``end_timestamp``,
+            in chronological order.
+
+        :param start_timestamp: Lower bound of the range, as a Timestamp object or integer microseconds.
+        :param end_timestamp: Upper bound of the range, as a Timestamp object or integer microseconds.
+        :param modality_type: The modality type as a string or :class:`ModalityType`.
+        :param modality_id: Optional modality id (e.g. sensor id).
+        :param inclusive: Which bounds are inclusive (matches the convention of
+            :meth:`pandas.Series.between`). One of:
+
+            - ``"left"``: ``[start, end)`` (default).
+            - ``"right"``: ``(start, end]``.
+            - ``"both"``: ``[start, end]``.
+            - ``"neither"``: ``(start, end)``.
+        :return: Iterator of modality entries in the range. Empty if the modality is not available
+            or no entries fall within the range.
         """
 
     # ------------------------------------------------------------------------------------------------------------------
