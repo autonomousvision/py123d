@@ -243,12 +243,11 @@ No breaking changes to the public API, Arrow schema, or CLI entry points.
 ## Citation
 
 ```bibtex
-@software{Contributors123D,
-  title   = {123D: A Unified Library for Multi-Modal Autonomous Driving Data},
-  author  = {123D Contributors},
-  year    = {2026},
-  url     = {https://github.com/kesai-labs/py123d},
-  license = {Apache-2.0}
+@article{Dauner2026ARXIV,
+  title={123D: Unifying Multi-Modal Autonomous Driving Data at Scale},
+  author={Dauner, Daniel and Charraut, Valentin and Berle, Bastian and Li, Tianyu and Nguyen, Long and Wang, Jiabao and Jing, Changhui and Igl, Maximilian and Caesar, Holger and Ivanovic, Boris and Geiger, Andreas and Chitta, Kashyap},
+  journal={arXiv preprint arXiv:2605.08084},
+  year={2026}
 }
 ```
 
