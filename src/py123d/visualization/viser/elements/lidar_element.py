@@ -118,11 +118,14 @@ class LidarElement(ViewerElement):
         ego_state_se3 = self._context.scene.get_ego_state_se3_at_iteration(iteration)
         assert ego_state_se3 is not None, f"Ego state SE3 should be available at iteration {iteration}."
         ego_pose = ego_state_se3.imu_se3.array
-        ego_pose[PoseSE3Index.XYZ] -= self._context.scene_center_array
+        ego_pose = ego_pose.astype(np.float64)
+        ego_pose[PoseSE3Index.XYZ] -= self._context.scene_center_array.astype(np.float64)
 
         lidar = self._context.scene.get_lidar_at_iteration(iteration, lidar_id=active_id)
         if lidar is not None:
-            points = rel_to_abs_points_3d_array(ego_pose, lidar.xyz.astype(np.float64))
+            xyz = np.array(lidar.xyz, dtype=np.float64)
+
+            points = rel_to_abs_points_3d_array(ego_pose, xyz)
             colors = get_lidar_pc_color(lidar, color_feature=self._config.point_color, dark_mode=self._dark_mode)
         else:
             points = np.zeros((0, 3), dtype=np.float32)

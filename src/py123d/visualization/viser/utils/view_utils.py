@@ -37,8 +37,8 @@ def get_ego_3rd_person_view_position(
     ego_pose = scene.get_ego_state_se3_at_iteration(iteration).imu_se3.array
     ego_pose[PoseSE3Index.XYZ] -= scene_center_array
     ego_pose_se3 = PoseSE3.from_array(ego_pose)
-    ego_pose_se3 = translate_se3_along_body_frame(ego_pose_se3, Vector3D(-15.0, 0.0, 15))
-    ego_pose_se3 = _pitch_se3_by_degrees(ego_pose_se3, 30.0)
+    ego_pose_se3 = translate_se3_along_body_frame(ego_pose_se3, Vector3D(-10.0, 0.0, 9.0))
+    ego_pose_se3 = _pitch_se3_by_degrees(ego_pose_se3, 25.0)
 
     return convert_camera_convention(
         ego_pose_se3,
