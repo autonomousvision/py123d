@@ -5,7 +5,7 @@
     <img alt="Logo" src="https://kesai.eu/py123d/_static/123D_logo_transparent_black.svg" width="500">
   </picture>
   <h2 align="center">123D: Unifying Multi-Modal Autonomous Driving Data at Scale</h2>
-  <h3 align="center"><a href="https://youtu.be/Q4q29fpXnx8">Video</a> | <a href="https://kesai.eu/py123d/">Documentation</a></h3>
+  <h3 align="center"><a href="https://arxiv.org/abs/2605.08084">Paper</a> | <a href="https://youtu.be/Q4q29fpXnx8">Video</a> | <a href="https://kesai.eu/py123d/">Documentation</a></h3>
 </h1>
 
 <p align="center">
@@ -160,7 +160,7 @@ Open `http://localhost:8080` to browse the converted scenes interactively.
       <td>✓</td><td>✓</td><td>✓</td>
     </tr>
     <tr>
-      <td align="left">&nbsp;&nbsp;– <a href="https://github.com/kesai-labs/lead">LEAD</a></td>
+      <td align="left">&nbsp;&nbsp;– <a href="https://github.com/kesai-labs/lead">L3AD</a></td>
       <td>2026</td><td>7.3</td><td>138.7</td><td>789</td>
       <td>6&nbsp;/&nbsp;10</td><td>2&nbsp;/&nbsp;10</td>
       <td>✓&nbsp;/&nbsp;10</td><td>✓&nbsp;/&nbsp;10</td><td>✓</td>
@@ -175,6 +175,19 @@ Open `http://localhost:8080` to browse the converted scenes interactively.
 ## Changelog
 
 <details open>
+<summary><b>v0.4.0</b> (2026-05-19)</summary>
+
+- Added L3AD dataset support (CARLA-derived) with a HuggingFace-hosted downloader that fetches pre-converted Arrow logs directly into `$PY123D_DATA_ROOT`.
+- New `SceneAPI.get_modality_between_timestamps()` for time-windowed retrieval.
+- nuPlan route and lidar tokens exposed through the custom-modality interface.
+- Visualization: expanded viser color and rendering options, with configurable output resolution and frame rate.
+- Parser fixes for PAI-AV and ncore: bounding box alignment and file-derived vehicle dimensions.
+
+No breaking changes to the public API, Arrow schema, or CLI entry points.
+
+</details>
+
+<details>
 <summary><b>v0.3.0</b> (2026-04-28)</summary>
 
 - Refactored dataset download interface, with new download/stream options for nuScenes, PandaSet (HF mirror), AV2-sensor, WOD-perception, WOMD ([#126](https://github.com/kesai-labs/py123d/pull/126)), and nuPlan.
