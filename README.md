@@ -38,7 +38,7 @@ Per-dataset extras (e.g. `py123d[av2]`, `py123d[nuscenes]`, `py123d[waymo]`) ins
 
 Demo using the Argoverse 2 Sensor dataset, which is publicly readable from S3 and requires no cloud authentication.
 
-The `av2-sensor-stream` config downloads the requested logs/maps into a managed temp directory, converts them into our self-contained Arrow format, and cleans up the source files afterwards. `PY123D_DATA_ROOT` controls where the converted logs/maps are written. The script below installs the AV2 extra, converts the first 3 validation logs (~250 MB each), and launches the Viser viewer:
+The `av2-sensor-stream` config downloads the requested logs/maps into a managed temp directory, converts them into our self-contained Arrow format, and cleans up the source files afterwards. `PY123D_DATA_ROOT` controls where the converted logs/maps are written. The script below installs the Av2 extra, converts the first 3 validation logs (~250 MB each), and launches the Viser viewer:
 
 ```bash
 # 1. Install
