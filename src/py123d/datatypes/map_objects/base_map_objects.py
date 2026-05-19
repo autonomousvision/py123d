@@ -100,7 +100,9 @@ class BaseMapSurfaceObject(BaseMapObject):
         """The trimesh mesh representation of the surface."""
         # Fallback to geometry if no boundaries are available
         outline_3d_array = self.outline_3d.array
-        vertices_2d, faces = trimesh.creation.triangulate_polygon(geom.Polygon(outline_3d_array[:, Point3DIndex.XY]))
+        vertices_2d, faces = trimesh.creation.triangulate_polygon(
+            geom.Polygon(outline_3d_array[:, Point3DIndex.XY]), engine="earcut"
+        )
         if len(vertices_2d) == len(outline_3d_array):
             # Regular case, where vertices match outline_3d_array
             vertices_3d = outline_3d_array

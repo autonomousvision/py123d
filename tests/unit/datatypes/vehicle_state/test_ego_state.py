@@ -11,7 +11,7 @@ from py123d.datatypes import (
 )
 from py123d.datatypes.detections.box_detection_label import DefaultBoxDetectionLabel
 from py123d.datatypes.vehicle_state.ego_state import EGO_TRACK_TOKEN
-from py123d.geometry import BoundingBoxSE2, PoseSE2, PoseSE3, Vector2D, Vector3D
+from py123d.geometry import BoundingBoxSE2, Point2D, Point3D, PoseSE2, PoseSE3, Vector2D, Vector3D
 
 
 class TestEgoStateSE2:
@@ -87,6 +87,24 @@ class TestEgoStateSE2:
         assert center.x == pytest.approx(self.metadata.rear_axle_to_center_longitudinal)
         assert center.y == pytest.approx(0.0)
         assert center.yaw == pytest.approx(0.0)
+
+    def test_point_properties(self):
+        """Test center_2d and rear_axle_2d point accessors."""
+        ego_state = EgoStateSE2.from_rear_axle(
+            rear_axle_se2=self.rear_axle_pose,
+            metadata=self.metadata,
+            timestamp=self.timestamp,
+        )
+
+        center_2d = ego_state.center_2d
+        assert isinstance(center_2d, Point2D)
+        assert center_2d.x == pytest.approx(ego_state.center_se2.x)
+        assert center_2d.y == pytest.approx(ego_state.center_se2.y)
+
+        rear_axle_2d = ego_state.rear_axle_2d
+        assert isinstance(rear_axle_2d, Point2D)
+        assert rear_axle_2d.x == pytest.approx(ego_state.rear_axle_se2.x)
+        assert rear_axle_2d.y == pytest.approx(ego_state.rear_axle_se2.y)
 
     def test_bounding_box_property(self):
         """Test bounding box properties."""
@@ -290,6 +308,36 @@ class TestEgoStateSE3:
 
         center_se2 = ego_state.center_se2
         assert center_se2 is not None
+
+    def test_point_properties(self):
+        """Test center_3d / center_2d / rear_axle_3d / rear_axle_2d point accessors."""
+        ego_state = EgoStateSE3.from_rear_axle(
+            rear_axle_se3=self.rear_axle_pose,
+            metadata=self.metadata,
+            timestamp=self.timestamp,
+        )
+
+        center_3d = ego_state.center_3d
+        assert isinstance(center_3d, Point3D)
+        assert center_3d.x == pytest.approx(ego_state.center_se3.x)
+        assert center_3d.y == pytest.approx(ego_state.center_se3.y)
+        assert center_3d.z == pytest.approx(ego_state.center_se3.z)
+
+        center_2d = ego_state.center_2d
+        assert isinstance(center_2d, Point2D)
+        assert center_2d.x == pytest.approx(ego_state.center_se3.x)
+        assert center_2d.y == pytest.approx(ego_state.center_se3.y)
+
+        rear_axle_3d = ego_state.rear_axle_3d
+        assert isinstance(rear_axle_3d, Point3D)
+        assert rear_axle_3d.x == pytest.approx(ego_state.rear_axle_se3.x)
+        assert rear_axle_3d.y == pytest.approx(ego_state.rear_axle_se3.y)
+        assert rear_axle_3d.z == pytest.approx(ego_state.rear_axle_se3.z)
+
+        rear_axle_2d = ego_state.rear_axle_2d
+        assert isinstance(rear_axle_2d, Point2D)
+        assert rear_axle_2d.x == pytest.approx(ego_state.rear_axle_se3.x)
+        assert rear_axle_2d.y == pytest.approx(ego_state.rear_axle_se3.y)
 
     def test_bounding_box_properties(self):
         """Test bounding box properties."""

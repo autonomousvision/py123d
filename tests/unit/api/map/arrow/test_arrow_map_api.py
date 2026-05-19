@@ -595,3 +595,75 @@ class TestGetMapApiForLog:
         # If per-log takes precedence, no crosswalks should be found
         crosswalk_ids = result.get_all_map_object_ids_in_layer(MapLayer.CROSSWALK)
         assert crosswalk_ids == [], "Per-log map should take precedence — should have no crosswalks"
+
+
+class TestStringMapLayerCoercion:
+    """MapAPI methods accept lowercase layer name strings interchangeably with the MapLayer enum."""
+
+    def _build_api(self, tmp_path: Path) -> ArrowMapAPI:
+        return write_and_read_map(tmp_path, _build_full_map_metadata(), _build_all_object_types())
+
+    def test_get_map_object_in_layer_accepts_string(self, tmp_path: Path) -> None:
+        api = self._build_api(tmp_path)
+        result = api.get_map_object_in_layer(10, "lane")
+        assert isinstance(result, Lane)
+
+    def test_get_map_object_in_layer_accepts_uppercase_string(self, tmp_path: Path) -> None:
+        api = self._build_api(tmp_path)
+        # SerialIntEnum.deserialize is case-insensitive.
+        result = api.get_map_object_in_layer(10, "LANE")
+        assert isinstance(result, Lane)
+
+    def test_get_all_map_object_ids_in_layer_accepts_string(self, tmp_path: Path) -> None:
+        api = self._build_api(tmp_path)
+        ids_str = api.get_all_map_object_ids_in_layer("lane")
+        ids_enum = api.get_all_map_object_ids_in_layer(MapLayer.LANE)
+        assert ids_str == ids_enum
+        assert 10 in ids_str
+
+    def test_get_all_map_objects_in_layer_accepts_string(self, tmp_path: Path) -> None:
+        api = self._build_api(tmp_path)
+        objs = list(api.get_all_map_objects_in_layer("crosswalk"))
+        assert len(objs) == 1
+        assert isinstance(objs[0], Crosswalk)
+
+    def test_get_all_map_objects_in_layers_accepts_mixed_list(self, tmp_path: Path) -> None:
+        api = self._build_api(tmp_path)
+        objs = list(api.get_all_map_objects_in_layers(["lane", MapLayer.CROSSWALK]))
+        types = {type(o) for o in objs}
+        assert Lane in types
+        assert Crosswalk in types
+
+    def test_get_map_objects_in_radius_accepts_string_layers(self, tmp_path: Path) -> None:
+        api = self._build_api(tmp_path)
+        center = Point2D(x=0.0, y=0.0)
+        result = api.get_map_objects_in_radius(center, radius=1000.0, layers=["lane", "crosswalk"])
+        # Returned dict keys must remain MapLayer enums, not strings.
+        assert MapLayer.LANE in result
+        assert MapLayer.CROSSWALK in result
+        assert "lane" not in result
+        assert "crosswalk" not in result
+
+    def test_query_accepts_string_layers(self, tmp_path: Path) -> None:
+        api = self._build_api(tmp_path)
+        patch = geom.box(-1000.0, -1000.0, 1000.0, 1000.0)
+        result = api.query(geometry=patch, layers=["lane"], predicate="intersects")
+        assert MapLayer.LANE in result
+        assert "lane" not in result
+
+    def test_query_object_ids_accepts_string_layers(self, tmp_path: Path) -> None:
+        api = self._build_api(tmp_path)
+        patch = geom.box(-1000.0, -1000.0, 1000.0, 1000.0)
+        result = api.query_object_ids(geometry=patch, layers=["lane", "crosswalk"], predicate="intersects")
+        assert MapLayer.LANE in result
+        assert MapLayer.CROSSWALK in result
+
+    def test_invalid_layer_string_raises(self, tmp_path: Path) -> None:
+        api = self._build_api(tmp_path)
+        with pytest.raises(KeyError):
+            api.get_all_map_object_ids_in_layer("not_a_layer")
+
+    def test_invalid_layer_in_list_raises(self, tmp_path: Path) -> None:
+        api = self._build_api(tmp_path)
+        with pytest.raises(KeyError):
+            list(api.get_all_map_objects_in_layers(["lane", "not_a_layer"]))

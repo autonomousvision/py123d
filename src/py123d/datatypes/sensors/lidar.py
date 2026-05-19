@@ -250,6 +250,11 @@ class Lidar(BaseModality):
         return self._timestamp
 
     @property
+    def timestamp_start(self) -> Timestamp:
+        """Alias for the timestamp associated with this Lidar recording."""
+        return self._timestamp
+
+    @property
     def timestamp_end(self) -> Timestamp:
         """The end timestamp associated with this Lidar recording."""
         return self._timestamp_end

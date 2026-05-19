@@ -1,5 +1,7 @@
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple, Type, Union
+from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Type, Union
+
+import numpy as np
 
 from py123d.api.map.arrow.arrow_map_api import get_map_api_for_log
 from py123d.api.map.map_api import MapAPI
@@ -262,6 +264,53 @@ class ArrowSceneAPI(SceneAPI):
                 **kwargs,
             )
         return modality
+
+    def get_modality_between_timestamps(
+        self,
+        start_timestamp: Union[Timestamp, int],
+        end_timestamp: Union[Timestamp, int],
+        modality_type: Union[str, ModalityType],
+        modality_id: Optional[Union[str, SerialIntEnum]] = None,
+        inclusive: Literal["left", "right", "both", "neither"] = "left",
+        **kwargs,
+    ) -> Iterator[BaseModality]:
+        """Inherited, see superclass."""
+        start_us = start_timestamp.time_us if isinstance(start_timestamp, Timestamp) else int(start_timestamp)
+        end_us = end_timestamp.time_us if isinstance(end_timestamp, Timestamp) else int(end_timestamp)
+
+        _modality_type = ModalityType.from_arbitrary(modality_type)
+        _modality_key = get_modality_key(_modality_type, modality_id)
+
+        modality_table = get_modality_table(self._log_dir, _modality_key)
+        modality_metadata = self.get_modality_metadata(_modality_type, modality_id)
+        if modality_table is not None and modality_metadata is not None:
+            # NOTE @DanielDauner:
+            # searchsorted(side="left") gives an inclusive bound,
+            # side="right" gives an exclusive bound.
+            sides: Dict[str, Tuple[Literal["left", "right"], Literal["left", "right"]]] = {
+                "left": ("left", "left"),
+                "right": ("right", "right"),
+                "both": ("left", "right"),
+                "neither": ("right", "left"),
+            }
+            start_side, end_side = sides[inclusive]
+
+            ts_array = modality_table[f"{_modality_key}.timestamp_us"].to_numpy()
+            lo = int(np.searchsorted(ts_array, start_us, side=start_side))
+            hi = int(np.searchsorted(ts_array, end_us, side=end_side))
+
+            reader = MODALITY_READERS[_modality_type]
+            for index in range(lo, hi):
+                modality = reader.read_at_index(
+                    index=index,
+                    table=modality_table,
+                    metadata=modality_metadata,
+                    dataset=self.dataset,
+                    log_dir=self._log_dir,
+                    **kwargs,
+                )
+                if modality is not None:
+                    yield modality
 
     def get_modality_column_at_iteration(
         self,

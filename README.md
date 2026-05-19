@@ -4,8 +4,8 @@
     <source media="(prefers-color-scheme: light)" srcset="https://kesai.eu/py123d/_static/123D_logo_transparent_black.svg" width="500">
     <img alt="Logo" src="https://kesai.eu/py123d/_static/123D_logo_transparent_black.svg" width="500">
   </picture>
-  <h2 align="center">123D: An Open-Source Library for<br>Multi-Modal Autonomous Driving Datasets</h2>
-  <h3 align="center"><a href="https://youtu.be/Q4q29fpXnx8">Video</a> | <a href="https://kesai.eu/py123d/">Documentation</a></h3>
+  <h2 align="center">123D: Unifying Multi-Modal Autonomous Driving Data at Scale</h2>
+  <h3 align="center"><a href="https://arxiv.org/abs/2605.08084">Paper</a> | <a href="https://youtu.be/Q4q29fpXnx8">Video</a> | <a href="https://kesai.eu/py123d/">Documentation</a></h3>
 </h1>
 
 <p align="center">
@@ -14,9 +14,9 @@
   <a href="https://github.com/kesai-labs/py123d/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-green"></a>
 </p>
 
-**One library for autonomous driving datasets.** 123D converts raw data from Argoverse 2, nuScenes, nuPlan, KITTI-360, PandaSet, and Waymo into a fast, unified [Apache Arrow](https://arrow.apache.org/) format, and then gives you a single API to read cameras, lidar, HD maps, and labels across all of them.
+**One library for autonomous driving datasets.** 123D converts raw data from Argoverse 2, nuScenes, nuPlan, KITTI-360, PandaSet, and Waymo into a unified [Apache Arrow](https://arrow.apache.org/) format, and then gives you a single API to read cameras, lidar, HD maps, and labels across all of them.
 
-## Features
+## ✨ Features
 
 - **Dataset download**: Fetch supported datasets from their official sources via the CLI, and optionally convert directly into the unified format.
 - **Hydra-based conversion CLI**: YAML configs to manage your data pipelines.
@@ -26,7 +26,7 @@
 - **Unified API**: Read cameras, lidar, maps, and labels through a single interface, regardless of the source dataset.
 - **Built-in visualization**: interactive 3D viewer ([Viser](https://viser.studio/main/)), and [matplotlib](https://matplotlib.org/) plotting.
 
-## Installation
+## 📦 Installation
 
 ```bash
 pip install py123d
@@ -34,11 +34,11 @@ pip install py123d
 
 Per-dataset extras (e.g. `py123d[av2]`, `py123d[nuscenes]`, `py123d[waymo]`) install the parser dependencies for each dataset on demand. See the [Demo](#demo) below for an example.
 
-## Demo
+## 🚀 Demo
 
 Demo using the Argoverse 2 Sensor dataset, which is publicly readable from S3 and requires no cloud authentication.
 
-The `av2-sensor-stream` config downloads the requested logs/maps into a managed temp directory, converts them into our self-contained Arrow format, and cleans up the source files afterwards. `PY123D_DATA_ROOT` controls where the converted logs/maps are written. The script below installs the AV2 extra, converts the first 3 validation logs (~250 MB each), and launches the Viser viewer:
+The `av2-sensor-stream` config downloads the requested logs/maps into a managed temp directory, converts them into our self-contained Arrow format, and cleans up the source files afterwards. `PY123D_DATA_ROOT` controls where the converted logs/maps are written. The script below installs the Av2 extra, converts the first 3 validation logs (~250 MB each), and launches the Viser viewer:
 
 ```bash
 # 1. Install
@@ -57,30 +57,137 @@ py123d-viser scene_filter=av2-sensor
 
 Open `http://localhost:8080` to browse the converted scenes interactively.
 
-## Viewer
+## 🖼️ Viewer
 
 <p align="center">
   <img src="assets/viser.png" alt="Viser 3D Viewer" width="800">
 </p>
 
-## Supported Datasets
+## 📊 Supported Datasets
 
-| Dataset | Cameras | LiDARs | Map | 3D Boxes | Traffic Lights |
-|:--------|:-------:|:------:|:---:|:--------:|:--------------:|
-| [Argoverse 2 - Sensor](https://www.argoverse.org/) | 9 | 2 | ✓ | ✓ | ✗ |
-| [nuScenes](https://www.nuscenes.org/) | 6 | 1 | ✓ | ✓ | ✗ |
-| [nuPlan](https://www.nuscenes.org/nuplan) | 8 | 5 | ✓ | ✓ | ✓ |
-| [KITTI-360](https://www.cvlibs.net/datasets/kitti-360/) | 4 | 1 | ✓ | ✓ | ✗ |
-| [PandaSet](https://pandaset.org/) | 6 | 2 | ✗ | ✓ | ✗ |
-| [Waymo Open - Perception](https://waymo.com/open/) | 5 | 5 | ✓ | ✓ | ✗ |
-| [Waymo Open - Motion](https://waymo.com/open/) | ✗ | ✗ | ✓ | ✓ | ✓ |
-| [CARLA / LEAD](https://github.com/kesai-labs/lead) | config. | config. | ✓ | ✓ | ✓ |
-| [NVIDIA Physical AI AV](https://huggingface.co/datasets/nvidia/PhysicalAI-Autonomous-Vehicles) *(experimental)* | 7 | 1 | ✗ | ✓ | ✗ |
+<table>
+  <thead>
+    <tr>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th colspan="3" align="center">Scale</th>
+      <th colspan="2" align="center">Sensors [#/Hz]</th>
+      <th colspan="3" align="center">Annotations [✓/Hz]</th>
+    </tr>
+    <tr>
+      <th></th>
+      <th align="left">Dataset</th>
+      <th>Year</th>
+      <th>Dur. [h]</th>
+      <th>Dist. [km]</th>
+      <th>Logs [#]</th>
+      <th>Cam.</th>
+      <th>LiDAR</th>
+      <th>3D Box</th>
+      <th>Tls.</th>
+      <th>Map</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td rowspan="5"><b>Manual</b></td>
+      <td align="left"><a href="https://www.nuscenes.org/">nuScenes</a></td>
+      <td>2020</td><td>5.6</td><td>100.9</td><td>1,000</td>
+      <td>6&nbsp;/&nbsp;12</td><td>1&nbsp;/&nbsp;20</td>
+      <td>✓&nbsp;/&nbsp;2</td><td>✗</td><td>✓</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="https://waymo.com/open/">WOD-Perc.</a></td>
+      <td>2020</td><td>6.4</td><td>154.0</td><td>1,150</td>
+      <td>5&nbsp;/&nbsp;10</td><td>5&nbsp;/&nbsp;10</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✗</td><td>✓</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="https://www.argoverse.org/">AV2-Sens.</a></td>
+      <td>2021</td><td>4.4</td><td>87.5</td><td>1,000</td>
+      <td>9&nbsp;/&nbsp;20</td><td>2&nbsp;/&nbsp;10</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✗</td><td>✓</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="https://pandaset.org/">PandaSet</a></td>
+      <td>2021</td><td>0.2</td><td>8.3</td><td>103</td>
+      <td>6&nbsp;/&nbsp;10</td><td>2&nbsp;/&nbsp;10</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✗</td><td>✗</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="https://www.cvlibs.net/datasets/kitti-360/">KITTI-360</a></td>
+      <td>2022</td><td>2.7</td><td>73.7</td><td>9</td>
+      <td>4&nbsp;/&nbsp;10</td><td>1&nbsp;/&nbsp;10</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✗</td><td>✓</td>
+    </tr>
+    <tr>
+      <td rowspan="5"><b>Auto-labeled</b></td>
+      <td align="left"><a href="https://waymo.com/open/">WOD-Mot.</a></td>
+      <td>2021</td><td>574.1</td><td>10,323.5*</td><td>103,354</td>
+      <td>✗</td><td>✗</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✓&nbsp;/&nbsp;10</td><td>✓</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="https://www.nuscenes.org/nuplan">nuPlan</a></td>
+      <td>2024</td><td>1,174.3</td><td>17,808.6</td><td>15,910</td>
+      <td>8&nbsp;/&nbsp;10†</td><td>5&nbsp;/&nbsp;20†</td>
+      <td>✓&nbsp;/&nbsp;20</td><td>✓&nbsp;/&nbsp;20</td><td>✓</td>
+    </tr>
+    <tr>
+      <td align="left">&nbsp;&nbsp;– <a href="https://www.nuscenes.org/nuplan">nuPlan-mini</a></td>
+      <td>2024</td><td>7.2</td><td>103.0</td><td>64</td>
+      <td>8&nbsp;/&nbsp;10†</td><td>5&nbsp;/&nbsp;20†</td>
+      <td>✓&nbsp;/&nbsp;20</td><td>✓&nbsp;/&nbsp;20</td><td>✓</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="https://huggingface.co/datasets/nvidia/PhysicalAI-Autonomous-Vehicles">PAI-AV</a></td>
+      <td>2025</td><td>1,707.0</td><td>69,265.7</td><td>307,332</td>
+      <td>7&nbsp;/&nbsp;30</td><td>1&nbsp;/&nbsp;10</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✗</td><td>✗</td>
+    </tr>
+    <tr>
+      <td align="left">&nbsp;&nbsp;– <a href="https://github.com/NVIDIA/ncore">NCore</a></td>
+      <td>2026</td><td>6.3</td><td>167.6</td><td>1,147</td>
+      <td>7&nbsp;/&nbsp;30</td><td>1&nbsp;/&nbsp;10</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✗</td><td>✗</td>
+    </tr>
+    <tr>
+      <td rowspan="2"><b>Synth.</b></td>
+      <td align="left"><a href="https://carla.org/">CARLA</a></td>
+      <td>2017</td><td><i>var.</i></td><td><i>var.</i></td><td><i>var.</i></td>
+      <td><i>var.</i></td><td><i>var.</i></td>
+      <td>✓</td><td>✓</td><td>✓</td>
+    </tr>
+    <tr>
+      <td align="left">&nbsp;&nbsp;– <a href="https://github.com/kesai-labs/lead">L3AD</a></td>
+      <td>2026</td><td>7.3</td><td>138.7</td><td>789</td>
+      <td>6&nbsp;/&nbsp;10</td><td>2&nbsp;/&nbsp;10</td>
+      <td>✓&nbsp;/&nbsp;10</td><td>✓&nbsp;/&nbsp;10</td><td>✓</td>
+    </tr>
+  </tbody>
+</table>
+
+<sub><i>* Computed only from the non-overlapping 20&nbsp;s training files. &nbsp;
+† Released for a 120&nbsp;h subset; full coverage on mini.</i></sub>
 
 
-## Changelog
+## 📝 Changelog
 
 <details open>
+<summary><b>v0.4.0</b> (2026-05-19)</summary>
+
+- Added L3AD dataset support (CARLA-derived) with a HuggingFace-hosted downloader that fetches pre-converted Arrow logs directly into `$PY123D_DATA_ROOT`.
+- New `SceneAPI.get_modality_between_timestamps()` for time-windowed retrieval.
+- nuPlan route and lidar tokens exposed through the custom-modality interface.
+- Visualization: expanded viser color and rendering options, with configurable output resolution and frame rate.
+- Parser fixes for PAI-AV and ncore: bounding box alignment and file-derived vehicle dimensions.
+
+No breaking changes to the public API, Arrow schema, or CLI entry points.
+
+</details>
+
+<details>
 <summary><b>v0.3.0</b> (2026-04-28)</summary>
 
 - Refactored dataset download interface, with new download/stream options for nuScenes, PandaSet (HF mirror), AV2-sensor, WOD-perception, WOMD ([#126](https://github.com/kesai-labs/py123d/pull/126)), and nuPlan.
@@ -146,19 +253,18 @@ No breaking changes to the public API, Arrow schema, or CLI entry points.
 
 </details>
 
-## Citation
+## 📚 Citation
 
 ```bibtex
-@software{Contributors123D,
-  title   = {123D: A Unified Library for Multi-Modal Autonomous Driving Data},
-  author  = {123D Contributors},
-  year    = {2026},
-  url     = {https://github.com/kesai-labs/py123d},
-  license = {Apache-2.0}
+@article{Dauner2026ARXIV,
+  title={123D: Unifying Multi-Modal Autonomous Driving Data at Scale},
+  author={Dauner, Daniel and Charraut, Valentin and Berle, Bastian and Li, Tianyu and Nguyen, Long and Wang, Jiabao and Jing, Changhui and Igl, Maximilian and Caesar, Holger and Ivanovic, Boris and Geiger, Andreas and Chitta, Kashyap},
+  journal={arXiv preprint arXiv:2605.08084},
+  year={2026}
 }
 ```
 
 
-## License
+## ⚖️ License
 
 123D is released under the [Apache License 2.0](LICENSE).

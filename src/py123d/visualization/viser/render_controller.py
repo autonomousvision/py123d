@@ -15,10 +15,21 @@ from py123d.visualization.viser.utils.view_utils import get_ego_3rd_person_view_
 logger = logging.getLogger(__name__)
 
 
+RESOLUTION_MAP = {
+    "480p": (854, 480),
+    "720p": (1280, 720),
+    "1080p": (1920, 1080),
+    "1440p": (2560, 1440),
+    "4K": (3840, 2160),
+}
+
+
 @dataclass
 class RenderConfig:
     format: Literal["gif", "mp4", "png"] = "mp4"
     view: Literal["3rd Person", "BEV", "Manual"] = "3rd Person"
+    resolution: Literal["480p", "720p", "1080p", "1440p", "4K"] = "1080p"
+    fps: Literal["5 fps", "10 fps", "15 fps", "20 fps", "30 fps"] = "20 fps"
 
 
 class RenderController:
@@ -47,6 +58,12 @@ class RenderController:
             self._gui_view = self._server.gui.add_dropdown(
                 "View", ["3rd Person", "BEV", "Manual"], initial_value=self._config.view
             )
+            self._resolution = self._server.gui.add_dropdown(
+                "Resolution", ["480p", "720p", "1080p", "1440p", "4K"], initial_value=self._config.resolution
+            )
+            self._fps = self._server.gui.add_dropdown(
+                "FPS", ["5 fps", "10 fps", "15 fps", "20 fps", "30 fps"], initial_value=self._config.fps
+            )
             render_button = self._server.gui.add_button("Render Scene")
             render_button.on_click(self._on_render)
 
@@ -59,6 +76,16 @@ class RenderController:
             def _on_view_changed(_) -> None:
                 assert self._gui_view is not None, "GUI must be created before handling view change."
                 self._config.view = self._gui_view.value
+
+            @self._resolution.on_update
+            def _on_resolution_changed(_) -> None:
+                assert self._resolution is not None, "GUI must be created before handling resolution change."
+                self._config.resolution = self._resolution.value
+
+            @self._fps.on_update
+            def _on_fps_changed(_) -> None:
+                assert self._fps is not None, "GUI must be created before handling FPS change."
+                self._config.fps = self._fps.value
 
     def _on_render(self, event: viser.GuiEvent) -> None:
         assert self._gui_format is not None, "GUI must be created before handling render."
@@ -73,6 +100,8 @@ class RenderController:
         scene = self._context.scene
         initial_ego_state = self._context.initial_ego_state
 
+        width, height = RESOLUTION_MAP[self._config.resolution]
+
         for i in tqdm(range(scene.number_of_iterations)):
             self._playback.set_timestep(i)
             if self._gui_view.value == "BEV":
@@ -83,7 +112,7 @@ class RenderController:
                 ego_view = get_ego_3rd_person_view_position(scene, i, initial_ego_state)
                 client.camera.position = ego_view.point_3d.array
                 client.camera.wxyz = ego_view.quaternion.array
-            images.append(client.get_render(height=1080, width=1920))
+            images.append(client.get_render(height=height, width=width))
 
         format = self._gui_format.value
         content: Optional[bytes] = None
@@ -93,7 +122,8 @@ class RenderController:
             content = buffer.getvalue()
         elif format == "mp4":
             buffer = io.BytesIO()
-            iio.imwrite(buffer, images, extension=".mp4", fps=20)
+            fps = int(self._config.fps.split()[0])
+            iio.imwrite(buffer, images, extension=".mp4", fps=fps)
             content = buffer.getvalue()
         elif format == "png":
             zip_buf = io.BytesIO()

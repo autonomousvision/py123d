@@ -13,6 +13,7 @@ import shapely.geometry as geom
 from py123d.api.map.map_api import MapAPI
 from py123d.api.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.api.utils.arrow_metadata_utils import get_metadata_from_arrow_schema
+from py123d.common.utils.enums import resolve_enum_arguments
 from py123d.common.utils.msgpack_utils import msgpack_decode_with_numpy
 from py123d.datatypes.map_objects.base_map_objects import BaseMapObject, MapObjectIDType
 from py123d.datatypes.map_objects.map_layer_types import (
@@ -114,22 +115,27 @@ class ArrowMapAPI(MapAPI):
         """Inherited, see superclass."""
         return list(self._occupancy_maps.keys())
 
-    def get_map_object_in_layer(self, object_id: MapObjectIDType, layer: MapLayer) -> Optional[BaseMapObject]:
+    def get_map_object_in_layer(
+        self, object_id: MapObjectIDType, layer: Union[str, MapLayer]
+    ) -> Optional[BaseMapObject]:
         """Inherited, see superclass."""
+        layer = MapLayer.from_arbitrary(layer)
         map_object: Optional[BaseMapObject] = None
         if layer in self._object_ids_to_row_idx:
             map_object = self._map_object_getter[layer](object_id)
         return map_object
 
-    def get_all_map_object_ids_in_layer(self, layer: MapLayer) -> List[MapObjectIDType]:
+    def get_all_map_object_ids_in_layer(self, layer: Union[str, MapLayer]) -> List[MapObjectIDType]:
         """Inherited, see superclass."""
+        layer = MapLayer.from_arbitrary(layer)
         map_object_ids: List[MapObjectIDType] = []
         if layer in self._object_ids_to_row_idx.keys():
             map_object_ids = list(self._object_ids_to_row_idx[layer].keys())
         return map_object_ids
 
-    def get_all_map_objects_in_layer(self, layer: MapLayer) -> Iterator[BaseMapObject]:
+    def get_all_map_objects_in_layer(self, layer: Union[str, MapLayer]) -> Iterator[BaseMapObject]:
         """Inherited, see superclass."""
+        layer = MapLayer.from_arbitrary(layer)
         for map_object_id in self.get_all_map_object_ids_in_layer(layer):
             map_object = self.get_map_object_in_layer(map_object_id, layer)
             assert map_object is not None, (
@@ -137,8 +143,9 @@ class ArrowMapAPI(MapAPI):
             )
             yield map_object
 
-    def get_all_map_objects_in_layers(self, layers: List[MapLayer]) -> Iterator[BaseMapObject]:
+    def get_all_map_objects_in_layers(self, layers: List[Union[str, MapLayer]]) -> Iterator[BaseMapObject]:
         """Inherited, see superclass."""
+        layers = resolve_enum_arguments(MapLayer, layers) or []
         for layer in layers:
             yield from self.get_all_map_objects_in_layer(layer)
 
@@ -146,9 +153,10 @@ class ArrowMapAPI(MapAPI):
         self,
         point: Union[Point2D, Point3D],
         radius: float,
-        layers: List[MapLayer],
+        layers: List[Union[str, MapLayer]],
     ) -> Dict[MapLayer, List[BaseMapObject]]:
         """Inherited, see superclass."""
+        layers = resolve_enum_arguments(MapLayer, layers) or []
         x_min, x_max = point.x - radius, point.x + radius
         y_min, y_max = point.y - radius, point.y + radius
         patch = geom.box(x_min, y_min, x_max, y_max)
@@ -157,7 +165,7 @@ class ArrowMapAPI(MapAPI):
     def query(
         self,
         geometry: Union[geom.base.BaseGeometry, Iterable[geom.base.BaseGeometry]],
-        layers: List[MapLayer],
+        layers: List[Union[str, MapLayer]],
         predicate: Optional[
             Literal[
                 "contains",
@@ -175,6 +183,7 @@ class ArrowMapAPI(MapAPI):
         distance: Optional[float] = None,
     ) -> Dict[MapLayer, Union[List[BaseMapObject], Dict[int, List[BaseMapObject]]]]:
         """Inherited, see superclass."""
+        layers = resolve_enum_arguments(MapLayer, layers) or []
         object_map: Dict[MapLayer, Union[List[BaseMapObject], Dict[int, List[BaseMapObject]]]] = defaultdict(list)
         for layer in layers:
             object_map[layer] = self._query_layer(geometry, layer, predicate, distance)
@@ -183,7 +192,7 @@ class ArrowMapAPI(MapAPI):
     def query_object_ids(
         self,
         geometry: Union[geom.base.BaseGeometry, Iterable[geom.base.BaseGeometry]],
-        layers: List[MapLayer],
+        layers: List[Union[str, MapLayer]],
         predicate: Optional[
             Literal[
                 "contains",
@@ -201,6 +210,7 @@ class ArrowMapAPI(MapAPI):
         distance: Optional[float] = None,
     ) -> Dict[MapLayer, Union[List[MapObjectIDType], Dict[int, List[MapObjectIDType]]]]:
         """Inherited, see superclass."""
+        layers = resolve_enum_arguments(MapLayer, layers) or []
         object_map: Dict[MapLayer, Union[List[MapObjectIDType], Dict[int, List[MapObjectIDType]]]] = defaultdict(list)
         for layer in layers:
             object_map[layer] = self._query_layer_objects_ids(geometry, layer, predicate, distance)

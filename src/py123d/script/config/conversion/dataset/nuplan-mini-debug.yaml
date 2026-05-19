@@ -1,31 +1,14 @@
 parser:
-  _target_: py123d.parser.kitti360.kitti360_parser.Kitti360Parser
+  _target_: py123d.parser.nuplan.nuplan_parser.NuplanParser
   _convert_: 'all'
 
-  splits: ["kitti360_train", "kitti360_val", "kitti360_test"]
-
-  kitti360_data_root: ${dataset_paths.kitti360_data_root}
-
-  # NOTE: We preprocess detections into cache directory to speed up repeated conversions
-  # The bounding boxes are preprocessed into a per-frame format based on the ego distance and
-  # visibility based on the lidar point cloud.
-  detection_cache_root: ${dataset_paths.kitti360_data_root}/preprocessed_detections
-  detection_radius: 80.0
-
-  # NOTE: KITTI-360 does not have official splits, so we just put all sequences in the training set.
-  train_sequences:
-    - "2013_05_28_drive_0000_sync"
-    - "2013_05_28_drive_0002_sync"
-    - "2013_05_28_drive_0003_sync"
-    - "2013_05_28_drive_0004_sync"
-    - "2013_05_28_drive_0005_sync"
-    - "2013_05_28_drive_0006_sync"
-    - "2013_05_28_drive_0007_sync"
-    - "2013_05_28_drive_0009_sync"
-    - "2013_05_28_drive_0010_sync"
-
-  val_sequences: []
-  test_sequences: []
+  splits: ["nuplan-mini_train", "nuplan-mini_val", "nuplan-mini_test"]
+  nuplan_data_root: ${dataset_paths.nuplan_data_root}
+  nuplan_maps_root: ${dataset_paths.nuplan_maps_root}
+  nuplan_sensor_root: ${dataset_paths.nuplan_sensor_root}
+  log_names:
+    - "2021.08.24.13.12.55_veh-45_00386_00472"
+    - "2021.10.11.07.12.18_veh-50_00211_00304"
 
 log_writer_config:
   _target_: py123d.api.scene.arrow.utils.log_writer_config.LogWriterConfig
@@ -39,8 +22,8 @@ log_writer_config:
   lidar_store_option: "path" #  "path", "binary"
   lidar_codec: null # None or "laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"
 
-  infer_ego_dynamics: true
-  infer_box_dynamics: true
+  infer_ego_dynamics: false
+  infer_box_dynamics: false
 
 log_writer:
   _target_: py123d.api.scene.arrow.arrow_log_writer.ArrowLogWriter
@@ -54,8 +37,13 @@ log_writer:
   sync_config:
     _target_: py123d.api.scene.arrow.arrow_log_writer.SyncConfig
     _convert_: 'all'
-    reference_column: lidar.lidar_top.timestamp_us
+
+    # NOTE: we use the box detections as reference which are equal to lidar timestamp, but
+    # also work if sensor data is missing.
+    reference_column: box_detections_se3.timestamp_us
     direction: "forward" # "forward" or "backward"
+    # NOTE: We use use 10Hz for indexing, native 20Hz modalities will still be included.
+    target_iteration_duration_s: 0.1
 
 map_writer:
   _target_: py123d.api.map.arrow.arrow_map_writer.ArrowMapWriter

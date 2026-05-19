@@ -18,7 +18,7 @@ from py123d.datatypes.vehicle_state.ego_state_metadata import (
     rear_axle_se2_to_imu_se2,
     rear_axle_se3_to_imu_se3,
 )
-from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, PoseSE2, PoseSE3, Vector2D, Vector3D
+from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D, Point3D, PoseSE2, PoseSE3, Vector2D, Vector3D
 
 EGO_TRACK_TOKEN: Final[str] = "ego_vehicle"
 
@@ -187,6 +187,26 @@ class EgoStateSE3(BaseModality):
     def center_se2(self) -> PoseSE2:
         """The :class:`~py123d.geometry.PoseSE2` of the vehicle center in SE2."""
         return self.center_se3.pose_se2
+
+    @property
+    def center_3d(self) -> Point3D:
+        """The :class:`~py123d.geometry.Point3D` of the vehicle center in 3D space."""
+        return self.center_se3.point_3d
+
+    @property
+    def center_2d(self) -> Point2D:
+        """The :class:`~py123d.geometry.Point2D` of the vehicle center in 2D space (XY plane)."""
+        return self.center_se3.point_2d
+
+    @property
+    def rear_axle_3d(self) -> Point3D:
+        """The :class:`~py123d.geometry.Point3D` of the rear axle in 3D space."""
+        return self.rear_axle_se3.point_3d
+
+    @property
+    def rear_axle_2d(self) -> Point2D:
+        """The :class:`~py123d.geometry.Point2D` of the rear axle in 2D space (XY plane)."""
+        return self.rear_axle_se3.point_2d
 
     @property
     def bounding_box_se3(self) -> BoundingBoxSE3:
@@ -384,6 +404,16 @@ class EgoStateSE2:
     def center_se2(self) -> PoseSE2:
         """The :class:`~py123d.geometry.PoseSE2` of the center in SE2."""
         return imu_se2_to_center_se2(imu_se2=self._imu_se2, metadata=self._metadata)
+
+    @property
+    def center_2d(self) -> Point2D:
+        """The :class:`~py123d.geometry.Point2D` of the vehicle center in 2D space (XY plane)."""
+        return self.center_se2.point_2d
+
+    @property
+    def rear_axle_2d(self) -> Point2D:
+        """The :class:`~py123d.geometry.Point2D` of the rear axle in 2D space (XY plane)."""
+        return self.rear_axle_se2.point_2d
 
     @property
     def bounding_box_se2(self) -> BoundingBoxSE2:

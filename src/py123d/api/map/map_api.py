@@ -33,38 +33,44 @@ class MapAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_map_object_in_layer(self, object_id: MapObjectIDType, layer: MapLayer) -> Optional[BaseMapObject]:
+    def get_map_object_in_layer(
+        self, object_id: MapObjectIDType, layer: Union[str, MapLayer]
+    ) -> Optional[BaseMapObject]:
         """Returns a :class:`~p123d.datatypes.map_objects.base_map_object.BaseMapObject` by its ID
             and :class:`~p123d.datatypes.map_objects.map_layer_types.MapLayer`.
 
         :param object_id: The ID of the map object.
-        :param layer: The layer the map object belongs to.
+        :param layer: The layer the map object belongs to. Accepts a :class:`MapLayer` or its lowercase name
+            (e.g. ``"lane"``).
         :return: The map object if found, None otherwise.
         """
 
     @abc.abstractmethod
-    def get_all_map_object_ids_in_layer(self, layer: MapLayer) -> List[MapObjectIDType]:
+    def get_all_map_object_ids_in_layer(self, layer: Union[str, MapLayer]) -> List[MapObjectIDType]:
         """Returns a list of all map object IDs in a given layer.
 
-        :param layer: The layer to retrieve object IDs from.
+        :param layer: The layer to retrieve object IDs from. Accepts a :class:`MapLayer` or its lowercase name
+            (e.g. ``"lane"``).
         :return: A list of map object IDs in the specified layer.
         """
 
     @abc.abstractmethod
-    def get_all_map_objects_in_layer(self, layer: MapLayer) -> Iterator[BaseMapObject]:
+    def get_all_map_objects_in_layer(self, layer: Union[str, MapLayer]) -> Iterator[BaseMapObject]:
         """Returns an iterator of all :class:`~p123d.datatypes.map_objects.base_map_object.BaseMapObject` in a given
             :class:`~p123d.datatypes.map_objects.map_layer_types.MapLayer`.
 
-        :param layer: The map layer to retrieve objects from.
+        :param layer: The map layer to retrieve objects from. Accepts a :class:`MapLayer` or its lowercase name
+            (e.g. ``"lane"``).
         :return: An iterator of all map objects in the specified layer.
         """
 
     @abc.abstractmethod
-    def get_all_map_objects_in_layers(self, layers: List[MapLayer]) -> Iterator[BaseMapObject]:
+    def get_all_map_objects_in_layers(self, layers: List[Union[str, MapLayer]]) -> Iterator[BaseMapObject]:
         """Returns an iterator of all :class:`~p123d.datatypes.map_objects.base_map_object.BaseMapObject` in
             the specified layers.
 
-        :param layers: A list of map layers.
+        :param layers: A list of map layers. Each entry may be a :class:`MapLayer` or its lowercase name
+            (e.g. ``"lane"``).
         :return: An iterator of all map objects in the specified layers
         """
 
@@ -73,7 +79,7 @@ class MapAPI(abc.ABC):
         self,
         point: Union[Point2D, Point3D],
         radius: float,
-        layers: List[MapLayer],
+        layers: List[Union[str, MapLayer]],
     ) -> Dict[MapLayer, List[BaseMapObject]]:
         """Returns a dictionary of :class:`~p123d.datatypes.map_objects.map_layer_types.MapLayer` to a list of
             :class:`~p123d.datatypes.map_objects.base_map_object.BaseMapObject` within a given radius
@@ -81,7 +87,8 @@ class MapAPI(abc.ABC):
 
         :param point: The center point to search around.
         :param radius: The radius to search within.
-        :param layers: The map layers to search in.
+        :param layers: The map layers to search in. Each entry may be a :class:`MapLayer` or its lowercase name
+            (e.g. ``"lane"``).
         :return: A dictionary mapping each layer to a list of map objects within the radius.
         """
 
@@ -89,7 +96,7 @@ class MapAPI(abc.ABC):
     def query(
         self,
         geometry: Union[geom.base.BaseGeometry, Iterable[geom.base.BaseGeometry]],
-        layers: List[MapLayer],
+        layers: List[Union[str, MapLayer]],
         predicate: Optional[
             Literal[
                 "contains",
@@ -117,7 +124,8 @@ class MapAPI(abc.ABC):
         .. [2] https://shapely.readthedocs.io/en/latest/strtree.html#shapely.STRtree.query
 
         :param geometry: A shapely geometry or an iterable of shapely geometries to query against.
-        :param layers: The map layers to query against.
+        :param layers: The map layers to query against. Each entry may be a :class:`MapLayer` or its lowercase name
+            (e.g. ``"lane"``).
         :param predicate: An optional spatial predicate to filter the results.
         :param distance: An optional maximum distance to filter the results, defaults to None.
         :return:
@@ -131,7 +139,7 @@ class MapAPI(abc.ABC):
     def query_object_ids(
         self,
         geometry: Union[geom.base.BaseGeometry, Iterable[geom.base.BaseGeometry]],
-        layers: List[MapLayer],
+        layers: List[Union[str, MapLayer]],
         predicate: Optional[
             Literal[
                 "contains",
@@ -161,7 +169,8 @@ class MapAPI(abc.ABC):
 
 
         :param geometry: A shapely geometry or an iterable of shapely geometries to query against.
-        :param layers: The map layers to query against.
+        :param layers: The map layers to query against. Each entry may be a :class:`MapLayer` or its lowercase name
+            (e.g. ``"lane"``).
         :param predicate: An optional spatial predicate to filter the results.
         :param distance: An optional maximum distance to filter the results, defaults to None.
         :return:

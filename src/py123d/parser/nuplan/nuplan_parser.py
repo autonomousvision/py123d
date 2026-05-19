@@ -28,6 +28,7 @@ from py123d.datatypes import (
     TrafficLightDetection,
     TrafficLightDetections,
 )
+from py123d.datatypes.custom.custom_modality import CustomModality, CustomModalityMetadata
 from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3Metadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.datatypes.modalities.base_modality import BaseModality
@@ -331,7 +332,9 @@ class NuplanLogParser(BaseLogParser):
                     metadata=lidar_merged_metadata,
                 )
 
-                modalities: List[BaseModality] = [ego_state_se3, box_detections_se3, traffic_lights]
+                custom_modality = _extract_nuplan_scenario_data(nuplan_lidar_pc)
+
+                modalities: List[BaseModality] = [ego_state_se3, box_detections_se3, traffic_lights, custom_modality]
                 modalities.extend(parsed_pinhole_cameras)
                 if parsed_lidar is not None:
                     modalities.append(parsed_lidar)
@@ -755,6 +758,23 @@ def _extract_nuplan_lidar_data(
         logger.debug(f"Lidar file not found: {lidar_full_path}")
 
     return parsed_lidar
+
+
+def _extract_nuplan_scenario_data(lidar_pc: LidarPc) -> CustomModality:
+    scenario_metadata = CustomModalityMetadata(modality_id="scenario")
+    lidar_token = lidar_pc.lidar_token
+    roadblock_ids = [
+        str(roadblock_id) for roadblock_id in str(lidar_pc.scene.roadblock_ids).split(" ") if len(roadblock_id) > 0
+    ]
+
+    scenario_data = {
+        "lidar_token": lidar_token,
+        "route_roadblock_ids": roadblock_ids,
+    }
+
+    return CustomModality(
+        data=scenario_data, metadata=scenario_metadata, timestamp=Timestamp.from_us(lidar_pc.timestamp)
+    )
 
 
 def _get_ideal_lidar_pc_offset(source_log_path: Path, nuplan_log_db: NuPlanDB) -> int:

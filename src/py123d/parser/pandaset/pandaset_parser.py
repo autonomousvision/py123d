@@ -261,7 +261,9 @@ class PandasetLogParser(BaseLogParser):
         }
 
         for iteration, timestep_s in enumerate(lidar_timestamps_s):
-            timestamp = Timestamp.from_s(timestep_s)
+            timestamp = Timestamp.from_s(
+                timestep_s - 0.1
+            )  # NOTE: Pandaset lidars have a frequency of 10Hz, i.e. 100ms between frames
             ego_state = _extract_pandaset_sensor_ego_state(
                 front_camera_pose=camera_poses["front_camera"][iteration],
                 ego_metadata=ego_state_se3_metadata,
