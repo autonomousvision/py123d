@@ -16,7 +16,7 @@
 
 **One library for autonomous driving datasets.** 123D converts raw data from Argoverse 2, nuScenes, nuPlan, KITTI-360, PandaSet, and Waymo into a unified [Apache Arrow](https://arrow.apache.org/) format, and then gives you a single API to read cameras, lidar, HD maps, and labels across all of them.
 
-## Features
+## ✨ Features
 
 - **Dataset download**: Fetch supported datasets from their official sources via the CLI, and optionally convert directly into the unified format.
 - **Hydra-based conversion CLI**: YAML configs to manage your data pipelines.
@@ -26,7 +26,7 @@
 - **Unified API**: Read cameras, lidar, maps, and labels through a single interface, regardless of the source dataset.
 - **Built-in visualization**: interactive 3D viewer ([Viser](https://viser.studio/main/)), and [matplotlib](https://matplotlib.org/) plotting.
 
-## Installation
+## 📦 Installation
 
 ```bash
 pip install py123d
@@ -34,7 +34,7 @@ pip install py123d
 
 Per-dataset extras (e.g. `py123d[av2]`, `py123d[nuscenes]`, `py123d[waymo]`) install the parser dependencies for each dataset on demand. See the [Demo](#demo) below for an example.
 
-## Demo
+## 🚀 Demo
 
 Demo using the Argoverse 2 Sensor dataset, which is publicly readable from S3 and requires no cloud authentication.
 
@@ -57,13 +57,13 @@ py123d-viser scene_filter=av2-sensor
 
 Open `http://localhost:8080` to browse the converted scenes interactively.
 
-## Viewer
+## 🖼️ Viewer
 
 <p align="center">
   <img src="assets/viser.png" alt="Viser 3D Viewer" width="800">
 </p>
 
-## Supported Datasets
+## 📊 Supported Datasets
 
 <table>
   <thead>
@@ -172,7 +172,7 @@ Open `http://localhost:8080` to browse the converted scenes interactively.
 † Released for a 120&nbsp;h subset; full coverage on mini.</i></sub>
 
 
-## Changelog
+## 📝 Changelog
 
 <details open>
 <summary><b>v0.4.0</b> (2026-05-19)</summary>
@@ -253,7 +253,7 @@ No breaking changes to the public API, Arrow schema, or CLI entry points.
 
 </details>
 
-## Citation
+## 📚 Citation
 
 ```bibtex
 @article{Dauner2026ARXIV,
@@ -265,6 +265,6 @@ No breaking changes to the public API, Arrow schema, or CLI entry points.
 ```
 
 
-## License
+## ⚖️ License
 
 123D is released under the [Apache License 2.0](LICENSE).
