@@ -761,7 +761,6 @@ def _extract_nuplan_lidar_data(
 
 
 def _extract_nuplan_scenario_data(lidar_pc: LidarPc) -> CustomModality:
-
     scenario_metadata = CustomModalityMetadata(modality_id="scenario")
     lidar_token = lidar_pc.lidar_token
     roadblock_ids = [
