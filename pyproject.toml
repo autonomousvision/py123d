@@ -106,6 +106,9 @@ ncore = [
     "py123d[hf]",
     "nvidia-ncore",
 ]
+examples = [
+    "torch",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
