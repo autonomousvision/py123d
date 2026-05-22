@@ -11,8 +11,8 @@ from torch.utils.data import DataLoader, Dataset
 
 from py123d.api import SceneAPI, SceneFilter, get_filtered_scenes
 from py123d.datatypes import CameraID, LidarID
-from py123d.geometry.geometry_index import PoseSE3Index
-from py123d.geometry.transform.transform_se3 import abs_to_rel_se3_array
+from py123d.geometry import PoseSE3Index
+from py123d.geometry.transform import abs_to_rel_se3_array
 
 Sample = Dict[str, torch.Tensor]
 
