@@ -1,0 +1,5 @@
+cache_settings:
+
+  # Upper bound on memory-mapped Arrow tables held open by the global LRU store
+  # in py123d.api.utils.arrow_helper. See py123d.common.runtime for docs.
+  max_lru_cached_tables: 5000

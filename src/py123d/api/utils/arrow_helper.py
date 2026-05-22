@@ -1,13 +1,9 @@
 import threading
 from pathlib import Path
-from typing import Final, Union
+from typing import Optional, Union
 
 import pyarrow as pa
 from cachetools import LRUCache
-
-# TODO: Tune parameters and add to config?
-MAX_LRU_CACHED_TABLES: Final[int] = 50_000
-
 
 # ---------------------------------------------------------------------------
 # Internal cache — keeps both the NativeFile (mmap) and the Table alive.
@@ -44,7 +40,21 @@ class _ArrowMmapStore:
             return table
 
 
-_store = _ArrowMmapStore(maxsize=MAX_LRU_CACHED_TABLES)
+# Lazy init: the cache size is resolved on first access from
+# py123d.common.runtime (Hydra/env-var driven), not at import time.
+_store: Optional[_ArrowMmapStore] = None
+_store_init_lock = threading.Lock()
+
+
+def _get_store() -> _ArrowMmapStore:
+    global _store  # noqa: PLW0603
+    if _store is None:
+        with _store_init_lock:
+            if _store is None:
+                from py123d.common.runtime import get_cache_settings
+
+                _store = _ArrowMmapStore(maxsize=get_cache_settings().max_lru_cached_tables)
+    return _store
 
 
 # ---------------------------------------------------------------------------
@@ -102,9 +112,9 @@ def get_lru_cached_arrow_table(arrow_file_path: Union[str, Path]) -> pa.Table:
 
     The mmap slot is held open for as long as the entry remains in the cache.
     On LRU eviction the underlying NativeFile is closed, releasing the slot.
-    This bounds the number of open memory maps to MAX_LRU_CACHED_TABLES
-    regardless of how many API objects exist or how many unique paths are
-    accessed over the lifetime of the process.
+    This bounds the number of open memory maps to
+    ``cache_settings.max_lru_cached_tables`` regardless of how many API objects
+    exist or how many unique paths are accessed over the lifetime of the process.
 
     Thread-safe: a single lock guards cache lookup and insertion together,
     preventing duplicate mmaps when two threads request the same path
@@ -113,4 +123,4 @@ def get_lru_cached_arrow_table(arrow_file_path: Union[str, Path]) -> pa.Table:
     :param arrow_file_path: The path to the arrow file.
     :return: The cached memory-mapped arrow table.
     """
-    return _store.get(str(arrow_file_path))
+    return _get_store().get(str(arrow_file_path))

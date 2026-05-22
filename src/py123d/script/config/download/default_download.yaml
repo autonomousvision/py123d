@@ -9,10 +9,8 @@ hydra:
     chdir: False
 
 defaults:
-  - default_dataset_paths
-  - dataset: wod-motion
-  - override hydra/job_logging: disabled
-  - override hydra/hydra_logging: colorlog
+  - default_common
+  - dataset: ???
   - _self_
 
 

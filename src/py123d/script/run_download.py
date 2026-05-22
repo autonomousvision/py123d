@@ -27,9 +27,9 @@ import logging
 import hydra
 from omegaconf import DictConfig
 
+from py123d.common.runtime import setup_runtime
 from py123d.parser.base_downloader import BaseDownloader
 from py123d.script.builders.logging_builder import build_logger
-from py123d.script.utils.dataset_path_utils import setup_dataset_paths
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ def main(cfg: DictConfig) -> None:
         resolves to a :class:`BaseDownloader` subclass via ``_target_``.
     """
     build_logger(cfg)
-    setup_dataset_paths(cfg.dataset_paths)
+    setup_runtime(cfg)
 
     logger.info("Starting Dataset Download...")
     downloader: BaseDownloader = hydra.utils.instantiate(cfg.dataset.downloader)

@@ -10,8 +10,7 @@ hydra:
 
 defaults:
   - default_common
-  - default_dataset_paths
-  - dataset: av2-sensor
+  - dataset: ???
   - _self_
 
 

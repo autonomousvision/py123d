@@ -12,7 +12,7 @@ import logging
 import os
 from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -151,16 +151,22 @@ class DatasetPaths:
 _global_dataset_paths: Optional[DatasetPaths] = None
 
 
-def setup_dataset_paths(paths: DatasetPaths) -> None:
+def setup_dataset_paths(value: Union[DatasetPaths, object]) -> None:
     """Set the global DatasetPaths instance.
 
-    Should be called once in the main process.
+    Accepts either a :class:`DatasetPaths` instance or any object with matching
+    attributes (e.g., a Hydra ``DictConfig``), which is converted via
+    :meth:`DatasetPaths.from_dict_config`. Always exports values to env vars so
+    forked / Ray child processes inherit them. Idempotent: only the first call
+    takes effect.
 
-    :param paths: The DatasetPaths to use globally.
+    :param value: A :class:`DatasetPaths` or a DictConfig-shaped object.
     """
+    paths = value if isinstance(value, DatasetPaths) else DatasetPaths.from_dict_config(value)
     global _global_dataset_paths  # noqa: PLW0603
     if _global_dataset_paths is None:
         _global_dataset_paths = paths
+    paths.export_to_env()
 
 
 def get_dataset_paths() -> DatasetPaths:

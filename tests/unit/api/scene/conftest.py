@@ -33,10 +33,11 @@ from py123d.geometry.pose import PoseSE3
 def _clear_arrow_cache():
     """Clear the LRU mmap cache after each test to prevent stale data."""
     yield
-    from py123d.api.utils.arrow_helper import _store
+    from py123d.api.utils import arrow_helper
 
-    with _store._lock:
-        _store._cache.clear()
+    if arrow_helper._store is not None:
+        with arrow_helper._store._lock:
+            arrow_helper._store._cache.clear()
 
 
 # ---------------------------------------------------------------------------

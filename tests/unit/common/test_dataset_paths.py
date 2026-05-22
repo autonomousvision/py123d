@@ -3,7 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from py123d.common.dataset_paths import _ENV_VAR_MAP, DatasetPaths, get_dataset_paths, setup_dataset_paths
+from py123d.common.runtime import DatasetPaths, get_dataset_paths, setup_dataset_paths
+from py123d.common.runtime.dataset_paths import _ENV_VAR_MAP
 
 
 class TestDatasetPathsConstruction:
@@ -181,7 +182,7 @@ class TestGlobalAccessor:
 
     def test_get_dataset_paths_returns_from_env(self, monkeypatch):
         """get_dataset_paths should create from env when no global is set."""
-        import py123d.common.dataset_paths as module
+        import py123d.common.runtime.dataset_paths as module
 
         monkeypatch.setattr(module, "_global_dataset_paths", None)
         monkeypatch.setenv("PY123D_DATA_ROOT", "/from_env")
@@ -194,7 +195,7 @@ class TestGlobalAccessor:
 
     def test_setup_then_get(self, monkeypatch):
         """setup_dataset_paths should store the provided instance."""
-        import py123d.common.dataset_paths as module
+        import py123d.common.runtime.dataset_paths as module
 
         monkeypatch.setattr(module, "_global_dataset_paths", None)
 
@@ -209,7 +210,7 @@ class TestGlobalAccessor:
 
     def test_setup_only_sets_once(self, monkeypatch):
         """setup_dataset_paths should not overwrite an existing global."""
-        import py123d.common.dataset_paths as module
+        import py123d.common.runtime.dataset_paths as module
 
         monkeypatch.setattr(module, "_global_dataset_paths", None)
 
