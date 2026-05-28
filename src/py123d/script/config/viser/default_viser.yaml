@@ -10,7 +10,6 @@ hydra:
 #
 defaults:
   - default_common
-  - default_dataset_paths
   - override scene_filter: viser_scenes
   - override execution: thread_pool_executor
   - _self_

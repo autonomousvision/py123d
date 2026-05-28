@@ -263,7 +263,13 @@ class Lane(BaseMapSurfaceObject):
     @property
     def speed_limit_mps(self) -> Optional[float]:
         """The speed limit of the lane in meters per second."""
-        return self._speed_limit_mps
+        # TODO: bandage — some converters store NaN instead of None for missing speed limits.
+        speed_limit: Optional[float] = None
+        if self._speed_limit_mps is None or np.isnan(self._speed_limit_mps):
+            speed_limit = None
+        else:
+            speed_limit = float(self._speed_limit_mps)
+        return speed_limit
 
     @property
     def trimesh_mesh(self) -> Trimesh:

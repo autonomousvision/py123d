@@ -23,13 +23,13 @@ from py123d.common.io.camera.png_camera_io import (
     load_image_from_png_file,
     load_png_binary_from_png_file,
 )
+from py123d.common.runtime import get_dataset_paths
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata
 from py123d.datatypes.sensors.base_camera import BaseCameraMetadata, Camera
 from py123d.datatypes.time.timestamp import Timestamp
 from py123d.geometry.geometry_index import PoseSE3Index
 from py123d.geometry.pose import PoseSE3
 from py123d.parser.base_dataset_parser import ParsedCamera
-from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
 # ------------------------------------------------------------------------------------------------------------------
 # Writers

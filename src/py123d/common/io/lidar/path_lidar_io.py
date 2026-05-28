@@ -3,7 +3,7 @@ from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 
-from py123d.common.dataset_paths import get_dataset_paths
+from py123d.common.runtime import get_dataset_paths
 from py123d.datatypes.sensors.lidar import LidarID, LidarMetadata
 
 

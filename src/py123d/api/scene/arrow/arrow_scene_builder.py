@@ -14,6 +14,7 @@ from py123d.api.scene.arrow.utils.scene_builder_utils import (
     infer_iteration_duration_s,
     resolve_iteration_counts,
     resolve_iteration_stride,
+    resolve_scene_step_size,
     resolve_scene_uuid_indices,
     scene_uuids_to_binary,
 )
@@ -22,9 +23,9 @@ from py123d.api.scene.scene_builder import SceneBuilder
 from py123d.api.scene.scene_filter import SceneFilter
 from py123d.api.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.api.utils.arrow_metadata_utils import get_metadata_from_arrow_schema
-from py123d.common.dataset_paths import get_dataset_paths
 from py123d.common.execution import Executor
 from py123d.common.execution.utils import executor_map_chunked_list
+from py123d.common.runtime import get_dataset_paths
 from py123d.datatypes.metadata import SceneMetadata
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 
@@ -192,6 +193,7 @@ def _get_scene_metadatas_from_log(
     if stride is None:
         return []  # Log incompatible with requested stride — warning already logged
     future_iterations, history_iterations = resolve_iteration_counts(filter, iteration_duration_s, stride)
+    step_idx = resolve_scene_step_size(filter, iteration_duration_s, stride)
 
     # Phase 2: Category 3a — UUID pre-filtering (skip full scan if UUIDs specified)
     scene_uuid_indices = None
@@ -209,6 +211,7 @@ def _get_scene_metadatas_from_log(
         iteration_duration_s,
         scene_uuid_indices,
         stride,
+        step_idx,
     )
 
     # Phase 3: Category 3c — scene-level filtering

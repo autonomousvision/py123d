@@ -3,12 +3,12 @@ import logging
 import hydra
 from omegaconf import DictConfig
 
+from py123d.common.runtime import setup_runtime
 from py123d.script.builders.execution_builder import build_executor
 from py123d.script.builders.logging_builder import build_logger
 from py123d.script.builders.scene_builder_builder import build_scene_builder
 from py123d.script.builders.scene_filter_builder import build_scene_filter
 from py123d.script.builders.viser_config_builder import build_viser_config
-from py123d.script.utils.dataset_path_utils import setup_dataset_paths
 from py123d.visualization.viser.viser_viewer import ViserViewer
 
 logger = logging.getLogger(__name__)
@@ -22,8 +22,8 @@ def main(cfg: DictConfig) -> None:
     # Setup logging
     build_logger(cfg)
 
-    # Initialize dataset paths
-    setup_dataset_paths(cfg.dataset_paths)
+    # Initialize runtime state (dataset paths + cache settings)
+    setup_runtime(cfg)
 
     # Build executor
     executor = build_executor(cfg)

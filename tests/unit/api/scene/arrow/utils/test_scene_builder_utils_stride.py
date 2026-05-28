@@ -12,6 +12,7 @@ from py123d.api.scene.arrow.utils.scene_builder_utils import (
     infer_iteration_duration_from_timestamps_us,
     resolve_iteration_counts,
     resolve_iteration_stride,
+    resolve_scene_step_size,
 )
 from py123d.api.scene.scene_filter import SceneFilter
 from py123d.datatypes.metadata import SceneMetadata
@@ -204,19 +205,17 @@ class TestResolveIterationCountsWithStride:
 
 
 class TestGenerateSceneMetadatasWithStride:
-    def test_mode_b_sliding_window_stride_5(self):
+    def test_mode_b_sliding_window_stride_5_default_overlap(self):
         table = _make_sync_table(num_rows=100, timestep_us=100_000)
         meta = _make_log_metadata()
         scenes = generate_scene_metadatas(
             table, meta, future_iterations=4, history_iterations=0, iteration_duration_s=0.1, stride=5
         )
-        # end_idx = 100 - 4*5 = 80, step_idx = max(4*5, 5) = 20
-        # candidates: 0, 20, 40, 60
-        assert len(scenes) == 4
+        # Default step_idx=1: anchors at every raw frame from 0 up to (but not including) end_idx=80.
+        assert len(scenes) == 80
         assert scenes[0].initial_idx == 0
-        assert scenes[1].initial_idx == 20
-        assert scenes[2].initial_idx == 40
-        assert scenes[3].initial_idx == 60
+        assert scenes[1].initial_idx == 1
+        assert scenes[-1].initial_idx == 79
 
         for s in scenes:
             assert s.num_future_iterations == 4
@@ -226,17 +225,34 @@ class TestGenerateSceneMetadatasWithStride:
             # end_idx should be within bounds
             assert s.end_idx <= 100
 
+    def test_mode_b_sliding_window_stride_5_explicit_step(self):
+        table = _make_sync_table(num_rows=100, timestep_us=100_000)
+        meta = _make_log_metadata()
+        scenes = generate_scene_metadatas(
+            table,
+            meta,
+            future_iterations=4,
+            history_iterations=0,
+            iteration_duration_s=0.1,
+            stride=5,
+            step_idx=20,
+        )
+        # end_idx = 100 - 4*5 = 80, explicit step_idx=20 reproduces the old non-overlapping tiling.
+        assert len(scenes) == 4
+        assert [s.initial_idx for s in scenes] == [0, 20, 40, 60]
+
     def test_mode_b_with_history_stride_5(self):
         table = _make_sync_table(num_rows=100, timestep_us=100_000)
         meta = _make_log_metadata()
         scenes = generate_scene_metadatas(
             table, meta, future_iterations=4, history_iterations=2, iteration_duration_s=0.1, stride=5
         )
-        # initial_idx = 2*5 = 10, end_idx = 100 - 4*5 = 80, step = 20
-        # candidates: 10, 30, 50, 70
-        assert len(scenes) == 4
+        # initial_idx = 2*5 = 10, end_idx = 100 - 4*5 = 80, default step=1
+        # candidates: 10, 11, ..., 79 (70 scenes)
+        assert len(scenes) == 70
         assert scenes[0].initial_idx == 10
-        assert scenes[1].initial_idx == 30
+        assert scenes[1].initial_idx == 11
+        assert scenes[-1].initial_idx == 79
 
         for s in scenes:
             assert s.num_history_iterations == 2
@@ -388,3 +404,89 @@ class TestSceneHasCompleteModalitiesWithStride:
             target_iteration_stride=1,
         )
         assert _scene_has_complete_modalities(scene, table, ["camera.front"]) is False
+
+
+# --- TestResolveSceneStepSize ---
+
+
+class TestResolveSceneStepSize:
+    def test_default_is_one_raw_frame(self):
+        f = SceneFilter()
+        assert resolve_scene_step_size(f, iteration_duration_s=0.1, stride=5) == 1
+
+    def test_timestamp_threshold_drives_step(self):
+        # 2.0s / 0.1s per raw frame = 20 raw frames
+        f = SceneFilter(timestamp_threshold_s=2.0)
+        assert resolve_scene_step_size(f, iteration_duration_s=0.1, stride=5) == 20
+
+    def test_iteration_threshold_drives_step(self):
+        # iteration_threshold is in logical iterations; multiply by stride for raw frames.
+        f = SceneFilter(iteration_threshold=4)
+        assert resolve_scene_step_size(f, iteration_duration_s=0.1, stride=5) == 20
+
+    def test_timestamp_threshold_takes_priority(self):
+        f = SceneFilter(timestamp_threshold_s=1.0, iteration_threshold=99)
+        # timestamp wins: 1.0s / 0.1s = 10 raw frames; iteration_threshold ignored.
+        assert resolve_scene_step_size(f, iteration_duration_s=0.1, stride=5) == 10
+
+    def test_step_clamped_to_minimum_one(self):
+        # Sub-frame timestamp threshold rounds to 0; must clamp to 1.
+        f = SceneFilter(timestamp_threshold_s=0.01)
+        assert resolve_scene_step_size(f, iteration_duration_s=0.1, stride=1) == 1
+
+    def test_fractional_iteration_threshold(self):
+        # iteration_threshold=2.5, stride=4 → round(10) = 10
+        f = SceneFilter(iteration_threshold=2.5)
+        assert resolve_scene_step_size(f, iteration_duration_s=0.1, stride=4) == 10
+
+
+# --- TestGenerateSceneMetadatasStepIdx ---
+
+
+class TestGenerateSceneMetadatasStepIdx:
+    def test_step_idx_controls_anchor_spacing(self):
+        table = _make_sync_table(num_rows=100, timestep_us=100_000)
+        meta = _make_log_metadata()
+        scenes = generate_scene_metadatas(
+            table,
+            meta,
+            future_iterations=4,
+            history_iterations=0,
+            iteration_duration_s=0.1,
+            stride=5,
+            step_idx=10,
+        )
+        # end_idx = 80, step=10 → anchors at 0, 10, 20, 30, 40, 50, 60, 70
+        assert [s.initial_idx for s in scenes] == [0, 10, 20, 30, 40, 50, 60, 70]
+
+    def test_uuids_ignore_step_idx(self):
+        table = _make_sync_table(num_rows=100, timestep_us=100_000)
+        meta = _make_log_metadata()
+        scenes = generate_scene_metadatas(
+            table,
+            meta,
+            future_iterations=4,
+            history_iterations=0,
+            iteration_duration_s=0.1,
+            scene_uuid_indices={5, 25, 50},
+            stride=5,
+            step_idx=100,  # huge step; UUIDs must override.
+        )
+        # end_idx = 80, initial_idx = 0: 5 < 80, 25 < 80, 50 < 80 → all kept.
+        assert [s.initial_idx for s in scenes] == [5, 25, 50]
+
+    def test_step_idx_zero_clamped_to_one(self):
+        table = _make_sync_table(num_rows=20, timestep_us=100_000)
+        meta = _make_log_metadata()
+        scenes = generate_scene_metadatas(
+            table,
+            meta,
+            future_iterations=5,
+            history_iterations=0,
+            iteration_duration_s=0.1,
+            step_idx=0,
+        )
+        # step clamped to 1: anchors at 0..14
+        assert len(scenes) == 15
+        assert scenes[0].initial_idx == 0
+        assert scenes[-1].initial_idx == 14

@@ -5,6 +5,8 @@ hydra:
       HYDRA_FULL_ERROR: 1
 
 defaults:
+  - default_cache_settings
+  - default_dataset_paths
   - execution: ray_executor
   - scene_filter: all
   - scene_builder: default_scene_builder

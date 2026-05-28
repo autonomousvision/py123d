@@ -5,14 +5,16 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Dict, Final, Iterable, Iterator, List, Literal, Optional, Tuple, Union
 
+import networkx as nx
 import numpy as np
 import pyarrow as pa
 import shapely
 import shapely.geometry as geom
 
-from py123d.api.map.map_api import MapAPI
+from py123d.api.map.map_api import GRAPH_LAYERS, MapAPI
 from py123d.api.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.api.utils.arrow_metadata_utils import get_metadata_from_arrow_schema
+from py123d.common.runtime import get_dataset_paths
 from py123d.common.utils.enums import resolve_enum_arguments
 from py123d.common.utils.msgpack_utils import msgpack_decode_with_numpy
 from py123d.datatypes.map_objects.base_map_objects import BaseMapObject, MapObjectIDType
@@ -41,7 +43,6 @@ from py123d.datatypes.map_objects.map_objects import (
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.metadata.map_metadata import MapMetadata
 from py123d.geometry import OccupancyMap2D, Point2D, Point3D, Polyline3D
-from py123d.script.utils.dataset_path_utils import get_dataset_paths
 
 # TODO: add to some configs
 MAX_LRU_CACHED_MAPS: Final[int] = 128
@@ -327,6 +328,31 @@ class ArrowMapAPI(MapAPI):
                 map_api=self,
             )
         return lane_group
+
+    def get_layer_graph(self, layer: Union[str, MapLayer]) -> nx.DiGraph:
+        """Inherited, see superclass.
+
+        Reads ``predecessor_ids`` / ``successor_ids`` directly from the msgpack-encoded
+        features column without constructing full Lane/LaneGroup objects (skips Polyline3D
+        hydration for every node).
+        """
+        layer = MapLayer.from_arbitrary(layer)
+        if layer not in GRAPH_LAYERS:
+            raise ValueError(
+                f"get_layer_graph only supports layers with predecessor/successor topology "
+                f"({sorted(l.name for l in GRAPH_LAYERS)}), got {layer.name}."
+            )
+
+        graph = nx.DiGraph()
+        row_idx_by_id = self._object_ids_to_row_idx.get(layer, {})
+        graph.add_nodes_from(row_idx_by_id.keys())
+        for object_id, row_idx in row_idx_by_id.items():
+            features = msgpack_decode_with_numpy(self._features[row_idx])
+            for successor_id in features["successor_ids"]:
+                graph.add_edge(object_id, successor_id)
+            for predecessor_id in features["predecessor_ids"]:
+                graph.add_edge(predecessor_id, object_id)
+        return graph
 
     @lru_cache(maxsize=MAP_OBJECT_CACHE_SIZE)
     def _get_intersection(self, object_id: MapObjectIDType) -> Optional[Intersection]:
