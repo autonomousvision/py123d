@@ -1,6 +1,6 @@
 import traceback
 from collections import defaultdict
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,7 +13,13 @@ from py123d.datatypes.detections.traffic_light_detections import TrafficLightDet
 from py123d.datatypes.map_objects.map_layer_types import MapLayer, StopZoneType
 from py123d.datatypes.map_objects.map_objects import Lane
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE2, EgoStateSE3
-from py123d.geometry import BoundingBoxSE2, BoundingBoxSE3, Point2D, PoseSE2Index, Vector2D
+from py123d.geometry import (
+    BoundingBoxSE2,
+    BoundingBoxSE3,
+    Point2D,
+    PoseSE2Index,
+    Vector2D,
+)
 from py123d.geometry.transform.transform_se2 import translate_se2_along_body_frame
 from py123d.visualization.color.config import PlotConfig
 from py123d.visualization.color.default import (
@@ -21,8 +27,8 @@ from py123d.visualization.color.default import (
     CENTERLINE_CONFIG,
     EGO_VEHICLE_CONFIG,
     MAP_SURFACE_CONFIG,
+    ROUTE_CONFIG,
     TRAFFIC_LIGHT_CONFIG,
-    # ROUTE_CONFIG,
 )
 from py123d.visualization.matplotlib.utils import (
     add_shapely_linestring_to_ax,
@@ -38,7 +44,7 @@ def add_scene_on_ax(
     scene: SceneAPI,
     iteration: int = 0,
     radius: float = 80,
-    # ids: List[int] = None,
+    route_lane_group_ids: Optional[List[int]] = None,
     # show_lane_ids: bool = False,
 ) -> plt.Axes:
     ego_vehicle_state = scene.get_ego_state_se3_at_iteration(iteration)
@@ -54,8 +60,7 @@ def add_scene_on_ax(
             map_api,
             point_2d,
             radius=radius,
-            # route_lane_group_ids=ids,
-            # show_lane_ids=show_lane_ids,
+            route_lane_group_ids=route_lane_group_ids,
         )
         if traffic_light_detections is not None:
             add_traffic_lights_to_ax(ax, traffic_light_detections, map_api)
@@ -75,8 +80,7 @@ def add_default_map_on_ax(
     map_api: MapAPI,
     point_2d: Point2D,
     radius: float,
-    # route_lane_group_ids: Optional[List[int]] = None,
-    # show_lane_ids: bool = False,
+    route_lane_group_ids: Optional[List[int]] = None,
 ) -> None:
     layers: List[MapLayer] = [
         MapLayer.LANE,
@@ -92,17 +96,13 @@ def add_default_map_on_ax(
     x_min, x_max = point_2d.x - radius, point_2d.x + radius
     y_min, y_max = point_2d.y - radius, point_2d.y + radius
     patch = geom.box(x_min, y_min, x_max, y_max)
-    map_objects_dict = map_api.query(geometry=patch, layers=layers)  # , predicate="intersects")
+    map_objects_dict = map_api.query(geometry=patch, layers=layers)  # type: ignore
 
     has_no_lane_groups = len(map_objects_dict[MapLayer.LANE_GROUP]) == 0
 
     for layer, map_objects in map_objects_dict.items():
         try:
-            # if layer == MapLayer.CROSSWALK:
-            #     for map_object in map_objects:
-            #         visualize_crosswalk_stripes(map_object.shapely_polygon, ax)
-
-            if layer in [
+            if layer in {
                 MapLayer.LANE_GROUP,
                 MapLayer.GENERIC_DRIVABLE,
                 MapLayer.CARPARK,
@@ -110,7 +110,7 @@ def add_default_map_on_ax(
                 MapLayer.INTERSECTION,
                 MapLayer.WALKWAY,
                 MapLayer.SPEED_BUMP,
-            ]:
+            }:
                 polygons = []
                 for map_object in map_objects:
                     polygons.append(map_object.shapely_polygon)
@@ -122,20 +122,20 @@ def add_default_map_on_ax(
                         label=layer.serialize(),
                     )
 
-            # if layer in [MapLayer.LANE_GROUP] and route_lane_group_ids is not None:
-            #     polygons = []
-            #     for map_object in map_objects:
-            #         if int(map_object.object_id) in route_lane_group_ids:
-            #             polygons.append(map_object.shapely_polygon)
-            #     if len(polygons) > 0:
-            #         add_shapely_polygons_to_ax(
-            #             ax,
-            #             polygons,
-            #             ROUTE_CONFIG,
-            #             label=f"{layer.serialize()} (Route)",
-            #         )
+            if layer == MapLayer.LANE_GROUP and route_lane_group_ids is not None:
+                polygons = []
+                for map_object in map_objects:
+                    if int(map_object.object_id) in route_lane_group_ids:
+                        polygons.append(map_object.shapely_polygon)
+                if len(polygons) > 0:
+                    add_shapely_polygons_to_ax(
+                        ax,
+                        polygons,
+                        ROUTE_CONFIG,
+                        label=f"{layer.serialize()} (Route)",
+                    )
 
-            if layer in [MapLayer.LANE]:
+            if layer == MapLayer.LANE:
                 lines = []
                 polygons = []
                 for map_object in map_objects:
@@ -156,20 +156,8 @@ def add_default_map_on_ax(
                         MAP_SURFACE_CONFIG[MapLayer.LANE],
                         label=MapLayer.LANE.serialize(),
                     )
-                # if show_lane_ids:
-                #     for map_object in map_objects:
-                #         centroid = map_object.centerline.linestring.centroid
-                #         ax.annotate(
-                #             str(map_object.object_id),
-                #             xy=(centroid.x, centroid.y),
-                #             fontsize=LANE_ID_TEXT_FONTSIZE,
-                #             ha="center",
-                #             va="center",
-                #             color=LANE_ID_TEXT_COLOR.hex,
-                #             zorder=LANE_ID_TEXT_ZORDER,
-                #         )
 
-            if layer in [MapLayer.STOP_ZONE]:
+            if layer == MapLayer.STOP_ZONE:
                 polygons = []
                 for map_object in map_objects:
                     if map_object.stop_zone_type != StopZoneType.TURN_STOP:

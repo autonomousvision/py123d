@@ -16,6 +16,11 @@
 
 **One library for autonomous driving datasets.** 123D converts raw data from Argoverse 2, nuScenes, nuPlan, KITTI-360, PandaSet, and Waymo into a unified [Apache Arrow](https://arrow.apache.org/) format, and then gives you a single API to read cameras, lidar, HD maps, and labels across all of them.
 
+## 📰 News
+
+- **2026-05-28** — Released **[NAV123D](https://github.com/DanielDauner/nav123d)**, a reimplementation of NAVSIM on top of 123D.
+- **2026-05-08** — Our paper *123D: Unifying Multi-Modal Autonomous Driving Data at Scale* is out on [arXiv](https://arxiv.org/abs/2605.08084).
+
 ## ✨ Features
 
 - **Dataset download**: Fetch supported datasets from their official sources via the CLI, and optionally convert directly into the unified format.
@@ -175,6 +180,20 @@ Open `http://localhost:8080` to browse the converted scenes interactively.
 ## 📝 Changelog
 
 <details open>
+<summary><b>v0.5.0</b> (2026-05-28)</summary>
+
+- New `Polyline2D` / `PolylineSE2` / `PolylineSE3.subline()` to extract a sub-polyline between two distances along a path.
+- New `MapAPI.get_layer_graph()` returning a `networkx.DiGraph` of lane / lane-group predecessor–successor topology.
+- Added `BoxDetectionsSE3.box_detections_se2` for projecting SE3 detections to SE2.
+- Global runtime settings consolidated into `common.runtime`, configured via Hydra, with configurable LRU cache sizes (e.g. `max_lru_cached_tables`).
+- Added a minimal PyTorch dataloader example (`examples/01_torch_dataloader.py`).
+- Fixes: nuPlan map predecessor/successor naming for lanes and lane connectors; `np.nan` lane speed limits; scene-sampling stride with `target_iteration_stride`; matplotlib observation rendering.
+
+Breaking changes: `OccupancyMap2D.contains_vectorized` renamed to `contains_points_2d` (now shape-preserving); `dataset_paths` moved from `py123d.common` to `py123d.common.runtime`.
+
+</details>
+
+<details>
 <summary><b>v0.4.0</b> (2026-05-19)</summary>
 
 - Added L3AD dataset support (CARLA-derived) with a HuggingFace-hosted downloader that fetches pre-converted Arrow logs directly into `$PY123D_DATA_ROOT`.
