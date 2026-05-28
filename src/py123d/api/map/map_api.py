@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import abc
-from typing import Dict, Iterable, Iterator, List, Literal, Optional, Union
+from typing import Dict, FrozenSet, Iterable, Iterator, List, Literal, Optional, Union
 
+import networkx as nx
 import shapely.geometry as geom
 
 from py123d.datatypes import MapMetadata
 from py123d.datatypes.map_objects import BaseMapObject, MapLayer
 from py123d.datatypes.map_objects.base_map_objects import MapObjectIDType
 from py123d.geometry import Point2D, Point3D
+
+# Layers whose objects expose predecessor_ids/successor_ids — those that form a directed graph.
+GRAPH_LAYERS: FrozenSet[MapLayer] = frozenset({MapLayer.LANE, MapLayer.LANE_GROUP})
 
 
 class MapAPI(abc.ABC):
@@ -178,6 +182,19 @@ class MapAPI(abc.ABC):
 
             If geometry is an iterable of geometries, a dictionary mapping each layer to a dictionary of indices
             (of the input geometries) to lists of map object ids (found in map).
+        """
+
+    @abc.abstractmethod
+    def get_layer_graph(self, layer: Union[str, MapLayer]) -> nx.DiGraph:
+        """Returns a :class:`networkx.DiGraph` of predecessor/successor relations for a layer.
+
+        Nodes are the object IDs of the layer; edges go from each predecessor to its successor.
+        Only layers with predecessor/successor topology (see :data:`GRAPH_LAYERS`) are supported.
+
+        :param layer: The map layer to build the graph for. Accepts a :class:`MapLayer` or its
+            lowercase name (e.g. ``"lane"``).
+        :raises ValueError: If the layer does not expose predecessor/successor topology.
+        :return: A directed graph whose node set equals the IDs in the given layer.
         """
 
     # Syntactic Sugar / Properties, for easier access to common attributes

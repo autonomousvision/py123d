@@ -139,6 +139,44 @@ class Polyline2D(ArrayMixin):
             point_ = geom.Point(np.array(point, dtype=np.float64))
         return self._linestring.project(point_, normalized=normalized)  # type: ignore
 
+    def subline(
+        self,
+        start_distance: float,
+        end_distance: float,
+        normalized: bool = False,
+    ) -> Polyline2D:
+        """Extracts a sub-polyline between ``start_distance`` and ``end_distance`` along the path.
+
+        Distances outside ``[0, length]`` are clipped. If ``start_distance > end_distance``
+        after clipping, the values are swapped (matching :func:`shapely.ops.substring`).
+
+        :param start_distance: Start distance along the polyline.
+        :param end_distance: End distance along the polyline.
+        :param normalized: If True, distances are interpreted as fractions of :attr:`length`.
+        :raises ValueError: If ``start_distance == end_distance`` after clipping.
+        :return: A new :class:`Polyline2D` containing the sub-range.
+        """
+        array = self.array
+        progress = get_path_progress_2d(array)
+        length = float(progress[-1])
+
+        if normalized:
+            start_distance *= length
+            end_distance *= length
+        start_d = float(np.clip(start_distance, 0.0, length))
+        end_d = float(np.clip(end_distance, 0.0, length))
+        if start_d > end_d:
+            start_d, end_d = end_d, start_d
+        if start_d == end_d:
+            raise ValueError(f"subline requires start_distance != end_distance after clipping, got {start_d}.")
+
+        _interpolator = interp1d(progress, array, axis=0, bounds_error=False, fill_value=0.0)
+        start_row = np.asarray(_interpolator(start_d), dtype=np.float64)
+        end_row = np.asarray(_interpolator(end_d), dtype=np.float64)
+        mask = (progress > start_d) & (progress < end_d)
+        new_array = np.vstack([start_row[None, :], array[mask], end_row[None, :]])
+        return Polyline2D.from_array(new_array)
+
 
 class PolylineSE2(ArrayMixin):
     """Represents a interpolatable SE2 polyline.
@@ -272,6 +310,43 @@ class PolylineSE2(ArrayMixin):
             point_ = geom.Point(np.array(point, dtype=np.float64))
         return self.linestring.project(point_, normalized=normalized)  # type: ignore
 
+    def subline(
+        self,
+        start_distance: float,
+        end_distance: float,
+        normalized: bool = False,
+    ) -> PolylineSE2:
+        """Extracts a sub-polyline between ``start_distance`` and ``end_distance`` along the path.
+
+        Distances outside ``[0, length]`` are clipped. If ``start_distance > end_distance``
+        after clipping, the values are swapped (matching :func:`shapely.ops.substring`). The
+        yaw column is left in the unwrapped frame of the parent polyline so that the new
+        :class:`PolylineSE2` constructor produces a consistent unwrap.
+
+        :param start_distance: Start distance along the polyline.
+        :param end_distance: End distance along the polyline.
+        :param normalized: If True, distances are interpreted as fractions of :attr:`length`.
+        :raises ValueError: If ``start_distance == end_distance`` after clipping.
+        :return: A new :class:`PolylineSE2` containing the sub-range.
+        """
+        length = self.length
+        if normalized:
+            start_distance *= length
+            end_distance *= length
+        start_d = float(np.clip(start_distance, 0.0, length))
+        end_d = float(np.clip(end_distance, 0.0, length))
+        if start_d > end_d:
+            start_d, end_d = end_d, start_d
+        if start_d == end_d:
+            raise ValueError(f"subline requires start_distance != end_distance after clipping, got {start_d}.")
+
+        _interpolator = interp1d(self._progress, self._array, axis=0, bounds_error=False, fill_value=0.0)
+        start_row = np.asarray(_interpolator(start_d), dtype=np.float64)
+        end_row = np.asarray(_interpolator(end_d), dtype=np.float64)
+        mask = (self._progress > start_d) & (self._progress < end_d)
+        new_array = np.vstack([start_row[None, :], self._array[mask], end_row[None, :]])
+        return PolylineSE2.from_array(new_array)
+
 
 class PolylineSE3(ArrayMixin):
     """Represents an interpolatable SE3 polyline (3D position + quaternion rotation).
@@ -307,7 +382,7 @@ class PolylineSE3(ArrayMixin):
         :param rotation_interpolation: Rotation interpolation strategy, either ``"slerp"`` or ``"nlerp"``.
         """
         assert array.ndim == 2 and array.shape[1] == len(PoseSE3Index)
-        assert rotation_interpolation in ("slerp", "nlerp"), (
+        assert rotation_interpolation in {"slerp", "nlerp"}, (
             f"Unknown rotation interpolation: {rotation_interpolation!r}. Expected 'slerp' or 'nlerp'."
         )
 
@@ -397,6 +472,43 @@ class PolylineSE3(ArrayMixin):
         if clipped.ndim == 0:
             return PoseSE3(*result)
         return result
+
+    def subline(
+        self,
+        start_distance: float,
+        end_distance: float,
+        normalized: bool = False,
+    ) -> PolylineSE3:
+        """Extracts a sub-polyline between ``start_distance`` and ``end_distance`` along the path.
+
+        Distances outside ``[0, length]`` are clipped. If ``start_distance > end_distance``
+        after clipping, the values are swapped (matching :func:`shapely.ops.substring`). Endpoint
+        rotations are interpolated via the active strategy (SLERP or NLERP); the strategy is
+        propagated to the returned polyline.
+
+        :param start_distance: Start distance along the polyline.
+        :param end_distance: End distance along the polyline.
+        :param normalized: If True, distances are interpreted as fractions of :attr:`length`.
+        :raises ValueError: If ``start_distance == end_distance`` after clipping.
+        :return: A new :class:`PolylineSE3` containing the sub-range.
+        """
+        length = self.length
+        if normalized:
+            start_distance *= length
+            end_distance *= length
+        start_d = float(np.clip(start_distance, 0.0, length))
+        end_d = float(np.clip(end_distance, 0.0, length))
+        if start_d > end_d:
+            start_d, end_d = end_d, start_d
+        if start_d == end_d:
+            raise ValueError(f"subline requires start_distance != end_distance after clipping, got {start_d}.")
+
+        # interpolate() clips internally to [1e-8, length]; the resulting deviation is negligible.
+        start_row = self.interpolate(start_d).array
+        end_row = self.interpolate(end_d).array
+        mask = (self._progress > start_d) & (self._progress < end_d)
+        new_array = np.vstack([start_row[None, :], self._array[mask], end_row[None, :]])
+        return PolylineSE3.from_array(new_array, rotation_interpolation=self._rotation_interpolation)
 
 
 class Polyline3D(ArrayMixin):
@@ -541,3 +653,40 @@ class Polyline3D(ArrayMixin):
         else:
             point_ = geom.Point(np.array(point, dtype=np.float64))
         return self.linestring.project(point_, normalized=normalized)  # type: ignore
+
+    def subline(
+        self,
+        start_distance: float,
+        end_distance: float,
+        normalized: bool = False,
+    ) -> Polyline3D:
+        """Extracts a sub-polyline between ``start_distance`` and ``end_distance`` along the path.
+
+        Distances outside ``[0, length]`` are clipped. If ``start_distance > end_distance``
+        after clipping, the values are swapped (matching :func:`shapely.ops.substring`).
+
+        :param start_distance: Start distance along the polyline.
+        :param end_distance: End distance along the polyline.
+        :param normalized: If True, distances are interpreted as fractions of :attr:`length`.
+        :raises ValueError: If ``start_distance == end_distance`` after clipping.
+        :return: A new :class:`Polyline3D` containing the sub-range.
+        """
+        length = self.length  # triggers lazy _progress initialization
+        assert self._progress is not None, "Progress should have been initialized."
+
+        if normalized:
+            start_distance *= length
+            end_distance *= length
+        start_d = float(np.clip(start_distance, 0.0, length))
+        end_d = float(np.clip(end_distance, 0.0, length))
+        if start_d > end_d:
+            start_d, end_d = end_d, start_d
+        if start_d == end_d:
+            raise ValueError(f"subline requires start_distance != end_distance after clipping, got {start_d}.")
+
+        _interpolator = interp1d(self._progress, self._array, axis=0, bounds_error=False, fill_value=0.0)
+        start_row = np.asarray(_interpolator(start_d), dtype=np.float64)
+        end_row = np.asarray(_interpolator(end_d), dtype=np.float64)
+        mask = (self._progress > start_d) & (self._progress < end_d)
+        new_array = np.vstack([start_row[None, :], self._array[mask], end_row[None, :]])
+        return Polyline3D.from_array(new_array)

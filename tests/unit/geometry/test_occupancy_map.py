@@ -206,29 +206,29 @@ class TestOccupancyMap2D:
         assert isinstance(nearest_indices, np.ndarray)
         assert len(nearest_indices) > 0
 
-    def test_contains_vectorized_single_point(self):
-        """Test contains_vectorized with a single point."""
+    def test_contains_points_2d_single_point(self):
+        """Test contains_points_2d with a single point."""
         occ_map = OccupancyMap2D(self.geometries)
 
-        points = np.array([[1.0, 1.0]])  # Point inside square1 and circle
-        result = occ_map.contains_vectorized(points)
+        points_2d = np.array([[1.0, 1.0]])  # Point inside square1 and circle
+        result = occ_map.contains_points_2d(points_2d)
 
         assert result.shape == (4, 1)
         assert isinstance(result, np.ndarray)
         assert result.dtype == bool
 
-    def test_contains_vectorized_multiple_points(self):
-        """Test contains_vectorized with multiple points."""
+    def test_contains_points_2d_multiple_points(self):
+        """Test contains_points_2d with multiple points."""
         occ_map = OccupancyMap2D(self.geometries)
 
-        points = np.array(
+        points_2d = np.array(
             [
                 [1.0, 1.0],  # Inside square1 and circle
                 [4.0, 4.0],  # Inside square2
                 [10.0, 10.0],  # Outside all geometries
             ]
         )
-        result = occ_map.contains_vectorized(points)
+        result = occ_map.contains_points_2d(points_2d)
 
         assert result.shape == (4, 3)
         assert isinstance(result, np.ndarray)
@@ -253,12 +253,12 @@ class TestOccupancyMap2D:
         assert not result[2, 2]  # circle does not contain point 2
         assert not result[3, 2]  # line does not contain point 2
 
-    def test_contains_vectorized_empty_points(self):
-        """Test contains_vectorized with empty points array."""
+    def test_contains_points_2d_empty_points(self):
+        """Test contains_points_2d with empty points array."""
         occ_map = OccupancyMap2D(self.geometries)
 
-        points = np.empty((0, 2))
-        result = occ_map.contains_vectorized(points)
+        points_2d = np.empty((0, 2))
+        result = occ_map.contains_points_2d(points_2d)
 
         assert result.shape == (4, 0)
 

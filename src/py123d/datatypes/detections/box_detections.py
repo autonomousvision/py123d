@@ -281,6 +281,12 @@ class BoxDetectionsSE3(BaseModality):
         """The metadata for the box detections modality."""
         return self._metadata
 
+    @property
+    def box_detections_se2(self) -> BoxDetectionsSE2:
+        """The :class:`BoxDetectionsSE2` projection of the SE3 box detections."""
+        box_detections_se2 = [detection.box_detection_se2 for detection in self._box_detections]
+        return BoxDetectionsSE2(box_detections=box_detections_se2, timestamp=self.timestamp)
+
     def __getitem__(self, index: int) -> BoxDetectionSE3:
         """Retrieve a box detection by its index.
 

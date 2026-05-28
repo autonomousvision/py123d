@@ -1,9 +1,11 @@
 from typing import Dict, Iterable, Iterator, List, Optional, Union
 
+import networkx as nx
 import shapely.geometry as geom
 from typing_extensions import Literal
 
 from py123d.api import MapAPI
+from py123d.api.map.map_api import GRAPH_LAYERS
 from py123d.datatypes.map_objects import BaseMapObject, MapLayer
 from py123d.datatypes.map_objects.base_map_objects import MapObjectIDType
 from py123d.datatypes.map_objects.map_objects import (
@@ -147,3 +149,20 @@ class MockMapAPI(MapAPI):
         distance: Optional[float] = None,
     ) -> Dict[MapLayer, Union[List[MapObjectIDType], Dict[int, List[MapObjectIDType]]]]:
         return {}
+
+    def get_layer_graph(self, layer: Union[str, MapLayer]) -> nx.DiGraph:
+        layer = MapLayer.from_arbitrary(layer)
+        if layer not in GRAPH_LAYERS:
+            raise ValueError(
+                f"get_layer_graph only supports layers with predecessor/successor topology "
+                f"({sorted(l.name for l in GRAPH_LAYERS)}), got {layer.name}."
+            )
+        graph = nx.DiGraph()
+        graph.add_nodes_from(self.get_all_map_object_ids_in_layer(layer))
+        for map_object in self.get_all_map_objects_in_layer(layer):
+            object_id = map_object.object_id
+            for successor_id in map_object.successor_ids:  # type: ignore[attr-defined]
+                graph.add_edge(object_id, successor_id)
+            for predecessor_id in map_object.predecessor_ids:  # type: ignore[attr-defined]
+                graph.add_edge(predecessor_id, object_id)
+        return graph

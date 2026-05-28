@@ -158,7 +158,7 @@ class OccupancyMap2D:
             all_matches=all_matches,
         )
 
-    def contains_vectorized(self, points: npt.NDArray[np.float64]) -> npt.NDArray[np.bool_]:
+    def contains_points_2d(self, points_2d: npt.NDArray[np.float64]) -> npt.NDArray[np.bool_]:
         """Determines wether input-points are in geometries (i.e. polygons) of the occupancy map.
 
         Notes
@@ -166,11 +166,14 @@ class OccupancyMap2D:
         This function can be significantly faster than using the str-tree, if the number of geometries is
         relatively small compared to the number of input-points.
 
-        :param points: array of shape (num_points, 2), indexed by :class:`~py123d.geometry.Point2DIndex`.
+        :param points: array of shape (..., 2), indexed by :class:`~py123d.geometry.Point2DIndex`.
         :return: boolean array of shape (polygons, input-points)
         """
-        output = np.zeros((len(self._geometries), len(points)), dtype=bool)
-        for i, geometry in enumerate(self._geometries):
-            output[i] = shapely.contains_xy(geometry, points[..., Point2DIndex.X], points[..., Point2DIndex.Y])
-
-        return output
+        assert points_2d.shape[-1] == len(Point2DIndex), "Points array must have shape (...,2) for x, y coordinates!"
+        input_shape = points_2d.shape[:-1]
+        flattened_points = points_2d.reshape(-1, 2)
+        output = np.zeros((len(self._geometries), len(flattened_points)), dtype=bool)
+        for i, polygon in enumerate(self._geometries):
+            output[i] = shapely.contains_xy(polygon, flattened_points[:, 0], flattened_points[:, 1])
+        output_shape = (len(self._geometries),) + input_shape
+        return output.reshape(output_shape)

@@ -236,3 +236,95 @@ class TestPolylineSE3:
         poses = _make_identity_poses(np.array([[0, 0, 0], [2, 0, 0]], dtype=np.float64))
         polyline = PolylineSE3.from_array(poses)
         assert polyline.rotation_interpolation == "slerp"
+
+    def test_subline_returns_polyline_se3(self):
+        """subline returns a PolylineSE3 instance."""
+        poses = _make_identity_poses(np.array([[0, 0, 0], [4, 0, 0]], dtype=np.float64))
+        polyline = PolylineSE3.from_array(poses)
+        sub = polyline.subline(1.0, 3.0)
+        assert isinstance(sub, PolylineSE3)
+
+    def test_subline_full_range(self):
+        """subline(0, length) reproduces the original SE3 polyline (up to clip tolerance)."""
+        poses = _make_identity_poses(np.array([[0, 0, 0], [2, 0, 0], [4, 0, 0]], dtype=np.float64))
+        polyline = PolylineSE3.from_array(poses)
+        sub = polyline.subline(0.0, polyline.length)
+        # Endpoints are interpolated at 1e-8 / length-1e-8 internally; tolerate that.
+        np.testing.assert_allclose(sub.array, poses, atol=1e-7)
+        assert sub.length == pytest.approx(polyline.length)
+
+    def test_subline_partial_range(self):
+        """subline cuts to a partial range with the expected length."""
+        poses = _make_identity_poses(np.array([[0, 0, 0], [4, 0, 0]], dtype=np.float64))
+        polyline = PolylineSE3.from_array(poses)
+        sub = polyline.subline(1.0, 3.0)
+        assert sub.length == pytest.approx(2.0)
+        np.testing.assert_allclose(sub.array[0, :3], [1.0, 0.0, 0.0], atol=1e-6)
+        np.testing.assert_allclose(sub.array[-1, :3], [3.0, 0.0, 0.0], atol=1e-6)
+
+    def test_subline_exact_endpoints(self):
+        """subline endpoints equal interpolate(start) / interpolate(end)."""
+        poses = _make_identity_poses(np.array([[0, 0, 0], [4, 0, 4]], dtype=np.float64))
+        polyline = PolylineSE3.from_array(poses)
+        start_d, end_d = 1.0, polyline.length - 1.0
+        sub = polyline.subline(start_d, end_d)
+        np.testing.assert_allclose(sub.array[0], polyline.interpolate(start_d).array, atol=1e-9)
+        np.testing.assert_allclose(sub.array[-1], polyline.interpolate(end_d).array, atol=1e-9)
+
+    def test_subline_normalized(self):
+        """Normalized distances produce the same result as absolute distances."""
+        poses = _make_identity_poses(np.array([[0, 0, 0], [4, 0, 0]], dtype=np.float64))
+        polyline = PolylineSE3.from_array(poses)
+        sub_abs = polyline.subline(1.0, 3.0)
+        sub_norm = polyline.subline(0.25, 0.75, normalized=True)
+        np.testing.assert_allclose(sub_abs.array, sub_norm.array, atol=1e-9)
+
+    def test_subline_clips_outside_range(self):
+        """Distances outside [0, length] are clipped to the polyline bounds."""
+        poses = _make_identity_poses(np.array([[0, 0, 0], [4, 0, 0]], dtype=np.float64))
+        polyline = PolylineSE3.from_array(poses)
+        sub = polyline.subline(-5.0, polyline.length + 5.0)
+        np.testing.assert_allclose(sub.array, poses, atol=1e-7)
+
+    def test_subline_swaps_reversed(self):
+        """Reversed (start > end) is silently swapped."""
+        poses = _make_identity_poses(np.array([[0, 0, 0], [4, 0, 0]], dtype=np.float64))
+        polyline = PolylineSE3.from_array(poses)
+        np.testing.assert_allclose(
+            polyline.subline(3.0, 1.0).array,
+            polyline.subline(1.0, 3.0).array,
+            atol=1e-9,
+        )
+
+    def test_subline_raises_on_zero_length(self):
+        """subline raises ValueError when start_distance == end_distance after clipping."""
+        poses = _make_identity_poses(np.array([[0, 0, 0], [4, 0, 0]], dtype=np.float64))
+        polyline = PolylineSE3.from_array(poses)
+        with pytest.raises(ValueError, match="start_distance != end_distance"):
+            polyline.subline(2.0, 2.0)
+
+    def test_subline_preserves_intermediate_vertices(self):
+        """Vertices strictly between start and end appear in the result."""
+        poses = _make_identity_poses(np.array([[float(i), 0.0, 0.0] for i in range(5)], dtype=np.float64))
+        polyline = PolylineSE3.from_array(poses)
+        sub = polyline.subline(0.5, 3.5)
+        assert sub.array.shape == (5, 7)
+        np.testing.assert_allclose(sub.array[:, 0], [0.5, 1.0, 2.0, 3.0, 3.5], atol=1e-6)
+
+    def test_subline_preserves_rotation_strategy(self):
+        """The active rotation strategy propagates to the returned polyline."""
+        poses = _make_identity_poses(np.array([[0, 0, 0], [4, 0, 0]], dtype=np.float64))
+        polyline = PolylineSE3.from_array(poses, rotation_interpolation="nlerp")
+        sub = polyline.subline(1.0, 3.0)
+        assert sub.rotation_interpolation == "nlerp"
+
+    def test_subline_quaternion_norms(self):
+        """All quaternions in the resulting subline are unit norm."""
+        rng = np.random.default_rng(42)
+        q1 = normalize_quaternion_array(rng.standard_normal(4))
+        q2 = normalize_quaternion_array(rng.standard_normal(4))
+        poses = np.array([[0, 0, 0, *q1], [3, 4, 0, *q2]], dtype=np.float64)
+        polyline = PolylineSE3.from_array(poses)
+        sub = polyline.subline(polyline.length / 4, 3 * polyline.length / 4)
+        quat_norms = np.linalg.norm(sub.array[:, 3:], axis=-1)
+        np.testing.assert_allclose(quat_norms, 1.0, atol=1e-10)

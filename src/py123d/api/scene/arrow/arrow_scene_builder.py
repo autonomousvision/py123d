@@ -14,6 +14,7 @@ from py123d.api.scene.arrow.utils.scene_builder_utils import (
     infer_iteration_duration_s,
     resolve_iteration_counts,
     resolve_iteration_stride,
+    resolve_scene_step_size,
     resolve_scene_uuid_indices,
     scene_uuids_to_binary,
 )
@@ -192,6 +193,7 @@ def _get_scene_metadatas_from_log(
     if stride is None:
         return []  # Log incompatible with requested stride — warning already logged
     future_iterations, history_iterations = resolve_iteration_counts(filter, iteration_duration_s, stride)
+    step_idx = resolve_scene_step_size(filter, iteration_duration_s, stride)
 
     # Phase 2: Category 3a — UUID pre-filtering (skip full scan if UUIDs specified)
     scene_uuid_indices = None
@@ -209,6 +211,7 @@ def _get_scene_metadatas_from_log(
         iteration_duration_s,
         scene_uuid_indices,
         stride,
+        step_idx,
     )
 
     # Phase 3: Category 3c — scene-level filtering
