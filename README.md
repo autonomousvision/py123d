@@ -18,8 +18,8 @@
 
 ## 📰 News
 
-- **2026-05-28** — Released **[NAV123D](https://github.com/DanielDauner/nav123d)**, a reimplementation of NAVSIM on top of 123D.
-- **2026-05-08** — Our paper *123D: Unifying Multi-Modal Autonomous Driving Data at Scale* is out on [arXiv](https://arxiv.org/abs/2605.08084).
+- **2026-05-28**: Released **[NAV123D](https://github.com/DanielDauner/nav123d)**, a reimplementation of NAVSIM on top of 123D.
+- **2026-05-08**: Our paper *123D: Unifying Multi-Modal Autonomous Driving Data at Scale* is out on [arXiv](https://arxiv.org/abs/2605.08084).
 
 ## ✨ Features
 
