@@ -395,13 +395,28 @@ class TestGenerateSceneMetadatas:
         scenes = generate_scene_metadatas(
             table, meta, future_iterations=5, history_iterations=0, iteration_duration_s=0.1
         )
-        # Window of 5 future iterations, stepping by 5: indices 0, 5, 10 (15 is >= 20-5=15 boundary)
-        assert len(scenes) == 3
+        # Window of 5 future iterations, default step_idx=1 (max overlap):
+        # end_idx = 20 - 5 = 15, anchors at 0, 1, ..., 14 → 15 scenes.
+        assert len(scenes) == 15
         assert scenes[0].initial_idx == 0
-        assert scenes[1].initial_idx == 5
-        assert scenes[2].initial_idx == 10
+        assert scenes[1].initial_idx == 1
+        assert scenes[-1].initial_idx == 14
         for s in scenes:
             assert s.num_future_iterations == 5
+
+    def test_sliding_window_with_explicit_step(self):
+        table = _make_sync_table(num_rows=20, timestep_us=100_000)
+        meta = _make_log_metadata()
+        scenes = generate_scene_metadatas(
+            table,
+            meta,
+            future_iterations=5,
+            history_iterations=0,
+            iteration_duration_s=0.1,
+            step_idx=5,
+        )
+        # Explicit step_idx=5 reproduces the legacy tile-style behavior.
+        assert [s.initial_idx for s in scenes] == [0, 5, 10]
 
     def test_with_history(self):
         table = _make_sync_table(num_rows=20, timestep_us=100_000)
@@ -409,9 +424,10 @@ class TestGenerateSceneMetadatas:
         scenes = generate_scene_metadatas(
             table, meta, future_iterations=5, history_iterations=2, iteration_duration_s=0.1
         )
-        # start_idx=2, end_idx=15, step=5 → indices 2, 7, 12
-        assert len(scenes) == 3
+        # start_idx=2, end_idx=15, default step=1 → indices 2..14 (13 scenes)
+        assert len(scenes) == 13
         assert scenes[0].initial_idx == 2
+        assert scenes[-1].initial_idx == 14
         for s in scenes:
             assert s.num_history_iterations == 2
 
@@ -449,15 +465,19 @@ class TestFilterScenes:
             for i in range(num)
         ]
 
-    def test_timestamp_threshold(self):
+    def test_timestamp_threshold_is_not_post_filter_anymore(self):
+        """Threshold semantics moved to step-based anchor selection in generate_scene_metadatas.
+
+        filter_scene_metadata_candidates no longer drops scenes based on time/iteration spacing —
+        it only enforces required_scene_modalities. This test pins that intentional decoupling so
+        future regressions don't accidentally re-add post-filter behavior.
+        """
         table = _make_sync_table(num_rows=30, timestep_us=100_000)
         candidates = self._make_candidates(5)  # at indices 0, 5, 10, 15, 20
-        f = SceneFilter(timestamp_threshold_s=1.5)  # only keep scenes >= 1.5s apart
+        f = SceneFilter(timestamp_threshold_s=1.5)
         result = filter_scene_metadata_candidates(candidates, f, table)
-        # 0 → keep, 5 (0.5s gap) → skip, 10 (1.0s) → skip, 15 (1.5s) → keep, 20 (0.5s from 15) → skip
-        assert len(result) == 2
-        assert result[0].initial_idx == 0
-        assert result[1].initial_idx == 15
+        assert len(result) == 5
+        assert [s.initial_idx for s in result] == [0, 5, 10, 15, 20]
 
     def test_required_scene_modalities_with_nulls(self):
         table = _make_sync_table(num_rows=20, timestep_us=100_000, camera_nulls=[2, 3])
@@ -491,25 +511,14 @@ class TestFilterScenes:
         assert len(result) == 1
         assert result[0].initial_idx == 5
 
-    def test_iteration_threshold(self):
+    def test_iteration_threshold_is_not_post_filter_anymore(self):
+        """Like timestamp_threshold, iteration_threshold no longer post-filters candidates."""
         table = _make_sync_table(num_rows=30, timestep_us=100_000)
         candidates = self._make_candidates(5)  # at indices 0, 5, 10, 15, 20
-        f = SceneFilter(iteration_threshold=12)  # only keep scenes >= 12 iterations apart
+        f = SceneFilter(iteration_threshold=12)
         result = filter_scene_metadata_candidates(candidates, f, table)
-        # 0 → keep, 5 (5 gap) → skip, 10 (10) → skip, 15 (15) → keep, 20 (5 from 15) → skip
-        assert len(result) == 2
-        assert result[0].initial_idx == 0
-        assert result[1].initial_idx == 15
-
-    def test_timestamp_threshold_takes_priority_over_iteration_threshold(self):
-        table = _make_sync_table(num_rows=30, timestep_us=100_000)
-        candidates = self._make_candidates(5)  # at indices 0, 5, 10, 15, 20
-        # timestamp_threshold_s=1.5 keeps 0 and 15; iteration_threshold=3 would keep 0, 5, 10, 15, 20
-        f = SceneFilter(timestamp_threshold_s=1.5, iteration_threshold=3)
-        result = filter_scene_metadata_candidates(candidates, f, table)
-        assert len(result) == 2
-        assert result[0].initial_idx == 0
-        assert result[1].initial_idx == 15
+        assert len(result) == 5
+        assert [s.initial_idx for s in result] == [0, 5, 10, 15, 20]
 
     def test_required_scene_modalities_any_type(self):
         """'camera:any' keeps scenes where at least one camera column is complete."""
@@ -1053,3 +1062,76 @@ class TestArrowSceneBuilderGetScenes:
         assert len(scenes) > 1
         for s in scenes:
             assert s.scene_metadata.num_future_iterations == 5
+
+    def test_get_scenes_default_is_max_overlap(self, tmp_path):
+        """No threshold set ⇒ anchors at every raw frame (max overlap)."""
+        _write_demo_log(tmp_path, split_name="test-dataset_train", log_name="log_001")
+
+        logs_root = tmp_path / "logs"
+        maps_root = tmp_path / "maps"
+        maps_root.mkdir(exist_ok=True)
+
+        builder = ArrowSceneBuilder(logs_root=logs_root, maps_root=maps_root)
+        executor = SequentialExecutor()
+        # 20 rows, future=5 → end_idx=15, default step=1 → 15 overlapping scenes.
+        scenes = builder.get_scenes(SceneFilter(future_duration_s=0.5), executor)
+        anchors = sorted(s.scene_metadata.initial_idx for s in scenes)
+        assert anchors == list(range(15))
+
+    def test_get_scenes_iteration_threshold_drives_stride(self, tmp_path):
+        """iteration_threshold controls the spacing between scene anchors (in logical iterations)."""
+        _write_demo_log(tmp_path, split_name="test-dataset_train", log_name="log_001")
+
+        logs_root = tmp_path / "logs"
+        maps_root = tmp_path / "maps"
+        maps_root.mkdir(exist_ok=True)
+
+        builder = ArrowSceneBuilder(logs_root=logs_root, maps_root=maps_root)
+        executor = SequentialExecutor()
+        # stride=1 (default), iteration_threshold=5 → step=5 raw frames.
+        # end_idx=15, step=5 → anchors at 0, 5, 10.
+        scenes = builder.get_scenes(SceneFilter(future_duration_s=0.5, iteration_threshold=5), executor)
+        anchors = sorted(s.scene_metadata.initial_idx for s in scenes)
+        assert anchors == [0, 5, 10]
+
+    def test_get_scenes_timestamp_threshold_drives_stride(self, tmp_path):
+        """timestamp_threshold_s controls the spacing between scene anchors (in seconds)."""
+        _write_demo_log(tmp_path, split_name="test-dataset_train", log_name="log_001")
+
+        logs_root = tmp_path / "logs"
+        maps_root = tmp_path / "maps"
+        maps_root.mkdir(exist_ok=True)
+
+        builder = ArrowSceneBuilder(logs_root=logs_root, maps_root=maps_root)
+        executor = SequentialExecutor()
+        # 10Hz log: 0.5s threshold = 5 raw frames; end_idx=15 → anchors at 0, 5, 10.
+        scenes = builder.get_scenes(SceneFilter(future_duration_s=0.5, timestamp_threshold_s=0.5), executor)
+        anchors = sorted(s.scene_metadata.initial_idx for s in scenes)
+        assert anchors == [0, 5, 10]
+
+    def test_get_scenes_uuids_ignore_threshold(self, tmp_path):
+        """When scene_uuids is set, threshold has no effect — one scene per matching UUID."""
+        log_dir = _write_demo_log(tmp_path, split_name="test-dataset_train", log_name="log_001")
+
+        # Read back the sync table to pick a real UUID we know exists at idx=3.
+        from pyarrow import ipc
+
+        with open(log_dir / "sync.arrow", "rb") as f:
+            sync_table = ipc.open_file(f).read_all()
+        from py123d.common.utils.uuid_utils import convert_to_str_uuid
+
+        target_uuid = convert_to_str_uuid(sync_table["sync.uuid"][3].as_py())
+
+        logs_root = tmp_path / "logs"
+        maps_root = tmp_path / "maps"
+        maps_root.mkdir(exist_ok=True)
+
+        builder = ArrowSceneBuilder(logs_root=logs_root, maps_root=maps_root)
+        executor = SequentialExecutor()
+        # Even with a huge iteration_threshold, the UUID anchor at idx=3 is still produced.
+        scenes = builder.get_scenes(
+            SceneFilter(future_duration_s=0.5, scene_uuids=[target_uuid], iteration_threshold=100),
+            executor,
+        )
+        assert len(scenes) == 1
+        assert scenes[0].scene_metadata.initial_idx == 3

@@ -68,7 +68,9 @@ class SceneFilter:
     """History duration of each scene in seconds."""
 
     timestamp_threshold_s: Optional[float] = None
-    """Minimum time between the start timestamps of two consecutive scenes in seconds."""
+    """Stride in seconds between consecutive scene anchors. Default ``None`` produces overlapping scenes
+    at every raw frame (maximum overlap). Takes priority over ``iteration_threshold``.
+    Ignored when ``scene_uuids`` is set (one scene per UUID position)."""
 
     target_iteration_stride: Optional[int] = None
     """Redefines the unit of one iteration by skipping every N raw log frames.
@@ -82,7 +84,9 @@ class SceneFilter:
     """Number of iterations in the history for each scene, ignored if history_duration_s is provided."""
 
     iteration_threshold: Optional[float] = None
-    """Minimum number of iterations between two consecutive scenes, ignored if timestamp_threshold_s is provided."""
+    """Stride in logical iterations between consecutive scene anchors. Default ``None`` produces overlapping
+    scenes at every raw frame (maximum overlap). Ignored if ``timestamp_threshold_s`` is provided
+    or when ``scene_uuids`` is set (one scene per UUID position)."""
 
     required_scene_modalities: Optional[List[str]] = None
     """List of modality requirements that must be satisfied at the scene level (no nulls in frame range).

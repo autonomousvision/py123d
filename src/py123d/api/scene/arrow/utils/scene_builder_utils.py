@@ -108,6 +108,27 @@ def resolve_iteration_stride(filter: SceneFilter, raw_iteration_duration_s: floa
     return stride
 
 
+def resolve_scene_step_size(filter: SceneFilter, iteration_duration_s: float, stride: int) -> int:
+    """Resolve the step (in raw frames) between consecutive scene anchors.
+
+    Priority: ``timestamp_threshold_s`` > ``iteration_threshold`` > default (1).
+    Result is clamped to ``>= 1`` to guarantee forward progress.
+
+    :param filter: The scene filter.
+    :param iteration_duration_s: Raw (native) iteration duration in seconds.
+    :param stride: Resolved logical-iteration stride in raw frames.
+    :return: Step between scene anchors in raw frames.
+    """
+    if filter.timestamp_threshold_s is not None:
+        step = round(filter.timestamp_threshold_s / iteration_duration_s)
+    elif filter.iteration_threshold is not None:
+        # iteration_threshold is in logical iterations; multiply by stride for raw frames.
+        step = round(filter.iteration_threshold * stride)
+    else:
+        step = 1
+    return max(1, step)
+
+
 def resolve_iteration_counts(
     filter: SceneFilter, iteration_duration_s: float, stride: int = 1
 ) -> Tuple[Optional[int], int]:
@@ -275,6 +296,7 @@ def generate_scene_metadatas(
     iteration_duration_s: float,
     scene_uuid_indices: Optional[Set[int]] = None,
     stride: int = 1,
+    step_idx: int = 1,
 ) -> List[SceneMetadata]:
     """Generate candidate SceneMetadata objects via temporal slicing.
 
@@ -286,10 +308,13 @@ def generate_scene_metadatas(
     :param future_iterations: Number of future iterations per scene, or None for full log.
     :param history_iterations: Number of history iterations per scene.
     :param iteration_duration_s: Raw (native) iteration duration in seconds.
-    :param scene_uuid_indices: If provided, only generate scenes at these indices.
+    :param scene_uuid_indices: If provided, only generate scenes at these indices (``step_idx`` ignored).
     :param stride: Iteration stride (number of raw frames per logical iteration).
+    :param step_idx: Step in raw frames between consecutive scene anchors when ``scene_uuid_indices`` is None.
+        Defaults to ``1`` (maximum-overlap sliding window).
     :return: List of candidate SceneMetadata objects.
     """
+    step_idx = max(1, step_idx)
     num_log_iterations = sync_table.num_rows
     uuid_column = sync_table["sync.uuid"]
     initial_idx = history_iterations * stride
@@ -324,13 +349,13 @@ def generate_scene_metadatas(
 
     else:
         # Mode B: With future duration — each scene has fixed future and history iteration counts.
-        # Without UUIDs: sliding window.
+        # Without UUIDs: sliding window stepping by ``step_idx`` raw frames between anchors.
         # With UUIDs: scenes start at each UUID position, but only if a full future can fit until the end of the log.
         end_idx = num_log_iterations - future_iterations * stride
-        step_idx = max(future_iterations * stride, stride)
         scene_metadatas: List[SceneMetadata] = []
 
         if scene_uuid_indices is not None:
+            # UUIDs override stepping: one scene per UUID position, ``step_idx`` is ignored.
             candidate_indices = sorted(idx for idx in scene_uuid_indices if initial_idx <= idx < end_idx)
         else:
             candidate_indices = list(range(initial_idx, end_idx, step_idx))
@@ -396,28 +421,6 @@ def filter_scene_metadata_candidates(
             scene_metadatas = [
                 s for s in scene_metadatas if _scene_has_any_complete_modality(s, sync_table, matching_keys)
             ]
-
-    # 2. Timestamp threshold: enforce minimum time gap between consecutive scenes
-    #    timestamp_threshold_s takes priority over iteration_threshold.
-    if filter.timestamp_threshold_s is not None:
-        timestamps_us = sync_table["sync.timestamp_us"].to_numpy()
-        filtered: List[SceneMetadata] = []
-        for scene in scene_metadatas:
-            if len(filtered) > 0:
-                time_delta_s = float(timestamps_us[scene.initial_idx] - timestamps_us[filtered[-1].initial_idx]) / 1e6
-                if time_delta_s < filter.timestamp_threshold_s:
-                    continue
-            filtered.append(scene)
-        scene_metadatas = filtered
-    elif filter.iteration_threshold is not None:
-        filtered = []
-        for scene in scene_metadatas:
-            if len(filtered) > 0:
-                iteration_delta = scene.initial_idx - filtered[-1].initial_idx
-                if iteration_delta < filter.iteration_threshold:
-                    continue
-            filtered.append(scene)
-        scene_metadatas = filtered
 
     return scene_metadatas
 
