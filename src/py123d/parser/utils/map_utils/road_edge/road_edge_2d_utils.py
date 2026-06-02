@@ -71,40 +71,6 @@ def split_line_geometry_by_max_length(
     return all_segments
 
 
-def align_road_edges_to_traffic(centerlines: List[np.ndarray], road_edge_wkbs: List[bytes]) -> List[bytes]:
-    """Flip road edge polylines so they follow traffic direction (nearest lane centerline).
-
-    :param centerlines: Lane centerlines as numpy arrays of shape (N, 2+).
-    :param road_edge_wkbs: Road edge geometries as WKB bytes.
-    :return: WKB bytes with misaligned road edges reversed.
-    """
-    if not centerlines or not road_edge_wkbs:
-        return road_edge_wkbs
-
-    cl_midpoints = np.array([cl[:, :2].mean(axis=0) for cl in centerlines])
-    cl_directions = np.array([cl[-1, :2] - cl[0, :2] for cl in centerlines])
-
-    result = []
-    for wkb in road_edge_wkbs:
-        geom = shapely.from_wkb(wkb)
-        coords = np.array(geom.coords)
-        if len(coords) < 2:
-            result.append(wkb)
-            continue
-
-        re_dir = coords[-1, :2] - coords[0, :2]
-        if np.linalg.norm(re_dir) == 0:
-            result.append(wkb)
-            continue
-
-        re_mid = coords[:, :2].mean(axis=0)
-        nearest_idx = np.argmin(np.linalg.norm(cl_midpoints - re_mid, axis=1))
-        dot = np.dot(re_dir, cl_directions[nearest_idx])
-        result.append(shapely.reverse(geom).wkb if dot <= 0 else wkb)
-
-    return result
-
-
 def split_polygon_by_grid(polygon: Polygon, cell_size: float) -> List[Polygon]:
     """
     Split a polygon by grid-like cells of given size.

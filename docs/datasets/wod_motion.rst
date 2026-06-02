@@ -54,6 +54,9 @@ Available Modalities
    * - Traffic Lights
      - ✓
      - Traffic lights include the status and the lane id they are associated with, see :class:`~py123d.datatypes.detections.TrafficLightDetections`.
+   * - Custom
+     - ✓
+     - WOD-Motion scenario metadata is available through the ``aux`` custom modality.
    * - Cameras
      - X
      - n/a
@@ -67,6 +70,32 @@ Available Modalities
   .. autoclass:: py123d.parser.registry.WODMotionBoxDetectionLabel
     :members:
     :no-inherited-members:
+
+
+Custom Metadata
+~~~~~~~~~~~~~~~
+
+WOD-Motion conversion writes scenario-level prediction metadata to the ``aux`` custom modality:
+
+.. code-block:: python
+
+  aux_metadata = scene.get_all_custom_modality_metadatas()["aux"].metadata
+
+Per-timestep auxiliary data is available through the same modality id:
+
+.. code-block:: python
+
+  aux_data = scene.get_custom_modality_at_iteration(i, "aux").data
+
+The ``aux`` metadata contains:
+
+* ``objects_of_interest``
+* ``tracks_to_predict``
+* ``track_index_to_token``
+* ``track_token_to_object_type``
+* ``current_time_index``
+* ``sdc_track_index``
+* ``scenario_variant``
 
 
 Download
