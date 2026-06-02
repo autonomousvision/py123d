@@ -29,7 +29,6 @@ from py123d.datatypes import (
 )
 from py123d.datatypes.map_objects.base_map_objects import BaseMapObject
 from py123d.geometry import Polyline2D, Polyline3D
-from py123d.parser.utils.map_utils.road_edge.road_edge_2d_utils import align_road_edges_to_traffic
 
 
 class ArrowMapWriter(BaseMapWriter):
@@ -174,12 +173,6 @@ class ArrowMapWriter(BaseMapWriter):
 
             if not self._map_file.parent.exists():
                 self._map_file.parent.mkdir(parents=True, exist_ok=True)
-
-            if MapLayer.LANE in self._map_data and MapLayer.ROAD_EDGE in self._map_data:
-                self._map_data[MapLayer.ROAD_EDGE]["wkb"] = align_road_edges_to_traffic(
-                    self._map_data[MapLayer.LANE]["centerline"],
-                    self._map_data[MapLayer.ROAD_EDGE]["wkb"],
-                )
 
             # NOTE @DanielDauner: Currently, we enforce remapping of map IDs to integers for Arrow maps.
             # In the future, string IDs could be supported as well, but this complicates the implementation and
