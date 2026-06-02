@@ -189,7 +189,7 @@ class BoxDetectionsSE2:
     Provides indexed access, iteration, lookup by track token, and a 2D occupancy map.
     """
 
-    __slot__ = ("_box_detections", "_timestamp")
+    __slots__ = ("_box_detections", "_timestamp")
 
     def __init__(self, box_detections: List[BoxDetectionSE2], timestamp: Timestamp) -> None:
         """Initialize a BoxDetectionsSE2 instance.
@@ -209,6 +209,11 @@ class BoxDetectionsSE2:
     def timestamp(self) -> Timestamp:
         """The :class:`~py123d.datatypes.time.Timestamp` of the box detections."""
         return self._timestamp
+
+    @property
+    def box_detections_se2(self) -> BoxDetectionsSE2:
+        """Returns :class:`BoxDetectionsSE2` (self) to maintain interface consistency."""
+        return self
 
     def __getitem__(self, index: int) -> BoxDetectionSE2:
         """Retrieve a box detection by its index.
