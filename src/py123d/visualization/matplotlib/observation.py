@@ -8,7 +8,7 @@ import shapely.geometry as geom
 
 from py123d.api import MapAPI, SceneAPI
 from py123d.datatypes.detections.box_detection_label import DefaultBoxDetectionLabel
-from py123d.datatypes.detections.box_detections import BoxDetectionsSE3
+from py123d.datatypes.detections.box_detections import BoxDetectionsSE2, BoxDetectionsSE3
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetections
 from py123d.datatypes.map_objects.map_layer_types import MapLayer, StopZoneType
 from py123d.datatypes.map_objects.map_objects import Lane
@@ -177,7 +177,7 @@ def add_default_map_on_ax(
     ax.set_title(f"Map: {map_api.location}")
 
 
-def add_box_detections_to_ax(ax: plt.Axes, box_detections: BoxDetectionsSE3) -> None:
+def add_box_detections_to_ax(ax: plt.Axes, box_detections: Union[BoxDetectionsSE2, BoxDetectionsSE3]) -> None:
     boxes_per_type: Dict[DefaultBoxDetectionLabel, List[BoundingBoxSE2]] = defaultdict(list)
     for box_detection in box_detections:
         boxes_per_type[box_detection.attributes.default_label].append(box_detection.bounding_box_se2)

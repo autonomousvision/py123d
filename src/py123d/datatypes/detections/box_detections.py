@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from functools import cached_property
 from typing import List, Optional, Union
 
 import shapely
@@ -189,7 +188,7 @@ class BoxDetectionsSE2:
     Provides indexed access, iteration, lookup by track token, and a 2D occupancy map.
     """
 
-    __slot__ = ("_box_detections", "_timestamp")
+    __slots__ = ("_box_detections", "_timestamp", "_occupancy_map_2d")
 
     def __init__(self, box_detections: List[BoxDetectionSE2], timestamp: Timestamp) -> None:
         """Initialize a BoxDetectionsSE2 instance.
@@ -199,6 +198,7 @@ class BoxDetectionsSE2:
         """
         self._box_detections = box_detections
         self._timestamp = timestamp
+        self._occupancy_map_2d: Optional[OccupancyMap2D] = None
 
     @property
     def box_detections(self) -> List[BoxDetectionSE2]:
@@ -209,6 +209,11 @@ class BoxDetectionsSE2:
     def timestamp(self) -> Timestamp:
         """The :class:`~py123d.datatypes.time.Timestamp` of the box detections."""
         return self._timestamp
+
+    @property
+    def box_detections_se2(self) -> BoxDetectionsSE2:
+        """Returns :class:`BoxDetectionsSE2` (self) to maintain interface consistency."""
+        return self
 
     def __getitem__(self, index: int) -> BoxDetectionSE2:
         """Retrieve a box detection by its index.
@@ -237,12 +242,14 @@ class BoxDetectionsSE2:
                 return detection
         return None
 
-    @cached_property
+    @property
     def occupancy_map_2d(self) -> OccupancyMap2D:
         """The :class:`~py123d.geometry.OccupancyMap2D` representing the 2D occupancy of all box detections."""
-        ids = [detection.attributes.track_token for detection in self._box_detections]
-        geometries = [detection.shapely_polygon for detection in self._box_detections]
-        return OccupancyMap2D(geometries=geometries, ids=ids)
+        if self._occupancy_map_2d is None:
+            ids = [detection.attributes.track_token for detection in self._box_detections]
+            geometries = [detection.shapely_polygon for detection in self._box_detections]
+            self._occupancy_map_2d = OccupancyMap2D(geometries=geometries, ids=ids)
+        return self._occupancy_map_2d
 
 
 class BoxDetectionsSE3(BaseModality):
@@ -251,7 +258,7 @@ class BoxDetectionsSE3(BaseModality):
     Provides indexed access, iteration, lookup by track token, and a 2D occupancy map.
     """
 
-    __slot__ = ("_box_detections", "_timestamp", "_metadata")
+    __slots__ = ("_box_detections", "_timestamp", "_metadata", "_occupancy_map_2d")
 
     def __init__(
         self, box_detections: List[BoxDetectionSE3], timestamp: Timestamp, metadata: BoxDetectionsSE3Metadata
@@ -265,6 +272,7 @@ class BoxDetectionsSE3(BaseModality):
         self._box_detections = box_detections
         self._timestamp = timestamp
         self._metadata = metadata
+        self._occupancy_map_2d: Optional[OccupancyMap2D] = None
 
     @property
     def box_detections(self) -> List[BoxDetectionSE3]:
@@ -314,9 +322,11 @@ class BoxDetectionsSE3(BaseModality):
                 return detection
         return None
 
-    @cached_property
+    @property
     def occupancy_map_2d(self) -> OccupancyMap2D:
         """The :class:`~py123d.geometry.OccupancyMap2D` representing the 2D occupancy of all box detections."""
-        ids = [detection.attributes.track_token for detection in self._box_detections]
-        geometries = [detection.shapely_polygon for detection in self._box_detections]
-        return OccupancyMap2D(geometries=geometries, ids=ids)
+        if self._occupancy_map_2d is None:
+            ids = [detection.attributes.track_token for detection in self._box_detections]
+            geometries = [detection.shapely_polygon for detection in self._box_detections]
+            self._occupancy_map_2d = OccupancyMap2D(geometries=geometries, ids=ids)
+        return self._occupancy_map_2d
