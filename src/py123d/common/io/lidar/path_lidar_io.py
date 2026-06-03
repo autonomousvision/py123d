@@ -80,6 +80,11 @@ def load_point_cloud_data_from_path(
         assert lidar_metadatas is not None, "Lidar metadatas must be provided for NCore LiDAR loading."
         lidar_pcs_dict = load_ncore_point_cloud_data_from_path(full_lidar_path, index, lidar_metadatas)
 
+    elif dataset == "nureasoning":
+        from py123d.parser.nureasoning.nureasoning_sensor_io import load_nureasoning_point_cloud_data_from_path
+
+        lidar_pcs_dict = load_nureasoning_point_cloud_data_from_path(full_lidar_path)
+
     else:
         raise NotImplementedError(f"Loading Lidar data for dataset {dataset} is not implemented.")
 
