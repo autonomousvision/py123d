@@ -32,7 +32,7 @@ def get_metadata_from_arrow_schema(
     deserialized_metadata = None
     if arrow_schema.metadata is not None and modality_key in arrow_schema.metadata:
         deserialized_metadata = metadata_class.from_dict(
-            msgpack.unpackb(arrow_schema.metadata[modality_key], raw=False)
+            msgpack.unpackb(arrow_schema.metadata[modality_key], raw=False, strict_map_key=False)
         )
 
     try:
