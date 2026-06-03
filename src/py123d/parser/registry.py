@@ -172,6 +172,73 @@ class NuPlanBoxDetectionLabel(BoxDetectionLabel):
 
 
 @register_box_detection_label
+class NureasoningBoxDetectionLabel(BoxDetectionLabel):
+    """Semantic labels for nuReasoning bounding box detections.
+
+    TODO@DanielDauner: The nuReasoning dataset does not have a published taxonomy yet.
+    The list is likely incomplete or incorrect. Needs to be updated.
+    """
+
+    VEHICLE_CAR = 0
+    """Cars and other four-or-more wheeled vehicles."""
+
+    VEHICLE_PERSONAL_MOBILITY_BYCICLE = 1
+    """Bicycles, motorcycles and other personal mobility devices."""
+
+    HUMAN = 2
+    """Humans / vulnerable road users."""
+
+    OTHER_TRAFFICCONE = 3
+    """Cones temporarily placed to control the flow of traffic."""
+
+    OTHER_TEMPORARY_TRAFFICSIGN = 4
+    """Temporary traffic signs (e.g. construction-zone signage)."""
+
+    OTHER_OTHER = 5
+    """Catch-all for uncategorized / miscellaneous objects."""
+
+    VEHICLE_DOOR = 6
+    """Vehicle doors (e.g. an opened car door)."""
+
+    VEHICLE_TRUCK = 7
+    """Trucks."""
+
+    VEHICLE_BUS = 8
+    """Buses."""
+
+    VEHICLE_MOTORCYCLE = 9
+    """Motorcycles."""
+
+    VEHICLE_BICYCLE = 10
+    """Bicycles."""
+
+    HUMAN_PEDESTRIAN = 11
+    """Pedestrians."""
+
+    CONSTRUCTION_TRAFFIC_CONE = 12
+    """Construction-zone traffic cones."""
+
+    def to_default(self) -> DefaultBoxDetectionLabel:
+        """Inherited, see superclass."""
+        mapping = {
+            NureasoningBoxDetectionLabel.VEHICLE_CAR: DefaultBoxDetectionLabel.VEHICLE,
+            NureasoningBoxDetectionLabel.VEHICLE_PERSONAL_MOBILITY_BYCICLE: DefaultBoxDetectionLabel.TWO_WHEELER,
+            NureasoningBoxDetectionLabel.HUMAN: DefaultBoxDetectionLabel.PERSON,
+            NureasoningBoxDetectionLabel.OTHER_TRAFFICCONE: DefaultBoxDetectionLabel.TRAFFIC_CONE,
+            NureasoningBoxDetectionLabel.OTHER_TEMPORARY_TRAFFICSIGN: DefaultBoxDetectionLabel.TRAFFIC_SIGN,
+            NureasoningBoxDetectionLabel.OTHER_OTHER: DefaultBoxDetectionLabel.GENERIC_OBJECT,
+            NureasoningBoxDetectionLabel.VEHICLE_DOOR: DefaultBoxDetectionLabel.GENERIC_OBJECT,
+            NureasoningBoxDetectionLabel.VEHICLE_TRUCK: DefaultBoxDetectionLabel.VEHICLE,
+            NureasoningBoxDetectionLabel.VEHICLE_BUS: DefaultBoxDetectionLabel.VEHICLE,
+            NureasoningBoxDetectionLabel.VEHICLE_MOTORCYCLE: DefaultBoxDetectionLabel.TWO_WHEELER,
+            NureasoningBoxDetectionLabel.VEHICLE_BICYCLE: DefaultBoxDetectionLabel.TWO_WHEELER,
+            NureasoningBoxDetectionLabel.HUMAN_PEDESTRIAN: DefaultBoxDetectionLabel.PERSON,
+            NureasoningBoxDetectionLabel.CONSTRUCTION_TRAFFIC_CONE: DefaultBoxDetectionLabel.TRAFFIC_CONE,
+        }
+        return mapping[self]
+
+
+@register_box_detection_label
 class NuScenesBoxDetectionLabel(BoxDetectionLabel):
     """
     Semantic labels for nuScenes bounding box detections.
