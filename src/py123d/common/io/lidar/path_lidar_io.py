@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
@@ -13,6 +13,7 @@ def load_point_cloud_data_from_path(
     index: Optional[int] = None,
     sensor_root: Optional[Union[str, Path]] = None,
     lidar_metadatas: Optional[Dict[LidarID, LidarMetadata]] = None,
+    load_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
     # NOTE @DanielDauner: This function is designed s.t. it can load multiple lidar types at the same time.
     # Several datasets (e.g., PandaSet, nuScenes) have multiple Lidar sensors stored in one file.
@@ -62,7 +63,15 @@ def load_point_cloud_data_from_path(
         from py123d.parser.nuscenes.nuscenes_sensor_io import load_nuscenes_point_cloud_data_from_path
 
         assert lidar_metadatas is not None, "Lidar metadatas must be provided for nuScenes Lidar loading."
-        lidar_pcs_dict = load_nuscenes_point_cloud_data_from_path(full_lidar_path, lidar_metadatas)
+        # nuScenes segmentation labels live in separate, opaquely-named files (semantic in lidarseg,
+        # instance in panoptic); the converter stashes their relative paths in load_kwargs so we can
+        # re-read them here, resolved against the same sensor_root as the point cloud.
+        kw = load_kwargs or {}
+        lidarseg_path = Path(sensor_root) / kw["lidarseg_relative_path"] if kw.get("lidarseg_relative_path") else None
+        panoptic_path = Path(sensor_root) / kw["panoptic_relative_path"] if kw.get("panoptic_relative_path") else None
+        lidar_pcs_dict = load_nuscenes_point_cloud_data_from_path(
+            full_lidar_path, lidar_metadatas, lidarseg_path=lidarseg_path, panoptic_path=panoptic_path
+        )
 
     elif dataset == "physical-ai-av":
         from py123d.parser.physical_ai_av.physical_ai_av_sensor_io import (

@@ -188,3 +188,100 @@ class PandasetLidarSegmentationLabel(LidarSegmentationLabel):
             PandasetLidarSegmentationLabel.OTHER_STATIC_OBJECT: DefaultLidarSegmentationLabel.OTHER,
         }
         return mapping[self]
+
+
+@register_lidar_segmentation_label
+class NuScenesLidarSegmentationLabel(LidarSegmentationLabel):
+    """nuScenes per-point semantic segmentation classes (32 fine-grained classes, ids ``0..31``).
+
+    Values are the ``index`` field of the nuScenes-lidarseg ``category.json`` and match the canonical
+    order in the devkit's ``nuscenes/utils/color_map.py`` (``noise`` … ``vehicle.ego``). The labels are
+    derived from nuScenes-**panoptic** (``panoptic_label = category_idx * 1000 + instance_id``), so the
+    per-point semantic id is ``panoptic // 1000``; the same 32-class taxonomy backs both lidarseg and
+    panoptic. The mapping to :class:`DefaultLidarSegmentationLabel` follows the official lidarseg
+    "challenge" coarsening, with the fine ``human.pedestrian.*`` subclasses collapsed to ``PERSON`` and
+    the ego-vehicle self-returns / noise treated as ``IGNORE``.
+
+    References
+    ----------
+    .. [1] https://www.nuscenes.org/nuscenes#lidarseg
+    .. [2] https://github.com/nutonomy/nuscenes-devkit/blob/master/python-sdk/nuscenes/utils/color_map.py
+    """
+
+    NOISE = 0
+    ANIMAL = 1
+    PEDESTRIAN_ADULT = 2
+    PEDESTRIAN_CHILD = 3
+    PEDESTRIAN_CONSTRUCTION_WORKER = 4
+    PEDESTRIAN_PERSONAL_MOBILITY = 5
+    PEDESTRIAN_POLICE_OFFICER = 6
+    PEDESTRIAN_STROLLER = 7
+    PEDESTRIAN_WHEELCHAIR = 8
+    BARRIER = 9
+    DEBRIS = 10
+    PUSHABLE_PULLABLE = 11
+    TRAFFICCONE = 12
+    BICYCLE_RACK = 13
+    BICYCLE = 14
+    BUS_BENDY = 15
+    BUS_RIGID = 16
+    CAR = 17
+    CONSTRUCTION_VEHICLE = 18
+    EMERGENCY_AMBULANCE = 19
+    EMERGENCY_POLICE = 20
+    MOTORCYCLE = 21
+    TRAILER = 22
+    TRUCK = 23
+    DRIVEABLE_SURFACE = 24
+    OTHER_FLAT = 25
+    SIDEWALK = 26
+    TERRAIN = 27
+    MANMADE = 28
+    STATIC_OTHER = 29
+    VEGETATION = 30
+    EGO = 31
+
+    def to_default(self) -> DefaultLidarSegmentationLabel:
+        """Inherited, see superclass."""
+        mapping = {
+            # Noise / ego self-returns — ignored.
+            NuScenesLidarSegmentationLabel.NOISE: DefaultLidarSegmentationLabel.IGNORE,
+            NuScenesLidarSegmentationLabel.EGO: DefaultLidarSegmentationLabel.IGNORE,
+            # People (all pedestrian subclasses, incl. personal mobility / stroller / wheelchair).
+            NuScenesLidarSegmentationLabel.PEDESTRIAN_ADULT: DefaultLidarSegmentationLabel.PERSON,
+            NuScenesLidarSegmentationLabel.PEDESTRIAN_CHILD: DefaultLidarSegmentationLabel.PERSON,
+            NuScenesLidarSegmentationLabel.PEDESTRIAN_CONSTRUCTION_WORKER: DefaultLidarSegmentationLabel.PERSON,
+            NuScenesLidarSegmentationLabel.PEDESTRIAN_PERSONAL_MOBILITY: DefaultLidarSegmentationLabel.PERSON,
+            NuScenesLidarSegmentationLabel.PEDESTRIAN_POLICE_OFFICER: DefaultLidarSegmentationLabel.PERSON,
+            NuScenesLidarSegmentationLabel.PEDESTRIAN_STROLLER: DefaultLidarSegmentationLabel.PERSON,
+            NuScenesLidarSegmentationLabel.PEDESTRIAN_WHEELCHAIR: DefaultLidarSegmentationLabel.PERSON,
+            # Two-wheeled vehicles.
+            NuScenesLidarSegmentationLabel.BICYCLE: DefaultLidarSegmentationLabel.TWO_WHEELER,
+            NuScenesLidarSegmentationLabel.MOTORCYCLE: DefaultLidarSegmentationLabel.TWO_WHEELER,
+            # Four-wheeled / large vehicles.
+            NuScenesLidarSegmentationLabel.BUS_BENDY: DefaultLidarSegmentationLabel.VEHICLE,
+            NuScenesLidarSegmentationLabel.BUS_RIGID: DefaultLidarSegmentationLabel.VEHICLE,
+            NuScenesLidarSegmentationLabel.CAR: DefaultLidarSegmentationLabel.VEHICLE,
+            NuScenesLidarSegmentationLabel.CONSTRUCTION_VEHICLE: DefaultLidarSegmentationLabel.VEHICLE,
+            NuScenesLidarSegmentationLabel.EMERGENCY_AMBULANCE: DefaultLidarSegmentationLabel.VEHICLE,
+            NuScenesLidarSegmentationLabel.EMERGENCY_POLICE: DefaultLidarSegmentationLabel.VEHICLE,
+            NuScenesLidarSegmentationLabel.TRAILER: DefaultLidarSegmentationLabel.VEHICLE,
+            NuScenesLidarSegmentationLabel.TRUCK: DefaultLidarSegmentationLabel.VEHICLE,
+            # Road furniture / barriers.
+            NuScenesLidarSegmentationLabel.BARRIER: DefaultLidarSegmentationLabel.BARRIER,
+            NuScenesLidarSegmentationLabel.TRAFFICCONE: DefaultLidarSegmentationLabel.TRAFFIC_CONE,
+            NuScenesLidarSegmentationLabel.BICYCLE_RACK: DefaultLidarSegmentationLabel.MANMADE,
+            NuScenesLidarSegmentationLabel.MANMADE: DefaultLidarSegmentationLabel.MANMADE,
+            # Ground / flat surfaces.
+            NuScenesLidarSegmentationLabel.DRIVEABLE_SURFACE: DefaultLidarSegmentationLabel.DRIVABLE_SURFACE,
+            NuScenesLidarSegmentationLabel.SIDEWALK: DefaultLidarSegmentationLabel.SIDEWALK,
+            NuScenesLidarSegmentationLabel.TERRAIN: DefaultLidarSegmentationLabel.TERRAIN,
+            NuScenesLidarSegmentationLabel.VEGETATION: DefaultLidarSegmentationLabel.VEGETATION,
+            # Miscellaneous — no exact default counterpart.
+            NuScenesLidarSegmentationLabel.ANIMAL: DefaultLidarSegmentationLabel.OTHER,
+            NuScenesLidarSegmentationLabel.DEBRIS: DefaultLidarSegmentationLabel.OTHER,
+            NuScenesLidarSegmentationLabel.PUSHABLE_PULLABLE: DefaultLidarSegmentationLabel.OTHER,
+            NuScenesLidarSegmentationLabel.OTHER_FLAT: DefaultLidarSegmentationLabel.OTHER,
+            NuScenesLidarSegmentationLabel.STATIC_OTHER: DefaultLidarSegmentationLabel.OTHER,
+        }
+        return mapping[self]

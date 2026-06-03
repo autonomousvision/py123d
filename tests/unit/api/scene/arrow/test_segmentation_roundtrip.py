@@ -8,7 +8,7 @@ import numpy as np
 import pyarrow as pa
 
 from py123d.api.scene.arrow.modalities.arrow_camera import ArrowCameraReader, ArrowCameraWriter
-from py123d.api.scene.arrow.modalities.arrow_lidar import ArrowLidarReader, ArrowLidarWriter
+from py123d.api.scene.arrow.modalities.arrow_lidar import ArrowLidarReader, ArrowLidarWriter, _read_load_kwargs
 from py123d.api.utils.arrow_metadata_utils import resolve_metadata_class
 from py123d.datatypes import Timestamp
 from py123d.datatypes.modalities.base_modality import ModalityType
@@ -17,8 +17,10 @@ from py123d.datatypes.sensors.lidar import Lidar, LidarFeature, LidarID, LidarMe
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata, PinholeDistortion, PinholeIntrinsics
 from py123d.datatypes.sensors.segmentation_camera import SegmentationCameraMetadata
 from py123d.geometry.pose import PoseSE3
+from py123d.parser.base_dataset_parser import ParsedLidar
 from py123d.parser.camera_segmentation_registry import WODPerceptionCameraSegmentationLabel
 from py123d.parser.lidar_segmentation_registry import (
+    NuScenesLidarSegmentationLabel,
     PandasetLidarSegmentationLabel,
     WODPerceptionLidarSegmentationLabel,
 )
@@ -229,3 +231,53 @@ class TestSegmentationLabelTaxonomy:
         assert max(int(label) for label in PandasetLidarSegmentationLabel) == 42
         for label in PandasetLidarSegmentationLabel:
             assert label.to_default() is not None
+
+    def test_nuscenes_lidar_enum_size_and_default_mapping(self):
+        # nuScenes-lidarseg / panoptic share a 32-class taxonomy with raw ids 0..31 (0 == noise).
+        assert len(NuScenesLidarSegmentationLabel) == 32
+        assert min(int(label) for label in NuScenesLidarSegmentationLabel) == 0
+        assert max(int(label) for label in NuScenesLidarSegmentationLabel) == 31
+        for label in NuScenesLidarSegmentationLabel:
+            assert label.to_default() is not None
+
+
+class TestLidarPathKwargsColumn:
+    """The "path" store option must persist ``ParsedLidar.load_kwargs`` (e.g. the nuScenes panoptic
+    path) so per-point segmentation can be re-read at API time, and tolerate its absence."""
+
+    def _write_path_lidar(self, log_dir: Path, load_kwargs):
+        metadata = LidarMergedMetadata({LidarID.LIDAR_TOP: LidarMetadata("top", LidarID.LIDAR_TOP)})
+        writer = ArrowLidarWriter(
+            log_dir=log_dir,
+            metadata=metadata,
+            log_metadata=make_log_metadata(),
+            lidar_store_option="path",
+            lidar_codec=None,
+        )
+        writer.write_modality(
+            ParsedLidar(
+                metadata=metadata,
+                start_timestamp=Timestamp.from_us(1000),
+                end_timestamp=Timestamp.from_us(51000),
+                dataset_root="/data/nuscenes",
+                relative_path="samples/LIDAR_TOP/x.pcd.bin",
+                load_kwargs=load_kwargs,
+            )
+        )
+        writer.close()
+        table = pa.ipc.open_file(str(log_dir / f"{metadata.modality_key}.arrow")).read_all()
+        return table, metadata.modality_key
+
+    def test_kwargs_roundtrip(self, tmp_path: Path):
+        load_kwargs = {
+            "lidarseg_relative_path": "lidarseg/v1.0-mini/abc_lidarseg.bin",
+            "panoptic_relative_path": "panoptic/v1.0-mini/abc_panoptic.npz",
+        }
+        table, key = self._write_path_lidar(tmp_path, load_kwargs)
+        assert f"{key}.kwargs" in table.schema.names
+        assert _read_load_kwargs(table, 0, key) == load_kwargs
+
+    def test_kwargs_null_when_absent(self, tmp_path: Path):
+        # Datasets without per-frame extras (or non-keyframe sweeps) write a null cell → read as None.
+        table, key = self._write_path_lidar(tmp_path, None)
+        assert _read_load_kwargs(table, 0, key) is None

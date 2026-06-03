@@ -37,6 +37,7 @@ from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadat
 from py123d.geometry import BoundingBoxSE3, PoseSE3, Vector3D
 from py123d.geometry.transform.transform_se3 import rel_to_abs_se3
 from py123d.parser.base_dataset_parser import ParsedCamera, ParsedLidar
+from py123d.parser.lidar_segmentation_registry import NuScenesLidarSegmentationLabel
 from py123d.parser.nuscenes.utils.nuscenes_constants import (
     NUSCENES_BOX_DETECTIONS_SE3_METADATA,
     NUSCENES_CAMERA_IDS,
@@ -52,6 +53,79 @@ from nuscenes.can_bus.can_bus_api import NuScenesCanBus
 # Since we select the last camera *before* the lidar timestamp, the offset can be up to one full
 # camera period (~83 ms at ~12 Hz). We use 100 ms to be consistent with the keyframe extraction.
 _CAMERA_TIMESTAMP_TOLERANCE_US: int = 100_000
+
+# Canonical nuScenes-lidarseg category index → name, in the order published in the devkit's
+# ``nuscenes/utils/color_map.py``. Used only to validate the on-disk ``category.json`` indexing against
+# :class:`NuScenesLidarSegmentationLabel` at conversion time (fail loudly on taxonomy drift rather than
+# silently mislabel). nuScenes-panoptic reuses this same 32-class semantic taxonomy.
+_NUSCENES_LIDARSEG_IDX2NAME: Dict[int, str] = {
+    0: "noise",
+    1: "animal",
+    2: "human.pedestrian.adult",
+    3: "human.pedestrian.child",
+    4: "human.pedestrian.construction_worker",
+    5: "human.pedestrian.personal_mobility",
+    6: "human.pedestrian.police_officer",
+    7: "human.pedestrian.stroller",
+    8: "human.pedestrian.wheelchair",
+    9: "movable_object.barrier",
+    10: "movable_object.debris",
+    11: "movable_object.pushable_pullable",
+    12: "movable_object.trafficcone",
+    13: "static_object.bicycle_rack",
+    14: "vehicle.bicycle",
+    15: "vehicle.bus.bendy",
+    16: "vehicle.bus.rigid",
+    17: "vehicle.car",
+    18: "vehicle.construction",
+    19: "vehicle.emergency.ambulance",
+    20: "vehicle.emergency.police",
+    21: "vehicle.motorcycle",
+    22: "vehicle.trailer",
+    23: "vehicle.truck",
+    24: "flat.driveable_surface",
+    25: "flat.other",
+    26: "flat.sidewalk",
+    27: "flat.terrain",
+    28: "static.manmade",
+    29: "static.other",
+    30: "static.vegetation",
+    31: "vehicle.ego",
+}
+
+
+def _validate_nuscenes_lidarseg_taxonomy(nusc: NuScenes) -> None:
+    """Asserts the dataset's lidarseg category indexing matches :class:`NuScenesLidarSegmentationLabel`.
+
+    The on-disk ``category.json`` ``index`` field is exposed by the devkit as
+    ``nusc.lidarseg_idx2name_mapping``. If it ever diverges from our hardcoded enum, the per-point ids
+    we store would be silently mislabeled — so we fail loudly here at conversion time instead.
+    """
+    idx2name = getattr(nusc, "lidarseg_idx2name_mapping", None)
+    assert idx2name, "nuScenes panoptic is loaded but `lidarseg_idx2name_mapping` is unavailable."
+    for idx, name in _NUSCENES_LIDARSEG_IDX2NAME.items():
+        assert idx2name.get(idx) == name, (
+            f"nuScenes lidarseg taxonomy mismatch at index {idx}: dataset has {idx2name.get(idx)!r}, "
+            f"NuScenesLidarSegmentationLabel expects {name!r}. The category.json indexing differs from "
+            "the hardcoded enum — update NuScenesLidarSegmentationLabel."
+        )
+
+
+def _nuscenes_segmentation_load_kwargs(nusc: NuScenes, lidar_sample_data_token: str) -> Optional[Dict[str, str]]:
+    """Returns loader kwargs with the keyframe's lidarseg + panoptic label relative paths, or ``None``.
+
+    Both are optional, keyframe-only add-ons; the SEMANTIC class id comes from lidarseg and the INSTANCE
+    id from panoptic. Absence of a table (or of a record for this sample_data token) just drops that key,
+    so segmentation degrades gracefully (e.g. instance-only or nothing at all).
+    """
+    load_kwargs: Dict[str, str] = {}
+    for table, key in (("lidarseg", "lidarseg_relative_path"), ("panoptic", "panoptic_relative_path")):
+        if getattr(nusc, table, None):
+            try:
+                load_kwargs[key] = nusc.get(table, lidar_sample_data_token)["filename"]
+            except KeyError:
+                pass
+    return load_kwargs or None
 
 
 # ------------------------------------------------------------------------------------------------------------------
@@ -131,10 +205,17 @@ def get_nuscenes_lidar_merged_metadata(
         rotation=np.array(calib["rotation"], dtype=np.float64),
         translation=np.array(calib["translation"], dtype=np.float64),
     )
+    # When nuScenes-lidarseg is present, tag the top lidar with its taxonomy so the per-point SEMANTIC
+    # ids are self-describing (drives the viz semantic overlay). Validate the on-disk indexing first.
+    segmentation_label_class = None
+    if getattr(nusc, "lidarseg", None):
+        _validate_nuscenes_lidarseg_taxonomy(nusc)
+        segmentation_label_class = NuScenesLidarSegmentationLabel
     metadata[LidarID.LIDAR_TOP] = LidarMetadata(
         lidar_name="LIDAR_TOP",
         lidar_id=LidarID.LIDAR_TOP,
         lidar_to_imu_se3=lidar_to_imu_se3,
+        segmentation_label_class=segmentation_label_class,
     )
     return LidarMergedMetadata(metadata)
 
@@ -734,20 +815,24 @@ def extract_nuscenes_lidar(
     lidar_token = sample["data"]["LIDAR_TOP"]
     lidar_data = nusc.get("sample_data", lidar_token)
     absolute_lidar_path = nuscenes_data_root / lidar_data["filename"]
+    parsed_lidar: Optional[ParsedLidar] = None
     if absolute_lidar_path.exists() and absolute_lidar_path.is_file():
         # The nuScenes lidar timestamp marks the end of the sweep (full rotation).
         # The sweep covers the 1/20s (50ms) period before that timestamp.
         end_timestamp = Timestamp.from_us(sample["timestamp"])
         start_timestamp = Timestamp.from_us(sample["timestamp"] - NUSCENES_LIDAR_SWEEP_DURATION_US)
-        return ParsedLidar(
+        parsed_lidar = ParsedLidar(
             metadata=lidar_metadata,
             start_timestamp=start_timestamp,
             end_timestamp=end_timestamp,
             relative_path=absolute_lidar_path.relative_to(nuscenes_data_root),
             dataset_root=nuscenes_data_root,
             iteration=lidar_data.get("iteration"),
+            # nuScenes lidarseg/panoptic (keyframe-only, optional) label paths carried as a generic
+            # loader extra so the opaquely-named files can be re-read at API time under the "path" store.
+            load_kwargs=_nuscenes_segmentation_load_kwargs(nusc, lidar_token),
         )
-    return None
+    return parsed_lidar
 
 
 def extract_lidar_from_sample_data(
