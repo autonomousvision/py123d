@@ -224,7 +224,7 @@ class WODPerceptionParser(BaseDatasetParser):
             initial_frame = _get_initial_frame_from_tfrecord(source_tf_record_path)
             map_parsers.append(
                 WODMapParser(
-                    dataset="wod_perception",
+                    dataset="wod-perception",
                     split=split,
                     log_name=str(initial_frame.context.name),
                     source_tf_record_path=source_tf_record_path,
@@ -271,7 +271,7 @@ class WODPerceptionLogParser(BaseLogParser):
         """Inherited, see superclass."""
         initial_frame = _get_initial_frame_from_tfrecord(self._source_tf_record_path)
         return LogMetadata(
-            dataset="wod_perception",
+            dataset="wod-perception",
             split=self._split,
             log_name=str(initial_frame.context.name),
             location=str(initial_frame.context.stats.location),

@@ -37,7 +37,7 @@ def load_point_cloud_data_from_path(
 
         lidar_pcs_dict = load_av2_sensor_point_cloud_data_from_path(full_lidar_path)
 
-    elif dataset == "wod_perception":
+    elif dataset in ("wod-perception", "wod_perception"):  # "wod_perception" retained for legacy logs
         from py123d.parser.wod.wod_perception_sensor_io import (
             load_wod_perception_point_cloud_data_from_path,
         )
