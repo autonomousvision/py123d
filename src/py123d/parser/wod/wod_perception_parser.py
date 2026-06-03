@@ -8,9 +8,11 @@ from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Tuple, Union
 import numpy as np
 
 from py123d.datatypes import (
+    BaseModality,
     BoxDetectionAttributes,
     BoxDetectionSE3,
     BoxDetectionsSE3,
+    Camera,
     CameraID,
     EgoStateSE3,
     LidarID,
@@ -19,6 +21,7 @@ from py123d.datatypes import (
     PinholeCameraMetadata,
     PinholeDistortion,
     PinholeIntrinsics,
+    SegmentationCameraMetadata,
     Timestamp,
 )
 from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3Metadata
@@ -48,6 +51,8 @@ from py123d.parser.base_dataset_parser import (
     ParsedCamera,
     ParsedLidar,
 )
+from py123d.parser.camera_segmentation_registry import WODPerceptionCameraSegmentationLabel
+from py123d.parser.lidar_segmentation_registry import WODPerceptionLidarSegmentationLabel
 from py123d.parser.registry import WODPerceptionBoxDetectionLabel
 from py123d.parser.utils.sensor_utils.camera_conventions import CameraConvention, convert_camera_convention
 from py123d.parser.wod.utils.wod_constants import (
@@ -401,10 +406,14 @@ def _get_wod_perception_lidar_merged_metadata(
             extrinsic_transform = np.array(laser_calibration.extrinsic.transform, dtype=np.float64).reshape(4, 4)
             extrinsic = PoseSE3.from_transformation_matrix(extrinsic_transform)
 
+        # Waymo provides 3D semantic segmentation only for the TOP lidar; tag it with its taxonomy so
+        # the per-point LidarFeature.SEMANTIC ids are self-describing (used by e.g. segmentation overlays).
+        segmentation_label_class = WODPerceptionLidarSegmentationLabel if lidar_type == LidarID.LIDAR_TOP else None
         laser_metadatas[lidar_type] = LidarMetadata(
             lidar_name=str(laser_calibration.name),
             lidar_id=lidar_type,
             lidar_to_imu_se3=extrinsic,
+            segmentation_label_class=segmentation_label_class,
         )
 
     return LidarMergedMetadata(laser_metadatas)
@@ -465,7 +474,7 @@ def _extract_wod_perception_box_detections(
             roll=DEFAULT_ROLL,
             pitch=DEFAULT_PITCH,
             yaw=detection.box.heading,
-        ).quaternion
+        ).quaternion.array
 
         detections_state[detection_idx, BoundingBoxSE3Index.X] = detection.box.center_x
         detections_state[detection_idx, BoundingBoxSE3Index.Y] = detection.box.center_y
@@ -513,7 +522,7 @@ def _extract_wod_perception_cameras(
     frame: dataset_pb2.Frame,
     camera_metadatas: Dict[CameraID, PinholeCameraMetadata],
     map_pose_offset: Vector3D,
-) -> List[ParsedCamera]:
+) -> List[BaseModality]:
     """Extracts the camera data from a WOD Perception frame.
 
     Each camera has its own ``pose_timestamp`` (seconds since epoch) from the proto,
@@ -530,7 +539,10 @@ def _extract_wod_perception_cameras(
 
     This follows the same pattern as AV2, nuPlan, PandaSet, and KITTI-360 parsers.
     """
-    camera_data_list: List[ParsedCamera] = []
+    # Lazy import keeps the parser module free of the tensorflow import at load time.
+    from py123d.parser.wod.wod_perception_sensor_io import load_wod_perception_camera_semantic_label
+
+    camera_data_list: List[BaseModality] = []
 
     for image_proto in frame.images:
         camera_type = WOD_PERCEPTION_CAMERA_IDS[image_proto.name]
@@ -549,16 +561,33 @@ def _extract_wod_perception_cameras(
             origin=camera_ego_pose,
             pose_se3=metadata.camera_to_imu_se3,
         )
+        timestamp = Timestamp.from_s(image_proto.pose_timestamp)
 
         # NOTE: WOD also provides {shutter, camera_trigger_time, camera_readout_done_time}
         camera_data_list.append(
             ParsedCamera(
                 metadata=metadata,
-                timestamp=Timestamp.from_s(image_proto.pose_timestamp),
+                timestamp=timestamp,
                 camera_to_global_se3=camera_to_global_se3,
                 byte_string=image_proto.image,
             )
         )
+
+        # 2D camera semantic segmentation, only on frames Waymo annotated (sparse). Emitted as a
+        # pixel-aligned sibling stream sharing this camera's id, geometry, and pose.
+        semantic_label = load_wod_perception_camera_semantic_label(image_proto.camera_segmentation_label)
+        if semantic_label is not None:
+            camera_data_list.append(
+                Camera(
+                    metadata=SegmentationCameraMetadata(
+                        camera_metadata=metadata,
+                        segmentation_label_class=WODPerceptionCameraSegmentationLabel,
+                    ),
+                    image=semantic_label,
+                    camera_to_global_se3=camera_to_global_se3,
+                    timestamp=timestamp,
+                )
+            )
 
     return camera_data_list
 

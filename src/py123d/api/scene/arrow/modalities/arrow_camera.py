@@ -18,14 +18,16 @@ from py123d.common.io.camera.jpeg_camera_io import (
 from py123d.common.io.camera.mp4_camera_io import MP4Writer, get_mp4_reader_from_path
 from py123d.common.io.camera.png_camera_io import (
     decode_image_from_png_binary,
+    decode_label_map_from_png_binary,
     encode_image_as_png_binary,
+    encode_label_map_as_png_binary,
     is_png_binary,
     load_image_from_png_file,
     load_png_binary_from_png_file,
 )
 from py123d.common.runtime import get_dataset_paths
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata
-from py123d.datatypes.sensors.base_camera import BaseCameraMetadata, Camera
+from py123d.datatypes.sensors.base_camera import BaseCameraMetadata, Camera, CameraChannelType
 from py123d.datatypes.time.timestamp import Timestamp
 from py123d.geometry.geometry_index import PoseSE3Index
 from py123d.geometry.pose import PoseSE3
@@ -39,6 +41,7 @@ CAMERA_CODEC_PA_DTYPES = {
     "path": pa.string(),
     "jpeg_binary": pa.binary(),
     "png_binary": pa.binary(),
+    "label_png": pa.binary(),
     "mp4": pa.int32(),
 }
 
@@ -46,6 +49,7 @@ CAMERA_CODEC_MAX_BATCH_SIZES = {
     "path": 1000,
     "jpeg_binary": 10,
     "png_binary": 10,
+    "label_png": 10,
     "mp4": 1000,
 }
 
@@ -55,12 +59,12 @@ class ArrowCameraWriter(ArrowBaseModalityWriter):
         self,
         log_dir: Path,
         metadata: BaseModalityMetadata,
-        camera_codec: Literal["path", "jpeg_binary", "png_binary", "mp4"] = "path",
+        camera_codec: Literal["path", "jpeg_binary", "png_binary", "label_png", "mp4"] = "path",
         ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
         ipc_compression_level: Optional[int] = None,
     ) -> None:
         assert isinstance(metadata, BaseCameraMetadata), f"Expected BaseCameraMetadata subclass, got {type(metadata)}"
-        assert camera_codec in {"path", "jpeg_binary", "png_binary", "mp4"}, f"Unsupported camera codec: {camera_codec}"
+        assert camera_codec in CAMERA_CODEC_PA_DTYPES, f"Unsupported camera codec: {camera_codec}"
 
         self._metadata = metadata
         self._camera_codec = camera_codec
@@ -93,6 +97,8 @@ class ArrowCameraWriter(ArrowBaseModalityWriter):
             data: Union[str, bytes, int] = _get_jpeg_binary_from_camera_modality(modality)
         elif self._camera_codec == "png_binary":
             data = _get_png_binary_from_camera_modality(modality)
+        elif self._camera_codec == "label_png":
+            data = _get_label_png_binary_from_camera_modality(modality)
         elif self._camera_codec == "mp4":
             image = _get_numpy_image_from_camera_modality(modality)
             if self._mp4_writer is None:
@@ -180,6 +186,30 @@ def _get_png_binary_from_camera_modality(camera_data: Union[ParsedCamera, Camera
         raise NotImplementedError(f"Unsupported camera type for png_binary codec: {type(camera_data)}")
 
 
+def _get_label_png_binary_from_camera_modality(camera_data: Union[ParsedCamera, Camera]) -> bytes:
+    """Encode a semantic camera (single-channel integer label map) as lossless PNG binary.
+
+    A :class:`Camera` carries the label map directly in ``image``. A :class:`ParsedCamera` is
+    expected to already provide a PNG-encoded label map (byte string or ``.png`` file).
+    """
+    if isinstance(camera_data, Camera):
+        return encode_label_map_as_png_binary(camera_data.image)
+    elif isinstance(camera_data, ParsedCamera):
+        if camera_data.has_byte_string:
+            byte_string = camera_data._byte_string
+            assert byte_string is not None and is_png_binary(byte_string), (
+                "label_png codec requires the ParsedCamera byte_string to be a PNG-encoded label map."
+            )
+            return byte_string
+        elif camera_data.has_png_file_path:
+            absolute_path = Path(camera_data._dataset_root) / camera_data.relative_path  # type: ignore
+            return load_png_binary_from_png_file(absolute_path)
+        else:
+            raise NotImplementedError("label_png codec requires a Camera image or a PNG ParsedCamera.")
+    else:
+        raise NotImplementedError(f"Unsupported camera type for label_png codec: {type(camera_data)}")
+
+
 def _get_numpy_image_from_camera_modality(camera_data: Union[ParsedCamera, Camera]) -> np.ndarray:
     """Extract an RGB numpy image from a camera modality for MP4 encoding."""
     if isinstance(camera_data, Camera):
@@ -251,6 +281,7 @@ class ArrowCameraReader(ArrowBaseModalityReader):
                     scale=scale,
                     log_dir=log_dir,
                     modality_key=metadata.modality_key,
+                    channel_type=metadata.channel_type,
                 )
             elif column == "camera_to_global_se3":
                 column_at_iteration = PoseSE3.from_list(column_at_iteration)
@@ -294,6 +325,7 @@ def _deserialize_camera(
         scale=scale,
         log_dir=log_dir,
         modality_key=modality_key,
+        channel_type=camera_metadata.channel_type,
     )
     camera_to_global_se3 = PoseSE3.from_list(camera_to_global_se3_data)
     assert image is not None, "Failed to load camera image from Arrow table data."
@@ -311,9 +343,23 @@ def _deserialize_data_column(
     scale: Optional[int] = None,
     log_dir: Optional[Path] = None,
     modality_key: Optional[str] = None,
+    channel_type: CameraChannelType = CameraChannelType.RGB,
 ) -> Optional[Any]:
     image: Optional[np.ndarray] = None
-    if isinstance(data, str):
+    # Semantic cameras store a single-channel integer label map; decode it without colour conversion
+    # and resample with nearest-neighbour so class ids are preserved exactly.
+    if channel_type == CameraChannelType.SEMANTIC:
+        if isinstance(data, bytes):
+            image = decode_label_map_from_png_binary(data, scale=scale)
+        elif isinstance(data, str):
+            sensor_root = get_dataset_paths().get_sensor_root(dataset)
+            assert sensor_root is not None, f"Dataset path for sensor loading not found for dataset: {dataset}"
+            full_label_path = Path(sensor_root) / data
+            assert full_label_path.exists(), f"Semantic camera file not found: {full_label_path}"
+            image = decode_label_map_from_png_binary(load_png_binary_from_png_file(full_label_path), scale=scale)
+        else:
+            raise NotImplementedError(f"Semantic camera data must be PNG bytes or a file path, got {type(data)}.")
+    elif isinstance(data, str):
         sensor_root = get_dataset_paths().get_sensor_root(dataset)
         assert sensor_root is not None, f"Dataset path for sensor loading not found for dataset: {dataset}"
         full_image_path = Path(sensor_root) / data

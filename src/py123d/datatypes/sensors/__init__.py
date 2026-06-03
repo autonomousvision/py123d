@@ -8,6 +8,12 @@ from py123d.datatypes.sensors.base_camera import (
     CameraModel,
     camera_metadata_from_dict,
 )
+from py123d.datatypes.sensors.camera_segmentation_label import (
+    CAMERA_SEGMENTATION_LABEL_REGISTRY,
+    CameraSegmentationLabel,
+    DefaultCameraSegmentationLabel,
+    register_camera_segmentation_label,
+)
 from py123d.datatypes.sensors.fisheye_mei_camera import (
     FisheyeMEICameraMetadata,
     FisheyeMEIDistortion,
@@ -27,6 +33,12 @@ from py123d.datatypes.sensors.lidar import (
     LidarMergedMetadata,
     LidarMetadata,
 )
+from py123d.datatypes.sensors.lidar_segmentation_label import (
+    LIDAR_SEGMENTATION_LABEL_REGISTRY,
+    DefaultLidarSegmentationLabel,
+    LidarSegmentationLabel,
+    register_lidar_segmentation_label,
+)
 from py123d.datatypes.sensors.pinhole_camera import (
     PinholeCameraMetadata,
     PinholeDistortion,
@@ -34,6 +46,7 @@ from py123d.datatypes.sensors.pinhole_camera import (
     PinholeIntrinsics,
     PinholeIntrinsicsIndex,
 )
+from py123d.datatypes.sensors.segmentation_camera import SegmentationCameraMetadata
 
 CameraMetadata = Union[PinholeCameraMetadata, FisheyeMEICameraMetadata, FThetaCameraMetadata]
 
@@ -45,6 +58,17 @@ __all__ = [
     "CameraID",
     "CameraModel",
     "camera_metadata_from_dict",
+    # Camera segmentation
+    "SegmentationCameraMetadata",
+    "CameraSegmentationLabel",
+    "DefaultCameraSegmentationLabel",
+    "CAMERA_SEGMENTATION_LABEL_REGISTRY",
+    "register_camera_segmentation_label",
+    # Lidar segmentation
+    "LidarSegmentationLabel",
+    "DefaultLidarSegmentationLabel",
+    "LIDAR_SEGMENTATION_LABEL_REGISTRY",
+    "register_lidar_segmentation_label",
     # Fisheye MEI camera
     "FisheyeMEICameraMetadata",
     "FisheyeMEIDistortion",

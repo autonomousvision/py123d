@@ -20,6 +20,8 @@ class CameraChannelType(SerialIntEnum):
 
     RGB = 0
     GRAYSCALE = 1
+    SEMANTIC = 2
+    """A single-channel, per-pixel semantic class-id label map (lossless integer image)."""
 
 
 class CameraModel(SerialIntEnum):
@@ -208,7 +210,15 @@ class BaseCameraMetadata(BaseModalityMetadata, abc.ABC):
 
     @property
     def modality_type(self) -> ModalityType:
-        """Returns the type of the modality that this metadata describes."""
+        """Returns the type of the modality that this metadata describes.
+
+        The channel type drives the modality: a :attr:`CameraChannelType.SEMANTIC` camera is a
+        per-pixel segmentation stream (:attr:`ModalityType.CAMERA_SEGMENTATION`), written to its
+        own Arrow file so it sits alongside — and never collides with — the RGB camera that shares
+        its :attr:`camera_id`. All other channel types are regular :attr:`ModalityType.CAMERA`.
+        """
+        if self.channel_type == CameraChannelType.SEMANTIC:
+            return ModalityType.CAMERA_SEGMENTATION
         return ModalityType.CAMERA
 
     @property

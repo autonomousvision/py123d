@@ -26,7 +26,7 @@ from py123d.datatypes.custom.custom_modality import CustomModalityMetadata
 from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3Metadata
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionsMetadata
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata
-from py123d.datatypes.sensors.base_camera import BaseCameraMetadata
+from py123d.datatypes.sensors.base_camera import BaseCameraMetadata, CameraChannelType
 from py123d.datatypes.sensors.lidar import LidarMergedMetadata, LidarMetadata
 from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadata
 from py123d.parser.base_dataset_parser import ModalitiesSync
@@ -183,10 +183,17 @@ class ArrowLogWriter(BaseLogWriter):
             )
 
         elif isinstance(modality_metadata, BaseCameraMetadata):
+            # Semantic cameras are integer label maps: always use the lossless single-channel codec,
+            # never the (potentially lossy) RGB store option configured for regular cameras.
+            camera_codec = (
+                "label_png"
+                if modality_metadata.channel_type == CameraChannelType.SEMANTIC
+                else self._log_writer_config.camera_store_option
+            )
             modality_writer = ArrowCameraWriter(
                 log_dir=self._state.log_dir,
                 metadata=modality_metadata,
-                camera_codec=self._log_writer_config.camera_store_option,
+                camera_codec=camera_codec,
                 ipc_compression=self._ipc_compression,
                 ipc_compression_level=self._ipc_compression_level,
             )
