@@ -7,8 +7,10 @@ from pathlib import Path
 import numpy as np
 import pyarrow as pa
 
+from py123d.api.scene.arrow.arrow_log_writer import ArrowLogWriter, SyncConfig
 from py123d.api.scene.arrow.modalities.arrow_camera import ArrowCameraReader, ArrowCameraWriter
 from py123d.api.scene.arrow.modalities.arrow_lidar import ArrowLidarReader, ArrowLidarWriter, _read_load_kwargs
+from py123d.api.scene.arrow.utils.log_writer_config import LogWriterConfig
 from py123d.api.utils.arrow_metadata_utils import resolve_metadata_class
 from py123d.datatypes import Timestamp
 from py123d.datatypes.modalities.base_modality import ModalityType
@@ -18,7 +20,10 @@ from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata, Pinho
 from py123d.datatypes.sensors.segmentation_camera import SegmentationCameraMetadata
 from py123d.geometry.pose import PoseSE3
 from py123d.parser.base_dataset_parser import ParsedLidar
-from py123d.parser.camera_segmentation_registry import WODPerceptionCameraSegmentationLabel
+from py123d.parser.camera_segmentation_registry import (
+    Kitti360CameraSegmentationLabel,
+    WODPerceptionCameraSegmentationLabel,
+)
 from py123d.parser.lidar_segmentation_registry import (
     NuScenesLidarSegmentationLabel,
     PandasetLidarSegmentationLabel,
@@ -44,10 +49,14 @@ def _make_rgb_camera_metadata(camera_id: CameraID = CameraID.PCAM_F0) -> Pinhole
     )
 
 
-def _make_segmentation_camera_metadata(camera_id: CameraID = CameraID.PCAM_F0) -> SegmentationCameraMetadata:
+def _make_segmentation_camera_metadata(
+    camera_id: CameraID = CameraID.PCAM_F0,
+    channel_type: CameraChannelType = CameraChannelType.SEMANTIC,
+) -> SegmentationCameraMetadata:
     return SegmentationCameraMetadata(
         camera_metadata=_make_rgb_camera_metadata(camera_id),
         segmentation_label_class=WODPerceptionCameraSegmentationLabel,
+        channel_type=channel_type,
     )
 
 
@@ -152,6 +161,43 @@ class TestSegmentationCameraMetadata:
         restored = metadata_class.from_dict(meta.to_dict())
         assert restored.segmentation_label_class is WODPerceptionCameraSegmentationLabel
 
+    def test_instance_channel_routes_to_own_modality_and_file(self):
+        meta = _make_segmentation_camera_metadata(channel_type=CameraChannelType.INSTANCE)
+        assert meta.modality_type == ModalityType.CAMERA_INSTANCE_SEGMENTATION
+        assert meta.channel_type == CameraChannelType.INSTANCE
+        assert meta.modality_key == "camera_instance_segmentation.pcam_f0"
+        # The instance modality resolves back to the same metadata class and round-trips its channel.
+        assert resolve_metadata_class("camera_instance_segmentation.pcam_f0") is SegmentationCameraMetadata
+        restored = SegmentationCameraMetadata.from_dict(meta.to_dict())
+        assert restored.channel_type == CameraChannelType.INSTANCE
+
+
+class TestSegmentationCodecSelection:
+    """ArrowLogWriter must store segmentation by reference in "path" mode (no per-frame PNG inline)
+    and only fall back to the lossless label_png codec for inline store options."""
+
+    def _camera_codec_for(self, tmp_path: Path, store_option: str, channel_type: CameraChannelType) -> str:
+        writer = ArrowLogWriter(
+            LogWriterConfig(camera_store_option=store_option),
+            logs_root=tmp_path,
+            sensors_root=tmp_path,
+            sync_config=SyncConfig(reference_column="lidar.lidar_merged.timestamp_us"),
+        )
+        writer.reset(make_log_metadata())
+        modality_writer = writer._build_modality_writer(_make_segmentation_camera_metadata(channel_type=channel_type))
+        return modality_writer._camera_codec  # type: ignore[attr-defined]
+
+    def test_path_store_option_stores_segmentation_by_path(self, tmp_path: Path):
+        # KITTI-360 case: path mode must NOT inline label PNGs (the conversion-speed regression fix).
+        assert self._camera_codec_for(tmp_path, "path", CameraChannelType.SEMANTIC) == "path"
+        assert self._camera_codec_for(tmp_path, "path", CameraChannelType.INSTANCE) == "path"
+
+    def test_inline_store_option_uses_label_png(self, tmp_path: Path):
+        # WOD case: an inline (lossy/RGB) store option must fall back to the lossless label_png codec,
+        # never jpeg/png/mp4, which would corrupt integer class ids.
+        assert self._camera_codec_for(tmp_path, "jpeg_binary", CameraChannelType.SEMANTIC) == "label_png"
+        assert self._camera_codec_for(tmp_path, "png_binary", CameraChannelType.INSTANCE) == "label_png"
+
 
 class TestSegmentationCameraRoundtrip:
     """Label maps must survive the label_png codec losslessly, with pose/timestamp intact."""
@@ -191,6 +237,39 @@ class TestSegmentationCameraRoundtrip:
         result = self._write_and_read(tmp_path, camera)
         np.testing.assert_array_equal(result.image, label_map)
 
+    def test_instance_channel_uint16_label_map_lossless(self, tmp_path: Path):
+        # A panoptic/instance stream is a uint16 label map on the INSTANCE channel; it must survive
+        # the label_png codec exactly and write to its own (camera_instance_segmentation) file.
+        label_map = _make_label_map(np.uint16)
+        camera = Camera(
+            metadata=_make_segmentation_camera_metadata(channel_type=CameraChannelType.INSTANCE),
+            image=label_map,
+            camera_to_global_se3=PoseSE3.identity(),
+            timestamp=Timestamp.from_us(2),
+        )
+        result = self._write_and_read(tmp_path, camera)
+        np.testing.assert_array_equal(result.image, label_map)
+        assert (tmp_path / "camera_instance_segmentation.pcam_f0.arrow").exists()
+
+    def test_parsed_camera_png_path_label_png_lossless(self, tmp_path: Path):
+        # KITTI-360 emits a ParsedCamera pointing at an on-disk single-channel PNG (no in-memory
+        # decode); the label_png codec must store its raw bytes losslessly.
+        from py123d.common.io.camera.png_camera_io import encode_label_map_as_png_binary
+        from py123d.parser.base_dataset_parser import ParsedCamera
+
+        label_map = _make_label_map(np.uint8)
+        png_path = tmp_path / "0000000250.png"
+        png_path.write_bytes(encode_label_map_as_png_binary(label_map))
+        parsed = ParsedCamera(
+            metadata=_make_segmentation_camera_metadata(),
+            timestamp=Timestamp.from_us(250),
+            camera_to_global_se3=PoseSE3.identity(),
+            dataset_root=tmp_path,
+            relative_path="0000000250.png",
+        )
+        result = self._write_and_read(tmp_path, parsed)
+        np.testing.assert_array_equal(result.image, label_map)
+
     def test_segmentation_file_is_separate_from_rgb(self, tmp_path: Path):
         # Writing the RGB and segmentation siblings of the same camera must not collide.
         rgb_meta = _make_rgb_camera_metadata()
@@ -222,6 +301,14 @@ class TestSegmentationLabelTaxonomy:
     def test_wod_camera_enum_size_and_default_mapping(self):
         assert len(WODPerceptionCameraSegmentationLabel) == 29  # 28 classes + TYPE_UNDEFINED
         for label in WODPerceptionCameraSegmentationLabel:
+            assert label.to_default() is not None
+
+    def test_kitti360_camera_enum_size_and_default_mapping(self):
+        # KITTI-360 has 45 camera classes with raw ids 0..44 (license plate, id -1, excluded).
+        assert len(Kitti360CameraSegmentationLabel) == 45
+        assert min(int(label) for label in Kitti360CameraSegmentationLabel) == 0
+        assert max(int(label) for label in Kitti360CameraSegmentationLabel) == 44
+        for label in Kitti360CameraSegmentationLabel:
             assert label.to_default() is not None
 
     def test_pandaset_lidar_enum_size_and_default_mapping(self):

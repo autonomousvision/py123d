@@ -18,6 +18,8 @@ class ModalityType(SerialIntEnum):
     CAMERA = 5
     CAMERA_SEGMENTATION = 6
     """Per-pixel semantic segmentation image, pixel-aligned to a sibling :attr:`CAMERA` stream."""
+    CAMERA_INSTANCE_SEGMENTATION = 7
+    """Per-pixel panoptic/instance segmentation image, pixel-aligned to a sibling :attr:`CAMERA` stream."""
 
     # NOTE: @DanielDauner: Possible to add more types, e.g. radar, annotations, etc.
 

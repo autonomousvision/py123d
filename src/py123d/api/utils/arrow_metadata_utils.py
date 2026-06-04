@@ -86,6 +86,7 @@ def _get_modality_metadata_registry() -> Dict[ModalityType, Any]:
         ModalityType.TRAFFIC_LIGHT_DETECTIONS: TrafficLightDetectionsMetadata,
         ModalityType.CAMERA: _CameraMetadataFactory,
         ModalityType.CAMERA_SEGMENTATION: SegmentationCameraMetadata,
+        ModalityType.CAMERA_INSTANCE_SEGMENTATION: SegmentationCameraMetadata,
         ModalityType.LIDAR: LidarMetadata,
         ModalityType.CUSTOM: CustomModalityMetadata,
     }

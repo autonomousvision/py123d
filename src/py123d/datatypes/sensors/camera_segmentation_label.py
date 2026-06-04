@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import abc
 import importlib
-from typing import Type
+from typing import Dict, Tuple, Type
+
+import numpy as np
+import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
 
@@ -72,3 +75,57 @@ class DefaultCameraSegmentationLabel(CameraSegmentationLabel):
     def to_default(self) -> "DefaultCameraSegmentationLabel":
         """Inherited, see superclass."""
         return self
+
+
+# The canonical Cityscapes display palette [1]_, keyed by the unified camera label. This is the single source of
+# truth for camera-segmentation colors: :data:`py123d.visualization.color.default.DEFAULT_CAMERA_SEGMENTATION_COLORS`
+# derives its ``Color`` objects from these tuples. It lives in the data layer (as plain RGB tuples, no visualization
+# dependency) so that :attr:`py123d.datatypes.Camera.rgb_image` can colorize a semantic label map without importing
+# ``py123d.visualization`` (which would invert the package dependency direction).
+# [1] https://github.com/mcordts/cityscapesScripts (labels.py)
+DEFAULT_CAMERA_SEGMENTATION_RGB: Dict[DefaultCameraSegmentationLabel, Tuple[int, int, int]] = {
+    DefaultCameraSegmentationLabel.IGNORE: (0, 0, 0),
+    DefaultCameraSegmentationLabel.ROAD: (128, 64, 128),
+    DefaultCameraSegmentationLabel.SIDEWALK: (244, 35, 232),
+    DefaultCameraSegmentationLabel.BUILDING: (70, 70, 70),
+    DefaultCameraSegmentationLabel.POLE: (153, 153, 153),
+    DefaultCameraSegmentationLabel.TRAFFIC_LIGHT: (250, 170, 30),
+    DefaultCameraSegmentationLabel.TRAFFIC_SIGN: (220, 220, 0),
+    DefaultCameraSegmentationLabel.VEGETATION: (107, 142, 35),
+    DefaultCameraSegmentationLabel.TERRAIN: (152, 251, 152),
+    DefaultCameraSegmentationLabel.SKY: (70, 130, 180),
+    DefaultCameraSegmentationLabel.PERSON: (220, 20, 60),
+    DefaultCameraSegmentationLabel.RIDER: (255, 0, 0),
+    DefaultCameraSegmentationLabel.VEHICLE: (0, 0, 142),
+    DefaultCameraSegmentationLabel.TWO_WHEELER: (119, 11, 32),
+    DefaultCameraSegmentationLabel.OTHER: (120, 120, 120),
+}
+
+
+def colorize_semantic_label_map(
+    label_map: npt.NDArray[np.integer], label_class: Type[CameraSegmentationLabel]
+) -> npt.NDArray[np.uint8]:
+    """Color a 2D per-pixel class-id map with the Cityscapes palette via the unified default label.
+
+    Each raw, dataset-native class id is mapped to its :class:`DefaultCameraSegmentationLabel`
+    (``to_default()``) and then to the canonical Cityscapes-palette color
+    (:data:`DEFAULT_CAMERA_SEGMENTATION_RGB`). Ids unknown to the taxonomy fall back to the ``OTHER`` color.
+    Mirrors the LiDAR colorizer ``py123d.visualization.matplotlib.lidar._segmentation_colormap`` but operates on a
+    2D label map instead of a 1D per-point array.
+
+    :param label_map: ``(H, W)`` array of raw class ids (uint8 or uint16).
+    :param label_class: The dataset's :class:`CameraSegmentationLabel` enum for the stored class ids.
+    :return: ``(H, W, 3)`` array of RGB uint8 values.
+    """
+    ids = np.asarray(label_map).astype(np.int64)
+    member_ids = [int(member) for member in label_class]
+    lut_size = max(int(ids.max()) if ids.size else 0, max(member_ids) if member_ids else 0) + 1
+
+    other_rgb = np.array(DEFAULT_CAMERA_SEGMENTATION_RGB[DefaultCameraSegmentationLabel.OTHER], dtype=np.uint8)
+    lut = np.tile(other_rgb, (lut_size, 1))
+    for member in label_class:
+        rgb = DEFAULT_CAMERA_SEGMENTATION_RGB.get(member.to_default())
+        if rgb is not None:
+            lut[int(member)] = rgb
+
+    return np.ascontiguousarray(lut[np.clip(ids, 0, lut_size - 1)])

@@ -28,7 +28,7 @@ def add_camera_ax(ax: plt.Axes, camera: Camera, undistort: bool = False) -> plt.
     if undistort:
         camera = undistort_camera(camera)
 
-    ax.imshow(camera.image)
+    ax.imshow(camera.rgb_image)
     return ax
 
 
@@ -71,7 +71,7 @@ def add_lidar_to_camera_ax(
     lidar_pc_colors = np.array(get_lidar_pc_color(lidar, color_feature=color_feature, dark_mode=False))
     pc_in_cam, pc_in_fov_mask = _transform_pcs_to_images(lidar.xyz.copy(), camera, ego_state_se3)
 
-    ax.imshow(camera.image)
+    ax.imshow(camera.rgb_image)
     ax.scatter(
         pc_in_cam[pc_in_fov_mask, 0],
         pc_in_cam[pc_in_fov_mask, 1],
@@ -117,7 +117,7 @@ def add_box_detections_to_camera_ax(
     valid_corners = corners_pc_in_fov.any(-1)
 
     box_corners, default_labels = box_corners[valid_corners], default_labels[valid_corners]
-    image = _plot_rect_3d_on_img(camera.image.copy(), box_corners, default_labels)
+    image = _plot_rect_3d_on_img(camera.rgb_image.copy(), box_corners, default_labels)
 
     ax.imshow(image)
     return ax

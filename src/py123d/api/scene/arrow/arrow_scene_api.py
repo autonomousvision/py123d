@@ -41,6 +41,7 @@ MODALITY_READERS: Dict[ModalityType, Type[ArrowBaseModalityReader]] = {
     ModalityType.TRAFFIC_LIGHT_DETECTIONS: ArrowTrafficLightDetectionsReader,
     ModalityType.CAMERA: ArrowCameraReader,
     ModalityType.CAMERA_SEGMENTATION: ArrowCameraReader,
+    ModalityType.CAMERA_INSTANCE_SEGMENTATION: ArrowCameraReader,
     ModalityType.LIDAR: ArrowLidarReader,
     ModalityType.CUSTOM: ArrowCustomModalityReader,
 }

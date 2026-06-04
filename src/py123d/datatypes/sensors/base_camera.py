@@ -10,6 +10,7 @@ import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata, ModalityType
+from py123d.datatypes.sensors.camera_segmentation_label import colorize_semantic_label_map
 from py123d.datatypes.time.timestamp import Timestamp
 from py123d.geometry.pose import PoseSE3
 from py123d.geometry.transform import abs_to_rel_points_3d_array
@@ -22,6 +23,10 @@ class CameraChannelType(SerialIntEnum):
     GRAYSCALE = 1
     SEMANTIC = 2
     """A single-channel, per-pixel semantic class-id label map (lossless integer image)."""
+    INSTANCE = 3
+    """A single-channel, per-pixel panoptic/instance label map (lossless integer image). For datasets
+    that pack semantics into the instance id (e.g. KITTI-360 ``semanticId * 1000 + instanceId``) the
+    raw packed value is stored verbatim; recover ``semantic = value // 1000``, ``instance = value % 1000``."""
 
 
 class CameraModel(SerialIntEnum):
@@ -213,13 +218,19 @@ class BaseCameraMetadata(BaseModalityMetadata, abc.ABC):
         """Returns the type of the modality that this metadata describes.
 
         The channel type drives the modality: a :attr:`CameraChannelType.SEMANTIC` camera is a
-        per-pixel segmentation stream (:attr:`ModalityType.CAMERA_SEGMENTATION`), written to its
-        own Arrow file so it sits alongside — and never collides with — the RGB camera that shares
-        its :attr:`camera_id`. All other channel types are regular :attr:`ModalityType.CAMERA`.
+        per-pixel segmentation stream (:attr:`ModalityType.CAMERA_SEGMENTATION`) and a
+        :attr:`CameraChannelType.INSTANCE` camera a per-pixel panoptic/instance stream
+        (:attr:`ModalityType.CAMERA_INSTANCE_SEGMENTATION`), each written to its own Arrow file so it
+        sits alongside — and never collides with — the RGB camera that shares its :attr:`camera_id`.
+        All other channel types are regular :attr:`ModalityType.CAMERA`.
         """
         if self.channel_type == CameraChannelType.SEMANTIC:
-            return ModalityType.CAMERA_SEGMENTATION
-        return ModalityType.CAMERA
+            modality_type = ModalityType.CAMERA_SEGMENTATION
+        elif self.channel_type == CameraChannelType.INSTANCE:
+            modality_type = ModalityType.CAMERA_INSTANCE_SEGMENTATION
+        else:
+            modality_type = ModalityType.CAMERA
+        return modality_type
 
     @property
     def modality_id(self) -> Optional[Union[str, SerialIntEnum]]:
@@ -299,6 +310,34 @@ class Camera(BaseModality):
     def image(self) -> npt.NDArray[np.uint8]:
         """The image captured by the camera, as a numpy array."""
         return self._image
+
+    @property
+    def rgb_image(self) -> Optional[npt.NDArray[np.uint8]]:
+        """A 3-channel ``(H, W, 3)`` uint8 RGB view of the image, regardless of channel type.
+
+        ``RGB`` is returned as-is and ``GRAYSCALE`` is broadcast to three channels. A ``SEMANTIC`` label map is
+        colorized with the canonical Cityscapes palette: each raw class id is mapped to its
+        :class:`~py123d.datatypes.sensors.camera_segmentation_label.DefaultCameraSegmentationLabel` and then to a
+        color, so the result can be displayed through the regular RGB camera path. ``INSTANCE`` is not yet
+        supported.
+        """
+        channel_type = self._metadata.channel_type
+        if channel_type == CameraChannelType.RGB:
+            result = self._image
+        elif channel_type == CameraChannelType.GRAYSCALE:
+            result = np.repeat(self._image[:, :, None], 3, axis=2)
+        elif channel_type == CameraChannelType.SEMANTIC:
+            # Only SegmentationCameraMetadata carries the taxonomy; access it duck-typed to avoid importing it
+            # here (it imports this module, so a direct import would be circular).
+            label_class = getattr(self._metadata, "segmentation_label_class", None)
+            if label_class is None:
+                raise ValueError("SEMANTIC camera is missing its segmentation_label_class; cannot colorize.")
+            result = colorize_semantic_label_map(self._image, label_class)
+        elif channel_type == CameraChannelType.INSTANCE:
+            raise NotImplementedError("RGB conversion for INSTANCE segmentation cameras is not yet supported.")
+        else:
+            raise ValueError(f"Unsupported channel type {channel_type} for RGB conversion.")
+        return result
 
     @property
     def camera_to_global_se3(self) -> PoseSE3:

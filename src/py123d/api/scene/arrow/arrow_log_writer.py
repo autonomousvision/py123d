@@ -183,13 +183,17 @@ class ArrowLogWriter(BaseLogWriter):
             )
 
         elif isinstance(modality_metadata, BaseCameraMetadata):
-            # Semantic cameras are integer label maps: always use the lossless single-channel codec,
-            # never the (potentially lossy) RGB store option configured for regular cameras.
-            camera_codec = (
-                "label_png"
-                if modality_metadata.channel_type == CameraChannelType.SEMANTIC
-                else self._log_writer_config.camera_store_option
-            )
+            camera_store_option = self._log_writer_config.camera_store_option
+            if modality_metadata.channel_type in (CameraChannelType.SEMANTIC, CameraChannelType.INSTANCE):
+                # Segmentation cameras are integer label maps: they must never use the lossy/RGB inline
+                # options (jpeg_binary / png_binary / mp4), which would corrupt class ids. Both "path"
+                # (references the original lossless single-channel PNG, read lazily at API time) and
+                # "label_png" (inlines it losslessly) are safe — so honour the dataset's store option:
+                # "path" mode stores the path (fast, no per-frame PNG read), any inline mode falls back
+                # to "label_png" (e.g. WOD's in-memory segmentation, which has no file path).
+                camera_codec = "path" if camera_store_option == "path" else "label_png"
+            else:
+                camera_codec = camera_store_option
             modality_writer = ArrowCameraWriter(
                 log_dir=self._state.log_dir,
                 metadata=modality_metadata,
