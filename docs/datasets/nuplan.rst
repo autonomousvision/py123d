@@ -48,40 +48,40 @@ Available Modalities
      - **Description**
    * - Ego Vehicle
      - ✓
-     - State of the ego vehicle, including poses, dynamic state, and vehicle parameters, see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
+     - State of the ego vehicle, including poses, dynamic state, and vehicle parameters, see :class:`~py123d.datatypes.EgoStateSE3`.
    * - Map
      - (✓)
      - The HD-Maps are in 2D vector format and defined per-location. For more information, see :class:`~py123d.api.MapAPI`.
    * - Bounding Boxes
      - ✓
-     - The bounding boxes are available, see :class:`~py123d.datatypes.detections.BoxDetectionsSE3`.
+     - The bounding boxes are available, see :class:`~py123d.datatypes.BoxDetectionsSE3`.
    * - Traffic Lights
      - ✓
-     - Traffic lights include the status and the lane id they are associated with, see :class:`~py123d.datatypes.detections.TrafficLightDetections`.
+     - Traffic lights include the status and the lane id they are associated with, see :class:`~py123d.datatypes.TrafficLightDetections`.
    * - Cameras
      - (✓)
      -
-      Subset of nuPlan includes 8x :class:`~py123d.datatypes.sensors.Camera`:
+      Subset of nuPlan includes 8x :class:`~py123d.datatypes.Camera`:
 
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_F0`: Front camera
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_R0`: Right front camera
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_R1`: Right middle camera
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_R2`: Right rear camera
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_L0`: Left front camera
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_L1`: Left middle camera
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_L2`: Left rear camera
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_B0`: Back camera
+      - :class:`~py123d.datatypes.CameraID.PCAM_F0`: Front camera
+      - :class:`~py123d.datatypes.CameraID.PCAM_R0`: Right front camera
+      - :class:`~py123d.datatypes.CameraID.PCAM_R1`: Right middle camera
+      - :class:`~py123d.datatypes.CameraID.PCAM_R2`: Right rear camera
+      - :class:`~py123d.datatypes.CameraID.PCAM_L0`: Left front camera
+      - :class:`~py123d.datatypes.CameraID.PCAM_L1`: Left middle camera
+      - :class:`~py123d.datatypes.CameraID.PCAM_L2`: Left rear camera
+      - :class:`~py123d.datatypes.CameraID.PCAM_B0`: Back camera
 
    * - Lidars
      - (✓)
      -
-      Subset of nuPlan includes 5x :class:`~py123d.datatypes.sensors.Lidar`:
+      Subset of nuPlan includes 5x :class:`~py123d.datatypes.Lidar`:
 
-      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_TOP`: Top
-      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_FRONT`: Front
-      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_SIDE_LEFT`: Side left
-      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_SIDE_RIGHT`: Side right
-      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_BACK`: Rear
+      - :class:`~py123d.datatypes.LidarID.LIDAR_TOP`: Top
+      - :class:`~py123d.datatypes.LidarID.LIDAR_FRONT`: Front
+      - :class:`~py123d.datatypes.LidarID.LIDAR_SIDE_LEFT`: Side left
+      - :class:`~py123d.datatypes.LidarID.LIDAR_SIDE_RIGHT`: Side right
+      - :class:`~py123d.datatypes.LidarID.LIDAR_BACK`: Rear
 
 .. dropdown:: Dataset Specific
 

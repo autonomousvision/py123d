@@ -39,30 +39,30 @@ Available Modalities
      - **Description**
    * - Ego Vehicle
      - ✓
-     - State of the ego vehicle, including poses, dynamic state, and vehicle parameters, see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
+     - State of the ego vehicle, including poses, dynamic state, and vehicle parameters, see :class:`~py123d.datatypes.EgoStateSE3`.
    * - Map
      - ✓
      - The maps are in 3D vector format and defined per log, see :class:`~py123d.api.MapAPI`. The map does not include lane-level information.
    * - Bounding Boxes
      - ✓
-     - The bounding boxes are available and labeled with :class:`~py123d.parser.registry.KITTI360BoxDetectionLabel`. For further information, see :class:`~py123d.datatypes.detections.BoxDetectionsSE3`.
+     - The bounding boxes are available and labeled with :class:`~py123d.parser.registry.KITTI360BoxDetectionLabel`. For further information, see :class:`~py123d.datatypes.BoxDetectionsSE3`.
    * - Traffic Lights
      - X
      - n/a
    * - Cameras
      - ✓
-     - The dataset has four :class:`~py123d.datatypes.sensors.Camera` in a stereo and side-ways setup:
+     - The dataset has four :class:`~py123d.datatypes.Camera` in a stereo and side-ways setup:
 
-       - :class:`~py123d.datatypes.sensors.CameraID.PCAM_STEREO_L` (image_00)
-       - :class:`~py123d.datatypes.sensors.CameraID.PCAM_STEREO_R` (image_01)
-       - :class:`~py123d.datatypes.sensors.CameraID.FMCAM_L` (image_02)
-       - :class:`~py123d.datatypes.sensors.CameraID.FMCAM_R` (image_03)
+       - :class:`~py123d.datatypes.CameraID.PCAM_STEREO_L` (image_00)
+       - :class:`~py123d.datatypes.CameraID.PCAM_STEREO_R` (image_01)
+       - :class:`~py123d.datatypes.CameraID.FMCAM_L` (image_02)
+       - :class:`~py123d.datatypes.CameraID.FMCAM_R` (image_03)
 
    * - Lidars
      - ✓
-     - The dataset has :class:`~py123d.datatypes.sensors.Lidar` mounted on the roof:
+     - The dataset has :class:`~py123d.datatypes.Lidar` mounted on the roof:
 
-       - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_TOP` (velodyne_points)
+       - :class:`~py123d.datatypes.LidarID.LIDAR_TOP` (velodyne_points)
 
 .. dropdown:: Dataset Specific
 

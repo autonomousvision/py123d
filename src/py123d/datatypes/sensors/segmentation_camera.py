@@ -27,7 +27,7 @@ class SegmentationCameraMetadata(BaseCameraMetadata):
     shares that camera's id, projection model, intrinsics, and extrinsics. This metadata therefore
     *composes* the sibling camera's :class:`BaseCameraMetadata` for all geometry and additionally
     records **which semantic-label taxonomy** the integer class ids use — analogous to how
-    :class:`~py123d.datatypes.detections.box_detections_metadata.BoxDetectionsSE3Metadata` records
+    :class:`~py123d.datatypes.box_detections_metadata.BoxDetectionsSE3Metadata` records
     its box-detection label class.
 
     Its :attr:`channel_type` is either :attr:`CameraChannelType.SEMANTIC` (a per-pixel class-id map,

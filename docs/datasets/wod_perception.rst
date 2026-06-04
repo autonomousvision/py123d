@@ -42,37 +42,37 @@ Available Modalities
      - **Description**
    * - Ego Vehicle
      - ✓
-     - State of the ego vehicle, including poses, and vehicle parameters, see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
+     - State of the ego vehicle, including poses, and vehicle parameters, see :class:`~py123d.datatypes.EgoStateSE3`.
    * - Map
      - (✓)
      - The HD-Maps are in 3D, but may have artifacts due to polyline to polygon conversion (see below). For more information, see :class:`~py123d.api.MapAPI`.
    * - Bounding Boxes
      - ✓
-     - The bounding boxes are available with the :class:`~py123d.parser.registry.WODBoxDetectionLabel`. For more information, :class:`~py123d.datatypes.detections.BoxDetectionsSE3`.
+     - The bounding boxes are available with the :class:`~py123d.parser.registry.WODPerceptionBoxDetectionLabel`. For more information, :class:`~py123d.datatypes.BoxDetectionsSE3`.
    * - Traffic Lights
      - X
      - n/a
    * - Cameras
      - ✓
      -
-      Includes 5 cameras, see :class:`~py123d.datatypes.sensors.Camera`:
+      Includes 5 cameras, see :class:`~py123d.datatypes.Camera`:
 
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_F0` (front_camera)
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_L0` (front_left_camera)
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_R0` (front_right_camera)
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_L1` (left_camera)
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_R1` (right_camera)
+      - :class:`~py123d.datatypes.CameraID.PCAM_F0` (front_camera)
+      - :class:`~py123d.datatypes.CameraID.PCAM_L0` (front_left_camera)
+      - :class:`~py123d.datatypes.CameraID.PCAM_R0` (front_right_camera)
+      - :class:`~py123d.datatypes.CameraID.PCAM_L1` (left_camera)
+      - :class:`~py123d.datatypes.CameraID.PCAM_R1` (right_camera)
 
    * - Lidars
      - ✓
      -
-      Includes 5 Lidars, see :class:`~py123d.datatypes.sensors.Lidar`:
+      Includes 5 Lidars, see :class:`~py123d.datatypes.Lidar`:
 
-      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_TOP` (top)
-      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_FRONT` (front)
-      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_SIDE_LEFT` (side_left)
-      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_SIDE_RIGHT` (side_right)
-      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_BACK` (rear)
+      - :class:`~py123d.datatypes.LidarID.LIDAR_TOP` (top)
+      - :class:`~py123d.datatypes.LidarID.LIDAR_FRONT` (front)
+      - :class:`~py123d.datatypes.LidarID.LIDAR_SIDE_LEFT` (side_left)
+      - :class:`~py123d.datatypes.LidarID.LIDAR_SIDE_RIGHT` (side_right)
+      - :class:`~py123d.datatypes.LidarID.LIDAR_BACK` (rear)
 
 .. dropdown:: Dataset Specific
 

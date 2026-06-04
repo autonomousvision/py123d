@@ -72,35 +72,35 @@ Available Modalities
      - **Description**
    * - Ego Vehicle
      - ✓
-     - The poses and vehicle parameters are provided or inferred from the documentation, see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
+     - The poses and vehicle parameters are provided or inferred from the documentation, see :class:`~py123d.datatypes.EgoStateSE3`.
    * - Map
      - X
      - n/a
    * - Bounding Boxes
      - ✓
-     - Bounding boxes are available with the :class:`~py123d.parser.registry.PandasetBoxDetectionLabel`. For more information, see :class:`~py123d.datatypes.detections.BoxDetectionsSE3`.
+     - Bounding boxes are available with the :class:`~py123d.parser.registry.PandasetBoxDetectionLabel`. For more information, see :class:`~py123d.datatypes.BoxDetectionsSE3`.
    * - Traffic Lights
      - X
      - n/a
    * - Cameras
      - ✓
      -
-       Pandaset has 6x :class:`~py123d.datatypes.sensors.Camera`:
+       Pandaset has 6x :class:`~py123d.datatypes.Camera`:
 
-       - :class:`~py123d.datatypes.sensors.CameraID.PCAM_F0`: front_camera
-       - :class:`~py123d.datatypes.sensors.CameraID.PCAM_L0`: front_left_camera
-       - :class:`~py123d.datatypes.sensors.CameraID.PCAM_R0`: front_right_camera
-       - :class:`~py123d.datatypes.sensors.CameraID.PCAM_L1`: left_camera
-       - :class:`~py123d.datatypes.sensors.CameraID.PCAM_R1`: right_camera
-       - :class:`~py123d.datatypes.sensors.CameraID.PCAM_B0`: back_camera
+       - :class:`~py123d.datatypes.CameraID.PCAM_F0`: front_camera
+       - :class:`~py123d.datatypes.CameraID.PCAM_L0`: front_left_camera
+       - :class:`~py123d.datatypes.CameraID.PCAM_R0`: front_right_camera
+       - :class:`~py123d.datatypes.CameraID.PCAM_L1`: left_camera
+       - :class:`~py123d.datatypes.CameraID.PCAM_R1`: right_camera
+       - :class:`~py123d.datatypes.CameraID.PCAM_B0`: back_camera
 
    * - Lidars
      - ✓
      -
-      Pandaset has 2x :class:`~py123d.datatypes.sensors.Lidar`:
+      Pandaset has 2x :class:`~py123d.datatypes.Lidar`:
 
-      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_TOP`: main_pandar64
-      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_FRONT`: front_gt
+      - :class:`~py123d.datatypes.LidarID.LIDAR_TOP`: main_pandar64
+      - :class:`~py123d.datatypes.LidarID.LIDAR_FRONT`: front_gt
 
 
 .. dropdown:: Dataset Specific

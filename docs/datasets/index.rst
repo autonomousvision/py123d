@@ -14,6 +14,7 @@ Each dataset entry includes installation instructions, available data types, kno
    kitti-360
    ncore
    nuplan
+   nureasoning
    nuscenes
    pandaset
    physical-ai-av

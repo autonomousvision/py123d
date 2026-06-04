@@ -4,8 +4,8 @@ nuScenes ships five independent radars (RADAR_FRONT, RADAR_FRONT_LEFT, RADAR_FRO
 RADAR_BACK_LEFT, RADAR_BACK_RIGHT), each stored in its own ``.pcd`` file with the rich 18-field
 schema (``x y z dyn_prop id rcs vx vy vx_comp vy_comp is_quality_valid ambig_state x_rms y_rms
 invalid_state pdh0 vx_rms vy_rms``). We follow the merged model: each radar's returns are read,
-mapped to :class:`~py123d.datatypes.sensors.radar.RadarFeature`, transformed sensor→ego, tagged
-with the originating :class:`~py123d.datatypes.sensors.radar.RadarID`, and concatenated into one
+mapped to :class:`~py123d.datatypes.radar.RadarFeature`, transformed sensor→ego, tagged
+with the originating :class:`~py123d.datatypes.radar.RadarID`, and concatenated into one
 cloud (splittable back per-sensor at API read time).
 
 The per-radar relative paths are carried through :class:`~py123d.parser.base_dataset_parser.ParsedRadar`'s

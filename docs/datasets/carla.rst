@@ -43,22 +43,22 @@ Available Modalities
      - **Description**
    * - Ego Vehicle
      - ✓
-     - Depending on the collected dataset. For further information, see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
+     - Depending on the collected dataset. For further information, see :class:`~py123d.datatypes.EgoStateSE3`.
    * - Map
      - ✓
      - We included a conversion method of OpenDRIVE maps. For further information, see :class:`~py123d.api.MapAPI`.
    * - Bounding Boxes
      - ✓
-     - Depending on the collected dataset. For further information, see :class:`~py123d.datatypes.detections.BoxDetectionsSE3`.
+     - Depending on the collected dataset. For further information, see :class:`~py123d.datatypes.BoxDetectionsSE3`.
    * - Traffic Lights
      - X
      - n/a
    * - Cameras
      - ✓
-     - Depending on the collected dataset. For further information, see :class:`~py123d.datatypes.sensors.Camera`.
+     - Depending on the collected dataset. For further information, see :class:`~py123d.datatypes.Camera`.
    * - Lidars
      - ✓
-     - Depending on the collected dataset. For further information, see :class:`~py123d.datatypes.sensors.Lidar`.
+     - Depending on the collected dataset. For further information, see :class:`~py123d.datatypes.Lidar`.
 
 
 Download

@@ -34,7 +34,7 @@ class BoxDetectionAttributes:
 
     @property
     def label(self) -> BoxDetectionLabel:
-        """The :class:`~py123d.datatypes.detections.BoxDetectionLabel`, from the original dataset's label set."""
+        """The :class:`~py123d.datatypes.BoxDetectionLabel`, from the original dataset's label set."""
         return self._label
 
     @property
@@ -166,7 +166,7 @@ class BoxDetectionSE3:
 
     @property
     def box_detection_se2(self) -> BoxDetectionSE2:
-        """The :class:`~py123d.datatypes.detections.BoxDetectionSE2` projection of this SE3 box detection."""
+        """The :class:`~py123d.datatypes.BoxDetectionSE2` projection of this SE3 box detection."""
         return BoxDetectionSE2(
             attributes=self.attributes,
             bounding_box_se2=self.bounding_box_se2,

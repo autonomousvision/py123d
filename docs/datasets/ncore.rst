@@ -51,22 +51,22 @@ Available Modalities
      - **Description**
    * - Ego Vehicle
      - ✓
-     - Rig-to-world poses sampled at ~100 Hz. NCore stores poses only (no velocity or acceleration); py123d's ``infer_ego_dynamics: true`` option derives velocity/acceleration via finite differences during conversion. See :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
+     - Rig-to-world poses sampled at ~100 Hz. NCore stores poses only (no velocity or acceleration); py123d's ``infer_ego_dynamics: true`` option derives velocity/acceleration via finite differences during conversion. See :class:`~py123d.datatypes.EgoStateSE3`.
    * - Map
      - X
      - Not available for this dataset.
    * - Bounding Boxes
      - ✓
-     - Auto-labeled 3D cuboid track observations with the same 10-class taxonomy as Physical AI AV (:class:`~py123d.parser.registry.PhysicalAIAVBoxDetectionLabel`). See :class:`~py123d.datatypes.detections.BoxDetectionsSE3`.
+     - Auto-labeled 3D cuboid track observations with the same 10-class taxonomy as Physical AI AV (:class:`~py123d.parser.registry.PhysicalAIAVBoxDetectionLabel`). See :class:`~py123d.datatypes.BoxDetectionsSE3`.
    * - Traffic Lights
      - X
      - Not available for this dataset.
    * - Cameras
      - ✓
-     - Same 7 f-theta (fisheye) cameras as Physical AI AV, see :class:`~py123d.datatypes.sensors.Camera`.
+     - Same 7 f-theta (fisheye) cameras as Physical AI AV, see :class:`~py123d.datatypes.Camera`.
    * - Lidars
      - ✓
-     - 1 top-mounted 360° LiDAR, see :class:`~py123d.datatypes.sensors.Lidar`.
+     - 1 top-mounted 360° LiDAR, see :class:`~py123d.datatypes.Lidar`.
 
 
 Download
@@ -183,7 +183,7 @@ Dataset Issues
 
 - **Auto-labeled detections:** Cuboids are auto-generated, so they can be noisier than human-annotated ground truth.
 - **No ego dynamics in source:** NCore carries rig-to-world poses only. Velocity/acceleration are reconstructed by py123d via finite differences when ``infer_ego_dynamics`` is enabled (the default).
-- **FTheta 6-coefficient polynomials:** NCore's FTheta camera model uses 6 polynomial coefficients. py123d's :class:`~py123d.datatypes.sensors.FThetaIntrinsics` has been extended to carry 6 coefficients; the Physical AI AV parser pads its native 5-coefficient polynomial with a trailing zero.
+- **FTheta 6-coefficient polynomials:** NCore's FTheta camera model uses 6 polynomial coefficients. py123d's :class:`~py123d.datatypes.FThetaIntrinsics` has been extended to carry 6 coefficients; the Physical AI AV parser pads its native 5-coefficient polynomial with a trailing zero.
 - **Anisotropic linear_cde absorbed into polynomials:** NCore's FTheta adds a sensor→image affine term ``linear_cde = [c, d, e]`` that py123d's isotropic FTheta model does not carry. For the typical Hyperion 8 case (``d = e = 0``, ``c`` within a few percent of 1) the conversion absorbs ``c`` into the polynomials as a geometric-mean (``sqrt(c)``) approximation and logs a warning. Non-trivial shear (``d`` or ``e`` far from zero) raises — silent acceptance would misproject.
 - **No HD map:** This dataset does not include map information.
 
