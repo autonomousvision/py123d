@@ -101,8 +101,8 @@ class TestKitti360SegmentationMetadata:
         assert set(meta) == set(KITTI360_PINHOLE_CAMERA_IDS)
         left = meta[CameraID.PCAM_STEREO_L]
         assert left.channel_type == CameraChannelType.SEMANTIC
-        assert left.modality_type == ModalityType.CAMERA_SEGMENTATION
-        assert left.modality_key == "camera_segmentation.pcam_stereo_l"
+        assert left.modality_type == ModalityType.CAMERA_SEMANTIC
+        assert left.modality_key == "camera_semantic.pcam_stereo_l"
         assert left.segmentation_label_class is Kitti360CameraSegmentationLabel
         # Geometry delegated to the sibling RGB camera.
         assert (left.width, left.height) == (1408, 376)
@@ -112,8 +112,8 @@ class TestKitti360SegmentationMetadata:
         meta = _get_kitti360_segmentation_camera_metadata(pinhole, CameraChannelType.INSTANCE)
         right = meta[CameraID.PCAM_STEREO_R]
         assert right.channel_type == CameraChannelType.INSTANCE
-        assert right.modality_type == ModalityType.CAMERA_INSTANCE_SEGMENTATION
-        assert right.modality_key == "camera_instance_segmentation.pcam_stereo_r"
+        assert right.modality_type == ModalityType.CAMERA_INSTANCE
+        assert right.modality_key == "camera_instance.pcam_stereo_r"
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -183,7 +183,7 @@ class TestExtractCameraSegmentation:
         # Only image_00 has files; image_01 has none → exactly the two image_00 streams.
         assert len(parsed) == 2
         keys = {p.metadata.modality_key for p in parsed}
-        assert keys == {"camera_segmentation.pcam_stereo_l", "camera_instance_segmentation.pcam_stereo_l"}
+        assert keys == {"camera_semantic.pcam_stereo_l", "camera_instance.pcam_stereo_l"}
         for p in parsed:
             assert p.timestamp.time_us == 250
             assert str(p.relative_path).startswith("data_2d_semantics/train/")

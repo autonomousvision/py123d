@@ -24,6 +24,7 @@ from py123d.datatypes import (
     LogMetadata,
     MapMetadata,
     ModalityType,
+    SegmentationCameraMetadata,
     Timestamp,
     TrafficLightDetections,
     TrafficLightDetectionsMetadata,
@@ -445,7 +446,185 @@ class SceneAPI(abc.ABC):
         )
         return checked_optional_cast(camera, Camera)
 
-    # 2.5 Lidar
+    # 2.5 Camera Semantic (per-pixel semantic class-id label maps)
+    # ------------------------------------------------------------------------------------------------------------------
+
+    def get_camera_semantic_metadatas(self) -> Dict[CameraID, SegmentationCameraMetadata]:
+        """Returns per-camera metadata for all semantic-segmentation cameras in the scene.
+
+        :return: A dictionary mapping camera IDs to their :class:`~py123d.datatypes.SegmentationCameraMetadata`.
+        """
+        camera_semantic_metadatas = {
+            metadata.camera_id: metadata
+            for metadata in self.get_all_modality_metadatas().values()
+            if metadata.modality_type == ModalityType.CAMERA_SEMANTIC
+            and isinstance(metadata, SegmentationCameraMetadata)
+        }
+        return camera_semantic_metadatas
+
+    def get_all_camera_semantic_timestamps(
+        self, camera_id: Union[str, CameraID], include_history: bool = False
+    ) -> List[Timestamp]:
+        """Returns all semantic-camera timestamps within the current scene.
+
+        :param camera_id: The camera ID, as a :class:`~py123d.datatypes.sensors.CameraID` or its lowercase name
+            (e.g. ``"pcam_f0"``).
+        :param include_history: If True, include history iterations before the scene start.
+        :return: All semantic-camera timestamps in the scene, ordered by time.
+        """
+        camera_id = CameraID.from_arbitrary(camera_id)
+        return self.get_all_modality_timestamps(
+            modality_type=ModalityType.CAMERA_SEMANTIC, modality_id=camera_id, include_history=include_history
+        )
+
+    def get_camera_semantic_at_iteration(
+        self,
+        iteration: int,
+        camera_id: Union[str, CameraID],
+        scale: Optional[int] = None,
+    ) -> Optional[Camera]:
+        """Returns a semantic-segmentation :class:`~py123d.datatypes.sensors.Camera` at a given iteration,
+            if available.
+
+        The returned camera's :attr:`~py123d.datatypes.sensors.Camera.image` is the per-pixel class-id label map;
+        :attr:`~py123d.datatypes.sensors.Camera.rgb_image` colorizes it with the Cityscapes palette.
+
+        :param iteration: The iteration to get the semantic camera for.
+        :param camera_id: The camera ID, as a :class:`~py123d.datatypes.sensors.CameraID` or its lowercase name
+            (e.g. ``"pcam_f0"``).
+        :param scale: Optional downscale denominator, e.g. 2 for half size, 4 for quarter size.
+        :return: The semantic camera, or None if not available.
+        """
+        camera_id = CameraID.from_arbitrary(camera_id)
+        camera = self.get_modality_at_iteration(
+            iteration,
+            modality_type=ModalityType.CAMERA_SEMANTIC,
+            modality_id=camera_id,
+            scale=scale,
+        )
+        return checked_optional_cast(camera, Camera)
+
+    def get_camera_semantic_at_timestamp(
+        self,
+        timestamp: Union[Timestamp, int],
+        camera_id: Union[str, CameraID],
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+        scale: Optional[int] = None,
+    ) -> Optional[Camera]:
+        """Returns a semantic-segmentation :class:`~py123d.datatypes.sensors.Camera` at a given timestamp,
+            if available.
+
+        :param timestamp: The timestamp to get the semantic camera for, as a Timestamp object or integer microseconds.
+        :param camera_id: The camera ID, as a :class:`~py123d.datatypes.sensors.CameraID` or its lowercase name
+            (e.g. ``"pcam_f0"``).
+        :param criteria: Criteria for matching the timestamp if an exact match is not found. One of:
+            - "exact": Only return data if an exact timestamp match is found.
+            - "nearest": Return data from the nearest timestamp.
+            - "forward": Return data from the nearest timestamp that is greater than or equal to the requested timestamp.
+            - "backward": Return data from the nearest timestamp that is less than or equal to the requested timestamp.
+        :param scale: Optional downscale denominator, e.g. 2 for half size, 4 for quarter size.
+        :return: The semantic camera, or None if not available.
+        """
+        camera_id = CameraID.from_arbitrary(camera_id)
+        camera = self.get_modality_at_timestamp(
+            timestamp,
+            modality_type=ModalityType.CAMERA_SEMANTIC,
+            modality_id=camera_id,
+            criteria=criteria,
+            scale=scale,
+        )
+        return checked_optional_cast(camera, Camera)
+
+    # 2.6 Camera Instance (per-pixel panoptic/instance label maps)
+    # ------------------------------------------------------------------------------------------------------------------
+
+    def get_camera_instance_metadatas(self) -> Dict[CameraID, SegmentationCameraMetadata]:
+        """Returns per-camera metadata for all instance-segmentation cameras in the scene.
+
+        :return: A dictionary mapping camera IDs to their :class:`~py123d.datatypes.SegmentationCameraMetadata`.
+        """
+        camera_instance_metadatas = {
+            metadata.camera_id: metadata
+            for metadata in self.get_all_modality_metadatas().values()
+            if metadata.modality_type == ModalityType.CAMERA_INSTANCE
+            and isinstance(metadata, SegmentationCameraMetadata)
+        }
+        return camera_instance_metadatas
+
+    def get_all_camera_instance_timestamps(
+        self, camera_id: Union[str, CameraID], include_history: bool = False
+    ) -> List[Timestamp]:
+        """Returns all instance-camera timestamps within the current scene.
+
+        :param camera_id: The camera ID, as a :class:`~py123d.datatypes.sensors.CameraID` or its lowercase name
+            (e.g. ``"pcam_f0"``).
+        :param include_history: If True, include history iterations before the scene start.
+        :return: All instance-camera timestamps in the scene, ordered by time.
+        """
+        camera_id = CameraID.from_arbitrary(camera_id)
+        return self.get_all_modality_timestamps(
+            modality_type=ModalityType.CAMERA_INSTANCE, modality_id=camera_id, include_history=include_history
+        )
+
+    def get_camera_instance_at_iteration(
+        self,
+        iteration: int,
+        camera_id: Union[str, CameraID],
+        scale: Optional[int] = None,
+    ) -> Optional[Camera]:
+        """Returns an instance-segmentation :class:`~py123d.datatypes.sensors.Camera` at a given iteration,
+            if available.
+
+        The returned camera's :attr:`~py123d.datatypes.sensors.Camera.image` is the per-pixel panoptic/instance
+        label map.
+
+        :param iteration: The iteration to get the instance camera for.
+        :param camera_id: The camera ID, as a :class:`~py123d.datatypes.sensors.CameraID` or its lowercase name
+            (e.g. ``"pcam_f0"``).
+        :param scale: Optional downscale denominator, e.g. 2 for half size, 4 for quarter size.
+        :return: The instance camera, or None if not available.
+        """
+        camera_id = CameraID.from_arbitrary(camera_id)
+        camera = self.get_modality_at_iteration(
+            iteration,
+            modality_type=ModalityType.CAMERA_INSTANCE,
+            modality_id=camera_id,
+            scale=scale,
+        )
+        return checked_optional_cast(camera, Camera)
+
+    def get_camera_instance_at_timestamp(
+        self,
+        timestamp: Union[Timestamp, int],
+        camera_id: Union[str, CameraID],
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+        scale: Optional[int] = None,
+    ) -> Optional[Camera]:
+        """Returns an instance-segmentation :class:`~py123d.datatypes.sensors.Camera` at a given timestamp,
+            if available.
+
+        :param timestamp: The timestamp to get the instance camera for, as a Timestamp object or integer microseconds.
+        :param camera_id: The camera ID, as a :class:`~py123d.datatypes.sensors.CameraID` or its lowercase name
+            (e.g. ``"pcam_f0"``).
+        :param criteria: Criteria for matching the timestamp if an exact match is not found. One of:
+            - "exact": Only return data if an exact timestamp match is found.
+            - "nearest": Return data from the nearest timestamp.
+            - "forward": Return data from the nearest timestamp that is greater than or equal to the requested timestamp.
+            - "backward": Return data from the nearest timestamp that is less than or equal to the requested timestamp.
+        :param scale: Optional downscale denominator, e.g. 2 for half size, 4 for quarter size.
+        :return: The instance camera, or None if not available.
+        """
+        camera_id = CameraID.from_arbitrary(camera_id)
+        camera = self.get_modality_at_timestamp(
+            timestamp,
+            modality_type=ModalityType.CAMERA_INSTANCE,
+            modality_id=camera_id,
+            criteria=criteria,
+            scale=scale,
+        )
+        return checked_optional_cast(camera, Camera)
+
+    # 2.7 Lidar
     # ------------------------------------------------------------------------------------------------------------------
 
     def get_lidar_metadatas(self) -> Dict[LidarID, LidarMetadata]:
@@ -526,7 +705,7 @@ class SceneAPI(abc.ABC):
         )
         return checked_optional_cast(lidar, Lidar)
 
-    # 2.6 Custom Modalities
+    # 2.8 Custom Modalities
     # ------------------------------------------------------------------------------------------------------------------
 
     def get_all_custom_modality_metadatas(self) -> Dict[str, CustomModalityMetadata]:
@@ -647,6 +826,26 @@ class SceneAPI(abc.ABC):
     def available_camera_names(self) -> List[str]:
         """List of available camera names."""
         return [camera.camera_name for camera in self.get_camera_metadatas().values()]
+
+    @property
+    def available_camera_semantic_ids(self) -> List[CameraID]:
+        """List of camera IDs with a semantic-segmentation stream."""
+        return list(self.get_camera_semantic_metadatas().keys())
+
+    @property
+    def available_camera_semantic_names(self) -> List[str]:
+        """List of camera names with a semantic-segmentation stream."""
+        return [camera.camera_name for camera in self.get_camera_semantic_metadatas().values()]
+
+    @property
+    def available_camera_instance_ids(self) -> List[CameraID]:
+        """List of camera IDs with an instance-segmentation stream."""
+        return list(self.get_camera_instance_metadatas().keys())
+
+    @property
+    def available_camera_instance_names(self) -> List[str]:
+        """List of camera names with an instance-segmentation stream."""
+        return [camera.camera_name for camera in self.get_camera_instance_metadatas().values()]
 
     @property
     def available_lidar_ids(self) -> List[LidarID]:

@@ -218,16 +218,16 @@ class BaseCameraMetadata(BaseModalityMetadata, abc.ABC):
         """Returns the type of the modality that this metadata describes.
 
         The channel type drives the modality: a :attr:`CameraChannelType.SEMANTIC` camera is a
-        per-pixel segmentation stream (:attr:`ModalityType.CAMERA_SEGMENTATION`) and a
+        per-pixel semantic segmentation stream (:attr:`ModalityType.CAMERA_SEMANTIC`) and a
         :attr:`CameraChannelType.INSTANCE` camera a per-pixel panoptic/instance stream
-        (:attr:`ModalityType.CAMERA_INSTANCE_SEGMENTATION`), each written to its own Arrow file so it
+        (:attr:`ModalityType.CAMERA_INSTANCE`), each written to its own Arrow file so it
         sits alongside — and never collides with — the RGB camera that shares its :attr:`camera_id`.
         All other channel types are regular :attr:`ModalityType.CAMERA`.
         """
         if self.channel_type == CameraChannelType.SEMANTIC:
-            modality_type = ModalityType.CAMERA_SEGMENTATION
+            modality_type = ModalityType.CAMERA_SEMANTIC
         elif self.channel_type == CameraChannelType.INSTANCE:
-            modality_type = ModalityType.CAMERA_INSTANCE_SEGMENTATION
+            modality_type = ModalityType.CAMERA_INSTANCE
         else:
             modality_type = ModalityType.CAMERA
         return modality_type

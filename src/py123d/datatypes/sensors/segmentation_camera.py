@@ -31,10 +31,10 @@ class SegmentationCameraMetadata(BaseCameraMetadata):
     its box-detection label class.
 
     Its :attr:`channel_type` is either :attr:`CameraChannelType.SEMANTIC` (a per-pixel class-id map,
-    :attr:`ModalityType.CAMERA_SEGMENTATION`, file ``camera_segmentation.<camera_id>.arrow``) or
+    :attr:`ModalityType.CAMERA_SEMANTIC`, file ``camera_semantic.<camera_id>.arrow``) or
     :attr:`CameraChannelType.INSTANCE` (a per-pixel panoptic/instance map,
-    :attr:`ModalityType.CAMERA_INSTANCE_SEGMENTATION`, file
-    ``camera_instance_segmentation.<camera_id>.arrow``). Either way it is written to its own Arrow
+    :attr:`ModalityType.CAMERA_INSTANCE`, file
+    ``camera_instance.<camera_id>.arrow``). Either way it is written to its own Arrow
     file, never colliding with the RGB ``camera.<camera_id>``. For an instance stream that packs the
     semantic id (e.g. KITTI-360 ``semanticId * 1000 + instanceId``) the :attr:`segmentation_label_class`
     still documents the semantic component.
@@ -157,5 +157,5 @@ class SegmentationCameraMetadata(BaseCameraMetadata):
 
     @property
     def modality_id(self) -> Optional[Union[str, SerialIntEnum]]:
-        """The camera id, so the stream sits at ``camera_segmentation.<camera_id>``."""
+        """The camera id, so the stream sits at ``camera_semantic.<camera_id>`` / ``camera_instance.<camera_id>``."""
         return self.camera_id

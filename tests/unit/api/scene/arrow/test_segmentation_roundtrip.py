@@ -139,9 +139,9 @@ class TestSegmentationCameraMetadata:
 
     def test_modality_routing(self):
         meta = _make_segmentation_camera_metadata()
-        assert meta.modality_type == ModalityType.CAMERA_SEGMENTATION
+        assert meta.modality_type == ModalityType.CAMERA_SEMANTIC
         assert meta.channel_type == CameraChannelType.SEMANTIC
-        assert meta.modality_key == "camera_segmentation.pcam_f0"
+        assert meta.modality_key == "camera_semantic.pcam_f0"
         # Geometry is delegated to the sibling RGB camera.
         assert meta.width == 320 and meta.height == 240
         assert meta.camera_id == CameraID.PCAM_F0
@@ -156,18 +156,18 @@ class TestSegmentationCameraMetadata:
     def test_reader_path_resolves_segmentation_metadata(self):
         # The log-directory parser resolves the metadata class purely from the modality key.
         meta = _make_segmentation_camera_metadata()
-        metadata_class = resolve_metadata_class("camera_segmentation.pcam_f0")
+        metadata_class = resolve_metadata_class("camera_semantic.pcam_f0")
         assert metadata_class is SegmentationCameraMetadata
         restored = metadata_class.from_dict(meta.to_dict())
         assert restored.segmentation_label_class is WODPerceptionCameraSegmentationLabel
 
     def test_instance_channel_routes_to_own_modality_and_file(self):
         meta = _make_segmentation_camera_metadata(channel_type=CameraChannelType.INSTANCE)
-        assert meta.modality_type == ModalityType.CAMERA_INSTANCE_SEGMENTATION
+        assert meta.modality_type == ModalityType.CAMERA_INSTANCE
         assert meta.channel_type == CameraChannelType.INSTANCE
-        assert meta.modality_key == "camera_instance_segmentation.pcam_f0"
+        assert meta.modality_key == "camera_instance.pcam_f0"
         # The instance modality resolves back to the same metadata class and round-trips its channel.
-        assert resolve_metadata_class("camera_instance_segmentation.pcam_f0") is SegmentationCameraMetadata
+        assert resolve_metadata_class("camera_instance.pcam_f0") is SegmentationCameraMetadata
         restored = SegmentationCameraMetadata.from_dict(meta.to_dict())
         assert restored.channel_type == CameraChannelType.INSTANCE
 
@@ -239,7 +239,7 @@ class TestSegmentationCameraRoundtrip:
 
     def test_instance_channel_uint16_label_map_lossless(self, tmp_path: Path):
         # A panoptic/instance stream is a uint16 label map on the INSTANCE channel; it must survive
-        # the label_png codec exactly and write to its own (camera_instance_segmentation) file.
+        # the label_png codec exactly and write to its own (camera_instance) file.
         label_map = _make_label_map(np.uint16)
         camera = Camera(
             metadata=_make_segmentation_camera_metadata(channel_type=CameraChannelType.INSTANCE),
@@ -249,7 +249,7 @@ class TestSegmentationCameraRoundtrip:
         )
         result = self._write_and_read(tmp_path, camera)
         np.testing.assert_array_equal(result.image, label_map)
-        assert (tmp_path / "camera_instance_segmentation.pcam_f0.arrow").exists()
+        assert (tmp_path / "camera_instance.pcam_f0.arrow").exists()
 
     def test_parsed_camera_png_path_label_png_lossless(self, tmp_path: Path):
         # KITTI-360 emits a ParsedCamera pointing at an on-disk single-channel PNG (no in-memory
@@ -275,7 +275,7 @@ class TestSegmentationCameraRoundtrip:
         rgb_meta = _make_rgb_camera_metadata()
         seg_meta = _make_segmentation_camera_metadata()
         assert rgb_meta.modality_key == "camera.pcam_f0"
-        assert seg_meta.modality_key == "camera_segmentation.pcam_f0"
+        assert seg_meta.modality_key == "camera_semantic.pcam_f0"
 
         ArrowCameraWriter(log_dir=tmp_path, metadata=seg_meta, camera_codec="label_png").close()
         # The taxonomy is recoverable from the written file's schema metadata alone.

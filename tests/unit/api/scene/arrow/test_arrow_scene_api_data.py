@@ -678,6 +678,161 @@ class TestCameraConvenienceMethods:
             api.get_lidar_at_iteration(0, "not_a_lidar")
 
 
+class TestSegmentationCameraConvenienceMethods:
+    """Semantic / instance camera convenience methods with per-pixel label-map data in the log."""
+
+    @pytest.fixture
+    def seg_camera_log(self, tmp_path: Path):
+        import numpy as np
+
+        from py123d.api.scene.arrow.modalities.arrow_camera import ArrowCameraWriter
+        from py123d.datatypes.sensors.base_camera import Camera, CameraChannelType, CameraID
+        from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata, PinholeIntrinsics
+        from py123d.datatypes.sensors.segmentation_camera import SegmentationCameraMetadata
+        from py123d.geometry.pose import PoseSE3
+        from py123d.parser.camera_segmentation_registry import WODPerceptionCameraSegmentationLabel
+
+        from ..conftest import write_ego_arrow
+
+        log_dir = tmp_path / "test-dataset_train" / "log_001"
+        log_dir.mkdir(parents=True)
+
+        log_meta = make_log_metadata()
+        ego_meta = make_ego_metadata()
+        num_rows = 5
+        timestep_us = 100_000
+
+        # Two segmentation streams share the RGB camera's geometry but route to their own modalities/files.
+        rgb_meta = PinholeCameraMetadata(
+            camera_name="front",
+            camera_id=CameraID.PCAM_F0,
+            intrinsics=PinholeIntrinsics(fx=500.0, fy=500.0, cx=160.0, cy=120.0),
+            distortion=None,
+            width=320,
+            height=240,
+            camera_to_imu_se3=PoseSE3.identity(),
+        )
+        semantic_meta = SegmentationCameraMetadata(
+            camera_metadata=rgb_meta,
+            segmentation_label_class=WODPerceptionCameraSegmentationLabel,
+            channel_type=CameraChannelType.SEMANTIC,
+        )
+        instance_meta = SegmentationCameraMetadata(
+            camera_metadata=rgb_meta,
+            segmentation_label_class=WODPerceptionCameraSegmentationLabel,
+            channel_type=CameraChannelType.INSTANCE,
+        )
+
+        write_ego_arrow(log_dir, num_rows, timestep_us, ego_meta)
+
+        rng = np.random.RandomState(42)
+        for meta, dtype, high in ((semantic_meta, np.uint8, 28), (instance_meta, np.uint16, 4000)):
+            writer = ArrowCameraWriter(log_dir, meta, camera_codec="label_png")
+            for i in range(num_rows):
+                label_map = rng.randint(0, high, (240, 320)).astype(dtype)
+                cam = Camera(
+                    metadata=meta,
+                    image=label_map,
+                    camera_to_global_se3=PoseSE3.identity(),
+                    timestamp=Timestamp.from_us(i * timestep_us),
+                )
+                writer.write_modality(cam)
+            writer.close()
+
+        modality_columns = {
+            ego_meta.modality_key: list(range(num_rows)),
+            semantic_meta.modality_key: list(range(num_rows)),
+            instance_meta.modality_key: list(range(num_rows)),
+        }
+        write_sync_arrow(log_dir, num_rows, timestep_us, log_meta, modality_columns)
+
+        scene_meta = _make_scene_metadata(num_future_iterations=4)
+        return log_dir, scene_meta, semantic_meta, instance_meta
+
+    def test_get_camera_semantic_metadatas(self, seg_camera_log):
+        from py123d.datatypes import SegmentationCameraMetadata
+
+        log_dir, scene_meta, semantic_meta, _ = seg_camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        metas = api.get_camera_semantic_metadatas()
+        assert set(metas) == {semantic_meta.camera_id}
+        assert isinstance(metas[semantic_meta.camera_id], SegmentationCameraMetadata)
+
+    def test_get_camera_instance_metadatas(self, seg_camera_log):
+        from py123d.datatypes import SegmentationCameraMetadata
+
+        log_dir, scene_meta, _, instance_meta = seg_camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        metas = api.get_camera_instance_metadatas()
+        assert set(metas) == {instance_meta.camera_id}
+        assert isinstance(metas[instance_meta.camera_id], SegmentationCameraMetadata)
+
+    def test_semantic_and_instance_metadatas_are_disjoint(self, seg_camera_log):
+        # A semantic stream must not show up among the instance metadatas (and vice versa).
+        from py123d.datatypes.sensors.base_camera import CameraChannelType
+
+        log_dir, scene_meta, _, _ = seg_camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        semantic = api.get_camera_semantic_metadatas()[CameraID.PCAM_F0]
+        instance = api.get_camera_instance_metadatas()[CameraID.PCAM_F0]
+        assert semantic.channel_type == CameraChannelType.SEMANTIC
+        assert instance.channel_type == CameraChannelType.INSTANCE
+
+    def test_get_camera_semantic_at_iteration(self, seg_camera_log):
+        import numpy as np
+
+        from py123d.datatypes.sensors.base_camera import Camera
+
+        log_dir, scene_meta, semantic_meta, _ = seg_camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        cam = api.get_camera_semantic_at_iteration(0, semantic_meta.camera_id)
+        assert isinstance(cam, Camera)
+        assert cam.image.shape == (240, 320)  # single-channel label map
+        # rgb_image colorizes the semantic label map to a 3-channel RGB view.
+        assert cam.rgb_image.shape == (240, 320, 3)
+        assert cam.rgb_image.dtype == np.uint8
+
+    def test_get_camera_instance_at_iteration(self, seg_camera_log):
+        import numpy as np
+
+        from py123d.datatypes.sensors.base_camera import Camera
+
+        log_dir, scene_meta, _, instance_meta = seg_camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        cam = api.get_camera_instance_at_iteration(0, instance_meta.camera_id)
+        assert isinstance(cam, Camera)
+        assert cam.image.shape == (240, 320)
+        assert cam.image.dtype == np.uint16
+
+    def test_get_camera_semantic_at_timestamp(self, seg_camera_log):
+        from py123d.datatypes.sensors.base_camera import Camera
+
+        log_dir, scene_meta, semantic_meta, _ = seg_camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        cam = api.get_camera_semantic_at_timestamp(Timestamp.from_us(0), semantic_meta.camera_id, criteria="exact")
+        assert isinstance(cam, Camera)
+
+    def test_get_all_camera_semantic_timestamps(self, seg_camera_log):
+        log_dir, scene_meta, semantic_meta, _ = seg_camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        ts = api.get_all_camera_semantic_timestamps(semantic_meta.camera_id)
+        assert len(ts) == 5
+
+    def test_available_semantic_and_instance_ids_and_names(self, seg_camera_log):
+        log_dir, scene_meta, _, _ = seg_camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        assert api.available_camera_semantic_ids == [CameraID.PCAM_F0]
+        assert api.available_camera_instance_ids == [CameraID.PCAM_F0]
+        assert api.available_camera_semantic_names == ["front"]
+        assert api.available_camera_instance_names == ["front"]
+
+    def test_accessors_accept_string_camera_id(self, seg_camera_log):
+        log_dir, scene_meta, _, _ = seg_camera_log
+        api = ArrowSceneAPI(log_dir, scene_meta)
+        assert api.get_camera_semantic_at_iteration(0, "pcam_f0") is not None
+        assert api.get_camera_instance_at_iteration(0, "pcam_f0") is not None
+
+
 # ===========================================================================
 # Map
 # ===========================================================================
