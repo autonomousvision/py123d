@@ -1,6 +1,7 @@
-# Smoketest streaming variant — the `mini` preset downloads only ~600 MB (mini sensor
-# data + HD maps + CAN bus). Useful to verify the whole download→extract→convert chain
-# end-to-end without committing to the 75 GB trainval_one slice.
+# Smoketest streaming variant — the `mini` preset downloads only ~650 MB (mini sensor
+# data + HD maps + CAN bus + lidarseg/panoptic labels). Useful to verify the whole
+# download→extract→convert chain (incl. per-point segmentation, baked into the LAZ blob
+# in this binary store mode) end-to-end without committing to the 75 GB trainval_one slice.
 #
 # Credentials: $NUSCENES_EMAIL / $NUSCENES_PASSWORD required (same as nuscenes-stream).
 #

@@ -46,7 +46,7 @@ class WODMapParser(BaseMapParser):
     handles map extraction for both. The map features are loaded lazily from
     the TFRecord file when :meth:`iter_map_objects` is called.
 
-    :param dataset: Dataset identifier, e.g. ``"wod_perception"`` or ``"wod-motion"``.
+    :param dataset: Dataset identifier, e.g. ``"wod-perception"`` or ``"wod-motion"``.
     :param split: Split name, e.g. ``"wod-perception_train"``.
     :param log_name: Log or scenario name used as the map identifier.
     :param source_tf_record_path: Path to the TFRecord file containing map features.

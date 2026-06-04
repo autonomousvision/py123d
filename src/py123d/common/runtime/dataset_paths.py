@@ -139,7 +139,8 @@ class DatasetPaths:
             "av2-sensor": self.av2_sensor_data_root,
             "nuplan": self.nuplan_sensor_root,
             "nuscenes": self.nuscenes_sensor_root,
-            "wod_perception": self.wod_perception_data_root,
+            "wod-perception": self.wod_perception_data_root,
+            "wod_perception": self.wod_perception_data_root,  # legacy alias for pre-rename logs
             "pandaset": self.pandaset_data_root,
             "kitti360": self.kitti360_data_root,
             # nuReasoning stores cameras (jpeg_binary) and lidar (path) under the data root.

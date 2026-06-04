@@ -27,7 +27,17 @@ class LidarConfig:
     point_size: float = 0.02
     point_shape: Literal["square", "diamond", "circle", "rounded", "sparkle"] = "circle"
     point_color: Literal[
-        "none", "height", "distance", "ids", "intensity", "channel", "timestamps", "range", "elongation"
+        "none",
+        "height",
+        "distance",
+        "ids",
+        "intensity",
+        "channel",
+        "timestamps",
+        "range",
+        "elongation",
+        "semantic",
+        "instance",
     ] = "none"
     stride_step: int = 1
     show_sensor_frames: bool = False
@@ -66,7 +76,19 @@ class LidarElement(ViewerElement):
         self._gui_visible = server.gui.add_checkbox("Visible", self._config.visible)
         self._gui_coloring = server.gui.add_dropdown(
             "Coloring",
-            ("none", "height", "distance", "ids", "intensity", "channel", "timestamps", "range", "elongation"),
+            (
+                "none",
+                "height",
+                "distance",
+                "ids",
+                "intensity",
+                "channel",
+                "timestamps",
+                "range",
+                "elongation",
+                "semantic",
+                "instance",
+            ),
             initial_value=self._config.point_color,
         )
         self._gui_lidar_id = server.gui.add_dropdown(

@@ -52,3 +52,37 @@ def load_image_from_png_file(png_path: Path) -> npt.NDArray[np.uint8]:
     image = cv2.imread(str(png_path), cv2.IMREAD_COLOR)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     return image  # type: ignore[return-value]
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# Single-channel integer label maps (semantic segmentation)
+# ------------------------------------------------------------------------------------------------------------------
+
+
+def encode_label_map_as_png_binary(label_map: npt.NDArray[np.integer]) -> bytes:
+    """Encodes a single-channel integer label map (H, W) as lossless PNG binary.
+
+    Unlike :func:`encode_image_as_png_binary`, no color conversion is applied: the raw class ids
+    are preserved exactly. ``uint8`` maps become 8-bit PNGs and ``uint16`` maps 16-bit PNGs.
+
+    :param label_map: A 2D (H, W) array of integer class ids (uint8 or uint16).
+    :return: Lossless PNG binary preserving the integer values.
+    """
+    assert label_map.ndim == 2, f"Label map must be a single-channel (H, W) array, got shape {label_map.shape}."
+    _, encoded_label_map = cv2.imencode(".png", label_map)
+    return encoded_label_map.tobytes()
+
+
+def decode_label_map_from_png_binary(png_binary: bytes, scale: Optional[int] = None) -> npt.NDArray[np.integer]:
+    """Decodes a single-channel integer label map from PNG binary, preserving class ids exactly.
+
+    :param png_binary: The PNG binary data to decode.
+    :param scale: Optional downscale denominator. Nearest-neighbour is used so class ids are never blended.
+    :return: A 2D (H, W) array of integer class ids with the original dtype (uint8/uint16).
+    """
+    label_map = cv2.imdecode(np.frombuffer(png_binary, np.uint8), cv2.IMREAD_UNCHANGED)
+    if scale is not None and scale > 1:
+        new_h = label_map.shape[0] // scale
+        new_w = label_map.shape[1] // scale
+        label_map = cv2.resize(label_map, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
+    return label_map  # type: ignore[return-value]

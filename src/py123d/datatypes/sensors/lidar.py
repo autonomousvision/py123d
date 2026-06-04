@@ -7,6 +7,10 @@ import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata, ModalityType
+from py123d.datatypes.sensors.lidar_segmentation_label import (
+    LidarSegmentationLabel,
+    resolve_lidar_segmentation_label_class,
+)
 from py123d.datatypes.time.timestamp import Timestamp
 from py123d.geometry import Point3DIndex, PoseSE3
 
@@ -60,6 +64,13 @@ class LidarFeature(SerialIntEnum):
     ELONGATION = 5
     """Elongation feature index."""
 
+    SEMANTIC = 6
+    """Per-point semantic class feature index. The raw, dataset-native class id (see the
+    dataset's ``LidarSegmentationLabel`` enum in ``py123d.parser.lidar_segmentation_registry``)."""
+
+    INSTANCE = 7
+    """Per-point instance id feature index, for panoptic segmentation. 0 means no instance."""
+
 
 LIDAR_FEATURE_DTYPES: Dict[LidarFeature, Type] = {
     LidarFeature.IDS: np.uint8,
@@ -68,29 +79,36 @@ LIDAR_FEATURE_DTYPES: Dict[LidarFeature, Type] = {
     LidarFeature.TIMESTAMPS: np.int64,
     LidarFeature.RANGE: np.float32,
     LidarFeature.ELONGATION: np.float32,
+    LidarFeature.SEMANTIC: np.uint8,
+    LidarFeature.INSTANCE: np.uint16,
 }
 
 
 class LidarMetadata(BaseModalityMetadata):
     """Metadata for Lidar sensor, static for a given sensor."""
 
-    __slots__ = ("_lidar_name", "_lidar_id", "_lidar_to_imu_se3")
+    __slots__ = ("_lidar_name", "_lidar_id", "_lidar_to_imu_se3", "_segmentation_label_class")
 
     def __init__(
         self,
         lidar_name: str,
         lidar_id: LidarID,
         lidar_to_imu_se3: PoseSE3 = PoseSE3.identity(),
+        segmentation_label_class: Optional[Type[LidarSegmentationLabel]] = None,
     ):
         """Initialize Lidar metadata.
 
         :param lidar_name: The name of the Lidar sensor from the dataset.
         :param lidar_id: The ID of the Lidar sensor.
         :param lidar_to_imu_se3: The extrinsic pose of the Lidar sensor relative to the IMU
+        :param segmentation_label_class: The dataset-specific :class:`LidarSegmentationLabel` enum
+            describing the per-point :attr:`LidarFeature.SEMANTIC` class ids, if this sensor is
+            segmentation-annotated. ``None`` if the sensor has no semantic labels.
         """
         self._lidar_name = lidar_name
         self._lidar_id = lidar_id
         self._lidar_to_imu_se3 = lidar_to_imu_se3
+        self._segmentation_label_class = segmentation_label_class
 
     @property
     def lidar_name(self) -> str:
@@ -108,6 +126,11 @@ class LidarMetadata(BaseModalityMetadata):
         return self._lidar_to_imu_se3
 
     @property
+    def segmentation_label_class(self) -> Optional[Type[LidarSegmentationLabel]]:
+        """The :class:`LidarSegmentationLabel` enum for this sensor's per-point semantic ids, if any."""
+        return self._segmentation_label_class
+
+    @property
     def modality_type(self) -> ModalityType:
         return ModalityType.LIDAR
 
@@ -123,10 +146,16 @@ class LidarMetadata(BaseModalityMetadata):
         :raises ValueError: If the dictionary is missing required fields or contains invalid data.
         :return: An instance of LidarMetadata.
         """
+        # Backward-compatible: logs written before semantic lidar existed have no taxonomy.
+        segmentation_label_class = None
+        qualified_name = data_dict.get("segmentation_label_class")
+        if qualified_name is not None:
+            segmentation_label_class = resolve_lidar_segmentation_label_class(qualified_name)
         return LidarMetadata(
             lidar_name=data_dict["lidar_name"],
             lidar_id=LidarID(data_dict["lidar_id"]),
             lidar_to_imu_se3=PoseSE3.from_list(data_dict["lidar_to_imu_se3"]),
+            segmentation_label_class=segmentation_label_class,
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -134,10 +163,16 @@ class LidarMetadata(BaseModalityMetadata):
 
         :return: A dictionary representation of the Lidar metadata.
         """
+        segmentation_label_class = None
+        if self._segmentation_label_class is not None:
+            segmentation_label_class = (
+                f"{self._segmentation_label_class.__module__}.{self._segmentation_label_class.__qualname__}"
+            )
         return {
             "lidar_name": self.lidar_name,
             "lidar_id": int(self.lidar_id),
             "lidar_to_imu_se3": self.lidar_to_imu_se3.tolist(),
+            "segmentation_label_class": segmentation_label_class,
         }
 
 
@@ -334,6 +369,29 @@ class Lidar(BaseModality):
         if self._point_cloud_features is not None and key in self._point_cloud_features:
             elongation = self._point_cloud_features[key].astype(np.float32)  # type: ignore
         return elongation
+
+    @property
+    def semantic(self) -> Optional[npt.NDArray[np.uint8]]:
+        """The point cloud as an Nx1 array of per-point semantic class ids, if available.
+
+        The values are the raw, dataset-native class ids. Use the dataset's
+        ``LidarSegmentationLabel`` enum (see :mod:`py123d.parser.lidar_segmentation_registry`)
+        to resolve names or map to the unified taxonomy.
+        """
+        semantic: Optional[npt.NDArray[np.uint8]] = None
+        key = LidarFeature.SEMANTIC.serialize()
+        if self._point_cloud_features is not None and key in self._point_cloud_features:
+            semantic = self._point_cloud_features[key].astype(np.uint8)  # type: ignore
+        return semantic
+
+    @property
+    def instance(self) -> Optional[npt.NDArray[np.uint16]]:
+        """The point cloud as an Nx1 array of per-point instance ids (panoptic), if available."""
+        instance: Optional[npt.NDArray[np.uint16]] = None
+        key = LidarFeature.INSTANCE.serialize()
+        if self._point_cloud_features is not None and key in self._point_cloud_features:
+            instance = self._point_cloud_features[key].astype(np.uint16)  # type: ignore
+        return instance
 
 
 def get_merged_lidar(lidars: List[Lidar]) -> Optional[Lidar]:

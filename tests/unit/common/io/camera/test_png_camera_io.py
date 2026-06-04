@@ -2,7 +2,9 @@ import numpy as np
 
 from py123d.common.io.camera.png_camera_io import (
     decode_image_from_png_binary,
+    decode_label_map_from_png_binary,
     encode_image_as_png_binary,
+    encode_label_map_as_png_binary,
     is_png_binary,
     load_image_from_png_file,
     load_png_binary_from_png_file,
@@ -125,6 +127,36 @@ class TestEncodeDecodePng:
         png_binary = encode_image_as_png_binary(white)
         decoded = decode_image_from_png_binary(png_binary)
         np.testing.assert_array_equal(decoded, white)
+
+
+class TestEncodeDecodeLabelMap:
+    """Single-channel integer label maps must round-trip losslessly and preserve class ids/dtype."""
+
+    def test_uint8_roundtrip_lossless(self):
+        rng = np.random.RandomState(0)
+        label_map = rng.randint(0, 28, size=(64, 48), dtype=np.uint8)
+        decoded = decode_label_map_from_png_binary(encode_label_map_as_png_binary(label_map))
+        assert decoded.shape == label_map.shape
+        assert decoded.dtype == np.uint8
+        np.testing.assert_array_equal(decoded, label_map)
+
+    def test_uint16_roundtrip_lossless(self):
+        rng = np.random.RandomState(1)
+        label_map = rng.randint(0, 5000, size=(40, 70), dtype=np.uint16)
+        decoded = decode_label_map_from_png_binary(encode_label_map_as_png_binary(label_map))
+        assert decoded.dtype == np.uint16
+        np.testing.assert_array_equal(decoded, label_map)
+
+    def test_encode_returns_valid_png(self):
+        label_map = np.zeros((8, 8), dtype=np.uint8)
+        assert is_png_binary(encode_label_map_as_png_binary(label_map))
+
+    def test_downscale_uses_nearest_neighbour_preserving_ids(self):
+        # A 4x4 map of distinct ids downscaled by 2 must contain only original ids (no blended values).
+        label_map = np.arange(16, dtype=np.uint8).reshape(4, 4)
+        decoded = decode_label_map_from_png_binary(encode_label_map_as_png_binary(label_map), scale=2)
+        assert decoded.shape == (2, 2)
+        assert set(np.unique(decoded)).issubset(set(np.unique(label_map)))
 
 
 class TestLoadPngFromFile:

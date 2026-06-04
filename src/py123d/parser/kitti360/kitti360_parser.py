@@ -15,6 +15,7 @@ from py123d.datatypes import (
     BoxDetectionSE3,
     BoxDetectionsSE3,
     BoxDetectionsSE3Metadata,
+    CameraChannelType,
     CameraID,
     DynamicStateSE3,
     EgoStateSE3,
@@ -29,6 +30,7 @@ from py123d.datatypes import (
     PinholeCameraMetadata,
     PinholeDistortion,
     PinholeIntrinsics,
+    SegmentationCameraMetadata,
     Timestamp,
 )
 from py123d.datatypes.metadata.map_metadata import MapMetadata
@@ -43,9 +45,12 @@ from py123d.parser.base_dataset_parser import (
     ParsedCamera,
     ParsedLidar,
 )
+from py123d.parser.camera_segmentation_registry import Kitti360CameraSegmentationLabel
 from py123d.parser.kitti360.kitti360_map_parser import Kitti360MapParser
 from py123d.parser.kitti360.utils.kitti360_constants import (
     DIR_2D_RAW,
+    DIR_2D_SMT,
+    DIR_2D_SMT_IMAGE_01,
     DIR_3D_BBOX,
     DIR_3D_RAW,
     DIR_CALIB,
@@ -55,8 +60,10 @@ from py123d.parser.kitti360.utils.kitti360_constants import (
     KITTI360_DT,
     KITTI360_EGO_STATE_SE3_METADATA,
     KITTI360_FISHEYE_MEI_CAMERA_IDS,
+    KITTI360_INSTANCE_SUBDIR,
     KITTI360_LIDAR_NAME,
     KITTI360_PINHOLE_CAMERA_IDS,
+    KITTI360_SEMANTIC_SUBDIR,
     KITTI360_SPLITS,
 )
 from py123d.parser.kitti360.utils.kitti360_helper import (
@@ -77,6 +84,10 @@ def _get_kitti360_paths_from_root(kitti_data_root: Path) -> Dict[str, Path]:
     return {
         DIR_ROOT: kitti_data_root,
         DIR_2D_RAW: kitti_data_root / "data_2d_raw",
+        # 2D semantics are optional; image_00 (and, in the canonical layout, image_01) live under
+        # data_2d_semantics, while a separate per-camera download keeps image_01 under its own tree.
+        DIR_2D_SMT: kitti_data_root / "data_2d_semantics",
+        DIR_2D_SMT_IMAGE_01: kitti_data_root / "data_2d_semantics_image_01" / "data_2d_semantics",
         DIR_3D_RAW: kitti_data_root / "data_3d_raw",
         DIR_3D_BBOX: kitti_data_root / "data_3d_bboxes",
         DIR_POSES: kitti_data_root / "data_poses",
@@ -255,6 +266,14 @@ class Kitti360LogParser(BaseLogParser):
         fisheye_mei_camera_metadatas = _get_kitti360_fisheye_mei_camera_metadata(
             self._kitti360_folders, self._camera_calibration
         )
+        # 2D segmentation streams (semantic class-ids + panoptic/instance) are pixel-aligned siblings
+        # of the perspective cameras; only the pinhole cameras carry 2D semantics in KITTI-360.
+        semantic_camera_metadatas = _get_kitti360_segmentation_camera_metadata(
+            pinhole_camera_metadatas, CameraChannelType.SEMANTIC
+        )
+        instance_camera_metadatas = _get_kitti360_segmentation_camera_metadata(
+            pinhole_camera_metadatas, CameraChannelType.INSTANCE
+        )
         lidar_metadata = _get_kitti360_lidar_merged_metadata(self._kitti360_folders)
         timestamps_dict: Dict[str, List[Timestamp]] = _read_timestamps(self._log_name, self._kitti360_folders)
 
@@ -302,6 +321,15 @@ class Kitti360LogParser(BaseLogParser):
                 fisheye_mei_camera_metadatas,
                 ego_state_se3,
             )
+            segmentation_cameras = _extract_kitti360_camera_segmentation(
+                self._log_name,
+                valid_idx,
+                timestamps_dict,
+                self._kitti360_folders,
+                semantic_camera_metadatas,
+                instance_camera_metadatas,
+                ego_state_se3,
+            )
             parsed_lidar = _extract_kitti360_lidar(
                 self._log_name,
                 valid_idx,
@@ -315,6 +343,7 @@ class Kitti360LogParser(BaseLogParser):
                 box_detection_wrapper_all[valid_idx],
                 *pinhole_cameras,
                 *fisheye_cameras,
+                *segmentation_cameras,
             ]
             if parsed_lidar is not None:
                 modalities.append(parsed_lidar)
@@ -434,6 +463,27 @@ def _get_kitti360_fisheye_mei_camera_metadata(
         )
 
     return fisheye_cam_metadatas
+
+
+def _get_kitti360_segmentation_camera_metadata(
+    pinhole_camera_metadatas: Dict[CameraID, PinholeCameraMetadata],
+    channel_type: CameraChannelType,
+) -> Dict[CameraID, SegmentationCameraMetadata]:
+    """Builds KITTI-360 segmentation-camera metadata (semantic or instance) for the pinhole cameras.
+
+    Each segmentation stream is pixel-aligned to its RGB pinhole sibling, so it composes that
+    camera's :class:`PinholeCameraMetadata` for all geometry and only records the KITTI-360 taxonomy
+    and the channel type. Only the two perspective cameras carry 2D semantics in KITTI-360; the
+    fisheye cameras do not.
+    """
+    return {
+        camera_id: SegmentationCameraMetadata(
+            camera_metadata=pinhole_camera_metadatas[camera_id],
+            segmentation_label_class=Kitti360CameraSegmentationLabel,
+            channel_type=channel_type,
+        )
+        for camera_id in KITTI360_PINHOLE_CAMERA_IDS
+    }
 
 
 def _get_kitti360_lidar_merged_metadata(kitti360_folders: Dict[str, Path]) -> LidarMergedMetadata:
@@ -795,6 +845,75 @@ def _extract_kitti360_pinhole_cameras(
             )
 
     return pinhole_camera_data_list
+
+
+def _resolve_kitti360_semantic_relative_path(
+    kitti360_folders: Dict[str, Path],
+    log_name: str,
+    camera_name: str,
+    sub_dir: str,
+    idx: int,
+) -> Optional[Path]:
+    """Resolves a KITTI-360 2D-semantics label PNG to a dataset-root-relative path, or ``None`` if absent.
+
+    Handles both the canonical ``data_2d_semantics/train/{seq}/{cam}/{sub}/{idx:010d}.png`` layout and
+    the separate ``data_2d_semantics_image_01`` tree used when the per-camera downloads are kept apart.
+    """
+    relative_path: Optional[Path] = None
+    for root_key in (DIR_2D_SMT, DIR_2D_SMT_IMAGE_01):
+        candidate = kitti360_folders[root_key] / "train" / log_name / camera_name / sub_dir / f"{idx:010d}.png"
+        if candidate.exists():
+            relative_path = candidate.relative_to(kitti360_folders[DIR_ROOT])
+            break
+    return relative_path
+
+
+def _extract_kitti360_camera_segmentation(
+    log_name: str,
+    idx: int,
+    timestamps_dict: Dict[str, List[Timestamp]],
+    kitti360_folders: Dict[str, Path],
+    semantic_camera_metadatas: Dict[CameraID, SegmentationCameraMetadata],
+    instance_camera_metadatas: Dict[CameraID, SegmentationCameraMetadata],
+    ego_state_se3: EgoStateSE3,
+) -> List[ParsedCamera]:
+    """Extracts KITTI-360 2D semantic + panoptic/instance label maps for the pinhole cameras.
+
+    Annotations are sparse: a stream is emitted only for frames whose label PNG exists on disk. The
+    label map is stored losslessly via the ``label_png`` codec straight from the on-disk single-channel
+    PNG (no decode), sharing the RGB sibling's pose and timestamp.
+    """
+    segmentation_data_list: List[ParsedCamera] = []
+    for camera_id, camera_name in KITTI360_PINHOLE_CAMERA_IDS.items():
+        streams: List[Tuple[SegmentationCameraMetadata, Path]] = []
+        for sub_dir, metadatas in (
+            (KITTI360_SEMANTIC_SUBDIR, semantic_camera_metadatas),
+            (KITTI360_INSTANCE_SUBDIR, instance_camera_metadatas),
+        ):
+            relative_path = _resolve_kitti360_semantic_relative_path(
+                kitti360_folders, log_name, camera_name, sub_dir, idx
+            )
+            if relative_path is not None:
+                streams.append((metadatas[camera_id], relative_path))
+
+        if len(streams) > 0:
+            camera_timestamp = timestamps_dict[camera_name][idx]
+            camera_to_global_se3 = rel_to_abs_se3(
+                origin=ego_state_se3.imu_se3,
+                pose_se3=semantic_camera_metadatas[camera_id].camera_to_imu_se3,
+            )
+            for metadata, relative_path in streams:
+                segmentation_data_list.append(
+                    ParsedCamera(
+                        metadata=metadata,
+                        camera_to_global_se3=camera_to_global_se3,
+                        timestamp=camera_timestamp,
+                        dataset_root=kitti360_folders[DIR_ROOT],
+                        relative_path=relative_path,
+                    )
+                )
+
+    return segmentation_data_list
 
 
 def _extract_kitti360_fisheye_mei_cameras(

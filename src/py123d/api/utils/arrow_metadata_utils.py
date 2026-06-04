@@ -72,6 +72,7 @@ def _get_modality_metadata_registry() -> Dict[ModalityType, Any]:
     from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionsMetadata
     from py123d.datatypes.sensors.base_camera import camera_metadata_from_dict
     from py123d.datatypes.sensors.lidar import LidarMetadata
+    from py123d.datatypes.sensors.segmentation_camera import SegmentationCameraMetadata
     from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadata
 
     # _CameraMetadataFactory acts as a drop-in for a metadata class: its from_dict()
@@ -84,6 +85,8 @@ def _get_modality_metadata_registry() -> Dict[ModalityType, Any]:
         ModalityType.BOX_DETECTIONS_SE3: BoxDetectionsSE3Metadata,
         ModalityType.TRAFFIC_LIGHT_DETECTIONS: TrafficLightDetectionsMetadata,
         ModalityType.CAMERA: _CameraMetadataFactory,
+        ModalityType.CAMERA_SEMANTIC: SegmentationCameraMetadata,
+        ModalityType.CAMERA_INSTANCE: SegmentationCameraMetadata,
         ModalityType.LIDAR: LidarMetadata,
         ModalityType.CUSTOM: CustomModalityMetadata,
     }

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
@@ -63,6 +64,10 @@ class ArrowLidarWriter(ArrowBaseModalityWriter):
             schema_list.append((f"{metadata.modality_key}.data", pa.binary()))
         elif lidar_store_option == "path":
             schema_list.append((f"{metadata.modality_key}.data", pa.string()))
+            # Generic JSON extras forwarded to the point-cloud loader at API read time (e.g. nuScenes
+            # carries the keyframe's panoptic-label relative path here). Nullable; unused datasets
+            # write None. In "binary" mode the extras are consumed at conversion, so no column is added.
+            schema_list.append((f"{metadata.modality_key}.kwargs", pa.string()))
         else:
             raise ValueError(f"Unsupported lidar store option: {lidar_store_option}")
 
@@ -94,6 +99,8 @@ class ArrowLidarWriter(ArrowBaseModalityWriter):
             assert isinstance(modality, ParsedLidar), "Path store option requires ParsedLidar with file path."
             data_path: Optional[str] = str(modality._relative_path) if modality._relative_path is not None else None
             batch[f"{self._modality_key}.data"] = [data_path]
+            load_kwargs = modality._load_kwargs
+            batch[f"{self._modality_key}.kwargs"] = [json.dumps(load_kwargs) if load_kwargs else None]
 
         elif self._lidar_store_option == "binary":
             data_binary = self._prepare_lidar_data(modality)
@@ -126,6 +133,7 @@ class ArrowLidarWriter(ArrowBaseModalityWriter):
                 modality._iteration,
                 modality._dataset_root,
                 lidar_metadatas=lidar_metadatas,
+                load_kwargs=modality._load_kwargs,
             )
         else:
             raise ValueError(f"Unsupported lidar modality type: {type(modality)}")
@@ -200,7 +208,8 @@ class ArrowLidarReader(ArrowBaseModalityReader):
                 lidar_metadatas = (
                     dict(metadata) if isinstance(metadata, LidarMergedMetadata) else {metadata.lidar_id: metadata}
                 )
-                column_at_iteration = _deserialize_pcs(column_at_iteration, dataset, lidar_metadatas)  # type: ignore
+                load_kwargs = _read_load_kwargs(table, index, metadata.modality_key)
+                column_at_iteration = _deserialize_pcs(column_at_iteration, dataset, lidar_metadatas, load_kwargs)  # type: ignore
         return column_at_iteration
 
 
@@ -236,7 +245,8 @@ def _deserialize_lidar(
     if data_col in arrow_table.schema.names:
         lidar_data = arrow_table[data_col][index].as_py()
         if lidar_data is not None:
-            point_cloud_3d, point_cloud_feature = _deserialize_pcs(lidar_data, dataset, lidar_metadatas)
+            load_kwargs = _read_load_kwargs(arrow_table, index, modality_key)
+            point_cloud_3d, point_cloud_feature = _deserialize_pcs(lidar_data, dataset, lidar_metadatas, load_kwargs)
 
     if point_cloud_3d is None:
         return None
@@ -264,10 +274,26 @@ def _deserialize_lidar(
     )
 
 
+def _read_load_kwargs(table: pa.Table, index: int, modality_key: str) -> Optional[Dict[str, Any]]:
+    """Reads the optional generic loader-kwargs JSON for a "path"-stored lidar row, if the column exists.
+
+    The ``{modality_key}.kwargs`` column is only present for logs written with the "path" store option;
+    older logs predate it, so its absence (or a null cell) is treated as "no extras".
+    """
+    load_kwargs: Optional[Dict[str, Any]] = None
+    kwargs_col = f"{modality_key}.kwargs"
+    if kwargs_col in table.schema.names:
+        raw_kwargs = table[kwargs_col][index].as_py()
+        if raw_kwargs is not None:
+            load_kwargs = json.loads(raw_kwargs)
+    return load_kwargs
+
+
 def _deserialize_pcs(
     lidar_data: Union[bytes, str],
     dataset: str,
     lidar_metadatas: Optional[Dict[LidarID, LidarMetadata]],
+    load_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Tuple[npt.NDArray[np.float32], Optional[Dict[str, npt.NDArray]]]:
     if isinstance(lidar_data, str):
         point_cloud_3d, point_cloud_feature = load_point_cloud_data_from_path(
@@ -275,6 +301,7 @@ def _deserialize_pcs(
             dataset=dataset,
             index=None,
             lidar_metadatas=lidar_metadatas,
+            load_kwargs=load_kwargs,
         )
     elif isinstance(lidar_data, bytes):
         point_cloud_3d, point_cloud_feature = _decode_lidar_binary(lidar_data)

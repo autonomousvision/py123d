@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import abc
 from pathlib import Path
-from typing import Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 from py123d.datatypes import BaseMapObject, LogMetadata, MapMetadata, Timestamp
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata
@@ -100,6 +100,7 @@ class ParsedLidar(BaseModality):
         dataset_root: Union[str, Path],
         relative_path: Union[str, Path],
         iteration: Optional[int] = None,
+        load_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._metadata: Union[LidarMetadata, LidarMergedMetadata] = metadata
         self._start_timestamp: Timestamp = start_timestamp
@@ -108,6 +109,11 @@ class ParsedLidar(BaseModality):
         self._dataset_root: Optional[Union[str, Path]] = dataset_root
         self._relative_path: Optional[Union[str, Path]] = relative_path
         self._iteration: Optional[int] = iteration
+        # Generic, dataset-specific extras forwarded verbatim to the point-cloud loader (and persisted
+        # in the Arrow lidar frame under the "path" store option, so they survive to API read time).
+        # nuScenes uses this to carry the keyframe's panoptic-label relative path; see
+        # :func:`py123d.common.io.lidar.path_lidar_io.load_point_cloud_data_from_path`.
+        self._load_kwargs: Optional[Dict[str, Any]] = load_kwargs
 
         assert self._dataset_root is not None and self._relative_path is not None, (
             "File path must be provided for ParsedLidar."
@@ -132,6 +138,11 @@ class ParsedLidar(BaseModality):
     def metadata(self) -> BaseModalityMetadata:
         """Returns the metadata associated with this lidar data."""
         return self._metadata
+
+    @property
+    def load_kwargs(self) -> Optional[Dict[str, Any]]:
+        """Returns the dataset-specific extras forwarded to the point-cloud loader, if any."""
+        return self._load_kwargs
 
 
 class ParsedCamera(BaseModality):

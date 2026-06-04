@@ -19,6 +19,9 @@ from py123d.api.scene.arrow.utils.scene_builder_utils import (
     _get_columns_matching_type,
     _is_modality_pattern,
     _parse_modality_pattern,
+    _resolve_requirement,
+    _scope_sync_indices,
+    _split_scope,
     check_log_passes_metadata_filters,
     filter_scene_metadata_candidates,
     generate_scene_metadatas,
@@ -295,6 +298,19 @@ class TestCheckLogPassesMetadataFilters:
 
         f = SceneFilter(required_scene_modalities=["ego_state_se3:any"])
         assert check_log_passes_metadata_filters(meta, columns, f) is True
+
+    def test_required_modalities_ignores_scope(self):
+        """Log-level existence is scope-independent: the @scope suffix is stripped before the check."""
+        columns = ["sync.uuid", "sync.timestamp_us", "camera.front", "lidar.top"]
+        meta = _make_log_metadata()
+
+        # Present column passes regardless of scope.
+        f = SceneFilter(required_scene_modalities=["camera.front@initial"])
+        assert check_log_passes_metadata_filters(meta, columns, f) is True
+
+        # Absent column fails regardless of scope.
+        f = SceneFilter(required_scene_modalities=["camera.rear@initial"])
+        assert check_log_passes_metadata_filters(meta, columns, f) is False
 
     def test_required_modalities_invalid_pattern(self):
         with pytest.raises(ValueError, match="Invalid modality pattern"):
@@ -745,6 +761,137 @@ class TestFilterScenes:
         candidates = self._make_candidates(3)
         result = filter_scene_metadata_candidates(candidates, SceneFilter(), table)
         assert len(result) == 3
+
+    @staticmethod
+    def _scene(initial_idx: int, num_history_iterations: int = 0, num_future_iterations: int = 4) -> SceneMetadata:
+        return SceneMetadata(
+            dataset="test",
+            split="test_train",
+            initial_uuid="a",
+            initial_idx=initial_idx,
+            num_future_iterations=num_future_iterations,
+            num_history_iterations=num_history_iterations,
+            future_duration_s=0.4,
+            history_duration_s=0.0,
+            iteration_duration_s=0.1,
+        )
+
+    def test_initial_scope_keeps_scene_null_mid_scene(self):
+        """'@initial' only checks the anchor frame, so a mid-scene null no longer drops the scene."""
+        table = _make_sync_table(num_rows=20, camera_nulls=[7])  # null mid-scene (not at anchor)
+        candidates = [self._scene(initial_idx=5)]  # range 5-9, anchor 5
+
+        scoped = SceneFilter(required_scene_modalities=["camera.front@initial"])
+        assert len(filter_scene_metadata_candidates(candidates, scoped, table)) == 1
+
+        # Without the scope, the whole-scene check drops it on the index-7 null.
+        whole = SceneFilter(required_scene_modalities=["camera.front"])
+        assert len(filter_scene_metadata_candidates(candidates, whole, table)) == 0
+
+    def test_initial_scope_drops_scene_null_at_anchor(self):
+        table = _make_sync_table(num_rows=20, camera_nulls=[5])  # null exactly at the anchor
+        candidates = [self._scene(initial_idx=5)]
+        scoped = SceneFilter(required_scene_modalities=["camera.front@initial"])
+        assert len(filter_scene_metadata_candidates(candidates, scoped, table)) == 0
+
+    def test_initial_scope_any_vs_all(self):
+        # front null at anchor (5), rear null mid-scene (7).
+        table = _make_multi_camera_sync_table(num_rows=20, front_nulls=[5], rear_nulls=[7])
+        candidates = [self._scene(initial_idx=5)]
+
+        # any@initial: rear is non-null at the anchor → kept.
+        any_scoped = SceneFilter(required_scene_modalities=["camera:any@initial"])
+        assert len(filter_scene_metadata_candidates(candidates, any_scoped, table)) == 1
+
+        # all@initial: front is null at the anchor → dropped.
+        all_scoped = SceneFilter(required_scene_modalities=["camera:all@initial"])
+        assert len(filter_scene_metadata_candidates(candidates, all_scoped, table)) == 0
+
+    def test_initial_plus_future_scope_ignores_history(self):
+        # History-only null is ignored by initial+future; a future null still drops the scene.
+        candidates = [self._scene(initial_idx=5, num_history_iterations=2)]  # range 3-9, anchor 5
+        scoped = SceneFilter(required_scene_modalities=["camera.front@initial+future"])
+
+        history_null = _make_sync_table(num_rows=20, camera_nulls=[3])  # in history segment
+        assert len(filter_scene_metadata_candidates(candidates, scoped, history_null)) == 1
+        # Whole-scene check would drop it on the history null.
+        whole = SceneFilter(required_scene_modalities=["camera.front"])
+        assert len(filter_scene_metadata_candidates(candidates, whole, history_null)) == 0
+
+        future_null = _make_sync_table(num_rows=20, camera_nulls=[8])  # in future segment
+        assert len(filter_scene_metadata_candidates(candidates, scoped, future_null)) == 0
+
+    def test_mixed_scopes_applied_independently(self):
+        # Both cameras null mid-scene (7); lidar clean. Anchor at 5.
+        table = _make_multi_camera_sync_table(num_rows=20, front_nulls=[7], rear_nulls=[7])
+        candidates = [self._scene(initial_idx=5)]
+
+        # lidar.top (whole scene) clean AND camera:any@initial (anchor clean) → kept.
+        scoped = SceneFilter(required_scene_modalities=["lidar.top", "camera:any@initial"])
+        assert len(filter_scene_metadata_candidates(candidates, scoped, table)) == 1
+
+        # camera:any over the whole scene would drop it (both cameras null at 7).
+        whole = SceneFilter(required_scene_modalities=["lidar.top", "camera:any"])
+        assert len(filter_scene_metadata_candidates(candidates, whole, table)) == 0
+
+
+class TestScopeHelpers:
+    @staticmethod
+    def _scene(stride: int = 1) -> SceneMetadata:
+        return SceneMetadata(
+            dataset="test",
+            split="test_train",
+            initial_uuid="a",
+            initial_idx=10 if stride > 1 else 5,
+            num_future_iterations=2 if stride > 1 else 4,
+            num_history_iterations=2,
+            future_duration_s=0.0,
+            history_duration_s=0.0,
+            iteration_duration_s=0.1,
+            target_iteration_stride=stride,
+        )
+
+    def test_split_scope_default(self):
+        body, scope = _split_scope("camera:any")
+        assert body == "camera:any"
+        assert scope == frozenset({"history", "initial", "future"})
+
+    def test_split_scope_with_suffix(self):
+        body, scope = _split_scope("camera.front@initial+future")
+        assert body == "camera.front"
+        assert scope == frozenset({"initial", "future"})
+
+    def test_resolve_requirement_exact_key(self):
+        columns, quantifier, scope = _resolve_requirement("camera.front", {"camera.front", "lidar.top"})
+        assert columns == ["camera.front"]
+        assert quantifier == "all"
+        assert scope == frozenset({"history", "initial", "future"})
+
+    def test_resolve_requirement_pattern_with_scope(self):
+        columns, quantifier, scope = _resolve_requirement("camera:any@initial", {"camera.front", "camera.rear"})
+        assert set(columns) == {"camera.front", "camera.rear"}
+        assert quantifier == "any"
+        assert scope == frozenset({"initial"})
+
+    def test_resolve_requirement_absent_exact_key(self):
+        columns, quantifier, _ = _resolve_requirement("camera.rear", {"camera.front"})
+        assert columns == []
+        assert quantifier == "all"
+
+    def test_scope_indices_segments_stride_one(self):
+        scene = self._scene(stride=1)  # initial_idx=5, history=2, future=4
+        assert _scope_sync_indices(scene, frozenset({"initial"})) == [5]
+        assert _scope_sync_indices(scene, frozenset({"history"})) == [3, 4]
+        assert _scope_sync_indices(scene, frozenset({"future"})) == [6, 7, 8, 9]
+        assert _scope_sync_indices(scene, frozenset({"initial", "future"})) == [5, 6, 7, 8, 9]
+
+    def test_scope_indices_default_equals_whole_range(self):
+        for stride in (1, 2):
+            scene = self._scene(stride=stride)
+            start = scene.initial_idx - scene.num_history_iterations * stride
+            end = scene.initial_idx + scene.num_future_iterations * stride + 1
+            expected = list(range(start, end, stride))
+            assert _scope_sync_indices(scene, frozenset({"history", "initial", "future"})) == expected
 
 
 class TestResolveSceneUuidIndices:
