@@ -13,6 +13,7 @@ from py123d.datatypes import (
     BoxDetectionSE3,
     BoxDetectionsSE3,
     Camera,
+    CameraChannelType,
     CameraID,
     EgoStateSE3,
     LidarID,
@@ -540,7 +541,7 @@ def _extract_wod_perception_cameras(
     This follows the same pattern as AV2, nuPlan, PandaSet, and KITTI-360 parsers.
     """
     # Lazy import keeps the parser module free of the tensorflow import at load time.
-    from py123d.parser.wod.wod_perception_sensor_io import load_wod_perception_camera_semantic_label
+    from py123d.parser.wod.wod_perception_sensor_io import load_wod_perception_camera_panoptic_labels
 
     camera_data_list: List[BaseModality] = []
 
@@ -573,21 +574,30 @@ def _extract_wod_perception_cameras(
             )
         )
 
-        # 2D camera semantic segmentation, only on frames Waymo annotated (sparse). Emitted as a
-        # pixel-aligned sibling stream sharing this camera's id, geometry, and pose.
-        semantic_label = load_wod_perception_camera_semantic_label(image_proto.camera_segmentation_label)
-        if semantic_label is not None:
-            camera_data_list.append(
-                Camera(
-                    metadata=SegmentationCameraMetadata(
-                        camera_metadata=metadata,
-                        segmentation_label_class=WODPerceptionCameraSegmentationLabel,
-                    ),
-                    image=semantic_label,
-                    camera_to_global_se3=camera_to_global_se3,
-                    timestamp=timestamp,
+        # 2D camera panoptic labels, only on frames Waymo annotated (sparse). The single Waymo panoptic
+        # PNG is split into two pixel-aligned sibling streams that share this camera's id, geometry, and
+        # pose: a semantic class-id map (CAMERA_SEMANTIC) and the packed panoptic/instance map
+        # (CAMERA_INSTANCE). See load_wod_perception_camera_panoptic_labels for the encoding.
+        semantic_label, instance_label = load_wod_perception_camera_panoptic_labels(
+            image_proto.camera_segmentation_label
+        )
+        for channel_type, label_map in (
+            (CameraChannelType.SEMANTIC, semantic_label),
+            (CameraChannelType.INSTANCE, instance_label),
+        ):
+            if label_map is not None:
+                camera_data_list.append(
+                    Camera(
+                        metadata=SegmentationCameraMetadata(
+                            camera_metadata=metadata,
+                            segmentation_label_class=WODPerceptionCameraSegmentationLabel,
+                            channel_type=channel_type,
+                        ),
+                        image=label_map,
+                        camera_to_global_se3=camera_to_global_se3,
+                        timestamp=timestamp,
+                    )
                 )
-            )
 
     return camera_data_list
 

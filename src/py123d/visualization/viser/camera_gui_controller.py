@@ -1,10 +1,10 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import viser
 
-from py123d.datatypes.sensors.base_camera import CameraID
+from py123d.datatypes.sensors.base_camera import Camera, CameraID
 from py123d.visualization.viser.elements.base_element import ElementContext
 
 logger = logging.getLogger(__name__)
@@ -17,6 +17,7 @@ class CameraGuiConfig:
     visible: bool = False
     image_scale: int = 2
     selected_camera: Optional[CameraID] = None
+    selected_modality: str = "camera"
 
 
 class CameraGuiController:
@@ -29,6 +30,7 @@ class CameraGuiController:
         self._image_handle: Optional[viser.GuiImageHandle] = None
         self._folder: Optional[viser.GuiFolderHandle] = None
         self._gui_camera_dropdown: Optional[viser.GuiDropdownHandle] = None
+        self._gui_modality_dropdown: Optional[viser.GuiDropdownHandle] = None
         self._gui_image_scale: Optional[viser.GuiDropdownHandle] = None
         self._gui_visible: Optional[viser.GuiCheckboxHandle] = None
         self._current_iteration: int = 0
@@ -37,6 +39,21 @@ class CameraGuiController:
         metadatas = context.scene.get_camera_metadatas()
         self._camera_ids: Dict[str, CameraID] = {cam_id.serialize(lower=False): cam_id for cam_id in metadatas}
         self._camera_names: List[str] = list(self._camera_ids.keys())
+
+        # Map each selectable modality to the scene getter that fetches it (shared signature). Each fetched
+        # stream is displayed through Camera.rgb_image, so the GUI renders camera/semantic/instance uniformly.
+        self._modality_getters: Dict[str, Callable[..., Optional[Camera]]] = {
+            "camera": context.scene.get_camera_at_iteration,
+            "semantic": context.scene.get_camera_semantic_at_iteration,
+            "instance": context.scene.get_camera_instance_at_iteration,
+        }
+        # Only offer a modality whose metadata is present in the scene.
+        modality_available: Dict[str, bool] = {
+            "camera": len(self._camera_ids) > 0,
+            "semantic": len(context.scene.get_camera_semantic_metadatas()) > 0,
+            "instance": len(context.scene.get_camera_instance_metadatas()) > 0,
+        }
+        self._modality_names: List[str] = [name for name in self._modality_getters if modality_available[name]]
 
     def create_gui(self) -> None:
         """Create the Camera Image folder with dropdown and image display."""
@@ -52,6 +69,13 @@ class CameraGuiController:
                 initial_value=self._camera_names[0]
                 if self._config.selected_camera is None
                 else self._config.selected_camera.serialize(lower=False),
+            )
+            self._gui_modality_dropdown = self._server.gui.add_dropdown(
+                "Modality",
+                self._modality_names,
+                initial_value=self._config.selected_modality
+                if self._config.selected_modality in self._modality_names
+                else self._modality_names[0],
             )
             self._gui_image_scale = self._server.gui.add_dropdown(
                 "Image Scale",
@@ -73,6 +97,12 @@ class CameraGuiController:
                 assert self._gui_camera_dropdown is not None, "GUI must be created before handling camera change."
                 # self._image_handle = None
                 self._config.selected_camera = self._camera_ids[self._gui_camera_dropdown.value]
+                self._refresh_image()
+
+            @self._gui_modality_dropdown.on_update
+            def _on_modality_changed(_) -> None:
+                assert self._gui_modality_dropdown is not None, "GUI must be created before handling modality change."
+                self._config.selected_modality = self._gui_modality_dropdown.value
                 self._refresh_image()
 
             @self._gui_image_scale.on_update
@@ -105,17 +135,23 @@ class CameraGuiController:
         if camera_id is None:
             return
 
-        camera = self._context.scene.get_camera_at_iteration(
-            self._current_iteration, camera_id, scale=self._config.image_scale
+        getter = self._modality_getters.get(self._config.selected_modality)
+        camera = (
+            getter(self._current_iteration, camera_id, scale=self._config.image_scale) if getter is not None else None
         )
-        if camera is None:
+        image = camera.rgb_image if camera is not None else None
+        if image is None:
+            # The selected camera/modality pair is unavailable: hide any stale frame.
+            if self._image_handle is not None:
+                self._image_handle.visible = False
             return
 
         if self._image_handle is not None:
-            self._image_handle.image = camera.image
+            self._image_handle.image = image
+            self._image_handle.visible = self._gui_visible.value
         else:
             with self._folder:
                 self._image_handle = self._server.gui.add_image(
-                    image=camera.image,
+                    image=image,
                     label=camera_name,
                 )

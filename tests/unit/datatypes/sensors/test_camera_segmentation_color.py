@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from py123d.datatypes import Timestamp
 from py123d.datatypes.sensors.base_camera import Camera, CameraChannelType, CameraID
 from py123d.datatypes.sensors.camera_segmentation_label import (
     DEFAULT_CAMERA_SEGMENTATION_RGB,
+    TABLEAU_20_RGB,
     DefaultCameraSegmentationLabel,
+    colorize_instance_label_map,
     colorize_semantic_label_map,
 )
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata, PinholeDistortion, PinholeIntrinsics
@@ -137,11 +138,47 @@ class TestCameraRgbImage:
         camera = _make_segmentation_camera(label_map, segmentation_label_class=wod)
         np.testing.assert_array_equal(camera.rgb_image, colorize_semantic_label_map(label_map, wod))
 
-    def test_instance_camera_is_not_supported(self):
-        label_map = np.zeros((6, 8), dtype=np.uint16)
+    def test_instance_camera_returns_colorized_image(self):
+        label_map = np.array([[0, 1], [2, 1]], dtype=np.uint16)
         camera = _make_segmentation_camera(label_map, channel_type=CameraChannelType.INSTANCE)
-        with pytest.raises(NotImplementedError):
-            _ = camera.rgb_image
+        rgb = camera.rgb_image
+        assert rgb.shape == (2, 2, 3)
+        assert rgb.dtype == np.uint8
+        assert tuple(rgb[0, 0]) == (0, 0, 0)  # id 0 (background) -> black
+        assert tuple(rgb[0, 1]) == tuple(TABLEAU_20_RGB[1])  # same id -> same color
+        np.testing.assert_array_equal(rgb[0, 1], rgb[1, 1])
+        assert not np.array_equal(rgb[0, 1], rgb[1, 0])  # distinct ids -> distinct colors
+
+    def test_instance_matches_standalone_colorizer(self):
+        label_map = np.arange(48, dtype=np.uint16).reshape(6, 8)
+        camera = _make_segmentation_camera(label_map, channel_type=CameraChannelType.INSTANCE)
+        np.testing.assert_array_equal(camera.rgb_image, colorize_instance_label_map(label_map))
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# colorize_instance_label_map
+# ----------------------------------------------------------------------------------------------------------------------
+
+
+class TestColorizeInstanceLabelMap:
+    def test_returns_rgb_uint8_with_same_hw(self):
+        label_map = np.zeros((6, 8), dtype=np.uint16)
+        rgb = colorize_instance_label_map(label_map)
+        assert rgb.shape == (6, 8, 3)
+        assert rgb.dtype == np.uint8
+
+    def test_background_id_zero_is_black(self):
+        rgb = colorize_instance_label_map(np.zeros((2, 2), dtype=np.uint16))
+        assert np.all(rgb == 0)
+
+    def test_color_is_stable_per_id_and_cycles(self):
+        n = len(TABLEAU_20_RGB)
+        # An id and the same id shifted by one palette period share a color (cycling).
+        label_map = np.array([[1, 1 + n], [2, 3]], dtype=np.int64)
+        rgb = colorize_instance_label_map(label_map)
+        np.testing.assert_array_equal(rgb[0, 0], rgb[0, 1])
+        assert tuple(rgb[0, 0]) == tuple(TABLEAU_20_RGB[1])
+        assert not np.array_equal(rgb[1, 0], rgb[1, 1])  # ids 2 and 3 differ
 
 
 # ----------------------------------------------------------------------------------------------------------------------

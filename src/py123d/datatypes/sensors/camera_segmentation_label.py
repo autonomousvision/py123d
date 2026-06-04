@@ -129,3 +129,53 @@ def colorize_semantic_label_map(
             lut[int(member)] = rgb
 
     return np.ascontiguousarray(lut[np.clip(ids, 0, lut_size - 1)])
+
+
+# The 20 RGB triples of matplotlib's qualitative ``tab20`` (Tableau-20) palette, hardcoded so the core
+# ``datatypes`` layer keeps no dependency on the (optional) ``matplotlib`` visualization stack. Mirrors
+# ``plt.get_cmap("tab20")`` used by ``py123d.visualization.matplotlib.lidar._discrete_colormap_by_id``.
+TABLEAU_20_RGB: npt.NDArray[np.uint8] = np.array(
+    [
+        (31, 119, 180),
+        (174, 199, 232),
+        (255, 127, 14),
+        (255, 187, 120),
+        (44, 160, 44),
+        (152, 223, 138),
+        (214, 39, 40),
+        (255, 152, 150),
+        (148, 103, 189),
+        (197, 176, 213),
+        (140, 86, 75),
+        (196, 156, 148),
+        (227, 119, 194),
+        (247, 182, 210),
+        (127, 127, 127),
+        (199, 199, 199),
+        (188, 189, 34),
+        (219, 219, 141),
+        (23, 190, 207),
+        (158, 218, 229),
+    ],
+    dtype=np.uint8,
+)
+
+
+def colorize_instance_label_map(label_map: npt.NDArray[np.integer]) -> npt.NDArray[np.uint8]:
+    """Color a 2D per-pixel instance/panoptic label map by cycling the Tableau-20 palette over ids.
+
+    The color is a deterministic function of the raw stored id — ``id`` indexes :data:`TABLEAU_20_RGB`,
+    cycling once ids exceed the palette size — so a given object keeps its color frame-to-frame during
+    playback (mirrors the stable by-id approach of
+    ``py123d.visualization.matplotlib.lidar._discrete_colormap_by_id``). The *raw* stored value is used,
+    not an unpacked instance id, so each distinct packed id (e.g. KITTI-360's ``semanticId * 1000 +
+    instanceId``) gets its own color and distinct objects never collide. Id ``0`` (unlabeled/background)
+    is rendered black for readability.
+
+    :param label_map: ``(H, W)`` array of raw instance/panoptic ids (integer image).
+    :return: ``(H, W, 3)`` array of RGB uint8 values.
+    """
+    ids = np.asarray(label_map).astype(np.int64)
+    colors = TABLEAU_20_RGB[ids % len(TABLEAU_20_RGB)]
+    colors[ids == 0] = 0
+    return np.ascontiguousarray(colors)

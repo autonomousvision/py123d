@@ -10,7 +10,10 @@ import numpy.typing as npt
 
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata, ModalityType
-from py123d.datatypes.sensors.camera_segmentation_label import colorize_semantic_label_map
+from py123d.datatypes.sensors.camera_segmentation_label import (
+    colorize_instance_label_map,
+    colorize_semantic_label_map,
+)
 from py123d.datatypes.time.timestamp import Timestamp
 from py123d.geometry.pose import PoseSE3
 from py123d.geometry.transform import abs_to_rel_points_3d_array
@@ -318,8 +321,8 @@ class Camera(BaseModality):
         ``RGB`` is returned as-is and ``GRAYSCALE`` is broadcast to three channels. A ``SEMANTIC`` label map is
         colorized with the canonical Cityscapes palette: each raw class id is mapped to its
         :class:`~py123d.datatypes.sensors.camera_segmentation_label.DefaultCameraSegmentationLabel` and then to a
-        color, so the result can be displayed through the regular RGB camera path. ``INSTANCE`` is not yet
-        supported.
+        color. An ``INSTANCE`` label map is colorized by cycling a Tableau-20 palette over the raw ids
+        (id ``0`` rendered black), so each modality can be displayed through the regular RGB camera path.
         """
         channel_type = self._metadata.channel_type
         if channel_type == CameraChannelType.RGB:
@@ -334,7 +337,7 @@ class Camera(BaseModality):
                 raise ValueError("SEMANTIC camera is missing its segmentation_label_class; cannot colorize.")
             result = colorize_semantic_label_map(self._image, label_class)
         elif channel_type == CameraChannelType.INSTANCE:
-            raise NotImplementedError("RGB conversion for INSTANCE segmentation cameras is not yet supported.")
+            result = colorize_instance_label_map(self._image)
         else:
             raise ValueError(f"Unsupported channel type {channel_type} for RGB conversion.")
         return result

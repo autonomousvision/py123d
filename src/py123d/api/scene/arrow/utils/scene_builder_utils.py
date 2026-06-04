@@ -5,12 +5,12 @@ Category 3: Scene generation and scene-level filtering
 """
 
 import logging
-from typing import List, Optional, Set, Tuple
+from typing import FrozenSet, List, Optional, Set, Tuple
 
 import numpy as np
 import pyarrow as pa
 
-from py123d.api.scene.scene_filter import SceneFilter
+from py123d.api.scene.scene_filter import VALID_MODALITY_SCOPES, SceneFilter
 from py123d.common.utils.uuid_utils import convert_to_bytes_uuid, convert_to_str_uuid
 from py123d.datatypes.metadata import SceneMetadata
 from py123d.datatypes.metadata.log_metadata import LogMetadata
@@ -197,6 +197,39 @@ def _get_columns_matching_type(modality_type: str, column_names: Set[str]) -> Li
     return result
 
 
+def _split_scope(requirement: str) -> Tuple[str, FrozenSet[str]]:
+    """Split a requirement into its (body, scope), defaulting to the whole-scene scope.
+
+    The scope segments are assumed already validated (see ``_validate_modality_requirement``).
+
+    :param requirement: A requirement string, possibly with an ``@scope`` suffix.
+    :return: Tuple of (body without the ``@scope`` suffix, set of scope segments).
+    """
+    body, separator, scope_str = requirement.partition("@")
+    scope = frozenset(scope_str.split("+")) if separator else VALID_MODALITY_SCOPES
+    return body, scope
+
+
+def _resolve_requirement(requirement: str, sync_column_set: Set[str]) -> Tuple[List[str], str, FrozenSet[str]]:
+    """Resolve a requirement to its (candidate columns, quantifier, scope).
+
+    An exact key is modeled as quantifier ``"all"`` over a single-element column list; a type pattern
+    expands to all columns matching the type with its declared quantifier.
+
+    :param requirement: A single requirement string (possibly with an ``@scope`` suffix).
+    :param sync_column_set: Set of available sync column names.
+    :return: Tuple of (candidate columns present in the table, quantifier, scope segments).
+    """
+    body, scope = _split_scope(requirement)
+    if _is_modality_pattern(body):
+        modality_type, quantifier = _parse_modality_pattern(body)
+        columns = _get_columns_matching_type(modality_type, sync_column_set)
+    else:
+        quantifier = "all"
+        columns = [body] if body in sync_column_set else []
+    return columns, quantifier, scope
+
+
 # --- Category 2: Metadata & log-level filtering ---
 
 
@@ -246,13 +279,13 @@ def check_log_passes_metadata_filters(
     if filter.required_scene_modalities is not None:
         sync_column_set = set(sync_column_names)
         for req_str in filter.required_scene_modalities:
-            if _is_modality_pattern(req_str):
-                modality_type, _ = _parse_modality_pattern(req_str)
+            body = req_str.split("@", 1)[0]  # Existence is scope-independent; ignore any @scope suffix.
+            if _is_modality_pattern(body):
+                modality_type, _ = _parse_modality_pattern(body)
                 if len(_get_columns_matching_type(modality_type, sync_column_set)) == 0:
                     return False
-            else:
-                if req_str not in sync_column_set:
-                    return False
+            elif body not in sync_column_set:
+                return False
 
     return True
 
@@ -395,77 +428,89 @@ def filter_scene_metadata_candidates(
     :return: Filtered list of SceneMetadata objects.
     """
 
-    # 1. Required scene modalities: verify no nulls in scene's frame range
+    # 1. Required scene modalities: verify no nulls within each requirement's temporal scope.
+    result = scene_metadatas
     if filter.required_scene_modalities is not None:
         sync_column_set = set(sync_table.column_names)
-        all_complete_keys: List[str] = []
-        any_complete_groups: List[List[str]] = []
-
         for req_str in filter.required_scene_modalities:
-            if _is_modality_pattern(req_str):
-                modality_type, quantifier = _parse_modality_pattern(req_str)
-                matching = _get_columns_matching_type(modality_type, sync_column_set)
-                if quantifier == "all":
-                    all_complete_keys.extend(matching)
-                elif quantifier == "any":
-                    any_complete_groups.append(matching)
-            else:
-                if req_str in sync_column_set:
-                    all_complete_keys.append(req_str)
+            columns, quantifier, scope = _resolve_requirement(req_str, sync_column_set)
+            if quantifier == "all":
+                result = [s for s in result if _scene_has_complete_modalities(s, sync_table, columns, scope)]
+            else:  # "any"
+                result = [s for s in result if _scene_has_any_complete_modality(s, sync_table, columns, scope)]
 
-        if all_complete_keys:
-            scene_metadatas = [
-                s for s in scene_metadatas if _scene_has_complete_modalities(s, sync_table, all_complete_keys)
-            ]
-        for matching_keys in any_complete_groups:
-            scene_metadatas = [
-                s for s in scene_metadatas if _scene_has_any_complete_modality(s, sync_table, matching_keys)
-            ]
+    return result
 
-    return scene_metadatas
+
+def _scope_sync_indices(scene: SceneMetadata, scope: FrozenSet[str]) -> List[int]:
+    """Resolve the (sorted) union of sync-table indices a scope must check for a scene.
+
+    The ``history`` / ``initial`` / ``future`` segments are the non-overlapping pieces of the scene's
+    frame range, so the default scope (all segments) reproduces the whole-scene range exactly.
+
+    :param scene: The scene metadata (anchor at ``initial_idx`` == logical iteration 0).
+    :param scope: Temporal segments from :data:`~py123d.api.scene.scene_filter.VALID_MODALITY_SCOPES`.
+    :return: Sorted list of sync-table indices to check for completeness.
+    """
+    stride = scene.target_iteration_stride
+    initial = scene.initial_idx
+    end = initial + scene.num_future_iterations * stride + 1
+    indices: Set[int] = set()
+    if "history" in scope:
+        indices.update(range(initial - scene.num_history_iterations * stride, initial, stride))
+    if "initial" in scope:
+        indices.add(initial)
+    if "future" in scope:
+        indices.update(range(initial + stride, end, stride))
+    return sorted(indices)
 
 
 def _scene_has_complete_modalities(
     scene: SceneMetadata,
     sync_table: pa.Table,
     modality_keys: List[str],
+    scope: FrozenSet[str] = VALID_MODALITY_SCOPES,
 ) -> bool:
-    """Check that all requested modality columns have no null values at the scene's strided frames.
+    """Check that all requested modality columns have no null values within the scope's frames.
+
+    Vacuously True when ``modality_keys`` is empty (an absent exact key or a type with no matching
+    columns does not filter at the scene level — the log-level existence check handles those).
 
     :param scene: The scene metadata.
     :param sync_table: The sync Arrow table.
     :param modality_keys: List of sync table column names to check.
-    :return: True if all modalities are complete (no nulls at strided indices).
+    :param scope: Temporal segments selecting which frames to check.
+    :return: True if all modalities are complete (no nulls at the scoped indices).
     """
-    stride = scene.target_iteration_stride
-    start = scene.initial_idx - scene.num_history_iterations * stride
-    end = scene.initial_idx + scene.num_future_iterations * stride + 1
+    indices = _scope_sync_indices(scene, scope)
+    result = True
     for key in modality_keys:
         column = sync_table.column(key)
-        for i in range(start, end, stride):
-            if column[i].as_py() is None:
-                return False
-    return True
+        if any(column[i].as_py() is None for i in indices):
+            result = False
+    return result
 
 
 def _scene_has_any_complete_modality(
     scene: SceneMetadata,
     sync_table: pa.Table,
     modality_keys: List[str],
+    scope: FrozenSet[str] = VALID_MODALITY_SCOPES,
 ) -> bool:
-    """Check that at least one of the given modality columns is complete at the scene's strided frames.
+    """Check that at least one of the given modality columns is complete within the scope's frames.
+
+    Returns False when ``modality_keys`` is empty (a type with no matching columns keeps no scenes).
 
     :param scene: The scene metadata.
     :param sync_table: The sync Arrow table.
     :param modality_keys: List of sync table column names to check.
-    :return: True if at least one modality is complete (no nulls at strided indices).
+    :param scope: Temporal segments selecting which frames to check.
+    :return: True if at least one modality is complete (no nulls at the scoped indices).
     """
-    stride = scene.target_iteration_stride
-    start = scene.initial_idx - scene.num_history_iterations * stride
-    end = scene.initial_idx + scene.num_future_iterations * stride + 1
+    indices = _scope_sync_indices(scene, scope)
+    result = False
     for key in modality_keys:
         column = sync_table.column(key)
-        is_complete = all(column[i].as_py() is not None for i in range(start, end, stride))
-        if is_complete:
-            return True
-    return False
+        if all(column[i].as_py() is not None for i in indices):
+            result = True
+    return result

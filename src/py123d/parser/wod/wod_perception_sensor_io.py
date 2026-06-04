@@ -85,23 +85,38 @@ def _extract_wod_perception_point_segmentation(
     return np.concatenate(semantic_arrays, axis=0), np.concatenate(instance_arrays, axis=0)
 
 
-def load_wod_perception_camera_semantic_label(camera_segmentation_label) -> Optional[np.ndarray]:
-    """Decodes a WOD-Perception 2D camera semantic class-id label map, or ``None`` if unannotated.
+def load_wod_perception_camera_panoptic_labels(
+    camera_segmentation_label,
+) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    """Decodes a WOD-Perception 2D camera panoptic label into pixel-aligned semantic + instance maps.
 
-    Waymo stores a panoptic label PNG where ``panoptic_label = semantic * panoptic_label_divisor +
-    instance``. We decode it (as Waymo does, uint16) and recover the per-pixel semantic class ids; the
-    raw ids correspond to :class:`~py123d.parser.camera_segmentation_registry.WODPerceptionCameraSegmentationLabel`.
+    Waymo stores a single panoptic PNG where ``panoptic_label = semantic * panoptic_label_divisor +
+    instance`` (uint16). 123D splits it into the two pixel-aligned segmentation streams it stores as
+    sibling cameras:
 
-    :return: A ``(H, W)`` uint8 array of semantic class ids, or ``None`` if no segmentation label exists.
+    - **semantic** ``(H, W)`` uint8 — ``panoptic_label // divisor``, the per-pixel class ids matching
+      :class:`~py123d.parser.camera_segmentation_registry.WODPerceptionCameraSegmentationLabel`.
+    - **instance** ``(H, W)`` uint16 — the raw ``panoptic_label`` kept verbatim, i.e. the packed
+      ``semantic * divisor + instance`` value. Storing the packed value (as KITTI-360 does for its
+      ``semanticId * 1000 + instanceId`` maps) keeps the stream self-consistent with the semantic
+      sibling (``instance // divisor == semantic``), guarantees distinct objects never share an id,
+      and renders ``0`` (undefined/background) as black. These are Waymo *per-image local* instance
+      ids; recovering the dataset's global cross-camera/temporal identity requires
+      ``instance_id_to_global_id_mapping``, which is not captured here (see
+      ``WOD_PERCEPTION_MODALITY_SURVEY.md``).
+
+    :return: ``(semantic_label, instance_label)``, or ``(None, None)`` if the frame is unannotated.
     """
     semantic_label: Optional[np.ndarray] = None
+    instance_label: Optional[np.ndarray] = None
     if len(camera_segmentation_label.panoptic_label) > 0:
         divisor = int(camera_segmentation_label.panoptic_label_divisor)
         panoptic_label = tf.image.decode_png(
             camera_segmentation_label.panoptic_label, channels=1, dtype=tf.uint16
         ).numpy()[..., 0]
         semantic_label = (panoptic_label.astype(np.int64) // divisor).astype(np.uint8)
-    return semantic_label
+        instance_label = panoptic_label.astype(np.uint16)
+    return semantic_label, instance_label
 
 
 def load_wod_perception_point_cloud_data_from_frame(
