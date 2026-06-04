@@ -46,6 +46,16 @@ from py123d.datatypes.sensors.pinhole_camera import (
     PinholeIntrinsics,
     PinholeIntrinsicsIndex,
 )
+from py123d.datatypes.sensors.radar import (
+    RADAR_FEATURE_DTYPES,
+    Radar,
+    RadarFeature,
+    RadarID,
+    RadarMergedMetadata,
+    RadarMetadata,
+    get_individual_radar,
+    get_merged_radar,
+)
 from py123d.datatypes.sensors.segmentation_camera import SegmentationCameraMetadata
 
 CameraMetadata = Union[PinholeCameraMetadata, FisheyeMEICameraMetadata, FThetaCameraMetadata]
@@ -85,6 +95,15 @@ __all__ = [
     "LidarID",
     "LidarMergedMetadata",
     "LidarMetadata",
+    # Radar
+    "Radar",
+    "RadarFeature",
+    "RADAR_FEATURE_DTYPES",
+    "RadarID",
+    "RadarMergedMetadata",
+    "RadarMetadata",
+    "get_individual_radar",
+    "get_merged_radar",
     # Pinhole camera
     "PinholeCameraMetadata",
     "PinholeDistortion",

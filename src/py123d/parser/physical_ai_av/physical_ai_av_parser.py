@@ -23,6 +23,7 @@ from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3
 from py123d.datatypes.modalities.base_modality import BaseModality
 from py123d.datatypes.sensors.ftheta_camera import FThetaCameraMetadata, FThetaIntrinsics
 from py123d.datatypes.sensors.lidar import LidarMergedMetadata
+from py123d.datatypes.sensors.radar import RadarID, RadarMergedMetadata, RadarMetadata
 from py123d.datatypes.vehicle_state.dynamic_state import DynamicStateSE3
 from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadata
 from py123d.geometry import BoundingBoxSE3, BoundingBoxSE3Index, PoseSE3, Vector3D, Vector3DIndex
@@ -35,10 +36,12 @@ from py123d.parser.base_dataset_parser import (
     ModalitiesSync,
     ParsedCamera,
     ParsedLidar,
+    ParsedRadar,
 )
 from py123d.parser.physical_ai_av.utils.physical_ai_av_constants import (
     PHYSICAL_AI_AV_BOX_DETECTIONS_SE3_METADATA,
     PHYSICAL_AI_AV_CAMERA_ID_MAPPING,
+    PHYSICAL_AI_AV_RADAR_ID_MAPPING,
     PHYSICAL_AI_AV_SPLITS,
     resolve_physical_ai_av_label,
 )
@@ -193,6 +196,9 @@ class PhysicalAIAVLogParser(BaseLogParser):
         # 4. Load calibration
         ftheta_metadatas = _get_ftheta_camera_metadatas(self._data_root, self._clip_id, self._chunk)
         lidar_metadata = _get_lidar_metadata(self._data_root, self._clip_id, self._chunk)
+        radar_metadata, radar_paths, radar_primary_path = _get_radar_metadata_and_paths(
+            self._data_root, self._clip_id, self._chunk
+        )
 
         # 5. Load obstacle labels (if available)
         obstacle_path = self._data_root / "labels" / "obstacle.offline" / f"{self._clip_id}.obstacle.offline.parquet"
@@ -244,10 +250,21 @@ class PhysicalAIAVLogParser(BaseLogParser):
                     ftheta_metadatas=ftheta_metadatas,
                 )
 
-                yield ModalitiesSync(
-                    timestamp=timestamp,
-                    modalities=[ego_state, box_detections, parsed_lidar, *parsed_cameras],
-                )
+                # Radar (merged across all present sensors; nearest scan to the lidar spin timestamp)
+                modalities: List[BaseModality] = [ego_state, box_detections, parsed_lidar, *parsed_cameras]
+                if radar_metadata is not None and radar_primary_path is not None:
+                    modalities.append(
+                        ParsedRadar(
+                            metadata=radar_metadata,
+                            timestamp=timestamp,
+                            dataset_root=self._data_root,
+                            relative_path=radar_primary_path,
+                            iteration=int(lidar_ts),
+                            load_kwargs={"radar_paths": radar_paths},
+                        )
+                    )
+
+                yield ModalitiesSync(timestamp=timestamp, modalities=modalities)
         finally:
             for cap in captures.values():
                 cap.release()
@@ -266,6 +283,7 @@ class PhysicalAIAVLogParser(BaseLogParser):
         yield from self._iter_ego_states_se3(ego_metadata)
         yield from self._iter_box_detections_se3(det_metadata)
         yield from self._iter_lidar(lidar_metadata)
+        yield from self._iter_radar()
         for cam_name, cam_id in PHYSICAL_AI_AV_CAMERA_ID_MAPPING.items():
             if cam_id in ftheta_metadatas:
                 yield from self._iter_camera(cam_name, ftheta_metadatas[cam_id], ego_metadata)
@@ -339,6 +357,28 @@ class PhysicalAIAVLogParser(BaseLogParser):
                 dataset_root=self._data_root,
                 relative_path=f"lidar/lidar_top_360fov/{self._clip_id}.lidar_top_360fov.parquet",
                 iteration=int(spin_idx),  # type: ignore[arg-type]
+            )
+
+    def _iter_radar(self) -> Iterator[ParsedRadar]:
+        """Yields the merged radar at lidar-spin rate (~10Hz); nearest radar scan per spin is selected on load."""
+        radar_metadata, radar_paths, radar_primary_path = _get_radar_metadata_and_paths(
+            self._data_root, self._clip_id, self._chunk
+        )
+        if radar_metadata is None or radar_primary_path is None:
+            return
+
+        lidar_path = self._data_root / "lidar" / "lidar_top_360fov" / f"{self._clip_id}.lidar_top_360fov.parquet"
+        lidar_df = pd.read_parquet(lidar_path, columns=["reference_timestamp"])
+
+        for _, row in lidar_df.iterrows():
+            ts = int(row["reference_timestamp"])
+            yield ParsedRadar(
+                metadata=radar_metadata,
+                timestamp=Timestamp.from_us(ts),
+                dataset_root=self._data_root,
+                relative_path=radar_primary_path,
+                iteration=ts,
+                load_kwargs={"radar_paths": radar_paths},
             )
 
     def _iter_camera(
@@ -541,6 +581,54 @@ def _get_lidar_metadata(data_root: Path, clip_id: str, chunk: int) -> LidarMerge
         ),
     }
     return LidarMergedMetadata(metadata_dict)
+
+
+def _get_radar_metadata_and_paths(
+    data_root: Path, clip_id: str, chunk: int
+) -> Tuple[Optional[RadarMergedMetadata], Dict[str, str], Optional[str]]:
+    """Builds radar merged metadata + per-RadarID relative paths for the radars present for this clip.
+
+    Only radars whose per-clip parquet exists on disk are included. Returns
+    ``(merged_metadata, {str(int(RadarID)): relative_path}, primary_relative_path)``, or
+    ``(None, {}, None)`` when no radar data is available.
+    """
+    chunk_str = f"{chunk:04d}"
+    extrinsics_path = data_root / "calibration" / "sensor_extrinsics" / f"sensor_extrinsics.chunk_{chunk_str}.parquet"
+    extrinsics_df = pd.read_parquet(extrinsics_path)
+
+    metadata_dict: Dict[RadarID, RadarMetadata] = {}
+    radar_paths: Dict[str, str] = {}
+    primary_relative_path: Optional[str] = None
+
+    for radar_name, radar_id in PHYSICAL_AI_AV_RADAR_ID_MAPPING.items():
+        relative_path = f"radar/{radar_name}/{clip_id}.{radar_name}.parquet"
+        if not (data_root / relative_path).exists():
+            continue
+        try:
+            radar_ext = extrinsics_df.loc[(clip_id, radar_name)]
+        except KeyError:
+            continue
+        radar_to_imu = quat_scalar_last_to_pose_se3(
+            qx=radar_ext["qx"],
+            qy=radar_ext["qy"],
+            qz=radar_ext["qz"],
+            qw=radar_ext["qw"],
+            x=radar_ext["x"],
+            y=radar_ext["y"],
+            z=radar_ext["z"],
+        )
+        metadata_dict[radar_id] = RadarMetadata(
+            radar_name=radar_name,
+            radar_id=radar_id,
+            radar_to_imu_se3=radar_to_imu,
+        )
+        radar_paths[str(int(radar_id))] = relative_path
+        if primary_relative_path is None:
+            primary_relative_path = relative_path
+
+    if not metadata_dict:
+        return None, {}, None
+    return RadarMergedMetadata(metadata_dict), radar_paths, primary_relative_path
 
 
 # ------------------------------------------------------------------------------------------------------------------
