@@ -17,7 +17,7 @@
 **One library for autonomous driving datasets.** 123D converts raw data from Argoverse 2, nuScenes, nuPlan, KITTI-360, PandaSet, and Waymo into a unified [Apache Arrow](https://arrow.apache.org/) format, and then gives you a single API to read cameras, lidar, HD maps, and labels across all of them.
 
 ## 📰 News
-- **2026-06-03**: Added Modalities: Lidar segmentation (WOD-Perc., PandaSet, ...) (experimental), Radar (nuScenes, PAI-AV/NCore).
+- **2026-06-03**: Added Modalities: Semantics/instances for cameras (WOD-Perc., KITTI-360) and lidar (WOD-Perc., PandaSet, nuScenes) (experimental). Also added Radar (nuScenes, PAI-AV/NCore).
 - **2026-06-03**: Added Datasets: [nuReasoning](https://arxiv.org/abs/2605.31572) (experimental).
 - **2026-05-28**: Released **[NAV123D](https://github.com/DanielDauner/nav123d)**, a reimplementation of NAVSIM on top of 123D.
 - **2026-05-08**: Our paper *123D: Unifying Multi-Modal Autonomous Driving Data at Scale* is out on [arXiv](https://arxiv.org/abs/2605.08084).
