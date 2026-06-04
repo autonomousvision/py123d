@@ -23,6 +23,7 @@ from py123d.datatypes import (
     LidarMergedMetadata,
     LogMetadata,
     PinholeCameraMetadata,
+    RadarMergedMetadata,
     Timestamp,
 )
 from py123d.datatypes.modalities.base_modality import BaseModality
@@ -32,6 +33,7 @@ from py123d.parser.base_dataset_parser import (
     ModalitiesSync,
     ParsedCamera,
     ParsedLidar,
+    ParsedRadar,
 )
 from py123d.parser.nuscenes.nuscenes_map_parser import NuScenesMapParser
 from py123d.parser.nuscenes.utils.nuscenes_constants import (
@@ -50,6 +52,7 @@ from py123d.parser.nuscenes.utils.nuscenes_extraction import (
     collect_ego_pose_timeline,
     collect_keyframe_samples,
     collect_lidar_sweep_timeline,
+    collect_radar_sweep_timelines,
     extract_cameras_from_timeline,
     extract_ego_state_from_sample,
     extract_ego_state_from_sample_data,
@@ -57,10 +60,13 @@ from py123d.parser.nuscenes.utils.nuscenes_extraction import (
     extract_nuscenes_box_detections,
     extract_nuscenes_cameras,
     extract_nuscenes_lidar,
+    extract_nuscenes_radar,
+    extract_nuscenes_radar_at_timestamp,
     find_nearest_cameras_for_sweep,
     find_surrounding_keyframes,
     get_nuscenes_lidar_metadata_from_scene,
     get_nuscenes_pinhole_camera_metadata_from_scene,
+    get_nuscenes_radar_metadata_from_scene,
     interpolate_box_detections,
     subsample_sweeps,
 )
@@ -340,6 +346,7 @@ class NuScenesLogParser(BaseLogParser):
             self._get_or_load_nusc, self._scene_token
         )
         lidar_metadata = get_nuscenes_lidar_metadata_from_scene(self._get_or_load_nusc, self._scene_token)
+        radar_metadata = get_nuscenes_radar_metadata_from_scene(self._get_or_load_nusc, self._scene_token)
 
         nusc = self._get_or_load_nusc()
         try:
@@ -365,11 +372,19 @@ class NuScenesLogParser(BaseLogParser):
                     nuscenes_data_root=self._nuscenes_data_root,
                     lidar_metadata=lidar_metadata,
                 )
+                parsed_radar = extract_nuscenes_radar(
+                    nusc=nusc,
+                    sample=sample,
+                    nuscenes_data_root=self._nuscenes_data_root,
+                    radar_metadata=radar_metadata,
+                )
 
                 modalities: List[BaseModality] = [ego_state, box_detections]
                 modalities.extend(parsed_cameras)
                 if parsed_lidar is not None:
                     modalities.append(parsed_lidar)
+                if parsed_radar is not None:
+                    modalities.append(parsed_radar)
 
                 yield ModalitiesSync(timestamp=timestamp, modalities=modalities)
                 sample_token = sample["next"]
@@ -389,6 +404,7 @@ class NuScenesLogParser(BaseLogParser):
             self._get_or_load_nusc, self._scene_token
         )
         lidar_metadata = get_nuscenes_lidar_metadata_from_scene(self._get_or_load_nusc, self._scene_token)
+        radar_metadata = get_nuscenes_radar_metadata_from_scene(self._get_or_load_nusc, self._scene_token)
 
         nusc = self._get_or_load_nusc()
         try:
@@ -450,6 +466,18 @@ class NuScenesLogParser(BaseLogParser):
                 if parsed_lidar is not None:
                     modalities.append(parsed_lidar)
 
+                # Radar is keyframe-only; attach it on keyframe sweeps (it is not interpolated).
+                if sweep["is_key_frame"] and sweep["sample_token"]:
+                    sample = nusc.get("sample", sweep["sample_token"])
+                    parsed_radar = extract_nuscenes_radar(
+                        nusc=nusc,
+                        sample=sample,
+                        nuscenes_data_root=self._nuscenes_data_root,
+                        radar_metadata=radar_metadata,
+                    )
+                    if parsed_radar is not None:
+                        modalities.append(parsed_radar)
+
                 yield ModalitiesSync(timestamp=timestamp, modalities=modalities)
         finally:
             self._release_nusc()
@@ -466,11 +494,13 @@ class NuScenesLogParser(BaseLogParser):
             self._get_or_load_nusc, self._scene_token
         )
         lidar_metadata = get_nuscenes_lidar_metadata_from_scene(self._get_or_load_nusc, self._scene_token)
+        radar_metadata = get_nuscenes_radar_metadata_from_scene(self._get_or_load_nusc, self._scene_token)
 
         try:
             yield from self._iter_ego_states_se3(ego_metadata)
             yield from self._iter_box_detections_se3(box_detections_metadata)
             yield from self._iter_lidars(lidar_metadata)
+            yield from self._iter_radars(radar_metadata)
             if pinhole_cameras_metadata:
                 for camera_type, camera_metadata in pinhole_cameras_metadata.items():
                     yield from self._iter_pinhole_cameras(camera_type, camera_metadata, pinhole_cameras_metadata)
@@ -591,3 +621,29 @@ class NuScenesLogParser(BaseLogParser):
             )
             if parsed_lidar is not None:
                 yield parsed_lidar
+
+    def _iter_radars(self, radar_metadata: RadarMergedMetadata) -> Iterator[ParsedRadar]:
+        """Yields the merged radar at native rate (~13Hz).
+
+        nuScenes radars capture at ~13Hz with intermediate (non-keyframe) sweep records. We walk each
+        channel's full ``sample_data`` chain and anchor the merged frames on the first available
+        channel's sweep timeline, picking the nearest sweep of every other channel per anchor.
+        """
+        nusc = self._get_or_load_nusc()
+        scene = nusc.get("scene", self._scene_token)
+
+        radar_timelines = collect_radar_sweep_timelines(nusc, scene, radar_metadata)
+        if not radar_timelines:
+            return
+
+        # Anchor on the first available channel's ~13Hz timeline (radars are not mutually synchronized).
+        anchor_timeline = next(iter(radar_timelines.values()))
+        for entry in anchor_timeline:
+            parsed_radar = extract_nuscenes_radar_at_timestamp(
+                target_timestamp_us=entry["timestamp"],
+                radar_timelines=radar_timelines,
+                nuscenes_data_root=self._nuscenes_data_root,
+                radar_metadata=radar_metadata,
+            )
+            if parsed_radar is not None:
+                yield parsed_radar

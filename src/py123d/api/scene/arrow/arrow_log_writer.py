@@ -12,6 +12,7 @@ from py123d.api.scene.arrow.modalities.arrow_camera import ArrowCameraWriter
 from py123d.api.scene.arrow.modalities.arrow_custom_modality import ArrowCustomModalityWriter
 from py123d.api.scene.arrow.modalities.arrow_ego_state_se3 import ArrowEgoStateSE3Writer
 from py123d.api.scene.arrow.modalities.arrow_lidar import ArrowLidarWriter
+from py123d.api.scene.arrow.modalities.arrow_radar import ArrowRadarWriter
 from py123d.api.scene.arrow.modalities.arrow_traffic_light_detections import ArrowTrafficLightDetectionsWriter
 from py123d.api.scene.arrow.utils.log_writer_config import LogWriterConfig
 from py123d.api.scene.arrow.utils.scene_builder_utils import (
@@ -28,6 +29,7 @@ from py123d.datatypes.detections.traffic_light_detections import TrafficLightDet
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata
 from py123d.datatypes.sensors.base_camera import BaseCameraMetadata, CameraChannelType
 from py123d.datatypes.sensors.lidar import LidarMergedMetadata, LidarMetadata
+from py123d.datatypes.sensors.radar import RadarMergedMetadata, RadarMetadata
 from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadata
 from py123d.parser.base_dataset_parser import ModalitiesSync
 
@@ -209,6 +211,17 @@ class ArrowLogWriter(BaseLogWriter):
                 log_metadata=self._state.log_metadata,
                 lidar_store_option=self._log_writer_config.lidar_store_option,
                 lidar_codec=self._log_writer_config.lidar_codec,
+                ipc_compression=self._ipc_compression,
+                ipc_compression_level=self._ipc_compression_level,
+            )
+
+        elif isinstance(modality_metadata, (RadarMergedMetadata, RadarMetadata)):
+            modality_writer = ArrowRadarWriter(
+                log_dir=self._state.log_dir,
+                metadata=modality_metadata,
+                log_metadata=self._state.log_metadata,
+                radar_store_option=self._log_writer_config.radar_store_option,
+                radar_codec=self._log_writer_config.radar_codec,
                 ipc_compression=self._ipc_compression,
                 ipc_compression_level=self._ipc_compression_level,
             )

@@ -3,6 +3,7 @@ from typing import Dict, Final, List, Set
 from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3Metadata
 from py123d.datatypes.map_objects.map_layer_types import LaneType
 from py123d.datatypes.sensors.pinhole_camera import CameraID
+from py123d.datatypes.sensors.radar import RadarID
 from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadata
 from py123d.geometry import PoseSE3
 from py123d.parser.registry import NuScenesBoxDetectionLabel
@@ -109,4 +110,12 @@ NUSCENES_CAMERA_IDS = {
     CameraID.PCAM_L1: "CAM_BACK_LEFT",
     CameraID.PCAM_R0: "CAM_FRONT_RIGHT",
     CameraID.PCAM_R1: "CAM_BACK_RIGHT",
+}
+
+NUSCENES_RADAR_IDS = {
+    RadarID.RADAR_FRONT: "RADAR_FRONT",
+    RadarID.RADAR_FRONT_LEFT: "RADAR_FRONT_LEFT",
+    RadarID.RADAR_FRONT_RIGHT: "RADAR_FRONT_RIGHT",
+    RadarID.RADAR_BACK_LEFT: "RADAR_BACK_LEFT",
+    RadarID.RADAR_BACK_RIGHT: "RADAR_BACK_RIGHT",
 }

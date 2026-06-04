@@ -16,7 +16,10 @@ log_writer_config:
 
   camera_store_option: "jpeg_binary" # "path", "jpeg_binary", "png_binary", "mp4"
   lidar_store_option: "binary" #  "path", "binary"
-  lidar_codec: "ipc_lz4" # None or "laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"
+  lidar_codec: "laz" # None or "laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"
+
+  radar_store_option: "binary" # "path", "jpeg_binary", "png_binary", "mp4"
+  radar_codec: "laz" # None or "ipc_zstd", "ipc_lz4", "ipc"
 
   infer_ego_dynamics: true
   infer_box_dynamics: true

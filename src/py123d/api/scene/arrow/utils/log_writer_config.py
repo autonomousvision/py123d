@@ -20,6 +20,10 @@ class LogWriterConfig:
     lidar_store_option: Literal["path", "binary"] = "path"
     lidar_codec: Optional[Literal["laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"]] = None
 
+    # Radars
+    radar_store_option: Literal["path", "binary"] = "path"
+    radar_codec: Optional[Literal["laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"]] = None
+
     # IPC write options
     ipc_max_batch_size: Optional[int] = None
 
@@ -50,3 +54,17 @@ class LogWriterConfig:
                 "ipc_lz4",
                 "ipc",
             }, f"Invalid Lidar codec, got {self.lidar_codec}."
+
+        assert self.radar_store_option in {
+            "path",
+            "binary",
+        }, f"Invalid Radar store option, got {self.radar_store_option}."
+
+        if self.radar_store_option == "binary":
+            assert self.radar_codec in {
+                "laz",
+                "draco",
+                "ipc_zstd",
+                "ipc_lz4",
+                "ipc",
+            }, f"Invalid Radar codec, got {self.radar_codec}."

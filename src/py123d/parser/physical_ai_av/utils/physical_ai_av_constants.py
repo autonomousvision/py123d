@@ -3,6 +3,7 @@ from typing import Dict, Set
 
 from py123d.datatypes import CameraID
 from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3Metadata
+from py123d.datatypes.sensors.radar import RadarID
 from py123d.parser.registry import PhysicalAIAVBoxDetectionLabel
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,20 @@ PHYSICAL_AI_AV_CAMERA_ID_MAPPING: Dict[str, CameraID] = {
     "camera_rear_left_70fov": CameraID.FTCAM_L1,
     "camera_rear_right_70fov": CameraID.FTCAM_R1,
     "camera_rear_tele_30fov": CameraID.FTCAM_TELE_B0,
+}
+
+# PAIAV ships up to nine short-range radars (``radar/<name>/<clip>.<name>.parquet``). The sensor name
+# preserves the exact dataset name; the RadarID encodes the spatial position for the unified model.
+PHYSICAL_AI_AV_RADAR_ID_MAPPING: Dict[str, RadarID] = {
+    "radar_front_center_srr_0": RadarID.RADAR_FRONT,
+    "radar_corner_front_left_srr_0": RadarID.RADAR_FRONT_LEFT,
+    "radar_corner_front_right_srr_0": RadarID.RADAR_FRONT_RIGHT,
+    "radar_side_left_srr_0": RadarID.RADAR_SIDE_LEFT,
+    "radar_side_right_srr_0": RadarID.RADAR_SIDE_RIGHT,
+    "radar_corner_rear_left_srr_0": RadarID.RADAR_BACK_LEFT,
+    "radar_corner_rear_right_srr_0": RadarID.RADAR_BACK_RIGHT,
+    "radar_rear_left_srr_0": RadarID.RADAR_REAR_LEFT,
+    "radar_rear_right_srr_0": RadarID.RADAR_REAR_RIGHT,
 }
 
 # Per-clip ego-vehicle dimensions are read from `calibration/vehicle_dimensions/` at parse

@@ -24,6 +24,10 @@ from py123d.datatypes import (
     LogMetadata,
     MapMetadata,
     ModalityType,
+    Radar,
+    RadarID,
+    RadarMergedMetadata,
+    RadarMetadata,
     SegmentationCameraMetadata,
     Timestamp,
     TrafficLightDetections,
@@ -705,7 +709,88 @@ class SceneAPI(abc.ABC):
         )
         return checked_optional_cast(lidar, Lidar)
 
-    # 2.8 Custom Modalities
+    # 2.8 Radar
+    # ------------------------------------------------------------------------------------------------------------------
+
+    def get_radar_metadatas(self) -> Dict[RadarID, RadarMetadata]:
+        """Returns per-radar metadata, if available.
+
+        :return: The radar metadatas, or an empty dict if not available.
+        """
+        radar_metadatas: Dict[RadarID, RadarMetadata] = {}
+        merged_radar_metadata = self.get_modality_metadata(ModalityType.RADAR, RadarID.RADAR_MERGED)
+        if merged_radar_metadata is not None and isinstance(merged_radar_metadata, RadarMergedMetadata):
+            radar_metadatas.update(merged_radar_metadata.radar_metadatas)
+        else:
+            for metadata in self.get_all_modality_metadatas().values():
+                if metadata.modality_type == ModalityType.RADAR and isinstance(metadata, RadarMetadata):
+                    radar_metadatas[metadata.radar_id] = metadata
+        return radar_metadatas
+
+    def get_all_radar_timestamps(self, radar_id: Union[str, RadarID], include_history: bool = False) -> List[Timestamp]:
+        """Returns all radar timestamps within the current scene.
+
+        :param radar_id: The :type:`~py123d.datatypes.sensors.RadarID` of the Radar, or its lowercase name
+            (e.g. ``"radar_front"``).
+        :param include_history: If True, include history iterations before the scene start.
+        :return: All radar timestamps in the scene, ordered by time.
+        """
+        radar_id = RadarID.from_arbitrary(radar_id)
+        return self.get_all_modality_timestamps(
+            modality_type=ModalityType.RADAR, modality_id=radar_id, include_history=include_history
+        )
+
+    def get_radar_at_iteration(self, iteration: int, radar_id: Union[str, RadarID]) -> Optional[Radar]:
+        """Returns the :class:`~py123d.datatypes.sensors.Radar` of a given :class:`~py123d.datatypes.sensors.RadarID`\
+            at a given iteration, if available.
+
+        :param iteration: The iteration to get the Radar for.
+        :param radar_id: The :type:`~py123d.datatypes.sensors.RadarID` of the Radar, or its lowercase name
+            (e.g. ``"radar_front"``).
+        :return: The Radar, or None if not available.
+        """
+        radar_id = RadarID.from_arbitrary(radar_id)
+        merged_radar_metadata = self.get_modality_metadata(ModalityType.RADAR, RadarID.RADAR_MERGED)
+        _modality_id = RadarID.RADAR_MERGED if merged_radar_metadata is not None else radar_id
+        radar = self.get_modality_at_iteration(
+            iteration=iteration,
+            modality_type=ModalityType.RADAR,
+            modality_id=_modality_id,
+            radar_id=radar_id,
+        )
+        return checked_optional_cast(radar, Radar)
+
+    def get_radar_at_timestamp(
+        self,
+        timestamp: Union[Timestamp, int],
+        radar_id: Union[str, RadarID],
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+    ) -> Optional[Radar]:
+        """Returns the :class:`~py123d.datatypes.sensors.Radar` of a given :class:`~py123d.datatypes.sensors.RadarID`\
+            at a given timestamp, if available.
+
+        :param timestamp: The timestamp to get the Radar for, as a Timestamp object or integer microseconds.
+        :param radar_id: The :type:`~py123d.datatypes.sensors.RadarID` of the Radar, or its lowercase name
+            (e.g. ``"radar_front"``).
+        :param criteria: Criteria for matching the timestamp if an exact match is not found. One of:
+            - "exact": Only return data if an exact timestamp match is found.
+            - "nearest": Return data from the nearest timestamp.
+            - "forward": Return data from the nearest timestamp that is greater than or equal to the requested timestamp.
+            - "backward": Return data from the nearest timestamp that is less than or equal to the requested timestamp.
+        :return: The Radar, or None if not available.
+        """
+        radar_id = RadarID.from_arbitrary(radar_id)
+        merged_radar_metadata = self.get_modality_metadata(ModalityType.RADAR, RadarID.RADAR_MERGED)
+        _modality_id = RadarID.RADAR_MERGED if merged_radar_metadata is not None else radar_id
+        radar = self.get_modality_at_timestamp(
+            timestamp=timestamp,
+            modality_type=ModalityType.RADAR,
+            modality_id=_modality_id,
+            criteria=criteria,
+        )
+        return checked_optional_cast(radar, Radar)
+
+    # 2.9 Custom Modalities
     # ------------------------------------------------------------------------------------------------------------------
 
     def get_all_custom_modality_metadatas(self) -> Dict[str, CustomModalityMetadata]:
@@ -864,3 +949,21 @@ class SceneAPI(abc.ABC):
         if self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED) is not None:
             available_lidar_names.append(LidarID.LIDAR_MERGED.serialize())
         return available_lidar_names
+
+    @property
+    def available_radar_ids(self) -> List[RadarID]:
+        """List of available :class:`~py123d.datatypes.sensors.RadarID`."""
+        available_radar_ids = list(self.get_radar_metadatas().keys())
+        if self.get_modality_metadata(ModalityType.RADAR, RadarID.RADAR_MERGED) is not None:
+            available_radar_ids += [RadarID.RADAR_MERGED]
+        return available_radar_ids
+
+    @property
+    def available_radar_names(self) -> List[str]:
+        """List of available Radar names."""
+        available_radar_names: List[str] = [
+            radar_metadata.radar_name for radar_metadata in self.get_radar_metadatas().values()
+        ]
+        if self.get_modality_metadata(ModalityType.RADAR, RadarID.RADAR_MERGED) is not None:
+            available_radar_names.append(RadarID.RADAR_MERGED.serialize())
+        return available_radar_names
