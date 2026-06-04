@@ -37,6 +37,18 @@ All logs include ego-vehicle data, camera images, Lidar point clouds, bounding b
       - ``nuscenes-interpolated_train``, ``nuscenes-interpolated_val``, ``nuscenes-interpolated_test``, ``nuscenes-interpolated-mini_train``, ``nuscenes-interpolated-mini_val``
 
 
+Sensor Overview
+~~~~~~~~~~~~~~~
+
+The following timeplot illustrates the temporal alignment and recording frequency of the available sensors:
+
+.. figure:: /_static/timeplots/sensor_overview_nuscenes-mini.svg
+   :width: 100%
+   :align: center
+
+   Sensor recording timeline.
+
+
 Available Modalities
 ~~~~~~~~~~~~~~~~~~~~
 

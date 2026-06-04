@@ -35,6 +35,18 @@ This dataset is intended to train 3D perception models for autonomous vehicles.
       - ``av2-sensor_train``, ``av2-sensor_val``, ``av2-sensor_test``
 
 
+Sensor Overview
+~~~~~~~~~~~~~~~
+
+The following timeplot illustrates the temporal alignment and recording frequency of the available sensors:
+
+.. figure:: /_static/timeplots/sensor_overview_av2-sensor.svg
+   :width: 100%
+   :align: center
+
+   Sensor recording timeline.
+
+
 Available Modalities
 ~~~~~~~~~~~~~~~~~~~~
 

@@ -301,7 +301,7 @@ class Camera(BaseModality):
 
     @property
     def timestamp(self) -> Timestamp:
-        """The :class:`~py123d.datatypes.time.Timestamp` of the image capture."""
+        """The :class:`~py123d.datatypes.Timestamp` of the image capture."""
         return self._timestamp
 
     @property

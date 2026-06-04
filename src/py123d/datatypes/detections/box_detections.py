@@ -194,7 +194,7 @@ class BoxDetectionsSE2:
         """Initialize a BoxDetectionsSE2 instance.
 
         :param box_detections: A list of :class:`BoxDetectionSE2` instances.
-        :param timestamp: The :class:`~py123d.datatypes.time.Timestamp` of the box detections.
+        :param timestamp: The :class:`~py123d.datatypes.Timestamp` of the box detections.
         """
         self._box_detections = box_detections
         self._timestamp = timestamp
@@ -207,7 +207,7 @@ class BoxDetectionsSE2:
 
     @property
     def timestamp(self) -> Timestamp:
-        """The :class:`~py123d.datatypes.time.Timestamp` of the box detections."""
+        """The :class:`~py123d.datatypes.Timestamp` of the box detections."""
         return self._timestamp
 
     @property
@@ -266,7 +266,7 @@ class BoxDetectionsSE3(BaseModality):
         """Initialize a BoxDetectionsSE3 instance.
 
         :param box_detections: A list of :class:`BoxDetectionSE3` instances.
-        :param timestamp: The :class:`~py123d.datatypes.time.Timestamp` of the box detections.
+        :param timestamp: The :class:`~py123d.datatypes.Timestamp` of the box detections.
         :param metadata: The metadata for the box detections.
         """
         self._box_detections = box_detections
@@ -281,7 +281,7 @@ class BoxDetectionsSE3(BaseModality):
 
     @property
     def timestamp(self) -> Timestamp:
-        """The :class:`~py123d.datatypes.time.Timestamp` of the box detections."""
+        """The :class:`~py123d.datatypes.Timestamp` of the box detections."""
         return self._timestamp
 
     @property

@@ -60,6 +60,18 @@ PandaSet stands out, due to its no-cost commercial license.
     You agree that it is Your responsibility to comply with all applicable laws with respect to Your use and publication of the Datasets or derivatives thereof, including any applicable privacy, data protection, security, and export control laws. These Dataset Terms constitute the entire agreement between You and Licensors with respect to the subject matter of these Dataset Terms and supersedes any prior or contemporaneous agreements whether written or oral. If a court of competent jurisdiction finds any term of these Dataset Terms to be unenforceable, the unenforceable term will be modified to reflect the parties’ intention and only to the extent necessary to make the term enforceable. The remaining provisions of these Dataset Terms will remain in effect. You may not assign these Dataset Terms without the prior written consent of the Licensors. The Licensors may assign, transfer, or delegate any of their rights and obligations under these Dataset Terms without consent. The parties are independent contractors. No failure or delay by either party in exercising a right under these Dataset Terms will constitute a waiver of that right. A waiver of a default is not a waiver of any subsequent default. These Dataset Terms may be amended by the Licensors from time to time in our discretion. If an update affects your use of the Dataset, Licensors will notify you before the updated terms are effective for your use.
 
 
+Sensor Overview
+~~~~~~~~~~~~~~~
+
+The following timeplot illustrates the temporal alignment and recording frequency of the available sensors:
+
+.. figure:: /_static/timeplots/sensor_overview_pandaset.svg
+   :width: 100%
+   :align: center
+
+   Sensor recording timeline.
+
+
 Available Modalities
 ~~~~~~~~~~~~~~~~~~~~
 

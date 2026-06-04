@@ -36,6 +36,18 @@ About 120 hours of nuPlan include sensor data from 8 cameras and 5 Lidars.
       - ``nuplan_train``, ``nuplan_val``, ``nuplan_test``, ``nuplan-mini_train``, ``nuplan-mini_val``, ``nuplan-mini_test``
 
 
+Sensor Overview
+~~~~~~~~~~~~~~~
+
+The following timeplot illustrates the temporal alignment and recording frequency of the available sensors:
+
+.. figure:: /_static/timeplots/sensor_overview_nuplan-mini.svg
+   :width: 100%
+   :align: center
+
+   Sensor recording timeline.
+
+
 Available Modalities
 ~~~~~~~~~~~~~~~~~~~~
 

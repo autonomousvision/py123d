@@ -61,21 +61,21 @@ class SceneAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_scene_metadata(self) -> SceneMetadata:
-        """Returns the :class:`~py123d.datatypes.metadata.SceneMetadata` of the scene.
+        """Returns the :class:`~py123d.datatypes.SceneMetadata` of the scene.
 
         :return: The scene metadata.
         """
 
     @abc.abstractmethod
     def get_log_metadata(self) -> LogMetadata:
-        """Returns the :class:`~py123d.datatypes.metadata.LogMetadata` of the scene.
+        """Returns the :class:`~py123d.datatypes.LogMetadata` of the scene.
 
         :return: The log metadata.
         """
 
     @abc.abstractmethod
     def get_timestamp_at_iteration(self, iteration: int) -> Timestamp:
-        """Returns the :class:`~py123d.datatypes.time.Timestamp` at a given iteration.
+        """Returns the :class:`~py123d.datatypes.Timestamp` at a given iteration.
 
         :param iteration: The iteration to get the timestamp for.
         :return: The timestamp at the given iteration.
@@ -102,7 +102,7 @@ class SceneAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_map_metadata(self) -> Optional[MapMetadata]:
-        """Returns the :class:`~py123d.datatypes.metadata.MapMetadata` of the scene, if available.
+        """Returns the :class:`~py123d.datatypes.MapMetadata` of the scene, if available.
 
         :return: The map metadata, or None if not available.
         """
@@ -859,12 +859,12 @@ class SceneAPI(abc.ABC):
 
     @property
     def log_metadata(self) -> LogMetadata:
-        """The :class:`~py123d.datatypes.metadata.LogMetadata` of the scene."""
+        """The :class:`~py123d.datatypes.LogMetadata` of the scene."""
         return self.get_log_metadata()
 
     @property
     def scene_metadata(self) -> SceneMetadata:
-        """The :class:`~py123d.datatypes.metadata.SceneMetadata` of the scene."""
+        """The :class:`~py123d.datatypes.SceneMetadata` of the scene."""
         return self.get_scene_metadata()
 
     @property

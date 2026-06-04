@@ -39,6 +39,18 @@ rig-to-world egomotion poses — but in the newer NCore **V4 component-based for
       - ``ncore_train`` (NCore ships as a single collection; the split is synthetic)
 
 
+Sensor Overview
+~~~~~~~~~~~~~~~
+
+The following timeplot illustrates the temporal alignment and recording frequency of the available sensors:
+
+.. figure:: /_static/timeplots/sensor_overview_ncore.svg
+   :width: 100%
+   :align: center
+
+   Sensor recording timeline.
+
+
 Available Modalities
 ~~~~~~~~~~~~~~~~~~~~
 

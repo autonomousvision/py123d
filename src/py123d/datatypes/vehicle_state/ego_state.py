@@ -170,7 +170,7 @@ class EgoStateSE3(BaseModality):
 
     @property
     def timestamp(self) -> Timestamp:
-        """The :class:`~py123d.datatypes.time.Timestamp` of the ego state."""
+        """The :class:`~py123d.datatypes.Timestamp` of the ego state."""
         return self._timestamp
 
     @property
@@ -387,7 +387,7 @@ class EgoStateSE2:
 
     @property
     def timestamp(self) -> Timestamp:
-        """The :class:`~py123d.datatypes.time.Timestamp` of the ego state"""
+        """The :class:`~py123d.datatypes.Timestamp` of the ego state"""
         return self._timestamp
 
     @property

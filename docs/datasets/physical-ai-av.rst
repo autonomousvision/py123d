@@ -38,6 +38,18 @@ timestamps and dual egomotion sources (real-time and offline-smoothed).
       - ``physical-ai-av_train``, ``physical-ai-av_val``, ``physical-ai-av_test``
 
 
+Sensor Overview
+~~~~~~~~~~~~~~~
+
+The following timeplot illustrates the temporal alignment and recording frequency of the available sensors:
+
+.. figure:: /_static/timeplots/sensor_overview_physical-ai-av.svg
+   :width: 100%
+   :align: center
+
+   Sensor recording timeline.
+
+
 Available Modalities
 ~~~~~~~~~~~~~~~~~~~~
 

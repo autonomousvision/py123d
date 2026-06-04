@@ -30,6 +30,18 @@ With 1150 logs each spanning 20 seconds, the dataset includes about 6.4 hours
       - ``wod-perception_train``, ``wod-perception_val``, ``wod-perception_test``
 
 
+Sensor Overview
+~~~~~~~~~~~~~~~
+
+The following timeplot illustrates the temporal alignment and recording frequency of the available sensors:
+
+.. figure:: /_static/timeplots/sensor_overview_wod-perception.svg
+   :width: 100%
+   :align: center
+
+   Sensor recording timeline.
+
+
 Available Modalities
 ~~~~~~~~~~~~~~~~~~~~
 

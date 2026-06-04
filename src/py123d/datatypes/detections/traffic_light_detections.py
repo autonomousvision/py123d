@@ -90,7 +90,7 @@ class TrafficLightDetections(BaseModality):
         """Initialize a TrafficLightDetections instance.
 
         :param detections: List of :class:`TrafficLightDetection`.
-        :param timestamp: The :class:`~py123d.datatypes.time.Timestamp` of the traffic light detections.
+        :param timestamp: The :class:`~py123d.datatypes.Timestamp` of the traffic light detections.
         :param metadata: The metadata for the traffic light detections.
         """
         self._detections = detections
@@ -104,7 +104,7 @@ class TrafficLightDetections(BaseModality):
 
     @property
     def timestamp(self) -> Timestamp:
-        """The :class:`~py123d.datatypes.time.Timestamp` of the traffic light detections."""
+        """The :class:`~py123d.datatypes.Timestamp` of the traffic light detections."""
         return self._timestamp
 
     @property
