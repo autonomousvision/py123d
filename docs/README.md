@@ -10,5 +10,5 @@ pip install -e .[docs]
 It is recommended to uses [sphinx-autobuild](https://github.com/sphinx-doc/sphinx-autobuild) (installed above) to edit and view the documentation. You can run:
 
 ```sh
-sphinx-autobuild docs docs/_build/html
+rm -r ./docs/_build/html; sphinx-autobuild docs docs/_build/html
 ```

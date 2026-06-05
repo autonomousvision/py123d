@@ -2,7 +2,14 @@
 
 Any contributions to 123D are welcome! This guide both serves as internal tutorial and can help you get started with the development process.
 
-## Getting Started
+## Table of contents
+
+
+## Ways to contribute
+
+
+## Code environment & conventions
+
 
 ### 1. Clone the Repository
 
@@ -11,12 +18,10 @@ git clone git@github.com:kesai-labs/py123d.git
 cd py123d
 ```
 
-### 2. Installation
-
 ```sh
-conda create -n py123d_dev python=3.12  # Optional
-conda activate py123d_dev
-pip install -e .[dev]
+conda create -n py123d_dev python=3.12; conda activate py123d_dev  # Optional
+pip install uv
+uv pip install -e .[dev]
 pre-commit install
 ```
 
