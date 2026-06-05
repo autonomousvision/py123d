@@ -39,6 +39,10 @@ extensions = [
     "myst_parser",
 ]
 
+# Generate anchors for Markdown headings (levels h1-h3) so intra-document
+# GitHub-style links like [Ways to contribute](#ways-to-contribute) resolve.
+myst_heading_anchors = 3
+
 intersphinx_mapping = {
     "rtd": ("https://docs.readthedocs.io/en/stable/", None),
     "python": ("https://docs.python.org/3/", None),
