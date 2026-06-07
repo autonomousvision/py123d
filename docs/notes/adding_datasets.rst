@@ -2,23 +2,10 @@ Adding Datasets
 ===============
 
 This tutorial walks through adding a new source dataset to the 123D conversion
-pipeline. A dataset is integrated by implementing a small set of **parser**
-classes that read the raw data and yield it as 123D's unified datatypes; the
-framework then handles synchronization, Arrow serialization, and exposing the
+pipeline. A dataset is integrated by implementing a set of **parser**
+classes that read the raw data and yield 123D's unified datatypes. The
+framework then handles configurable synchronization, log writing, and exposing the
 result through the unified API.
-
-.. note::
-  The fastest way to add a dataset is to **copy the closest existing parser and
-  adapt it**, rather than starting from a blank file. Good starting points:
-
-  * A sensor dataset with cameras, lidar, and boxes → :doc:`nuScenes </datasets/nuscenes>`
-    (``src/py123d/parser/nuscenes/``) or :doc:`Argoverse 2 </datasets/av2>`
-    (``src/py123d/parser/av2/``).
-  * A dataset with an automated downloader / streaming conversion →
-    :doc:`nuPlan </datasets/nuplan>` (``src/py123d/parser/nuplan/``).
-
-  The sections below explain the *contract* each piece must satisfy, so you know
-  what to keep and what to replace.
 
 
 1. General
@@ -27,12 +14,12 @@ result through the unified API.
 Architecture overview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Conversion is organized around three abstract base classes defined in
+Conversion is organized around three base classes defined in
 :class:`~py123d.parser.base_dataset_parser.BaseDatasetParser`. A top-level
-*dataset parser* produces lightweight, **picklable** per-log and per-map handles.
+*dataset parser* produces lightweight, per-log and per-map handles that .
 The orchestrator constructs these once on the main process, then distributes them
-to Ray workers, which perform the heavy I/O lazily and hand the parsed data to the
-Arrow writers:
+to parallel workers, which perform the heavy I/O internally and hand the parsed data to the
+log/map writers:
 
 .. code-block:: text
 
@@ -44,8 +31,8 @@ Arrow writers:
                                                                   Arrow storage ──▶ unified API
 
 Each new dataset adds a package under ``src/py123d/parser/<dataset>/``. Existing
-packages — ``nuscenes/``, ``nuplan/``, ``wod/``, ``av2/``, ``kitti360/``,
-``pandaset/`` — are the canonical references.
+packages (i.e., ``nuscenes/``, ``nuplan/``, ``wod/``, ``av2/``, ``kitti360/``,
+``pandaset/``) are implemented as references.
 
 The dataset parser
 ~~~~~~~~~~~~~~~~~~~~
@@ -68,22 +55,23 @@ implement two methods:
           ...
 
 .. important::
-  The returned handles are pickled and shipped to worker processes. Keep them
-  **lightweight** — store only paths and parameters, not open file handles,
+  The returned handles are shipped to worker processes. Keep them
+  **lightweight**, i.e., store only paths and parameters, not open file handles,
   database connections, or decoded sensor data. All expensive I/O belongs inside
   the iterators (covered below), which run on the worker.
 
-Optional and gated dependencies
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Dataset-specific third-party packages (devkits, format readers, cloud SDKs) must
+Optional and gated dependencies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Dataset-specific third-party packages (devkits, format readers, cloud SDKs) should
 **not** be hard dependencies of 123D. Declare them as an extra in
 ``pyproject.toml`` under ``[project.optional-dependencies]``:
 
 .. code-block:: toml
 
   [project.optional-dependencies]
-  mydataset = ["mydataset-devkit==1.2.0"]
+  mydataset = ["mydataset-devkit==1.2.3"]
 
 Then gate the import at the top of your parser (or lazily inside the method that
 needs it) with :func:`~py123d.common.utils.dependencies.check_dependencies`, which
@@ -97,7 +85,7 @@ raises a helpful, install-instruction error if the package is missing:
   # ImportError: Missing 'mydataset'. Install with: pip install py123d[mydataset]
 
 Entry point
-~~~~~~~~~~~~
+~~~~~~~~~~~
 
 Conversion is driven by the ``py123d-conversion`` CLI (defined in
 ``[project.scripts]``, mapping to
@@ -113,7 +101,7 @@ Conversion is driven by the ``py123d-conversion`` CLI (defined in
 2. Log Parser
 -------------
 
-A *log parser* is a picklable handle to a single log/scene. Subclass
+A *log parser* is a handle to a single continuous driving sequence (i.e., called 'log' in 123D). Subclass
 :class:`~py123d.parser.base_dataset_parser.BaseLogParser` and implement the log
 metadata getter and the synchronized-frame iterator.
 
@@ -130,15 +118,15 @@ Log metadata
    * - Field
      - Description
    * - ``dataset``
-     - Dataset name, lowercase (e.g. ``"mydataset"``).
+     - Dataset name, lowercase and dashed (e.g. ``"my-dataset"``).
    * - ``split``
-     - Data split, prefixed by dataset (e.g. ``"mydataset_train"``).
+     - Data split, prefixed by dataset (e.g. ``"my-dataset_train"``).
    * - ``log_name``
      - Unique name of the log.
    * - ``location``
      - Geographic location (optional); links a log to a per-location map.
    * - ``map_metadata``
-     - Associated :class:`~py123d.datatypes.metadata.map_metadata.MapMetadata`, if any.
+     - Associated :class:`~py123d.datatypes.MapMetadata`, if any.
    * - ``version``
      - 123D version that produced the metadata (defaults to the current version).
 
@@ -147,7 +135,7 @@ Iterating modalities
 
 ``iter_modalities_sync()`` lazily yields one
 :class:`~py123d.parser.base_dataset_parser.ModalitiesSync` per synchronized frame.
-Each frame bundles a timestamp with a list of 123D *modalities* — the unified
+Each frame bundles a timestamp with a list of 123D *modalities*. The unified
 :class:`~py123d.datatypes.modalities.base_modality.BaseModality` types parsed from
 the dataset's native formats (ego state, bounding boxes, cameras, lidar, radar,
 …):
@@ -169,24 +157,24 @@ the dataset's native formats (ego state, bounding boxes, cameras, lidar, radar,
 Parsed sensor datatypes and lazy I/O
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Sensor data is the bulk of any dataset, so 123D never decodes it during parsing.
-Instead, yield the lightweight *parsed* modality helpers, which carry **only a
-file path (or raw bytes) plus metadata** and defer decoding until the writer
-actually needs it:
+Sensor data is the bulk of any dataset, so 123D may optionally skip decoding it during parsing.
+Instead, you can pass a *parsed* modality helpers, which carry **only a
+file path (or raw bytes) plus metadata**. Depending on the storage option for sensor data,
+the writer can just store the sensor reference, or decode and re-compress the data internally for self-contained storage.
 
-* :class:`~py123d.parser.base_dataset_parser.ParsedCamera` — camera metadata, a
+* :class:`~py123d.parser.base_dataset_parser.ParsedCamera`: camera metadata, a
   ``camera_to_global_se3`` pose, and either a ``dataset_root``/``relative_path``
   pair **or** an in-memory ``byte_string``.
-* :class:`~py123d.parser.base_dataset_parser.ParsedLidar` — lidar metadata,
+* :class:`~py123d.parser.base_dataset_parser.ParsedLidar`: lidar metadata,
   ``start_timestamp``/``end_timestamp`` (the sweep window), a
   ``dataset_root``/``relative_path``, and optional ``load_kwargs``.
-* :class:`~py123d.parser.base_dataset_parser.ParsedRadar` — radar metadata, a
+* :class:`~py123d.parser.base_dataset_parser.ParsedRadar`: radar metadata, a
   single ``timestamp`` (a radar scan is an instantaneous snapshot), a file path,
   and optional ``load_kwargs``.
 
-This path-not-payload design keeps memory flat and conversion fast: a worker can
-stream thousands of frames without ever holding a full point cloud or decoded
-image in RAM.
+If sensor storage is configured as "path", the whole conversion process is substantially faster,
+as the conversion is not memory- or I/O-bound. On the other hand, the converted logs are not self-contained and require
+access to the original dataset files for loading. 
 
 .. tip::
   ``load_kwargs`` is a generic, dataset-specific dictionary forwarded verbatim to
@@ -198,34 +186,32 @@ Where to add sensor I/O
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If your dataset uses a point-cloud or image format not already supported, add a
-loader under ``src/py123d/common/io/{camera,lidar,radar}/`` and register it in the
+loader under ``src/py123d/common/io/{camera,lidar,radar}/`` and add it in the
 dispatcher
 :func:`py123d.common.io.lidar.path_lidar_io.load_point_cloud_data_from_path`
-(for lidar). The dispatcher routes by file extension / store option and is where
+(i.e. for lidar). The dispatcher routes by file extension / store option and is where
 ``load_kwargs`` is consumed.
 
 Sync vs. async parsing
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-By default, modalities are written as synchronized frames. For datasets whose
-sensors run at different native rates (e.g. cameras at 20 Hz, lidar at 10 Hz), you
-can override
+For simplicity, the default configuration writes all modalities as synchronized frames. 
+Dataset with asynchronous modalities can be implemented by overriding the async iterator
 :meth:`~py123d.parser.base_dataset_parser.BaseLogParser.iter_modalities_async`,
 which yields each modality independently as it is produced. The default
 implementation simply unwraps the synchronized frames, so overriding is optional.
 Async writing is selected by the ``async_conversion`` flag in the config
-(:ref:`section 5 <adding-datasets-hydra>`).
+(:ref:`section 5 <adding-datasets-hydra>`). Importantly, an individual modality must be parsed in
+increasing timestamp order, but modalities can be interleaved in any way. 
 
 
 3. Map Parser
 -------------
+Maps are usually the trickiest part to unify since HD-map schemas vary widely across datasets. 
+Maps are **optional**: if your dataset ships none, return ``[]`` from ``get_map_parsers()`` and skip this section.
+We generally recommend starting with log parsing and adding maps later.
 
-.. warning::
-  Maps are usually the trickiest part to unify — HD-map schemas vary widely across
-  datasets. Maps are **optional**: if your dataset ships none, return ``[]`` from
-  ``get_map_parsers()`` and skip this section.
-
-A *map parser* is a picklable handle to one map region. Subclass
+A *map parser* is a handle to one map region. Subclass
 :class:`~py123d.parser.base_dataset_parser.BaseMapParser` and implement:
 
 .. code-block:: python
@@ -243,6 +229,9 @@ A *map parser* is a picklable handle to one map region. Subclass
           yield from self._parse_crosswalks()
           # ...
 
+Since map elements are static datatypes, they have no timestamp information and 
+are expected to be expressed in the logs global coordinate frame.
+
 Map metadata
 ~~~~~~~~~~~~~
 
@@ -250,9 +239,9 @@ Map metadata
 :class:`~py123d.datatypes.metadata.map_metadata.MapMetadata`. Two fields deserve
 particular attention:
 
-* ``map_has_z`` — whether the map geometry carries elevation (3D) or is 2D only.
-* ``map_is_per_log`` — whether each log has its own map (e.g. KITTI-360) or maps
-  are shared per location across logs (e.g. nuScenes, nuPlan).
+* ``map_has_z``: whether the map geometry carries elevation (3D) or is 2D only.
+* ``map_is_per_log``: whether each log has its own map (i.e., as in Waymo datasets) or maps
+  are shared per location across logs (e.g., for each city in nuScenes/nuPlan).
 
 Supported map elements
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -305,11 +294,11 @@ Each object is one of the supported element types (the
      - surface
      - Speed-reduction area.
 
-Surface elements derive from ``BaseMapSurfaceObject`` (a polygon ``outline``);
+Surface elements derive from ``BaseMapSurfaceObject`` (a polygon ``outline``), and
 line elements derive from ``BaseMapLineObject`` (a ``polyline``).
 
 .. note::
-  Need a map element type that isn't listed above? New layers can be added — please
+  If a map element type isn't listed above, then new layers can be added. Please
   open an issue or PR (see :doc:`contributing`) so the schema stays consistent
   across datasets.
 
@@ -318,9 +307,10 @@ line elements derive from ``BaseMapLineObject`` (a ``polyline``).
 ------------------------
 
 A downloader is **optional**, but it can significantly lower the onboarding
-barrier: contributors get the data with a single command, and the same component
-powers *streaming* conversion (download a subset to a temp directory, convert from
-it, delete it).
+barrier: A dataset or subset can be downloaded directly from the 123D CLI.
+The existing implementations in 123D also show examples how to download and convert 
+in one script (i.e. using the `streaming during conversion` approach described below).
+
 
 Subclass :class:`~py123d.parser.base_downloader.BaseDownloader`, placing it at
 ``src/py123d/parser/<dataset>/<dataset>_download.py``:
@@ -338,12 +328,11 @@ Subclass :class:`~py123d.parser.base_downloader.BaseDownloader`, placing it at
 The base class provides ``output_dir`` (destination; ``None`` means a temp
 directory is assigned at runtime) and ``dry_run`` (log the plan without writing).
 
-Integration follows two paths, both demonstrated by
-:class:`~py123d.parser.nuplan.nuplan_download.NuplanDownloader`:
+Integration follows two paths:
 
-* **Standalone CLI** — ``py123d-download dataset=mydataset`` instantiates the
+* **Standalone CLI**: ``py123d-download dataset=mydataset`` instantiates the
   downloader and calls ``download()``.
-* **Streaming during conversion** — the parser accepts an optional ``downloader=``
+* **Streaming during conversion**: the parser accepts an optional ``downloader=``
   argument, redirects its ``output_dir`` to a session-scoped temp directory,
   downloads before reading, and cleans up on destruction.
 
@@ -353,14 +342,31 @@ Integration follows two paths, both demonstrated by
 5. Hydra config
 ---------------
 
+Dataset Paths
+~~~~~~~~~~~~~
+
+123D centralizes the dataset roots that parsers read from in a single Hydra
+config group at ``src/py123d/script/config/common/default_dataset_paths.yaml``,
+typed by the :class:`~py123d.common.runtime.dataset_paths.DatasetPaths`
+dataclass in ``src/py123d/common/runtime/dataset_paths.py``. For a new dataset,
+add a ``mydataset_data_root: ${oc.env:MYDATASET_DATA_ROOT,null}`` entry to the
+YAML.
+
+By default, we use a environment variable (e.g. ``MYDATASET_DATA_ROOT``) to avoid hardcoding local paths in the config.
+In your dataset config (see below), you can reference the path to pass it to the log/map parsers.
+
+
+Dataset Parsers
+~~~~~~~~~~~~~~~
+
 Conversion configs live in
 ``src/py123d/script/config/conversion/dataset/``, one ``<name>.yaml`` per dataset
 variant. The base defaults are in ``default_conversion.yaml``. Each dataset config
 has four sections:
 
-* ``parser`` — instantiates your ``BaseDatasetParser`` (via ``_target_``) and its
+* ``parser``: instantiates your ``BaseDatasetParser`` (via ``_target_``) and its
   data-root paths / options.
-* ``log_writer_config`` — storage options
+* ``log_writer_config``: storage options specific to the arrow log writer, i.e. configures sensor storage
   (``camera_store_option``, ``lidar_store_option``, ``lidar_codec``),
   the ``async_conversion`` flag, and inference toggles.
 * ``log_writer`` — the :class:`~py123d.api.scene.arrow.arrow_log_writer.ArrowLogWriter`,
@@ -369,7 +375,7 @@ has four sections:
 * ``map_writer`` — the :class:`~py123d.api.map.arrow.arrow_map_writer.ArrowMapWriter`.
 
 Provide a **local** config and, if you wrote a downloader, a separate **stream**
-config. Keep them as distinct files — they differ in data roots and storage:
+config. Keep them as distinct files as they differ in data roots and storage:
 
 .. tab-set::
 
@@ -420,12 +426,6 @@ config. Keep them as distinct files — they differ in data roots and storage:
         lidar_store_option: "binary"
         lidar_codec: "laz"
 
-.. note::
-  When you override ``iter_modalities_async``, enable it per-config by setting the
-  top-level ``async_conversion: True`` (consumed via
-  ``log_writer_config.async_conversion``). The ``sync_config`` in ``log_writer``
-  still controls how synchronized frames are referenced when writing.
-
 
 6. Documentation
 ----------------
@@ -433,16 +433,11 @@ config. Keep them as distinct files — they differ in data roots and storage:
 Finally, document the dataset so users know how to obtain, install, and convert
 it:
 
-#. Add a page ``docs/datasets/<name>.rst`` — mirror an existing one such as
-   ``docs/datasets/nuscenes.rst``. The established structure is: an *Overview*
-   dropdown (paper, download, license, splits), a *Sensor Overview* figure,
-   an *Available Modalities* table, *Download*, *Installation* (the pip extra),
+#. Add a page ``docs/datasets/<name>.rst``: You can mirror an existing one. The established structure is: an *Overview*
+   dropdown (paper, download, license, splits), an *Available Modalities* table, *Download*, *Installation* (the pip extra),
    *Conversion* (local + streaming), any dataset-specific sections, *Dataset
    Issues*, and *Citation*.
 #. Register the page in the ``docs/datasets/index.rst`` toctree.
-#. (Optional) Add a sensor-overview timeplot SVG under
-   ``docs/_static/timeplots/`` and reference it with a ``.. figure::`` directive,
-   as the other dataset pages do.
 #. Build the docs locally and confirm the page renders without warnings before
    opening your PR.
 
