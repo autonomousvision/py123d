@@ -468,3 +468,38 @@ class PhysicalAIAVBoxDetectionLabel(BoxDetectionLabel):
             PhysicalAIAVBoxDetectionLabel.TROLLEY_BUS: DefaultBoxDetectionLabel.VEHICLE,
         }
         return mapping[self]
+
+
+@register_box_detection_label
+class GriffinBoxDetectionLabel(BoxDetectionLabel):
+    """Griffin (aerial-ground cooperative) dataset annotation categories.
+
+    Griffin annotates dynamic traffic participants with CARLA-derived semantic
+    types. The official benchmark collapses these into three evaluation classes
+    (``car``, ``bicycle``, ``pedestrian``); we keep the native granularity here
+    and map down to :class:`DefaultBoxDetectionLabel` in :meth:`to_default`.
+
+    Category collapsing follows ``obj_type_mapping`` in the official converter.
+    See Wang et al., "Griffin: Aerial-Ground Cooperative Detection and Tracking
+    Dataset and Benchmark", arXiv preprint 2503.06983 (2025), and the
+    official toolkit (https://github.com/wang-jh18-SVM/Griffin).
+    """
+
+    PEDESTRIAN = 0
+    CAR = 1
+    TRUCK = 2
+    BUS = 3
+    MOTORCYCLE = 4
+    BICYCLE = 5
+
+    def to_default(self) -> DefaultBoxDetectionLabel:
+        """Inherited, see superclass."""
+        mapping = {
+            GriffinBoxDetectionLabel.PEDESTRIAN: DefaultBoxDetectionLabel.PERSON,
+            GriffinBoxDetectionLabel.CAR: DefaultBoxDetectionLabel.VEHICLE,
+            GriffinBoxDetectionLabel.TRUCK: DefaultBoxDetectionLabel.VEHICLE,
+            GriffinBoxDetectionLabel.BUS: DefaultBoxDetectionLabel.VEHICLE,
+            GriffinBoxDetectionLabel.MOTORCYCLE: DefaultBoxDetectionLabel.TWO_WHEELER,
+            GriffinBoxDetectionLabel.BICYCLE: DefaultBoxDetectionLabel.TWO_WHEELER,
+        }
+        return mapping[self]

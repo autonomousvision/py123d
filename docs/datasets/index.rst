@@ -11,6 +11,7 @@ Each dataset entry includes installation instructions, available data types, kno
 
    av2
    carla
+   griffin
    kitti-360
    ncore
    nuplan
