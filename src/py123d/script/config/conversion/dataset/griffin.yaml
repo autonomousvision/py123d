@@ -1,0 +1,47 @@
+parser:
+  _target_: py123d.parser.griffin.griffin_parser.GriffinParser
+  _convert_: 'all'
+
+  # Available splits: griffin_{50scenes_25m,50scenes_40m,50scenes_55m,100scenes_random}_{train,val}
+  splits: ["griffin_50scenes_25m_train", "griffin_50scenes_25m_val"]
+  griffin_data_root: ${dataset_paths.griffin_data_root}
+
+  # Optional override for the official split files. When null, the train/val
+  # partitions embedded in py123d.parser.griffin.splits are used.
+  split_data_root: null
+
+log_writer_config:
+  _target_: py123d.api.scene.arrow.utils.log_writer_config.LogWriterConfig
+  _convert_: 'all'
+
+  force_log_conversion: ${force_log_conversion}
+  force_map_conversion: ${force_map_conversion}
+
+  camera_store_option: "path" # "path", "jpeg_binary", "png_binary"
+  lidar_store_option: "path" #  "path", "binary"
+  lidar_codec: null # None or "laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"
+
+  infer_ego_dynamics: true
+  infer_box_dynamics: true
+
+log_writer:
+  _target_: py123d.api.scene.arrow.arrow_log_writer.ArrowLogWriter
+  _convert_: 'all'
+  log_writer_config: ${dataset.log_writer_config}
+  logs_root: ${dataset_paths.py123d_logs_root}
+  sensors_root: ${dataset_paths.py123d_sensors_root}
+  ipc_compression: null
+  ipc_compression_level: null
+
+  sync_config:
+    _target_: py123d.api.scene.arrow.arrow_log_writer.SyncConfig
+    _convert_: 'all'
+    reference_column: lidar.lidar_merged.timestamp_us
+    direction: "forward" # "forward" or "backward"
+
+map_writer:
+  _target_: py123d.api.map.arrow.arrow_map_writer.ArrowMapWriter
+  _convert_: 'all'
+  force_map_conversion: ${force_map_conversion}
+  maps_root: ${dataset_paths.py123d_maps_root}
+  logs_root: ${dataset_paths.py123d_logs_root}

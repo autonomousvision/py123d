@@ -82,6 +82,11 @@ def load_point_cloud_data_from_path(
         assert lidar_metadatas is not None, "Lidar metadatas must be provided for Physical AI AV LiDAR loading."
         lidar_pcs_dict = load_physical_ai_av_point_cloud_data_from_path(full_lidar_path, index, lidar_metadatas)
 
+    elif dataset == "griffin":
+        from py123d.parser.griffin.griffin_sensor_io import load_griffin_point_cloud_data_from_path
+
+        lidar_pcs_dict = load_griffin_point_cloud_data_from_path(full_lidar_path)
+
     elif dataset == "ncore":
         from py123d.parser.ncore.ncore_sensor_io import load_ncore_point_cloud_data_from_path
 
