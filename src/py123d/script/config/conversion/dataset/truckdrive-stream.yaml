@@ -1,0 +1,71 @@
+# Streaming variant of dataset=truckdrive — downloads selected scenes from the public
+# CloudFront release into a managed temp directory at parser construction time, converts,
+# and cleans up on parser GC.
+#
+# Usage:
+#   py123d-conversion dataset=truckdrive-stream \
+#     'dataset.parser.scene_names=[scene_28_1]'
+
+parser:
+  _target_: py123d.parser.truckdrive.truckdrive_parser.TruckDriveDatasetParser
+  _convert_: 'all'
+
+  truckdrive_data_root: null
+  scene_names:
+    - scene_28_1
+  split: null
+
+  downloader:
+    _target_: py123d.parser.truckdrive.truckdrive_download.TruckDriveDownloader
+    _convert_: 'all'
+
+    # null → parser assigns a tempfile.TemporaryDirectory for the duration of the run.
+    output_dir: null
+    dry_run: false
+    scenes: ${dataset.parser.scene_names}
+    modalities:
+      - camera
+      - lidar
+      - poses
+      - calibrations
+      - annotations
+    max_workers: 4
+    unzip: true
+    overwrite: false
+
+log_writer_config:
+  _target_: py123d.api.scene.arrow.utils.log_writer_config.LogWriterConfig
+  _convert_: 'all'
+
+  force_log_conversion: ${force_log_conversion}
+  force_map_conversion: ${force_map_conversion}
+  async_conversion: ${async_conversion}
+
+  camera_store_option: "jpeg_binary"
+  lidar_store_option: "binary"
+  lidar_codec: "ipc_lz4"
+
+  infer_ego_dynamics: true
+  infer_box_dynamics: true
+
+log_writer:
+  _target_: py123d.api.scene.arrow.arrow_log_writer.ArrowLogWriter
+  _convert_: 'all'
+  log_writer_config: ${dataset.log_writer_config}
+  logs_root: ${dataset_paths.py123d_logs_root}
+  sensors_root: ${dataset_paths.py123d_sensors_root}
+  ipc_compression: null
+  ipc_compression_level: null
+
+  sync_config:
+    _target_: py123d.api.scene.arrow.arrow_log_writer.SyncConfig
+    _convert_: 'all'
+    reference_column: lidar.lidar_merged.timestamp_us
+    direction: "forward"
+
+map_writer:
+  _target_: py123d.api.map.arrow.arrow_map_writer.ArrowMapWriter
+  _convert_: 'all'
+  force_map_conversion: ${force_map_conversion}
+  maps_root: ${dataset_paths.py123d_maps_root}
+  logs_root: ${dataset_paths.py123d_logs_root}

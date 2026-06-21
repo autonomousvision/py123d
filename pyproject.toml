@@ -21,7 +21,8 @@ version = "0.6.0"
 authors = [{ name = "Daniel Dauner", email = "daniel.dauner@gmail.com" }]
 description = "123D: An Open-Source Library for Multi-Modal Autonomous Driving Datasets"
 readme = "README.md"
-requires-python = ">=3.9"
+# Hydra doesn't play well with Python 3.14 yet
+requires-python = ">=3.9,<3.14"
 license = {text = "Apache-2.0"}
 dependencies = [
     "geopandas",

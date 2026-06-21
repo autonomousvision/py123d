@@ -1,0 +1,17 @@
+downloader:
+  _target_: py123d.parser.truckdrive.truckdrive_download.TruckDriveDownloader
+  _convert_: 'all'
+
+  output_dir: ${dataset_paths.truckdrive_data_root}
+  dry_run: false
+  scenes:
+    - scene_28_1
+  modalities:
+    - camera
+    - lidar
+    - poses
+    - calibrations
+    - annotations
+  max_workers: 4
+  unzip: true
+  overwrite: false
