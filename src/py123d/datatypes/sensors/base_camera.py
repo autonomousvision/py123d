@@ -81,6 +81,9 @@ class CameraID(SerialIntEnum):
     PCAM_STEREO_R = 9
     """Right pinhole stereo camera."""
 
+    PCAM_D0 = 19
+    """Nadir (downward-looking) pinhole camera, e.g. a UAV's bottom camera."""
+
     # Fisheye MEI cameras
     # ------------------------------------------------------------------------------------------------------------------
 
@@ -126,6 +129,7 @@ ALL_PINHOLE_CAMERA_IDS = [
     CameraID.PCAM_R2,
     CameraID.PCAM_STEREO_L,
     CameraID.PCAM_STEREO_R,
+    CameraID.PCAM_D0,
 ]
 
 ALL_FISHEYE_MEI_CAMERA_IDS = [

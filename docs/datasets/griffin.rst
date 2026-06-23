@@ -13,9 +13,12 @@ cameras, the 80-beam top LiDAR, ego poses, and 3D boxes. Each scene becomes one 
 routed to its official ``train`` / ``val`` partition.
 
 .. note::
-  The drone-side and cooperative (vehicle + drone) perspectives are not yet converted.
-  The 123D log abstraction models a single agent per log; cooperative support is a planned
-  follow-up that the vehicle-side conversion lays the groundwork for.
+  The **drone-side** (UAV) agent is also available as a *separate single-agent* conversion
+  (``dataset=griffin_drone``): five pinhole cameras (four cardinal + one nadir), ego poses, and
+  3D boxes, with aerial state (UAV flag, per-frame altitude) in a custom modality. The drone
+  carries no LiDAR. True first-class cooperation (vehicle + drone with cross-agent transforms
+  as a core datatype) remains a design-first follow-up; the vehicle and drone logs of a scene
+  already share one global (ENU) frame, so they can be aligned by scene id + timestamp.
 
 .. dropdown:: Overview
   :open:
@@ -169,8 +172,10 @@ Dataset Issues
   parser lifts boxes to the global frame and keeps LiDAR points ego-relative.
 * **Labels:** Non-traffic CARLA categories (e.g. military props) are outside the Griffin
   perception taxonomy and are skipped during conversion.
-* **Drone / cooperative:** Only the vehicle-side is converted; drone-side and cooperative
-  perspectives are not yet supported.
+* **Drone-side:** Converted separately (``dataset=griffin_drone``) as a single-agent UAV log:
+  5 cameras incl. a nadir ``bottom`` camera (:class:`~py123d.datatypes.sensors.CameraID.PCAM_D0`),
+  no LiDAR, and aerial state in a :class:`~py123d.datatypes.custom.CustomModality` (id ``aerial``).
+  Cooperative (joint vehicle + drone) perspectives are not modelled as a first-class type yet.
 
 Citation
 ~~~~~~~~

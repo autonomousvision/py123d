@@ -21,7 +21,7 @@ References
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3Metadata
 from py123d.datatypes.sensors.base_camera import CameraID
@@ -141,3 +141,69 @@ def build_griffin_ego_metadata():
             rear_axle_to_imu_se3=PoseSE3.identity(),
         )
     return _GRIFFIN_EGO_STATE_SE3_METADATA
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Drone (UAV) side
+# ----------------------------------------------------------------------------------------------------------------------
+
+# Drone-side cameras: the four cardinal cameras plus a downward-looking (nadir)
+# ``bottom`` camera, mapped onto pinhole ids. The dict keys are the on-disk
+# directory and calibration names. Unlike the vehicle, the drone has no LiDAR.
+GRIFFIN_DRONE_CAMERA_MAPPING: Dict[str, CameraID] = {
+    "front": CameraID.PCAM_F0,
+    "back": CameraID.PCAM_B0,
+    "left": CameraID.PCAM_L0,
+    "right": CameraID.PCAM_R0,
+    "bottom": CameraID.PCAM_D0,  # nadir / downward-looking
+}
+
+# Frame period for the drone side. Griffin renders all agents synchronously at
+# 10 Hz; the drone has no LiDAR to anchor timing, so frame ``N`` is placed on the
+# same 0.1 s grid as the vehicle side (mirrors ``GRIFFIN_LIDAR_PERIOD_US``).
+GRIFFIN_CAMERA_PERIOD_US: int = 100_000
+
+# Custom-modality id carrying aerial-specific state for the UAV ego.
+GRIFFIN_DRONE_AERIAL_MODALITY_ID: str = "aerial"
+
+# Static, log-scoped facts about the aerial agent. Per Griffin's design the UAV
+# carries 5 RGB cameras (4 cardinal + 1 nadir) and no LiDAR; each camera's
+# gimbal / mount orientation is encoded in its sensor-to-ego extrinsic, so it is
+# referenced here rather than duplicated as a separate field.
+GRIFFIN_DRONE_AERIAL_STATIC_METADATA: Dict[str, Any] = {
+    "platform": "uav_drone",
+    "agent_type": "uav",
+    "has_lidar": False,
+    "num_cameras": len(GRIFFIN_DRONE_CAMERA_MAPPING),
+    "nadir_camera": "bottom",
+    "gimbal_note": "per-camera gimbal/mount is encoded in each camera's sensor-to-ego extrinsic",
+}
+
+# Griffin's aerial agent is a simulated UAV. We model it as a single-agent ego
+# (Path 1): it reuses ``EgoStateSE3`` with representative sub-metre dimensions and
+# a meaningless ``wheel_base`` of 0. The ego frame coincides with the IMU frame
+# (identity extrinsics), matching the vehicle-side convention. Built lazily to
+# keep ``EgoStateSE3Metadata`` out of module import time.
+_GRIFFIN_DRONE_EGO_STATE_SE3_METADATA = None
+
+
+def build_griffin_drone_ego_metadata():
+    """Build the (cached) Griffin UAV ego metadata.
+
+    :return: The :class:`~py123d.datatypes.vehicle_state.ego_state_metadata.EgoStateSE3Metadata`
+        describing the Griffin aerial agent.
+    """
+    global _GRIFFIN_DRONE_EGO_STATE_SE3_METADATA  # noqa: PLW0603
+    if _GRIFFIN_DRONE_EGO_STATE_SE3_METADATA is None:
+        from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadata
+
+        _GRIFFIN_DRONE_EGO_STATE_SE3_METADATA = EgoStateSE3Metadata(
+            vehicle_name="griffin_carla_uav",
+            width=0.45,
+            length=0.45,
+            height=0.25,
+            wheel_base=0.0,
+            center_to_imu_se3=PoseSE3.identity(),
+            rear_axle_to_imu_se3=PoseSE3.identity(),
+        )
+    return _GRIFFIN_DRONE_EGO_STATE_SE3_METADATA
