@@ -18,7 +18,7 @@ CONTRAST_COLOR = (255, 255, 255)
 @dataclass
 class ServerConfig:
     host: str = "localhost"
-    port: int = 8080
+    port: int = 8090
     label: str = "123D Viser Server"
     verbose: bool = True
 

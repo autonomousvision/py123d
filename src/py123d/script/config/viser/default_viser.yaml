@@ -22,7 +22,7 @@ viser_config:
 
   server:
     host: "localhost"
-    port: 8080
+    port: 8090
     label: "123D Viser Server"
     verbose: true
 
