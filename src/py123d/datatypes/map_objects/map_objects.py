@@ -67,7 +67,7 @@ class Lane(BaseMapSurfaceObject):
         All polylines (left_boundary, right_boundary, centerline) must be of the same type (all 2D or all 3D).
 
         :param object_id: The unique identifier for the lane.
-        :param lane_type: The type of the lane, according to :class:`~py123d.datatypes.map_objects.map_layer_types.LaneType`.
+        :param lane_type: The type of the lane, according to :class:`~py123d.datatypes.LaneType`.
         :param lane_group_id: The unique identifier for the lane group this lane belongs to, defaults to None.
         :param left_boundary: Polyline of left boundary of the lane.
         :param right_boundary: Polyline of right boundary of the lane.
@@ -115,12 +115,12 @@ class Lane(BaseMapSurfaceObject):
 
     @property
     def layer(self) -> MapLayer:
-        """The :class:`~py123d.datatypes.map_objects.map_layer_types.MapLayer` of the map object."""
+        """The :class:`~py123d.datatypes.MapLayer` of the map object."""
         return MapLayer.LANE
 
     @property
     def lane_type(self) -> LaneType:
-        """The type of the lane, according to :class:`~py123d.datatypes.map_objects.map_layer_types.LaneType`."""
+        """The type of the lane, according to :class:`~py123d.datatypes.LaneType`."""
         return self._lane_type
 
     @property
@@ -353,7 +353,7 @@ class LaneGroup(BaseMapSurfaceObject):
 
     @property
     def layer(self) -> MapLayer:
-        """The :class:`~py123d.datatypes.map_objects.map_layer_types.MapLayer` of the map object."""
+        """The :class:`~py123d.datatypes.MapLayer` of the map object."""
         return MapLayer.LANE_GROUP
 
     @property
@@ -498,13 +498,13 @@ class Intersection(BaseMapSurfaceObject):
 
     @property
     def layer(self) -> MapLayer:
-        """The :class:`~py123d.datatypes.map_objects.map_layer_types.MapLayer` of the map object."""
+        """The :class:`~py123d.datatypes.MapLayer` of the map object."""
         return MapLayer.INTERSECTION
 
     @property
     def intersection_type(self) -> IntersectionType:
         """The type of the intersection, according to \
-            :class:`~py123d.datatypes.map_objects.map_layer_types.IntersectionType`."""
+            :class:`~py123d.datatypes.IntersectionType`."""
         return self._intersection_type
 
     @property
@@ -549,7 +549,7 @@ class Crosswalk(BaseMapSurfaceObject):
 
     @property
     def layer(self) -> MapLayer:
-        """The :class:`~py123d.datatypes.map_objects.map_layer_types.MapLayer` of the map object."""
+        """The :class:`~py123d.datatypes.MapLayer` of the map object."""
         return MapLayer.CROSSWALK
 
 
@@ -578,7 +578,7 @@ class Carpark(BaseMapSurfaceObject):
 
     @property
     def layer(self) -> MapLayer:
-        """The :class:`~py123d.datatypes.map_objects.map_layer_types.MapLayer` of the map object."""
+        """The :class:`~py123d.datatypes.MapLayer` of the map object."""
         return MapLayer.CARPARK
 
 
@@ -637,7 +637,7 @@ class GenericDrivable(BaseMapSurfaceObject):
 
     @property
     def layer(self) -> MapLayer:
-        """The :class:`~py123d.datatypes.map_objects.map_layer_types.MapLayer` of the map object."""
+        """The :class:`~py123d.datatypes.MapLayer` of the map object."""
         return MapLayer.GENERIC_DRIVABLE
 
 
@@ -678,7 +678,7 @@ class StopZone(BaseMapSurfaceObject):
 
     @property
     def layer(self) -> MapLayer:
-        """The :class:`~py123d.datatypes.map_objects.map_layer_types.MapLayer` of the map object."""
+        """The :class:`~py123d.datatypes.MapLayer` of the map object."""
         return MapLayer.STOP_ZONE
 
     @property
@@ -718,7 +718,7 @@ class RoadEdge(BaseMapLineObject):
 
     @property
     def road_edge_type(self) -> RoadEdgeType:
-        """The type of road edge, according to :class:`~py123d.datatypes.map_objects.map_layer_types.RoadEdgeType`."""
+        """The type of road edge, according to :class:`~py123d.datatypes.RoadEdgeType`."""
         return self._road_edge_type
 
 
@@ -744,12 +744,12 @@ class RoadLine(BaseMapLineObject):
 
     @property
     def layer(self) -> MapLayer:
-        """The :class:`~py123d.datatypes.map_objects.map_layer_types.MapLayer` of the map object."""
+        """The :class:`~py123d.datatypes.MapLayer` of the map object."""
         return MapLayer.ROAD_LINE
 
     @property
     def road_line_type(self) -> RoadLineType:
-        """The type of road edge, according to :class:`~py123d.datatypes.map_objects.map_layer_types.RoadLineType`."""
+        """The type of road edge, according to :class:`~py123d.datatypes.RoadLineType`."""
         return self._road_line_type
 
 
@@ -786,7 +786,7 @@ class SpeedBump(BaseMapSurfaceObject):
 
     @property
     def layer(self) -> MapLayer:
-        """The :class:`~py123d.datatypes.map_objects.map_layer_types.MapLayer` of the map object."""
+        """The :class:`~py123d.datatypes.MapLayer` of the map object."""
         return MapLayer.SPEED_BUMP
 
     @property

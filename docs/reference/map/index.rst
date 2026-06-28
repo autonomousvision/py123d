@@ -5,7 +5,7 @@ Map API
    :autoclasstoc:
 
 
-.. autoclass:: py123d.datatypes.map_objects.MapLayer
+.. autoclass:: py123d.datatypes.MapLayer
    :members:
    :exclude-members: public-attrs
    :autoclasstoc:

@@ -37,6 +37,18 @@ All logs include ego-vehicle data, camera images, Lidar point clouds, bounding b
       - ``nuscenes-interpolated_train``, ``nuscenes-interpolated_val``, ``nuscenes-interpolated_test``, ``nuscenes-interpolated-mini_train``, ``nuscenes-interpolated-mini_val``
 
 
+Sensor Overview
+~~~~~~~~~~~~~~~
+
+The following timeplot illustrates the temporal alignment and recording frequency of the available sensors:
+
+.. figure:: /_static/timeplots/sensor_overview_nuscenes-mini.svg
+   :width: 100%
+   :align: center
+
+   Sensor recording timeline.
+
+
 Available Modalities
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -49,31 +61,31 @@ Available Modalities
      - **Description**
    * - Ego Vehicle
      - ✓
-     - State of the ego vehicle, including poses, dynamic state, and vehicle parameters, see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
+     - State of the ego vehicle, including poses, dynamic state, and vehicle parameters, see :class:`~py123d.datatypes.EgoStateSE3`.
    * - Map
      - (✓)
      - The HD-Maps are in 2D vector format and defined per-location. For more information, see :class:`~py123d.api.MapAPI`.
    * - Bounding Boxes
      - ✓
-     - The bounding boxes are available with the :class:`~py123d.parser.registry.NuScenesBoxDetectionLabel`. For more information, see :class:`~py123d.datatypes.detections.BoxDetectionsSE3`.
+     - The bounding boxes are available with the :class:`~py123d.parser.registry.NuScenesBoxDetectionLabel`. For more information, see :class:`~py123d.datatypes.BoxDetectionsSE3`.
    * - Traffic Lights
      - X
      -
    * - Cameras
      - ✓
      -
-      nuScenes includes 6x :class:`~py123d.datatypes.sensors.Camera`:
+      nuScenes includes 6x :class:`~py123d.datatypes.Camera`:
 
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_F0`: CAM_FRONT
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_R0`: CAM_FRONT_RIGHT
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_R1`: CAM_BACK_RIGHT
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_L0`: CAM_FRONT_LEFT
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_L1`: CAM_BACK_LEFT
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_B0`: CAM_BACK
+      - :class:`~py123d.datatypes.CameraID.PCAM_F0`: CAM_FRONT
+      - :class:`~py123d.datatypes.CameraID.PCAM_R0`: CAM_FRONT_RIGHT
+      - :class:`~py123d.datatypes.CameraID.PCAM_R1`: CAM_BACK_RIGHT
+      - :class:`~py123d.datatypes.CameraID.PCAM_L0`: CAM_FRONT_LEFT
+      - :class:`~py123d.datatypes.CameraID.PCAM_L1`: CAM_BACK_LEFT
+      - :class:`~py123d.datatypes.CameraID.PCAM_B0`: CAM_BACK
 
    * - Lidars
      - ✓
-     - nuScenes has one :class:`~py123d.datatypes.sensors.Lidar` of type :class:`~py123d.datatypes.sensors.LidarID.LIDAR_TOP`.
+     - nuScenes has one :class:`~py123d.datatypes.Lidar` of type :class:`~py123d.datatypes.LidarID.LIDAR_TOP`.
 .. dropdown:: Dataset Specific
 
   .. autoclass:: py123d.parser.registry.NuScenesBoxDetectionLabel

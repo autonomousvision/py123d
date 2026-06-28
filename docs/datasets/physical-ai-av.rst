@@ -38,6 +38,18 @@ timestamps and dual egomotion sources (real-time and offline-smoothed).
       - ``physical-ai-av_train``, ``physical-ai-av_val``, ``physical-ai-av_test``
 
 
+Sensor Overview
+~~~~~~~~~~~~~~~
+
+The following timeplot illustrates the temporal alignment and recording frequency of the available sensors:
+
+.. figure:: /_static/timeplots/sensor_overview_physical-ai-av.svg
+   :width: 100%
+   :align: center
+
+   Sensor recording timeline.
+
+
 Available Modalities
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -50,35 +62,35 @@ Available Modalities
      - **Description**
    * - Ego Vehicle
      - ✓
-     - State of the ego vehicle including poses, velocity, and acceleration at 67-100 Hz. Two egomotion sources are available: real-time and offline-smoothed. See :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
+     - State of the ego vehicle including poses, velocity, and acceleration at 67-100 Hz. Two egomotion sources are available: real-time and offline-smoothed. See :class:`~py123d.datatypes.EgoStateSE3`.
    * - Map
      - X
      - Not available for this dataset.
    * - Bounding Boxes
      - ✓
-     - Auto-labeled 3D bounding box detections with 10 semantic classes and track tokens. See :class:`~py123d.parser.registry.PhysicalAIAVBoxDetectionLabel` and :class:`~py123d.datatypes.detections.BoxDetectionsSE3`.
+     - Auto-labeled 3D bounding box detections with 10 semantic classes and track tokens. See :class:`~py123d.parser.registry.PhysicalAIAVBoxDetectionLabel` and :class:`~py123d.datatypes.BoxDetectionsSE3`.
    * - Traffic Lights
      - X
      - Not available for this dataset.
    * - Cameras
      - ✓
      -
-      Includes 7 f-theta (fisheye) cameras at ~30 fps, see :class:`~py123d.datatypes.sensors.Camera`:
+      Includes 7 f-theta (fisheye) cameras at ~30 fps, see :class:`~py123d.datatypes.Camera`:
 
-      - :class:`~py123d.datatypes.sensors.CameraID.FTCAM_F0` (front wide, 120 fov)
-      - :class:`~py123d.datatypes.sensors.CameraID.FTCAM_TELE_F0` (front tele, 30 fov)
-      - :class:`~py123d.datatypes.sensors.CameraID.FTCAM_R0` (cross right, 120 fov)
-      - :class:`~py123d.datatypes.sensors.CameraID.FTCAM_L0` (cross left, 120 fov)
-      - :class:`~py123d.datatypes.sensors.CameraID.FTCAM_R1` (rear right, 70 fov)
-      - :class:`~py123d.datatypes.sensors.CameraID.FTCAM_L1` (rear left, 70 fov)
-      - :class:`~py123d.datatypes.sensors.CameraID.FTCAM_TELE_B0` (rear tele, 30 fov)
+      - :class:`~py123d.datatypes.CameraID.FTCAM_F0` (front wide, 120 fov)
+      - :class:`~py123d.datatypes.CameraID.FTCAM_TELE_F0` (front tele, 30 fov)
+      - :class:`~py123d.datatypes.CameraID.FTCAM_R0` (cross right, 120 fov)
+      - :class:`~py123d.datatypes.CameraID.FTCAM_L0` (cross left, 120 fov)
+      - :class:`~py123d.datatypes.CameraID.FTCAM_R1` (rear right, 70 fov)
+      - :class:`~py123d.datatypes.CameraID.FTCAM_L1` (rear left, 70 fov)
+      - :class:`~py123d.datatypes.CameraID.FTCAM_TELE_B0` (rear tele, 30 fov)
 
    * - Lidars
      - ✓
      -
-      Includes 1 top-mounted 360-degree LiDAR, see :class:`~py123d.datatypes.sensors.Lidar`:
+      Includes 1 top-mounted 360-degree LiDAR, see :class:`~py123d.datatypes.Lidar`:
 
-      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_TOP` (top 360 fov)
+      - :class:`~py123d.datatypes.LidarID.LIDAR_TOP` (top 360 fov)
 
 
 .. dropdown:: Dataset Specific

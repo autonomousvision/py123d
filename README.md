@@ -5,7 +5,7 @@
     <img alt="Logo" src="https://kesai.eu/py123d/_static/123D_logo_transparent_black.svg" width="500">
   </picture>
   <h2 align="center">123D: Unifying Multi-Modal Autonomous Driving Data at Scale</h2>
-  <h3 align="center"><a href="https://arxiv.org/abs/2605.08084">Paper</a> | <a href="https://youtu.be/Q4q29fpXnx8">Video</a> | <a href="https://kesai.eu/py123d/">Documentation</a></h3>
+  <h3 align="center"><a href="https://arxiv.org/abs/2605.08084">Paper</a> | <a href="https://youtu.be/zZGRQ-hE2hk">Video</a> | <a href="https://kesai.eu/py123d/">Documentation</a></h3>
 </h1>
 
 <p align="center">

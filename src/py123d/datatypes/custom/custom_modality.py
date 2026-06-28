@@ -55,7 +55,7 @@ class CustomModality(BaseModality):
     """A custom modality for dataset-specific information.
 
     This class wraps a dictionary (with string keys) and a corresponding
-    :class:`~py123d.datatypes.time.Timestamp`. Values can be Python native
+    :class:`~py123d.datatypes.Timestamp`. Values can be Python native
     types (``dict``, ``list``, ``str``, ``int``, ``float``, ``bytes``,
     ``bool``, ``None``) or ``numpy.ndarray``.
     """
@@ -79,7 +79,7 @@ class CustomModality(BaseModality):
 
     @property
     def timestamp(self) -> Timestamp:
-        """The :class:`~py123d.datatypes.time.Timestamp` of this custom modality."""
+        """The :class:`~py123d.datatypes.Timestamp` of this custom modality."""
         return self._timestamp
 
     def keys(self) -> List[str]:

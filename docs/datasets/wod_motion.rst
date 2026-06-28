@@ -44,16 +44,16 @@ Available Modalities
      - **Description**
    * - Ego Vehicle
      - ✓
-     - State of the ego vehicle, including poses, and vehicle parameters, see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
+     - State of the ego vehicle, including poses, and vehicle parameters, see :class:`~py123d.datatypes.EgoStateSE3`.
    * - Map
      - (✓)
      - The HD-Maps are in 3D, but may have artifacts due to polyline to polygon conversion (see below). For more information, see :class:`~py123d.api.MapAPI`.
    * - Bounding Boxes
      - ✓
-     - The bounding boxes are available with the :class:`~py123d.parser.registry.WODMotionBoxDetectionLabel`. For more information, :class:`~py123d.datatypes.detections.BoxDetectionsSE3`.
+     - The bounding boxes are available with the :class:`~py123d.parser.registry.WODMotionBoxDetectionLabel`. For more information, :class:`~py123d.datatypes.BoxDetectionsSE3`.
    * - Traffic Lights
      - ✓
-     - Traffic lights include the status and the lane id they are associated with, see :class:`~py123d.datatypes.detections.TrafficLightDetections`.
+     - Traffic lights include the status and the lane id they are associated with, see :class:`~py123d.datatypes.TrafficLightDetections`.
    * - Custom
      - ✓
      - WOD-Motion scenario metadata is available through the ``aux`` custom modality.

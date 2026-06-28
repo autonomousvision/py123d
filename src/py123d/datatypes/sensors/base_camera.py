@@ -305,7 +305,7 @@ class Camera(BaseModality):
 
     @property
     def timestamp(self) -> Timestamp:
-        """The :class:`~py123d.datatypes.time.Timestamp` of the image capture."""
+        """The :class:`~py123d.datatypes.Timestamp` of the image capture."""
         return self._timestamp
 
     @property
@@ -324,7 +324,7 @@ class Camera(BaseModality):
 
         ``RGB`` is returned as-is and ``GRAYSCALE`` is broadcast to three channels. A ``SEMANTIC`` label map is
         colorized with the canonical Cityscapes palette: each raw class id is mapped to its
-        :class:`~py123d.datatypes.sensors.camera_segmentation_label.DefaultCameraSegmentationLabel` and then to a
+        :class:`~py123d.datatypes.camera_segmentation_label.DefaultCameraSegmentationLabel` and then to a
         color. An ``INSTANCE`` label map is colorized by cycling a Tableau-20 palette over the raw ids
         (id ``0`` rendered black), so each modality can be displayed through the regular RGB camera path.
         """
