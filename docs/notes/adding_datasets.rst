@@ -174,7 +174,7 @@ the writer can just store the sensor reference, or decode and re-compress the da
 
 If sensor storage is configured as "path", the whole conversion process is substantially faster,
 as the conversion is not memory- or I/O-bound. On the other hand, the converted logs are not self-contained and require
-access to the original dataset files for loading. 
+access to the original dataset files for loading.
 
 .. tip::
   ``load_kwargs`` is a generic, dataset-specific dictionary forwarded verbatim to
@@ -195,19 +195,19 @@ dispatcher
 Sync vs. async parsing
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-For simplicity, the default configuration writes all modalities as synchronized frames. 
+For simplicity, the default configuration writes all modalities as synchronized frames.
 Dataset with asynchronous modalities can be implemented by overriding the async iterator
 :meth:`~py123d.parser.base_dataset_parser.BaseLogParser.iter_modalities_async`,
 which yields each modality independently as it is produced. The default
 implementation simply unwraps the synchronized frames, so overriding is optional.
 Async writing is selected by the ``async_conversion`` flag in the config
 (:ref:`section 5 <adding-datasets-hydra>`). Importantly, an individual modality must be parsed in
-increasing timestamp order, but modalities can be interleaved in any way. 
+increasing timestamp order, but modalities can be interleaved in any way.
 
 
 3. Map Parser
 -------------
-Maps are usually the trickiest part to unify since HD-map schemas vary widely across datasets. 
+Maps are usually the trickiest part to unify since HD-map schemas vary widely across datasets.
 Maps are **optional**: if your dataset ships none, return ``[]`` from ``get_map_parsers()`` and skip this section.
 We generally recommend starting with log parsing and adding maps later.
 
@@ -229,7 +229,7 @@ A *map parser* is a handle to one map region. Subclass
           yield from self._parse_crosswalks()
           # ...
 
-Since map elements are static datatypes, they have no timestamp information and 
+Since map elements are static datatypes, they have no timestamp information and
 are expected to be expressed in the logs global coordinate frame.
 
 Map metadata
@@ -308,7 +308,7 @@ line elements derive from ``BaseMapLineObject`` (a ``polyline``).
 
 A downloader is **optional**, but it can significantly lower the onboarding
 barrier: A dataset or subset can be downloaded directly from the 123D CLI.
-The existing implementations in 123D also show examples how to download and convert 
+The existing implementations in 123D also show examples how to download and convert
 in one script (i.e. using the `streaming during conversion` approach described below).
 
 
