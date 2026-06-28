@@ -167,7 +167,8 @@ class TestGetSensorRoot:
         assert paths.get_sensor_root("nuplan") == Path("/nuplan/sensor")
         assert paths.get_sensor_root("av2-sensor") == Path("/av2/sensor")
         assert paths.get_sensor_root("nuscenes") == Path("/nuscenes")
-        assert paths.get_sensor_root("wod_perception") == Path("/wod")
+        assert paths.get_sensor_root("wod-perception") == Path("/wod")
+        assert paths.get_sensor_root("wod_perception") == Path("/wod")  # legacy alias
         assert paths.get_sensor_root("pandaset") == Path("/pandaset")
         assert paths.get_sensor_root("kitti360") == Path("/kitti360")
 

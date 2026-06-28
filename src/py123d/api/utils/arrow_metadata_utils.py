@@ -32,7 +32,7 @@ def get_metadata_from_arrow_schema(
     deserialized_metadata = None
     if arrow_schema.metadata is not None and modality_key in arrow_schema.metadata:
         deserialized_metadata = metadata_class.from_dict(
-            msgpack.unpackb(arrow_schema.metadata[modality_key], raw=False)
+            msgpack.unpackb(arrow_schema.metadata[modality_key], raw=False, strict_map_key=False)
         )
 
     try:
@@ -72,6 +72,8 @@ def _get_modality_metadata_registry() -> Dict[ModalityType, Any]:
     from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionsMetadata
     from py123d.datatypes.sensors.base_camera import camera_metadata_from_dict
     from py123d.datatypes.sensors.lidar import LidarMetadata
+    from py123d.datatypes.sensors.radar import RadarMetadata
+    from py123d.datatypes.sensors.segmentation_camera import SegmentationCameraMetadata
     from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadata
 
     # _CameraMetadataFactory acts as a drop-in for a metadata class: its from_dict()
@@ -84,7 +86,10 @@ def _get_modality_metadata_registry() -> Dict[ModalityType, Any]:
         ModalityType.BOX_DETECTIONS_SE3: BoxDetectionsSE3Metadata,
         ModalityType.TRAFFIC_LIGHT_DETECTIONS: TrafficLightDetectionsMetadata,
         ModalityType.CAMERA: _CameraMetadataFactory,
+        ModalityType.CAMERA_SEMANTIC: SegmentationCameraMetadata,
+        ModalityType.CAMERA_INSTANCE: SegmentationCameraMetadata,
         ModalityType.LIDAR: LidarMetadata,
+        ModalityType.RADAR: RadarMetadata,
         ModalityType.CUSTOM: CustomModalityMetadata,
     }
 
@@ -92,9 +97,11 @@ def _get_modality_metadata_registry() -> Dict[ModalityType, Any]:
 def _get_modality_key_overrides() -> Dict[str, Type[BaseModalityMetadata]]:
     """Returns overrides for specific modality keys where ModalityType alone is ambiguous."""
     from py123d.datatypes.sensors.lidar import LidarMergedMetadata
+    from py123d.datatypes.sensors.radar import RadarMergedMetadata
 
     return {
         "lidar.lidar_merged": LidarMergedMetadata,
+        "radar.radar_merged": RadarMergedMetadata,
     }
 
 

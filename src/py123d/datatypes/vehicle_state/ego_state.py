@@ -160,7 +160,7 @@ class EgoStateSE3(BaseModality):
 
     @property
     def metadata(self) -> EgoStateSE3Metadata:
-        """The :class:`~py123d.datatypes.vehicle_state.EgoStateSE3Metadata` of the vehicle."""
+        """The :class:`~py123d.datatypes.EgoStateSE3Metadata` of the vehicle."""
         return self._metadata
 
     @property
@@ -170,7 +170,7 @@ class EgoStateSE3(BaseModality):
 
     @property
     def timestamp(self) -> Timestamp:
-        """The :class:`~py123d.datatypes.time.Timestamp` of the ego state."""
+        """The :class:`~py123d.datatypes.Timestamp` of the ego state."""
         return self._timestamp
 
     @property
@@ -225,7 +225,7 @@ class EgoStateSE3(BaseModality):
 
     @property
     def box_detection_se3(self) -> BoxDetectionSE3:
-        """The :class:`~py123d.datatypes.detections.BoxDetectionSE3` projection of the ego vehicle."""
+        """The :class:`~py123d.datatypes.BoxDetectionSE3` projection of the ego vehicle."""
 
         # NOTE @DanielDauner: In contrast to box detections, the ego dynamic state is in ego frame,
         # thus we need to rotate the velocity vector to global frame.
@@ -246,7 +246,7 @@ class EgoStateSE3(BaseModality):
 
     @property
     def box_detection_se2(self) -> BoxDetectionSE2:
-        """The :class:`~py123d.datatypes.detections.BoxDetectionSE2` projection of the ego vehicle."""
+        """The :class:`~py123d.datatypes.BoxDetectionSE2` projection of the ego vehicle."""
         return self.box_detection_se3.box_detection_se2
 
     @property
@@ -382,12 +382,12 @@ class EgoStateSE2:
 
     @property
     def metadata(self) -> EgoStateSE3Metadata:
-        """The :class:`~py123d.datatypes.vehicle_state.EgoStateSE3Metadata` of the vehicle."""
+        """The :class:`~py123d.datatypes.EgoStateSE3Metadata` of the vehicle."""
         return self._metadata
 
     @property
     def timestamp(self) -> Timestamp:
-        """The :class:`~py123d.datatypes.time.Timestamp` of the ego state"""
+        """The :class:`~py123d.datatypes.Timestamp` of the ego state"""
         return self._timestamp
 
     @property
@@ -426,7 +426,7 @@ class EgoStateSE2:
 
     @property
     def box_detection_se2(self) -> BoxDetectionSE2:
-        """The :class:`~py123d.datatypes.detections.BoxDetectionSE2` projection of the ego vehicle."""
+        """The :class:`~py123d.datatypes.BoxDetectionSE2` projection of the ego vehicle."""
 
         # NOTE @DanielDauner: In contrast to box detections, the ego dynamic state is in ego frame,
         # thus we need to rotate the velocity vector to global frame.

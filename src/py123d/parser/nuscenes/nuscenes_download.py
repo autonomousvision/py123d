@@ -80,8 +80,9 @@ NUSCENES_REGION_CHOICES: Tuple[str, ...] = ("us", "asia")
 # --------------------------------------------------------------------------------------
 # The 13 core archives (trainval + test, metadata + sensor blobs) use MD5 checksums
 # copied verbatim from li-xl/nuscenes-download (MIT © Xiang-Li Li, 2025). Extras —
-# mini, HD map expansion, CAN bus — are served by the same API gateway but Motional
-# does not publish MD5 checksums for them, so verification is skipped for those.
+# mini, HD map expansion, CAN bus, lidarseg + panoptic labels — are served by the same
+# API gateway but Motional does not publish MD5 checksums for them, so verification is
+# skipped for those.
 
 
 @dataclass(frozen=True)
@@ -90,10 +91,10 @@ class _ArchiveSpec:
 
     filename: str
     md5: Optional[str]  # None when the upstream does not publish a checksum
-    extract_format: str  # "tgz" or "zip"
+    extract_format: str  # "tgz" (gzip tar), "tar" (auto-detect gz/bz2/xz/plain tar), or "zip"
     approx_size_gb: float
     description: str
-    category: str  # "core_meta" | "core_blob" | "mini" | "maps" | "canbus"
+    category: str  # "core_meta" | "core_blob" | "mini" | "maps" | "canbus" | "lidarseg" | "panoptic"
     # Destination relative to the extraction root. Defaults to ``Path(".")`` —
     # extracts directly to the dataroot, which is correct for every archive whose
     # internal layout already produces the canonical nuScenes tree (``samples/``,
@@ -213,6 +214,16 @@ NUSCENES_ARCHIVE_CATALOG: Tuple[_ArchiveSpec, ...] = (
         target_subdir=Path("maps"),  # zip top level is basemap/, expansion/, prediction/, LICENSE
     ),
     _ArchiveSpec("can_bus.zip", None, "zip", 0.1, "CAN bus expansion", "canbus"),
+    # Segmentation add-ons — lidarseg (per-point semantic .bin) + panoptic (semantic+instance .npz).
+    # No published MD5s (skipped, like the other extras). Each "*-all" archive bundles the mini, test
+    # and trainval splits and extracts to lidarseg/v1.0-* + panoptic/v1.0-* plus the index-bearing
+    # category.json / lidarseg.json / panoptic.json. The mini filenames are verified against the
+    # official nuscenes-devkit lidarseg/panoptic tutorial; the "*-all" filenames are best-known and
+    # should be confirmed with a dry-run (dry_run=True) before committing to a full download.
+    _ArchiveSpec("nuScenes-lidarseg-mini-v1.0.tar.bz2", None, "tar", 0.02, "lidarseg labels (mini)", "lidarseg"),
+    _ArchiveSpec("nuScenes-panoptic-v1.0-mini.tar.gz", None, "tar", 0.03, "panoptic labels (mini)", "panoptic"),
+    _ArchiveSpec("nuScenes-lidarseg-all-v1.0.tar.bz2", None, "tar", 0.4, "lidarseg labels (all splits)", "lidarseg"),
+    _ArchiveSpec("nuScenes-panoptic-v1.0-all.tar.gz", None, "tar", 1.5, "panoptic labels (all splits)", "panoptic"),
 )
 
 _ARCHIVE_BY_NAME: Dict[str, _ArchiveSpec] = {spec.filename: spec for spec in NUSCENES_ARCHIVE_CATALOG}
@@ -223,11 +234,13 @@ NUSCENES_ARCHIVES_MD5: Dict[str, Optional[str]] = {name: spec.md5 for name, spec
 
 # Named selection groups exposed through the downloader's ``preset`` kwarg.
 NUSCENES_PRESETS: Dict[str, Tuple[str, ...]] = {
-    # Smallest smoketest — mini sensor data + vector maps + CAN bus. ~600 MB total.
+    # Smallest smoketest — mini sensor data + vector maps + CAN bus + lidarseg/panoptic labels. ~650 MB.
     "mini": (
         "v1.0-mini.tgz",
         "nuScenes-map-expansion-v1.3.zip",
         "can_bus.zip",
+        "nuScenes-lidarseg-mini-v1.0.tar.bz2",
+        "nuScenes-panoptic-v1.0-mini.tar.gz",
     ),
     # Smallest useful trainval slice — metadata + first blob + maps + CAN bus. ~75 GB.
     "trainval_one": (
@@ -458,8 +471,12 @@ def extract_nuscenes_archive(
     target_dir.mkdir(parents=True, exist_ok=True)
     logger.info("Extracting %s → %s", archive_path, target_dir)
 
-    if extract_format == "tgz":
-        with tarfile.open(archive_path, "r:gz") as tar:
+    if extract_format in ("tgz", "tar"):
+        # "tgz" is gzip; "tar" auto-detects the compression (gzip/bzip2/xz/uncompressed) so the
+        # nuScenes-lidarseg (``.tar.bz2``) and nuScenes-panoptic (``.tar.gz``) label archives —
+        # which differ in compression and from the core ``.tgz`` blobs — extract through one path.
+        mode = "r:gz" if extract_format == "tgz" else "r:*"
+        with tarfile.open(archive_path, mode) as tar:
             # ``filter="data"`` is available in Python 3.12+; older versions ignore it
             # and rely on the default tarfile behavior. Guard by kwargs detection.
             try:
@@ -480,7 +497,7 @@ def extract_nuscenes_archive(
             zf.extractall(target_dir)
         return
 
-    raise ValueError(f"Unknown extract_format {extract_format!r}; expected 'tgz' or 'zip'.")
+    raise ValueError(f"Unknown extract_format {extract_format!r}; expected 'tgz', 'tar', or 'zip'.")
 
 
 # --------------------------------------------------------------------------------------

@@ -13,6 +13,7 @@ from py123d.visualization.viser.elements.camera_frustum_element import CameraFru
 from py123d.visualization.viser.elements.ego_state_se3_element import EgoElement
 from py123d.visualization.viser.elements.lidar_element import LidarElement
 from py123d.visualization.viser.elements.map_element import MapElement
+from py123d.visualization.viser.elements.radar_element import RadarElement
 from py123d.visualization.viser.playback_controller import PlaybackController
 from py123d.visualization.viser.render_controller import RenderController
 from py123d.visualization.viser.viser_config import ViserConfig
@@ -182,6 +183,9 @@ class ViserViewer:
 
         if len(scene.get_lidar_metadatas()) > 0:
             manager.register(LidarElement(context, self._config.lidar))
+
+        if len(scene.get_radar_metadatas()) > 0:
+            manager.register(RadarElement(context, self._config.radar))
 
         if scene.get_box_detections_se3_metadata() is not None:
             manager.register(BoxDetectionsSE3Element(context, self._config.detection))

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import abc
 from pathlib import Path
-from typing import Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 from py123d.datatypes import BaseMapObject, LogMetadata, MapMetadata, Timestamp
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata
@@ -10,6 +10,7 @@ from py123d.datatypes.sensors.fisheye_mei_camera import FisheyeMEICameraMetadata
 from py123d.datatypes.sensors.ftheta_camera import FThetaCameraMetadata
 from py123d.datatypes.sensors.lidar import LidarMergedMetadata, LidarMetadata
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata
+from py123d.datatypes.sensors.radar import RadarMergedMetadata, RadarMetadata
 from py123d.geometry.pose import PoseSE3
 
 
@@ -100,6 +101,7 @@ class ParsedLidar(BaseModality):
         dataset_root: Union[str, Path],
         relative_path: Union[str, Path],
         iteration: Optional[int] = None,
+        load_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._metadata: Union[LidarMetadata, LidarMergedMetadata] = metadata
         self._start_timestamp: Timestamp = start_timestamp
@@ -108,6 +110,11 @@ class ParsedLidar(BaseModality):
         self._dataset_root: Optional[Union[str, Path]] = dataset_root
         self._relative_path: Optional[Union[str, Path]] = relative_path
         self._iteration: Optional[int] = iteration
+        # Generic, dataset-specific extras forwarded verbatim to the point-cloud loader (and persisted
+        # in the Arrow lidar frame under the "path" store option, so they survive to API read time).
+        # nuScenes uses this to carry the keyframe's panoptic-label relative path; see
+        # :func:`py123d.common.io.lidar.path_lidar_io.load_point_cloud_data_from_path`.
+        self._load_kwargs: Optional[Dict[str, Any]] = load_kwargs
 
         assert self._dataset_root is not None and self._relative_path is not None, (
             "File path must be provided for ParsedLidar."
@@ -132,6 +139,56 @@ class ParsedLidar(BaseModality):
     def metadata(self) -> BaseModalityMetadata:
         """Returns the metadata associated with this lidar data."""
         return self._metadata
+
+    @property
+    def load_kwargs(self) -> Optional[Dict[str, Any]]:
+        """Returns the dataset-specific extras forwarded to the point-cloud loader, if any."""
+        return self._load_kwargs
+
+
+class ParsedRadar(BaseModality):
+    """Helper modality for passing a radar observation to log writers, without loading the full point cloud into memory."""
+
+    def __init__(
+        self,
+        metadata: Union[RadarMetadata, RadarMergedMetadata],
+        timestamp: Timestamp,
+        dataset_root: Union[str, Path],
+        relative_path: Union[str, Path],
+        iteration: Optional[int] = None,
+        load_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self._metadata: Union[RadarMetadata, RadarMergedMetadata] = metadata
+        # A radar scan is treated as an instantaneous snapshot (no rolling shutter), so it carries a
+        # single timestamp rather than a sweep window like lidar.
+        self._timestamp: Timestamp = timestamp
+
+        self._dataset_root: Optional[Union[str, Path]] = dataset_root
+        self._relative_path: Optional[Union[str, Path]] = relative_path
+        self._iteration: Optional[int] = iteration
+        # Generic, dataset-specific extras forwarded verbatim to the point-cloud loader (and persisted in the
+        # Arrow radar frame under the "path" store option). e.g. nuScenes carries the per-RadarID relative
+        # paths here, since its radars live in separate files that are merged on load.
+        self._load_kwargs: Optional[Dict[str, Any]] = load_kwargs
+
+        assert self._dataset_root is not None and self._relative_path is not None, (
+            "File path must be provided for ParsedRadar."
+        )
+
+    @property
+    def timestamp(self) -> Timestamp:
+        """Returns the timestamp associated with this radar data."""
+        return self._timestamp
+
+    @property
+    def metadata(self) -> BaseModalityMetadata:
+        """Returns the metadata associated with this radar data."""
+        return self._metadata
+
+    @property
+    def load_kwargs(self) -> Optional[Dict[str, Any]]:
+        """Returns the dataset-specific extras forwarded to the point-cloud loader, if any."""
+        return self._load_kwargs
 
 
 class ParsedCamera(BaseModality):

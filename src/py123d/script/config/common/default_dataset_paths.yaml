@@ -32,8 +32,14 @@ dataset_paths:
   nuscenes_map_root: ${dataset_paths.nuscenes_data_root}
   nuscenes_sensor_root: ${dataset_paths.nuscenes_data_root}
 
+  # nuReasoning defaults
+  nureasoning_data_root: ${oc.env:NUREASONING_DATA_ROOT,null}
+
   # Physical AI AV defaults
   physical_ai_av_data_root: ${oc.env:PHYSICAL_AI_AV_DATA_ROOT,null}
 
   # NCore defaults
   ncore_data_root: ${oc.env:NCORE_DATA_ROOT,null}
+
+  # Griffin defaults
+  griffin_data_root: ${oc.env:GRIFFIN_DATA_ROOT,null}

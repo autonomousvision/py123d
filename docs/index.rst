@@ -11,7 +11,7 @@ Features include:
 - Visualization tools with `matplotlib <https://matplotlib.org/>`_ and `Viser <https://viser.studio/main/>`_.
 
 
-..  youtube:: Q4q29fpXnx8
+..  youtube:: zZGRQ-hE2hk
    :width: 800
    :height: 450
    :align: center
@@ -29,12 +29,12 @@ Features include:
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: API Reference:
+   :caption: Reference:
 
-   api/scene/index
-   api/map/index
-   api/datatypes/index
-   api/geometry/index
+   reference/scene/index
+   reference/map/index
+   reference/datatypes/index
+   reference/geometry/index
 
 .. toctree::
    :maxdepth: 1
@@ -42,4 +42,5 @@ Features include:
    :caption: Notes
 
    notes/conventions
-   contributing
+   notes/contributing
+   notes/adding_datasets

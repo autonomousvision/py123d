@@ -35,6 +35,18 @@ This dataset is intended to train 3D perception models for autonomous vehicles.
       - ``av2-sensor_train``, ``av2-sensor_val``, ``av2-sensor_test``
 
 
+Sensor Overview
+~~~~~~~~~~~~~~~
+
+The following timeplot illustrates the temporal alignment and recording frequency of the available sensors:
+
+.. figure:: /_static/timeplots/sensor_overview_av2-sensor.svg
+   :width: 100%
+   :align: center
+
+   Sensor recording timeline.
+
+
 Available Modalities
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -47,38 +59,38 @@ Available Modalities
      - **Description**
    * - Ego Vehicle
      - ✓
-     - State of the ego vehicle, including poses, and vehicle parameters, see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
+     - State of the ego vehicle, including poses, and vehicle parameters, see :class:`~py123d.datatypes.EgoStateSE3`.
    * - Map
      - (✓)
      - The HD-Maps are in 3D, but may have artifacts due to polyline to polygon conversion (see below). For more information, see :class:`~py123d.api.MapAPI`.
    * - Bounding Boxes
      - ✓
-     - The bounding boxes are available with the :class:`~py123d.parser.registry.AV2SensorBoxDetectionLabel`. For more information, :class:`~py123d.datatypes.detections.BoxDetectionsSE3`.
+     - The bounding boxes are available with the :class:`~py123d.parser.registry.AV2SensorBoxDetectionLabel`. For more information, :class:`~py123d.datatypes.BoxDetectionsSE3`.
    * - Traffic Lights
      - X
      - n/a
    * - Cameras
      - ✓
      -
-      Includes 9 cameras, see :class:`~py123d.datatypes.sensors.Camera`:
+      Includes 9 cameras, see :class:`~py123d.datatypes.Camera`:
 
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_F0` (ring_front_center)
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_R0` (ring_front_right)
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_R1` (ring_side_right)
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_R2` (ring_rear_right)
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_L0` (ring_front_left)
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_L1` (ring_side_left)
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_L2` (ring_rear_left)
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_STEREO_R` (stereo_front_right)
-      - :class:`~py123d.datatypes.sensors.CameraID.PCAM_STEREO_L` (stereo_front_left)
+      - :class:`~py123d.datatypes.CameraID.PCAM_F0` (ring_front_center)
+      - :class:`~py123d.datatypes.CameraID.PCAM_R0` (ring_front_right)
+      - :class:`~py123d.datatypes.CameraID.PCAM_R1` (ring_side_right)
+      - :class:`~py123d.datatypes.CameraID.PCAM_R2` (ring_rear_right)
+      - :class:`~py123d.datatypes.CameraID.PCAM_L0` (ring_front_left)
+      - :class:`~py123d.datatypes.CameraID.PCAM_L1` (ring_side_left)
+      - :class:`~py123d.datatypes.CameraID.PCAM_L2` (ring_rear_left)
+      - :class:`~py123d.datatypes.CameraID.PCAM_STEREO_R` (stereo_front_right)
+      - :class:`~py123d.datatypes.CameraID.PCAM_STEREO_L` (stereo_front_left)
 
    * - Lidars
      - ✓
      -
-      Includes 2 Lidars, see :class:`~py123d.datatypes.sensors.Lidar`:
+      Includes 2 Lidars, see :class:`~py123d.datatypes.Lidar`:
 
-      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_TOP` (top up)
-      - :class:`~py123d.datatypes.sensors.LidarID.LIDAR_DOWN` (top down)
+      - :class:`~py123d.datatypes.LidarID.LIDAR_TOP` (top up)
+      - :class:`~py123d.datatypes.LidarID.LIDAR_DOWN` (top down)
 
 
 .. dropdown:: Dataset Specific

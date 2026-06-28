@@ -29,6 +29,8 @@ _ENV_VAR_MAP: Dict[str, str] = {
     "pandaset_data_root": "PANDASET_DATA_ROOT",
     "kitti360_data_root": "KITTI360_DATA_ROOT",
     "nuscenes_data_root": "NUSCENES_DATA_ROOT",
+    "nureasoning_data_root": "NUREASONING_DATA_ROOT",
+    "griffin_data_root": "GRIFFIN_DATA_ROOT",
 }
 
 
@@ -57,6 +59,8 @@ class DatasetPaths:
     pandaset_data_root: Optional[Path] = None
     kitti360_data_root: Optional[Path] = None
     nuscenes_data_root: Optional[Path] = None
+    nureasoning_data_root: Optional[Path] = None
+    griffin_data_root: Optional[Path] = None
 
     # 2. Derived paths (if not explicitly set, will be derived from primary roots in __post_init__)
     py123d_logs_root: Optional[Path] = field(default=None, repr=False)
@@ -137,9 +141,13 @@ class DatasetPaths:
             "av2-sensor": self.av2_sensor_data_root,
             "nuplan": self.nuplan_sensor_root,
             "nuscenes": self.nuscenes_sensor_root,
-            "wod_perception": self.wod_perception_data_root,
+            "wod-perception": self.wod_perception_data_root,
+            "wod_perception": self.wod_perception_data_root,  # legacy alias for pre-rename logs
             "pandaset": self.pandaset_data_root,
             "kitti360": self.kitti360_data_root,
+            # nuReasoning stores cameras (jpeg_binary) and lidar (path) under the data root.
+            "nureasoning": self.nureasoning_data_root,
+            "griffin": self.griffin_data_root,
         }
         return mapping.get(dataset)
 

@@ -34,7 +34,7 @@ class BaseMapObject(abc.ABC):
     @property
     @abc.abstractmethod
     def layer(self) -> MapLayer:
-        """The :class:`~py123d.datatypes.map_objects.map_layer_types.MapLayer` of the map object."""
+        """The :class:`~py123d.datatypes.MapLayer` of the map object."""
 
 
 class BaseMapSurfaceObject(BaseMapObject):

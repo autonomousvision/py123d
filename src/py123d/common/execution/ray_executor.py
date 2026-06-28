@@ -35,10 +35,8 @@ def initialize_ray(
     ENV_VAR_NUM_NODES="number of nodes available".
     :param master_node_ip: if available, ray will connect to remote cluster.
     :param threads_per_node: Number of threads to use per node.
-    :param log_to_driver: If true, the output from all of the worker
-            processes on all nodes will be directed to the driver.
-    :param use_distributed: If true, and the env vars are available,
-            ray will launch in distributed mode
+    :param log_to_driver: If true, the output from all of the worker processes on all nodes will be directed to the driver.
+    :param use_distributed: If true, and the env vars are available, ray will launch in distributed mode.
     :return: created ExecutorResources.
     """
     # Env variables which are set through SLURM script
@@ -113,8 +111,7 @@ class RayExecutor(Executor):
         Initialize ray executor.
         :param master_node_ip: if available, ray will connect to remote cluster.
         :param threads_per_node: Number of threads to use per node.
-        :param log_to_driver: If true, the output from all of the worker
-                processes on all nodes will be directed to the driver.
+        :param log_to_driver: If true, the output from all of the worker processes on all nodes will be directed to the driver.
         :param output_dir: Experiment output directory.
         :param logs_subdir: Subdirectory inside experiment dir to store worker logs.
         :param use_distributed: Boolean flag to explicitly enable/disable distributed computation

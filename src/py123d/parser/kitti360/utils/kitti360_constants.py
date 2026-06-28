@@ -71,8 +71,17 @@ KITTI360_BOX_DETECTIONS_SE3_METADATA = BoxDetectionsSE3Metadata(box_detection_la
 DIR_ROOT = "root"
 DIR_2D_RAW = "data_2d_raw"
 DIR_2D_SMT = "data_2d_semantics"
+# KITTI-360 ships the two perspective cameras' 2D semantics in *separate* archives: image_00 under
+# ``data_2d_semantics/train/{seq}/image_00/...`` and image_01 under its own
+# ``data_2d_semantics_image_01/data_2d_semantics/train/{seq}/image_01/...`` tree. Both are original
+# KITTI-360 layouts; the per-camera resolver checks each in turn.
+DIR_2D_SMT_IMAGE_01 = "data_2d_semantics_image_01"
 DIR_3D_RAW = "data_3d_raw"
 DIR_3D_SMT = "data_3d_semantics"
 DIR_3D_BBOX = "data_3d_bboxes"
 DIR_POSES = "data_poses"
 DIR_CALIB = "calibration"
+
+# Sub-directories of a per-camera 2D-semantics folder.
+KITTI360_SEMANTIC_SUBDIR = "semantic"  # single-channel uint8 class-id (KITTI-360 ``id`` field) maps
+KITTI360_INSTANCE_SUBDIR = "instance"  # single-channel uint16 panoptic (``semanticId * 1000 + instanceId``) maps

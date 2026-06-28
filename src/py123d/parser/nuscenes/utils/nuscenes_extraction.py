@@ -33,15 +33,18 @@ from py123d.datatypes import (
 )
 from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3Metadata
 from py123d.datatypes.sensors.lidar import LidarMergedMetadata
+from py123d.datatypes.sensors.radar import RadarID, RadarMergedMetadata, RadarMetadata
 from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadata
 from py123d.geometry import BoundingBoxSE3, PoseSE3, Vector3D
 from py123d.geometry.transform.transform_se3 import rel_to_abs_se3
-from py123d.parser.base_dataset_parser import ParsedCamera, ParsedLidar
+from py123d.parser.base_dataset_parser import ParsedCamera, ParsedLidar, ParsedRadar
+from py123d.parser.lidar_segmentation_registry import NuScenesLidarSegmentationLabel
 from py123d.parser.nuscenes.utils.nuscenes_constants import (
     NUSCENES_BOX_DETECTIONS_SE3_METADATA,
     NUSCENES_CAMERA_IDS,
     NUSCENES_DETECTION_NAME_DICT,
     NUSCENES_LIDAR_SWEEP_DURATION_US,
+    NUSCENES_RADAR_IDS,
 )
 
 check_dependencies(["nuscenes"], "nuscenes")
@@ -52,6 +55,79 @@ from nuscenes.can_bus.can_bus_api import NuScenesCanBus
 # Since we select the last camera *before* the lidar timestamp, the offset can be up to one full
 # camera period (~83 ms at ~12 Hz). We use 100 ms to be consistent with the keyframe extraction.
 _CAMERA_TIMESTAMP_TOLERANCE_US: int = 100_000
+
+# Canonical nuScenes-lidarseg category index → name, in the order published in the devkit's
+# ``nuscenes/utils/color_map.py``. Used only to validate the on-disk ``category.json`` indexing against
+# :class:`NuScenesLidarSegmentationLabel` at conversion time (fail loudly on taxonomy drift rather than
+# silently mislabel). nuScenes-panoptic reuses this same 32-class semantic taxonomy.
+_NUSCENES_LIDARSEG_IDX2NAME: Dict[int, str] = {
+    0: "noise",
+    1: "animal",
+    2: "human.pedestrian.adult",
+    3: "human.pedestrian.child",
+    4: "human.pedestrian.construction_worker",
+    5: "human.pedestrian.personal_mobility",
+    6: "human.pedestrian.police_officer",
+    7: "human.pedestrian.stroller",
+    8: "human.pedestrian.wheelchair",
+    9: "movable_object.barrier",
+    10: "movable_object.debris",
+    11: "movable_object.pushable_pullable",
+    12: "movable_object.trafficcone",
+    13: "static_object.bicycle_rack",
+    14: "vehicle.bicycle",
+    15: "vehicle.bus.bendy",
+    16: "vehicle.bus.rigid",
+    17: "vehicle.car",
+    18: "vehicle.construction",
+    19: "vehicle.emergency.ambulance",
+    20: "vehicle.emergency.police",
+    21: "vehicle.motorcycle",
+    22: "vehicle.trailer",
+    23: "vehicle.truck",
+    24: "flat.driveable_surface",
+    25: "flat.other",
+    26: "flat.sidewalk",
+    27: "flat.terrain",
+    28: "static.manmade",
+    29: "static.other",
+    30: "static.vegetation",
+    31: "vehicle.ego",
+}
+
+
+def _validate_nuscenes_lidarseg_taxonomy(nusc: NuScenes) -> None:
+    """Asserts the dataset's lidarseg category indexing matches :class:`NuScenesLidarSegmentationLabel`.
+
+    The on-disk ``category.json`` ``index`` field is exposed by the devkit as
+    ``nusc.lidarseg_idx2name_mapping``. If it ever diverges from our hardcoded enum, the per-point ids
+    we store would be silently mislabeled — so we fail loudly here at conversion time instead.
+    """
+    idx2name = getattr(nusc, "lidarseg_idx2name_mapping", None)
+    assert idx2name, "nuScenes panoptic is loaded but `lidarseg_idx2name_mapping` is unavailable."
+    for idx, name in _NUSCENES_LIDARSEG_IDX2NAME.items():
+        assert idx2name.get(idx) == name, (
+            f"nuScenes lidarseg taxonomy mismatch at index {idx}: dataset has {idx2name.get(idx)!r}, "
+            f"NuScenesLidarSegmentationLabel expects {name!r}. The category.json indexing differs from "
+            "the hardcoded enum — update NuScenesLidarSegmentationLabel."
+        )
+
+
+def _nuscenes_segmentation_load_kwargs(nusc: NuScenes, lidar_sample_data_token: str) -> Optional[Dict[str, str]]:
+    """Returns loader kwargs with the keyframe's lidarseg + panoptic label relative paths, or ``None``.
+
+    Both are optional, keyframe-only add-ons; the SEMANTIC class id comes from lidarseg and the INSTANCE
+    id from panoptic. Absence of a table (or of a record for this sample_data token) just drops that key,
+    so segmentation degrades gracefully (e.g. instance-only or nothing at all).
+    """
+    load_kwargs: Dict[str, str] = {}
+    for table, key in (("lidarseg", "lidarseg_relative_path"), ("panoptic", "panoptic_relative_path")):
+        if getattr(nusc, table, None):
+            try:
+                load_kwargs[key] = nusc.get(table, lidar_sample_data_token)["filename"]
+            except KeyError:
+                pass
+    return load_kwargs or None
 
 
 # ------------------------------------------------------------------------------------------------------------------
@@ -131,12 +207,53 @@ def get_nuscenes_lidar_merged_metadata(
         rotation=np.array(calib["rotation"], dtype=np.float64),
         translation=np.array(calib["translation"], dtype=np.float64),
     )
+    # When nuScenes-lidarseg is present, tag the top lidar with its taxonomy so the per-point SEMANTIC
+    # ids are self-describing (drives the viz semantic overlay). Validate the on-disk indexing first.
+    segmentation_label_class = None
+    if getattr(nusc, "lidarseg", None):
+        _validate_nuscenes_lidarseg_taxonomy(nusc)
+        segmentation_label_class = NuScenesLidarSegmentationLabel
     metadata[LidarID.LIDAR_TOP] = LidarMetadata(
         lidar_name="LIDAR_TOP",
         lidar_id=LidarID.LIDAR_TOP,
         lidar_to_imu_se3=lidar_to_imu_se3,
+        segmentation_label_class=segmentation_label_class,
     )
     return LidarMergedMetadata(metadata)
+
+
+def get_nuscenes_radar_metadata_from_scene(
+    load_nusc_fn: Callable[[], NuScenes],
+    scene_token: str,
+) -> RadarMergedMetadata:
+    """Extracts the Radar merged metadata from a nuScenes scene."""
+    nusc = load_nusc_fn()
+    scene = nusc.get("scene", scene_token)
+    return get_nuscenes_radar_merged_metadata(nusc, scene)
+
+
+def get_nuscenes_radar_merged_metadata(
+    nusc: NuScenes,
+    scene: Dict[str, Any],
+) -> RadarMergedMetadata:
+    """Extracts the Radar merged metadata (per-sensor extrinsics) from a nuScenes scene's first sample."""
+    metadata: Dict[RadarID, RadarMetadata] = {}
+    first_sample = nusc.get("sample", scene["first_sample_token"])
+    for radar_id, channel in NUSCENES_RADAR_IDS.items():
+        if channel not in first_sample["data"]:
+            continue
+        radar_data = nusc.get("sample_data", first_sample["data"][channel])
+        calib = nusc.get("calibrated_sensor", radar_data["calibrated_sensor_token"])
+        radar_to_imu_se3 = PoseSE3.from_R_t(
+            rotation=np.array(calib["rotation"], dtype=np.float64),
+            translation=np.array(calib["translation"], dtype=np.float64),
+        )
+        metadata[radar_id] = RadarMetadata(
+            radar_name=channel,
+            radar_id=radar_id,
+            radar_to_imu_se3=radar_to_imu_se3,
+        )
+    return RadarMergedMetadata(metadata)
 
 
 # ------------------------------------------------------------------------------------------------------------------
@@ -734,20 +851,24 @@ def extract_nuscenes_lidar(
     lidar_token = sample["data"]["LIDAR_TOP"]
     lidar_data = nusc.get("sample_data", lidar_token)
     absolute_lidar_path = nuscenes_data_root / lidar_data["filename"]
+    parsed_lidar: Optional[ParsedLidar] = None
     if absolute_lidar_path.exists() and absolute_lidar_path.is_file():
         # The nuScenes lidar timestamp marks the end of the sweep (full rotation).
         # The sweep covers the 1/20s (50ms) period before that timestamp.
         end_timestamp = Timestamp.from_us(sample["timestamp"])
         start_timestamp = Timestamp.from_us(sample["timestamp"] - NUSCENES_LIDAR_SWEEP_DURATION_US)
-        return ParsedLidar(
+        parsed_lidar = ParsedLidar(
             metadata=lidar_metadata,
             start_timestamp=start_timestamp,
             end_timestamp=end_timestamp,
             relative_path=absolute_lidar_path.relative_to(nuscenes_data_root),
             dataset_root=nuscenes_data_root,
             iteration=lidar_data.get("iteration"),
+            # nuScenes lidarseg/panoptic (keyframe-only, optional) label paths carried as a generic
+            # loader extra so the opaquely-named files can be re-read at API time under the "path" store.
+            load_kwargs=_nuscenes_segmentation_load_kwargs(nusc, lidar_token),
         )
-    return None
+    return parsed_lidar
 
 
 def extract_lidar_from_sample_data(
@@ -776,6 +897,113 @@ def extract_lidar_from_sample_data(
             dataset_root=nuscenes_data_root,
         )
     return None
+
+
+def extract_nuscenes_radar(
+    nusc: NuScenes,
+    sample: Dict[str, Any],
+    nuscenes_data_root: Path,
+    radar_metadata: RadarMergedMetadata,
+) -> Optional[ParsedRadar]:
+    """Extracts the merged Radar data from a nuScenes keyframe sample.
+
+    nuScenes stores the five radars in separate files; we carry all their relative paths in
+    ``load_kwargs["radar_paths"]`` (keyed by ``str(int(RadarID))``) so the loader can read and merge
+    them, while the merged frame stores a single primary path (the first available radar).
+    """
+    radar_paths: Dict[str, str] = {}
+    primary_relative_path: Optional[Path] = None
+    for radar_id, channel in NUSCENES_RADAR_IDS.items():
+        if radar_id not in radar_metadata or channel not in sample["data"]:
+            continue
+        radar_data = nusc.get("sample_data", sample["data"][channel])
+        absolute_path = nuscenes_data_root / radar_data["filename"]
+        if not (absolute_path.exists() and absolute_path.is_file()):
+            continue
+        relative_path = absolute_path.relative_to(nuscenes_data_root)
+        radar_paths[str(int(radar_id))] = str(relative_path)
+        if primary_relative_path is None:
+            primary_relative_path = relative_path
+
+    parsed_radar: Optional[ParsedRadar] = None
+    if primary_relative_path is not None:
+        # A radar scan is an instantaneous snapshot (no rolling shutter), so it carries a single timestamp.
+        parsed_radar = ParsedRadar(
+            metadata=radar_metadata,
+            timestamp=Timestamp.from_us(sample["timestamp"]),
+            relative_path=primary_relative_path,
+            dataset_root=nuscenes_data_root,
+            load_kwargs={"radar_paths": radar_paths},
+        )
+    return parsed_radar
+
+
+def collect_radar_sweep_timelines(
+    nusc: NuScenes,
+    scene: Dict[str, Any],
+    radar_metadata: RadarMergedMetadata,
+) -> Dict[RadarID, List[Dict[str, Any]]]:
+    """Collects every radar ``sample_data`` record (keyframes + sweeps) per :class:`RadarID`.
+
+    nuScenes radars run at ~13Hz with intermediate (non-keyframe) sweep records, so walking the
+    ``sample_data`` linked list per channel recovers the native rate (the keyframe ``sample`` chain
+    alone would undersample to ~2Hz).
+    """
+    first_sample = nusc.get("sample", scene["first_sample_token"])
+    last_timestamp = nusc.get("sample", scene["last_sample_token"])["timestamp"]
+
+    timelines: Dict[RadarID, List[Dict[str, Any]]] = {}
+    for radar_id, channel in NUSCENES_RADAR_IDS.items():
+        if radar_id not in radar_metadata or channel not in first_sample["data"]:
+            continue
+        timeline: List[Dict[str, Any]] = []
+        current = nusc.get("sample_data", first_sample["data"][channel])
+        while current:
+            if current["timestamp"] > last_timestamp and not current["is_key_frame"]:
+                break
+            timeline.append({"timestamp": current["timestamp"], "filename": current["filename"]})
+            if current["next"]:
+                current = nusc.get("sample_data", current["next"])
+            else:
+                break
+        if timeline:
+            timelines[radar_id] = timeline
+    return timelines
+
+
+def extract_nuscenes_radar_at_timestamp(
+    target_timestamp_us: int,
+    radar_timelines: Dict[RadarID, List[Dict[str, Any]]],
+    nuscenes_data_root: Path,
+    radar_metadata: RadarMergedMetadata,
+) -> Optional[ParsedRadar]:
+    """Builds a merged :class:`ParsedRadar` at a target timestamp from per-channel sweep timelines.
+
+    For each radar channel, the sweep nearest to ``target_timestamp_us`` is selected and its file path
+    is carried in ``load_kwargs["radar_paths"]`` for the merging loader.
+    """
+    radar_paths: Dict[str, str] = {}
+    primary_relative_path: Optional[str] = None
+    for radar_id, timeline in radar_timelines.items():
+        timestamps = np.asarray([entry["timestamp"] for entry in timeline], dtype=np.int64)
+        nearest_idx = int(np.argmin(np.abs(timestamps - target_timestamp_us)))
+        filename = timeline[nearest_idx]["filename"]
+        if not (nuscenes_data_root / filename).exists():
+            continue
+        radar_paths[str(int(radar_id))] = filename
+        if primary_relative_path is None:
+            primary_relative_path = filename
+
+    parsed_radar: Optional[ParsedRadar] = None
+    if primary_relative_path is not None:
+        parsed_radar = ParsedRadar(
+            metadata=radar_metadata,
+            timestamp=Timestamp.from_us(int(target_timestamp_us)),
+            relative_path=primary_relative_path,
+            dataset_root=nuscenes_data_root,
+            load_kwargs={"radar_paths": radar_paths},
+        )
+    return parsed_radar
 
 
 # ------------------------------------------------------------------------------------------------------------------

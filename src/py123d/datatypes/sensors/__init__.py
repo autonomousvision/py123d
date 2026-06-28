@@ -8,6 +8,12 @@ from py123d.datatypes.sensors.base_camera import (
     CameraModel,
     camera_metadata_from_dict,
 )
+from py123d.datatypes.sensors.camera_segmentation_label import (
+    CAMERA_SEGMENTATION_LABEL_REGISTRY,
+    CameraSegmentationLabel,
+    DefaultCameraSegmentationLabel,
+    register_camera_segmentation_label,
+)
 from py123d.datatypes.sensors.fisheye_mei_camera import (
     FisheyeMEICameraMetadata,
     FisheyeMEIDistortion,
@@ -27,6 +33,12 @@ from py123d.datatypes.sensors.lidar import (
     LidarMergedMetadata,
     LidarMetadata,
 )
+from py123d.datatypes.sensors.lidar_segmentation_label import (
+    LIDAR_SEGMENTATION_LABEL_REGISTRY,
+    DefaultLidarSegmentationLabel,
+    LidarSegmentationLabel,
+    register_lidar_segmentation_label,
+)
 from py123d.datatypes.sensors.pinhole_camera import (
     PinholeCameraMetadata,
     PinholeDistortion,
@@ -34,6 +46,17 @@ from py123d.datatypes.sensors.pinhole_camera import (
     PinholeIntrinsics,
     PinholeIntrinsicsIndex,
 )
+from py123d.datatypes.sensors.radar import (
+    RADAR_FEATURE_DTYPES,
+    Radar,
+    RadarFeature,
+    RadarID,
+    RadarMergedMetadata,
+    RadarMetadata,
+    get_individual_radar,
+    get_merged_radar,
+)
+from py123d.datatypes.sensors.segmentation_camera import SegmentationCameraMetadata
 
 CameraMetadata = Union[PinholeCameraMetadata, FisheyeMEICameraMetadata, FThetaCameraMetadata]
 
@@ -45,6 +68,17 @@ __all__ = [
     "CameraID",
     "CameraModel",
     "camera_metadata_from_dict",
+    # Camera segmentation
+    "SegmentationCameraMetadata",
+    "CameraSegmentationLabel",
+    "DefaultCameraSegmentationLabel",
+    "CAMERA_SEGMENTATION_LABEL_REGISTRY",
+    "register_camera_segmentation_label",
+    # Lidar segmentation
+    "LidarSegmentationLabel",
+    "DefaultLidarSegmentationLabel",
+    "LIDAR_SEGMENTATION_LABEL_REGISTRY",
+    "register_lidar_segmentation_label",
     # Fisheye MEI camera
     "FisheyeMEICameraMetadata",
     "FisheyeMEIDistortion",
@@ -61,6 +95,15 @@ __all__ = [
     "LidarID",
     "LidarMergedMetadata",
     "LidarMetadata",
+    # Radar
+    "Radar",
+    "RadarFeature",
+    "RADAR_FEATURE_DTYPES",
+    "RadarID",
+    "RadarMergedMetadata",
+    "RadarMetadata",
+    "get_individual_radar",
+    "get_merged_radar",
     # Pinhole camera
     "PinholeCameraMetadata",
     "PinholeDistortion",

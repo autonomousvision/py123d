@@ -3,6 +3,11 @@ from typing import Dict
 from py123d.datatypes.detections.box_detection_label import DefaultBoxDetectionLabel
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightStatus
 from py123d.datatypes.map_objects.map_layer_types import MapLayer
+from py123d.datatypes.sensors.camera_segmentation_label import (
+    DEFAULT_CAMERA_SEGMENTATION_RGB,
+    DefaultCameraSegmentationLabel,
+)
+from py123d.datatypes.sensors.lidar_segmentation_label import DefaultLidarSegmentationLabel
 from py123d.visualization.color.color import (
     BLACK,
     DARKER_GREY,
@@ -277,6 +282,39 @@ MARK_CONFIG: PlotConfig = PlotConfig(
     marker_size=1.0,
     zorder=3,
 )
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Semantic segmentation colors
+# ----------------------------------------------------------------------------------------------------------------------
+# The unified taxonomies are nuScenes-lidarseg style (LiDAR) and Cityscapes style (camera), but both are
+# colored with the canonical Cityscapes palette [1]_ so segmentation overlays use familiar, recognizable
+# colors (road = purple, vegetation = olive green, person = crimson, vehicle = dark blue, ...).
+# [1] https://github.com/mcordts/cityscapesScripts (labels.py)
+
+# Cityscapes-palette colors, keyed by the *unified* LiDAR label (raw dataset ids reach these via to_default()).
+DEFAULT_LIDAR_SEGMENTATION_COLORS: Dict[DefaultLidarSegmentationLabel, Color] = {
+    DefaultLidarSegmentationLabel.IGNORE: BLACK,
+    DefaultLidarSegmentationLabel.VEHICLE: Color.from_rgb((0, 0, 142)),  # Cityscapes car
+    DefaultLidarSegmentationLabel.TWO_WHEELER: Color.from_rgb((119, 11, 32)),  # Cityscapes bicycle
+    DefaultLidarSegmentationLabel.PERSON: Color.from_rgb((220, 20, 60)),  # Cityscapes person
+    DefaultLidarSegmentationLabel.RIDER: Color.from_rgb((255, 0, 0)),  # Cityscapes rider
+    DefaultLidarSegmentationLabel.DRIVABLE_SURFACE: Color.from_rgb((128, 64, 128)),  # Cityscapes road
+    DefaultLidarSegmentationLabel.SIDEWALK: Color.from_rgb((244, 35, 232)),  # Cityscapes sidewalk
+    DefaultLidarSegmentationLabel.TERRAIN: Color.from_rgb((152, 251, 152)),  # Cityscapes terrain
+    DefaultLidarSegmentationLabel.VEGETATION: Color.from_rgb((107, 142, 35)),  # Cityscapes vegetation
+    DefaultLidarSegmentationLabel.MANMADE: Color.from_rgb((70, 70, 70)),  # Cityscapes building
+    DefaultLidarSegmentationLabel.TRAFFIC_CONE: Color.from_rgb((250, 170, 30)),  # Cityscapes traffic light
+    DefaultLidarSegmentationLabel.BARRIER: Color.from_rgb((102, 102, 156)),  # Cityscapes wall
+    DefaultLidarSegmentationLabel.OTHER: DARKER_GREY,
+}
+
+# Cityscapes-palette colors, keyed by the unified camera label. Derived from the canonical RGB tuples that live in
+# the data layer (DEFAULT_CAMERA_SEGMENTATION_RGB), which are the single source of truth — see that constant's
+# docstring for why the values live there rather than here.
+DEFAULT_CAMERA_SEGMENTATION_COLORS: Dict[DefaultCameraSegmentationLabel, Color] = {
+    label: Color.from_rgb(rgb) for label, rgb in DEFAULT_CAMERA_SEGMENTATION_RGB.items()
+}
 
 
 TRAFFIC_LIGHT_CONFIG: Dict[TrafficLightStatus, PlotConfig] = {

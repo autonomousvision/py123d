@@ -5,7 +5,7 @@
     <img alt="Logo" src="https://kesai.eu/py123d/_static/123D_logo_transparent_black.svg" width="500">
   </picture>
   <h2 align="center">123D: Unifying Multi-Modal Autonomous Driving Data at Scale</h2>
-  <h3 align="center"><a href="https://arxiv.org/abs/2605.08084">Paper</a> | <a href="https://youtu.be/Q4q29fpXnx8">Video</a> | <a href="https://kesai.eu/py123d/">Documentation</a></h3>
+  <h3 align="center"><a href="https://arxiv.org/abs/2605.08084">Paper</a> | <a href="https://youtu.be/zZGRQ-hE2hk">Video</a> | <a href="https://kesai.eu/py123d/">Documentation</a></h3>
 </h1>
 
 <p align="center">
@@ -17,7 +17,8 @@
 **One library for autonomous driving datasets.** 123D converts raw data from Argoverse 2, nuScenes, nuPlan, KITTI-360, PandaSet, and Waymo into a unified [Apache Arrow](https://arrow.apache.org/) format, and then gives you a single API to read cameras, lidar, HD maps, and labels across all of them.
 
 ## 📰 News
-
+- **2026-06-03**: Added Modalities: Semantics/instances for cameras (WOD-Perc., KITTI-360) and lidar (WOD-Perc., PandaSet, nuScenes) (experimental). Also added Radar (nuScenes, PAI-AV/NCore).
+- **2026-06-03**: Added Datasets: [nuReasoning](https://arxiv.org/abs/2605.31572) (experimental).
 - **2026-05-28**: Released **[NAV123D](https://github.com/DanielDauner/nav123d)**, a reimplementation of NAVSIM on top of 123D.
 - **2026-05-08**: Our paper *123D: Unifying Multi-Modal Autonomous Driving Data at Scale* is out on [arXiv](https://arxiv.org/abs/2605.08084).
 
@@ -180,6 +181,20 @@ Open `http://localhost:8080` to browse the converted scenes interactively.
 ## 📝 Changelog
 
 <details open>
+<summary><b>v0.6.0</b> (2026-06-28)</summary>
+
+- Added **radar**: new `Radar` datatype and Arrow radar storage, with parsers for nuScenes and PAI-AV, plus Viser visualization ([#145](https://github.com/kesai-labs/py123d/pull/145)).
+- Added **semantic & instance segmentation**: camera and lidar segmentation labels with extensible registries, parsers for nuScenes (lidar), WOD-Perception and PandaSet (semantic lidar/camera) and KITTI-360, Waymo instance maps, and Viser rendering of semantic/instance segmentation ([#144](https://github.com/kesai-labs/py123d/pull/144)).
+- Added **Griffin** aerial-ground cooperative dataset support. ([#147](https://github.com/kesai-labs/py123d/pull/147))([#151](https://github.com/kesai-labs/py123d/pull/151)).
+- Added **nuReasoning** dataset support: parser, map parser, and HuggingFace downloader ([#143](https://github.com/kesai-labs/py123d/pull/143)).
+- Documentation: new `CONTRIBUTING.md`, an "adding datasets" guide, per-dataset sensor-timeline plots, and a reorganized API reference (`docs/api` → `docs/reference`) ([#152](https://github.com/kesai-labs/py123d/pull/152)).
+- Fixes: non-strict msgpack map keys in metadata retrieval; Waymo dataset-id string (legacy convention preserved); `__slots__` correctness in box-detection wrappers; bounding-box visualization consistency.
+
+No breaking changes to the existing public API, Arrow schema, or CLI entry points. New radar and segmentation modalities follow new naming conventions.
+
+</details>
+
+<details>
 <summary><b>v0.5.0</b> (2026-05-28)</summary>
 
 - New `Polyline2D` / `PolylineSE2` / `PolylineSE3.subline()` to extract a sub-polyline between two distances along a path.

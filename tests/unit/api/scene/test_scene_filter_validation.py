@@ -115,6 +115,47 @@ class TestModalityRequirements:
         with pytest.raises(ValueError, match="Invalid modality pattern"):
             SceneFilter(required_scene_modalities=["camera:invalid"])
 
+    def test_valid_scope_on_exact_key(self):
+        _validate_modality_requirement("camera.pcam_f0@initial")
+
+    def test_valid_scope_on_pattern(self):
+        _validate_modality_requirement("camera:any@initial")
+
+    def test_valid_composite_scope(self):
+        _validate_modality_requirement("camera:any@initial+future")
+
+    def test_valid_full_scope(self):
+        _validate_modality_requirement("camera:all@history+initial+future")
+
+    def test_invalid_scope_segment_raises(self):
+        with pytest.raises(ValueError, match="Invalid modality scope segment"):
+            _validate_modality_requirement("camera:any@bogus")
+
+    def test_empty_scope_raises(self):
+        with pytest.raises(ValueError, match="Invalid modality scope segment"):
+            _validate_modality_requirement("camera:any@")
+
+    def test_scope_wrong_order_raises(self):
+        # "@scope" must come after ":quantifier"; reversed order is rejected as a bad scope segment.
+        with pytest.raises(ValueError, match="Invalid modality scope segment"):
+            _validate_modality_requirement("camera@initial:any")
+
+    def test_multiple_at_raises(self):
+        with pytest.raises(ValueError, match="Expected at most one '@scope' suffix"):
+            _validate_modality_requirement("camera@initial@future")
+
+    def test_scope_with_bad_quantifier_raises(self):
+        with pytest.raises(ValueError, match="Invalid modality pattern"):
+            _validate_modality_requirement("a:b:c@initial")
+
+    def test_scope_validated_on_init(self):
+        with pytest.raises(ValueError, match="Invalid modality scope segment"):
+            SceneFilter(required_scene_modalities=["camera:any@bogus"])
+
+    def test_scope_variants_kept_distinct_by_dedup(self):
+        f = SceneFilter(required_scene_modalities=["camera:any", "camera:any@initial"])
+        assert f.required_scene_modalities == ["camera:any", "camera:any@initial"]
+
 
 class TestChunkingValidation:
     def test_num_without_idx_raises(self):

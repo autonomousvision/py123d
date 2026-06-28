@@ -5,6 +5,7 @@ from py123d.datatypes.sensors.lidar import LidarID, LidarMergedMetadata, LidarMe
 from py123d.datatypes.sensors.pinhole_camera import CameraID, PinholeDistortion, PinholeIntrinsics
 from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadata
 from py123d.geometry import PoseSE3
+from py123d.parser.lidar_segmentation_registry import PandasetLidarSegmentationLabel
 from py123d.parser.pandaset.utils.pandaset_utils import extrinsic_to_imu
 from py123d.parser.registry import PandasetBoxDetectionLabel
 
@@ -276,10 +277,15 @@ def _build_pandaset_lidar_merged_metadata() -> LidarMergedMetadata:
     """Helper to build Pandaset lidar merged metadata."""
     lidar_metadata: Dict[LidarID, LidarMetadata] = {}
     for lidar_name, lidar_type in PANDASET_LIDAR_MAPPING.items():
+        # PandaSet 3D semseg (a subset of logs) labels every point with one taxonomy; tag the primary
+        # lidar so the per-point LidarFeature.SEMANTIC ids are self-describing (used by viz overlays),
+        # mirroring the WOD convention of tagging the primary (LIDAR_TOP) sensor only.
+        segmentation_label_class = PandasetLidarSegmentationLabel if lidar_type == LidarID.LIDAR_TOP else None
         lidar_metadata[lidar_type] = LidarMetadata(
             lidar_name=lidar_name,
             lidar_id=lidar_type,
             lidar_to_imu_se3=extrinsic_to_imu(PANDASET_LIDAR_EXTRINSICS[lidar_name]),
+            segmentation_label_class=segmentation_label_class,
         )
     return LidarMergedMetadata(lidar_metadata)
 

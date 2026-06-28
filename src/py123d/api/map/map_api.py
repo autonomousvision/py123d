@@ -23,14 +23,14 @@ class MapAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_map_metadata(self) -> MapMetadata:
-        """Returns the :class:`~p123d.datatypes.metadata.MapMetadata` of the map api.
+        """Returns the :class:`~py123d.datatypes.MapMetadata` of the map api.
 
         :return: The map metadata, e.g. location, dataset, etc.
         """
 
     @abc.abstractmethod
     def get_available_map_layers(self) -> List[MapLayer]:
-        """Returns the available :class:`~p123d.datatypes.map_objects.map_layer_types.MapLayer`,
+        """Returns the available :class:`~py123d.datatypes.MapLayer`,
             e.g. LANE, LANE_GROUP, etc.
 
         :return: A list of available map layers.
@@ -40,8 +40,8 @@ class MapAPI(abc.ABC):
     def get_map_object_in_layer(
         self, object_id: MapObjectIDType, layer: Union[str, MapLayer]
     ) -> Optional[BaseMapObject]:
-        """Returns a :class:`~p123d.datatypes.map_objects.base_map_object.BaseMapObject` by its ID
-            and :class:`~p123d.datatypes.map_objects.map_layer_types.MapLayer`.
+        """Returns a :class:`~py123d.datatypes.BaseMapObject` by its ID
+            and :class:`~py123d.datatypes.MapLayer`.
 
         :param object_id: The ID of the map object.
         :param layer: The layer the map object belongs to. Accepts a :class:`MapLayer` or its lowercase name
@@ -60,8 +60,8 @@ class MapAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_all_map_objects_in_layer(self, layer: Union[str, MapLayer]) -> Iterator[BaseMapObject]:
-        """Returns an iterator of all :class:`~p123d.datatypes.map_objects.base_map_object.BaseMapObject` in a given
-            :class:`~p123d.datatypes.map_objects.map_layer_types.MapLayer`.
+        """Returns an iterator of all :class:`~py123d.datatypes.BaseMapObject` in a given
+            :class:`~py123d.datatypes.MapLayer`.
 
         :param layer: The map layer to retrieve objects from. Accepts a :class:`MapLayer` or its lowercase name
             (e.g. ``"lane"``).
@@ -70,7 +70,7 @@ class MapAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_all_map_objects_in_layers(self, layers: List[Union[str, MapLayer]]) -> Iterator[BaseMapObject]:
-        """Returns an iterator of all :class:`~p123d.datatypes.map_objects.base_map_object.BaseMapObject` in
+        """Returns an iterator of all :class:`~py123d.datatypes.BaseMapObject` in
             the specified layers.
 
         :param layers: A list of map layers. Each entry may be a :class:`MapLayer` or its lowercase name
@@ -85,8 +85,8 @@ class MapAPI(abc.ABC):
         radius: float,
         layers: List[Union[str, MapLayer]],
     ) -> Dict[MapLayer, List[BaseMapObject]]:
-        """Returns a dictionary of :class:`~p123d.datatypes.map_objects.map_layer_types.MapLayer` to a list of
-            :class:`~p123d.datatypes.map_objects.base_map_object.BaseMapObject` within a given radius
+        """Returns a dictionary of :class:`~py123d.datatypes.MapLayer` to a list of
+            :class:`~py123d.datatypes.BaseMapObject` within a given radius
             around a center point.
 
         :param point: The center point to search around.
@@ -202,7 +202,7 @@ class MapAPI(abc.ABC):
 
     @property
     def map_metadata(self) -> MapMetadata:
-        """The :class:`~py123d.datatypes.metadata.MapMetadata` of the map api."""
+        """The :class:`~py123d.datatypes.MapMetadata` of the map api."""
         return self.get_map_metadata()
 
     @property
@@ -232,5 +232,5 @@ class MapAPI(abc.ABC):
 
     @property
     def available_map_layers(self) -> List[MapLayer]:
-        """The available :class:`~p123d.datatypes.map_objects.map_layer_types.MapLayer` in the map."""
+        """The available :class:`~py123d.datatypes.MapLayer` in the map."""
         return self.get_available_map_layers()

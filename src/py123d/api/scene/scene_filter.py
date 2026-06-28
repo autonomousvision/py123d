@@ -7,6 +7,9 @@ from py123d.common.utils.uuid_utils import convert_to_str_uuid
 
 logger = logging.getLogger(__name__)
 
+VALID_MODALITY_SCOPES = frozenset({"history", "initial", "future"})
+"""Valid temporal segments for a modality requirement's optional ``@scope`` suffix (joined with ``+``)."""
+
 
 @dataclass
 class SceneFilter:
@@ -89,12 +92,20 @@ class SceneFilter:
     or when ``scene_uuids`` is set (one scene per UUID position)."""
 
     required_scene_modalities: Optional[List[str]] = None
-    """List of modality requirements that must be satisfied at the scene level (no nulls in frame range).
+    """List of modality requirements that must be satisfied at the scene level (no nulls in scope).
 
-    Supports exact keys and type-level patterns:
-        - ``"camera.pcam_f0"`` — this modality must have no nulls across the scene's frames.
+    Grammar: ``selector [":" quantifier] ["@" scope]``.
+
+    Selector and quantifier (the *what*):
+        - ``"camera.pcam_f0"`` — this exact modality must have no nulls.
         - ``"camera:any"`` — at least one modality of type ``camera`` must be complete.
         - ``"camera:all"`` — every modality of type ``camera`` in the log must be complete.
+
+    Optional ``@<scope>`` suffix (the *when*) restricts which frames must be complete. A scope is one or
+    more temporal segments — ``history``, ``initial`` (iteration 0), ``future`` — joined with ``+``.
+    Omitting the suffix selects the whole scene (equivalent to ``history+initial+future``):
+        - ``"camera.pcam_f0@initial"`` — complete only at the anchor frame (iteration 0).
+        - ``"camera:any@initial+future"`` — at least one camera complete across iteration 0 and the future.
     """
 
     # 4. Category: Post-filtering options (applied after scenes are filtered by the above criteria, e.g. for sampling or shuffling).
@@ -187,12 +198,28 @@ class SceneFilter:
 def _validate_modality_requirement(requirement: str) -> None:
     """Validate a modality requirement string.
 
-    :param requirement: Exact key (e.g., ``"camera.pcam_f0"``) or type pattern (``"camera:any"`` / ``"camera:all"``).
-    :raises ValueError: If the pattern syntax is invalid.
+    Grammar: ``selector [":" quantifier] ["@" scope]``, e.g. ``"camera.pcam_f0"``, ``"camera:any"``,
+    or ``"camera:all@initial+future"``. The optional ``@scope`` suffix follows the optional ``:quantifier``.
+
+    :param requirement: The requirement string to validate.
+    :raises ValueError: If the scope or quantifier syntax is invalid.
     """
-    if ":" in requirement:
-        parts = requirement.split(":")
-        if len(parts) != 2 or parts[1] not in {"any", "all"}:
+    body = requirement
+    if "@" in requirement:
+        parts = requirement.split("@")
+        if len(parts) != 2:
+            raise ValueError(f"Invalid modality requirement '{requirement}'. Expected at most one '@scope' suffix.")
+        body = parts[0]
+        for segment in parts[1].split("+"):
+            if segment not in VALID_MODALITY_SCOPES:
+                raise ValueError(
+                    f"Invalid modality scope segment '{segment}' in '{requirement}'. "
+                    f"Expected '+'-joined values from {sorted(VALID_MODALITY_SCOPES)}."
+                )
+
+    if ":" in body:
+        quant_parts = body.split(":")
+        if len(quant_parts) != 2 or quant_parts[1] not in {"any", "all"}:
             raise ValueError(
                 f"Invalid modality pattern '{requirement}'. Expected format: '<type>:any' or '<type>:all'."
             )

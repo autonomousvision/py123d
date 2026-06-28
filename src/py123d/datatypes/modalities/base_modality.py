@@ -17,7 +17,14 @@ class ModalityType(SerialIntEnum):
     LIDAR = 4
     CAMERA = 5
 
-    # NOTE: @DanielDauner: Possible to add more types, e.g. radar, annotations, etc.
+    CAMERA_SEMANTIC = 6
+    """Per-pixel semantic segmentation image, pixel-aligned to a sibling :attr:`CAMERA` stream."""
+
+    CAMERA_INSTANCE = 7
+    """Per-pixel panoptic/instance segmentation image, pixel-aligned to a sibling :attr:`CAMERA` stream."""
+
+    RADAR = 8
+    """Radar point cloud, potentially with additional attributes like velocity, radar cross section, etc."""
 
 
 class BaseModalityMetadata(BaseMetadata):

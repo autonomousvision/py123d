@@ -8,6 +8,7 @@ from py123d.visualization.viser.elements.camera_frustum_element import CameraFru
 from py123d.visualization.viser.elements.ego_state_se3_element import EgoConfig
 from py123d.visualization.viser.elements.lidar_element import LidarConfig
 from py123d.visualization.viser.elements.map_element import MapConfig
+from py123d.visualization.viser.elements.radar_element import RadarConfig
 from py123d.visualization.viser.playback_controller import PlaybackConfig
 from py123d.visualization.viser.render_controller import RenderConfig
 
@@ -42,6 +43,7 @@ _SUB_CONFIG_FIELDS = {
     "camera_frustum": CameraFrustumConfig,
     "camera_gui": CameraGuiConfig,
     "lidar": LidarConfig,
+    "radar": RadarConfig,
     "render": RenderConfig,
 }
 
@@ -57,6 +59,7 @@ class ViserConfig:
     camera_frustum: CameraFrustumConfig = field(default_factory=CameraFrustumConfig)
     camera_gui: CameraGuiConfig = field(default_factory=CameraGuiConfig)
     lidar: LidarConfig = field(default_factory=LidarConfig)
+    radar: RadarConfig = field(default_factory=RadarConfig)
     render: RenderConfig = field(default_factory=RenderConfig)
 
     def __post_init__(self):
