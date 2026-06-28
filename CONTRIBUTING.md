@@ -76,7 +76,7 @@ def get_by_lane_id(self, lane_id: int) -> Optional[TrafficLightDetection]:
 - Re-export a subpackage's public API from its `__init__.py` via `__all__` (these files are excluded from `ruff`).
 
 ### Domain conventions
-Coordinate system, poses (SE(2)/SE(3)), quaternions, and bounding-box layouts follow a single unified representation documented in [`docs/notes/conventions.rst`](docs/notes/conventions.rst).
+Coordinate system, poses (SE(2)/SE(3)), quaternions, and bounding-box layouts follow a single unified representation documented in [Conventions](https://kesai.eu/py123d/notes/conventions).
 
 ### Sphinx documentation
 All datasets should be documented under `docs/datasets/`; follow the format of the existing datasets. Install the docs dependencies and preview live with:
@@ -163,4 +163,4 @@ Development happens on a versioned branch named `dev_vX.Y.Z`. The latest one is 
    ```
 4. Open the PR against the current `dev_v*` branch. Describe what changed and why, and link any related issues.
 
-Your PR must pass the `pre-commit` and `pytest` GitHub Actions (linting/formatting plus the unit and docs tests across Python 3.9–3.13). Contributions are accepted under the project's [Apache-2.0 license](LICENSE).
+Your PR must pass the `pre-commit` and `pytest` GitHub Actions (linting/formatting plus the unit and docs tests across Python 3.9–3.13). Contributions are accepted under the project's [Apache-2.0 license](https://github.com/kesai-labs/py123d/blob/main/LICENSE).
