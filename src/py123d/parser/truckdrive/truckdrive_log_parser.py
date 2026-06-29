@@ -38,6 +38,7 @@ from py123d.parser.truckdrive.truckdrive_constants import (
     DEFAULT_VEHICLE_WIDTH_M,
     DEFAULT_WHEEL_BASE_M,
     OUSTER_LIDAR_ID_MAPPING,
+    TEST_SCENES,
     VAL_SCENES,
     VEHICLE_FRAME,
     VELODYNE_FRAME,
@@ -336,4 +337,6 @@ def resolve_truckdrive_split(scene_name: str) -> str:
     """Resolve the py123d split name for a TruckDrive scene."""
     if scene_name in VAL_SCENES:
         return "truckdrive_val"
+    if scene_name in TEST_SCENES:
+        return "truckdrive_test"
     return "truckdrive_train"
