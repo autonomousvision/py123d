@@ -8,12 +8,14 @@ from typing import Dict, Tuple, Union
 import numpy as np
 
 from py123d.datatypes import LidarFeature, LidarID, LidarMetadata
+from py123d.geometry import PoseSE3
+from py123d.geometry.transform import reframe_points_3d_array
 
 _AEVA_JOINT_PATH_MARKER = "lidar/aeva/joint_lidars/points"
 _OUSTER_PATH_MARKER = "lidar/ouster/"
 
 
-def _load_aeva_joint_bin(bin_path: Path, lidar_id: LidarID) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
+def _load_aeva_joint_bin(bin_path: Path, lidar_id: LidarID, lidar_metadata: LidarMetadata) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
     """Load an Aeva joint-lidar ``.bin`` (float64, 11 columns per point)."""
     raw = np.fromfile(bin_path, dtype=np.float64)
     if raw.size == 0:
@@ -26,6 +28,15 @@ def _load_aeva_joint_bin(bin_path: Path, lidar_id: LidarID) -> Tuple[np.ndarray,
         point_count = points.shape[0]
 
     point_cloud_3d = points[:, :3].astype(np.float32, copy=False)
+
+    # convert lidar to ego frame
+    lidar_extrinsic = lidar_metadata.lidar_to_imu_se3
+    point_cloud_3d = reframe_points_3d_array(
+        from_origin=lidar_extrinsic,
+        to_origin=PoseSE3.identity(),
+        points_3d_array=point_cloud_3d,  # type: ignore
+    )
+
     ids = np.full(point_count, int(lidar_id), dtype=np.uint8)
     features: Dict[str, np.ndarray] = {
         LidarFeature.IDS.serialize(): ids,
@@ -36,7 +47,7 @@ def _load_aeva_joint_bin(bin_path: Path, lidar_id: LidarID) -> Tuple[np.ndarray,
     return point_cloud_3d, features
 
 
-def _load_ouster_bin(bin_path: Path, lidar_id: LidarID) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
+def _load_ouster_bin(bin_path: Path, lidar_id: LidarID, lidar_metadata: LidarMetadata) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
     """Load an Ouster ``.bin`` (float32, 7 columns per point)."""
     raw = np.fromfile(bin_path, dtype=np.float32)
     if raw.size == 0:
@@ -49,6 +60,15 @@ def _load_ouster_bin(bin_path: Path, lidar_id: LidarID) -> Tuple[np.ndarray, Dic
         point_count = points.shape[0]
 
     point_cloud_3d = points[:, :3].astype(np.float32, copy=False)
+
+    # convert lidar to ego frame
+    lidar_extrinsic = lidar_metadata.lidar_to_imu_se3
+    point_cloud_3d = reframe_points_3d_array(
+        from_origin=lidar_extrinsic,
+        to_origin=PoseSE3.identity(),
+        points_3d_array=point_cloud_3d,  # type: ignore
+    )
+
     ids = np.full(point_count, int(lidar_id), dtype=np.uint8)
     features: Dict[str, np.ndarray] = {
         LidarFeature.IDS.serialize(): ids,
@@ -91,9 +111,9 @@ def load_truckdrive_point_cloud_data_from_path(
         lidar_id = LidarID.LIDAR_MERGED
         if lidar_metadatas is not None and len(lidar_metadatas) == 1:
             lidar_id = next(iter(lidar_metadatas))
-        return _load_aeva_joint_bin(bin_path, lidar_id)
+        return _load_aeva_joint_bin(bin_path, lidar_id, lidar_metadatas[lidar_id])
 
     if _OUSTER_PATH_MARKER in path_str:
-        return _load_ouster_bin(bin_path, _resolve_ouster_lidar_id(bin_path))
+        return _load_ouster_bin(bin_path, _resolve_ouster_lidar_id(bin_path), lidar_metadatas[_resolve_ouster_lidar_id(bin_path)])
 
     raise ValueError(f"Unrecognized TruckDrive lidar path: {bin_path}")

@@ -40,6 +40,7 @@ from py123d.parser.truckdrive.truckdrive_constants import (
     OUSTER_LIDAR_ID_MAPPING,
     VAL_SCENES,
     VEHICLE_FRAME,
+    VELODYNE_FRAME,
 )
 from py123d.parser.truckdrive.truckdrive_labels import TRUCKDRIVE_BOX_DETECTIONS_SE3_METADATA, decode_class_id
 from py123d.parser.truckdrive.utils.truckdrive_helper import (
@@ -106,6 +107,7 @@ class TruckDriveLogParser(BaseLogParser):
             ["json"],
         )
         self._lidar_aeva_to_vehicle = self._transform_tree.lookup(AEVA_REFERENCE_LIDAR_FRAME, VEHICLE_FRAME)
+        self._velodyne_to_vehicle = self._transform_tree.lookup(VELODYNE_FRAME, VEHICLE_FRAME)
 
     def get_log_metadata(self) -> LogMetadata:
         """Inherited, see superclass."""
@@ -146,7 +148,7 @@ class TruckDriveLogParser(BaseLogParser):
 
             bbox_file = self._bbox_index.get(sync_id)
             if bbox_file is not None:
-                modalities.append(self._build_box_detections(bbox_file, timestamp))
+                modalities.append(self._build_box_detections(bbox_file, timestamp, ego_state.imu_se3))
 
             yield ModalitiesSync(timestamp=timestamp, modalities=modalities)
 
@@ -261,7 +263,7 @@ class TruckDriveLogParser(BaseLogParser):
             relative_path=relative_path,
         )
 
-    def _build_box_detections(self, synced_file: SyncedFile, timestamp: Timestamp) -> BoxDetectionsSE3:
+    def _build_box_detections(self, synced_file: SyncedFile, timestamp: Timestamp, vehicle_to_global: PoseSE3) -> BoxDetectionsSE3:
         json_path = self._scene_dir / "annotations" / "bounding_boxes" / synced_file.filename
         with json_path.open("r", encoding="utf-8") as file:
             raw_objects = json.load(file)
@@ -273,6 +275,7 @@ class TruckDriveLogParser(BaseLogParser):
 
         box_detections: List[BoxDetectionSE3] = []
         zero_velocity = Vector3D.from_array(np.zeros(len(Vector3DIndex), dtype=np.float64))
+        velodyne_to_global = rel_to_abs_se3(origin=vehicle_to_global, pose_se3=self._velodyne_to_vehicle)
         for obj in objects:
             if not isinstance(obj, dict):
                 continue
@@ -281,18 +284,18 @@ class TruckDriveLogParser(BaseLogParser):
             if label is None:
                 continue
 
-            center_x = float(obj.get("x_global", obj.get("x", 0.0)))
-            center_y = float(obj.get("y_global", obj.get("y", 0.0)))
-            center_z = float(obj.get("z_global", obj.get("z", 0.0)))
-            length = float(obj.get("l_global", obj.get("l", 0.0)))
-            width = float(obj.get("w_global", obj.get("w", 0.0)))
-            height = float(obj.get("h_global", obj.get("h", 0.0)))
-            yaw = float(obj.get("yaw_global", obj.get("yaw", 0.0)))
+            center_x = float(obj.get("x", obj.get("x_global", 0.0)))
+            center_y = float(obj.get("y", obj.get("y_global", 0.0)))
+            center_z = float(obj.get("z", obj.get("z_global", 0.0)))
+            length = float(obj.get("l", obj.get("l_global", 0.0)))
+            width = float(obj.get("w", obj.get("w_global", 0.0)))
+            height = float(obj.get("h", obj.get("h_global", 0.0)))
+            yaw = float(obj.get("yaw", obj.get("yaw_global", 0.0)))
 
             euler = np.zeros(len(EulerAnglesIndex), dtype=np.float64)
             euler[EulerAnglesIndex.YAW] = yaw
             quaternion = get_quaternion_array_from_euler_array(euler.reshape(1, -1))[0]
-            center_se3 = PoseSE3(
+            center_se3_velodyne = PoseSE3(
                 x=center_x,
                 y=center_y,
                 z=center_z,
@@ -301,6 +304,7 @@ class TruckDriveLogParser(BaseLogParser):
                 qy=float(quaternion[2]),
                 qz=float(quaternion[3]),
             )
+            center_se3 = rel_to_abs_se3(origin=velodyne_to_global, pose_se3=center_se3_velodyne)
             tracking_id = obj.get("Tracking_ID", -9999)
             object_id = str(obj.get("object-id", obj.get("id", "")))
             if tracking_id in (-9999, None):

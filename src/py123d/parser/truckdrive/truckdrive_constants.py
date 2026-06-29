@@ -167,6 +167,7 @@ MAPPED_CATEGORIES: Dict[str, int] = {'DontCare': -1,
  'TrafficSign': 7,
  'EmergencyVehicle': 8}
 
+# TODO(truckdrive): add new val and test scenes
 VAL_SCENES: Tuple[str, ...] = ('scene_28_1', 'scene_28_2', 'scene_28_3', 'scene_28_4', 'scene_28_5', 'scene_28_6', 'scene_28_7', 'scene_28_8', 'scene_28_9', 'scene_28_10', 'scene_28_11', 'scene_28_12', 'scene_28_13', 'scene_28_14', 'scene_28_15', 'scene_28_16', 'scene_28_17', 'scene_28_18', 'scene_28_19', 'scene_28_20', 'scene_28_21', 'scene_28_22', 'scene_28_23', 'scene_28_24')
 
 CAMERA_ID_MAPPING: Dict[str, CameraID] = {
@@ -195,4 +196,5 @@ OUSTER_LIDAR_ID_MAPPING: Dict[str, LidarID] = {
 
 AEVA_LIDAR_ID = LidarID.LIDAR_MERGED
 
+# TODO(truckdrive): add new test scenes
 TRUCKDRIVE_SPLITS: Tuple[str, ...] = ("truckdrive_val",)
