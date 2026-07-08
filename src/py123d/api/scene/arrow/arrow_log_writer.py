@@ -186,11 +186,17 @@ class ArrowLogWriter(BaseLogWriter):
 
         elif isinstance(modality_metadata, BaseCameraMetadata):
             camera_store_option = self._log_writer_config.camera_store_option
-            if modality_metadata.channel_type in (CameraChannelType.SEMANTIC, CameraChannelType.INSTANCE):
-                # Segmentation cameras are integer label maps: they must never use the lossy/RGB inline
-                # options (jpeg_binary / png_binary / mp4), which would corrupt class ids. Both "path"
+            if modality_metadata.channel_type in (
+                CameraChannelType.SEMANTIC,
+                CameraChannelType.INSTANCE,
+                CameraChannelType.DEPTH,
+            ):
+                # Segmentation cameras are integer label maps and depth cameras are quantized integer
+                # depth rasters: neither may ever use the lossy/RGB inline options (jpeg_binary /
+                # png_binary / mp4), which would corrupt class ids and depth values alike. Both "path"
                 # (references the original lossless single-channel PNG, read lazily at API time) and
-                # "label_png" (inlines it losslessly) are safe — so honour the dataset's store option:
+                # "label_png" (inlines it losslessly, at whatever bit depth the raster carries — 8-bit
+                # for uint8, 16-bit for uint16) are safe — so honour the dataset's store option:
                 # "path" mode stores the path (fast, no per-frame PNG read), any inline mode falls back
                 # to "label_png" (e.g. WOD's in-memory segmentation, which has no file path).
                 camera_codec = "path" if camera_store_option == "path" else "label_png"

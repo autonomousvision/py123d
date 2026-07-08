@@ -30,6 +30,11 @@ class CameraChannelType(SerialIntEnum):
     """A single-channel, per-pixel panoptic/instance label map (lossless integer image). For datasets
     that pack semantics into the instance id (e.g. KITTI-360 ``semanticId * 1000 + instanceId``) the
     raw packed value is stored verbatim; recover ``semantic = value // 1000``, ``instance = value % 1000``."""
+    DEPTH = 4
+    """A single-channel, per-pixel metric depth map, quantized to a lossless integer image (uint8 or
+    uint16). The continuous depth in metres is recovered via
+    :meth:`~py123d.datatypes.depth_camera.DepthCameraMetadata.decode_depth`, whose quantization
+    contract (far plane and bit depth) is carried by the accompanying ``DepthCameraMetadata``."""
 
 
 class CameraModel(SerialIntEnum):
@@ -225,16 +230,19 @@ class BaseCameraMetadata(BaseModalityMetadata, abc.ABC):
         """Returns the type of the modality that this metadata describes.
 
         The channel type drives the modality: a :attr:`CameraChannelType.SEMANTIC` camera is a
-        per-pixel semantic segmentation stream (:attr:`ModalityType.CAMERA_SEMANTIC`) and a
+        per-pixel semantic segmentation stream (:attr:`ModalityType.CAMERA_SEMANTIC`), a
         :attr:`CameraChannelType.INSTANCE` camera a per-pixel panoptic/instance stream
-        (:attr:`ModalityType.CAMERA_INSTANCE`), each written to its own Arrow file so it
-        sits alongside — and never collides with — the RGB camera that shares its :attr:`camera_id`.
-        All other channel types are regular :attr:`ModalityType.CAMERA`.
+        (:attr:`ModalityType.CAMERA_INSTANCE`), and a :attr:`CameraChannelType.DEPTH` camera a
+        per-pixel metric depth stream (:attr:`ModalityType.CAMERA_DEPTH`), each written to its own
+        Arrow file so it sits alongside — and never collides with — the RGB camera that shares its
+        :attr:`camera_id`. All other channel types are regular :attr:`ModalityType.CAMERA`.
         """
         if self.channel_type == CameraChannelType.SEMANTIC:
             modality_type = ModalityType.CAMERA_SEMANTIC
         elif self.channel_type == CameraChannelType.INSTANCE:
             modality_type = ModalityType.CAMERA_INSTANCE
+        elif self.channel_type == CameraChannelType.DEPTH:
+            modality_type = ModalityType.CAMERA_DEPTH
         else:
             modality_type = ModalityType.CAMERA
         return modality_type
@@ -326,7 +334,8 @@ class Camera(BaseModality):
         colorized with the canonical Cityscapes palette: each raw class id is mapped to its
         :class:`~py123d.datatypes.camera_segmentation_label.DefaultCameraSegmentationLabel` and then to a
         color. An ``INSTANCE`` label map is colorized by cycling a Tableau-20 palette over the raw ids
-        (id ``0`` rendered black), so each modality can be displayed through the regular RGB camera path.
+        (id ``0`` rendered black). A ``DEPTH`` raster is colorized with a TURBO ramp over the full
+        ``[0, max_depth]`` range, so each modality can be displayed through the regular RGB camera path.
         """
         channel_type = self._metadata.channel_type
         if channel_type == CameraChannelType.RGB:
@@ -342,6 +351,11 @@ class Camera(BaseModality):
             result = colorize_semantic_label_map(self._image, label_class)
         elif channel_type == CameraChannelType.INSTANCE:
             result = colorize_instance_label_map(self._image)
+        elif channel_type == CameraChannelType.DEPTH:
+            # Deferred import: depth_camera imports this module, so a top-level import would be circular.
+            from py123d.datatypes.sensors.depth_camera import colorize_depth_map
+
+            result = colorize_depth_map(self._image, max_raw=getattr(self._metadata, "max_raw", None))
         else:
             raise ValueError(f"Unsupported channel type {channel_type} for RGB conversion.")
         return result

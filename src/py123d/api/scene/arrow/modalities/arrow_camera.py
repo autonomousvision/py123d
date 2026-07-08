@@ -346,20 +346,23 @@ def _deserialize_data_column(
     channel_type: CameraChannelType = CameraChannelType.RGB,
 ) -> Optional[Any]:
     image: Optional[np.ndarray] = None
-    # Segmentation cameras (semantic class-id or panoptic/instance) store a single-channel integer
-    # label map; decode it without colour conversion and resample with nearest-neighbour so the raw
-    # integer ids are preserved exactly.
-    if channel_type in (CameraChannelType.SEMANTIC, CameraChannelType.INSTANCE):
+    # Segmentation cameras (semantic class-id or panoptic/instance) and depth cameras (quantized metric
+    # depth) both store a single-channel integer raster; decode it without colour conversion and resample
+    # with nearest-neighbour so the raw integer values are preserved exactly — bilinear would blend class
+    # ids into nonexistent classes, and depth across occlusion boundaries into nonexistent surfaces.
+    if channel_type in (CameraChannelType.SEMANTIC, CameraChannelType.INSTANCE, CameraChannelType.DEPTH):
         if isinstance(data, bytes):
             image = decode_label_map_from_png_binary(data, scale=scale)
         elif isinstance(data, str):
             sensor_root = get_dataset_paths().get_sensor_root(dataset)
             assert sensor_root is not None, f"Dataset path for sensor loading not found for dataset: {dataset}"
             full_label_path = Path(sensor_root) / data
-            assert full_label_path.exists(), f"Segmentation camera file not found: {full_label_path}"
+            assert full_label_path.exists(), f"{channel_type.name} camera file not found: {full_label_path}"
             image = decode_label_map_from_png_binary(load_png_binary_from_png_file(full_label_path), scale=scale)
         else:
-            raise NotImplementedError(f"Segmentation camera data must be PNG bytes or a file path, got {type(data)}.")
+            raise NotImplementedError(
+                f"{channel_type.name} camera data must be PNG bytes or a file path, got {type(data)}."
+            )
     elif isinstance(data, str):
         sensor_root = get_dataset_paths().get_sensor_root(dataset)
         assert sensor_root is not None, f"Dataset path for sensor loading not found for dataset: {dataset}"
