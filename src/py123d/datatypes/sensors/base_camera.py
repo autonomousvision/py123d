@@ -356,6 +356,8 @@ class Camera(BaseModality):
             from py123d.datatypes.sensors.depth_camera import colorize_depth_map
 
             result = colorize_depth_map(self._image, max_raw=getattr(self._metadata, "max_raw", None))
+            if getattr(self._metadata, "has_invalid", False):
+                result[np.asarray(self._image) == 0] = 0
         else:
             raise ValueError(f"Unsupported channel type {channel_type} for RGB conversion.")
         return result
