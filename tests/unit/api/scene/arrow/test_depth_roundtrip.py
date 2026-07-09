@@ -179,7 +179,9 @@ class TestDepthInvalidSentinel:
     """With ``has_invalid`` set, code 0 is reserved for "no measurement" and decodes to NaN."""
 
     def _metadata(self, **kwargs) -> DepthCameraMetadata:
-        return DepthCameraMetadata(camera_metadata=_make_rgb_camera_metadata(), max_depth=96.0, has_invalid=True, **kwargs)
+        return DepthCameraMetadata(
+            camera_metadata=_make_rgb_camera_metadata(), max_depth=96.0, has_invalid=True, **kwargs
+        )
 
     def test_invalid_pixels_encode_to_zero_and_decode_to_nan(self):
         metadata = self._metadata()

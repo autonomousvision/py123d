@@ -7,38 +7,10 @@ shares. It is stored as :attr:`~py123d.datatypes.ModalityType.CAMERA_DEPTH` in i
 ``camera_depth.<camera_id>.arrow``, separate from the RGB ``camera.<camera_id>.arrow`` of the same
 ``camera_id``.
 
-Storage contract
-----------------
-
-Depth is continuous, so it is quantized to an unsigned integer raster (``uint8`` or ``uint16``) and
-stored as a lossless PNG, the same encoding used for segmentation label maps. Quantization is a clip
-followed by a linear rescale onto the full integer range:
-
-.. code-block:: text
-
-   raw     = round(clip(depth_m, 0, max_depth) / max_depth * max_raw)   # encode
-   depth_m = raw / max_raw * max_depth                                   # decode
-
-where ``max_raw = 2 ** depth_bits - 1``. Two properties to keep in mind:
-
-* **``max_depth`` clips the far range.** Anything at or beyond ``max_depth`` saturates to ``max_raw``
-  and decodes back as exactly ``max_depth``. A sky pixel at 1000 m and a wall at ``max_depth`` are
-  indistinguishable once encoded, so choose ``max_depth`` accordingly. Non-finite inputs (``NaN``,
-  ``+inf``) also clamp to the far plane.
-* **``0`` means zero metres, not "no measurement".** There is no invalid sentinel; the full integer
-  range encodes depth. This suits simulators, which render a finite depth for every pixel. A real
-  sensor with dropouts must store its invalid mask separately.
-
-``depth_bits`` trades resolution against file size; ``max_depth`` trades range against resolution. The
-worst-case error is half a quantization step:
-
-==============  =============  ==================  ======================
-``depth_bits``  ``max_depth``  resolution          max error
-==============  =============  ==================  ======================
-8               50 m           196 mm              98 mm
-16              96 m           1.46 mm             0.73 mm
-16              1024 m         15.6 mm             7.8 mm
-==============  =============  ==================  ======================
+The storage contract — how metric depth is quantized into the stored raster, and the ``max_depth``,
+``depth_bits``, ``depth_transform``, ``min_depth``, ``has_invalid`` and ``depth_type`` knobs that
+control it — is documented on :class:`~py123d.datatypes.DepthCameraMetadata` below. The examples here
+show it end to end.
 
 Reading and writing
 -------------------
@@ -58,14 +30,32 @@ Reading and writing
        )
    )
 
-   # Reading: `image` is the raw quantized raster, not metres.
-   camera = scene.get_camera_depth_at_iteration(iteration, camera_id=CameraID.PCAM_F0)
-   depth_in_metres = camera.metadata.decode_depth(camera.image)
+   # Reading: `image` is the raw quantized raster, not metres. `scale` optionally downsamples.
+   camera = scene.get_camera_depth_at_iteration(iteration, camera_id=CameraID.PCAM_F0, scale=2)
+   depth_in_metres = camera.metadata.decode_depth(camera.image)  # NaN where has_invalid marked no data
 
    # `rgb_image` colorizes the raster with a TURBO ramp for display.
    preview = camera.rgb_image
 
-Downscaling (the ``scale`` argument) resamples with nearest-neighbour, never bilinear: averaging depth
+The default above (linear, no sentinel, z-depth) matches a simulator that renders a finite depth for
+every pixel. A sparse real sensor — e.g. lidar projected into the image — wants the inverse transform
+for near-field precision and the invalid sentinel for dropouts:
+
+.. code-block:: python
+
+   depth_metadata = DepthCameraMetadata(
+       camera_metadata=rgb_metadata,
+       max_depth=120.0,
+       depth_bits=16,
+       depth_transform="inverse",   # fine near, coarse far
+       min_depth=0.5,               # required by the inverse transform
+       has_invalid=True,            # code 0 -> NaN for pixels with no measurement
+       depth_type="z_depth",        # or "ray_distance" for a native range sensor
+   )
+
+The ``scale`` argument on the read accessors (``get_camera_depth_at_iteration`` /
+``get_camera_depth_at_timestamp``) is an integer downscale denominator — ``2`` for half size, ``4`` for
+quarter — applied at decode time. It resamples with nearest-neighbour, never bilinear: averaging depth
 across an occlusion boundary would invent a surface floating between foreground and background.
 
 Depth Camera Metadata
