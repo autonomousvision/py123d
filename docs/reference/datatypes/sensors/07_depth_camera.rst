@@ -31,13 +31,13 @@ depth stream:
 ``depth_bits`` trades resolution against file size; ``max_depth`` trades range against resolution. The
 worst-case round-trip error is half a quantization step:
 
-=============  =============  ==================  ======================
-``depth_bits`` ``max_depth``  resolution          max round-trip error
-=============  =============  ==================  ======================
-8              50 m           196 mm              98 mm
-16             96 m           1.46 mm             0.73 mm
-16             1024 m         15.6 mm             7.8 mm
-=============  =============  ==================  ======================
+==============  =============  ==================  ======================
+``depth_bits``  ``max_depth``  resolution          max round-trip error
+==============  =============  ==================  ======================
+8               50 m           196 mm              98 mm
+16              96 m           1.46 mm             0.73 mm
+16              1024 m         15.6 mm             7.8 mm
+==============  =============  ==================  ======================
 
 Reading and writing
 -------------------
