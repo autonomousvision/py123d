@@ -33,7 +33,7 @@ class CameraChannelType(SerialIntEnum):
     DEPTH = 4
     """A single-channel, per-pixel metric depth map, quantized to a lossless integer image (uint8 or
     uint16). The continuous depth in metres is recovered via
-    :meth:`~py123d.datatypes.depth_camera.DepthCameraMetadata.decode_depth`, whose quantization
+    :meth:`~py123d.datatypes.DepthCameraMetadata.decode_depth`, whose quantization
     contract (far plane and bit depth) is carried by the accompanying ``DepthCameraMetadata``."""
 
 
