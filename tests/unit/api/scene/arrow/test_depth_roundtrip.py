@@ -134,6 +134,94 @@ class TestDepthQuantization:
             metadata.encode_depth(np.zeros((240, 320, 3)))
 
 
+class TestDepthTransform:
+    """The ``inverse`` transform must trade absolute precision for near-constant relative precision."""
+
+    def test_inverse_requires_positive_min_depth(self):
+        with pytest.raises(AssertionError):
+            DepthCameraMetadata(
+                camera_metadata=_make_rgb_camera_metadata(), max_depth=96.0, depth_transform="inverse", min_depth=0.0
+            )
+
+    def test_rejects_unknown_transform(self):
+        with pytest.raises(AssertionError):
+            DepthCameraMetadata(camera_metadata=_make_rgb_camera_metadata(), max_depth=96.0, depth_transform="log")
+
+    def test_inverse_roundtrip_is_bounded_far_and_fine_near(self):
+        # Disparity spacing concentrates resolution near the camera: relative error stays bounded across
+        # the whole range but is orders of magnitude finer up close than at the far plane.
+        metadata = DepthCameraMetadata(
+            camera_metadata=_make_rgb_camera_metadata(),
+            max_depth=1000.0,
+            depth_bits=16,
+            depth_transform="inverse",
+            min_depth=0.5,
+        )
+        depth_m = np.geomspace(0.5, 1000.0, num=4000).astype(np.float64)
+        decoded = metadata.decode_depth(metadata.encode_depth(depth_m.reshape(40, 100))).reshape(-1)
+        relative_error = np.abs(decoded - depth_m) / depth_m
+        assert relative_error.max() < 2e-2  # bounded everywhere
+        assert relative_error[depth_m < 10.0].max() < 2e-4  # and ~100x finer in the near field
+
+    def test_inverse_beats_linear_in_the_near_field(self):
+        # The whole point: at short range, disparity spacing is far more accurate than uniform metric
+        # spacing for the same bit budget and far plane.
+        near = np.full((1, 1), 1.0, dtype=np.float64)
+        common = dict(camera_metadata=_make_rgb_camera_metadata(), max_depth=1000.0, depth_bits=16)
+        linear = DepthCameraMetadata(depth_transform="linear", **common)
+        inverse = DepthCameraMetadata(depth_transform="inverse", min_depth=0.5, **common)
+        linear_error = abs(linear.decode_depth(linear.encode_depth(near))[0, 0] - 1.0)
+        inverse_error = abs(inverse.decode_depth(inverse.encode_depth(near))[0, 0] - 1.0)
+        assert inverse_error < linear_error
+
+
+class TestDepthInvalidSentinel:
+    """With ``has_invalid`` set, code 0 is reserved for "no measurement" and decodes to NaN."""
+
+    def _metadata(self, **kwargs) -> DepthCameraMetadata:
+        return DepthCameraMetadata(camera_metadata=_make_rgb_camera_metadata(), max_depth=96.0, has_invalid=True, **kwargs)
+
+    def test_invalid_pixels_encode_to_zero_and_decode_to_nan(self):
+        metadata = self._metadata()
+        raw = metadata.encode_depth(np.array([[np.nan, np.inf, -np.inf, 0.0, -5.0, 10.0]]))
+        # Everything without a finite, positive measurement collapses to the sentinel; 10 m is valid.
+        assert raw[0, :5].tolist() == [0, 0, 0, 0, 0]
+        assert raw[0, 5] >= 1
+        decoded = metadata.decode_depth(raw)
+        assert np.isnan(decoded[0, :5]).all()
+        assert decoded[0, 5] == pytest.approx(10.0, abs=metadata.depth_resolution)
+
+    def test_valid_depth_never_uses_the_sentinel(self):
+        # A real (finite, positive) depth must land in [1, max_raw], never on 0, or it would be lost.
+        metadata = self._metadata()
+        raw = metadata.encode_depth(_make_metric_depth(high=96.0))
+        assert raw.min() >= 1
+
+    def test_metadata_dict_roundtrip_preserves_new_knobs(self):
+        metadata = DepthCameraMetadata(
+            camera_metadata=_make_rgb_camera_metadata(),
+            max_depth=200.0,
+            depth_bits=16,
+            depth_transform="inverse",
+            min_depth=1.0,
+            has_invalid=True,
+            depth_type="ray_distance",
+        )
+        restored = DepthCameraMetadata.from_dict(metadata.to_dict())
+        assert restored.depth_transform == "inverse"
+        assert restored.min_depth == 1.0
+        assert restored.has_invalid is True
+        assert restored.depth_type == "ray_distance"
+
+    def test_from_dict_defaults_match_historic_behaviour(self):
+        # A blob written before these knobs existed must read back as linear / z-depth / no sentinel.
+        legacy = {"camera_metadata": _make_rgb_camera_metadata().to_dict(), "max_depth": 96.0, "depth_bits": 16}
+        restored = DepthCameraMetadata.from_dict(legacy)
+        assert (restored.depth_transform, restored.min_depth) == ("linear", 0.0)
+        assert restored.has_invalid is False
+        assert restored.depth_type == "z_depth"
+
+
 # ----------------------------------------------------------------------------------------------------------------------
 # Modality routing and metadata
 # ----------------------------------------------------------------------------------------------------------------------

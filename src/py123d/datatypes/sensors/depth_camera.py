@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Literal, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -20,72 +20,136 @@ DEPTH_BITS = (8, 16)
 
 _DEPTH_DTYPES: Dict[int, np.dtype] = {8: np.dtype(np.uint8), 16: np.dtype(np.uint16)}
 
+DepthTransform = Literal["linear", "inverse"]
+"""How metric depth is mapped onto the integer range before quantization.
+
+* ``"linear"`` spreads the codes uniformly over metres in ``[min_depth, max_depth]`` — equal metric
+  precision everywhere.
+* ``"inverse"`` spreads them uniformly over *inverse* depth (disparity): fine resolution near the
+  camera, coarse far away (absolute error grows ~quadratically with depth). This concentrates
+  precision where 3D reconstruction needs it and matches how stereo/disparity sensors quantize. It
+  requires a positive ``min_depth`` (``1 / depth`` diverges at zero).
+"""
+DEPTH_TRANSFORMS = ("linear", "inverse")
+
+DepthType = Literal["z_depth", "ray_distance"]
+"""What the stored scalar measures for each pixel.
+
+* ``"z_depth"`` — the coordinate along the optical axis (``Z`` in the camera frame): the perpendicular
+  distance to the image plane. This is what rasterizer depth buffers and most RGB-D sensors report,
+  and what :meth:`project_to_image` returns, so it is the default.
+* ``"ray_distance"`` — the euclidean range from the camera centre, ``sqrt(X**2 + Y**2 + Z**2)``. Native
+  to raw range sensors and some panoramic renders.
+
+This flag is a provenance annotation: it does not affect quantization (which sees only a per-pixel
+scalar), but any code that unprojects the depth map back to 3D must branch on it.
+"""
+DEPTH_TYPES = ("z_depth", "ray_distance")
+
 
 class DepthCameraMetadata(BaseCameraMetadata):
     """Metadata for a per-pixel depth camera stream.
 
-    A depth camera is pixel-aligned to a regular RGB :class:`~py123d.datatypes.Camera`: it shares that
-    camera's id, projection model, intrinsics, and extrinsics. This metadata therefore *composes* the
-    sibling camera's :class:`BaseCameraMetadata` for all geometry and additionally records **how the
-    continuous metric depth was quantized** into the stored integer raster — analogous to how
-    :class:`~py123d.datatypes.segmentation_camera.SegmentationCameraMetadata` records which label
-    taxonomy its integer class ids use.
+    A depth camera is pixel-aligned to a sibling RGB camera: it shares that camera's id, projection
+    model, intrinsics, and extrinsics, and composes its ``BaseCameraMetadata`` for all geometry. In
+    addition, it records how the continuous metric depth was quantized into the stored integer raster.
 
-    Its :attr:`channel_type` is always :attr:`CameraChannelType.DEPTH`
-    (:attr:`ModalityType.CAMERA_DEPTH`, file ``camera_depth.<camera_id>.arrow``), written to its own
-    Arrow file, never colliding with the RGB ``camera.<camera_id>`` that shares its :attr:`camera_id`.
+    Its ``channel_type`` is always ``DEPTH`` (modality ``CAMERA_DEPTH``, file
+    ``camera_depth.<camera_id>.arrow``), a separate stream from the RGB ``camera.<camera_id>.arrow`` of
+    the same ``camera_id``.
 
-    **Storage contract.** Depth is continuous, so — unlike a segmentation class-id map — it must be
-    quantized before it can be stored as a lossless integer PNG. The encoding is a clip followed by a
-    linear rescale onto the full integer range::
+    **Storage contract.** Depth is continuous, so it is quantized to an unsigned integer raster
+    (``uint8`` or ``uint16``) and stored as a lossless PNG. Quantization clips to ``[min_depth,
+    max_depth]``, maps onto the unit interval (linearly in depth, or in inverse depth — see
+    ``depth_transform``), and rounds onto the integer codes ``[offset, max_raw]``::
 
-        raw = round(clip(depth_m, 0, max_depth) / max_depth * max_raw)     # encode
-        depth_m = raw / max_raw * max_depth                                 # decode
+        t   = to_unit(clip(depth_m, min_depth, max_depth))   # depth -> [0, 1]  (transform-dependent)
+        raw = offset + round(t * (max_raw - offset))         # encode
+        # decode inverts to_unit on (raw - offset) / (max_raw - offset)
 
-    where ``max_raw = 2 ** depth_bits - 1``. Two consequences worth internalizing:
+    where ``max_raw = 2 ** depth_bits - 1`` and ``offset`` is ``1`` when ``has_invalid`` reserves code
+    ``0`` (else ``0``). Points to keep in mind:
 
-    * **The far plane is a hard clip, not a sentinel.** Anything beyond :attr:`max_depth` saturates to
-      ``max_raw`` and decodes back as exactly :attr:`max_depth`. A CARLA sky pixel at 1000 m and a wall
-      at :attr:`max_depth` are indistinguishable after encoding. Choose :attr:`max_depth` accordingly.
-    * **``0`` means zero metres, not "no measurement".** There is no invalid sentinel: the full integer
-      range encodes depth. This suits simulators (CARLA renders a finite depth for every pixel); a
-      real-world sensor with dropouts needs its invalid mask stored separately.
+    * ``max_depth`` clips the far range. Anything at or beyond ``max_depth`` saturates to ``max_raw``
+      and decodes back as exactly ``max_depth``, so a sky pixel at 1000 m and a wall at ``max_depth``
+      are indistinguishable once encoded.
+    * **Invalid pixels.** With ``has_invalid=False`` (the default) there is no sentinel: the full
+      integer range encodes depth, ``0`` means zero metres, and non-finite inputs clamp to the range.
+      This suits simulators, which render a finite depth for every pixel. With ``has_invalid=True``,
+      code ``0`` is reserved for "no measurement": any non-finite or non-positive input encodes to
+      ``0`` and decodes back to ``NaN``, and valid depth uses ``[1, max_raw]``. Set this for real
+      sensors (lidar-projected, ToF, stereo) that have dropouts.
+    * ``depth_transform`` chooses linear vs. inverse-depth spacing; ``depth_type`` records whether the
+      scalar is planar z-depth or euclidean range (see those knobs).
 
-    :attr:`depth_bits` therefore trades resolution against file size, and :attr:`max_depth` trades
-    range against resolution. The worst-case round-trip error is half a quantization step,
-    :attr:`depth_resolution` / 2:
+    ``depth_bits`` trades resolution against file size; ``max_depth`` trades range against resolution.
+    For ``linear`` the worst-case error is half a quantization step (``depth_resolution`` / 2):
 
-    ===========  =============  ==================  ======================
-    depth_bits   max_depth      depth_resolution    max round-trip error
-    ===========  =============  ==================  ======================
+    ===========  =============  ==================  ==========
+    depth_bits   max_depth      depth_resolution    max error
+    ===========  =============  ==================  ==========
     8            50 m           196 mm              98 mm
     16           96 m           1.46 mm             0.73 mm
     16           1024 m         15.6 mm             7.8 mm
-    ===========  =============  ==================  ======================
+    ===========  =============  ==================  ==========
     """
 
-    __slots__ = ("_camera_metadata", "_max_depth", "_depth_bits")
+    __slots__ = (
+        "_camera_metadata",
+        "_max_depth",
+        "_depth_bits",
+        "_depth_transform",
+        "_min_depth",
+        "_has_invalid",
+        "_depth_type",
+    )
 
     def __init__(
         self,
         camera_metadata: BaseCameraMetadata,
         max_depth: float,
         depth_bits: int = 16,
+        depth_transform: DepthTransform = "linear",
+        min_depth: float = 0.0,
+        has_invalid: bool = False,
+        depth_type: DepthType = "z_depth",
     ) -> None:
-        """Initialize a :class:`DepthCameraMetadata`.
+        """Initialize a ``DepthCameraMetadata``.
 
         :param camera_metadata: The sibling RGB camera metadata providing geometry (id, model,
             intrinsics, extrinsics, resolution).
         :param max_depth: The far clipping plane, in metres. Depth at or beyond this saturates to the
-            largest storable integer. This is the *only* range knob; ``depth_scale`` is derived from it.
+            largest storable integer.
         :param depth_bits: ``8`` or ``16``. Selects the stored dtype (``uint8``/``uint16``) and hence
             the PNG bit depth. Defaults to ``16``.
+        :param depth_transform: ``"linear"`` (uniform metric spacing, the default) or ``"inverse"``
+            (uniform disparity spacing — fine near, coarse far). ``"inverse"`` requires a positive
+            ``min_depth``.
+        :param min_depth: The near clipping plane in metres. Required (``> 0``) for the ``"inverse"``
+            transform, where it bounds the disparity range. For ``"linear"`` it is an optional floor and
+            defaults to ``0.0`` (i.e. no near clip), preserving the historic behaviour.
+        :param has_invalid: If ``True``, reserve code ``0`` as a "no measurement" sentinel and encode
+            valid depth into ``[1, max_raw]``; invalid pixels decode to ``NaN``. Defaults to ``False``.
+        :param depth_type: ``"z_depth"`` (planar, along the optical axis — the default) or
+            ``"ray_distance"`` (euclidean range from the camera centre). A provenance flag only; it does
+            not affect quantization.
         """
         assert depth_bits in DEPTH_BITS, f"depth_bits must be one of {DEPTH_BITS}, got {depth_bits}."
         assert max_depth > 0.0, f"max_depth must be positive, got {max_depth}."
+        assert depth_transform in DEPTH_TRANSFORMS, (
+            f"depth_transform must be one of {DEPTH_TRANSFORMS}, got {depth_transform!r}."
+        )
+        assert depth_type in DEPTH_TYPES, f"depth_type must be one of {DEPTH_TYPES}, got {depth_type!r}."
+        assert 0.0 <= min_depth < max_depth, f"min_depth must be in [0, max_depth), got {min_depth}."
+        if depth_transform == "inverse":
+            assert min_depth > 0.0, "The 'inverse' transform requires a positive min_depth (1 / depth diverges at 0)."
         self._camera_metadata = camera_metadata
         self._max_depth = float(max_depth)
         self._depth_bits = int(depth_bits)
+        self._depth_transform: DepthTransform = depth_transform
+        self._min_depth = float(min_depth)
+        self._has_invalid = bool(has_invalid)
+        self._depth_type: DepthType = depth_type
 
     @property
     def camera_metadata(self) -> BaseCameraMetadata:
@@ -94,8 +158,13 @@ class DepthCameraMetadata(BaseCameraMetadata):
 
     @property
     def max_depth(self) -> float:
-        """The far clipping plane in metres; depth at or beyond this saturates to :attr:`max_raw`."""
+        """The far clipping plane in metres; depth at or beyond this saturates to ``max_raw``."""
         return self._max_depth
+
+    @property
+    def min_depth(self) -> float:
+        """The near clipping plane in metres. ``0`` (no near clip) unless set, and required for ``inverse``."""
+        return self._min_depth
 
     @property
     def depth_bits(self) -> int:
@@ -103,9 +172,34 @@ class DepthCameraMetadata(BaseCameraMetadata):
         return self._depth_bits
 
     @property
+    def depth_transform(self) -> DepthTransform:
+        """``"linear"`` or ``"inverse"``: how metric depth is spaced across the integer codes."""
+        return self._depth_transform
+
+    @property
+    def has_invalid(self) -> bool:
+        """Whether code ``0`` is a reserved "no measurement" sentinel (valid depth then uses ``[1, max_raw]``)."""
+        return self._has_invalid
+
+    @property
+    def depth_type(self) -> DepthType:
+        """``"z_depth"`` (planar) or ``"ray_distance"`` (euclidean): what the stored scalar measures."""
+        return self._depth_type
+
+    @property
     def max_raw(self) -> int:
         """The largest storable integer, ``2 ** depth_bits - 1`` (i.e. ``255`` or ``65535``)."""
         return (1 << self._depth_bits) - 1
+
+    @property
+    def _code_offset(self) -> int:
+        """The smallest valid code: ``1`` when ``has_invalid`` reserves ``0``, else ``0``."""
+        return 1 if self._has_invalid else 0
+
+    @property
+    def _code_span(self) -> int:
+        """The number of quantization steps across the valid code range ``[offset, max_raw]``."""
+        return self.max_raw - self._code_offset
 
     @property
     def depth_dtype(self) -> np.dtype:
@@ -114,55 +208,85 @@ class DepthCameraMetadata(BaseCameraMetadata):
 
     @property
     def depth_resolution(self) -> float:
-        """Metres per integer unit, ``max_depth / max_raw``. One quantization step."""
-        return self._max_depth / self.max_raw
+        """Metres per integer unit for the ``linear`` transform, ``max_depth / code_span``.
+
+        For ``inverse`` the step is not constant (fine near, coarse far); this returns the same nominal
+        value only as a rough far-plane-ish scale, and the half-step error bound does not apply.
+        """
+        return self._max_depth / self._code_span
 
     @property
     def channel_type(self) -> CameraChannelType:
-        """Always :attr:`CameraChannelType.DEPTH`."""
+        """Always ``CameraChannelType.DEPTH``."""
         return CameraChannelType.DEPTH
 
     # ------------------------------------------------------------------------------------------------------------------
     # Quantization
     # ------------------------------------------------------------------------------------------------------------------
 
+    def _depth_to_unit(self, depth_m: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Map clipped metric depth in ``[min_depth, max_depth]`` onto ``[0, 1]``, monotonically increasing.
+
+        ``linear`` is anchored at absolute zero (``depth / max_depth``); ``inverse`` spaces the unit
+        interval uniformly in disparity so ``t = 0`` at ``min_depth`` and ``t = 1`` at ``max_depth``.
+        """
+        if self._depth_transform == "linear":
+            return depth_m / self._max_depth
+        inv_near = 1.0 / self._min_depth
+        inv_far = 1.0 / self._max_depth
+        return (inv_near - 1.0 / depth_m) / (inv_near - inv_far)
+
+    def _unit_to_depth(self, t: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Inverse of :meth:`_depth_to_unit`: map ``[0, 1]`` back onto metric depth."""
+        if self._depth_transform == "linear":
+            return t * self._max_depth
+        inv_near = 1.0 / self._min_depth
+        inv_far = 1.0 / self._max_depth
+        return 1.0 / (inv_near - t * (inv_near - inv_far))
+
     def encode_depth(self, depth: npt.NDArray[np.floating]) -> npt.NDArray[np.unsignedinteger]:
         """Quantize a metric depth map ``(H, W)`` in metres into the stored integer raster.
 
-        Clips to ``[0, max_depth]``, rescales linearly onto ``[0, max_raw]``, and rounds to nearest
-        (rather than truncating, which would bias every pixel downward by half a step on average).
-        Non-finite values (``NaN``/``inf``, e.g. from an unrendered pixel) clamp to the far plane.
+        Clips to ``[min_depth, max_depth]``, maps onto ``[0, 1]`` via ``depth_transform``, rescales onto
+        the valid codes ``[offset, max_raw]``, and rounds to nearest (rather than truncating, which
+        would bias every pixel downward by half a step on average).
+
+        With ``has_invalid=False`` (default), non-finite values (``NaN``/``inf``, e.g. an unrendered
+        pixel) clamp to the near/far plane. With ``has_invalid=True``, any non-finite or non-positive
+        pixel is instead written as the ``0`` sentinel.
 
         :param depth: A 2D ``(H, W)`` float array of depths in metres.
-        :return: A 2D ``(H, W)`` array of :attr:`depth_dtype`.
+        :return: A 2D ``(H, W)`` array of ``depth_dtype``.
         """
         assert depth.ndim == 2, f"Depth map must be a single-channel (H, W) array, got shape {depth.shape}."
+        depth = np.asarray(depth, dtype=np.float64)
+        # A pixel is "no measurement" iff it lacks a real, finite, positive depth. Captured before the
+        # clamp below folds NaN/inf/negatives into the valid range.
+        invalid = ~(np.isfinite(depth) & (depth > 0.0)) if self._has_invalid else None
         # nan -> max_depth (an unrendered / infinitely distant pixel is "as far as we can say"), and
         # +-inf -> the clip bounds. Done before the clip so NaN doesn't propagate through it.
-        depth_m = np.nan_to_num(
-            np.asarray(depth, dtype=np.float64),
-            nan=self._max_depth,
-            posinf=self._max_depth,
-            neginf=0.0,
-        )
-        depth_m = np.clip(depth_m, 0.0, self._max_depth)
-        raw = np.round(depth_m / self._max_depth * self.max_raw)
+        depth_m = np.nan_to_num(depth, nan=self._max_depth, posinf=self._max_depth, neginf=self._min_depth)
+        depth_m = np.clip(depth_m, self._min_depth, self._max_depth)
+        raw = self._code_offset + np.round(self._depth_to_unit(depth_m) * self._code_span)
+        if invalid is not None:
+            raw[invalid] = 0
         return raw.astype(self.depth_dtype)
 
     def decode_depth(self, raw: npt.NDArray[np.integer]) -> npt.NDArray[np.float32]:
         """Dequantize a stored integer raster back to metric depth in metres.
 
-        The inverse of :meth:`encode_depth`, up to the quantization error (at most
-        :attr:`depth_resolution` / 2). Note that pixels which saturated on encode decode to exactly
-        :attr:`max_depth`, not to their true distance.
+        The inverse of ``encode_depth``, up to the quantization error. Pixels that saturated on encode
+        decode to exactly ``max_depth``, not to their true distance. When ``has_invalid`` is set, the
+        ``0`` sentinel decodes to ``NaN``.
 
-        :param raw: A 2D ``(H, W)`` integer array as returned by :meth:`encode_depth`.
-        :return: A 2D ``(H, W)`` float32 array of depths in metres, in ``[0, max_depth]``.
+        :param raw: A 2D ``(H, W)`` integer array as returned by ``encode_depth``.
+        :return: A 2D ``(H, W)`` float32 array of depths in metres (``NaN`` for invalid pixels).
         """
-        # A single multiply by the (float64-computed, then narrowed) step, rather than a float32
-        # divide-then-multiply: one rounding instead of two, so the result stays within half a
-        # float32 ulp of the exact dequantized value.
-        return np.asarray(raw, dtype=np.float32) * np.float32(self.depth_resolution)
+        t = (np.asarray(raw, dtype=np.float64) - self._code_offset) / self._code_span
+        depth = self._unit_to_depth(t).astype(np.float32)
+        if self._has_invalid:
+            depth = np.where(np.asarray(raw) == 0, np.float32(np.nan), depth)
+        return depth
 
     # ------------------------------------------------------------------------------------------------------------------
     # Geometry delegated to the sibling camera metadata
@@ -215,21 +339,35 @@ class DepthCameraMetadata(BaseCameraMetadata):
             "camera_metadata": self._camera_metadata.to_dict(),
             "max_depth": self._max_depth,
             "depth_bits": self._depth_bits,
+            "depth_transform": self._depth_transform,
+            "min_depth": self._min_depth,
+            "has_invalid": self._has_invalid,
+            "depth_type": self._depth_type,
         }
 
     @classmethod
     def from_dict(cls, data_dict: Dict[str, Any]) -> DepthCameraMetadata:
-        """Construct a :class:`DepthCameraMetadata` from a dictionary."""
+        """Construct a ``DepthCameraMetadata`` from a dictionary.
+
+        The transform/sentinel/type keys default to the historic behaviour (linear, no near clip, no
+        invalid sentinel, z-depth) so ``.arrow`` files written before these knobs existed still read.
+        """
         return cls(
             camera_metadata=camera_metadata_from_dict(data_dict["camera_metadata"]),
             max_depth=data_dict["max_depth"],
             depth_bits=data_dict["depth_bits"],
+            depth_transform=data_dict.get("depth_transform", "linear"),
+            min_depth=data_dict.get("min_depth", 0.0),
+            has_invalid=data_dict.get("has_invalid", False),
+            depth_type=data_dict.get("depth_type", "z_depth"),
         )
 
     def __repr__(self) -> str:
         return (
-            f"DepthCameraMetadata(camera_id={self.camera_id}, "
-            f"max_depth={self._max_depth}, depth_bits={self._depth_bits})"
+            f"DepthCameraMetadata(camera_id={self.camera_id}, max_depth={self._max_depth}, "
+            f"min_depth={self._min_depth}, depth_bits={self._depth_bits}, "
+            f"depth_transform={self._depth_transform!r}, has_invalid={self._has_invalid}, "
+            f"depth_type={self._depth_type!r})"
         )
 
     @property

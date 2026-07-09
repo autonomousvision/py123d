@@ -2,37 +2,38 @@ Depth Camera
 ^^^^^^^^^^^^
 
 A depth camera is a per-pixel metric depth stream, pixel-aligned to a sibling RGB
-:class:`~py123d.datatypes.Camera` whose ``camera_id``, projection model, intrinsics and extrinsics it
-shares. It is stored as :attr:`~py123d.datatypes.ModalityType.CAMERA_DEPTH` in its own Arrow file,
-``camera_depth.<camera_id>.arrow``, alongside — and never colliding with — ``camera.<camera_id>.arrow``.
+:class:`~py123d.datatypes.Camera` whose ``camera_id``, projection model, intrinsics, and extrinsics it
+shares. It is stored as :attr:`~py123d.datatypes.ModalityType.CAMERA_DEPTH` in its own stream,
+``camera_depth.<camera_id>.arrow``, separate from the RGB ``camera.<camera_id>.arrow`` of the same
+``camera_id``.
 
 Storage contract
 ----------------
 
-Unlike a segmentation class-id map, depth is *continuous*, so it must be quantized before it can be
-stored as a lossless integer PNG. The encoding is a clip followed by a linear rescale onto the full
-integer range:
+Depth is continuous, so it is quantized to an unsigned integer raster (``uint8`` or ``uint16``) and
+stored as a lossless PNG, the same encoding used for segmentation label maps. Quantization is a clip
+followed by a linear rescale onto the full integer range:
 
 .. code-block:: text
 
    raw     = round(clip(depth_m, 0, max_depth) / max_depth * max_raw)   # encode
    depth_m = raw / max_raw * max_depth                                   # decode
 
-where ``max_raw = 2 ** depth_bits - 1``. Two consequences are worth internalizing before you write a
-depth stream:
+where ``max_raw = 2 ** depth_bits - 1``. Two properties to keep in mind:
 
-* **The far plane is a hard clip, not a sentinel.** Anything beyond ``max_depth`` saturates to
-  ``max_raw`` and decodes back as exactly ``max_depth``. A simulated sky pixel at 1000 m and a wall at
-  ``max_depth`` are indistinguishable once encoded. Choose ``max_depth`` accordingly.
-* **``0`` means zero metres, not "no measurement".** There is no invalid sentinel — the full integer
-  range encodes depth. This suits simulators, which render a finite depth for every pixel; a real-world
+* **``max_depth`` clips the far range.** Anything at or beyond ``max_depth`` saturates to ``max_raw``
+  and decodes back as exactly ``max_depth``. A sky pixel at 1000 m and a wall at ``max_depth`` are
+  indistinguishable once encoded, so choose ``max_depth`` accordingly. Non-finite inputs (``NaN``,
+  ``+inf``) also clamp to the far plane.
+* **``0`` means zero metres, not "no measurement".** There is no invalid sentinel; the full integer
+  range encodes depth. This suits simulators, which render a finite depth for every pixel. A real
   sensor with dropouts must store its invalid mask separately.
 
 ``depth_bits`` trades resolution against file size; ``max_depth`` trades range against resolution. The
-worst-case round-trip error is half a quantization step:
+worst-case error is half a quantization step:
 
 ==============  =============  ==================  ======================
-``depth_bits``  ``max_depth``  resolution          max round-trip error
+``depth_bits``  ``max_depth``  resolution          max error
 ==============  =============  ==================  ======================
 8               50 m           196 mm              98 mm
 16              96 m           1.46 mm             0.73 mm
@@ -65,7 +66,7 @@ Reading and writing
    preview = camera.rgb_image
 
 Downscaling (the ``scale`` argument) resamples with nearest-neighbour, never bilinear: averaging depth
-across an occlusion boundary would invent a surface floating between the foreground and the background.
+across an occlusion boundary would invent a surface floating between foreground and background.
 
 Depth Camera Metadata
 ---------------------
