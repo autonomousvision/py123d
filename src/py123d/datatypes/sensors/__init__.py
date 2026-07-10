@@ -14,6 +14,11 @@ from py123d.datatypes.sensors.camera_segmentation_label import (
     DefaultCameraSegmentationLabel,
     register_camera_segmentation_label,
 )
+from py123d.datatypes.sensors.depth_camera import (
+    DEPTH_BITS,
+    DepthCameraMetadata,
+    colorize_depth_map,
+)
 from py123d.datatypes.sensors.fisheye_mei_camera import (
     FisheyeMEICameraMetadata,
     FisheyeMEIDistortion,
@@ -68,6 +73,10 @@ __all__ = [
     "CameraID",
     "CameraModel",
     "camera_metadata_from_dict",
+    # Camera depth
+    "DepthCameraMetadata",
+    "DEPTH_BITS",
+    "colorize_depth_map",
     # Camera segmentation
     "SegmentationCameraMetadata",
     "CameraSegmentationLabel",

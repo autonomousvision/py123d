@@ -41,17 +41,20 @@ class CameraGuiController:
         self._camera_names: List[str] = list(self._camera_ids.keys())
 
         # Map each selectable modality to the scene getter that fetches it (shared signature). Each fetched
-        # stream is displayed through Camera.rgb_image, so the GUI renders camera/semantic/instance uniformly.
+        # stream is displayed through Camera.rgb_image, so the GUI renders camera/semantic/instance/depth
+        # uniformly (rgb_image colorizes label maps and depth rasters for us).
         self._modality_getters: Dict[str, Callable[..., Optional[Camera]]] = {
             "camera": context.scene.get_camera_at_iteration,
             "semantic": context.scene.get_camera_semantic_at_iteration,
             "instance": context.scene.get_camera_instance_at_iteration,
+            "depth": context.scene.get_camera_depth_at_iteration,
         }
         # Only offer a modality whose metadata is present in the scene.
         modality_available: Dict[str, bool] = {
             "camera": len(self._camera_ids) > 0,
             "semantic": len(context.scene.get_camera_semantic_metadatas()) > 0,
             "instance": len(context.scene.get_camera_instance_metadatas()) > 0,
+            "depth": len(context.scene.get_camera_depth_metadatas()) > 0,
         }
         self._modality_names: List[str] = [name for name in self._modality_getters if modality_available[name]]
 

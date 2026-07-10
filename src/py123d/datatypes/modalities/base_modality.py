@@ -26,6 +26,9 @@ class ModalityType(SerialIntEnum):
     RADAR = 8
     """Radar point cloud, potentially with additional attributes like velocity, radar cross section, etc."""
 
+    CAMERA_DEPTH = 9
+    """Per-pixel metric depth image, pixel-aligned to a sibling :attr:`CAMERA` stream."""
+
 
 class BaseModalityMetadata(BaseMetadata):
     """Base class for modality metadata."""
