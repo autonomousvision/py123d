@@ -217,6 +217,7 @@ class ArrowLogWriter(BaseLogWriter):
                 log_metadata=self._state.log_metadata,
                 lidar_store_option=self._log_writer_config.lidar_store_option,
                 lidar_codec=self._log_writer_config.lidar_codec,
+                lidar_codec_config=self._log_writer_config.lidar_codec_config,
                 ipc_compression=self._ipc_compression,
                 ipc_compression_level=self._ipc_compression_level,
             )
@@ -228,6 +229,7 @@ class ArrowLogWriter(BaseLogWriter):
                 log_metadata=self._state.log_metadata,
                 radar_store_option=self._log_writer_config.radar_store_option,
                 radar_codec=self._log_writer_config.radar_codec,
+                radar_codec_config=self._log_writer_config.radar_codec_config,
                 ipc_compression=self._ipc_compression,
                 ipc_compression_level=self._ipc_compression_level,
             )

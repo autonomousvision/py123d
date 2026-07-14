@@ -2,11 +2,11 @@ import numpy as np
 import pytest
 
 from py123d.common.io.lidar.draco_lidar_io import (
-    DRACO_QUANTIZATION_BITS,
     encode_point_cloud_as_draco_binary,
     is_draco_binary,
     load_point_cloud_from_draco_binary,
 )
+from py123d.common.io.lidar.point_cloud_codec_config import PointCloudCodecConfig
 
 
 class TestIsDracoBinary:
@@ -117,9 +117,18 @@ class TestDracoRoundtrip:
         with pytest.raises(AssertionError):
             encode_point_cloud_as_draco_binary(point_cloud)
 
-    def test_quantization_bits_constant(self):
-        """Test that quantization bits constant has expected value."""
-        assert DRACO_QUANTIZATION_BITS == 16
+    def test_default_quantization_bits(self):
+        """Test that the default quantization bits have the expected value."""
+        assert PointCloudCodecConfig().draco_quantization_bits == 16
+
+    def test_quantization_bits_from_config(self):
+        """Test that a lower quantization budget yields a smaller blob."""
+        point_cloud = np.random.rand(1000, 3).astype(np.float32)
+        default = encode_point_cloud_as_draco_binary(point_cloud)
+        coarse = encode_point_cloud_as_draco_binary(
+            point_cloud, config=PointCloudCodecConfig(draco_quantization_bits=8)
+        )
+        assert len(coarse) < len(default)
 
 
 class TestDracoWithFeaturesRoundtrip:

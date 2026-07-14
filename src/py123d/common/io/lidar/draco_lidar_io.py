@@ -1,14 +1,10 @@
-from typing import Dict, Final, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import DracoPy
 import numpy as np
 import numpy.typing as npt
 
-# TODO: add to config
-DRACO_QUANTIZATION_BITS: Final[int] = 16
-DRACO_COMPRESSION_LEVEL: Final[int] = 7  # Range: 0 (fastest) to 10 (slowest, best compression)
-DRACO_QUANTIZATION_RANGE: Final[int] = -1  # Use default range
-DRACO_PRESERVE_ORDER: Final[bool] = True
+from py123d.common.io.lidar.point_cloud_codec_config import PointCloudCodecConfig
 
 # DracoPy only supports: float32, uint8, uint16, uint32.
 # For unsupported dtypes we view-cast to uint8 bytes and decode back on load.
@@ -31,6 +27,7 @@ def is_draco_binary(draco_binary: bytes) -> bool:
 def encode_point_cloud_as_draco_binary(
     point_cloud_3d: npt.NDArray[np.float32],
     point_cloud_features: Optional[Dict[str, npt.NDArray]] = None,
+    config: Optional[PointCloudCodecConfig] = None,
 ) -> bytes:
     """Encode a point cloud (xyz + optional features) into a single Draco binary blob.
 
@@ -39,10 +36,13 @@ def encode_point_cloud_as_draco_binary(
 
     :param point_cloud_3d: The Lidar point cloud data, as numpy array of shape (N, 3).
     :param point_cloud_features: Optional dictionary of per-point features.
+    :param config: Codec settings; defaults to :class:`PointCloudCodecConfig`.
     :return: The compressed Draco binary data.
     """
     assert point_cloud_3d.ndim == 2, "Lidar point cloud must be a 2D array of shape (N, 3) for Draco compression."
     assert point_cloud_3d.shape[-1] == 3, "Lidar point cloud must have 3 attributes (x, y, z) for Draco compression."
+
+    config = config if config is not None else PointCloudCodecConfig()
 
     generic_attributes = None
     if point_cloud_features:
@@ -66,12 +66,12 @@ def encode_point_cloud_as_draco_binary(
 
     return DracoPy.encode(
         point_cloud_3d,
-        quantization_bits=DRACO_QUANTIZATION_BITS,
-        compression_level=DRACO_COMPRESSION_LEVEL,
-        quantization_range=DRACO_QUANTIZATION_RANGE,
+        quantization_bits=config.draco_quantization_bits,
+        compression_level=config.draco_compression_level,
+        quantization_range=config.draco_quantization_range,
         quantization_origin=None,
         create_metadata=False,
-        preserve_order=DRACO_PRESERVE_ORDER,
+        preserve_order=config.draco_preserve_order,
         generic_attributes=generic_attributes,
     )
 

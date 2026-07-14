@@ -4,6 +4,7 @@ import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
 
+from py123d.common.io.lidar.point_cloud_codec_config import PointCloudCodecConfig
 from py123d.geometry.geometry_index import Point3DIndex
 
 # Column name prefix used to distinguish xyz columns from feature columns in unified encoding.
@@ -24,17 +25,21 @@ def encode_point_cloud_as_ipc_binary(
     point_cloud_3d: npt.NDArray[np.float32],
     point_cloud_features: Optional[Dict[str, npt.NDArray]] = None,
     codec: Optional[Literal["zstd", "lz4"]] = "zstd",
+    config: Optional[PointCloudCodecConfig] = None,
 ) -> bytes:
     """Encode a point cloud (xyz + optional features) into a single Arrow IPC binary blob.
 
     :param point_cloud_3d: The Lidar point cloud data, as a numpy array of shape (N, 3).
     :param point_cloud_features: Optional dictionary of per-point features.
     :param codec: The compression codec to use, either "zstd" or "lz4", defaults to "zstd".
+    :param config: Codec settings; defaults to :class:`PointCloudCodecConfig`.
     :return: The compressed Arrow IPC binary data.
     """
     assert point_cloud_3d.ndim == 2 and point_cloud_3d.shape[1] == len(Point3DIndex), (
         "Lidar point cloud must be a 2-dim array of shape (N, 3)."
     )
+    config = config if config is not None else PointCloudCodecConfig()
+
     data: Dict[str, npt.NDArray] = {
         "x": point_cloud_3d[:, Point3DIndex.X],
         "y": point_cloud_3d[:, Point3DIndex.Y],
@@ -42,7 +47,7 @@ def encode_point_cloud_as_ipc_binary(
     }
     if point_cloud_features:
         data.update(point_cloud_features)
-    return _encode_dict_as_ipc_binary(data, codec=codec)
+    return _encode_dict_as_ipc_binary(data, codec=codec, compression_level=config.ipc_compression_level)
 
 
 def load_point_cloud_from_ipc_binary(blob: bytes) -> Tuple[npt.NDArray[np.float32], Optional[Dict[str, npt.NDArray]]]:
@@ -65,11 +70,16 @@ def load_point_cloud_from_ipc_binary(blob: bytes) -> Tuple[npt.NDArray[np.float3
 # ------------------------------------------------------------------------------------------------------------------
 
 
-def _encode_dict_as_ipc_binary(data: dict[str, np.ndarray], codec: Optional[Literal["zstd", "lz4"]] = "zstd") -> bytes:
+def _encode_dict_as_ipc_binary(
+    data: dict[str, np.ndarray],
+    codec: Optional[Literal["zstd", "lz4"]] = "zstd",
+    compression_level: Optional[int] = None,
+) -> bytes:
     """Encode a dictionary of numpy arrays into an Arrow IPC binary blob."""
     batch = pa.RecordBatch.from_pydict(data)
     sink = pa.BufferOutputStream()
-    options = pa.ipc.IpcWriteOptions(compression=codec)
+    compression = codec if codec is None or compression_level is None else pa.Codec(codec, compression_level)
+    options = pa.ipc.IpcWriteOptions(compression=compression)
     with pa.ipc.new_stream(sink, batch.schema, options=options) as writer:
         writer.write_batch(batch)
     return sink.getvalue().to_pybytes()

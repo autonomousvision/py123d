@@ -24,6 +24,7 @@ from py123d.common.io.lidar.laz_lidar_io import (
     load_point_cloud_from_laz_binary,
 )
 from py123d.common.io.lidar.path_lidar_io import load_point_cloud_data_from_path
+from py123d.common.io.lidar.point_cloud_codec_config import PointCloudCodecConfig
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata
 from py123d.datatypes.sensors.lidar import Lidar, LidarFeature, LidarID, LidarMergedMetadata, LidarMetadata
@@ -39,6 +40,7 @@ class ArrowLidarWriter(ArrowBaseModalityWriter):
         log_metadata: LogMetadata,
         lidar_store_option: Literal["path", "binary"],
         lidar_codec: Optional[Literal["laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"]],
+        lidar_codec_config: Optional[PointCloudCodecConfig] = None,
         ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
         ipc_compression_level: Optional[int] = None,
     ) -> None:
@@ -53,6 +55,7 @@ class ArrowLidarWriter(ArrowBaseModalityWriter):
 
         self._lidar_store_option = lidar_store_option
         self._lidar_codec = lidar_codec
+        self._lidar_codec_config = lidar_codec_config if lidar_codec_config is not None else PointCloudCodecConfig()
 
         file_path = log_dir / f"{metadata.modality_key}.arrow"
 
@@ -143,16 +146,17 @@ class ArrowLidarWriter(ArrowBaseModalityWriter):
             return None
 
         codec = self._lidar_codec
+        config = self._lidar_codec_config
         if codec == "draco":
-            return encode_point_cloud_as_draco_binary(point_cloud_3d, point_cloud_features)
+            return encode_point_cloud_as_draco_binary(point_cloud_3d, point_cloud_features, config=config)
         elif codec == "laz":
-            return encode_point_cloud_as_laz_binary(point_cloud_3d, point_cloud_features)
+            return encode_point_cloud_as_laz_binary(point_cloud_3d, point_cloud_features, config=config)
         elif codec == "ipc":
-            return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec=None)
+            return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec=None, config=config)
         elif codec == "ipc_zstd":
-            return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec="zstd")
+            return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec="zstd", config=config)
         elif codec == "ipc_lz4":
-            return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec="lz4")
+            return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec="lz4", config=config)
         else:
             raise NotImplementedError(f"Unsupported lidar codec: {codec}")
 
