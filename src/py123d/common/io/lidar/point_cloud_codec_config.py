@@ -1,10 +1,14 @@
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Tuple
 
 
 @dataclass(frozen=True)
 class PointCloudCodecConfig:
-    """Encoder settings for the point-cloud codecs, shared by the Lidar and Radar writers.
+    """Encoder settings for the LAZ and Draco point-cloud codecs, shared by the Lidar and Radar writers.
+
+    These settle how the point cloud is quantized inside its binary blob. They are unrelated to the
+    ``ipc_compression`` of the enclosing Arrow file, which compresses the record batches that carry
+    the blob.
 
     The defaults reproduce the historical hard-coded encoder behaviour, so logs written without an
     explicit config are byte-for-byte unchanged.
@@ -28,10 +32,6 @@ class PointCloudCodecConfig:
     # -1 uses Draco's default range.
     draco_quantization_range: int = -1
     draco_preserve_order: bool = True
-
-    # --- Arrow IPC ---
-    # Codec-specific compression level; None uses the pyarrow default for the codec.
-    ipc_compression_level: Optional[int] = None
 
     def __post_init__(self) -> None:
         assert self.laz_point_format in {0, 1, 2, 3, 6, 7, 8}, (

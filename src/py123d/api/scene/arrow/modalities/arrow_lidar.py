@@ -40,9 +40,9 @@ class ArrowLidarWriter(ArrowBaseModalityWriter):
         log_metadata: LogMetadata,
         lidar_store_option: Literal["path", "binary"],
         lidar_codec: Optional[Literal["laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"]],
-        lidar_codec_config: Optional[PointCloudCodecConfig] = None,
         ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
         ipc_compression_level: Optional[int] = None,
+        lidar_codec_config: Optional[PointCloudCodecConfig] = None,
     ) -> None:
         assert isinstance(metadata, (LidarMetadata, LidarMergedMetadata)), (
             f"Expected LidarMetadata or LidarMergedMetadata, got {type(metadata)}"
@@ -152,11 +152,11 @@ class ArrowLidarWriter(ArrowBaseModalityWriter):
         elif codec == "laz":
             return encode_point_cloud_as_laz_binary(point_cloud_3d, point_cloud_features, config=config)
         elif codec == "ipc":
-            return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec=None, config=config)
+            return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec=None)
         elif codec == "ipc_zstd":
-            return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec="zstd", config=config)
+            return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec="zstd")
         elif codec == "ipc_lz4":
-            return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec="lz4", config=config)
+            return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec="lz4")
         else:
             raise NotImplementedError(f"Unsupported lidar codec: {codec}")
 
