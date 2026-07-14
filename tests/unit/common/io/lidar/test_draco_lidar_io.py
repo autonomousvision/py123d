@@ -123,7 +123,9 @@ class TestDracoRoundtrip:
 
     def test_quantization_bits_from_config(self):
         """Test that a lower quantization budget yields a smaller blob."""
-        point_cloud = np.random.rand(1000, 3).astype(np.float32)
+        rng = np.random.default_rng(0)
+        point_cloud = (rng.random((5000, 3), dtype=np.float32) - 0.5) * 100.0
+
         default = encode_point_cloud_as_draco_binary(point_cloud)
         coarse = encode_point_cloud_as_draco_binary(
             point_cloud, config=PointCloudCodecConfig(draco_quantization_bits=8)
