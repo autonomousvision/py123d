@@ -44,6 +44,8 @@ docs/build/
 _build/
 .doctrees/
 
+# uv
+*.lock
 
 # ruff
 .ruff_cache/*
