@@ -1,4 +1,5 @@
 import logging
+import os
 import random
 from functools import partial
 from pathlib import Path
@@ -89,20 +90,28 @@ class ArrowSceneBuilder(SceneBuilder):
 def _parse_valid_log_dirs(logs_root: Path, filter: SceneFilter) -> List[Path]:
     """Discover valid log directories based on Category 1 filter criteria (filesystem-only).
 
+    A log directory is any directory containing ``sync.arrow`` at any depth
+    beneath a split directory.
+
     :param logs_root: Root directory containing split subdirectories.
     :param filter: The scene filter.
-    :return: List of valid log directory paths.
+    :return: Sorted list of valid log directory paths.
     """
     split_names = filter.split_names if filter.split_names is not None else _discover_split_names(logs_root, filter)
     log_paths: List[Path] = []
     for split_name in split_names:
         split_dir = logs_root / split_name
-        if split_dir.exists():
-            for log_path in split_dir.iterdir():
-                if log_path.is_dir() and (log_path / "sync.arrow").exists():
-                    if filter.log_names is None or log_path.name in filter.log_names:
-                        log_paths.append(log_path)
-    return log_paths
+        if not split_dir.exists():
+            continue
+        for dirpath, dirnames, filenames in os.walk(split_dir):
+            if "sync.arrow" not in filenames:
+                continue
+            log_path = Path(dirpath)
+            if filter.log_names is None or log_path.name in filter.log_names:
+                log_paths.append(log_path)
+            # A log has no nested logs.
+            dirnames[:] = []
+    return sorted(log_paths)
 
 
 def _discover_split_names(logs_root: Path, filter: SceneFilter) -> List[str]:
