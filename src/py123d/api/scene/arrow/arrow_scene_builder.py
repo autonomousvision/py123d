@@ -103,7 +103,7 @@ def _parse_valid_log_dirs(logs_root: Path, filter: SceneFilter) -> List[Path]:
         split_dir = logs_root / split_name
         if not split_dir.exists():
             continue
-        for dirpath, dirnames, filenames in os.walk(split_dir):
+        for dirpath, dirnames, filenames in os.walk(split_dir, topdown=True):
             if "sync.arrow" not in filenames:
                 continue
             log_path = Path(dirpath)
