@@ -115,6 +115,14 @@ examples = [
     "torch",
 ]
 
+[tool.uv]
+conflicts = [
+    [
+        { extra = "waymo" },
+        { extra = "nuscenes" }
+    ]
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
