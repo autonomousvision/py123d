@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal, Optional
 
+from py123d.common.io.lidar.point_cloud_codec_config import PointCloudCodecConfig
+
 
 @dataclass
 class LogWriterConfig:
@@ -19,10 +21,12 @@ class LogWriterConfig:
     # Lidars
     lidar_store_option: Literal["path", "binary"] = "path"
     lidar_codec: Optional[Literal["laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"]] = None
+    lidar_codec_config: PointCloudCodecConfig = field(default_factory=PointCloudCodecConfig)
 
     # Radars
     radar_store_option: Literal["path", "binary"] = "path"
     radar_codec: Optional[Literal["laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"]] = None
+    radar_codec_config: PointCloudCodecConfig = field(default_factory=PointCloudCodecConfig)
 
     # IPC write options
     ipc_max_batch_size: Optional[int] = None

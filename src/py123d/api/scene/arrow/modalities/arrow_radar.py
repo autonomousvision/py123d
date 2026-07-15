@@ -23,6 +23,7 @@ from py123d.common.io.lidar.laz_lidar_io import (
     is_laz_binary,
     load_point_cloud_from_laz_binary,
 )
+from py123d.common.io.lidar.point_cloud_codec_config import PointCloudCodecConfig
 from py123d.common.io.radar.path_radar_io import load_radar_point_cloud_data_from_path
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata
@@ -41,6 +42,7 @@ class ArrowRadarWriter(ArrowBaseModalityWriter):
         radar_codec: Optional[Literal["laz", "draco", "ipc_zstd", "ipc_lz4", "ipc"]],
         ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
         ipc_compression_level: Optional[int] = None,
+        radar_codec_config: Optional[PointCloudCodecConfig] = None,
     ) -> None:
         assert isinstance(metadata, (RadarMetadata, RadarMergedMetadata)), (
             f"Expected RadarMetadata or RadarMergedMetadata, got {type(metadata)}"
@@ -53,6 +55,7 @@ class ArrowRadarWriter(ArrowBaseModalityWriter):
 
         self._radar_store_option = radar_store_option
         self._radar_codec = radar_codec
+        self._radar_codec_config = radar_codec_config if radar_codec_config is not None else PointCloudCodecConfig()
 
         file_path = log_dir / f"{metadata.modality_key}.arrow"
 
@@ -134,10 +137,11 @@ class ArrowRadarWriter(ArrowBaseModalityWriter):
             return None
 
         codec = self._radar_codec
+        config = self._radar_codec_config
         if codec == "draco":
-            return encode_point_cloud_as_draco_binary(point_cloud_3d, point_cloud_features)
+            return encode_point_cloud_as_draco_binary(point_cloud_3d, point_cloud_features, config=config)
         elif codec == "laz":
-            return encode_point_cloud_as_laz_binary(point_cloud_3d, point_cloud_features)
+            return encode_point_cloud_as_laz_binary(point_cloud_3d, point_cloud_features, config=config)
         elif codec == "ipc":
             return encode_point_cloud_as_ipc_binary(point_cloud_3d, point_cloud_features, codec=None)
         elif codec == "ipc_zstd":
