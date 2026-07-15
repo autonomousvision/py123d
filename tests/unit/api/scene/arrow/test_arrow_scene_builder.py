@@ -955,6 +955,24 @@ class TestCategory1LogDiscovery:
         assert len(result) == 1
         assert result[0].name == "log_001"
 
+    def test_discovers_nested_logs(self, tmp_path):
+        # Logs grouped into subdirectories within a split.
+        _write_demo_log(tmp_path, split_name="test-dataset_train/group_a", log_name="log_001")
+        _write_demo_log(tmp_path, split_name="test-dataset_train/group_b", log_name="log_002")
+
+        logs_root = tmp_path / "logs"
+
+        # The coarse split name discovers logs at any depth beneath it.
+        result = _parse_valid_log_dirs(logs_root, SceneFilter(split_names=["test-dataset_train"]))
+        assert sorted(p.name for p in result) == ["log_001", "log_002"]
+
+        # A log-name filter still applies to the leaf directory name.
+        result = _parse_valid_log_dirs(
+            logs_root,
+            SceneFilter(split_names=["test-dataset_train"], log_names=["log_002"]),
+        )
+        assert [p.name for p in result] == ["log_002"]
+
 
 class TestCategory4PostFiltering:
     def test_chunking(self):
