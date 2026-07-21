@@ -60,12 +60,9 @@ class DatasetPaths:
     pandaset_data_root: Optional[Path] = None
     kitti360_data_root: Optional[Path] = None
     nuscenes_data_root: Optional[Path] = None
-<<<<<<< HEAD
     nureasoning_data_root: Optional[Path] = None
     griffin_data_root: Optional[Path] = None
-=======
     truckdrive_data_root: Optional[Path] = None
->>>>>>> feat: Add support for TruckDrive dataset
 
     # 2. Derived paths (if not explicitly set, will be derived from primary roots in __post_init__)
     py123d_logs_root: Optional[Path] = field(default=None, repr=False)

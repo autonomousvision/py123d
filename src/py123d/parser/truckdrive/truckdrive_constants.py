@@ -63,10 +63,9 @@ VEHICLE_FRAME = "vehicle"
 VELODYNE_FRAME = "velodyne"
 AEVA_REFERENCE_LIDAR_FRAME = "lidar_aeva_forward_center_wide"
 
-# TODO(truckdrive): confirm tractor wheelbase and vehicle dimensions with Torc.
-DEFAULT_WHEEL_BASE_M = 6.0
+DEFAULT_WHEEL_BASE_M = 6.3115
 DEFAULT_VEHICLE_WIDTH_M = 2.6
-DEFAULT_VEHICLE_LENGTH_M = 22.0
+DEFAULT_VEHICLE_LENGTH_M = 8.532 # Tractor: 8.532 Tractor+Trailer: 22.0
 DEFAULT_VEHICLE_HEIGHT_M = 4.0
 DEFAULT_VEHICLE_NAME = "freightliner_cascadia"
 
