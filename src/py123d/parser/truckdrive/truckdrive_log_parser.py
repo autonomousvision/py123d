@@ -231,9 +231,7 @@ class TruckDriveLogParser(BaseLogParser):
         )
 
     def _build_ouster_lidar(self, ouster_name: str, synced_file: SyncedFile, timestamp: Timestamp) -> ParsedLidar:
-        relative_path = (
-            Path(self._scene_name) / "lidar" / "ouster" / ouster_name / "points" / synced_file.filename
-        )
+        relative_path = Path(self._scene_name) / "lidar" / "ouster" / ouster_name / "points" / synced_file.filename
         return ParsedLidar(
             metadata=self._ouster_lidar_metadata[ouster_name],
             start_timestamp=timestamp,
@@ -264,7 +262,9 @@ class TruckDriveLogParser(BaseLogParser):
             relative_path=relative_path,
         )
 
-    def _build_box_detections(self, synced_file: SyncedFile, timestamp: Timestamp, vehicle_to_global: PoseSE3) -> BoxDetectionsSE3:
+    def _build_box_detections(
+        self, synced_file: SyncedFile, timestamp: Timestamp, vehicle_to_global: PoseSE3
+    ) -> BoxDetectionsSE3:
         json_path = self._scene_dir / "annotations" / "bounding_boxes" / synced_file.filename
         with json_path.open("r", encoding="utf-8") as file:
             raw_objects = json.load(file)

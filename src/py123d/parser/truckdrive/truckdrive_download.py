@@ -30,8 +30,7 @@ def _require_hf_hub():
         hf_hub = importlib.import_module("huggingface_hub")
     except ImportError as exc:
         raise SystemExit(
-            "huggingface_hub is required for TruckDrive downloads. Install it with:\n"
-            "  pip install py123d[hf]\n"
+            "huggingface_hub is required for TruckDrive downloads. Install it with:\n  pip install py123d[hf]\n"
         ) from exc
     return hf_hub.HfApi, hf_hub.hf_hub_download, hf_hub.login
 

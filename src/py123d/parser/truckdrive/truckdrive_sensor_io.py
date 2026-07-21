@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 
@@ -15,7 +15,9 @@ _AEVA_JOINT_PATH_MARKER = "lidar/aeva/joint_lidars/points"
 _OUSTER_PATH_MARKER = "lidar/ouster/"
 
 
-def _load_aeva_joint_bin(bin_path: Path, lidar_id: LidarID, lidar_metadata: LidarMetadata) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
+def _load_aeva_joint_bin(
+    bin_path: Path, lidar_id: LidarID, lidar_metadata: LidarMetadata
+) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
     """Load an Aeva joint-lidar ``.bin`` (float64, 11 columns per point)."""
     raw = np.fromfile(bin_path, dtype=np.float64)
     if raw.size == 0:
@@ -47,7 +49,9 @@ def _load_aeva_joint_bin(bin_path: Path, lidar_id: LidarID, lidar_metadata: Lida
     return point_cloud_3d, features
 
 
-def _load_ouster_bin(bin_path: Path, lidar_id: LidarID, lidar_metadata: LidarMetadata) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
+def _load_ouster_bin(
+    bin_path: Path, lidar_id: LidarID, lidar_metadata: LidarMetadata
+) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
     """Load an Ouster ``.bin`` (float32, 7 columns per point)."""
     raw = np.fromfile(bin_path, dtype=np.float32)
     if raw.size == 0:
@@ -97,12 +101,12 @@ def load_truckdrive_point_cloud_data_from_path(
 ) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
     """Load a TruckDrive lidar ``.bin`` into py123d point cloud layout.
 
-    Points are already expressed in the native sensor frame on disk; no extrinsic
-  reframe is applied here.
+      Points are already expressed in the native sensor frame on disk; no extrinsic
+    reframe is applied here.
 
-    :param bin_path: Absolute path to the ``.bin`` file.
-    :param lidar_metadatas: Optional per-lidar metadata (used to pick ``LidarID`` for Aeva merged).
-    :return: ``(point_cloud_3d, point_cloud_features)`` with xyz float32 and feature arrays.
+      :param bin_path: Absolute path to the ``.bin`` file.
+      :param lidar_metadatas: Optional per-lidar metadata (used to pick ``LidarID`` for Aeva merged).
+      :return: ``(point_cloud_3d, point_cloud_features)`` with xyz float32 and feature arrays.
     """
     bin_path = Path(bin_path)
     path_str = bin_path.as_posix()
@@ -114,6 +118,8 @@ def load_truckdrive_point_cloud_data_from_path(
         return _load_aeva_joint_bin(bin_path, lidar_id, lidar_metadatas[lidar_id])
 
     if _OUSTER_PATH_MARKER in path_str:
-        return _load_ouster_bin(bin_path, _resolve_ouster_lidar_id(bin_path), lidar_metadatas[_resolve_ouster_lidar_id(bin_path)])
+        return _load_ouster_bin(
+            bin_path, _resolve_ouster_lidar_id(bin_path), lidar_metadatas[_resolve_ouster_lidar_id(bin_path)]
+        )
 
     raise ValueError(f"Unrecognized TruckDrive lidar path: {bin_path}")

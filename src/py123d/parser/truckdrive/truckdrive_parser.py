@@ -43,7 +43,9 @@ class TruckDriveDatasetParser(BaseDatasetParser):
             downloader.download()
             self._data_root = Path(downloader.output_dir)
         else:
-            assert truckdrive_data_root is not None, "`truckdrive_data_root` must be provided when `downloader` is None."
+            assert truckdrive_data_root is not None, (
+                "`truckdrive_data_root` must be provided when `downloader` is None."
+            )
             self._data_root = Path(truckdrive_data_root)
             assert self._data_root.exists(), f"`truckdrive_data_root` path {self._data_root} does not exist."
 
@@ -57,9 +59,7 @@ class TruckDriveDatasetParser(BaseDatasetParser):
         if scene_names:
             return sorted(set(scene_names))
         return sorted(
-            path.name
-            for path in self._data_root.iterdir()
-            if path.is_dir() and path.name.startswith("scene_")
+            path.name for path in self._data_root.iterdir() if path.is_dir() and path.name.startswith("scene_")
         )
 
     def get_log_parsers(self) -> List[BaseLogParser]:

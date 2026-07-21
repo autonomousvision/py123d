@@ -5,7 +5,11 @@ from __future__ import annotations
 import logging
 from typing import Dict, Optional
 
-from py123d.datatypes.detections.box_detection_label import BoxDetectionLabel, DefaultBoxDetectionLabel, register_box_detection_label
+from py123d.datatypes.detections.box_detection_label import (
+    BoxDetectionLabel,
+    DefaultBoxDetectionLabel,
+    register_box_detection_label,
+)
 from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3Metadata
 from py123d.parser.truckdrive.truckdrive_constants import LABEL_MAPPING, MAPPED_CATEGORIES
 
