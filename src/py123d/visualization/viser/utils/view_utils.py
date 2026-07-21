@@ -9,7 +9,7 @@ from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import EulerAngles, PoseSE3Index, Vector3D
 from py123d.geometry.pose import PoseSE3
 from py123d.geometry.rotation import Quaternion
-from py123d.geometry.transform.transform_se3 import abs_to_rel_se3_array, reframe_se3, translate_se3_along_body_frame
+from py123d.geometry.transform.transform_se3 import abs_to_rel_se3_array, translate_se3_along_body_frame
 from py123d.parser.utils.sensor_utils.camera_conventions import convert_camera_convention
 
 
@@ -34,16 +34,14 @@ def get_ego_3rd_person_view_position(
 ) -> PoseSE3:
     """Position camera 15m behind and 15m above ego vehicle with 30 degree pitch."""
     scene_center_array = initial_ego_state.center_se3.point_3d.array
-    ego_pose = scene.get_ego_state_se3_at_iteration(iteration).imu_se3.array
-    #ego_pose[PoseSE3Index.XYZ] -= scene_center_array
-    ego_pose_se3 = PoseSE3.from_array(ego_pose)
-    ego_pose_se3 = reframe_se3(
-        from_origin=PoseSE3.identity(),
-        to_origin=initial_ego_state.center_se3,
-        pose_se3=ego_pose_se3,  # type: ignore
-    )
+    ego_center = scene.get_ego_state_se3_at_iteration(iteration).center_se3.array.copy()
+    ego_center[PoseSE3Index.XYZ] -= scene_center_array
+    ego_pose_se3 = PoseSE3.from_array(ego_center)
+
+    planar_euler_angles = EulerAngles(0.0, 0.0, _get_planar_heading(scene, iteration))
+    ego_pose_se3._array[PoseSE3Index.QUATERNION] = planar_euler_angles.quaternion.array
+
     ego_pose_se3 = translate_se3_along_body_frame(ego_pose_se3, Vector3D(-10.0, 0.0, 9.0))
-    #ego_pose_se3 = translate_se3_along_body_frame(ego_pose_se3, Vector3D(-9.0, 0.0, -10.0))
     ego_pose_se3 = _pitch_se3_by_degrees(ego_pose_se3, 25.0)
 
     return convert_camera_convention(
@@ -90,3 +88,26 @@ def _pitch_se3_by_degrees(pose_se3: PoseSE3, degrees: float) -> PoseSE3:
         qy=quaternion.qy,
         qz=quaternion.qz,
     )
+
+
+def _get_planar_heading(scene: SceneAPI, iteration: int) -> float:
+    current_state = scene.get_ego_state_se3_at_iteration(iteration)
+    assert current_state is not None, "Ego state must be available at the specified iteration."
+
+    current_xy = current_state.center_se3.array[PoseSE3Index.XY]
+    prev_state = scene.get_ego_state_se3_at_iteration(max(iteration - 1, 0))
+    next_state = scene.get_ego_state_se3_at_iteration(min(iteration + 1, scene.number_of_iterations - 1))
+
+    if prev_state is not None and next_state is not None and iteration not in (0, scene.number_of_iterations - 1):
+        direction_xy = next_state.center_se3.array[PoseSE3Index.XY] - prev_state.center_se3.array[PoseSE3Index.XY]
+    elif next_state is not None and iteration < scene.number_of_iterations - 1:
+        direction_xy = next_state.center_se3.array[PoseSE3Index.XY] - current_xy
+    elif prev_state is not None and iteration > 0:
+        direction_xy = current_xy - prev_state.center_se3.array[PoseSE3Index.XY]
+    else:
+        return current_state.center_se3.yaw
+
+    if np.linalg.norm(direction_xy) < 1e-6:
+        return current_state.center_se3.yaw
+
+    return float(np.arctan2(direction_xy[1], direction_xy[0]))
