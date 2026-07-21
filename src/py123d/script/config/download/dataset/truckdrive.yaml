@@ -12,6 +12,9 @@ downloader:
     - poses
     - calibrations
     - annotations
+  revision: main
+  hf_token: null            # falls back to $HF_TOKEN / $HUGGINGFACE_HUB_TOKEN
+  hf_login: true            # when token is provided, call huggingface_hub.login
   max_workers: 4
   unzip: true
   overwrite: false

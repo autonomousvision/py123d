@@ -1,33 +1,48 @@
-"""Download utilities for the public TruckDrive dataset."""
+"""Download utilities for the TruckDrive dataset on Hugging Face."""
 
 from __future__ import annotations
 
 import concurrent.futures
+import importlib
 import logging
+import os
 import shutil
 import tempfile
-import urllib.parse
-import urllib.request
-import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 from py123d.parser.base_downloader import BaseDownloader
 from py123d.parser.truckdrive.truckdrive_constants import (
-    CLOUDFRONT_BASE_URL,
     DEFAULT_MODALITIES,
+    HF_TRUCKDRIVE_REPO_ID,
+    HF_TRUCKDRIVE_REPO_TYPE,
+    HF_TRUCKDRIVE_ROOT,
     MODALITY_ZIP_FILES,
-    S3_PREFIX,
 )
 
 logger = logging.getLogger(__name__)
 
-_S3_NS = {"s3": "http://s3.amazonaws.com/doc/2006-03-01/"}
+
+def _require_hf_hub():
+    """Lazy import — ``huggingface_hub`` is only required when download is requested."""
+    try:
+        hf_hub = importlib.import_module("huggingface_hub")
+    except ImportError as exc:
+        raise SystemExit(
+            "huggingface_hub is required for TruckDrive downloads. Install it with:\n"
+            "  pip install py123d[hf]\n"
+        ) from exc
+    return hf_hub.HfApi, hf_hub.hf_hub_download, hf_hub.login
+
+
+def resolve_hf_token(cli_token: Optional[str] = None) -> Optional[str]:
+    """Resolve HF token from arg, ``HF_TOKEN``, or ``HUGGINGFACE_HUB_TOKEN``."""
+    return cli_token or os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN")
 
 
 class TruckDriveDownloader(BaseDownloader):
-    """Downloader for the public TruckDrive CloudFront release."""
+    """Downloader for the gated TruckDrive release hosted on Hugging Face."""
 
     def __init__(
         self,
@@ -35,6 +50,9 @@ class TruckDriveDownloader(BaseDownloader):
         dry_run: bool = False,
         scenes: Optional[Sequence[str]] = None,
         modalities: Optional[Sequence[str]] = None,
+        revision: str = "main",
+        hf_token: Optional[str] = None,
+        hf_login: bool = True,
         max_workers: int = 4,
         unzip: bool = True,
         overwrite: bool = False,
@@ -45,6 +63,9 @@ class TruckDriveDownloader(BaseDownloader):
         :param dry_run: When ``True``, log the plan without downloading.
         :param scenes: Explicit scene names to download. When ``None``, all scenes are listed.
         :param modalities: Modalities to download. Defaults to camera/lidar/poses/calibrations/annotations.
+        :param revision: Hugging Face dataset revision (branch/tag/commit).
+        :param hf_token: Hugging Face token. Falls back to ``HF_TOKEN`` or ``HUGGINGFACE_HUB_TOKEN``.
+        :param hf_login: Attempt ``huggingface_hub.login`` when ``hf_token`` is available.
         :param max_workers: Parallel download workers.
         :param unzip: Extract modality zips into the viewer layout after download.
         :param overwrite: Re-download files even when they already exist locally.
@@ -53,27 +74,39 @@ class TruckDriveDownloader(BaseDownloader):
         self.dry_run = dry_run
         self.scenes = list(scenes) if scenes is not None else None
         self.modalities = tuple(modalities) if modalities is not None else DEFAULT_MODALITIES
+        self.revision = revision
+        self.hf_token = resolve_hf_token(hf_token)
+        self.hf_login = hf_login
         self.max_workers = max_workers
         self.unzip = unzip
         self.overwrite = overwrite
+
+        if self.hf_token is None:
+            logger.warning(
+                "No HF token configured for TruckDriveDownloader. TruckDrive is gated; "
+                "set $HF_TOKEN (or pass hf_token) and request access on Hugging Face if downloads fail."
+            )
 
     def download(self) -> None:
         """Fetch selected TruckDrive scenes into :attr:`output_dir`."""
         if self.output_dir is None:
             raise ValueError("TruckDriveDownloader.output_dir must be set before calling download().")
 
+        self._authenticate_hf()
         selected_modalities = self._resolve_modalities()
-        scene_names = self.scenes if self.scenes else self._list_scene_names()
+        try:
+            scene_names = self.scenes if self.scenes else self._list_scene_names()
+        except Exception as exc:
+            raise RuntimeError(
+                "Failed to list TruckDrive scenes from Hugging Face. "
+                "Ensure your account has accepted dataset access and your HF token is valid."
+            ) from exc
         if not scene_names:
             raise RuntimeError("No TruckDrive scenes found to download.")
 
         selected_keys: List[str] = []
         for scene_name in scene_names:
-            scene_prefix = f"{S3_PREFIX}{scene_name}/"
-            for key in self._list_keys_for_prefix(scene_prefix):
-                filename = Path(key).name
-                if filename in selected_modalities:
-                    selected_keys.append(key)
+            selected_keys.extend(self._list_keys_for_scene(scene_name, selected_modalities))
 
         selected_keys = sorted(set(selected_keys))
         if not selected_keys:
@@ -104,59 +137,36 @@ class TruckDriveDownloader(BaseDownloader):
         return tuple(MODALITY_ZIP_FILES[modality] for modality in self.modalities)
 
     def _list_scene_names(self) -> List[str]:
-        prefixes = self._list_prefixes_for_prefix(S3_PREFIX, delimiter="/")
+        api = self._create_hf_api()
+        entries = api.list_repo_tree(
+            repo_id=HF_TRUCKDRIVE_REPO_ID,
+            repo_type=HF_TRUCKDRIVE_REPO_TYPE,
+            path_in_repo=HF_TRUCKDRIVE_ROOT,
+            revision=self.revision,
+            recursive=False,
+        )
+
         scene_names: List[str] = []
-        for prefix in prefixes:
-            remainder = prefix[len(S3_PREFIX) :].strip("/")
+        for entry in entries:
+            remainder = entry.path[len(HF_TRUCKDRIVE_ROOT) :].strip("/")
             if remainder.startswith("scene_"):
-                scene_names.append(remainder)
+                scene_names.append(remainder.split("/")[0])
+
         return sorted(set(scene_names))
 
-    def _list_prefixes_for_prefix(self, prefix: str, delimiter: str = "/") -> List[str]:
-        encoded_prefix = urllib.parse.quote(prefix, safe="")
-        encoded_delimiter = urllib.parse.quote(delimiter, safe="")
-        prefixes: List[str] = []
-        marker: Optional[str] = None
+    def _list_keys_for_scene(self, scene_name: str, selected_modalities: Tuple[str, ...]) -> List[str]:
+        api = self._create_hf_api()
+        scene_prefix = f"{HF_TRUCKDRIVE_ROOT}/{scene_name}"
+        entries = api.list_repo_tree(
+            repo_id=HF_TRUCKDRIVE_REPO_ID,
+            repo_type=HF_TRUCKDRIVE_REPO_TYPE,
+            path_in_repo=scene_prefix,
+            revision=self.revision,
+            recursive=False,
+        )
 
-        while True:
-            url = f"{CLOUDFRONT_BASE_URL}/?prefix={encoded_prefix}&delimiter={encoded_delimiter}"
-            if marker:
-                url += f"&marker={urllib.parse.quote(marker, safe='')}"
-            xml_text = self._fetch_text(url)
-            root = ET.fromstring(xml_text)
-            for elem in root.findall(".//s3:CommonPrefixes", _S3_NS):
-                prefix_elem = elem.find("s3:Prefix", _S3_NS)
-                if prefix_elem is not None and prefix_elem.text:
-                    prefixes.append(prefix_elem.text)
-            marker_elem = root.find(".//s3:NextMarker", _S3_NS)
-            marker = marker_elem.text if marker_elem is not None else None
-            if not marker:
-                break
-        return prefixes
-
-    def _list_keys_for_prefix(self, prefix: str) -> List[str]:
-        encoded_prefix = urllib.parse.quote(prefix, safe="")
-        keys: List[str] = []
-        marker: Optional[str] = None
-
-        while True:
-            url = f"{CLOUDFRONT_BASE_URL}/?prefix={encoded_prefix}&delimiter="
-            if marker:
-                url += f"&marker={urllib.parse.quote(marker, safe='')}"
-            xml_text = self._fetch_text(url)
-            root = ET.fromstring(xml_text)
-            for elem in root.findall(".//s3:Key", _S3_NS):
-                if elem.text:
-                    keys.append(elem.text)
-            marker_elem = root.find(".//s3:NextMarker", _S3_NS)
-            marker = marker_elem.text if marker_elem is not None else None
-            if not marker:
-                break
-        return keys
-
-    def _fetch_text(self, url: str) -> str:
-        with urllib.request.urlopen(url, timeout=60) as response:
-            return response.read().decode("utf-8")
+        selected = [entry.path for entry in entries if Path(entry.path).name in selected_modalities]
+        return sorted(set(selected))
 
     def _download_key(self, key: str) -> None:
         assert self.output_dir is not None
@@ -166,13 +176,43 @@ class TruckDriveDownloader(BaseDownloader):
             return
 
         destination.parent.mkdir(parents=True, exist_ok=True)
-        encoded_key = urllib.parse.quote(key, safe="/")
-        url = f"{CLOUDFRONT_BASE_URL}/{encoded_key}"
         part_path = destination.with_suffix(destination.suffix + ".part")
+        if part_path.exists():
+            part_path.unlink()
+
         logger.info("[download] %s", key)
-        with urllib.request.urlopen(url, timeout=120) as response, part_path.open("wb") as part_file:
-            shutil.copyfileobj(response, part_file)
+        _, hf_hub_download, _ = _require_hf_hub()
+        try:
+            tmp_download = hf_hub_download(
+                repo_id=HF_TRUCKDRIVE_REPO_ID,
+                repo_type=HF_TRUCKDRIVE_REPO_TYPE,
+                filename=key,
+                revision=self.revision,
+                token=self.hf_token,
+                force_download=self.overwrite,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to download {key} from Hugging Face. "
+                "Ensure dataset access is approved and your HF token has read scope."
+            ) from exc
+        shutil.copy2(tmp_download, part_path)
         part_path.replace(destination)
+
+    def _authenticate_hf(self) -> None:
+        if not self.hf_login or not self.hf_token:
+            return
+
+        _, _, login = _require_hf_hub()
+        try:
+            login(token=self.hf_token, add_to_git_credential=False)
+        except TypeError:
+            # Older huggingface_hub versions may not expose add_to_git_credential.
+            login(token=self.hf_token)
+
+    def _create_hf_api(self):
+        HfApi, _, _ = _require_hf_hub()
+        return HfApi(token=self.hf_token)
 
     def _unzip_modality_archive(self, zip_path: Path) -> None:
         if not zip_path.is_file():

@@ -9,7 +9,7 @@ from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import EulerAngles, PoseSE3Index, Vector3D
 from py123d.geometry.pose import PoseSE3
 from py123d.geometry.rotation import Quaternion
-from py123d.geometry.transform.transform_se3 import abs_to_rel_se3_array, translate_se3_along_body_frame
+from py123d.geometry.transform.transform_se3 import abs_to_rel_se3_array, reframe_se3, translate_se3_along_body_frame
 from py123d.parser.utils.sensor_utils.camera_conventions import convert_camera_convention
 
 
@@ -35,9 +35,15 @@ def get_ego_3rd_person_view_position(
     """Position camera 15m behind and 15m above ego vehicle with 30 degree pitch."""
     scene_center_array = initial_ego_state.center_se3.point_3d.array
     ego_pose = scene.get_ego_state_se3_at_iteration(iteration).imu_se3.array
-    ego_pose[PoseSE3Index.XYZ] -= scene_center_array
+    #ego_pose[PoseSE3Index.XYZ] -= scene_center_array
     ego_pose_se3 = PoseSE3.from_array(ego_pose)
+    ego_pose_se3 = reframe_se3(
+        from_origin=PoseSE3.identity(),
+        to_origin=initial_ego_state.center_se3,
+        pose_se3=ego_pose_se3,  # type: ignore
+    )
     ego_pose_se3 = translate_se3_along_body_frame(ego_pose_se3, Vector3D(-10.0, 0.0, 9.0))
+    #ego_pose_se3 = translate_se3_along_body_frame(ego_pose_se3, Vector3D(-9.0, 0.0, -10.0))
     ego_pose_se3 = _pitch_se3_by_degrees(ego_pose_se3, 25.0)
 
     return convert_camera_convention(

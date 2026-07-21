@@ -9,8 +9,9 @@ from py123d.datatypes.sensors.lidar import LidarID
 
 DATASET_NAME = "truckdrive"
 
-CLOUDFRONT_BASE_URL = "https://d3ehgyu1hepsur.cloudfront.net"
-S3_PREFIX = "TruckDrive/"
+HF_TRUCKDRIVE_REPO_ID = "Torc-Robotics/TruckDrive"
+HF_TRUCKDRIVE_REPO_TYPE = "dataset"
+HF_TRUCKDRIVE_ROOT = "TruckDrive"
 
 DEFAULT_MODALITIES: Tuple[str, ...] = (
     "camera",
@@ -58,7 +59,7 @@ OUSTER_LIDAR_NAMES: Tuple[str, ...] = (
 AEVA_JOINT_LIDAR_REL_PATH = "lidar/aeva/joint_lidars/points"
 
 # Frame names in calibrations/calib_tf_tree_full.json
-VEHICLE_FRAME = "vehicle"
+VEHICLE_FRAME = "velodyne"
 VELODYNE_FRAME = "velodyne"
 AEVA_REFERENCE_LIDAR_FRAME = "lidar_aeva_forward_center_wide"
 
