@@ -67,6 +67,13 @@ class TruckDriveDatasetParser(BaseDatasetParser):
         parsers: List[BaseLogParser] = []
         for scene_name in self._scene_names:
             split = self._split_override or resolve_truckdrive_split(scene_name)
+            if split == "truckdrive_test":
+                logger.warning(
+                    "Skipping log parser for scene %s in split %s, as the test split does not have ground truth trajectory nor annotations.",
+                    scene_name,
+                    split,
+                )
+                continue
             parsers.append(
                 TruckDriveLogParser(
                     data_root=self._data_root,

@@ -187,6 +187,8 @@ def load_gt_trajectory(trajectory_path: Path) -> Dict[int, TrajectoryPose]:
             parts = line.strip().split()
             if len(parts) < 9:
                 continue
+            if parts[0] == "refined_gt_trajectory":
+                continue
             sync_key = int(float(parts[0]))
             timestamp_s = float(parts[1])
             x, y, z = map(float, parts[2:5])
