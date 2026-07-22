@@ -147,13 +147,10 @@ class DatasetPaths:
             "wod_perception": self.wod_perception_data_root,  # legacy alias for pre-rename logs
             "pandaset": self.pandaset_data_root,
             "kitti360": self.kitti360_data_root,
-<<<<<<< HEAD
             # nuReasoning stores cameras (jpeg_binary) and lidar (path) under the data root.
             "nureasoning": self.nureasoning_data_root,
             "griffin": self.griffin_data_root,
-=======
             "truckdrive": self.truckdrive_data_root,
->>>>>>> feat: Add support for TruckDrive dataset
         }
         return mapping.get(dataset)
 
