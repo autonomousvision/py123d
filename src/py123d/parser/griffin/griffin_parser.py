@@ -51,6 +51,7 @@ from py123d.parser.base_dataset_parser import (
     ParsedCamera,
     ParsedLidar,
 )
+from py123d.parser.griffin.griffin_map_parser import get_griffin_map_parsers, griffin_map_metadata
 from py123d.parser.griffin.utils.griffin_constants import (
     GRIFFIN_BOX_DETECTION_FROM_STR,
     GRIFFIN_BOX_DETECTIONS_SE3_METADATA,
@@ -72,6 +73,7 @@ from py123d.parser.griffin.utils.griffin_utils import (
     pose_dict_to_ego_to_global_se3,
     read_json,
     sensor_to_ego_pose_se3,
+    town_from_scene_name,
 )
 
 logger = logging.getLogger(__name__)
@@ -86,7 +88,7 @@ def _default_split_file(subset: str) -> Path:
     :param subset: Subset name, e.g. ``"griffin_50scenes_25m"``.
     :return: Path to the packaged ``splits/{subset}.json``.
     """
-    return Path(str(resources.files("py123d.parser.griffin").joinpath("splits", f"{subset}.json")))
+    return Path(str(resources.files("py123d.parser.griffin").joinpath("splits").joinpath(f"{subset}.json")))
 
 
 class GriffinParser(BaseDatasetParser):
@@ -166,8 +168,8 @@ class GriffinParser(BaseDatasetParser):
         return log_parsers
 
     def get_map_parsers(self) -> List[BaseMapParser]:
-        """Inherited, see superclass. Griffin provides no HD map."""
-        return []
+        """Inherited, see superclass. One global map per Griffin CARLA town."""
+        return get_griffin_map_parsers()
 
 
 class GriffinLogParser(BaseLogParser):
@@ -204,11 +206,17 @@ class GriffinLogParser(BaseLogParser):
 
     def get_log_metadata(self) -> LogMetadata:
         """Inherited, see superclass."""
+        _town = town_from_scene_name(self._scene_name)
         return LogMetadata(
             dataset="griffin",
             split=self._split,
             log_name=self._scene_name,
-            location=self._subset,
+            # The CARLA town doubles as location, linking the log to its global
+            # map at {maps_root}/griffin/griffin_{town}.arrow (nuScenes pattern).
+            location=_town,
+            # Attach the global map metadata so ``has_map`` / ``map_locations``
+            # scene filters resolve for Griffin (map itself loads by location).
+            map_metadata=griffin_map_metadata(_town),
         )
 
     def _build_camera_metadata(self) -> Dict[CameraID, PinholeCameraMetadata]:

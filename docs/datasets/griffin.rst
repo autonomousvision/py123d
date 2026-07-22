@@ -58,8 +58,12 @@ Available Modalities
      - Ego poses are provided in an ENU world frame; vehicle parameters follow the CARLA
        ego model, see :class:`~py123d.datatypes.vehicle_state.EgoStateSE3`.
    * - Map
-     - X
-     - n/a
+     - ✓
+     - Griffin scenes are rendered on four stock CARLA towns (``Town03``, ``Town06``,
+       ``Town07``, ``Town10HD``). The bundled OpenDRIVE town maps are converted as global
+       maps under the ``griffin`` dataset; each log links to its town via ``location``.
+       Griffin's global (ENU) frame coincides with the CARLA map frame, so no additional
+       transform is required.
    * - Bounding Boxes
      - ✓
      - Bounding boxes are available with the :class:`~py123d.parser.registry.GriffinBoxDetectionLabel`.
