@@ -11,8 +11,8 @@ TruckDrive
   If you run into issues, please open a bug report on
   `GitHub Issues <https://github.com/kesai-labs/py123d/issues>`_.
 
-TruckDrive is a long-range autonomous highway driving dataset designed for heavy-truck safety, 
-perception, prediction, and planning research. It targets high-speed highway operation, where reliable 
+TruckDrive is a long-range autonomous highway driving dataset designed for heavy-truck safety,
+perception, prediction, and planning research. It targets high-speed highway operation, where reliable
 scene understanding hundreds of meters ahead is required for anticipatory planning and safe braking.
 
 The py123d integration supports multi-camera and multi-lidar scene conversion, per-frame ego states,
