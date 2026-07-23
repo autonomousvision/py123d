@@ -3,6 +3,7 @@
 **/__pycache__/
 .pytest_cache/*
 .pydevproject
+.python-version
 
 # IDE
 .vscode/*

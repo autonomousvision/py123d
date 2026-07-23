@@ -98,6 +98,10 @@ def load_point_cloud_data_from_path(
         from py123d.parser.nureasoning.nureasoning_sensor_io import load_nureasoning_point_cloud_data_from_path
 
         lidar_pcs_dict = load_nureasoning_point_cloud_data_from_path(full_lidar_path)
+    elif dataset == "truckdrive":
+        from py123d.parser.truckdrive.truckdrive_sensor_io import load_truckdrive_point_cloud_data_from_path
+
+        lidar_pcs_dict = load_truckdrive_point_cloud_data_from_path(full_lidar_path, lidar_metadatas)
 
     else:
         raise NotImplementedError(f"Loading Lidar data for dataset {dataset} is not implemented.")

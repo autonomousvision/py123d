@@ -1038,7 +1038,10 @@ class SceneAPI(abc.ABC):
     def available_lidar_ids(self) -> List[LidarID]:
         """List of available :class:`~py123d.datatypes.LidarID`."""
         available_lidar_ids = list(self.get_lidar_metadatas().keys())
-        if self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED) is not None:
+        if (
+            self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED) is not None
+            and LidarID.LIDAR_MERGED not in available_lidar_ids
+        ):
             available_lidar_ids += [LidarID.LIDAR_MERGED]
         return available_lidar_ids
 
@@ -1048,8 +1051,12 @@ class SceneAPI(abc.ABC):
         available_lidar_names: List[str] = [
             lidar_metadata.lidar_name for lidar_metadata in self.get_lidar_metadatas().values()
         ]
-        if self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED) is not None:
-            available_lidar_names.append(LidarID.LIDAR_MERGED.serialize())
+        lidar_merged_name = LidarID.LIDAR_MERGED.serialize()
+        if (
+            self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED) is not None
+            and lidar_merged_name not in available_lidar_names
+        ):
+            available_lidar_names.append(lidar_merged_name)
         return available_lidar_names
 
     @property

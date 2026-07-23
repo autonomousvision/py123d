@@ -67,13 +67,14 @@ class PlaybackController:
     def create_gui(self, scene: SceneAPI) -> None:
         """Create the Playback folder with all controls."""
         num_frames = self._context.num_frames
+        controls_disabled = self._config.is_playing
 
         with self._server.gui.add_folder("Playback"):
             self._gui_timestep = self._server.gui.add_slider(
-                "Timestep", min=0, max=num_frames - 1, step=1, initial_value=0, disabled=True
+                "Timestep", min=0, max=num_frames - 1, step=1, initial_value=0, disabled=controls_disabled
             )
-            gui_next_frame = self._server.gui.add_button("Next Frame", disabled=True)
-            gui_prev_frame = self._server.gui.add_button("Prev Frame", disabled=True)
+            gui_next_frame = self._server.gui.add_button("Next Frame", disabled=controls_disabled)
+            gui_prev_frame = self._server.gui.add_button("Prev Frame", disabled=controls_disabled)
             gui_next_scene = self._server.gui.add_button("Next Scene", disabled=False)
             self._gui_playing = self._server.gui.add_checkbox("Playing", self._config.is_playing)
             self._gui_speed = self._server.gui.add_slider(
