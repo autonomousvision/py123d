@@ -7,6 +7,33 @@ import pyarrow as pa
 
 from py123d.datatypes import BaseModality, BaseModalityMetadata, Timestamp
 
+# Arrow's binary and string columns address their values with 32-bit offsets, so a single record
+# batch cannot hold more than 2 GiB in any one such column. Buffering by row count alone overflows
+# that ceiling once the rows carry large blobs (e.g. encoded point clouds), so the buffer is also
+# capped by size. The default leaves ample headroom below the hard limit.
+DEFAULT_MAX_BATCH_BYTES: int = 512 * 1024 * 1024
+
+
+def _row_variable_width_nbytes(row: Dict[str, Any]) -> int:
+    """Sum the size of the variable-width (binary/string) values in a buffered row.
+
+    Only these contribute to Arrow's 2 GiB per-column offset limit; fixed-width columns are
+    already bounded by the row cap.
+
+    :param row: A buffered row, where each value is a single-element list.
+    :return: The total size in bytes of the row's binary and string values.
+    """
+    nbytes = 0
+    for value in row.values():
+        if not isinstance(value, (list, tuple)) or len(value) == 0:
+            continue
+        item = value[0]
+        if isinstance(item, bytes):
+            nbytes += len(item)
+        elif isinstance(item, str):
+            nbytes += len(item.encode("utf-8"))
+    return nbytes
+
 
 class ArrowBaseModalityWriter:
     """Manages a single Arrow IPC file for one modality."""
@@ -18,6 +45,7 @@ class ArrowBaseModalityWriter:
         ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
         ipc_compression_level: Optional[int] = None,
         max_batch_size: Optional[int] = None,
+        max_batch_bytes: int = DEFAULT_MAX_BATCH_BYTES,
     ) -> None:
         def _get_compression() -> Optional[pa.Codec]:
             """Returns the IPC compression codec, or None if no compression is configured."""
@@ -29,7 +57,9 @@ class ArrowBaseModalityWriter:
         self._schema = schema
         self._row_count: int = 0
         self._max_batch_size = max_batch_size
+        self._max_batch_bytes = max_batch_bytes
         self._buffer: List[Dict[str, Any]] = []
+        self._buffer_bytes: int = 0
         self._source = pa.OSFile(str(file_path), "wb")
         options = pa.ipc.IpcWriteOptions(compression=_get_compression())
         self._writer = pa.ipc.new_file(self._source, schema=schema, options=options)
@@ -40,7 +70,7 @@ class ArrowBaseModalityWriter:
         return self._row_count
 
     def write_batch(self, data: Dict[str, Any]) -> None:
-        """Buffer a single row and flush when the batch size is reached."""
+        """Buffer a single row and flush when the row or byte budget is reached."""
         self._row_count += 1
 
         if self._max_batch_size is None:
@@ -49,7 +79,8 @@ class ArrowBaseModalityWriter:
             return
 
         self._buffer.append(data)
-        if len(self._buffer) >= self._max_batch_size:
+        self._buffer_bytes += _row_variable_width_nbytes(data)
+        if len(self._buffer) >= self._max_batch_size or self._buffer_bytes >= self._max_batch_bytes:
             self._flush_buffer()
 
     def write_modality(self, modality: BaseModality) -> None:
@@ -75,6 +106,7 @@ class ArrowBaseModalityWriter:
         batch = pa.record_batch(merged, schema=self._schema)
         self._writer.write_batch(batch)  # type: ignore
         self._buffer.clear()
+        self._buffer_bytes = 0
 
     def close(self) -> None:
         self._flush_buffer()
