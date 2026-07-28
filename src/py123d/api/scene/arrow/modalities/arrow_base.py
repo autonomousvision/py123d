@@ -10,8 +10,9 @@ from py123d.datatypes import BaseModality, BaseModalityMetadata, Timestamp
 # Arrow's binary and string columns address their values with 32-bit offsets, so a single record
 # batch cannot hold more than 2 GiB in any one such column. Buffering by row count alone overflows
 # that ceiling once the rows carry large blobs (e.g. encoded point clouds), so the buffer is also
-# capped by size. The default leaves ample headroom below the hard limit.
-DEFAULT_MAX_BATCH_BYTES: int = 512 * 1024 * 1024
+# capped by size. The default sits far below the hard limit because it is a per-writer memory
+# footprint too: conversions run many logs in parallel, each with several open modality writers.
+DEFAULT_MAX_BATCH_BYTES: int = 128 * 1024 * 1024
 
 
 def _row_variable_width_nbytes(row: Dict[str, Any]) -> int:
@@ -68,6 +69,20 @@ class ArrowBaseModalityWriter:
     def row_count(self) -> int:
         """Returns the total number of rows written (including buffered)."""
         return self._row_count
+
+    def set_max_batch_bytes(self, max_batch_bytes: int) -> None:
+        """Override the buffer's byte budget.
+
+        Lets the log writer apply a configured budget uniformly without every modality writer
+        having to forward the argument through its own constructor. Safe to call at any point:
+        the new budget takes effect on the next buffered row.
+
+        :param max_batch_bytes: The maximum buffered size in bytes before an automatic flush.
+        :raises ValueError: If the budget is not positive.
+        """
+        if max_batch_bytes <= 0:
+            raise ValueError(f"max_batch_bytes must be > 0, got {max_batch_bytes}.")
+        self._max_batch_bytes = max_batch_bytes
 
     def write_batch(self, data: Dict[str, Any]) -> None:
         """Buffer a single row and flush when the row or byte budget is reached."""

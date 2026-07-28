@@ -29,7 +29,10 @@ class LogWriterConfig:
     radar_codec_config: PointCloudCodecConfig = field(default_factory=PointCloudCodecConfig)
 
     # IPC write options
-    ipc_max_batch_size: Optional[int] = None
+    # Maximum buffered size, in bytes, before a modality writer flushes a record batch. None keeps
+    # each writer's built-in default (DEFAULT_MAX_BATCH_BYTES). Lower this when converting many logs
+    # in parallel, since the budget applies per open modality writer.
+    ipc_max_batch_bytes: Optional[int] = None
 
     # Ego
     infer_ego_dynamics: bool = False

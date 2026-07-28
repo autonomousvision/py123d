@@ -167,6 +167,30 @@ class TestArrowBaseModalityWriter:
         assert table.num_rows == 4
         assert table["mod.timestamp_us"].to_pylist() == [0, 100, 200, 300]
 
+    def test_set_max_batch_bytes_overrides_default(self, tmp_path: Path):
+        """set_max_batch_bytes() takes effect on the next buffered row."""
+        fp = tmp_path / "test.arrow"
+        schema = pa.schema([("mod.timestamp_us", pa.int64()), ("mod.data", pa.binary())])
+        writer = ArrowBaseModalityWriter(fp, schema, max_batch_size=1000)
+        writer.set_max_batch_bytes(1000)
+        for i in range(3):
+            writer.write_batch({"mod.timestamp_us": [i * 100], "mod.data": [bytes(400)]})
+        assert len(writer._buffer) == 0
+        writer.close()
+
+        assert pa.ipc.open_file(str(fp)).read_all().num_rows == 3
+
+    def test_set_max_batch_bytes_rejects_non_positive(self, tmp_path: Path):
+        """A non-positive byte budget would flush on every row and is rejected."""
+        import pytest
+
+        fp = tmp_path / "test.arrow"
+        writer = ArrowBaseModalityWriter(fp, self._make_schema(), max_batch_size=10)
+        with pytest.raises(ValueError, match="must be > 0"):
+            writer.set_max_batch_bytes(0)
+        writer.write_batch(self._make_row(100, "a"))
+        writer.close()
+
     def test_max_batch_bytes_ignores_fixed_width_columns(self, tmp_path: Path):
         """Fixed-width columns never trip the byte budget — only binary/string values count."""
         fp = tmp_path / "test.arrow"
