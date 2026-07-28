@@ -247,6 +247,8 @@ class ArrowLogWriter(BaseLogWriter):
         assert modality_writer is not None, (
             f"Modality writer for {modality_metadata.modality_key} should be initialized at this point."
         )
+        if self._log_writer_config.ipc_max_batch_bytes is not None:
+            modality_writer.set_max_batch_bytes(self._log_writer_config.ipc_max_batch_bytes)
         return modality_writer
 
     def _write_single_modality(self, modality: BaseModality) -> Optional[int]:

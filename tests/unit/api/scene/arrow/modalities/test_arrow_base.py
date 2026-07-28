@@ -145,6 +145,102 @@ class TestArrowBaseModalityWriter:
         table = pa.ipc.open_file(str(fp)).read_all()
         assert table.num_rows == 7
 
+    def test_auto_flush_at_max_batch_bytes(self, tmp_path: Path):
+        """Buffer flushes on the byte budget, long before the row cap is reached.
+
+        Guards against overflowing Arrow's 2 GiB per-column offset limit, which turns the
+        flushed column into a ChunkedArray and makes the record batch unwritable.
+        """
+        fp = tmp_path / "test.arrow"
+        schema = pa.schema([("mod.timestamp_us", pa.int64()), ("mod.data", pa.binary())])
+        writer = ArrowBaseModalityWriter(fp, schema, max_batch_size=1000, max_batch_bytes=1000)
+        for i in range(4):
+            writer.write_batch({"mod.timestamp_us": [i * 100], "mod.data": [bytes(400)]})
+
+        # Rows 1-3 cross the 1000-byte budget and flush; row 4 stays buffered.
+        assert len(writer._buffer) == 1
+        writer.close()
+
+        reader = pa.ipc.open_file(str(fp))
+        assert reader.num_record_batches == 2
+        table = reader.read_all()
+        assert table.num_rows == 4
+        assert table["mod.timestamp_us"].to_pylist() == [0, 100, 200, 300]
+
+    def test_set_max_batch_bytes_overrides_default(self, tmp_path: Path):
+        """set_max_batch_bytes() takes effect on the next buffered row."""
+        fp = tmp_path / "test.arrow"
+        schema = pa.schema([("mod.timestamp_us", pa.int64()), ("mod.data", pa.binary())])
+        writer = ArrowBaseModalityWriter(fp, schema, max_batch_size=1000)
+        writer.set_max_batch_bytes(1000)
+        for i in range(3):
+            writer.write_batch({"mod.timestamp_us": [i * 100], "mod.data": [bytes(400)]})
+        assert len(writer._buffer) == 0
+        writer.close()
+
+        assert pa.ipc.open_file(str(fp)).read_all().num_rows == 3
+
+    def test_constructor_rejects_non_positive_max_batch_bytes(self, tmp_path: Path):
+        """The constructor validates the byte budget too, not just the setter."""
+        import pytest
+
+        with pytest.raises(ValueError, match="must be > 0"):
+            ArrowBaseModalityWriter(tmp_path / "test.arrow", self._make_schema(), max_batch_bytes=0)
+
+    def test_max_batch_bytes_ignores_non_schema_columns(self, tmp_path: Path):
+        """Keys outside the schema are dropped on flush, so they must not consume the budget."""
+        fp = tmp_path / "test.arrow"
+        schema = pa.schema([("mod.timestamp_us", pa.int64()), ("mod.data", pa.binary())])
+        writer = ArrowBaseModalityWriter(fp, schema, max_batch_size=1000, max_batch_bytes=1000)
+        for i in range(3):
+            writer.write_batch(
+                {
+                    "mod.timestamp_us": [i * 100],
+                    "mod.data": [bytes(100)],
+                    "mod.not_in_schema": [bytes(10_000)],
+                }
+            )
+        assert len(writer._buffer) == 3
+        writer.close()
+
+        assert pa.ipc.open_file(str(fp)).read_all().num_rows == 3
+
+    def test_max_batch_bytes_counts_utf8_length_of_strings(self, tmp_path: Path):
+        """Non-ASCII strings count by UTF-8 byte length, not character count."""
+        fp = tmp_path / "test.arrow"
+        # 300 two-byte characters = 600 bytes, so two rows cross the budget but one does not.
+        writer = ArrowBaseModalityWriter(fp, self._make_schema(), max_batch_size=1000, max_batch_bytes=1000)
+        writer.write_batch(self._make_row(100, "é" * 300))
+        assert len(writer._buffer) == 1
+        writer.write_batch(self._make_row(200, "é" * 300))
+        assert len(writer._buffer) == 0
+        writer.close()
+
+        assert pa.ipc.open_file(str(fp)).read_all().num_rows == 2
+
+    def test_set_max_batch_bytes_rejects_non_positive(self, tmp_path: Path):
+        """A non-positive byte budget would flush on every row and is rejected."""
+        import pytest
+
+        fp = tmp_path / "test.arrow"
+        writer = ArrowBaseModalityWriter(fp, self._make_schema(), max_batch_size=10)
+        with pytest.raises(ValueError, match="must be > 0"):
+            writer.set_max_batch_bytes(0)
+        writer.write_batch(self._make_row(100, "a"))
+        writer.close()
+
+    def test_max_batch_bytes_ignores_fixed_width_columns(self, tmp_path: Path):
+        """Fixed-width columns never trip the byte budget — only binary/string values count."""
+        fp = tmp_path / "test.arrow"
+        schema = pa.schema([("mod.timestamp_us", pa.int64()), ("mod.value", pa.int64())])
+        writer = ArrowBaseModalityWriter(fp, schema, max_batch_size=1000, max_batch_bytes=1)
+        for i in range(4):
+            writer.write_batch({"mod.timestamp_us": [i * 100], "mod.value": [i]})
+        assert len(writer._buffer) == 4
+        writer.close()
+
+        assert pa.ipc.open_file(str(fp)).read_all().num_rows == 4
+
     def test_close_idempotent(self, tmp_path: Path):
         """Calling close() twice should not crash."""
         fp = tmp_path / "test.arrow"
