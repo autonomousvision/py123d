@@ -205,6 +205,19 @@ class TestArrowBaseModalityWriter:
 
         assert pa.ipc.open_file(str(fp)).read_all().num_rows == 3
 
+    def test_max_batch_bytes_counts_utf8_length_of_strings(self, tmp_path: Path):
+        """Non-ASCII strings count by UTF-8 byte length, not character count."""
+        fp = tmp_path / "test.arrow"
+        # 300 two-byte characters = 600 bytes, so two rows cross the budget but one does not.
+        writer = ArrowBaseModalityWriter(fp, self._make_schema(), max_batch_size=1000, max_batch_bytes=1000)
+        writer.write_batch(self._make_row(100, "é" * 300))
+        assert len(writer._buffer) == 1
+        writer.write_batch(self._make_row(200, "é" * 300))
+        assert len(writer._buffer) == 0
+        writer.close()
+
+        assert pa.ipc.open_file(str(fp)).read_all().num_rows == 2
+
     def test_set_max_batch_bytes_rejects_non_positive(self, tmp_path: Path):
         """A non-positive byte budget would flush on every row and is rejected."""
         import pytest

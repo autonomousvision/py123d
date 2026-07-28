@@ -30,7 +30,8 @@ def _row_variable_width_nbytes(row: Dict[str, Any], columns: FrozenSet[str]) -> 
         if isinstance(item, bytes):
             nbytes += len(item)
         elif isinstance(item, str):
-            nbytes += len(item.encode("utf-8"))
+            # str.isascii() reads a cached flag, so long ASCII values skip encoding a throwaway copy.
+            nbytes += len(item) if item.isascii() else len(item.encode("utf-8"))
     return nbytes
 
 
