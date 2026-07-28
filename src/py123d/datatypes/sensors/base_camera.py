@@ -104,6 +104,9 @@ class CameraID(SerialIntEnum):
     FTCAM_F0 = 12
     """Front F-theta camera."""
 
+    FTCAM_B0 = 20
+    """Back F-theta camera."""
+
     FTCAM_TELE_F0 = 13
     """Front telephoto F-theta camera."""
 
@@ -144,6 +147,7 @@ ALL_FISHEYE_MEI_CAMERA_IDS = [
 
 ALL_FTHETA_CAMERA_IDS = [
     CameraID.FTCAM_F0,
+    CameraID.FTCAM_B0,
     CameraID.FTCAM_TELE_F0,
     CameraID.FTCAM_TELE_B0,
     CameraID.FTCAM_L0,
