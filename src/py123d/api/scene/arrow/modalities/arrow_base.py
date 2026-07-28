@@ -1,32 +1,30 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, FrozenSet, List, Literal, Optional
 
 import numpy as np
 import pyarrow as pa
 
 from py123d.datatypes import BaseModality, BaseModalityMetadata, Timestamp
 
-# Arrow's binary and string columns address their values with 32-bit offsets, so a single record
-# batch cannot hold more than 2 GiB in any one such column. Buffering by row count alone overflows
-# that ceiling once the rows carry large blobs (e.g. encoded point clouds), so the buffer is also
-# capped by size. The default sits far below the hard limit because it is a per-writer memory
-# footprint too: conversions run many logs in parallel, each with several open modality writers.
+# Default flush threshold, well under Arrow's 2 GiB per-column limit for binary/string data.
 DEFAULT_MAX_BATCH_BYTES: int = 128 * 1024 * 1024
 
 
-def _row_variable_width_nbytes(row: Dict[str, Any]) -> int:
-    """Sum the size of the variable-width (binary/string) values in a buffered row.
+def _row_variable_width_nbytes(row: Dict[str, Any], columns: FrozenSet[str]) -> int:
+    """Sum the size of a row's variable-width (binary/string) values.
 
-    Only these contribute to Arrow's 2 GiB per-column offset limit; fixed-width columns are
+    Only these count against Arrow's 2 GiB per-column offset limit; fixed-width columns are
     already bounded by the row cap.
 
     :param row: A buffered row, where each value is a single-element list.
+    :param columns: The schema columns. Keys outside these are dropped on flush, so they are
+        excluded here to keep the budget aligned with what is actually written.
     :return: The total size in bytes of the row's binary and string values.
     """
     nbytes = 0
-    for value in row.values():
-        if not isinstance(value, (list, tuple)) or len(value) == 0:
+    for column, value in row.items():
+        if column not in columns or not isinstance(value, (list, tuple)) or len(value) == 0:
             continue
         item = value[0]
         if isinstance(item, bytes):
@@ -56,9 +54,10 @@ class ArrowBaseModalityWriter:
 
         self._file_path = file_path
         self._schema = schema
+        self._schema_columns: FrozenSet[str] = frozenset(schema.names)
         self._row_count: int = 0
         self._max_batch_size = max_batch_size
-        self._max_batch_bytes = max_batch_bytes
+        self.set_max_batch_bytes(max_batch_bytes)
         self._buffer: List[Dict[str, Any]] = []
         self._buffer_bytes: int = 0
         self._source = pa.OSFile(str(file_path), "wb")
@@ -71,11 +70,10 @@ class ArrowBaseModalityWriter:
         return self._row_count
 
     def set_max_batch_bytes(self, max_batch_bytes: int) -> None:
-        """Override the buffer's byte budget.
+        """Set the buffer's byte budget, taking effect on the next buffered row.
 
-        Lets the log writer apply a configured budget uniformly without every modality writer
-        having to forward the argument through its own constructor. Safe to call at any point:
-        the new budget takes effect on the next buffered row.
+        Lets the log writer apply a configured budget uniformly, without every modality writer
+        forwarding the argument through its own constructor.
 
         :param max_batch_bytes: The maximum buffered size in bytes before an automatic flush.
         :raises ValueError: If the budget is not positive.
@@ -94,7 +92,7 @@ class ArrowBaseModalityWriter:
             return
 
         self._buffer.append(data)
-        self._buffer_bytes += _row_variable_width_nbytes(data)
+        self._buffer_bytes += _row_variable_width_nbytes(data, self._schema_columns)
         if len(self._buffer) >= self._max_batch_size or self._buffer_bytes >= self._max_batch_bytes:
             self._flush_buffer()
 

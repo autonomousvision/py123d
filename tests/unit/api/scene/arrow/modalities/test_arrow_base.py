@@ -180,6 +180,31 @@ class TestArrowBaseModalityWriter:
 
         assert pa.ipc.open_file(str(fp)).read_all().num_rows == 3
 
+    def test_constructor_rejects_non_positive_max_batch_bytes(self, tmp_path: Path):
+        """The constructor validates the byte budget too, not just the setter."""
+        import pytest
+
+        with pytest.raises(ValueError, match="must be > 0"):
+            ArrowBaseModalityWriter(tmp_path / "test.arrow", self._make_schema(), max_batch_bytes=0)
+
+    def test_max_batch_bytes_ignores_non_schema_columns(self, tmp_path: Path):
+        """Keys outside the schema are dropped on flush, so they must not consume the budget."""
+        fp = tmp_path / "test.arrow"
+        schema = pa.schema([("mod.timestamp_us", pa.int64()), ("mod.data", pa.binary())])
+        writer = ArrowBaseModalityWriter(fp, schema, max_batch_size=1000, max_batch_bytes=1000)
+        for i in range(3):
+            writer.write_batch(
+                {
+                    "mod.timestamp_us": [i * 100],
+                    "mod.data": [bytes(100)],
+                    "mod.not_in_schema": [bytes(10_000)],
+                }
+            )
+        assert len(writer._buffer) == 3
+        writer.close()
+
+        assert pa.ipc.open_file(str(fp)).read_all().num_rows == 3
+
     def test_set_max_batch_bytes_rejects_non_positive(self, tmp_path: Path):
         """A non-positive byte budget would flush on every row and is rejected."""
         import pytest
