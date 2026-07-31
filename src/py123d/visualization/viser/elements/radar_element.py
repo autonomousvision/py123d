@@ -36,6 +36,8 @@ _RADAR_COLOR_OPTIONS = (
 @dataclass
 class RadarConfig:
     visible: bool = True
+    # Sensors that start checked in the per-sensor checklist; every id available in the
+    # scene gets its own checkbox and its own point-cloud node.
     ids: List[RadarID] = field(default_factory=lambda: [RadarID.RADAR_MERGED])
     point_size: float = 0.1
     point_shape: Literal["square", "diamond", "circle", "rounded", "sparkle"] = "circle"
@@ -65,11 +67,11 @@ class RadarElement(ViewerElement):
         self._context = context
         self._config = config
         self._server: Optional[viser.ViserServer] = None
-        self._handles: Dict[RadarID, Optional[viser.PointCloudHandle]] = {config.ids[0]: None}
+        self._handles: Dict[RadarID, Optional[viser.PointCloudHandle]] = {}
         self._frame_handles: List[viser.FrameHandle] = []
         self._gui_visible: Optional[viser.GuiCheckboxHandle] = None
         self._gui_coloring: Optional[viser.GuiDropdownHandle] = None
-        self._gui_radar_id: Optional[viser.GuiDropdownHandle] = None
+        self._gui_sensor_checkboxes: Dict[RadarID, viser.GuiCheckboxHandle] = {}
         self._gui_point_size: Optional[viser.GuiInputHandle] = None
         self._gui_stride_step: Optional[viser.GuiInputHandle] = None
         self._gui_show_sensor_frames: Optional[viser.GuiCheckboxHandle] = None
@@ -83,7 +85,6 @@ class RadarElement(ViewerElement):
     def create_gui(self, server: viser.ViserServer) -> None:
         self._server = server
         radar_id_list = self._context.scene.available_radar_ids
-        radar_id_names = tuple(rid.name for rid in radar_id_list)
 
         self._gui_visible = server.gui.add_checkbox("Visible", self._config.visible)
         self._gui_coloring = server.gui.add_dropdown(
@@ -91,12 +92,6 @@ class RadarElement(ViewerElement):
             _RADAR_COLOR_OPTIONS,
             initial_value=self._config.point_color,
         )
-        self._gui_radar_id = server.gui.add_dropdown(
-            "Radar ID",
-            radar_id_names,
-            initial_value=self._config.ids[0].name,
-        )
-
         self._gui_point_size = server.gui.add_slider(
             "Point Size",
             min=0.001,
@@ -115,26 +110,38 @@ class RadarElement(ViewerElement):
 
         self._gui_show_sensor_frames = server.gui.add_checkbox("Show Sensor Frames", self._config.show_sensor_frames)
 
+        # One checkbox per available sensor, same style as the camera frustum checklist.
+        server.gui.add_markdown("**Radars**")
+        for radar_id in radar_id_list:
+            checkbox = server.gui.add_checkbox(radar_id.serialize(lower=False), radar_id in self._config.ids)
+            checkbox.on_update(self._on_sensor_selection_changed)
+            self._gui_sensor_checkboxes[radar_id] = checkbox
+
         self._gui_visible.on_update(self._on_visibility_changed)
         self._gui_coloring.on_update(self._on_coloring_changed)
-        self._gui_radar_id.on_update(self._on_radar_id_changed)
         self._gui_point_size.on_update(self._on_point_size_changed)
         self._gui_stride_step.on_update(self._on_stride_step_changed)
         self._gui_show_sensor_frames.on_update(self._on_show_sensor_frames_changed)
+
+    def _selected_ids(self) -> List[RadarID]:
+        """Sensors whose checklist entry is currently checked."""
+        return [radar_id for radar_id, checkbox in self._gui_sensor_checkboxes.items() if checkbox.value]
 
     def update(self, iteration: int) -> None:
         assert self._server is not None
         assert self._gui_visible is not None
         assert self._gui_coloring is not None
         self._current_iteration = iteration
-        active_id = self._config.ids[0]
 
-        if active_id not in self._handles:
-            self._handles[active_id] = None
+        selected = set(self._selected_ids()) if self._gui_visible.value else set()
 
-        if not self._gui_visible.value:
-            if self._handles[active_id] is not None:
-                self._handles[active_id].visible = False  # type: ignore
+        # Hide every sensor that is deselected (or the whole element invisible) first, so a
+        # selection change never leaves a stale cloud behind.
+        for radar_id, handle in self._handles.items():
+            if handle is not None and radar_id not in selected:
+                handle.visible = False
+
+        if not selected:
             return
 
         ego_state_se3 = self._context.scene.get_ego_state_se3_at_iteration(iteration)
@@ -143,30 +150,34 @@ class RadarElement(ViewerElement):
         ego_pose = ego_pose.astype(np.float64)
         ego_pose[PoseSE3Index.XYZ] -= self._context.scene_center_array.astype(np.float64)
 
-        radar = self._context.scene.get_radar_at_iteration(iteration, radar_id=active_id)
-        if radar is not None:
-            xyz = np.array(radar.xyz, dtype=np.float64)
+        for radar_id in selected:
+            radar = self._context.scene.get_radar_at_iteration(iteration, radar_id=radar_id)
+            if radar is not None:
+                xyz = np.array(radar.xyz, dtype=np.float64)
+                points = rel_to_abs_points_3d_array(ego_pose, xyz)
+                colors = get_radar_pc_color(radar, color_feature=self._config.point_color, dark_mode=self._dark_mode)
+            else:
+                points = np.zeros((0, 3), dtype=np.float32)
+                colors = np.zeros((0, 3), dtype=np.uint8)
 
-            points = rel_to_abs_points_3d_array(ego_pose, xyz)
-            colors = get_radar_pc_color(radar, color_feature=self._config.point_color, dark_mode=self._dark_mode)
-        else:
-            points = np.zeros((0, 3), dtype=np.float32)
-            colors = np.zeros((0, 3), dtype=np.uint8)
+            points, colors = self._downsample(points, colors)
 
-        points, colors = self._downsample(points, colors)
-
-        if self._handles[active_id] is not None:
-            self._handles[active_id].points = points  # type: ignore
-            self._handles[active_id].colors = colors  # type: ignore
-            self._handles[active_id].visible = True  # type: ignore
-        else:
-            self._handles[active_id] = self._server.scene.add_point_cloud(  # type: ignore
-                "radar_points",
-                points=points,
-                colors=colors,
-                point_size=self._config.point_size,
-                point_shape=self._config.point_shape,
-            )
+            handle = self._handles.get(radar_id)
+            if handle is not None:
+                handle.points = points  # type: ignore
+                handle.colors = colors  # type: ignore
+                handle.visible = True
+            else:
+                # One uniquely named node per sensor; a shared name would make every added
+                # cloud replace the previous sensor's node server-side while its stale
+                # handle lives on, which is what made selection changes apply erratically.
+                self._handles[radar_id] = self._server.scene.add_point_cloud(
+                    f"radar_points/{radar_id.serialize()}",
+                    points=points,
+                    colors=colors,
+                    point_size=self._config.point_size,
+                    point_shape=self._config.point_shape,
+                )
 
         self._update_sensor_frames(iteration)
 
@@ -191,9 +202,8 @@ class RadarElement(ViewerElement):
         self._config.point_color = self._gui_coloring.value
         self.update(self._current_iteration)
 
-    def _on_radar_id_changed(self, _) -> None:
-        assert self._gui_radar_id is not None
-        self._config.ids = [RadarID[self._gui_radar_id.value]]
+    def _on_sensor_selection_changed(self, _) -> None:
+        self._config.ids = self._selected_ids()
         self.update(self._current_iteration)
 
     def _on_point_size_changed(self, _) -> None:
@@ -233,15 +243,18 @@ class RadarElement(ViewerElement):
         if not self._gui_visible.value or not self._gui_show_sensor_frames.value:
             return
 
-        active_id = self._config.ids[0]
-        radar = self._context.scene.get_radar_at_iteration(iteration, radar_id=active_id)
-        if radar is None:
+        radar_metadatas = {}
+        for selected_id in self._selected_ids():
+            radar = self._context.scene.get_radar_at_iteration(iteration, radar_id=selected_id)
+            if radar is not None:
+                radar_metadatas.update(radar.radar_metadatas)
+        if not radar_metadatas:
             return
 
         ego_pose = self._context.scene.get_ego_state_se3_at_iteration(iteration).imu_se3  # type: ignore
         scene_center_pose = get_scene_center_pose(self._context.scene_center_array)
 
-        for radar_id, radar_meta in radar.radar_metadatas.items():
+        for radar_id, radar_meta in radar_metadatas.items():
             radar_world_pose = rel_to_abs_se3_array(ego_pose, radar_meta.radar_to_imu_se3.array)
             radar_scene_pose = abs_to_rel_se3_array(origin=scene_center_pose, pose_se3_array=radar_world_pose)
             position = radar_scene_pose[PoseSE3Index.XYZ]
