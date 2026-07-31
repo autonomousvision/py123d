@@ -133,6 +133,9 @@ class RadarFeature(SerialIntEnum):
     datasets that only provide this may additionally derive :attr:`VELOCITY_X`/:attr:`VELOCITY_Y`
     by projecting it onto the detection azimuth."""
 
+    RECEIVED_SIGNAL_STRENGTH = 24
+    """Received signal strength feature index, in dBm."""
+
 
 RADAR_FEATURE_DTYPES: Dict[RadarFeature, Type] = {
     RadarFeature.IDS: np.uint8,
@@ -159,6 +162,7 @@ RADAR_FEATURE_DTYPES: Dict[RadarFeature, Type] = {
     RadarFeature.AZIMUTH_STD: np.float32,
     RadarFeature.ELEVATION_STD: np.float32,
     RadarFeature.RADIAL_VELOCITY: np.float32,
+    RadarFeature.RECEIVED_SIGNAL_STRENGTH: np.float32,
 }
 
 
