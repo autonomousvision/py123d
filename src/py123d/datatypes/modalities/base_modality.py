@@ -29,6 +29,12 @@ class ModalityType(SerialIntEnum):
     CAMERA_DEPTH = 9
     """Per-pixel metric depth image, pixel-aligned to a sibling :attr:`CAMERA` stream."""
 
+    IMU = 10
+    """Inertial measurement unit stream: gyroscope, accelerometer, optional fused orientation."""
+
+    GNSS = 11
+    """Global navigation satellite system fixes: geodetic position and fix quality."""
+
 
 class BaseModalityMetadata(BaseMetadata):
     """Base class for modality metadata."""

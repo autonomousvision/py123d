@@ -10,6 +10,8 @@ from py123d.api.scene.arrow.modalities.arrow_box_detections_se3 import ArrowBoxD
 from py123d.api.scene.arrow.modalities.arrow_camera import ArrowCameraReader
 from py123d.api.scene.arrow.modalities.arrow_custom_modality import ArrowCustomModalityReader
 from py123d.api.scene.arrow.modalities.arrow_ego_state_se3 import ArrowEgoStateSE3Reader
+from py123d.api.scene.arrow.modalities.arrow_gnss import ArrowGnssReader
+from py123d.api.scene.arrow.modalities.arrow_imu import ArrowImuReader
 from py123d.api.scene.arrow.modalities.arrow_lidar import ArrowLidarReader
 from py123d.api.scene.arrow.modalities.arrow_radar import ArrowRadarReader
 from py123d.api.scene.arrow.modalities.arrow_sync import get_timestamp_from_arrow_table
@@ -46,6 +48,8 @@ MODALITY_READERS: Dict[ModalityType, Type[ArrowBaseModalityReader]] = {
     ModalityType.CAMERA_DEPTH: ArrowCameraReader,
     ModalityType.LIDAR: ArrowLidarReader,
     ModalityType.RADAR: ArrowRadarReader,
+    ModalityType.IMU: ArrowImuReader,
+    ModalityType.GNSS: ArrowGnssReader,
     ModalityType.CUSTOM: ArrowCustomModalityReader,
 }
 

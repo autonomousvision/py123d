@@ -11,6 +11,8 @@ from py123d.api.scene.arrow.modalities.arrow_box_detections_se3 import ArrowBoxD
 from py123d.api.scene.arrow.modalities.arrow_camera import ArrowCameraWriter
 from py123d.api.scene.arrow.modalities.arrow_custom_modality import ArrowCustomModalityWriter
 from py123d.api.scene.arrow.modalities.arrow_ego_state_se3 import ArrowEgoStateSE3Writer
+from py123d.api.scene.arrow.modalities.arrow_gnss import ArrowGnssWriter
+from py123d.api.scene.arrow.modalities.arrow_imu import ArrowImuWriter
 from py123d.api.scene.arrow.modalities.arrow_lidar import ArrowLidarWriter
 from py123d.api.scene.arrow.modalities.arrow_radar import ArrowRadarWriter
 from py123d.api.scene.arrow.modalities.arrow_traffic_light_detections import ArrowTrafficLightDetectionsWriter
@@ -28,6 +30,8 @@ from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionsMetadata
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata
 from py123d.datatypes.sensors.base_camera import BaseCameraMetadata, CameraChannelType
+from py123d.datatypes.sensors.gnss import GnssMetadata
+from py123d.datatypes.sensors.imu import ImuMetadata
 from py123d.datatypes.sensors.lidar import LidarMergedMetadata, LidarMetadata
 from py123d.datatypes.sensors.radar import RadarMergedMetadata, RadarMetadata
 from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadata
@@ -230,6 +234,22 @@ class ArrowLogWriter(BaseLogWriter):
                 radar_store_option=self._log_writer_config.radar_store_option,
                 radar_codec=self._log_writer_config.radar_codec,
                 radar_codec_config=self._log_writer_config.radar_codec_config,
+                ipc_compression=self._ipc_compression,
+                ipc_compression_level=self._ipc_compression_level,
+            )
+
+        elif isinstance(modality_metadata, ImuMetadata):
+            modality_writer = ArrowImuWriter(
+                log_dir=self._state.log_dir,
+                metadata=modality_metadata,
+                ipc_compression=self._ipc_compression,
+                ipc_compression_level=self._ipc_compression_level,
+            )
+
+        elif isinstance(modality_metadata, GnssMetadata):
+            modality_writer = ArrowGnssWriter(
+                log_dir=self._state.log_dir,
+                metadata=modality_metadata,
                 ipc_compression=self._ipc_compression,
                 ipc_compression_level=self._ipc_compression_level,
             )

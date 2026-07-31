@@ -1,0 +1,160 @@
+"""Unit tests for the IMU and GNSS modalities: datatypes, arrow round-trip, registration."""
+
+import tempfile
+from pathlib import Path
+
+import numpy as np
+import pyarrow as pa
+import pytest
+
+from py123d.api.scene.arrow.arrow_scene_api import MODALITY_READERS
+from py123d.api.scene.arrow.modalities.arrow_gnss import ArrowGnssReader, ArrowGnssWriter
+from py123d.api.scene.arrow.modalities.arrow_imu import ArrowImuReader, ArrowImuWriter
+from py123d.api.utils.arrow_metadata_utils import get_metadata_from_arrow_schema, resolve_metadata_class
+from py123d.datatypes import Gnss, GnssMetadata, Imu, ImuMetadata, ModalityType, Timestamp
+from py123d.geometry import Vector3D
+from py123d.geometry.rotation import Quaternion
+
+
+def _read_table(path: Path) -> pa.Table:
+    with pa.memory_map(str(path), "rb") as source:
+        return pa.ipc.open_file(source).read_all()
+
+
+class TestModalityRegistration:
+    def test_modality_types_exist(self):
+        assert ModalityType.IMU.value == 10
+        assert ModalityType.GNSS.value == 11
+
+    def test_modality_keys_without_id(self):
+        assert ImuMetadata(imu_name="x").modality_key == "imu"
+        assert GnssMetadata(gnss_name="x").modality_key == "gnss"
+
+    def test_modality_keys_with_id(self):
+        assert ImuMetadata(imu_name="x", imu_id="rear").modality_key == "imu.rear"
+        assert GnssMetadata(gnss_name="x", gnss_id="aux").modality_key == "gnss.aux"
+
+    def test_readers_registered(self):
+        assert MODALITY_READERS[ModalityType.IMU] is ArrowImuReader
+        assert MODALITY_READERS[ModalityType.GNSS] is ArrowGnssReader
+
+    def test_metadata_class_resolution(self):
+        assert resolve_metadata_class("imu") is ImuMetadata
+        assert resolve_metadata_class("gnss") is GnssMetadata
+
+
+class TestImuArrowRoundTrip:
+    def test_minimal_imu_omits_optional_columns(self):
+        log_dir = Path(tempfile.mkdtemp())
+        metadata = ImuMetadata(imu_name="imx5")
+        writer = ArrowImuWriter(log_dir, metadata)
+        for i in range(5):
+            writer.write_modality(
+                Imu(
+                    timestamp=Timestamp.from_us(1000 + i),
+                    metadata=metadata,
+                    angular_velocity=Vector3D(0.1 * i, 0.2, 0.3),
+                    linear_acceleration=Vector3D(0.0, 0.0, -9.81),
+                )
+            )
+        writer.close()
+
+        table = _read_table(log_dir / "imu.arrow")
+        assert table.column_names == [
+            "imu.timestamp_us",
+            "imu.angular_velocity",
+            "imu.linear_acceleration",
+        ]
+
+        restored_metadata = get_metadata_from_arrow_schema(table.schema, ImuMetadata)
+        assert restored_metadata.imu_name == "imx5"
+        assert not restored_metadata.has_orientation
+        assert not restored_metadata.has_covariances
+
+        imu = ArrowImuReader.read_at_index(3, table, restored_metadata, dataset="test")
+        assert imu.timestamp.time_us == 1003
+        assert imu.angular_velocity.x == pytest.approx(0.3)
+        assert imu.linear_acceleration.z == pytest.approx(-9.81)
+        assert imu.orientation is None
+        assert imu.orientation_covariance is None
+
+    def test_full_imu_round_trip(self):
+        log_dir = Path(tempfile.mkdtemp())
+        metadata = ImuMetadata(imu_name="fused", has_orientation=True, has_covariances=True)
+        writer = ArrowImuWriter(log_dir, metadata)
+        covariance = np.arange(9, dtype=np.float64)
+        writer.write_modality(
+            Imu(
+                timestamp=Timestamp.from_us(5),
+                metadata=metadata,
+                angular_velocity=Vector3D(1.0, 2.0, 3.0),
+                linear_acceleration=Vector3D(4.0, 5.0, 6.0),
+                orientation=Quaternion(1.0, 0.0, 0.0, 0.0),
+                orientation_covariance=covariance,
+                angular_velocity_covariance=covariance * 2,
+                linear_acceleration_covariance=covariance * 3,
+            )
+        )
+        writer.close()
+
+        table = _read_table(log_dir / "imu.arrow")
+        assert len(table.column_names) == 7
+
+        restored_metadata = get_metadata_from_arrow_schema(table.schema, ImuMetadata)
+        imu = ArrowImuReader.read_at_index(0, table, restored_metadata, dataset="test")
+        assert imu.orientation.array == pytest.approx([1.0, 0.0, 0.0, 0.0])
+        np.testing.assert_allclose(imu.orientation_covariance, covariance)
+        np.testing.assert_allclose(imu.angular_velocity_covariance, covariance * 2)
+        np.testing.assert_allclose(imu.linear_acceleration_covariance, covariance * 3)
+
+
+class TestGnssArrowRoundTrip:
+    def test_gnss_round_trip_with_datum(self):
+        log_dir = Path(tempfile.mkdtemp())
+        metadata = GnssMetadata(gnss_name="ublox", datum_lla=(49.0203, 8.4376, 162.4))
+        writer = ArrowGnssWriter(log_dir, metadata)
+        writer.write_modality(
+            Gnss(
+                timestamp=Timestamp.from_us(7),
+                metadata=metadata,
+                latitude=49.02037,
+                longitude=8.43765,
+                altitude=162.41,
+                position_covariance=np.full(9, 0.5),
+                position_covariance_type=3,
+                status=1,
+                service=1,
+            )
+        )
+        # A fix without the optional quality fields.
+        writer.write_modality(
+            Gnss(
+                timestamp=Timestamp.from_us(8),
+                metadata=metadata,
+                latitude=49.02038,
+                longitude=8.43766,
+                altitude=162.42,
+            )
+        )
+        writer.close()
+
+        table = _read_table(log_dir / "gnss.arrow")
+        restored_metadata = get_metadata_from_arrow_schema(table.schema, GnssMetadata)
+        assert restored_metadata.datum_lla == (49.0203, 8.4376, 162.4)
+
+        full_fix = ArrowGnssReader.read_at_index(0, table, restored_metadata, dataset="test")
+        assert full_fix.latitude == pytest.approx(49.02037)
+        assert full_fix.status == 1
+        assert full_fix.position_covariance_type == 3
+        np.testing.assert_allclose(full_fix.position_covariance, 0.5)
+        np.testing.assert_allclose(full_fix.lla, [49.02037, 8.43765, 162.41])
+
+        bare_fix = ArrowGnssReader.read_at_index(1, table, restored_metadata, dataset="test")
+        assert bare_fix.status is None
+        assert bare_fix.position_covariance is None
+
+    def test_gnss_metadata_without_datum(self):
+        metadata = GnssMetadata(gnss_name="ublox")
+        restored = GnssMetadata.from_dict(metadata.to_dict())
+        assert restored.datum_lla is None
+        assert restored.gnss_name == "ublox"
