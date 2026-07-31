@@ -173,10 +173,10 @@ class FThetaCameraMetadata(BaseCameraMetadata):
         :param width: Width of the camera image in pixels.
         :param height: Height of the camera image in pixels.
         :param camera_to_imu_se3: Static extrinsic pose of the camera relative to the IMU frame.
-        :param isp: Optional dataset-specific image signal processing parameters that were
-            applied when the stored images were produced (e.g. black/white level, color
-            correction matrix, tone curve). Recorded for provenance; None if the images are
-            stored as decoded from the sensor.
+        :param isp: Optional dataset-specific display-ISP parameters (e.g. black/white
+            level, color correction matrix, tone curve control points). Describes the
+            color transform a viewer should apply on the fly to the stored images; the
+            stored images themselves are raw. None if no such transform is defined.
         """
         self._camera_name = camera_name
         self._camera_id = camera_id
@@ -243,7 +243,7 @@ class FThetaCameraMetadata(BaseCameraMetadata):
 
     @property
     def isp(self) -> Optional[Dict[str, Any]]:
-        """The image signal processing parameters applied to the stored images, if any."""
+        """Display-ISP parameters a viewer should apply to the stored raw images, if any."""
         return self._isp
 
     def project_to_image(

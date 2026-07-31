@@ -11,6 +11,7 @@ from py123d.datatypes.sensors.base_camera import (
     ALL_PINHOLE_CAMERA_IDS,
 )
 from py123d.visualization.viser.elements.base_element import ElementContext, ViewerElement
+from py123d.visualization.viser.utils.display_isp import apply_display_isp
 from py123d.visualization.viser.utils.view_utils import decompose_camera_pose, get_scene_center_pose
 
 logger = logging.getLogger(__name__)
@@ -123,17 +124,19 @@ class CameraFrustumElement(ViewerElement):
             else:
                 raise ValueError(f"Unsupported camera metadata type: {type(camera.metadata)}")
 
+            image = apply_display_isp(camera.image, getattr(camera.metadata, "isp", None))
+
             if camera_type in self._frustum_handles:
                 self._frustum_handles[camera_type].position = camera_position
                 self._frustum_handles[camera_type].wxyz = camera_quaternion
-                self._frustum_handles[camera_type].image = camera.image
+                self._frustum_handles[camera_type].image = image
             else:
                 self._frustum_handles[camera_type] = self._server.scene.add_camera_frustum(
                     f"camera_frustums/{camera_type.serialize()}",
                     fov=fov,  # type: ignore
                     aspect=aspect,
                     scale=self._config.frustum_scale,
-                    image=camera.image,
+                    image=image,
                     position=camera_position,
                     cast_shadow=False,
                     receive_shadow=False,
