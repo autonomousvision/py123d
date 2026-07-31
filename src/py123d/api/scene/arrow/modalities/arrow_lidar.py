@@ -256,6 +256,16 @@ def _deserialize_lidar(
         return None
 
     if lidar_id != LidarID.LIDAR_MERGED:
+        # A per-sensor lidar file holds exactly one sensor's points; no per-point IDS
+        # filtering is needed (or present). Only a merged file requires the IDS split.
+        if set(lidar_metadatas) == {lidar_id}:
+            return Lidar(
+                timestamp=timestamp,
+                timestamp_end=timestamp_end,
+                metadata=lidar_metadatas[lidar_id],
+                point_cloud_3d=point_cloud_3d,
+                point_cloud_features=point_cloud_feature,
+            )
         if point_cloud_feature is not None and LidarFeature.IDS.serialize() in point_cloud_feature:
             mask = point_cloud_feature[LidarFeature.IDS.serialize()] == int(lidar_id.value)
             point_cloud_feature = {key: value[mask] for key, value in point_cloud_feature.items()}
