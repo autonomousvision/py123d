@@ -35,6 +35,12 @@ class ModalityType(SerialIntEnum):
     GNSS = 11
     """Global navigation satellite system fixes: geodetic position and fix quality."""
 
+    BAROMETER = 12
+    """Barometric pressure stream, with optional derived altitude and environmental readings."""
+
+    MAGNETOMETER = 13
+    """Magnetic field stream."""
+
 
 class BaseModalityMetadata(BaseMetadata):
     """Base class for modality metadata."""

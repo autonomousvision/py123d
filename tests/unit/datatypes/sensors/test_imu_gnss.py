@@ -158,3 +158,74 @@ class TestGnssArrowRoundTrip:
         restored = GnssMetadata.from_dict(metadata.to_dict())
         assert restored.datum_lla is None
         assert restored.gnss_name == "ublox"
+
+
+class TestBarometerMagnetometerRoundTrip:
+    def test_registration(self):
+        from py123d.api.scene.arrow.modalities.arrow_barometer import ArrowBarometerReader
+        from py123d.api.scene.arrow.modalities.arrow_magnetometer import ArrowMagnetometerReader
+        from py123d.datatypes import BarometerMetadata, MagnetometerMetadata
+
+        assert ModalityType.BAROMETER.value == 12
+        assert ModalityType.MAGNETOMETER.value == 13
+        assert BarometerMetadata(barometer_name="x").modality_key == "barometer"
+        assert MagnetometerMetadata(magnetometer_name="x").modality_key == "magnetometer"
+        assert MODALITY_READERS[ModalityType.BAROMETER] is ArrowBarometerReader
+        assert MODALITY_READERS[ModalityType.MAGNETOMETER] is ArrowMagnetometerReader
+        assert resolve_metadata_class("barometer") is BarometerMetadata
+        assert resolve_metadata_class("magnetometer") is MagnetometerMetadata
+
+    def test_barometer_round_trip(self):
+        from py123d.api.scene.arrow.modalities.arrow_barometer import ArrowBarometerReader, ArrowBarometerWriter
+        from py123d.datatypes import Barometer, BarometerMetadata
+
+        log_dir = Path(tempfile.mkdtemp())
+        metadata = BarometerMetadata(barometer_name="imx5")
+        writer = ArrowBarometerWriter(log_dir, metadata)
+        writer.write_modality(
+            Barometer(
+                timestamp=Timestamp.from_us(1),
+                metadata=metadata,
+                pressure=96283.3,
+                msl_altitude=430.5,
+                temperature=45.9,
+                humidity=0.0,
+            )
+        )
+        writer.write_modality(Barometer(timestamp=Timestamp.from_us(2), metadata=metadata, pressure=96280.0))
+        writer.close()
+
+        table = _read_table(log_dir / "barometer.arrow")
+        from py123d.datatypes import BarometerMetadata as BM
+
+        restored_metadata = get_metadata_from_arrow_schema(table.schema, BM)
+        full = ArrowBarometerReader.read_at_index(0, table, restored_metadata, dataset="test")
+        assert full.pressure == pytest.approx(96283.3)
+        assert full.msl_altitude == pytest.approx(430.5)
+        bare = ArrowBarometerReader.read_at_index(1, table, restored_metadata, dataset="test")
+        assert bare.msl_altitude is None and bare.temperature is None
+
+    def test_magnetometer_round_trip(self):
+        from py123d.api.scene.arrow.modalities.arrow_magnetometer import (
+            ArrowMagnetometerReader,
+            ArrowMagnetometerWriter,
+        )
+        from py123d.datatypes import Magnetometer, MagnetometerMetadata
+
+        log_dir = Path(tempfile.mkdtemp())
+        metadata = MagnetometerMetadata(magnetometer_name="imx5")
+        writer = ArrowMagnetometerWriter(log_dir, metadata)
+        writer.write_modality(
+            Magnetometer(
+                timestamp=Timestamp.from_us(1),
+                metadata=metadata,
+                magnetic_field=Vector3D(0.5e-6, 2.3e-6, 10.6e-6),
+            )
+        )
+        writer.close()
+
+        table = _read_table(log_dir / "magnetometer.arrow")
+        restored_metadata = get_metadata_from_arrow_schema(table.schema, MagnetometerMetadata)
+        reading = ArrowMagnetometerReader.read_at_index(0, table, restored_metadata, dataset="test")
+        assert reading.magnetic_field.array == pytest.approx([0.5e-6, 2.3e-6, 10.6e-6])
+        assert reading.magnetic_field_covariance is None

@@ -5,6 +5,7 @@ import numpy as np
 
 from py123d.api.map.arrow.arrow_map_api import get_map_api_for_log
 from py123d.api.map.map_api import MapAPI
+from py123d.api.scene.arrow.modalities.arrow_barometer import ArrowBarometerReader
 from py123d.api.scene.arrow.modalities.arrow_base import ArrowBaseModalityReader
 from py123d.api.scene.arrow.modalities.arrow_box_detections_se3 import ArrowBoxDetectionsSE3Reader
 from py123d.api.scene.arrow.modalities.arrow_camera import ArrowCameraReader
@@ -13,6 +14,7 @@ from py123d.api.scene.arrow.modalities.arrow_ego_state_se3 import ArrowEgoStateS
 from py123d.api.scene.arrow.modalities.arrow_gnss import ArrowGnssReader
 from py123d.api.scene.arrow.modalities.arrow_imu import ArrowImuReader
 from py123d.api.scene.arrow.modalities.arrow_lidar import ArrowLidarReader
+from py123d.api.scene.arrow.modalities.arrow_magnetometer import ArrowMagnetometerReader
 from py123d.api.scene.arrow.modalities.arrow_radar import ArrowRadarReader
 from py123d.api.scene.arrow.modalities.arrow_sync import get_timestamp_from_arrow_table
 from py123d.api.scene.arrow.modalities.arrow_traffic_light_detections import ArrowTrafficLightDetectionsReader
@@ -50,6 +52,8 @@ MODALITY_READERS: Dict[ModalityType, Type[ArrowBaseModalityReader]] = {
     ModalityType.RADAR: ArrowRadarReader,
     ModalityType.IMU: ArrowImuReader,
     ModalityType.GNSS: ArrowGnssReader,
+    ModalityType.BAROMETER: ArrowBarometerReader,
+    ModalityType.MAGNETOMETER: ArrowMagnetometerReader,
     ModalityType.CUSTOM: ArrowCustomModalityReader,
 }
 

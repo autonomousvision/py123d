@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 import numpy as np
 import pyarrow as pa
 
+from py123d.api.scene.arrow.modalities.arrow_barometer import ArrowBarometerWriter
 from py123d.api.scene.arrow.modalities.arrow_base import ArrowBaseModalityWriter
 from py123d.api.scene.arrow.modalities.arrow_box_detections_se3 import ArrowBoxDetectionsSE3Writer
 from py123d.api.scene.arrow.modalities.arrow_camera import ArrowCameraWriter
@@ -14,6 +15,7 @@ from py123d.api.scene.arrow.modalities.arrow_ego_state_se3 import ArrowEgoStateS
 from py123d.api.scene.arrow.modalities.arrow_gnss import ArrowGnssWriter
 from py123d.api.scene.arrow.modalities.arrow_imu import ArrowImuWriter
 from py123d.api.scene.arrow.modalities.arrow_lidar import ArrowLidarWriter
+from py123d.api.scene.arrow.modalities.arrow_magnetometer import ArrowMagnetometerWriter
 from py123d.api.scene.arrow.modalities.arrow_radar import ArrowRadarWriter
 from py123d.api.scene.arrow.modalities.arrow_traffic_light_detections import ArrowTrafficLightDetectionsWriter
 from py123d.api.scene.arrow.utils.log_writer_config import LogWriterConfig
@@ -29,10 +31,12 @@ from py123d.datatypes.custom.custom_modality import CustomModalityMetadata
 from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3Metadata
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionsMetadata
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata
+from py123d.datatypes.sensors.barometer import BarometerMetadata
 from py123d.datatypes.sensors.base_camera import BaseCameraMetadata, CameraChannelType
 from py123d.datatypes.sensors.gnss import GnssMetadata
 from py123d.datatypes.sensors.imu import ImuMetadata
 from py123d.datatypes.sensors.lidar import LidarMergedMetadata, LidarMetadata
+from py123d.datatypes.sensors.magnetometer import MagnetometerMetadata
 from py123d.datatypes.sensors.radar import RadarMergedMetadata, RadarMetadata
 from py123d.datatypes.vehicle_state.ego_state_metadata import EgoStateSE3Metadata
 from py123d.parser.base_dataset_parser import ModalitiesSync
@@ -248,6 +252,22 @@ class ArrowLogWriter(BaseLogWriter):
 
         elif isinstance(modality_metadata, GnssMetadata):
             modality_writer = ArrowGnssWriter(
+                log_dir=self._state.log_dir,
+                metadata=modality_metadata,
+                ipc_compression=self._ipc_compression,
+                ipc_compression_level=self._ipc_compression_level,
+            )
+
+        elif isinstance(modality_metadata, BarometerMetadata):
+            modality_writer = ArrowBarometerWriter(
+                log_dir=self._state.log_dir,
+                metadata=modality_metadata,
+                ipc_compression=self._ipc_compression,
+                ipc_compression_level=self._ipc_compression_level,
+            )
+
+        elif isinstance(modality_metadata, MagnetometerMetadata):
+            modality_writer = ArrowMagnetometerWriter(
                 log_dir=self._state.log_dir,
                 metadata=modality_metadata,
                 ipc_compression=self._ipc_compression,
