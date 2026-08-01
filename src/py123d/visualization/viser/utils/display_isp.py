@@ -5,13 +5,17 @@ Datasets can attach a display-ISP block to their camera metadata (see
 per-channel tone curves given as sparse control points. The stored images are raw
 (gamma-encoded sensor data); this module applies the color transform at display time.
 
-The pipeline is reduced to three vectorized steps so it stays fast enough for per-frame
-use: one 256-entry gather (decode gamma + black/white normalization), one (N, 3) @ (3, 3)
-matrix product, and one 4096-entry gather per channel (tone curve, quantized to uint8).
+The pipeline is four OpenCV calls, each SIMD-vectorized and multi-threaded:
+``cv2.LUT`` (decode gamma + black/white normalization into a uint16 linear domain),
+``cv2.transform`` (color correction matrix, saturating), ``cv2.convertScaleAbs``
+(saturating down-conversion to uint8) and ``cv2.LUT`` (per-channel tone curves).
+The uint16 intermediate keeps quantization error at or below 2/255, matching the
+error budget of the sparse tone-curve representation itself.
 """
 
 from typing import Any, Dict, Optional, Tuple
 
+import cv2
 import numpy as np
 import numpy.typing as npt
 from scipy.interpolate import PchipInterpolator
@@ -19,11 +23,8 @@ from scipy.interpolate import PchipInterpolator
 # Stored images are sRGB-style gamma encoded with this exponent.
 _STORAGE_GAMMA: float = 2.2
 
-# Resolution of the dense tone lookup table expanded from the sparse control points.
-_TONE_LUT_SIZE: int = 4096
-
 # LUTs per distinct ISP block, keyed by a content hash.
-_LUT_CACHE: Dict[int, Tuple[npt.NDArray[np.float32], npt.NDArray[np.float32], npt.NDArray[np.uint8]]] = {}
+_LUT_CACHE: Dict[int, Tuple[npt.NDArray[np.uint16], npt.NDArray[np.float32], npt.NDArray[np.uint8]]] = {}
 
 
 def _isp_cache_key(isp: Dict[str, Any]) -> int:
@@ -43,31 +44,34 @@ def _isp_cache_key(isp: Dict[str, Any]) -> int:
 
 def _build_luts(
     isp: Dict[str, Any],
-) -> Tuple[npt.NDArray[np.float32], npt.NDArray[np.float32], npt.NDArray[np.uint8]]:
-    """Expand an ISP block into the three lookup structures used per frame."""
+) -> Tuple[npt.NDArray[np.uint16], npt.NDArray[np.float32], npt.NDArray[np.uint8]]:
+    """Expand an ISP block into the lookup structures used per frame."""
     black = float(isp["black_level"])
     white = float(isp["white_level"])
 
-    # uint8 pixel -> normalized linear value (decode storage gamma, remove pedestal).
+    # uint8 pixel -> normalized linear value (decode storage gamma, remove pedestal),
+    # quantized to uint16 so the color matrix runs in an integer saturating domain.
     encoded = np.arange(256, dtype=np.float64) / 255.0
-    linear = encoded**_STORAGE_GAMMA
-    input_lut = np.clip((linear - black) / (white - black), 0.0, 1.0).astype(np.float32)
+    linear = np.clip((encoded**_STORAGE_GAMMA - black) / (white - black), 0.0, 1.0)
+    input_lut = np.round(linear * 65535.0).astype(np.uint16).reshape(1, 256, 1)
 
-    ccm_t = np.asarray(isp["ccm"], dtype=np.float32).T
+    ccm = np.asarray(isp["ccm"], dtype=np.float32)
 
-    # Sparse monotone control points -> dense per-channel uint8 tone table.
+    # Sparse monotone control points -> dense per-channel uint8 tone table, merged into
+    # the (1, 256, 3) layout cv2.LUT expects for per-channel lookups.
     tone = isp["tone_curve"]
     knots = np.asarray(tone["x"], dtype=np.float64)
-    dense_x = np.linspace(0.0, 1.0, _TONE_LUT_SIZE)
+    dense_x = np.linspace(0.0, 1.0, 256)
     tone_lut = np.stack(
         [
             np.clip(PchipInterpolator(knots, np.asarray(tone[name], dtype=np.float64))(dense_x) * 255.0, 0, 255).astype(
                 np.uint8
             )
             for name in ("red", "green", "blue")
-        ]
-    )
-    return input_lut, ccm_t, tone_lut
+        ],
+        axis=-1,
+    ).reshape(1, 256, 3)
+    return input_lut, ccm, tone_lut
 
 
 def apply_display_isp(image: npt.NDArray[np.uint8], isp: Optional[Dict[str, Any]]) -> npt.NDArray[np.uint8]:
@@ -85,9 +89,8 @@ def apply_display_isp(image: npt.NDArray[np.uint8], isp: Optional[Dict[str, Any]
     if luts is None:
         luts = _build_luts(isp)
         _LUT_CACHE[key] = luts
-    input_lut, ccm_t, tone_lut = luts
+    input_lut, ccm, tone_lut = luts
 
-    x = input_lut[image]
-    x = np.clip(x @ ccm_t, 0.0, 1.0)
-    indices = (x * (_TONE_LUT_SIZE - 1)).astype(np.uint16)
-    return np.stack([tone_lut[channel][indices[..., channel]] for channel in range(3)], axis=-1)
+    linear = cv2.LUT(np.ascontiguousarray(image), input_lut)
+    corrected = cv2.transform(linear, ccm)
+    return cv2.LUT(cv2.convertScaleAbs(corrected, alpha=1.0 / 256.0), tone_lut)
