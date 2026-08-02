@@ -6,6 +6,7 @@ from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
 
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.visualization.viser.camera_gui_controller import CameraGuiController
+from py123d.visualization.viser.camera_strip_controller import CameraStripController
 from py123d.visualization.viser.element_manager import ElementManager
 from py123d.visualization.viser.elements.base_element import ElementContext
 from py123d.visualization.viser.elements.box_detections_se3_element import BoxDetectionsSE3Element
@@ -121,16 +122,26 @@ class ViserViewer:
             self._config.playback,
             context,
             on_dark_mode_changed=self._on_dark_mode_changed,
+            scene_index=self._scene_index % len(self._scenes),
+            num_scenes=len(self._scenes),
         )
         render = RenderController(self._server, self._config.render, context, playback)
 
         # Build camera GUI controller
         self._camera_gui = CameraGuiController(self._server, self._config.camera_gui, context)
 
-        # Create GUI in order: Playback -> Modality Tabs -> Camera Image -> Render
+        # Build camera strip overlay; reserve the control panel width plus margins so
+        # the strip does not run underneath the floating panel.
+        panel_width_em = {"small": 16.0, "medium": 20.0, "large": 24.0}[self._config.theme.control_width]
+        self._camera_strip = CameraStripController(
+            self._server, self._config.camera_strip, context, reserved_right_em=panel_width_em + 2.0
+        )
+
+        # Create GUI in order: Playback -> Modality Tabs -> Camera Image -> Camera Strip -> Render
         playback.create_gui(scene)
         self._element_manager.create_all_gui(self._server)
         self._camera_gui.create_gui()
+        self._camera_strip.create_gui()
         render.create_gui()
 
         # Re-apply persisted environment intensity (scene.reset() clears it)
@@ -143,6 +154,7 @@ class ViserViewer:
         def _on_iteration_changed(iteration: int) -> None:
             self._element_manager.update_all(iteration)
             self._camera_gui.update(iteration)
+            self._camera_strip.update(iteration)
 
         playback.set_on_iteration_changed(_on_iteration_changed)
 
@@ -154,11 +166,16 @@ class ViserViewer:
 
         # Cleanup and advance to next scene
         self._camera_gui.remove()
+        self._camera_strip.remove()
         self._element_manager.remove_all()
         self._server.flush()
         self._server.gui.reset()
         self._server.scene.reset()
-        self._scene_index = (self._scene_index + 1) % len(self._scenes)
+        requested_scene_index = playback.requested_scene_index
+        if requested_scene_index is not None:
+            self._scene_index = requested_scene_index % len(self._scenes)
+        else:
+            self._scene_index = (self._scene_index + 1) % len(self._scenes)
         self._run_scene(self._scenes[self._scene_index])
 
     def _on_dark_mode_changed(self, dark_mode: bool) -> None:

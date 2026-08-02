@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 class PlaybackConfig:
     is_playing: bool = False
     speed: float = 1.0
-    atomic: bool = False
-    dark_mode: bool = False
+    atomic: bool = True
+    dark_mode: bool = True  # kept in sync with the theme; initialization uses ThemeConfig.dark_mode
 
 
 class PlaybackController:
@@ -28,12 +28,17 @@ class PlaybackController:
         config: PlaybackConfig,
         context: ElementContext,
         on_dark_mode_changed: Optional[Callable[[bool], None]] = None,
+        scene_index: int = 0,
+        num_scenes: int = 1,
     ) -> None:
         self._server = server
         self._config = config
         self._context = context
+        self._scene_index = scene_index
+        self._num_scenes = num_scenes
         self._should_stop: bool = False
         self._rendering: bool = False
+        self._requested_scene_index: Optional[int] = None
         self._on_iteration_changed: Optional[Callable[[int], None]] = None
         self._on_dark_mode_changed = on_dark_mode_changed
 
@@ -47,6 +52,11 @@ class PlaybackController:
     def current_iteration(self) -> int:
         """Current timestep value."""
         return self._gui_timestep.value if self._gui_timestep is not None else 0
+
+    @property
+    def requested_scene_index(self) -> Optional[int]:
+        """Scene index requested via the scene slider or prev/next buttons, if any."""
+        return self._requested_scene_index
 
     @property
     def is_rendering(self) -> bool:
@@ -65,24 +75,37 @@ class PlaybackController:
         self._gui_timestep.value = value
 
     def create_gui(self, scene: SceneAPI) -> None:
-        """Create the Playback folder with all controls."""
+        """Create the Playback folder with all controls.
+
+        Row order: scene name, scene slider, prev/next scene, timestep slider,
+        prev/next frame, followed by the playback settings.
+        """
         num_frames = self._context.num_frames
         controls_disabled = self._config.is_playing
+        single_scene = self._num_scenes <= 1
 
         with self._server.gui.add_folder("Playback"):
+            self._server.gui.add_markdown(f"**{scene.log_metadata.log_name}**")
+            gui_scene: Optional[viser.GuiSliderHandle] = None
+            if not single_scene:
+                gui_scene = self._server.gui.add_slider(
+                    "Scene", min=0, max=self._num_scenes - 1, step=1, initial_value=self._scene_index
+                )
+            gui_scene_nav = self._server.gui.add_button_group("Scene", ("Prev", "Next"), disabled=single_scene)
             self._gui_timestep = self._server.gui.add_slider(
                 "Timestep", min=0, max=num_frames - 1, step=1, initial_value=0, disabled=controls_disabled
             )
-            gui_next_frame = self._server.gui.add_button("Next Frame", disabled=controls_disabled)
-            gui_prev_frame = self._server.gui.add_button("Prev Frame", disabled=controls_disabled)
-            gui_next_scene = self._server.gui.add_button("Next Scene", disabled=False)
+            gui_frame_nav = self._server.gui.add_button_group("Frame", ("Prev", "Next"), disabled=controls_disabled)
             self._gui_playing = self._server.gui.add_checkbox("Playing", self._config.is_playing)
             self._gui_speed = self._server.gui.add_slider(
                 "Playback speed", min=0.1, max=10.0, step=0.1, initial_value=self._config.speed
             )
             gui_speed_options = self._server.gui.add_button_group("Options.", ("0.5", "1.0", "2.0", "5.0", "10.0"))
             self._gui_atomic = self._server.gui.add_checkbox("Atomic Updates", self._config.atomic)
-            gui_dark_mode = self._server.gui.add_checkbox("Dark Mode", initial_value=self._config.dark_mode)
+            # Initialize from the live theme state (context.dark_mode) so the checkbox is
+            # consistent with the actual viewer theme; ThemeConfig.dark_mode is the source
+            # of truth, PlaybackConfig.dark_mode is not used for initialization.
+            gui_dark_mode = self._server.gui.add_checkbox("Dark Mode", initial_value=self._context.dark_mode)
 
             @self._gui_atomic.on_update
             def _on_atomic_changed(_) -> None:
@@ -117,29 +140,38 @@ class PlaybackController:
                     if sleep_time > 0 and not self._rendering:
                         time.sleep(max(sleep_time, 0.0))
 
-            @gui_next_frame.on_click
-            def _on_next_frame(_) -> None:
-                self._gui_timestep.value = (self._gui_timestep.value + 1) % num_frames
+            @gui_frame_nav.on_click
+            def _on_frame_nav(_) -> None:
+                delta = 1 if gui_frame_nav.value == "Next" else -1
+                self._gui_timestep.value = (self._gui_timestep.value + delta) % num_frames
 
-            @gui_prev_frame.on_click
-            def _on_prev_frame(_) -> None:
-                self._gui_timestep.value = (self._gui_timestep.value - 1) % num_frames
+            @gui_scene_nav.on_click
+            def _on_scene_nav(_) -> None:
+                delta = 1 if gui_scene_nav.value == "Next" else -1
+                self._request_scene((self._scene_index + delta) % self._num_scenes)
 
-            @gui_next_scene.on_click
-            def _on_next_scene(_) -> None:
-                self._should_stop = True
+            if gui_scene is not None:
+
+                @gui_scene.on_update
+                def _on_scene_slider(_) -> None:
+                    if gui_scene.value != self._scene_index:
+                        self._request_scene(gui_scene.value)
 
             @self._gui_playing.on_update
             def _on_playing_changed(_) -> None:
                 self._gui_timestep.disabled = self._gui_playing.value
-                gui_next_frame.disabled = self._gui_playing.value
-                gui_prev_frame.disabled = self._gui_playing.value
+                gui_frame_nav.disabled = self._gui_playing.value
                 self._config.is_playing = self._gui_playing.value
 
             @gui_speed_options.on_click
             def _on_speed_preset(_) -> None:
                 self._gui_speed.value = float(gui_speed_options.value)
                 self._config.speed = self._gui_speed.value
+
+    def _request_scene(self, scene_index: int) -> None:
+        """Request a switch to the given scene and stop the playback loop."""
+        self._requested_scene_index = scene_index
+        self._should_stop = True
 
     def run_loop(self) -> None:
         """Blocking playback loop. Returns when the user clicks Next Scene."""
