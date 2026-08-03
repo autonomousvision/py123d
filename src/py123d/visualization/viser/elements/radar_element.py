@@ -151,12 +151,18 @@ class RadarElement(ViewerElement):
         ego_pose = ego_pose.astype(np.float64)
         ego_pose[PoseSE3Index.XYZ] -= self._context.scene_center_array.astype(np.float64)
 
+        # Same float16-transport mitigation as the lidar element: ego-centered points,
+        # node anchored at the ego position (full-precision float32 node transform).
+        ego_position = ego_pose[PoseSE3Index.XYZ].copy()
+        rotation_only_pose = ego_pose.copy()
+        rotation_only_pose[PoseSE3Index.XYZ] = 0.0
+
         def _fetch_cloud(radar_id: RadarID):
             """Heavy part (arrow read, transform, coloring); runs on the worker pool."""
             radar = self._context.scene.get_radar_at_iteration(iteration, radar_id=radar_id)
             if radar is not None:
                 xyz = np.array(radar.xyz, dtype=np.float64)
-                points = rel_to_abs_points_3d_array(ego_pose, xyz)
+                points = rel_to_abs_points_3d_array(rotation_only_pose, xyz)
                 colors = get_radar_pc_color(radar, color_feature=self._config.point_color, dark_mode=self._dark_mode)
             else:
                 points = np.zeros((0, 3), dtype=np.float32)
@@ -171,6 +177,7 @@ class RadarElement(ViewerElement):
             if handle is not None:
                 handle.points = points  # type: ignore
                 handle.colors = colors  # type: ignore
+                handle.position = ego_position
                 handle.visible = True
             else:
                 # One uniquely named node per sensor; a shared name would make every added
@@ -182,6 +189,7 @@ class RadarElement(ViewerElement):
                     colors=colors,
                     point_size=self._config.point_size,
                     point_shape=self._config.point_shape,
+                    position=ego_position,
                 )
 
         self._update_sensor_frames(iteration)

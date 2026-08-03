@@ -151,12 +151,20 @@ class LidarElement(ViewerElement):
         ego_pose = ego_pose.astype(np.float64)
         ego_pose[PoseSE3Index.XYZ] -= self._context.scene_center_array.astype(np.float64)
 
+        # viser transmits point positions as float16: coordinates far from the origin
+        # quantize visibly (~1 m at 1.5 km). Points are therefore kept ego-centered
+        # (world-oriented, small magnitudes) and the node itself is anchored at the ego
+        # position, which travels as a full-precision float32 node transform.
+        ego_position = ego_pose[PoseSE3Index.XYZ].copy()
+        rotation_only_pose = ego_pose.copy()
+        rotation_only_pose[PoseSE3Index.XYZ] = 0.0
+
         def _fetch_cloud(lidar_id: LidarID):
             """Heavy part (arrow read, transform, coloring); runs on the worker pool."""
             lidar = self._context.scene.get_lidar_at_iteration(iteration, lidar_id=lidar_id)
             if lidar is not None:
                 xyz = np.array(lidar.xyz, dtype=np.float64)
-                points = rel_to_abs_points_3d_array(ego_pose, xyz)
+                points = rel_to_abs_points_3d_array(rotation_only_pose, xyz)
                 colors = get_lidar_pc_color(lidar, color_feature=self._config.point_color, dark_mode=self._dark_mode)
             else:
                 points = np.zeros((0, 3), dtype=np.float32)
@@ -171,6 +179,7 @@ class LidarElement(ViewerElement):
             if handle is not None:
                 handle.points = points  # type: ignore
                 handle.colors = colors  # type: ignore
+                handle.position = ego_position
                 handle.visible = True
             else:
                 # One uniquely named node per sensor; a shared name would make every added
@@ -182,6 +191,7 @@ class LidarElement(ViewerElement):
                     colors=colors,
                     point_size=self._config.point_size,
                     point_shape=self._config.point_shape,
+                    position=ego_position,
                 )
 
         self._update_sensor_frames(iteration)
