@@ -15,6 +15,7 @@ from py123d.geometry.transform.transform_se3 import (
 )
 from py123d.visualization.matplotlib.radar import get_radar_pc_color
 from py123d.visualization.viser.elements.base_element import ElementContext, ViewerElement
+from py123d.visualization.viser.utils.parallel_fetch import fetch_parallel
 from py123d.visualization.viser.utils.view_utils import get_scene_center_pose
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ _RADAR_COLOR_OPTIONS = (
 
 @dataclass
 class RadarConfig:
-    visible: bool = True
+    visible: bool = False
     # Sensors that start checked in the per-sensor checklist; every id available in the
     # scene gets its own checkbox and its own point-cloud node.
     ids: List[RadarID] = field(default_factory=lambda: [RadarID.RADAR_MERGED])
@@ -150,7 +151,8 @@ class RadarElement(ViewerElement):
         ego_pose = ego_pose.astype(np.float64)
         ego_pose[PoseSE3Index.XYZ] -= self._context.scene_center_array.astype(np.float64)
 
-        for radar_id in selected:
+        def _fetch_cloud(radar_id: RadarID):
+            """Heavy part (arrow read, transform, coloring); runs on the worker pool."""
             radar = self._context.scene.get_radar_at_iteration(iteration, radar_id=radar_id)
             if radar is not None:
                 xyz = np.array(radar.xyz, dtype=np.float64)
@@ -159,9 +161,12 @@ class RadarElement(ViewerElement):
             else:
                 points = np.zeros((0, 3), dtype=np.float32)
                 colors = np.zeros((0, 3), dtype=np.uint8)
+            return self._downsample(points, colors)
 
-            points, colors = self._downsample(points, colors)
+        selected_list = list(selected)
+        results = fetch_parallel(_fetch_cloud, selected_list)
 
+        for radar_id, (points, colors) in zip(selected_list, results):
             handle = self._handles.get(radar_id)
             if handle is not None:
                 handle.points = points  # type: ignore

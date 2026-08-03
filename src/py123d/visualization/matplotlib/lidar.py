@@ -1,5 +1,5 @@
 import logging
-from typing import Literal, Optional, Type
+from typing import Literal, Optional, Tuple, Type
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,21 +17,33 @@ def _continuous_colormap(
     cmap_name: str = "viridis",
     vmin: float = None,
     vmax: float = None,
+    cmap_range: Tuple[float, float] = (0.0, 1.0),
 ) -> npt.NDArray[np.uint8]:
     """Map continuous values to RGB colors using a matplotlib colormap.
 
+    By default the 10th/90th percentiles of the values span the full colormap and
+    values outside saturate at the palette ends. This spends the whole palette on the
+    bulk of the data instead of letting a few outliers compress it.
+
     :param values: 1D array of continuous values.
     :param cmap_name: Name of the matplotlib colormap to use.
-    :param vmin: Minimum value for normalization. Defaults to values.min().
-    :param vmax: Maximum value for normalization. Defaults to values.max().
+    :param vmin: Minimum value for normalization. Defaults to the 10th percentile.
+    :param vmax: Maximum value for normalization. Defaults to the 90th percentile.
+    :param cmap_range: Fraction of the colormap to use, as (low, high). Use to cut off
+        palette ends that are too dark to see against the viewer background.
     :return: Nx3 array of RGB uint8 values.
     """
-    min_val = vmin if vmin is not None else values.min()
-    max_val = vmax if vmax is not None else values.max()
+    if values.size == 0:
+        return np.zeros((0, 3), dtype=np.uint8)
+    min_val = vmin if vmin is not None else float(np.quantile(values, 0.10))
+    max_val = vmax if vmax is not None else float(np.quantile(values, 0.90))
     if max_val - min_val < 1e-8:
         normalized = np.zeros_like(values, dtype=np.float64)
     else:
         normalized = np.clip((values - min_val) / (max_val - min_val), 0.0, 1.0)
+    range_low, range_high = cmap_range
+    if (range_low, range_high) != (0.0, 1.0):
+        normalized = range_low + normalized * (range_high - range_low)
     colormap = plt.get_cmap(cmap_name)
     colors = colormap(normalized)
     return (colors[:, :3] * 255).astype(np.uint8)
@@ -141,7 +153,11 @@ def get_lidar_pc_color(
     if color_feature == "none":
         return default_color
     elif color_feature == "height":
-        return _continuous_colormap(-point_cloud_3d[:, 2], cmap_name="viridis", vmin=-6.0, vmax=2.0)
+        # Turbo spans blue -> green -> yellow -> red (viridis has no red); quantile
+        # normalization spreads it over the actual per-frame height distribution.
+        # The outer 8%/10% of turbo are cut off: those tails darken to navy/dark red,
+        # which is nearly invisible against the dark viewer background.
+        return _continuous_colormap(-point_cloud_3d[:, 2], cmap_name="turbo", cmap_range=(0.08, 0.90))
     elif color_feature == "distance":
         distances = -np.linalg.norm(point_cloud_3d, axis=-1)
         distances = np.clip(distances, -50.0, 0.0)

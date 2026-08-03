@@ -37,3 +37,4 @@ viser_config:
     is_playing: false
     speed: 1.0
     atomic: true
+    follow_ego: true

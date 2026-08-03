@@ -15,6 +15,7 @@ from py123d.geometry.transform.transform_se3 import (
 )
 from py123d.visualization.matplotlib.lidar import get_lidar_pc_color
 from py123d.visualization.viser.elements.base_element import ElementContext, ViewerElement
+from py123d.visualization.viser.utils.parallel_fetch import fetch_parallel
 from py123d.visualization.viser.utils.view_utils import get_scene_center_pose
 
 logger = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ class LidarConfig:
         "elongation",
         "semantic",
         "instance",
-    ] = "none"
+    ] = "height"
     stride_step: int = 1
     show_sensor_frames: bool = False
 
@@ -150,7 +151,8 @@ class LidarElement(ViewerElement):
         ego_pose = ego_pose.astype(np.float64)
         ego_pose[PoseSE3Index.XYZ] -= self._context.scene_center_array.astype(np.float64)
 
-        for lidar_id in selected:
+        def _fetch_cloud(lidar_id: LidarID):
+            """Heavy part (arrow read, transform, coloring); runs on the worker pool."""
             lidar = self._context.scene.get_lidar_at_iteration(iteration, lidar_id=lidar_id)
             if lidar is not None:
                 xyz = np.array(lidar.xyz, dtype=np.float64)
@@ -159,9 +161,12 @@ class LidarElement(ViewerElement):
             else:
                 points = np.zeros((0, 3), dtype=np.float32)
                 colors = np.zeros((0, 3), dtype=np.uint8)
+            return self._downsample(points, colors)
 
-            points, colors = self._downsample(points, colors)
+        selected_list = list(selected)
+        results = fetch_parallel(_fetch_cloud, selected_list)
 
+        for lidar_id, (points, colors) in zip(selected_list, results):
             handle = self._handles.get(lidar_id)
             if handle is not None:
                 handle.points = points  # type: ignore
