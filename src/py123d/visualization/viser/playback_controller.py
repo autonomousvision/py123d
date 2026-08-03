@@ -109,11 +109,15 @@ class PlaybackController:
                 gui_scene = self._server.gui.add_slider(
                     "Scene", min=0, max=self._num_scenes - 1, step=1, initial_value=self._scene_index
                 )
-            gui_scene_nav = self._server.gui.add_button_group("Scene", ("Prev", "Next"), disabled=single_scene)
+            gui_scene_nav = self._server.gui.add_button_group(
+                "", ("Prev Scene", "Next Scene"), disabled=single_scene
+            )
             self._gui_timestep = self._server.gui.add_slider(
                 "Timestep", min=0, max=num_frames - 1, step=1, initial_value=0, disabled=controls_disabled
             )
-            gui_frame_nav = self._server.gui.add_button_group("Frame", ("Prev", "Next"), disabled=controls_disabled)
+            gui_frame_nav = self._server.gui.add_button_group(
+                "", ("Prev Frame", "Next Frame"), disabled=controls_disabled
+            )
             # Checkbox pairs are placed adjacently so the two-column GUI CSS packs each
             # pair into one row: (Playing, Follow Ego), (Atomic Updates, Dark Mode).
             self._gui_playing = self._server.gui.add_checkbox("Playing", self._config.is_playing)
@@ -164,12 +168,12 @@ class PlaybackController:
                 # frame stepping is ignored while playback advances on its own.
                 if self._gui_playing.value:
                     return
-                delta = 1 if gui_frame_nav.value == "Next" else -1
+                delta = 1 if gui_frame_nav.value == "Next Frame" else -1
                 self._gui_timestep.value = (self._gui_timestep.value + delta) % num_frames
 
             @gui_scene_nav.on_click
             def _on_scene_nav(_) -> None:
-                delta = 1 if gui_scene_nav.value == "Next" else -1
+                delta = 1 if gui_scene_nav.value == "Next Scene" else -1
                 self._request_scene((self._scene_index + delta) % self._num_scenes)
 
             if gui_scene is not None:
