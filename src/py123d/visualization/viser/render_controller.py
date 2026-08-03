@@ -2,14 +2,17 @@ import io
 import logging
 import zipfile
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
+import av
 import imageio.v3 as iio
 import numpy as np
 import numpy.typing as npt
 import viser
+from PIL import Image
 from tqdm import tqdm
 
+from py123d.visualization.viser.camera_strip_controller import CameraStripController
 from py123d.visualization.viser.elements.base_element import ElementContext
 from py123d.visualization.viser.playback_controller import PlaybackController
 from py123d.visualization.viser.utils.view_utils import get_ego_3rd_person_view_position, get_ego_bev_view_position
@@ -30,12 +33,52 @@ RESOLUTION_MAP = {
 }
 
 
+# Default length of the render range ahead of the current frame.
+DEFAULT_RENDER_RANGE_FRAMES = 100
+
+# libx264 constant rate factors for mp4 exports, shown as user-facing labels. The
+# imageio pyav wrapper offers no quality control and falls back to the x264 default
+# (23), which compresses point clouds and camera imagery visibly.
+MP4_QUALITY_MAP = {
+    "very high (crf 14)": 14,
+    "high (crf 16)": 16,
+    "medium (crf 20)": 20,
+    "low (crf 23)": 23,
+}
+
+
 @dataclass
 class RenderConfig:
     format: Literal["gif", "mp4", "png"] = "mp4"
-    view: Literal["3rd Person", "BEV", "Manual"] = "3rd Person"
+    view: Literal["Follow", "3rd Person", "BEV", "Manual"] = "Follow"
     resolution: Literal["480p", "720p", "1080p", "1440p", "4K"] = "1080p"
     fps: Literal["5 fps", "10 fps", "15 fps", "20 fps", "30 fps"] = "20 fps"
+    quality: Literal["very high (crf 14)", "high (crf 16)", "medium (crf 20)", "low (crf 23)"] = "high (crf 16)"
+
+
+def _encode_mp4(frames: List[npt.NDArray[np.uint8]], fps: int, crf: int) -> bytes:
+    """Encode RGB frames as h264 mp4 with an explicit quality setting.
+
+    Encodes via pyav directly because the imageio pyav plugin exposes no encoder
+    options, leaving libx264 at its default (visibly lossy) rate factor.
+    """
+    buffer = io.BytesIO()
+    container = av.open(buffer, mode="w", format="mp4")
+    try:
+        stream = container.add_stream("libx264", rate=fps)
+        stream.width = frames[0].shape[1]
+        stream.height = frames[0].shape[0]
+        stream.pix_fmt = "yuv420p"
+        stream.options = {"crf": str(crf), "preset": "medium"}
+        for image in frames:
+            frame = av.VideoFrame.from_ndarray(np.ascontiguousarray(image[..., :3]), format="rgb24")
+            for packet in stream.encode(frame):
+                container.mux(packet)
+        for packet in stream.encode():
+            container.mux(packet)
+    finally:
+        container.close()
+    return buffer.getvalue()
 
 
 class RenderController:
@@ -47,11 +90,13 @@ class RenderController:
         config: RenderConfig,
         context: ElementContext,
         playback_controller: PlaybackController,
+        camera_strip: Optional[CameraStripController] = None,
     ) -> None:
         self._server = server
         self._config = config
         self._context = context
         self._playback = playback_controller
+        self._camera_strip = camera_strip
         self._gui_format: Optional[viser.GuiDropdownHandle] = None
         self._gui_view: Optional[viser.GuiDropdownHandle] = None
         self._gui_start_frame: Optional[viser.GuiSliderHandle] = None
@@ -65,7 +110,7 @@ class RenderController:
                 "Format", ["gif", "mp4", "png"], initial_value=self._config.format
             )
             self._gui_view = self._server.gui.add_dropdown(
-                "View", ["3rd Person", "BEV", "Manual"], initial_value=self._config.view
+                "View", ["Follow", "3rd Person", "BEV", "Manual"], initial_value=self._config.view
             )
             self._resolution = self._server.gui.add_dropdown(
                 "Resolution", ["480p", "720p", "1080p", "1440p", "4K"], initial_value=self._config.resolution
@@ -73,12 +118,19 @@ class RenderController:
             self._fps = self._server.gui.add_dropdown(
                 "FPS", ["5 fps", "10 fps", "15 fps", "20 fps", "30 fps"], initial_value=self._config.fps
             )
+            self._gui_quality = self._server.gui.add_dropdown(
+                "Quality", list(MP4_QUALITY_MAP), initial_value=self._config.quality
+            )
             num_frames = self._context.num_frames
             self._gui_start_frame = self._server.gui.add_slider(
                 "Start Frame", min=0, max=num_frames - 1, step=1, initial_value=0
             )
             self._gui_end_frame = self._server.gui.add_slider(
-                "End Frame", min=0, max=num_frames - 1, step=1, initial_value=num_frames - 1
+                "End Frame",
+                min=0,
+                max=num_frames - 1,
+                step=1,
+                initial_value=min(DEFAULT_RENDER_RANGE_FRAMES, num_frames - 1),
             )
             self._gui_background = self._server.gui.add_rgb(
                 "Background", initial_value=DARK_BACKGROUND if self._context.dark_mode else LIGHT_BACKGROUND
@@ -106,18 +158,70 @@ class RenderController:
                 assert self._fps is not None, "GUI must be created before handling FPS change."
                 self._config.fps = self._fps.value
 
+            @self._gui_quality.on_update
+            def _on_quality_changed(_) -> None:
+                assert self._gui_quality is not None, "GUI must be created before handling quality change."
+                self._config.quality = self._gui_quality.value
+
             # Keep the range valid: dragging one handle past the other pushes it along.
             @self._gui_start_frame.on_update
             def _on_start_frame_changed(_) -> None:
                 assert self._gui_start_frame is not None and self._gui_end_frame is not None
-                if self._gui_start_frame.value > self._gui_end_frame.value:
-                    self._gui_end_frame.value = self._gui_start_frame.value
+                self._gui_end_frame.value = max(self._gui_end_frame.value, self._gui_start_frame.value)
 
             @self._gui_end_frame.on_update
             def _on_end_frame_changed(_) -> None:
                 assert self._gui_start_frame is not None and self._gui_end_frame is not None
-                if self._gui_end_frame.value < self._gui_start_frame.value:
-                    self._gui_start_frame.value = self._gui_end_frame.value
+                self._gui_start_frame.value = min(self._gui_start_frame.value, self._gui_end_frame.value)
+
+    def set_default_frame_range(self, iteration: int) -> None:
+        """Track playback: the render range defaults to the current frame plus the
+        next ``DEFAULT_RENDER_RANGE_FRAMES`` frames (clamped to the scene end), so a
+        render started after scrubbing/playing captures what is currently on screen."""
+        if self._gui_start_frame is None or self._gui_end_frame is None:
+            return
+        if self._playback.is_rendering:
+            return
+        last_frame = self._context.num_frames - 1
+        start = min(iteration, last_frame)
+        end = min(iteration + DEFAULT_RENDER_RANGE_FRAMES, last_frame)
+        if self._gui_start_frame.value != start:
+            self._gui_start_frame.value = start
+        if self._gui_end_frame.value != end:
+            self._gui_end_frame.value = end
+
+    def _ego_position(self, iteration: int) -> npt.NDArray[np.float64]:
+        """Scene-centered ego position at the given iteration."""
+        state = self._context.scene.get_ego_state_se3_at_iteration(iteration)
+        assert state is not None, f"Ego state must be available at iteration {iteration}."
+        return state.center_se3.point_3d.array.astype(np.float64) - self._context.scene_center_array.astype(np.float64)
+
+    def _composite_camera_strip(self, frame: npt.NDArray[np.uint8], iteration: int) -> npt.NDArray[np.uint8]:
+        """Rasterize the enabled camera strip into the top of a rendered frame.
+
+        Mirrors the HTML overlay layout: each image one third of the frame width,
+        row centered horizontally. No-op when the strip is disabled."""
+        if self._camera_strip is None:
+            return frame
+        labeled_images = self._camera_strip.get_enabled_images(iteration)
+        if len(labeled_images) == 0:
+            return frame
+        frame_width = frame.shape[1]
+        slot_width = frame_width // 3
+        resized = []
+        for _, image in labeled_images:
+            slot_height = max(1, round(image.shape[0] * slot_width / image.shape[1]))
+            resized.append(
+                np.asarray(Image.fromarray(image).resize((slot_width, slot_height), Image.Resampling.BILINEAR))
+            )
+        x = (frame_width - slot_width * len(resized)) // 2
+        for image in resized:
+            h, w = image.shape[:2]
+            frame[:h, x : x + w, :3] = image[..., :3]
+            if frame.shape[-1] == 4:
+                frame[:h, x : x + w, 3] = 255
+            x += w
+        return frame
 
     def _composite_over_background(self, image: npt.NDArray[np.uint8]) -> npt.NDArray[np.uint8]:
         """Alpha-composite an RGBA frame over the configured background color."""
@@ -146,6 +250,20 @@ class RenderController:
 
             width, height = RESOLUTION_MAP[self._config.resolution]
 
+            # Follow view: keep the user's current camera exactly as-is, translated
+            # with the ego per frame -- what-you-see-is-what-you-get for the pose the
+            # viewer shows when the render starts.
+            follow_offset: Optional[npt.NDArray[np.float64]] = None
+            follow_wxyz: Optional[npt.NDArray[np.float64]] = None
+            if self._gui_view.value == "Follow":
+                try:
+                    ego_now = self._ego_position(self._playback.current_iteration)
+                    follow_offset = np.asarray(client.camera.position, dtype=np.float64) - ego_now
+                    follow_wxyz = np.asarray(client.camera.wxyz, dtype=np.float64)
+                except AssertionError:
+                    # No camera state received yet; fall back to a static camera.
+                    follow_offset = None
+
             start_frame = min(self._gui_start_frame.value, self._gui_end_frame.value)
             end_frame = max(self._gui_start_frame.value, self._gui_end_frame.value)
             for i in tqdm(range(start_frame, end_frame + 1)):
@@ -158,9 +276,14 @@ class RenderController:
                     ego_view = get_ego_3rd_person_view_position(scene, i, initial_ego_state)
                     client.camera.position = ego_view.point_3d.array
                     client.camera.wxyz = ego_view.quaternion.array
+                elif self._gui_view.value == "Follow" and follow_offset is not None:
+                    client.camera.position = self._ego_position(i) + follow_offset
+                    client.camera.wxyz = follow_wxyz
                 # PNG transport renders on a transparent background (jpeg hardcodes white
                 # in the viser frontend); the background color is composited below.
-                images.append(client.get_render(height=height, width=width, transport_format="png"))
+                frame = client.get_render(height=height, width=width, transport_format="png")
+                frame = self._composite_camera_strip(frame, i)
+                images.append(frame)
 
             format = self._gui_format.value
             content: Optional[bytes] = None
@@ -171,11 +294,8 @@ class RenderController:
                 content = buffer.getvalue()
             elif format == "mp4":
                 composited = [self._composite_over_background(image) for image in images]
-                buffer = io.BytesIO()
                 fps = int(self._config.fps.split()[0])
-                # The pyav plugin does not infer a codec from the container format.
-                iio.imwrite(buffer, composited, extension=".mp4", fps=fps, codec="libx264")
-                content = buffer.getvalue()
+                content = _encode_mp4(composited, fps=fps, crf=MP4_QUALITY_MAP[self._config.quality])
             elif format == "png":
                 zip_buf = io.BytesIO()
                 with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:

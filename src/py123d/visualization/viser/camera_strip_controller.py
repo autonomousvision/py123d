@@ -43,12 +43,10 @@ class CameraStripController:
         server: viser.ViserServer,
         config: CameraStripConfig,
         context: ElementContext,
-        reserved_right_em: float,
     ) -> None:
         self._server = server
         self._config = config
         self._context = context
-        self._reserved_right_em = reserved_right_em
         self._html_handle: Optional[viser.GuiHtmlHandle] = None
         self._gui_checkboxes: Dict[str, viser.GuiCheckboxHandle] = {}
         self._gui_image_scale: Optional[viser.GuiDropdownHandle] = None
@@ -121,25 +119,28 @@ class CameraStripController:
                 enabled.append((label, cam_id))
         return enabled
 
-    def _refresh(self) -> None:
-        if self._html_handle is None:
-            return
+    def get_enabled_images(self, iteration: int):
+        """Processed (ISP-applied) images of the enabled slots in display order.
 
-        enabled = self._enabled_slots()
-        if len(enabled) == 0:
-            if self._html_handle.content != "":
-                self._html_handle.content = ""
-            return
-
-        image_tags: List[str] = []
-        for label, cam_id in enabled:
-            camera = self._context.scene.get_camera_at_iteration(
-                self._current_iteration, cam_id, scale=self._config.image_scale
-            )
+        Shared by the HTML overlay and the render controller, which rasterizes the
+        same strip into exported videos.
+        """
+        images = []
+        for label, cam_id in self._enabled_slots():
+            camera = self._context.scene.get_camera_at_iteration(iteration, cam_id, scale=self._config.image_scale)
             image = camera.rgb_image if camera is not None else None
             if image is None:
                 continue
             image = apply_display_isp(image, getattr(camera.metadata, "isp", None))
+            images.append((label, image))
+        return images
+
+    def _refresh(self) -> None:
+        if self._html_handle is None:
+            return
+
+        image_tags: List[str] = []
+        for label, image in self.get_enabled_images(self._current_iteration):
             encoded = base64.b64encode(iio.imwrite("<bytes>", image, extension=".jpeg")).decode("ascii")
             image_tags.append(
                 f'<img alt="{label}" src="data:image/jpeg;base64,{encoded}" '
@@ -151,10 +152,15 @@ class CameraStripController:
                 self._html_handle.content = ""
             return
 
+        # z-index -1: the strip is mounted inside the control panel's stacking
+        # context, so a negative index paints it below every panel control (controls
+        # always in front) while the panel's own layer keeps it above the 3D canvas.
+        # The panel content wrapper is given an opaque background via the injected
+        # global CSS (keyed on the py123d-camera-strip class) so the strip cannot
+        # shine through gaps between the panel's folder cards.
         self._html_handle.content = (
-            '<div style="position:fixed;top:0;left:0;'
-            f"width:calc(100vw - {self._reserved_right_em}em);"
-            'display:flex;justify-content:center;gap:0;z-index:10;pointer-events:none;">'
+            '<div class="py123d-camera-strip" style="position:fixed;top:0;left:0;width:100vw;'
+            'display:flex;justify-content:center;gap:0;z-index:-1;pointer-events:none;">'
             + "".join(image_tags)
             + "</div>"
         )

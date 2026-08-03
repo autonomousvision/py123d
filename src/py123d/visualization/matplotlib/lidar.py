@@ -136,15 +136,20 @@ def get_lidar_pc_color(
         "instance",
     ] = "none",
     dark_mode: bool = False,
+    stride: int = 1,
 ) -> npt.NDArray[np.uint8]:
     """Compute per-point RGB colors for a lidar point cloud based on a feature.
 
     :param lidar: Lidar object containing the point cloud and its metadata.
     :param color_feature: The feature to color the point cloud by.
     :param dark_mode: If True, use white as the default color; otherwise use black.
+    :param stride: Color only every stride-th point (matching ``point_cloud_3d[::stride]``),
+        so display-side subsampling does not pay for coloring the full cloud.
     :return: Nx3 array of RGB uint8 values.
     """
     point_cloud_3d = lidar.point_cloud_3d
+    if stride > 1:
+        point_cloud_3d = point_cloud_3d[::stride]
     n_points = len(point_cloud_3d)
 
     default_value = 255 if dark_mode else 0
@@ -181,6 +186,8 @@ def get_lidar_pc_color(
     if values is None:
         logger.warning(f"LiDAR point cloud does not contain {color_feature} feature. Falling back to black.")
         return default_color
+    if stride > 1:
+        values = values[::stride]
 
     # Semantic ids are colored with the Cityscapes palette via the dataset taxonomy attached to the
     # lidar metadata (raw id -> unified default label -> color). If the taxonomy is unavailable (e.g. a

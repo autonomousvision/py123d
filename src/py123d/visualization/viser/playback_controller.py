@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import threading
 import time
@@ -109,9 +110,7 @@ class PlaybackController:
                 gui_scene = self._server.gui.add_slider(
                     "Scene", min=0, max=self._num_scenes - 1, step=1, initial_value=self._scene_index
                 )
-            gui_scene_nav = self._server.gui.add_button_group(
-                "", ("Prev Scene", "Next Scene"), disabled=single_scene
-            )
+            gui_scene_nav = self._server.gui.add_button_group("", ("Prev Scene", "Next Scene"), disabled=single_scene)
             self._gui_timestep = self._server.gui.add_slider(
                 "Timestep", min=0, max=num_frames - 1, step=1, initial_value=0, disabled=controls_disabled
             )
@@ -203,11 +202,22 @@ class PlaybackController:
         if self._on_iteration_changed is None or self._gui_timestep is None:
             return
         start = time.perf_counter()
-        if self._gui_atomic is not None and self._gui_atomic.value:
-            with self._server.atomic():
-                self._on_iteration_changed(self._gui_timestep.value)
-        else:
+        use_atomic = self._gui_atomic is not None and self._gui_atomic.value
+        clients = list(self._server.get_clients().values()) if use_atomic else []
+        with contextlib.ExitStack() as stack:
+            if use_atomic:
+                # server.atomic() only holds the broadcast buffer; camera updates
+                # (ego follow) travel through the per-client buffers and would be
+                # sent before the bulky scene data. Hold every buffer so the whole
+                # timestep releases at once.
+                stack.enter_context(self._server.atomic())
+                for client in clients:
+                    stack.enter_context(client.atomic())
             self._on_iteration_changed(self._gui_timestep.value)
+        if use_atomic:
+            self._server.flush()
+            for client in clients:
+                client.flush()
 
         if pace and not self._rendering:
             rendering_time = time.perf_counter() - start

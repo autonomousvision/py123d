@@ -43,6 +43,10 @@ class LidarConfig:
         "instance",
     ] = "height"
     stride_step: int = 1
+    # Per-sensor display cap. viser transmits every point on every timestep, so
+    # uncapped high-resolution sensors (800k+ points) saturate the connection and
+    # starve playback. Applied after stride_step; <=0 disables the cap.
+    max_points: int = 100_000
     show_sensor_frames: bool = False
 
     def __post_init__(self):
@@ -63,6 +67,7 @@ class LidarElement(ViewerElement):
         self._gui_sensor_checkboxes: Dict[LidarID, viser.GuiCheckboxHandle] = {}
         self._gui_point_size: Optional[viser.GuiInputHandle] = None
         self._gui_stride_step: Optional[viser.GuiInputHandle] = None
+        self._gui_max_points: Optional[viser.GuiSliderHandle] = None
         self._gui_show_sensor_frames: Optional[viser.GuiCheckboxHandle] = None
         self._dark_mode: bool = context.dark_mode
         self._current_iteration: int = 0
@@ -109,6 +114,14 @@ class LidarElement(ViewerElement):
             initial_value=self._config.stride_step,
         )
 
+        self._gui_max_points = server.gui.add_slider(
+            "Max Points",
+            min=10_000,
+            max=1_000_000,
+            step=10_000,
+            initial_value=self._config.max_points,
+        )
+
         self._gui_show_sensor_frames = server.gui.add_checkbox("Show Sensor Frames", self._config.show_sensor_frames)
 
         # One checkbox per available sensor, same style as the camera frustum checklist.
@@ -122,6 +135,7 @@ class LidarElement(ViewerElement):
         self._gui_coloring.on_update(self._on_coloring_changed)
         self._gui_point_size.on_update(self._on_point_size_changed)
         self._gui_stride_step.on_update(self._on_stride_step_changed)
+        self._gui_max_points.on_update(self._on_max_points_changed)
         self._gui_show_sensor_frames.on_update(self._on_show_sensor_frames_changed)
 
     def _selected_ids(self) -> List[LidarID]:
@@ -162,14 +176,23 @@ class LidarElement(ViewerElement):
         def _fetch_cloud(lidar_id: LidarID):
             """Heavy part (arrow read, transform, coloring); runs on the worker pool."""
             lidar = self._context.scene.get_lidar_at_iteration(iteration, lidar_id=lidar_id)
-            if lidar is not None:
-                xyz = np.array(lidar.xyz, dtype=np.float64)
-                points = rel_to_abs_points_3d_array(rotation_only_pose, xyz)
-                colors = get_lidar_pc_color(lidar, color_feature=self._config.point_color, dark_mode=self._dark_mode)
-            else:
-                points = np.zeros((0, 3), dtype=np.float32)
-                colors = np.zeros((0, 3), dtype=np.uint8)
-            return self._downsample(points, colors)
+            if lidar is None:
+                return np.zeros((0, 3), dtype=np.float32), np.zeros((0, 3), dtype=np.uint8)
+            # Subsample BEFORE transforming and coloring: with the display cap active,
+            # only the kept points pay for the heavy per-point work.
+            num_points = len(lidar.xyz)
+            step = max(1, self._config.stride_step)
+            max_points = self._config.max_points
+            if max_points > 0:
+                remaining = int(np.ceil(num_points / step))
+                if remaining > max_points:
+                    step *= int(np.ceil(remaining / max_points))
+            xyz = np.array(lidar.xyz[::step], dtype=np.float64)
+            points = rel_to_abs_points_3d_array(rotation_only_pose, xyz)
+            colors = get_lidar_pc_color(
+                lidar, color_feature=self._config.point_color, dark_mode=self._dark_mode, stride=step
+            )
+            return points, colors
 
         selected_list = list(selected)
         results = fetch_parallel(_fetch_cloud, selected_list)
@@ -233,6 +256,11 @@ class LidarElement(ViewerElement):
         self._config.stride_step = self._gui_stride_step.value
         self.update(self._current_iteration)
 
+    def _on_max_points_changed(self, _) -> None:
+        assert self._gui_max_points is not None
+        self._config.max_points = self._gui_max_points.value
+        self.update(self._current_iteration)
+
     def on_dark_mode_changed(self, dark_mode: bool) -> None:
         self._dark_mode = dark_mode
         self.update(self._current_iteration)
@@ -283,9 +311,3 @@ class LidarElement(ViewerElement):
                 wxyz=wxyz,
             )
             self._frame_handles.append(frame_handle)
-
-    def _downsample(self, points: np.ndarray, colors: np.ndarray) -> tuple:
-        if len(points) == 0 or self._config.stride_step <= 1:
-            return points, colors
-        step = self._config.stride_step
-        return points[::step], colors[::step]
