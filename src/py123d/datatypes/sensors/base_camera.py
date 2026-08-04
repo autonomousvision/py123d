@@ -125,6 +125,12 @@ class CameraID(SerialIntEnum):
     FTCAM_R1 = 17
     """Right F-theta camera, second from front to back."""
 
+    FTCAM_L2 = 21
+    """Left F-theta camera, third from front to back."""
+
+    FTCAM_R2 = 22
+    """Right F-theta camera, third from front to back."""
+
 
 ALL_PINHOLE_CAMERA_IDS = [
     CameraID.PCAM_F0,
@@ -152,8 +158,10 @@ ALL_FTHETA_CAMERA_IDS = [
     CameraID.FTCAM_TELE_B0,
     CameraID.FTCAM_L0,
     CameraID.FTCAM_L1,
+    CameraID.FTCAM_L2,
     CameraID.FTCAM_R0,
     CameraID.FTCAM_R1,
+    CameraID.FTCAM_R2,
 ]
 
 # ---------------------------------------------------------------------------

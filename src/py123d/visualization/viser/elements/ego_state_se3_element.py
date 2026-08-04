@@ -66,6 +66,55 @@ class EgoElement(ViewerElement):
         self._gui_opacity.on_update(self._on_opacity_changed)
         self._gui_show_imu_frame.on_update(self._on_show_imu_frame_changed)
 
+    def _local_box_corners(self) -> np.ndarray:
+        """Corners of the ego box in its own local frame (origin-centered, identity rotation)."""
+        local_box = self._context.initial_ego_state.bounding_box_se3.array.copy()
+        local_box[BoundingBoxSE3Index.XYZ] = 0.0
+        local_box[BoundingBoxSE3Index.QUATERNION] = (1.0, 0.0, 0.0, 0.0)
+        return bbse3_array_to_corners_array(np.array([local_box]))
+
+    def _ensure_geometry(self, display_type: str) -> None:
+        """Create the mesh/lines nodes once, in the box-local frame.
+
+        The geometry never changes across timesteps (constant ego dimensions), so
+        per-frame updates only move the node transform. Re-sending the geometry
+        every frame made the browser delete and recreate the objects each timestep,
+        which rendered as heavy jitter of the ego box relative to the scene.
+        """
+        assert self._server is not None
+        assert self._gui_opacity is not None
+        box_corners_array = self._local_box_corners()
+
+        if display_type in {"mesh", "mesh+lines"} and self._handles["mesh"] is None:
+            opacity = self._gui_opacity.value
+            alpha = int(np.clip(opacity * 255, 0, 255))
+            box_vertices, box_faces = corners_array_to_3d_mesh(box_corners_array)
+            r, g, b, _ = BOX_DETECTION_CONFIG[DefaultBoxDetectionLabel.EGO].fill_color.rgba
+            vertex_colors = np.tile(np.array([r, g, b, alpha]), (len(Corners3DIndex), 1))
+            mesh = trimesh.Trimesh(vertices=box_vertices, faces=box_faces)
+            mesh.visual.vertex_colors = vertex_colors  # type: ignore
+            mesh.visual.material = trimesh.visual.material.PBRMaterial(alphaMode="BLEND")  # type: ignore
+            self._handles["mesh"] = self._server.scene.add_mesh_trimesh(
+                "ego_mesh",
+                mesh=mesh,
+                visible=False,
+                cast_shadow=False,
+            )
+
+        if display_type in {"lines", "mesh+lines"} and self._handles["lines"] is None:
+            box_outlines = corners_array_to_edge_lines(box_corners_array).reshape(-1, 2, 3)
+            colors = np.broadcast_to(
+                np.array(BOX_DETECTION_CONFIG[DefaultBoxDetectionLabel.EGO].fill_color.rgb),
+                (len(box_outlines), 2, 3),
+            )
+            self._handles["lines"] = self._server.scene.add_line_segments(
+                "ego_lines",
+                points=box_outlines,
+                colors=colors,
+                line_width=self._config.line_width,
+                visible=False,
+            )
+
     def update(self, iteration: int) -> None:
         assert self._server is not None, "Server must be set before updating element."
         assert self._gui_visible is not None, "GUI must be created before updating element."
@@ -78,43 +127,22 @@ class EgoElement(ViewerElement):
         if self._gui_visible.value:
             ego_vehicle_state = self._context.scene.get_ego_state_se3_at_iteration(iteration)
             assert ego_vehicle_state is not None, "Ego vehicle state must be available at the specified iteration."
-            box_se3_array = np.array([ego_vehicle_state.bounding_box_se3.array])
-            box_se3_array[..., BoundingBoxSE3Index.XYZ] -= self._context.initial_ego_state.center_se3.array[
-                PoseSE3Index.XYZ
-            ]
-            box_corners_array = bbse3_array_to_corners_array(box_se3_array)
+            box_se3_array = ego_vehicle_state.bounding_box_se3.array.copy()
+            box_se3_array[BoundingBoxSE3Index.XYZ] -= self._context.initial_ego_state.center_se3.array[PoseSE3Index.XYZ]
+            position = box_se3_array[BoundingBoxSE3Index.XYZ]
+            wxyz = box_se3_array[BoundingBoxSE3Index.QUATERNION]
 
+            self._ensure_geometry(display_type)
             if display_type in {"mesh", "mesh+lines"}:
-                opacity = self._gui_opacity.value
-                alpha = int(np.clip(opacity * 255, 0, 255))
-                box_vertices, box_faces = corners_array_to_3d_mesh(box_corners_array)
-                r, g, b, _ = BOX_DETECTION_CONFIG[DefaultBoxDetectionLabel.EGO].fill_color.rgba
-                vertex_colors = np.tile(np.array([r, g, b, alpha]), (len(Corners3DIndex), 1))
-                mesh = trimesh.Trimesh(vertices=box_vertices, faces=box_faces)
-                mesh.visual.vertex_colors = vertex_colors  # type: ignore
-                mesh.visual.material = trimesh.visual.material.PBRMaterial(alphaMode="BLEND")  # type: ignore
-                self._handles["mesh"] = self._server.scene.add_mesh_trimesh(
-                    "ego_mesh",
-                    mesh=mesh,
-                    visible=True,
-                    cast_shadow=False,
-                )
                 visible_handle_keys.append("mesh")
-
             if display_type in {"lines", "mesh+lines"}:
-                box_outlines = corners_array_to_edge_lines(box_corners_array).reshape(-1, 2, 3)
-                colors = np.broadcast_to(
-                    np.array(BOX_DETECTION_CONFIG[DefaultBoxDetectionLabel.EGO].fill_color.rgb),
-                    (len(box_outlines), 2, 3),
-                )
-                self._handles["lines"] = self._server.scene.add_line_segments(
-                    "ego_lines",
-                    points=box_outlines,
-                    colors=colors,
-                    line_width=self._config.line_width,
-                    visible=True,
-                )
                 visible_handle_keys.append("lines")
+            for key in visible_handle_keys:
+                handle = self._handles[key]
+                assert handle is not None
+                handle.position = position
+                handle.wxyz = wxyz
+                handle.visible = True  # type: ignore
 
         self._update_imu_frame(iteration)
 
@@ -148,6 +176,10 @@ class EgoElement(ViewerElement):
     def _on_opacity_changed(self, _) -> None:
         assert self._gui_opacity is not None, "GUI must be created before handling opacity change."
         self._config.opacity = self._gui_opacity.value
+        # Opacity is baked into the mesh vertex colors; rebuild the mesh geometry.
+        if self._handles["mesh"] is not None:
+            self._handles["mesh"].remove()
+            self._handles["mesh"] = None
         self.update(self._current_iteration)
 
     def _on_show_imu_frame_changed(self, _) -> None:
@@ -165,9 +197,8 @@ class EgoElement(ViewerElement):
         assert self._gui_visible is not None
         assert self._gui_show_imu_frame is not None
 
-        self._remove_imu_frame()
-
         if not self._gui_visible.value or not self._gui_show_imu_frame.value:
+            self._remove_imu_frame()
             return
 
         ego_vehicle_state = self._context.scene.get_ego_state_se3_at_iteration(iteration)
@@ -177,10 +208,14 @@ class EgoElement(ViewerElement):
         position = imu_pose[PoseSE3Index.XYZ]
         wxyz = imu_pose[PoseSE3Index.QUATERNION]
 
-        self._imu_frame_handle = self._server.scene.add_frame(
-            "ego_imu_frame",
-            axes_length=0.5,
-            axes_radius=0.01,
-            position=position,
-            wxyz=wxyz,
-        )
+        if self._imu_frame_handle is None:
+            self._imu_frame_handle = self._server.scene.add_frame(
+                "ego_imu_frame",
+                axes_length=0.5,
+                axes_radius=0.01,
+                position=position,
+                wxyz=wxyz,
+            )
+        else:
+            self._imu_frame_handle.position = position
+            self._imu_frame_handle.wxyz = wxyz

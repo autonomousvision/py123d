@@ -3,6 +3,7 @@ from typing import Literal, Optional, Tuple
 
 from py123d.visualization.color.color import ELLIS_5
 from py123d.visualization.viser.camera_gui_controller import CameraGuiConfig
+from py123d.visualization.viser.camera_strip_controller import CameraStripConfig
 from py123d.visualization.viser.elements.box_detections_se3_element import DetectionConfig
 from py123d.visualization.viser.elements.camera_frustum_element import CameraFrustumConfig
 from py123d.visualization.viser.elements.ego_state_se3_element import EgoConfig
@@ -42,6 +43,7 @@ _SUB_CONFIG_FIELDS = {
     "detection": DetectionConfig,
     "camera_frustum": CameraFrustumConfig,
     "camera_gui": CameraGuiConfig,
+    "camera_strip": CameraStripConfig,
     "lidar": LidarConfig,
     "radar": RadarConfig,
     "render": RenderConfig,
@@ -58,6 +60,7 @@ class ViserConfig:
     detection: DetectionConfig = field(default_factory=DetectionConfig)
     camera_frustum: CameraFrustumConfig = field(default_factory=CameraFrustumConfig)
     camera_gui: CameraGuiConfig = field(default_factory=CameraGuiConfig)
+    camera_strip: CameraStripConfig = field(default_factory=CameraStripConfig)
     lidar: LidarConfig = field(default_factory=LidarConfig)
     radar: RadarConfig = field(default_factory=RadarConfig)
     render: RenderConfig = field(default_factory=RenderConfig)

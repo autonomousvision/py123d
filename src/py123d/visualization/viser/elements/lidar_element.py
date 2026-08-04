@@ -15,6 +15,7 @@ from py123d.geometry.transform.transform_se3 import (
 )
 from py123d.visualization.matplotlib.lidar import get_lidar_pc_color
 from py123d.visualization.viser.elements.base_element import ElementContext, ViewerElement
+from py123d.visualization.viser.utils.parallel_fetch import fetch_parallel
 from py123d.visualization.viser.utils.view_utils import get_scene_center_pose
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LidarConfig:
     visible: bool = True
+    # Sensors that start checked in the per-sensor checklist; every id available in the
+    # scene gets its own checkbox and its own point-cloud node.
     ids: List[LidarID] = field(default_factory=lambda: [LidarID.LIDAR_MERGED])
     point_size: float = 0.02
     point_shape: Literal["square", "diamond", "circle", "rounded", "sparkle"] = "circle"
@@ -38,8 +41,12 @@ class LidarConfig:
         "elongation",
         "semantic",
         "instance",
-    ] = "none"
+    ] = "height"
     stride_step: int = 1
+    # Per-sensor display cap. viser transmits every point on every timestep, so
+    # uncapped high-resolution sensors (800k+ points) saturate the connection and
+    # starve playback. Applied after stride_step; <=0 disables the cap.
+    max_points: int = 100_000
     show_sensor_frames: bool = False
 
     def __post_init__(self):
@@ -53,13 +60,14 @@ class LidarElement(ViewerElement):
         self._context = context
         self._config = config
         self._server: Optional[viser.ViserServer] = None
-        self._handles: Dict[LidarID, Optional[viser.PointCloudHandle]] = {config.ids[0]: None}
+        self._handles: Dict[LidarID, Optional[viser.PointCloudHandle]] = {}
         self._frame_handles: List[viser.FrameHandle] = []
         self._gui_visible: Optional[viser.GuiCheckboxHandle] = None
         self._gui_coloring: Optional[viser.GuiDropdownHandle] = None
-        self._gui_lidar_id: Optional[viser.GuiDropdownHandle] = None
+        self._gui_sensor_checkboxes: Dict[LidarID, viser.GuiCheckboxHandle] = {}
         self._gui_point_size: Optional[viser.GuiInputHandle] = None
         self._gui_stride_step: Optional[viser.GuiInputHandle] = None
+        self._gui_max_points: Optional[viser.GuiSliderHandle] = None
         self._gui_show_sensor_frames: Optional[viser.GuiCheckboxHandle] = None
         self._dark_mode: bool = context.dark_mode
         self._current_iteration: int = 0
@@ -71,7 +79,6 @@ class LidarElement(ViewerElement):
     def create_gui(self, server: viser.ViserServer) -> None:
         self._server = server
         lidar_id_list = self._context.scene.available_lidar_ids
-        lidar_id_names = tuple(lid.name for lid in lidar_id_list)
 
         self._gui_visible = server.gui.add_checkbox("Visible", self._config.visible)
         self._gui_coloring = server.gui.add_dropdown(
@@ -91,12 +98,6 @@ class LidarElement(ViewerElement):
             ),
             initial_value=self._config.point_color,
         )
-        self._gui_lidar_id = server.gui.add_dropdown(
-            "Lidar ID",
-            lidar_id_names,
-            initial_value=self._config.ids[0].name,
-        )
-
         self._gui_point_size = server.gui.add_slider(
             "Point Size",
             min=0.001,
@@ -113,28 +114,49 @@ class LidarElement(ViewerElement):
             initial_value=self._config.stride_step,
         )
 
+        self._gui_max_points = server.gui.add_slider(
+            "Max Points",
+            min=10_000,
+            max=1_000_000,
+            step=10_000,
+            initial_value=self._config.max_points,
+        )
+
         self._gui_show_sensor_frames = server.gui.add_checkbox("Show Sensor Frames", self._config.show_sensor_frames)
+
+        # One checkbox per available sensor, same style as the camera frustum checklist.
+        server.gui.add_markdown("**Lidars**")
+        for lidar_id in lidar_id_list:
+            checkbox = server.gui.add_checkbox(lidar_id.serialize(lower=False), lidar_id in self._config.ids)
+            checkbox.on_update(self._on_sensor_selection_changed)
+            self._gui_sensor_checkboxes[lidar_id] = checkbox
 
         self._gui_visible.on_update(self._on_visibility_changed)
         self._gui_coloring.on_update(self._on_coloring_changed)
-        self._gui_lidar_id.on_update(self._on_lidar_id_changed)
         self._gui_point_size.on_update(self._on_point_size_changed)
         self._gui_stride_step.on_update(self._on_stride_step_changed)
+        self._gui_max_points.on_update(self._on_max_points_changed)
         self._gui_show_sensor_frames.on_update(self._on_show_sensor_frames_changed)
+
+    def _selected_ids(self) -> List[LidarID]:
+        """Sensors whose checklist entry is currently checked."""
+        return [lidar_id for lidar_id, checkbox in self._gui_sensor_checkboxes.items() if checkbox.value]
 
     def update(self, iteration: int) -> None:
         assert self._server is not None
         assert self._gui_visible is not None
         assert self._gui_coloring is not None
         self._current_iteration = iteration
-        active_id = self._config.ids[0]
 
-        if active_id not in self._handles:
-            self._handles[active_id] = None
+        selected = set(self._selected_ids()) if self._gui_visible.value else set()
 
-        if not self._gui_visible.value:
-            if self._handles[active_id] is not None:
-                self._handles[active_id].visible = False  # type: ignore
+        # Hide every sensor that is deselected (or the whole element invisible) first, so a
+        # selection change never leaves a stale cloud behind.
+        for lidar_id, handle in self._handles.items():
+            if handle is not None and lidar_id not in selected:
+                handle.visible = False
+
+        if not selected:
             return
 
         ego_state_se3 = self._context.scene.get_ego_state_se3_at_iteration(iteration)
@@ -143,30 +165,57 @@ class LidarElement(ViewerElement):
         ego_pose = ego_pose.astype(np.float64)
         ego_pose[PoseSE3Index.XYZ] -= self._context.scene_center_array.astype(np.float64)
 
-        lidar = self._context.scene.get_lidar_at_iteration(iteration, lidar_id=active_id)
-        if lidar is not None:
-            xyz = np.array(lidar.xyz, dtype=np.float64)
+        # viser transmits point positions as float16: coordinates far from the origin
+        # quantize visibly (~1 m at 1.5 km). Points are therefore kept ego-centered
+        # (world-oriented, small magnitudes) and the node itself is anchored at the ego
+        # position, which travels as a full-precision float32 node transform.
+        ego_position = ego_pose[PoseSE3Index.XYZ].copy()
+        rotation_only_pose = ego_pose.copy()
+        rotation_only_pose[PoseSE3Index.XYZ] = 0.0
 
-            points = rel_to_abs_points_3d_array(ego_pose, xyz)
-            colors = get_lidar_pc_color(lidar, color_feature=self._config.point_color, dark_mode=self._dark_mode)
-        else:
-            points = np.zeros((0, 3), dtype=np.float32)
-            colors = np.zeros((0, 3), dtype=np.uint8)
-
-        points, colors = self._downsample(points, colors)
-
-        if self._handles[active_id] is not None:
-            self._handles[active_id].points = points  # type: ignore
-            self._handles[active_id].colors = colors  # type: ignore
-            self._handles[active_id].visible = True  # type: ignore
-        else:
-            self._handles[active_id] = self._server.scene.add_point_cloud(  # type: ignore
-                "lidar_points",
-                points=points,
-                colors=colors,
-                point_size=self._config.point_size,
-                point_shape=self._config.point_shape,
+        def _fetch_cloud(lidar_id: LidarID):
+            """Heavy part (arrow read, transform, coloring); runs on the worker pool."""
+            lidar = self._context.scene.get_lidar_at_iteration(iteration, lidar_id=lidar_id)
+            if lidar is None:
+                return np.zeros((0, 3), dtype=np.float32), np.zeros((0, 3), dtype=np.uint8)
+            # Subsample BEFORE transforming and coloring: with the display cap active,
+            # only the kept points pay for the heavy per-point work.
+            num_points = len(lidar.xyz)
+            step = max(1, self._config.stride_step)
+            max_points = self._config.max_points
+            if max_points > 0:
+                remaining = int(np.ceil(num_points / step))
+                if remaining > max_points:
+                    step *= int(np.ceil(remaining / max_points))
+            xyz = np.array(lidar.xyz[::step], dtype=np.float64)
+            points = rel_to_abs_points_3d_array(rotation_only_pose, xyz)
+            colors = get_lidar_pc_color(
+                lidar, color_feature=self._config.point_color, dark_mode=self._dark_mode, stride=step
             )
+            return points, colors
+
+        selected_list = list(selected)
+        results = fetch_parallel(_fetch_cloud, selected_list)
+
+        for lidar_id, (points, colors) in zip(selected_list, results):
+            handle = self._handles.get(lidar_id)
+            if handle is not None:
+                handle.points = points  # type: ignore
+                handle.colors = colors  # type: ignore
+                handle.position = ego_position
+                handle.visible = True
+            else:
+                # One uniquely named node per sensor; a shared name would make every added
+                # cloud replace the previous sensor's node server-side while its stale
+                # handle lives on, which is what made selection changes apply erratically.
+                self._handles[lidar_id] = self._server.scene.add_point_cloud(
+                    f"lidar_points/{lidar_id.serialize()}",
+                    points=points,
+                    colors=colors,
+                    point_size=self._config.point_size,
+                    point_shape=self._config.point_shape,
+                    position=ego_position,
+                )
 
         self._update_sensor_frames(iteration)
 
@@ -191,9 +240,8 @@ class LidarElement(ViewerElement):
         self._config.point_color = self._gui_coloring.value
         self.update(self._current_iteration)
 
-    def _on_lidar_id_changed(self, _) -> None:
-        assert self._gui_lidar_id is not None
-        self._config.ids = [LidarID[self._gui_lidar_id.value]]
+    def _on_sensor_selection_changed(self, _) -> None:
+        self._config.ids = self._selected_ids()
         self.update(self._current_iteration)
 
     def _on_point_size_changed(self, _) -> None:
@@ -206,6 +254,11 @@ class LidarElement(ViewerElement):
     def _on_stride_step_changed(self, _) -> None:
         assert self._gui_stride_step is not None
         self._config.stride_step = self._gui_stride_step.value
+        self.update(self._current_iteration)
+
+    def _on_max_points_changed(self, _) -> None:
+        assert self._gui_max_points is not None
+        self._config.max_points = self._gui_max_points.value
         self.update(self._current_iteration)
 
     def on_dark_mode_changed(self, dark_mode: bool) -> None:
@@ -233,15 +286,18 @@ class LidarElement(ViewerElement):
         if not self._gui_visible.value or not self._gui_show_sensor_frames.value:
             return
 
-        active_id = self._config.ids[0]
-        lidar = self._context.scene.get_lidar_at_iteration(iteration, lidar_id=active_id)
-        if lidar is None:
+        lidar_metadatas = {}
+        for selected_id in self._selected_ids():
+            lidar = self._context.scene.get_lidar_at_iteration(iteration, lidar_id=selected_id)
+            if lidar is not None:
+                lidar_metadatas.update(lidar.lidar_metadatas)
+        if not lidar_metadatas:
             return
 
         ego_pose = self._context.scene.get_ego_state_se3_at_iteration(iteration).imu_se3  # type: ignore
         scene_center_pose = get_scene_center_pose(self._context.scene_center_array)
 
-        for lidar_id, lidar_meta in lidar.lidar_metadatas.items():
+        for lidar_id, lidar_meta in lidar_metadatas.items():
             lidar_world_pose = rel_to_abs_se3_array(ego_pose, lidar_meta.lidar_to_imu_se3.array)
             lidar_scene_pose = abs_to_rel_se3_array(origin=scene_center_pose, pose_se3_array=lidar_world_pose)
             position = lidar_scene_pose[PoseSE3Index.XYZ]
@@ -255,9 +311,3 @@ class LidarElement(ViewerElement):
                 wxyz=wxyz,
             )
             self._frame_handles.append(frame_handle)
-
-    def _downsample(self, points: np.ndarray, colors: np.ndarray) -> tuple:
-        if len(points) == 0 or self._config.stride_step <= 1:
-            return points, colors
-        step = self._config.stride_step
-        return points[::step], colors[::step]

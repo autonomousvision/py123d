@@ -38,6 +38,22 @@ from py123d.datatypes.sensors.lidar import (
     LidarMergedMetadata,
     LidarMetadata,
 )
+from py123d.datatypes.sensors.barometer import (
+    Barometer,
+    BarometerMetadata,
+)
+from py123d.datatypes.sensors.gnss import (
+    Gnss,
+    GnssMetadata,
+)
+from py123d.datatypes.sensors.imu import (
+    Imu,
+    ImuMetadata,
+)
+from py123d.datatypes.sensors.magnetometer import (
+    Magnetometer,
+    MagnetometerMetadata,
+)
 from py123d.datatypes.sensors.lidar_segmentation_label import (
     LIDAR_SEGMENTATION_LABEL_REGISTRY,
     DefaultLidarSegmentationLabel,
@@ -104,6 +120,18 @@ __all__ = [
     "LidarID",
     "LidarMergedMetadata",
     "LidarMetadata",
+    # Barometer
+    "Barometer",
+    "BarometerMetadata",
+    # Magnetometer
+    "Magnetometer",
+    "MagnetometerMetadata",
+    # IMU
+    "Imu",
+    "ImuMetadata",
+    # GNSS
+    "Gnss",
+    "GnssMetadata",
     # Radar
     "Radar",
     "RadarFeature",

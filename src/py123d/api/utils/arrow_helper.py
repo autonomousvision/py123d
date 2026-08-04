@@ -1,6 +1,6 @@
 import threading
 from pathlib import Path
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 import pyarrow as pa
 from cachetools import LRUCache
@@ -25,18 +25,38 @@ class _ArrowMmapStore:
     def __init__(self, maxsize: int) -> None:
         self._cache: _MmapLRUCache = _MmapLRUCache(maxsize=maxsize)
         self._lock = threading.Lock()
+        # Per-path locks so distinct files can load concurrently. The global lock
+        # only guards cache bookkeeping; holding it across the (potentially
+        # seconds-long) IPC load would serialize cold opens of unrelated files.
+        self._load_locks: Dict[str, threading.Lock] = {}
 
     def get(self, path: str) -> pa.Table:
         with self._lock:
             entry = self._cache.get(path)
             if entry is not None:
                 return entry[1]
+            load_lock = self._load_locks.setdefault(path, threading.Lock())
+
+        with load_lock:
+            # Another thread may have finished loading this path while we waited.
+            with self._lock:
+                entry = self._cache.get(path)
+                if entry is not None:
+                    return entry[1]
 
             # Open without a `with` block — source must stay open so the
             # table's buffers remain valid (zero-copy, backed by the mmap).
             source = pa.memory_map(path, "rb")
-            table: pa.Table = pa.ipc.open_file(source).read_all()
-            self._cache[path] = (source, table)
+            try:
+                table: pa.Table = pa.ipc.open_file(source).read_all()
+            except BaseException:
+                source.close()
+                raise
+            finally:
+                with self._lock:
+                    self._load_locks.pop(path, None)
+            with self._lock:
+                self._cache[path] = (source, table)
             return table
 
 

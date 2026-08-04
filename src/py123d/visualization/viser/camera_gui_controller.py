@@ -6,6 +6,7 @@ import viser
 
 from py123d.datatypes.sensors.base_camera import Camera, CameraID
 from py123d.visualization.viser.elements.base_element import ElementContext
+from py123d.visualization.viser.utils.display_isp import apply_display_isp
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,9 @@ class CameraGuiController:
             getter(self._current_iteration, camera_id, scale=self._config.image_scale) if getter is not None else None
         )
         image = camera.rgb_image if camera is not None else None
+        if image is not None and camera is not None:
+            # Only true camera streams carry a display-ISP block; label/depth maps do not.
+            image = apply_display_isp(image, getattr(camera.metadata, "isp", None))
         if image is None:
             # The selected camera/modality pair is unavailable: hide any stale frame.
             if self._image_handle is not None:

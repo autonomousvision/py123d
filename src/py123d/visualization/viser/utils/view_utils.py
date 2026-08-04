@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -90,24 +90,55 @@ def _pitch_se3_by_degrees(pose_se3: PoseSE3, degrees: float) -> PoseSE3:
     )
 
 
+# The heading at a frame is the direction of the path chord spanning +/- _PATH_WINDOW_M
+# of arc length around it: slow motion uses a long time window, driving a short one, so
+# the heading is defined by path geometry instead of frame-to-frame localization noise.
+# Only frames where even that chord is shorter than _MIN_PATH_MOTION_M (static scene,
+# reversal cusp) fall back to the ego yaw.
+_PATH_WINDOW_M = 2.0
+_MIN_PATH_MOTION_M = 0.5
+_HEADING_SMOOTH_HALF_WINDOW = 5  # frames on each side in the circular moving average
+
+_path_heading_cache: Dict[str, npt.NDArray[np.float64]] = {}
+
+
+def _compute_path_headings(scene: SceneAPI) -> npt.NDArray[np.float64]:
+    num_iterations = scene.number_of_iterations
+    xy = np.empty((num_iterations, 2), dtype=np.float64)
+    ego_yaw = np.empty(num_iterations, dtype=np.float64)
+    for i in range(num_iterations):
+        state = scene.get_ego_state_se3_at_iteration(i)
+        assert state is not None, "Ego state must be available at every iteration."
+        xy[i] = state.center_se3.array[PoseSE3Index.XY]
+        ego_yaw[i] = state.center_se3.yaw
+
+    if num_iterations < 2:
+        return ego_yaw
+
+    arc_length = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))])
+
+    headings = np.empty(num_iterations, dtype=np.float64)
+    for i in range(num_iterations):
+        forward = min(int(np.searchsorted(arc_length, arc_length[i] + _PATH_WINDOW_M, side="left")), num_iterations - 1)
+        backward = max(int(np.searchsorted(arc_length, arc_length[i] - _PATH_WINDOW_M, side="right")) - 1, 0)
+        chord_xy = xy[forward] - xy[backward]
+        if np.linalg.norm(chord_xy) < _MIN_PATH_MOTION_M:
+            headings[i] = ego_yaw[i]
+        else:
+            headings[i] = np.arctan2(chord_xy[1], chord_xy[0])
+
+    # Circular moving average on unit vectors; plain averaging would break at the +/-pi wrap.
+    directions = np.stack([np.cos(headings), np.sin(headings)], axis=1)
+    padded = np.pad(directions, ((_HEADING_SMOOTH_HALF_WINDOW, _HEADING_SMOOTH_HALF_WINDOW), (0, 0)), mode="edge")
+    kernel = np.ones(2 * _HEADING_SMOOTH_HALF_WINDOW + 1) / (2 * _HEADING_SMOOTH_HALF_WINDOW + 1)
+    smoothed_cos = np.convolve(padded[:, 0], kernel, mode="valid")
+    smoothed_sin = np.convolve(padded[:, 1], kernel, mode="valid")
+    return np.arctan2(smoothed_sin, smoothed_cos)
+
+
 def _get_planar_heading(scene: SceneAPI, iteration: int) -> float:
-    current_state = scene.get_ego_state_se3_at_iteration(iteration)
-    assert current_state is not None, "Ego state must be available at the specified iteration."
-
-    current_xy = current_state.center_se3.array[PoseSE3Index.XY]
-    prev_state = scene.get_ego_state_se3_at_iteration(max(iteration - 1, 0))
-    next_state = scene.get_ego_state_se3_at_iteration(min(iteration + 1, scene.number_of_iterations - 1))
-
-    if prev_state is not None and next_state is not None and iteration not in (0, scene.number_of_iterations - 1):
-        direction_xy = next_state.center_se3.array[PoseSE3Index.XY] - prev_state.center_se3.array[PoseSE3Index.XY]
-    elif next_state is not None and iteration < scene.number_of_iterations - 1:
-        direction_xy = next_state.center_se3.array[PoseSE3Index.XY] - current_xy
-    elif prev_state is not None and iteration > 0:
-        direction_xy = current_xy - prev_state.center_se3.array[PoseSE3Index.XY]
-    else:
-        return current_state.center_se3.yaw
-
-    if np.linalg.norm(direction_xy) < 1e-6:
-        return current_state.center_se3.yaw
-
-    return float(np.arctan2(direction_xy[1], direction_xy[0]))
+    headings = _path_heading_cache.get(scene.scene_uuid)
+    if headings is None:
+        headings = _compute_path_headings(scene)
+        _path_heading_cache[scene.scene_uuid] = headings
+    return float(headings[iteration])

@@ -244,6 +244,15 @@ def _deserialize_radar(
         return None
 
     if radar_id != RadarID.RADAR_MERGED:
+        # A per-sensor radar file holds exactly one sensor's points; no per-point IDS
+        # filtering is needed. Only a merged file requires the IDS split.
+        if set(radar_metadatas) == {radar_id}:
+            return Radar(
+                timestamp=timestamp,
+                metadata=radar_metadatas[radar_id],
+                point_cloud_3d=point_cloud_3d,
+                point_cloud_features=point_cloud_feature,
+            )
         if point_cloud_feature is not None and RadarFeature.IDS.serialize() in point_cloud_feature:
             mask = point_cloud_feature[RadarFeature.IDS.serialize()] == int(radar_id.value)
             point_cloud_feature = {key: value[mask] for key, value in point_cloud_feature.items()}

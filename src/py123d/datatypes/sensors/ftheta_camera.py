@@ -152,6 +152,7 @@ class FThetaCameraMetadata(BaseCameraMetadata):
         "_width",
         "_height",
         "_camera_to_imu_se3",
+        "_isp",
     )
 
     def __init__(
@@ -162,6 +163,7 @@ class FThetaCameraMetadata(BaseCameraMetadata):
         width: int,
         height: int,
         camera_to_imu_se3: PoseSE3,
+        isp: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize the f-theta camera metadata.
 
@@ -171,6 +173,10 @@ class FThetaCameraMetadata(BaseCameraMetadata):
         :param width: Width of the camera image in pixels.
         :param height: Height of the camera image in pixels.
         :param camera_to_imu_se3: Static extrinsic pose of the camera relative to the IMU frame.
+        :param isp: Optional dataset-specific display-ISP parameters (e.g. black/white
+            level, color correction matrix, tone curve control points). Describes the
+            color transform a viewer should apply on the fly to the stored images; the
+            stored images themselves are raw. None if no such transform is defined.
         """
         self._camera_name = camera_name
         self._camera_id = camera_id
@@ -178,6 +184,7 @@ class FThetaCameraMetadata(BaseCameraMetadata):
         self._width = width
         self._height = height
         self._camera_to_imu_se3 = camera_to_imu_se3
+        self._isp = isp
 
     @classmethod
     def from_dict(cls, data_dict: Dict[str, Any]) -> FThetaCameraMetadata:
@@ -196,6 +203,7 @@ class FThetaCameraMetadata(BaseCameraMetadata):
             width=data_dict["width"],
             height=data_dict["height"],
             camera_to_imu_se3=PoseSE3.from_list(data_dict["camera_to_imu_se3"]),
+            isp=data_dict.get("isp"),
         )
 
     @property
@@ -232,6 +240,11 @@ class FThetaCameraMetadata(BaseCameraMetadata):
     def camera_to_imu_se3(self) -> PoseSE3:
         """The static extrinsic pose of the f-theta camera."""
         return self._camera_to_imu_se3
+
+    @property
+    def isp(self) -> Optional[Dict[str, Any]]:
+        """Display-ISP parameters a viewer should apply to the stored raw images, if any."""
+        return self._isp
 
     def project_to_image(
         self,
@@ -361,4 +374,6 @@ class FThetaCameraMetadata(BaseCameraMetadata):
         data_dict["width"] = self._width
         data_dict["height"] = self._height
         data_dict["camera_to_imu_se3"] = self._camera_to_imu_se3.to_list()
+        if self._isp is not None:
+            data_dict["isp"] = self._isp
         return data_dict

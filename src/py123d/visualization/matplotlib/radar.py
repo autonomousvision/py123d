@@ -49,7 +49,8 @@ def get_radar_pc_color(
     if color_feature == "none":
         return default_color
     elif color_feature == "height":
-        return _continuous_colormap(-point_cloud_3d[:, 2], cmap_name="viridis", vmin=-6.0, vmax=2.0)
+        # Same palette, quantile normalization, and dark-end cutoff as the lidar height coloring.
+        return _continuous_colormap(-point_cloud_3d[:, 2], cmap_name="turbo", cmap_range=(0.08, 0.90))
     elif color_feature == "distance":
         distances = -np.linalg.norm(point_cloud_3d, axis=-1)
         distances = np.clip(distances, -100.0, 0.0)
