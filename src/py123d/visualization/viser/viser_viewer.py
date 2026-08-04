@@ -7,7 +7,6 @@ import viser
 from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
 
 from py123d.api.scene.scene_api import SceneAPI
-from py123d.geometry.pose import PoseSE3
 from py123d.visualization.viser.camera_gui_controller import CameraGuiController
 from py123d.visualization.viser.camera_strip_controller import CameraStripController
 from py123d.visualization.viser.element_manager import ElementManager
@@ -23,7 +22,7 @@ from py123d.visualization.viser.render_controller import RenderController
 from py123d.visualization.viser.utils.view_utils import (
     FollowAnchor,
     follow_camera_pose,
-    get_ego_3rd_person_view_position,
+    get_default_camera_state,
 )
 from py123d.visualization.viser.viser_config import ViserConfig
 
@@ -84,6 +83,11 @@ div:has(> div > div:first-child > p > label):has(.mantine-Checkbox-root) > div >
 .mantine-Paper-root > div:has(.py123d-camera-strip) {
   background: inherit;
   border-radius: inherit;
+}
+/* The collapsed-sidebar "show" button has no z-index of its own and would be
+   painted below the panel layer that carries the full-width camera strip. */
+div[style*="border-bottom-left-radius"]:has(> .mantine-ActionIcon-root) {
+  z-index: 30;
 }
 </style>"""
 
@@ -194,9 +198,11 @@ class ViserViewer:
         self._follow_anchors: Dict[int, FollowAnchor] = {}
         self._follow_recent_targets: Dict[int, Deque[np.ndarray]] = {}
 
-        # Default viewpoint of the current scene (3rd-person pose behind the ego at
-        # frame 0); applied on scene load and to newly connecting clients.
-        self._default_camera_pose: Optional[PoseSE3] = None
+        # Default viewpoint of the current scene (behind/above the ego at frame 0,
+        # looking at the vehicle box center); applied on scene load and to newly
+        # connecting clients.
+        self._default_camera_position: Optional[np.ndarray] = None
+        self._default_camera_look_at: Optional[np.ndarray] = None
 
         @self._server.on_client_connect
         def _(client: viser.ClientHandle) -> None:
@@ -275,7 +281,9 @@ class ViserViewer:
             # log) would leave the new scene out of view -- and follow would then
             # anchor to that stale pose. Reset every client to the scene's default
             # viewpoint before the first iteration engages the follow anchors.
-            self._default_camera_pose = get_ego_3rd_person_view_position(scene, 0, context.initial_ego_state)
+            self._default_camera_position, self._default_camera_look_at = get_default_camera_state(
+                context.initial_ego_state
+            )
             for client in self._server.get_clients().values():
                 self._reset_client_camera(client)
 
@@ -364,12 +372,19 @@ class ViserViewer:
             targets.append(target_position)
 
     def _reset_client_camera(self, client: viser.ClientHandle) -> None:
-        """Place a client camera at the current scene's default viewpoint."""
-        if self._default_camera_pose is None:
+        """Place a client camera at the current scene's default viewpoint.
+
+        Position, look-at, and up are set explicitly. Setting a camera orientation
+        via wxyz would make viser keep the PREVIOUS look-at distance (the new look-at
+        is derived as direction times old distance), which put the orbit center at an
+        arbitrary depth instead of on the vehicle.
+        """
+        if self._default_camera_position is None or self._default_camera_look_at is None:
             return
         try:
-            client.camera.position = self._default_camera_pose.point_3d.array
-            client.camera.wxyz = self._default_camera_pose.quaternion.array
+            client.camera.up_direction = np.array([0.0, 0.0, 1.0])
+            client.camera.position = self._default_camera_position
+            client.camera.look_at = self._default_camera_look_at
         except AssertionError:
             # Camera state has not been received from this client yet; the follow
             # logic will still see the browser-side default near the scene origin.

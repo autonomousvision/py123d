@@ -89,7 +89,7 @@ class CameraStripController:
             "Front": self._config.front,
             "Front Right": self._config.front_right,
         }
-        with self._server.gui.add_folder("Camera Strip", expand_by_default=False):
+        with self._server.gui.add_folder("Camera Strip"):
             available_initial = [
                 initial_enabled[label] for label, _ in _STRIP_SLOTS if self._slot_cameras[label] is not None
             ]

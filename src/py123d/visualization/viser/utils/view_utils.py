@@ -8,6 +8,7 @@ from py123d.api.scene.scene_api import SceneAPI
 from py123d.datatypes.sensors.base_camera import Camera
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import EulerAngles, PoseSE3Index, Vector3D
+from py123d.geometry.geometry_index import BoundingBoxSE3Index
 from py123d.geometry.pose import PoseSE3
 from py123d.geometry.rotation import Quaternion
 from py123d.geometry.transform.transform_se3 import abs_to_rel_se3_array, translate_se3_along_body_frame
@@ -26,6 +27,24 @@ def decompose_camera_pose(
 def get_scene_center_pose(scene_center_array: npt.NDArray[np.float64]) -> PoseSE3:
     """Create a PoseSE3 at the scene center with identity rotation."""
     return PoseSE3.from_R_t(rotation=Quaternion.identity(), translation=scene_center_array)
+
+
+def get_default_camera_state(
+    initial_ego_state: EgoStateSE3,
+) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Default viewpoint on scene load: behind and above the ego along its body yaw,
+    looking at the center of the vehicle's 3D box.
+
+    Uses the ego body yaw (not the smoothed path heading), so the camera is exactly
+    behind the vehicle. Returned as (camera position, look-at point) in scene-centered
+    coordinates; orientation should be derived by the caller from position + look-at
+    so the look-at point lands exactly on the vehicle.
+    """
+    scene_center = initial_ego_state.center_se3.point_3d.array.astype(np.float64)
+    box_center = initial_ego_state.bounding_box_se3.array[BoundingBoxSE3Index.XYZ].astype(np.float64) - scene_center
+    yaw = float(initial_ego_state.center_se3.yaw)
+    offset = vtf.SO3.from_z_radians(yaw) @ np.array([-12.0, 0.0, 7.0])
+    return box_center + offset, box_center
 
 
 class FollowAnchor(NamedTuple):

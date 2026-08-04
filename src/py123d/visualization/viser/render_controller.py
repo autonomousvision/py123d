@@ -40,7 +40,7 @@ RESOLUTION_MAP = {
 
 
 # Default length of the render range ahead of the current frame.
-DEFAULT_RENDER_RANGE_FRAMES = 100
+DEFAULT_RENDER_RANGE_FRAMES = 20
 
 # libx264 constant rate factors for mp4 exports, shown as user-facing labels. The
 # imageio pyav wrapper offers no quality control and falls back to the x264 default
@@ -115,7 +115,7 @@ class RenderController:
 
     def create_gui(self) -> None:
         """Create the Render folder with format, view, and render button."""
-        with self._server.gui.add_folder("Render", expand_by_default=False):
+        with self._server.gui.add_folder("Render"):
             self._gui_format = self._server.gui.add_dropdown(
                 "Format", ["gif", "mp4", "png"], initial_value=self._config.format
             )

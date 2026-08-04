@@ -64,7 +64,7 @@ class CameraGuiController:
         if len(self._camera_names) == 0:
             return
 
-        self._folder = self._server.gui.add_folder("Camera Image", expand_by_default=False)
+        self._folder = self._server.gui.add_folder("Camera Image")
         with self._folder:
             self._gui_visible = self._server.gui.add_checkbox("Visible", self._config.visible)
             self._gui_camera_dropdown = self._server.gui.add_dropdown(
