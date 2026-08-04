@@ -44,8 +44,8 @@ class TestModalityRegistration:
 
 
 class TestImuArrowRoundTrip:
-    def test_minimal_imu_omits_optional_columns(self):
-        log_dir = Path(tempfile.mkdtemp())
+    def test_minimal_imu_omits_optional_columns(self, tmp_path: Path):
+        log_dir = tmp_path
         metadata = ImuMetadata(imu_name="imx5")
         writer = ArrowImuWriter(log_dir, metadata)
         for i in range(5):
