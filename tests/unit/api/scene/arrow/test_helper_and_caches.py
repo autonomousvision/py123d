@@ -163,12 +163,12 @@ class TestGetSceneAnchorTimestamps:
 
         scenes = self._make_scenes(tmp_path)
         sync_table_reads: list[Path] = []
-        real_get_sync_table = helper.get_sync_table
+        real_read_column = helper._read_sync_timestamp_column
 
-        def _counting_get_sync_table(log_dir: Path) -> pa.Table:
+        def _counting_read_column(log_dir: Path) -> np.ndarray:
             sync_table_reads.append(log_dir)
-            return real_get_sync_table(log_dir)
+            return real_read_column(log_dir)
 
-        monkeypatch.setattr(helper, "get_sync_table", _counting_get_sync_table)
+        monkeypatch.setattr(helper, "_read_sync_timestamp_column", _counting_read_column)
         get_scene_anchor_timestamps(scenes)
         assert len(sync_table_reads) == 2  # six scenes across two logs
