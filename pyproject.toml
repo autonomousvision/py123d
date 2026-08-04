@@ -46,6 +46,7 @@ dependencies = [
     "trimesh",
     "mapbox-earcut",
     "viser==1.0.24",
+    "av>=14.4.0,<16",
     "laspy[lazrs]",
     "DracoPy",
     "omegaconf",

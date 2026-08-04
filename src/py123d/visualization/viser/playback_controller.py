@@ -23,9 +23,9 @@ _SCENE_DEBOUNCE_S = 0.5
 class PlaybackConfig:
     is_playing: bool = False
     speed: float = 1.0
-    atomic: bool = True
+    atomic: bool = False
     dark_mode: bool = True  # kept in sync with the theme; initialization uses ThemeConfig.dark_mode
-    follow_ego: bool = True
+    follow_ego: bool = False
 
 
 class PlaybackController:

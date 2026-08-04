@@ -167,12 +167,16 @@ class RenderController:
             @self._gui_start_frame.on_update
             def _on_start_frame_changed(_) -> None:
                 assert self._gui_start_frame is not None and self._gui_end_frame is not None
-                self._gui_end_frame.value = max(self._gui_end_frame.value, self._gui_start_frame.value)
+                new_end = max(self._gui_end_frame.value, self._gui_start_frame.value)
+                if new_end != self._gui_end_frame.value:
+                    self._gui_end_frame.value = new_end
 
             @self._gui_end_frame.on_update
             def _on_end_frame_changed(_) -> None:
                 assert self._gui_start_frame is not None and self._gui_end_frame is not None
-                self._gui_start_frame.value = min(self._gui_start_frame.value, self._gui_end_frame.value)
+                new_start = min(self._gui_start_frame.value, self._gui_end_frame.value)
+                if new_start != self._gui_start_frame.value:
+                    self._gui_start_frame.value = new_start
 
     def set_default_frame_range(self, iteration: int) -> None:
         """Track playback: the render range defaults to the current frame plus the
@@ -214,9 +218,7 @@ class RenderController:
             scale = min(slot_width / image.shape[1], frame_height / image.shape[0])
             new_w = max(1, int(round(image.shape[1] * scale)))
             new_h = max(1, int(round(image.shape[0] * scale)))
-            resized.append(
-                np.asarray(Image.fromarray(image).resize((new_w, new_h), Image.Resampling.BILINEAR))
-            )
+            resized.append(np.asarray(Image.fromarray(image).resize((new_w, new_h), Image.Resampling.BILINEAR)))
         total_width = sum(img.shape[1] for img in resized)
         x = max(0, (frame_width - total_width) // 2)
         for image in resized:

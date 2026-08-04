@@ -342,7 +342,7 @@ class ViserViewer:
             return
         targets = self._follow_recent_targets.get(client.client_id)
         if targets is not None:
-            for target in targets:
+            for target in list(targets):
                 if float(np.linalg.norm(camera_position - target)) < 0.5:
                     return
         self._follow_offsets[client.client_id] = camera_position - self._follow_current_ego
