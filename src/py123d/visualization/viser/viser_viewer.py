@@ -19,6 +19,7 @@ from py123d.visualization.viser.elements.map_element import MapElement
 from py123d.visualization.viser.elements.radar_element import RadarElement
 from py123d.visualization.viser.playback_controller import PlaybackController
 from py123d.visualization.viser.render_controller import RenderController
+from py123d.visualization.viser.utils.view_utils import FollowAnchor, follow_camera_pose
 from py123d.visualization.viser.viser_config import ViserConfig
 
 logger = logging.getLogger(__name__)
@@ -184,8 +185,8 @@ class ViserViewer:
         # target are user adjustments (orbit/pan/zoom) and re-base the offset.
         self._follow_enabled: bool = False
         self._follow_scene_center: Optional[np.ndarray] = None
-        self._follow_current_ego: Optional[np.ndarray] = None
-        self._follow_offsets: Dict[int, np.ndarray] = {}
+        self._follow_current_ego: Optional[Tuple[np.ndarray, float]] = None
+        self._follow_anchors: Dict[int, FollowAnchor] = {}
         self._follow_recent_targets: Dict[int, Deque[np.ndarray]] = {}
 
         @self._server.on_client_connect
@@ -255,7 +256,7 @@ class ViserViewer:
             # Wire iteration callback
             self._follow_scene_center = context.scene_center_array.astype(np.float64)
             self._follow_current_ego = None
-            self._follow_offsets.clear()
+            self._follow_anchors.clear()
             self._follow_recent_targets.clear()
 
             def _on_iteration_changed(iteration: int) -> None:
@@ -300,57 +301,60 @@ class ViserViewer:
         self._run_scene(self._scenes[self._scene_index])
 
     def _apply_ego_follow(self, scene: SceneAPI, iteration: int, follow_enabled: bool) -> None:
-        """Keep each client camera at a fixed offset to the ego vehicle.
+        """Keep each client camera rigidly attached to the vehicle's planar body frame.
 
-        Absolute placement (position = ego + per-client offset) instead of
-        incremental deltas: incremental shifts race the throttled camera echoes
-        from the browser, and every shift applied to a stale state is lost
-        permanently, drifting the camera off the vehicle. Absolute targets are
-        idempotent, so lost or reordered messages cause no accumulating error.
-        Zoom, pan offset, and orientation are preserved (the viser position
-        setter moves the look-at point along).
+        The camera translates and yaw-rotates with the ego (see follow_camera_pose),
+        so the look-at point stays fixed in vehicle coordinates. Placement is
+        absolute from a per-client engage-time anchor rather than incremental:
+        incremental shifts race the throttled camera echoes from the browser, and
+        every shift applied to a stale state is lost permanently, drifting the
+        camera off the vehicle. Absolute targets are idempotent.
         """
         self._follow_enabled = follow_enabled
         if not follow_enabled:
-            self._follow_offsets.clear()
+            self._follow_anchors.clear()
             self._follow_recent_targets.clear()
             return
         state = scene.get_ego_state_se3_at_iteration(iteration)
         if state is None or self._follow_scene_center is None:
             return
         ego = state.center_se3.point_3d.array.astype(np.float64) - self._follow_scene_center
-        self._follow_current_ego = ego
+        ego_yaw = float(state.center_se3.yaw)
+        self._follow_current_ego = (ego, ego_yaw)
 
         for client in self._server.get_clients().values():
             try:
                 camera_position = np.asarray(client.camera.position, dtype=np.float64)
+                camera_wxyz = np.asarray(client.camera.wxyz, dtype=np.float64)
             except AssertionError:
                 # Camera state has not been received from this client yet.
                 continue
-            offset = self._follow_offsets.get(client.client_id)
-            if offset is None:
+            anchor = self._follow_anchors.get(client.client_id)
+            if anchor is None:
                 # Follow engages from wherever the camera currently is.
-                offset = camera_position - ego
-                self._follow_offsets[client.client_id] = offset
-            target = ego + offset
-            client.camera.position = target
+                anchor = FollowAnchor(ego, ego_yaw, camera_position, camera_wxyz)
+                self._follow_anchors[client.client_id] = anchor
+            target_position, target_wxyz = follow_camera_pose(anchor, ego, ego_yaw)
+            client.camera.position = target_position
+            client.camera.wxyz = target_wxyz
             # Long history (~6 s at 10 Hz): a delayed echo of our own target must
             # never be mistaken for a user camera move, which would re-base the
-            # offset to a lagged position and jerk the viewport.
+            # anchor to a lagged position and jerk the viewport.
             targets = self._follow_recent_targets.setdefault(client.client_id, deque(maxlen=60))
-            targets.append(target)
+            targets.append(target_position)
 
     def _on_client_camera_update(self, client: viser.ClientHandle) -> None:
-        """Re-base the follow offset when the browser reports a user camera move.
+        """Re-base the follow anchor when the browser reports a user camera move.
 
         Echoes of our own follow targets arrive delayed; anything matching a
-        recently sent target is ignored, everything else is a manual adjustment
-        and becomes the new camera-to-ego offset.
+        recently sent target position is ignored, everything else is a manual
+        adjustment and becomes the new camera-to-vehicle anchor.
         """
         if not self._follow_enabled or self._follow_current_ego is None:
             return
         try:
             camera_position = np.asarray(client.camera.position, dtype=np.float64)
+            camera_wxyz = np.asarray(client.camera.wxyz, dtype=np.float64)
         except AssertionError:
             return
         targets = self._follow_recent_targets.get(client.client_id)
@@ -358,7 +362,8 @@ class ViserViewer:
             for target in list(targets):
                 if float(np.linalg.norm(camera_position - target)) < 0.5:
                     return
-        self._follow_offsets[client.client_id] = camera_position - self._follow_current_ego
+        ego, ego_yaw = self._follow_current_ego
+        self._follow_anchors[client.client_id] = FollowAnchor(ego, ego_yaw, camera_position, camera_wxyz)
 
     def _on_dark_mode_changed(self, dark_mode: bool) -> None:
         """Handle dark mode toggle from playback controller."""

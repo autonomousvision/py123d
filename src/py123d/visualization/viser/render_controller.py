@@ -15,7 +15,12 @@ from tqdm import tqdm
 from py123d.visualization.viser.camera_strip_controller import CameraStripController
 from py123d.visualization.viser.elements.base_element import ElementContext
 from py123d.visualization.viser.playback_controller import PlaybackController
-from py123d.visualization.viser.utils.view_utils import get_ego_3rd_person_view_position, get_ego_bev_view_position
+from py123d.visualization.viser.utils.view_utils import (
+    FollowAnchor,
+    follow_camera_pose,
+    get_ego_3rd_person_view_position,
+    get_ego_bev_view_position,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +205,12 @@ class RenderController:
         assert state is not None, f"Ego state must be available at iteration {iteration}."
         return state.center_se3.point_3d.array.astype(np.float64) - self._context.scene_center_array.astype(np.float64)
 
+    def _ego_yaw(self, iteration: int) -> float:
+        """Planar ego heading at the given iteration."""
+        state = self._context.scene.get_ego_state_se3_at_iteration(iteration)
+        assert state is not None, f"Ego state must be available at iteration {iteration}."
+        return float(state.center_se3.yaw)
+
     def _composite_camera_strip(self, frame: npt.NDArray[np.uint8], iteration: int) -> npt.NDArray[np.uint8]:
         """Rasterize the enabled camera strip into the top of a rendered frame.
 
@@ -260,19 +271,23 @@ class RenderController:
 
             width, height = RESOLUTION_MAP[self._config.resolution]
 
-            # Follow view: keep the user's current camera exactly as-is, translated
-            # with the ego per frame -- what-you-see-is-what-you-get for the pose the
-            # viewer shows when the render starts.
-            follow_offset: Optional[npt.NDArray[np.float64]] = None
-            follow_wxyz: Optional[npt.NDArray[np.float64]] = None
+            # Follow view: the user's current camera, rigidly attached to the vehicle's
+            # planar body frame via the same follow_camera_pose used by the playback
+            # ego-follow -- what-you-see-is-what-you-get for the pose the viewer shows
+            # when the render starts, rotating with the vehicle.
+            follow_anchor: Optional[FollowAnchor] = None
             if self._gui_view.value == "Follow":
                 try:
-                    ego_now = self._ego_position(self._playback.current_iteration)
-                    follow_offset = np.asarray(client.camera.position, dtype=np.float64) - ego_now
-                    follow_wxyz = np.asarray(client.camera.wxyz, dtype=np.float64)
+                    current_iteration = self._playback.current_iteration
+                    follow_anchor = FollowAnchor(
+                        ego_position=self._ego_position(current_iteration),
+                        ego_yaw=self._ego_yaw(current_iteration),
+                        camera_position=np.asarray(client.camera.position, dtype=np.float64),
+                        camera_wxyz=np.asarray(client.camera.wxyz, dtype=np.float64),
+                    )
                 except AssertionError:
                     # No camera state received yet; fall back to a static camera.
-                    follow_offset = None
+                    follow_anchor = None
 
             start_frame = min(self._gui_start_frame.value, self._gui_end_frame.value)
             end_frame = max(self._gui_start_frame.value, self._gui_end_frame.value)
@@ -286,9 +301,10 @@ class RenderController:
                     ego_view = get_ego_3rd_person_view_position(scene, i, initial_ego_state)
                     client.camera.position = ego_view.point_3d.array
                     client.camera.wxyz = ego_view.quaternion.array
-                elif self._gui_view.value == "Follow" and follow_offset is not None:
-                    client.camera.position = self._ego_position(i) + follow_offset
-                    client.camera.wxyz = follow_wxyz
+                elif self._gui_view.value == "Follow" and follow_anchor is not None:
+                    position, wxyz = follow_camera_pose(follow_anchor, self._ego_position(i), self._ego_yaw(i))
+                    client.camera.position = position
+                    client.camera.wxyz = wxyz
                 # PNG transport renders on a transparent background (jpeg hardcodes white
                 # in the viser frontend); the background color is composited below.
                 frame = client.get_render(height=height, width=width, transport_format="png")
