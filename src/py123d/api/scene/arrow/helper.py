@@ -41,14 +41,16 @@ def _read_sync_timestamp_column(log_dir: Path) -> np.ndarray:
 
     The LRU table cache holds a global lock across the file open, which would serialize
     concurrent bulk readers; this bulk path touches each table exactly once, so caching
-    buys nothing. The column is copied out before the mapping closes.
+    buys nothing. A buffered read (not mmap) keeps the I/O outside the GIL, so bulk
+    readers parallelize across threads.
 
     :param log_dir: Path to the log directory.
     :return: The ``sync.timestamp_us`` column as a numpy array.
     """
-    with pa.memory_map(str(log_dir / "sync.arrow"), "r") as source:
-        table = pa.ipc.open_file(source).read_all()
-        return table["sync.timestamp_us"].to_numpy(zero_copy_only=False)
+    with open(log_dir / "sync.arrow", "rb") as source:
+        buffer = source.read()
+    table = pa.ipc.open_file(pa.BufferReader(buffer)).read_all()
+    return table["sync.timestamp_us"].to_numpy(zero_copy_only=False)
 
 
 def get_scene_anchor_timestamps(scenes: List[SceneAPI]) -> List[Timestamp]:
