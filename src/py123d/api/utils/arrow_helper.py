@@ -51,12 +51,16 @@ class _ArrowMmapStore:
                 table: pa.Table = pa.ipc.open_file(source).read_all()
             except BaseException:
                 source.close()
-                raise
-            finally:
                 with self._lock:
                     self._load_locks.pop(path, None)
+                raise
+            # The load lock must only be released for other threads after the cache
+            # insert: popping it earlier opens a window in which a late arrival misses
+            # the cache, creates a fresh lock, and performs a duplicate load whose
+            # cache overwrite would drop this (source, table) pair without closing it.
             with self._lock:
                 self._cache[path] = (source, table)
+                self._load_locks.pop(path, None)
             return table
 
 

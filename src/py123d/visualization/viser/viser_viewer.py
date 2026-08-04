@@ -254,7 +254,12 @@ class ViserViewer:
         self._follow_recent_targets.clear()
 
         def _on_iteration_changed(iteration: int) -> None:
-            self._apply_ego_follow(scene, iteration, follow_enabled=playback.follow_ego)
+            # Follow is suspended while rendering: the render controller drives the
+            # camera itself, and its camera echoes must not re-base the follow offset
+            # (which would leave the interactive camera on the render path afterwards).
+            # The disabled path clears the follow state, so follow re-engages from the
+            # current camera on the first timestep after the render.
+            self._apply_ego_follow(scene, iteration, follow_enabled=playback.follow_ego and not playback.is_rendering)
             self._element_manager.update_all(iteration)
             self._camera_gui.update(iteration)
             self._camera_strip.update(iteration)
