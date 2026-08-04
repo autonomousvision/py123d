@@ -207,17 +207,25 @@ class RenderController:
         if len(labeled_images) == 0:
             return frame
         frame_width = frame.shape[1]
+        frame_height = frame.shape[0]
         slot_width = frame_width // 3
         resized = []
         for _, image in labeled_images:
-            slot_height = max(1, round(image.shape[0] * slot_width / image.shape[1]))
+            scale = min(slot_width / image.shape[1], frame_height / image.shape[0])
+            new_w = max(1, int(round(image.shape[1] * scale)))
+            new_h = max(1, int(round(image.shape[0] * scale)))
             resized.append(
-                np.asarray(Image.fromarray(image).resize((slot_width, slot_height), Image.Resampling.BILINEAR))
+                np.asarray(Image.fromarray(image).resize((new_w, new_h), Image.Resampling.BILINEAR))
             )
-        x = (frame_width - slot_width * len(resized)) // 2
+        total_width = sum(img.shape[1] for img in resized)
+        x = max(0, (frame_width - total_width) // 2)
         for image in resized:
             h, w = image.shape[:2]
-            frame[:h, x : x + w, :3] = image[..., :3]
+            h = min(h, frame_height)
+            w = min(w, frame_width - x)
+            if w <= 0:
+                break
+            frame[:h, x : x + w, :3] = image[:h, :w, :3]
             if frame.shape[-1] == 4:
                 frame[:h, x : x + w, 3] = 255
             x += w
