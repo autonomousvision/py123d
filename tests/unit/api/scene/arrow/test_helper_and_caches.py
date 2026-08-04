@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
 import pytest
 
+from py123d.api.scene.arrow.arrow_scene_api import ArrowSceneAPI
+from py123d.api.scene.arrow.helper import get_scene_anchor_timestamps
 from py123d.api.scene.arrow.modalities.arrow_sync import get_timestamp_from_arrow_table
 from py123d.api.scene.arrow.modalities.utils import all_columns_in_schema, get_optional_array_mixin
 from py123d.api.scene.arrow.utils.arrow_scene_caches import _get_complete_log_scene_metadata
@@ -115,3 +118,33 @@ class TestAllColumnsInSchema:
         schema = pa.schema([("a", pa.int64())])
         table = pa.table({"a": [1]}, schema=schema)
         assert all_columns_in_schema(table, []) is True
+
+
+# ===========================================================================
+# get_scene_anchor_timestamps
+# ===========================================================================
+
+
+class TestGetSceneAnchorTimestamps:
+    def _make_scenes(self, tmp_path: Path) -> list:
+        """Two logs with different timesteps, three scenes each at distinct anchor indices."""
+        scenes = []
+        for log_index, log_name in enumerate(["log_001", "log_002"]):
+            log_dir = tmp_path / "test-dataset_train" / log_name
+            log_dir.mkdir(parents=True)
+            log_meta = make_log_metadata(log_name=log_name)
+            write_sync_arrow(log_dir, num_rows=10, timestep_us=100_000 * (log_index + 1), log_metadata=log_meta)
+            base_meta = _get_complete_log_scene_metadata(log_dir, log_meta)
+            for initial_idx in (0, 3, 7):
+                scene_meta = replace(base_meta, initial_idx=initial_idx, num_future_iterations=9 - initial_idx)
+                scenes.append(ArrowSceneAPI(log_dir, scene_meta))
+        return scenes
+
+    def test_matches_per_scene_reads(self, tmp_path: Path):
+        scenes = self._make_scenes(tmp_path)
+        bulk = get_scene_anchor_timestamps(scenes)
+        per_scene = [scene.get_timestamp_at_iteration(0) for scene in scenes]
+        assert [t.time_us for t in bulk] == [t.time_us for t in per_scene]
+
+    def test_empty(self):
+        assert get_scene_anchor_timestamps([]) == []

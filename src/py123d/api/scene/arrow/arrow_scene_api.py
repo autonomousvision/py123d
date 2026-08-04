@@ -80,6 +80,11 @@ class ArrowSceneAPI(SceneAPI):
         """Helper for pickling the object."""
         return (self.__class__, (self._log_dir, self._scene_metadata))
 
+    @property
+    def log_dir(self) -> Path:
+        """Path to the log directory holding this scene's per-modality Arrow files."""
+        return self._log_dir
+
     # ------------------------------------------------------------------------------------------------------------------
     # Internal Helpers
     # ------------------------------------------------------------------------------------------------------------------
