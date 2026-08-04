@@ -173,20 +173,10 @@ class RenderController:
                 assert self._gui_quality is not None, "GUI must be created before handling quality change."
                 self._config.quality = self._gui_quality.value
 
-            # Keep the range valid: dragging one handle past the other pushes it along.
-            @self._gui_start_frame.on_update
-            def _on_start_frame_changed(_) -> None:
-                assert self._gui_start_frame is not None and self._gui_end_frame is not None
-                new_end = max(self._gui_end_frame.value, self._gui_start_frame.value)
-                if new_end != self._gui_end_frame.value:
-                    self._gui_end_frame.value = new_end
-
-            @self._gui_end_frame.on_update
-            def _on_end_frame_changed(_) -> None:
-                assert self._gui_start_frame is not None and self._gui_end_frame is not None
-                new_start = min(self._gui_start_frame.value, self._gui_end_frame.value)
-                if new_start != self._gui_start_frame.value:
-                    self._gui_start_frame.value = new_start
+            # No cross-adjustment between the two sliders: typing a multi-digit end
+            # frame passes through transiently small values and would drag the start
+            # frame down. An inverted range is harmless -- _on_render sorts the two
+            # values before use.
 
     def set_default_frame_range(self, iteration: int) -> None:
         """Track playback: the render range defaults to the current frame plus the
