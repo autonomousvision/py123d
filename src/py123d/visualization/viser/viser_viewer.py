@@ -7,6 +7,7 @@ import viser
 from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
 
 from py123d.api.scene.scene_api import SceneAPI
+from py123d.geometry.pose import PoseSE3
 from py123d.visualization.viser.camera_gui_controller import CameraGuiController
 from py123d.visualization.viser.camera_strip_controller import CameraStripController
 from py123d.visualization.viser.element_manager import ElementManager
@@ -19,7 +20,11 @@ from py123d.visualization.viser.elements.map_element import MapElement
 from py123d.visualization.viser.elements.radar_element import RadarElement
 from py123d.visualization.viser.playback_controller import PlaybackController
 from py123d.visualization.viser.render_controller import RenderController
-from py123d.visualization.viser.utils.view_utils import FollowAnchor, follow_camera_pose
+from py123d.visualization.viser.utils.view_utils import (
+    FollowAnchor,
+    follow_camera_pose,
+    get_ego_3rd_person_view_position,
+)
 from py123d.visualization.viser.viser_config import ViserConfig
 
 logger = logging.getLogger(__name__)
@@ -189,11 +194,17 @@ class ViserViewer:
         self._follow_anchors: Dict[int, FollowAnchor] = {}
         self._follow_recent_targets: Dict[int, Deque[np.ndarray]] = {}
 
+        # Default viewpoint of the current scene (3rd-person pose behind the ego at
+        # frame 0); applied on scene load and to newly connecting clients.
+        self._default_camera_pose: Optional[PoseSE3] = None
+
         @self._server.on_client_connect
         def _(client: viser.ClientHandle) -> None:
             @client.camera.on_update
             def _(_camera) -> None:
                 self._on_client_camera_update(client)
+
+            self._reset_client_camera(client)
 
         self._run_scene(self._scenes[self._scene_index % len(self._scenes)])
 
@@ -258,6 +269,15 @@ class ViserViewer:
             self._follow_current_ego = None
             self._follow_anchors.clear()
             self._follow_recent_targets.clear()
+
+            # The browser camera persists across scene switches, so a pose inherited
+            # from the previous scene (e.g. follow far from the scene center on a long
+            # log) would leave the new scene out of view -- and follow would then
+            # anchor to that stale pose. Reset every client to the scene's default
+            # viewpoint before the first iteration engages the follow anchors.
+            self._default_camera_pose = get_ego_3rd_person_view_position(scene, 0, context.initial_ego_state)
+            for client in self._server.get_clients().values():
+                self._reset_client_camera(client)
 
             def _on_iteration_changed(iteration: int) -> None:
                 # Follow is suspended while rendering: the render controller drives the
@@ -342,6 +362,18 @@ class ViserViewer:
             # anchor to a lagged position and jerk the viewport.
             targets = self._follow_recent_targets.setdefault(client.client_id, deque(maxlen=60))
             targets.append(target_position)
+
+    def _reset_client_camera(self, client: viser.ClientHandle) -> None:
+        """Place a client camera at the current scene's default viewpoint."""
+        if self._default_camera_pose is None:
+            return
+        try:
+            client.camera.position = self._default_camera_pose.point_3d.array
+            client.camera.wxyz = self._default_camera_pose.quaternion.array
+        except AssertionError:
+            # Camera state has not been received from this client yet; the follow
+            # logic will still see the browser-side default near the scene origin.
+            pass
 
     def _on_client_camera_update(self, client: viser.ClientHandle) -> None:
         """Re-base the follow anchor when the browser reports a user camera move.
