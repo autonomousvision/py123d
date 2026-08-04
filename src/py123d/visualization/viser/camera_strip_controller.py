@@ -49,6 +49,8 @@ class CameraStripController:
         self._context = context
         self._html_handle: Optional[viser.GuiHtmlHandle] = None
         self._gui_checkboxes: Dict[str, viser.GuiCheckboxHandle] = {}
+        self._gui_all: Optional[viser.GuiCheckboxHandle] = None
+        self._bulk_updating: bool = False
         self._gui_image_scale: Optional[viser.GuiDropdownHandle] = None
         self._current_iteration: int = 0
 
@@ -58,6 +60,24 @@ class CameraStripController:
             label: next((cam_id for cam_id in candidates if cam_id in available_ids), None)
             for label, candidates in _STRIP_SLOTS
         }
+
+    def _available_checkboxes(self) -> List[viser.GuiCheckboxHandle]:
+        return [
+            checkbox for label, checkbox in self._gui_checkboxes.items() if self._slot_cameras.get(label) is not None
+        ]
+
+    def _sync_all_checkbox(self) -> None:
+        """Mirror the individual checkboxes into the All checkbox without feedback loops."""
+        if self._gui_all is None:
+            return
+        available = self._available_checkboxes()
+        desired = len(available) > 0 and all(checkbox.value for checkbox in available)
+        if self._gui_all.value != desired:
+            self._bulk_updating = True
+            try:
+                self._gui_all.value = desired
+            finally:
+                self._bulk_updating = False
 
     def create_gui(self) -> None:
         """Create the Camera Strip folder with per-slot checkboxes and a scale dropdown."""
@@ -70,16 +90,43 @@ class CameraStripController:
             "Front Right": self._config.front_right,
         }
         with self._server.gui.add_folder("Camera Strip", expand_by_default=False):
+            available_initial = [
+                initial_enabled[label] for label, _ in _STRIP_SLOTS if self._slot_cameras[label] is not None
+            ]
+            self._gui_all = self._server.gui.add_checkbox(
+                "All", initial_value=len(available_initial) > 0 and all(available_initial)
+            )
+
+            @self._gui_all.on_update
+            def _on_all_changed(_) -> None:
+                if self._bulk_updating:
+                    return
+                assert self._gui_all is not None
+                self._bulk_updating = True
+                try:
+                    for checkbox in self._available_checkboxes():
+                        checkbox.value = self._gui_all.value
+                finally:
+                    self._bulk_updating = False
+                self._refresh()
+
             for label, _ in _STRIP_SLOTS:
+                cam_id = self._slot_cameras[label]
+                # Display the real camera name (e.g. FTCAM_L0); the slot label is only
+                # the fallback for rigs that lack the camera.
+                display_label = cam_id.serialize(lower=False) if cam_id is not None else label
                 checkbox = self._server.gui.add_checkbox(
-                    label,
-                    initial_value=initial_enabled[label] and self._slot_cameras[label] is not None,
-                    disabled=self._slot_cameras[label] is None,
+                    display_label,
+                    initial_value=initial_enabled[label] and cam_id is not None,
+                    disabled=cam_id is None,
                 )
                 self._gui_checkboxes[label] = checkbox
 
                 @checkbox.on_update
                 def _on_checkbox_changed(_) -> None:
+                    if self._bulk_updating:
+                        return
+                    self._sync_all_checkbox()
                     self._refresh()
 
             self._gui_image_scale = self._server.gui.add_dropdown(
@@ -108,6 +155,7 @@ class CameraStripController:
         """Clean up handles."""
         self._html_handle = None
         self._gui_checkboxes = {}
+        self._gui_all = None
         self._gui_image_scale = None
 
     def _enabled_slots(self) -> List[Tuple[str, CameraID]]:
