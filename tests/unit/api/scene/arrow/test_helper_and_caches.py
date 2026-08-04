@@ -148,3 +148,27 @@ class TestGetSceneAnchorTimestamps:
 
     def test_empty(self):
         assert get_scene_anchor_timestamps([]) == []
+
+    def test_non_arrow_scene_falls_back_to_per_scene_read(self):
+        class _StubScene:
+            def get_timestamp_at_iteration(self, iteration: int) -> Timestamp:
+                assert iteration == 0
+                return Timestamp.from_us(42)
+
+        result = get_scene_anchor_timestamps([_StubScene()])
+        assert [t.time_us for t in result] == [42]
+
+    def test_reads_each_log_sync_table_once(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        from py123d.api.scene.arrow import helper
+
+        scenes = self._make_scenes(tmp_path)
+        sync_table_reads: list[Path] = []
+        real_get_sync_table = helper.get_sync_table
+
+        def _counting_get_sync_table(log_dir: Path) -> pa.Table:
+            sync_table_reads.append(log_dir)
+            return real_get_sync_table(log_dir)
+
+        monkeypatch.setattr(helper, "get_sync_table", _counting_get_sync_table)
+        get_scene_anchor_timestamps(scenes)
+        assert len(sync_table_reads) == 2  # six scenes across two logs

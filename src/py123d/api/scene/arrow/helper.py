@@ -54,7 +54,7 @@ def get_scene_anchor_timestamps(scenes: List[SceneAPI]) -> List[Timestamp]:
             continue
         timestamp_column = timestamp_column_by_log_dir.get(scene.log_dir)
         if timestamp_column is None:
-            timestamp_column = get_sync_table(scene.log_dir)["sync.timestamp_us"].to_numpy()
+            timestamp_column = get_sync_table(scene.log_dir)["sync.timestamp_us"].to_numpy(zero_copy_only=False)
             timestamp_column_by_log_dir[scene.log_dir] = timestamp_column
         anchor_idx = scene.get_scene_metadata().initial_idx
         anchor_timestamps.append(Timestamp.from_us(int(timestamp_column[anchor_idx])))
