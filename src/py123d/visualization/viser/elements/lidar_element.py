@@ -116,10 +116,11 @@ class LidarElement(ViewerElement):
 
         self._gui_max_points = server.gui.add_slider(
             "Max Points",
-            min=10_000,
+            min=0,
             max=1_000_000,
             step=10_000,
-            initial_value=self._config.max_points,
+            initial_value=max(0, self._config.max_points),
+            hint="Per-sensor display cap; 0 disables the cap.",
         )
 
         self._gui_show_sensor_frames = server.gui.add_checkbox("Show Sensor Frames", self._config.show_sensor_frames)

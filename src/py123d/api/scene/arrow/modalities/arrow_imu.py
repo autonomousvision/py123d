@@ -76,10 +76,21 @@ class ArrowImuWriter(ArrowBaseModalityWriter):
         if self._metadata.has_orientation:
             orientation = modality.orientation
             row[f"{self._key}.orientation"] = [orientation.array if orientation is not None else None]
+        else:
+            assert modality.orientation is None, (
+                "Measurement carries an orientation but ImuMetadata.has_orientation is False; "
+                "the value would be silently dropped."
+            )
         if self._metadata.has_covariances:
             for name in _COVARIANCE_FIELDS:
                 value = getattr(modality, name)
                 row[f"{self._key}.{name}"] = [value if value is not None else None]
+        else:
+            for name in _COVARIANCE_FIELDS:
+                assert getattr(modality, name) is None, (
+                    f"Measurement carries {name} but ImuMetadata.has_covariances is False; "
+                    "the value would be silently dropped."
+                )
         self.write_batch(row)
 
 
@@ -133,9 +144,9 @@ class ArrowImuReader(ArrowBaseModalityReader):
     ) -> Optional[Any]:
         full_column_name = f"{metadata.modality_key}.{column}"
         if full_column_name not in table.column_names:
-            raise ValueError(
-                f"Column '{full_column_name}' not found in Arrow table for modality '{metadata.modality_key}'"
-            )
+            # Columns can be legitimately absent by schema design (has_orientation /
+            # has_covariances flags); return None like the sibling readers do.
+            return None
         value = table[full_column_name][index].as_py()
         if deserialize and value is not None:
             if column == "timestamp_us":

@@ -314,8 +314,10 @@ class RenderController:
                         if isinstance(img, (bytes, bytearray)):
                             zf.writestr(name, img)
                         else:
+                            # Frames are RGBA on a transparent background; honor the
+                            # Background control like the gif/mp4 paths do.
                             img_bytes = io.BytesIO()
-                            iio.imwrite(img_bytes, img, extension=".png")
+                            iio.imwrite(img_bytes, self._composite_over_background(img), extension=".png")
                             zf.writestr(name, img_bytes.getvalue())
                 content = zip_buf.getvalue()
                 format = "zip"

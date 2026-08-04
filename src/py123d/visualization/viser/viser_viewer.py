@@ -210,69 +210,77 @@ class ViserViewer:
                 )
                 self._server.flush()
 
-        context = ElementContext.from_scene(scene, dark_mode=self._dark_mode)
+        # The overlay must come down even when scene setup fails, otherwise it blocks
+        # the view permanently.
+        try:
+            context = ElementContext.from_scene(scene, dark_mode=self._dark_mode)
 
-        # Build elements based on available data
-        self._element_manager = self._build_elements(context)
+            # Build elements based on available data
+            self._element_manager = self._build_elements(context)
 
-        # Build controllers
-        playback = PlaybackController(
-            self._server,
-            self._config.playback,
-            context,
-            on_dark_mode_changed=self._on_dark_mode_changed,
-            scene_index=self._scene_index % len(self._scenes),
-            num_scenes=len(self._scenes),
-        )
-        # Build camera GUI controller
-        self._camera_gui = CameraGuiController(self._server, self._config.camera_gui, context)
+            # Build controllers
+            playback = PlaybackController(
+                self._server,
+                self._config.playback,
+                context,
+                on_dark_mode_changed=self._on_dark_mode_changed,
+                scene_index=self._scene_index % len(self._scenes),
+                num_scenes=len(self._scenes),
+            )
+            # Build camera GUI controller
+            self._camera_gui = CameraGuiController(self._server, self._config.camera_gui, context)
 
-        # Build camera strip overlay (full viewport width).
-        self._camera_strip = CameraStripController(self._server, self._config.camera_strip, context)
+            # Build camera strip overlay (full viewport width).
+            self._camera_strip = CameraStripController(self._server, self._config.camera_strip, context)
 
-        # The render controller rasterizes the enabled camera strip into exports.
-        render = RenderController(self._server, self._config.render, context, playback, camera_strip=self._camera_strip)
+            # The render controller rasterizes the enabled camera strip into exports.
+            render = RenderController(
+                self._server, self._config.render, context, playback, camera_strip=self._camera_strip
+            )
 
-        # Create GUI in order: Playback -> Modality Tabs -> Camera Image -> Camera Strip -> Render
-        self._server.gui.add_html(_COMPACT_GUI_CSS)
-        playback.create_gui(scene)
-        self._element_manager.create_all_gui(self._server)
-        self._camera_gui.create_gui()
-        self._camera_strip.create_gui()
-        render.create_gui()
+            # Create GUI in order: Playback -> Modality Tabs -> Camera Image -> Camera Strip -> Render
+            self._server.gui.add_html(_COMPACT_GUI_CSS)
+            playback.create_gui(scene)
+            self._element_manager.create_all_gui(self._server)
+            self._camera_gui.create_gui()
+            self._camera_strip.create_gui()
+            render.create_gui()
 
-        # Re-apply persisted environment intensity (scene.reset() clears it)
-        self._server.scene.configure_environment_map(
-            hdri=HDRI,
-            environment_intensity=self._environment_intensity,
-        )
+            # Re-apply persisted environment intensity (scene.reset() clears it)
+            self._server.scene.configure_environment_map(
+                hdri=HDRI,
+                environment_intensity=self._environment_intensity,
+            )
 
-        # Wire iteration callback
-        self._follow_scene_center = context.scene_center_array.astype(np.float64)
-        self._follow_current_ego = None
-        self._follow_offsets.clear()
-        self._follow_recent_targets.clear()
+            # Wire iteration callback
+            self._follow_scene_center = context.scene_center_array.astype(np.float64)
+            self._follow_current_ego = None
+            self._follow_offsets.clear()
+            self._follow_recent_targets.clear()
 
-        def _on_iteration_changed(iteration: int) -> None:
-            # Follow is suspended while rendering: the render controller drives the
-            # camera itself, and its camera echoes must not re-base the follow offset
-            # (which would leave the interactive camera on the render path afterwards).
-            # The disabled path clears the follow state, so follow re-engages from the
-            # current camera on the first timestep after the render.
-            self._apply_ego_follow(scene, iteration, follow_enabled=playback.follow_ego and not playback.is_rendering)
-            self._element_manager.update_all(iteration)
-            self._camera_gui.update(iteration)
-            self._camera_strip.update(iteration)
-            render.set_default_frame_range(iteration)
+            def _on_iteration_changed(iteration: int) -> None:
+                # Follow is suspended while rendering: the render controller drives the
+                # camera itself, and its camera echoes must not re-base the follow offset
+                # (which would leave the interactive camera on the render path afterwards).
+                # The disabled path clears the follow state, so follow re-engages from the
+                # current camera on the first timestep after the render.
+                self._apply_ego_follow(
+                    scene, iteration, follow_enabled=playback.follow_ego and not playback.is_rendering
+                )
+                self._element_manager.update_all(iteration)
+                self._camera_gui.update(iteration)
+                self._camera_strip.update(iteration)
+                render.set_default_frame_range(iteration)
 
-        playback.set_on_iteration_changed(_on_iteration_changed)
+            playback.set_on_iteration_changed(_on_iteration_changed)
 
-        # Initial render at frame 0
-        _on_iteration_changed(0)
+            # Initial render at frame 0
+            _on_iteration_changed(0)
 
-        self._loaded_scene_uuids.add(scene.scene_uuid)
-        if loading_overlay is not None:
-            loading_overlay.remove()
+            self._loaded_scene_uuids.add(scene.scene_uuid)
+        finally:
+            if loading_overlay is not None:
+                loading_overlay.remove()
 
         # Blocking playback loop -- returns on Next Scene
         playback.run_loop()
