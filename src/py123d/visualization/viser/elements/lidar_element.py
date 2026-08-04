@@ -191,7 +191,11 @@ class LidarElement(ViewerElement):
             xyz = np.array(lidar.xyz[::step], dtype=np.float64)
             points = rel_to_abs_points_3d_array(rotation_only_pose, xyz)
             colors = get_lidar_pc_color(
-                lidar, color_feature=self._config.point_color, dark_mode=self._dark_mode, stride=step
+                lidar,
+                color_feature=self._config.point_color,
+                dark_mode=self._dark_mode,
+                stride=step,
+                range_smoothing_key=lidar_id.serialize(),
             )
             return points, colors
 

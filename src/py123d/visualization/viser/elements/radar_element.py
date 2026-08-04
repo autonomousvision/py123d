@@ -163,7 +163,12 @@ class RadarElement(ViewerElement):
             if radar is not None:
                 xyz = np.array(radar.xyz, dtype=np.float64)
                 points = rel_to_abs_points_3d_array(rotation_only_pose, xyz)
-                colors = get_radar_pc_color(radar, color_feature=self._config.point_color, dark_mode=self._dark_mode)
+                colors = get_radar_pc_color(
+                    radar,
+                    color_feature=self._config.point_color,
+                    dark_mode=self._dark_mode,
+                    range_smoothing_key=radar_id.serialize(),
+                )
             else:
                 points = np.zeros((0, 3), dtype=np.float32)
                 colors = np.zeros((0, 3), dtype=np.uint8)
