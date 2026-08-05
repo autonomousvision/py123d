@@ -1,11 +1,26 @@
 import io
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import cv2
 import numpy as np
 import numpy.typing as npt
 from PIL import Image
+
+# Decoder replacing the built-in one, set by a reader that has a faster JPEG library
+# available. None keeps the OpenCV path.
+_jpeg_decoder: Optional[Callable[[bytes], npt.NDArray[np.uint8]]] = None
+
+
+def set_jpeg_decoder(
+    decoder: Optional[Callable[[bytes], npt.NDArray[np.uint8]]],
+) -> None:
+    """Use ``decoder`` for full-size JPEG decoding, or None for the built-in one.
+
+    :param decoder: Callable taking JPEG binary and returning an HWC RGB uint8 array.
+    """
+    global _jpeg_decoder
+    _jpeg_decoder = decoder
 
 
 def is_jpeg_binary(jpeg_binary: bytes) -> bool:
@@ -44,6 +59,9 @@ def decode_image_from_jpeg_binary(
         img.draft("RGB", (w // scale, h // scale))
         img.load()
         return np.array(img)
+
+    if _jpeg_decoder is not None:
+        return _jpeg_decoder(jpeg_binary)
 
     image = cv2.imdecode(np.frombuffer(jpeg_binary, np.uint8), cv2.IMREAD_UNCHANGED)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
