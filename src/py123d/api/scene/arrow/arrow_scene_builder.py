@@ -1,13 +1,20 @@
 import logging
 import os
 import random
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 import pyarrow as pa
 
 from py123d.api.scene.arrow.arrow_scene_api import ArrowSceneAPI
+from py123d.api.scene.arrow.lazy_scene_sequence import (
+    LazySceneSequence,
+    LogSceneIndex,
+    apply_lazy_post_filters,
+    build_log_scene_index,
+)
 from py123d.api.scene.arrow.utils.scene_builder_utils import (
     check_log_passes_metadata_filters,
     filter_scene_metadata_candidates,
@@ -31,6 +38,9 @@ from py123d.datatypes.metadata import SceneMetadata
 from py123d.datatypes.metadata.log_metadata import LogMetadata
 
 logger = logging.getLogger(__name__)
+
+_DISCOVERY_THREADS = 8
+"""Threads scanning directories during log discovery; the work is filesystem lookups, not Python."""
 
 
 class ArrowSceneBuilder(SceneBuilder):
@@ -56,7 +66,7 @@ class ArrowSceneBuilder(SceneBuilder):
         self._logs_root = Path(logs_root)
         self._maps_root = Path(maps_root)
 
-    def get_scenes(self, filter: SceneFilter, executor: Executor) -> List[SceneAPI]:
+    def get_scenes(self, filter: SceneFilter, executor: Executor, lazy: bool = False) -> Sequence[SceneAPI]:
         """Inherited, see superclass."""
 
         # Category 1: Log discovery (filesystem-only)
@@ -67,6 +77,9 @@ class ArrowSceneBuilder(SceneBuilder):
         # Categories 2 & 3: Metadata filtering + scene generation (parallelized across logs)
         # Pre-convert scene UUIDs to binary once (shared across all executor workers)
         target_uuids_binary = scene_uuids_to_binary(filter.scene_uuids) if filter.scene_uuids is not None else None
+        if lazy:
+            return self._get_scenes_lazily(log_paths, filter, executor, target_uuids_binary)
+
         scenes: List[SceneAPI] = executor_map_chunked_list(
             executor,
             partial(
@@ -83,6 +96,29 @@ class ArrowSceneBuilder(SceneBuilder):
         scenes = _apply_post_filters(scenes, filter)
         return scenes
 
+    def _get_scenes_lazily(
+        self,
+        log_paths: List[Path],
+        filter: SceneFilter,
+        executor: Executor,
+        target_uuids_binary: Optional[pa.Array],
+    ) -> Sequence[SceneAPI]:
+        """Enumerate scenes as per-log columns, building none of them.
+
+        :param log_paths: The discovered log directories.
+        :param filter: The scene filter.
+        :param executor: Executor the per-log indexing runs on.
+        :param target_uuids_binary: Pre-converted binary(16) Arrow array of target UUIDs, or None.
+        :return: The scenes, materialized only when indexed.
+        """
+        log_indices = executor_map_chunked_list(
+            executor,
+            partial(_index_log_dirs, filter=filter, target_uuids_binary=target_uuids_binary),
+            log_paths,
+            name="Scene indexing",
+        )
+        return apply_lazy_post_filters(LazySceneSequence(log_indices), filter)
+
 
 # --- Category 1: Log discovery ---
 
@@ -98,20 +134,48 @@ def _parse_valid_log_dirs(logs_root: Path, filter: SceneFilter) -> List[Path]:
     :return: Sorted list of valid log directory paths.
     """
     split_names = filter.split_names if filter.split_names is not None else _discover_split_names(logs_root, filter)
-    log_paths: List[Path] = []
-    for split_name in split_names:
-        split_dir = logs_root / split_name
-        if not split_dir.exists():
-            continue
-        for dirpath, dirnames, filenames in os.walk(split_dir, topdown=True):
-            if "sync.arrow" not in filenames:
-                continue
-            log_path = Path(dirpath)
-            if filter.log_names is None or log_path.name in filter.log_names:
-                log_paths.append(log_path)
-            # A log has no nested logs.
-            dirnames[:] = []
+    log_names = set(filter.log_names) if filter.log_names is not None else None
+    roots = [logs_root / split_name for split_name in split_names if (logs_root / split_name).is_dir()]
+
+    log_paths: List[Path] = [root for root in roots if (root / "sync.arrow").exists()]
+    frontier = [root for root in roots if root not in log_paths]
+    with ThreadPoolExecutor(max_workers=_DISCOVERY_THREADS) as executor:
+        while frontier:
+            next_frontier: List[Path] = []
+            for found, subdirectories in executor.map(_scan_for_logs, frontier):
+                log_paths.extend(found)
+                next_frontier.extend(subdirectories)
+            frontier = next_frontier
+
+    if log_names is not None:
+        log_paths = [path for path in log_paths if path.name in log_names]
     return sorted(log_paths)
+
+
+def _scan_for_logs(directory: Path) -> Tuple[List[Path], List[Path]]:
+    """Split a directory's subdirectories into logs and directories still to search.
+
+    Probing for ``sync.arrow`` directly costs one lookup, where listing a log
+    directory would read every modality file it holds.
+
+    :param directory: The directory to scan.
+    :return: Tuple of (log directories found, subdirectories to descend into).
+    """
+    logs: List[Path] = []
+    subdirectories: List[Path] = []
+    try:
+        entries = list(os.scandir(directory))
+    except OSError:
+        return logs, subdirectories
+    for entry in entries:
+        if not entry.is_dir(follow_symlinks=False):
+            continue
+        # A log has no nested logs, so a match ends the descent.
+        if os.path.exists(os.path.join(entry.path, "sync.arrow")):
+            logs.append(Path(entry.path))
+        else:
+            subdirectories.append(Path(entry.path))
+    return logs, subdirectories
 
 
 def _discover_split_names(logs_root: Path, filter: SceneFilter) -> List[str]:
@@ -129,6 +193,22 @@ def _discover_split_names(logs_root: Path, filter: SceneFilter) -> List[str]:
 
 
 # --- Categories 2 & 3: Per-log scene extraction ---
+
+
+def _index_log_dirs(
+    log_dirs: List[Path],
+    filter: SceneFilter,
+    target_uuids_binary: Optional[pa.Array] = None,
+) -> List[LogSceneIndex]:
+    """Index multiple log directories (chunked batch wrapper).
+
+    :param log_dirs: List of log directory paths to index.
+    :param filter: The scene filter.
+    :param target_uuids_binary: Pre-converted binary(16) Arrow array of target UUIDs, or None.
+    :return: One index per log that contributes at least one scene.
+    """
+    indices = [build_log_scene_index(log_dir, filter, target_uuids_binary) for log_dir in log_dirs]
+    return [index for index in indices if index is not None]
 
 
 def _extract_scenes_from_log_dirs(

@@ -1,5 +1,5 @@
 import abc
-from typing import List
+from typing import Sequence
 
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_filter import SceneFilter
@@ -12,10 +12,12 @@ class SceneBuilder(abc.ABC):
     """
 
     @abc.abstractmethod
-    def get_scenes(self, filter: SceneFilter, executor: Executor) -> List[SceneAPI]:
-        """Returns a list of scenes that match the given filter.
+    def get_scenes(self, filter: SceneFilter, executor: Executor, lazy: bool = False) -> Sequence[SceneAPI]:
+        """Returns the scenes that match the given filter.
 
         :param filter: SceneFilter object to filter the scenes.
         :param executor: Executor to parallelize the scene extraction.
-        :return: List of SceneAPI objects.
+        :param lazy: Whether to build each scene when it is indexed rather than up front. Enumerating a
+            large split this way costs a few arrays per log instead of an object per scene.
+        :return: The matching scenes, as a list unless *lazy* is set.
         """
