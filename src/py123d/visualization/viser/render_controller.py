@@ -2,6 +2,7 @@ import io
 import logging
 import zipfile
 from dataclasses import dataclass
+from fractions import Fraction
 from typing import List, Literal, Optional
 
 import av
@@ -15,7 +16,12 @@ from tqdm import tqdm
 from py123d.visualization.viser.camera_strip_controller import CameraStripController
 from py123d.visualization.viser.elements.base_element import ElementContext
 from py123d.visualization.viser.playback_controller import PlaybackController
-from py123d.visualization.viser.utils.view_utils import get_ego_3rd_person_view_position, get_ego_bev_view_position
+from py123d.visualization.viser.utils.view_utils import (
+    FollowAnchor,
+    follow_camera_pose,
+    get_ego_3rd_person_view_position,
+    get_ego_bev_view_position,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +40,7 @@ RESOLUTION_MAP = {
 
 
 # Default length of the render range ahead of the current frame.
-DEFAULT_RENDER_RANGE_FRAMES = 100
+DEFAULT_RENDER_RANGE_FRAMES = 20
 
 # libx264 constant rate factors for mp4 exports, shown as user-facing labels. The
 # imageio pyav wrapper offers no quality control and falls back to the x264 default
@@ -70,8 +76,12 @@ def _encode_mp4(frames: List[npt.NDArray[np.uint8]], fps: int, crf: int) -> byte
         stream.height = frames[0].shape[0]
         stream.pix_fmt = "yuv420p"
         stream.options = {"crf": str(crf), "preset": "medium"}
-        for image in frames:
+        for index, image in enumerate(frames):
             frame = av.VideoFrame.from_ndarray(np.ascontiguousarray(image[..., :3]), format="rgb24")
+            # Explicit constant-frame-rate timestamps; without them some players
+            # show irregular frame pacing.
+            frame.time_base = Fraction(1, fps)
+            frame.pts = index
             for packet in stream.encode(frame):
                 container.mux(packet)
         for packet in stream.encode():
@@ -105,7 +115,7 @@ class RenderController:
 
     def create_gui(self) -> None:
         """Create the Render folder with format, view, and render button."""
-        with self._server.gui.add_folder("Render", expand_by_default=False):
+        with self._server.gui.add_folder("Render"):
             self._gui_format = self._server.gui.add_dropdown(
                 "Format", ["gif", "mp4", "png"], initial_value=self._config.format
             )
@@ -163,20 +173,10 @@ class RenderController:
                 assert self._gui_quality is not None, "GUI must be created before handling quality change."
                 self._config.quality = self._gui_quality.value
 
-            # Keep the range valid: dragging one handle past the other pushes it along.
-            @self._gui_start_frame.on_update
-            def _on_start_frame_changed(_) -> None:
-                assert self._gui_start_frame is not None and self._gui_end_frame is not None
-                new_end = max(self._gui_end_frame.value, self._gui_start_frame.value)
-                if new_end != self._gui_end_frame.value:
-                    self._gui_end_frame.value = new_end
-
-            @self._gui_end_frame.on_update
-            def _on_end_frame_changed(_) -> None:
-                assert self._gui_start_frame is not None and self._gui_end_frame is not None
-                new_start = min(self._gui_start_frame.value, self._gui_end_frame.value)
-                if new_start != self._gui_start_frame.value:
-                    self._gui_start_frame.value = new_start
+            # No cross-adjustment between the two sliders: typing a multi-digit end
+            # frame passes through transiently small values and would drag the start
+            # frame down. An inverted range is harmless -- _on_render sorts the two
+            # values before use.
 
     def set_default_frame_range(self, iteration: int) -> None:
         """Track playback: the render range defaults to the current frame plus the
@@ -199,6 +199,12 @@ class RenderController:
         state = self._context.scene.get_ego_state_se3_at_iteration(iteration)
         assert state is not None, f"Ego state must be available at iteration {iteration}."
         return state.center_se3.point_3d.array.astype(np.float64) - self._context.scene_center_array.astype(np.float64)
+
+    def _ego_yaw(self, iteration: int) -> float:
+        """Planar ego heading at the given iteration."""
+        state = self._context.scene.get_ego_state_se3_at_iteration(iteration)
+        assert state is not None, f"Ego state must be available at iteration {iteration}."
+        return float(state.center_se3.yaw)
 
     def _composite_camera_strip(self, frame: npt.NDArray[np.uint8], iteration: int) -> npt.NDArray[np.uint8]:
         """Rasterize the enabled camera strip into the top of a rendered frame.
@@ -260,19 +266,23 @@ class RenderController:
 
             width, height = RESOLUTION_MAP[self._config.resolution]
 
-            # Follow view: keep the user's current camera exactly as-is, translated
-            # with the ego per frame -- what-you-see-is-what-you-get for the pose the
-            # viewer shows when the render starts.
-            follow_offset: Optional[npt.NDArray[np.float64]] = None
-            follow_wxyz: Optional[npt.NDArray[np.float64]] = None
+            # Follow view: the user's current camera, rigidly attached to the vehicle's
+            # planar body frame via the same follow_camera_pose used by the playback
+            # ego-follow -- what-you-see-is-what-you-get for the pose the viewer shows
+            # when the render starts, rotating with the vehicle.
+            follow_anchor: Optional[FollowAnchor] = None
             if self._gui_view.value == "Follow":
                 try:
-                    ego_now = self._ego_position(self._playback.current_iteration)
-                    follow_offset = np.asarray(client.camera.position, dtype=np.float64) - ego_now
-                    follow_wxyz = np.asarray(client.camera.wxyz, dtype=np.float64)
+                    current_iteration = self._playback.current_iteration
+                    follow_anchor = FollowAnchor(
+                        ego_position=self._ego_position(current_iteration),
+                        ego_yaw=self._ego_yaw(current_iteration),
+                        camera_position=np.asarray(client.camera.position, dtype=np.float64),
+                        camera_wxyz=np.asarray(client.camera.wxyz, dtype=np.float64),
+                    )
                 except AssertionError:
                     # No camera state received yet; fall back to a static camera.
-                    follow_offset = None
+                    follow_anchor = None
 
             start_frame = min(self._gui_start_frame.value, self._gui_end_frame.value)
             end_frame = max(self._gui_start_frame.value, self._gui_end_frame.value)
@@ -286,9 +296,10 @@ class RenderController:
                     ego_view = get_ego_3rd_person_view_position(scene, i, initial_ego_state)
                     client.camera.position = ego_view.point_3d.array
                     client.camera.wxyz = ego_view.quaternion.array
-                elif self._gui_view.value == "Follow" and follow_offset is not None:
-                    client.camera.position = self._ego_position(i) + follow_offset
-                    client.camera.wxyz = follow_wxyz
+                elif self._gui_view.value == "Follow" and follow_anchor is not None:
+                    position, wxyz = follow_camera_pose(follow_anchor, self._ego_position(i), self._ego_yaw(i))
+                    client.camera.position = position
+                    client.camera.wxyz = wxyz
                 # PNG transport renders on a transparent background (jpeg hardcodes white
                 # in the viser frontend); the background color is composited below.
                 frame = client.get_render(height=height, width=width, transport_format="png")
@@ -314,14 +325,16 @@ class RenderController:
                         if isinstance(img, (bytes, bytearray)):
                             zf.writestr(name, img)
                         else:
+                            # Frames are RGBA on a transparent background; honor the
+                            # Background control like the gif/mp4 paths do.
                             img_bytes = io.BytesIO()
-                            iio.imwrite(img_bytes, img, extension=".png")
+                            iio.imwrite(img_bytes, self._composite_over_background(img), extension=".png")
                             zf.writestr(name, img_bytes.getvalue())
                 content = zip_buf.getvalue()
                 format = "zip"
 
             assert content is not None, "Content should have been generated by this point."
-            scene_name = f"{scene.log_metadata.split}_{scene.scene_uuid}"
+            scene_name = f"{scene.log_metadata.split}_{scene.log_metadata.log_name}"
             client.send_file_download(f"{scene_name}.{format}", content)
         finally:
             self._playback.is_rendering = False

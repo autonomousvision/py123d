@@ -1,12 +1,14 @@
-from typing import Dict, Tuple
+from typing import Dict, NamedTuple, Tuple
 
 import numpy as np
 import numpy.typing as npt
+import viser.transforms as vtf
 
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.datatypes.sensors.base_camera import Camera
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import EulerAngles, PoseSE3Index, Vector3D
+from py123d.geometry.geometry_index import BoundingBoxSE3Index
 from py123d.geometry.pose import PoseSE3
 from py123d.geometry.rotation import Quaternion
 from py123d.geometry.transform.transform_se3 import abs_to_rel_se3_array, translate_se3_along_body_frame
@@ -25,6 +27,60 @@ def decompose_camera_pose(
 def get_scene_center_pose(scene_center_array: npt.NDArray[np.float64]) -> PoseSE3:
     """Create a PoseSE3 at the scene center with identity rotation."""
     return PoseSE3.from_R_t(rotation=Quaternion.identity(), translation=scene_center_array)
+
+
+def get_default_camera_state(
+    initial_ego_state: EgoStateSE3,
+) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Default viewpoint on scene load: behind and above the ego along its body yaw,
+    looking at the center of the vehicle's 3D box.
+
+    Uses the ego body yaw (not the smoothed path heading), so the camera is exactly
+    behind the vehicle. Returned as (camera position, look-at point) in scene-centered
+    coordinates; orientation should be derived by the caller from position + look-at
+    so the look-at point lands exactly on the vehicle.
+    """
+    scene_center = initial_ego_state.center_se3.point_3d.array.astype(np.float64)
+    box_center = initial_ego_state.bounding_box_se3.array[BoundingBoxSE3Index.XYZ].astype(np.float64) - scene_center
+    yaw = float(initial_ego_state.center_se3.yaw)
+    offset = vtf.SO3.from_z_radians(yaw) @ np.array([-12.0, 0.0, 7.0])
+    return box_center + offset, box_center
+
+
+class FollowAnchor(NamedTuple):
+    """Snapshot binding a camera pose to the ego pose at follow-engage time.
+
+    All values are in scene-centered world coordinates; ``ego_yaw`` is the planar
+    vehicle heading. Shared by the playback ego-follow and the render "Follow" view
+    so both attach the camera identically.
+    """
+
+    ego_position: npt.NDArray[np.float64]
+    ego_yaw: float
+    camera_position: npt.NDArray[np.float64]
+    camera_wxyz: npt.NDArray[np.float64]
+
+
+def follow_camera_pose(
+    anchor: FollowAnchor, ego_position: npt.NDArray[np.float64], ego_yaw: float
+) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Camera pose rigidly attached to the vehicle's planar (yaw) body frame.
+
+    The camera keeps its engage-time position and orientation relative to the
+    vehicle frame, so it translates AND rotates with the ego: the look-at point
+    stays fixed in vehicle coordinates. Only the yaw of the ego is applied --
+    body pitch/roll (braking dip, cornering roll, vibration) would shake the
+    horizon and cannot be represented reliably by the viser camera protocol.
+
+    :param anchor: Engage-time snapshot of the ego and camera pose.
+    :param ego_position: Current scene-centered ego position.
+    :param ego_yaw: Current planar ego heading in radians.
+    :return: Tuple of (camera position, camera wxyz quaternion).
+    """
+    rotation = vtf.SO3.from_z_radians(ego_yaw - anchor.ego_yaw)
+    position = ego_position + rotation @ (anchor.camera_position - anchor.ego_position)
+    wxyz = (rotation @ vtf.SO3(np.asarray(anchor.camera_wxyz, dtype=np.float64))).wxyz
+    return position, wxyz
 
 
 def get_ego_3rd_person_view_position(

@@ -1,5 +1,5 @@
 import logging
-from typing import Literal
+from typing import Literal, Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -28,6 +28,7 @@ def get_radar_pc_color(
     radar: Radar,
     color_feature: RadarColorFeature = "none",
     dark_mode: bool = False,
+    range_smoothing_key: Optional[str] = None,
 ) -> npt.NDArray[np.uint8]:
     """Compute per-point RGB colors for a radar point cloud based on a feature.
 
@@ -50,7 +51,12 @@ def get_radar_pc_color(
         return default_color
     elif color_feature == "height":
         # Same palette, quantile normalization, and dark-end cutoff as the lidar height coloring.
-        return _continuous_colormap(-point_cloud_3d[:, 2], cmap_name="turbo", cmap_range=(0.08, 0.90))
+        return _continuous_colormap(
+            -point_cloud_3d[:, 2],
+            cmap_name="turbo",
+            cmap_range=(0.08, 0.90),
+            range_smoothing_key=f"{range_smoothing_key}:height" if range_smoothing_key is not None else None,
+        )
     elif color_feature == "distance":
         distances = -np.linalg.norm(point_cloud_3d, axis=-1)
         distances = np.clip(distances, -100.0, 0.0)

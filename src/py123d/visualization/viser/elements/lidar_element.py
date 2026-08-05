@@ -116,10 +116,11 @@ class LidarElement(ViewerElement):
 
         self._gui_max_points = server.gui.add_slider(
             "Max Points",
-            min=10_000,
+            min=0,
             max=1_000_000,
             step=10_000,
-            initial_value=self._config.max_points,
+            initial_value=max(0, self._config.max_points),
+            hint="Per-sensor display cap; 0 disables the cap.",
         )
 
         self._gui_show_sensor_frames = server.gui.add_checkbox("Show Sensor Frames", self._config.show_sensor_frames)
@@ -190,7 +191,11 @@ class LidarElement(ViewerElement):
             xyz = np.array(lidar.xyz[::step], dtype=np.float64)
             points = rel_to_abs_points_3d_array(rotation_only_pose, xyz)
             colors = get_lidar_pc_color(
-                lidar, color_feature=self._config.point_color, dark_mode=self._dark_mode, stride=step
+                lidar,
+                color_feature=self._config.point_color,
+                dark_mode=self._dark_mode,
+                stride=step,
+                range_smoothing_key=lidar_id.serialize(),
             )
             return points, colors
 

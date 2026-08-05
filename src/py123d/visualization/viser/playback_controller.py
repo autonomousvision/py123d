@@ -191,6 +191,10 @@ class PlaybackController:
             def _on_playing_changed(_) -> None:
                 self._gui_timestep.disabled = self._gui_playing.value
                 self._config.is_playing = self._gui_playing.value
+                if self._gui_playing.value:
+                    # A pending debounced scrub would otherwise fire mid-playback and
+                    # yank the timestep back to the stale scrubbed value.
+                    self._cancel_debounce_timers()
 
             @gui_speed_options.on_click
             def _on_speed_preset(_) -> None:
@@ -252,6 +256,8 @@ class PlaybackController:
 
     def _request_scene(self, scene_index: int) -> None:
         """Request a switch to the given scene and stop the playback loop."""
+        # Pending debounced updates must not fire against the torn-down scene.
+        self._cancel_debounce_timers()
         self._requested_scene_index = scene_index
         self._should_stop = True
 

@@ -19,6 +19,11 @@ from py123d.visualization.viser.elements.map_element import MapElement
 from py123d.visualization.viser.elements.radar_element import RadarElement
 from py123d.visualization.viser.playback_controller import PlaybackController
 from py123d.visualization.viser.render_controller import RenderController
+from py123d.visualization.viser.utils.view_utils import (
+    FollowAnchor,
+    follow_camera_pose,
+    get_default_camera_state,
+)
 from py123d.visualization.viser.viser_config import ViserConfig
 
 logger = logging.getLogger(__name__)
@@ -78,6 +83,11 @@ div:has(> div > div:first-child > p > label):has(.mantine-Checkbox-root) > div >
 .mantine-Paper-root > div:has(.py123d-camera-strip) {
   background: inherit;
   border-radius: inherit;
+}
+/* The collapsed-sidebar "show" button has no z-index of its own and would be
+   painted below the panel layer that carries the full-width camera strip. */
+div[style*="border-bottom-left-radius"]:has(> .mantine-ActionIcon-root) {
+  z-index: 30;
 }
 </style>"""
 
@@ -184,15 +194,23 @@ class ViserViewer:
         # target are user adjustments (orbit/pan/zoom) and re-base the offset.
         self._follow_enabled: bool = False
         self._follow_scene_center: Optional[np.ndarray] = None
-        self._follow_current_ego: Optional[np.ndarray] = None
-        self._follow_offsets: Dict[int, np.ndarray] = {}
+        self._follow_current_ego: Optional[Tuple[np.ndarray, float]] = None
+        self._follow_anchors: Dict[int, FollowAnchor] = {}
         self._follow_recent_targets: Dict[int, Deque[np.ndarray]] = {}
+
+        # Default viewpoint of the current scene (behind/above the ego at frame 0,
+        # looking at the vehicle box center); applied on scene load and to newly
+        # connecting clients.
+        self._default_camera_position: Optional[np.ndarray] = None
+        self._default_camera_look_at: Optional[np.ndarray] = None
 
         @self._server.on_client_connect
         def _(client: viser.ClientHandle) -> None:
             @client.camera.on_update
             def _(_camera) -> None:
                 self._on_client_camera_update(client)
+
+            self._reset_client_camera(client)
 
         self._run_scene(self._scenes[self._scene_index % len(self._scenes)])
 
@@ -210,64 +228,88 @@ class ViserViewer:
                 )
                 self._server.flush()
 
-        context = ElementContext.from_scene(scene, dark_mode=self._dark_mode)
+        # The overlay must come down even when scene setup fails, otherwise it blocks
+        # the view permanently.
+        try:
+            context = ElementContext.from_scene(scene, dark_mode=self._dark_mode)
 
-        # Build elements based on available data
-        self._element_manager = self._build_elements(context)
+            # Build elements based on available data
+            self._element_manager = self._build_elements(context)
 
-        # Build controllers
-        playback = PlaybackController(
-            self._server,
-            self._config.playback,
-            context,
-            on_dark_mode_changed=self._on_dark_mode_changed,
-            scene_index=self._scene_index % len(self._scenes),
-            num_scenes=len(self._scenes),
-        )
-        # Build camera GUI controller
-        self._camera_gui = CameraGuiController(self._server, self._config.camera_gui, context)
+            # Build controllers
+            playback = PlaybackController(
+                self._server,
+                self._config.playback,
+                context,
+                on_dark_mode_changed=self._on_dark_mode_changed,
+                scene_index=self._scene_index % len(self._scenes),
+                num_scenes=len(self._scenes),
+            )
+            # Build camera GUI controller
+            self._camera_gui = CameraGuiController(self._server, self._config.camera_gui, context)
 
-        # Build camera strip overlay (full viewport width).
-        self._camera_strip = CameraStripController(self._server, self._config.camera_strip, context)
+            # Build camera strip overlay (full viewport width).
+            self._camera_strip = CameraStripController(self._server, self._config.camera_strip, context)
 
-        # The render controller rasterizes the enabled camera strip into exports.
-        render = RenderController(self._server, self._config.render, context, playback, camera_strip=self._camera_strip)
+            # The render controller rasterizes the enabled camera strip into exports.
+            render = RenderController(
+                self._server, self._config.render, context, playback, camera_strip=self._camera_strip
+            )
 
-        # Create GUI in order: Playback -> Modality Tabs -> Camera Image -> Camera Strip -> Render
-        self._server.gui.add_html(_COMPACT_GUI_CSS)
-        playback.create_gui(scene)
-        self._element_manager.create_all_gui(self._server)
-        self._camera_gui.create_gui()
-        self._camera_strip.create_gui()
-        render.create_gui()
+            # Create GUI in order: Playback -> Modality Tabs -> Camera Image -> Camera Strip -> Render
+            self._server.gui.add_html(_COMPACT_GUI_CSS)
+            playback.create_gui(scene)
+            self._element_manager.create_all_gui(self._server)
+            self._camera_gui.create_gui()
+            self._camera_strip.create_gui()
+            render.create_gui()
 
-        # Re-apply persisted environment intensity (scene.reset() clears it)
-        self._server.scene.configure_environment_map(
-            hdri=HDRI,
-            environment_intensity=self._environment_intensity,
-        )
+            # Re-apply persisted environment intensity (scene.reset() clears it)
+            self._server.scene.configure_environment_map(
+                hdri=HDRI,
+                environment_intensity=self._environment_intensity,
+            )
 
-        # Wire iteration callback
-        self._follow_scene_center = context.scene_center_array.astype(np.float64)
-        self._follow_current_ego = None
-        self._follow_offsets.clear()
-        self._follow_recent_targets.clear()
+            # Wire iteration callback
+            self._follow_scene_center = context.scene_center_array.astype(np.float64)
+            self._follow_current_ego = None
+            self._follow_anchors.clear()
+            self._follow_recent_targets.clear()
 
-        def _on_iteration_changed(iteration: int) -> None:
-            self._apply_ego_follow(scene, iteration, follow_enabled=playback.follow_ego)
-            self._element_manager.update_all(iteration)
-            self._camera_gui.update(iteration)
-            self._camera_strip.update(iteration)
-            render.set_default_frame_range(iteration)
+            # The browser camera persists across scene switches, so a pose inherited
+            # from the previous scene (e.g. follow far from the scene center on a long
+            # log) would leave the new scene out of view -- and follow would then
+            # anchor to that stale pose. Reset every client to the scene's default
+            # viewpoint before the first iteration engages the follow anchors.
+            self._default_camera_position, self._default_camera_look_at = get_default_camera_state(
+                context.initial_ego_state
+            )
+            for client in self._server.get_clients().values():
+                self._reset_client_camera(client)
 
-        playback.set_on_iteration_changed(_on_iteration_changed)
+            def _on_iteration_changed(iteration: int) -> None:
+                # Follow is suspended while rendering: the render controller drives the
+                # camera itself, and its camera echoes must not re-base the follow offset
+                # (which would leave the interactive camera on the render path afterwards).
+                # The disabled path clears the follow state, so follow re-engages from the
+                # current camera on the first timestep after the render.
+                self._apply_ego_follow(
+                    scene, iteration, follow_enabled=playback.follow_ego and not playback.is_rendering
+                )
+                self._element_manager.update_all(iteration)
+                self._camera_gui.update(iteration)
+                self._camera_strip.update(iteration)
+                render.set_default_frame_range(iteration)
 
-        # Initial render at frame 0
-        _on_iteration_changed(0)
+            playback.set_on_iteration_changed(_on_iteration_changed)
 
-        self._loaded_scene_uuids.add(scene.scene_uuid)
-        if loading_overlay is not None:
-            loading_overlay.remove()
+            # Initial render at frame 0
+            _on_iteration_changed(0)
+
+            self._loaded_scene_uuids.add(scene.scene_uuid)
+        finally:
+            if loading_overlay is not None:
+                loading_overlay.remove()
 
         # Blocking playback loop -- returns on Next Scene
         playback.run_loop()
@@ -287,57 +329,79 @@ class ViserViewer:
         self._run_scene(self._scenes[self._scene_index])
 
     def _apply_ego_follow(self, scene: SceneAPI, iteration: int, follow_enabled: bool) -> None:
-        """Keep each client camera at a fixed offset to the ego vehicle.
+        """Keep each client camera rigidly attached to the vehicle's planar body frame.
 
-        Absolute placement (position = ego + per-client offset) instead of
-        incremental deltas: incremental shifts race the throttled camera echoes
-        from the browser, and every shift applied to a stale state is lost
-        permanently, drifting the camera off the vehicle. Absolute targets are
-        idempotent, so lost or reordered messages cause no accumulating error.
-        Zoom, pan offset, and orientation are preserved (the viser position
-        setter moves the look-at point along).
+        The camera translates and yaw-rotates with the ego (see follow_camera_pose),
+        so the look-at point stays fixed in vehicle coordinates. Placement is
+        absolute from a per-client engage-time anchor rather than incremental:
+        incremental shifts race the throttled camera echoes from the browser, and
+        every shift applied to a stale state is lost permanently, drifting the
+        camera off the vehicle. Absolute targets are idempotent.
         """
         self._follow_enabled = follow_enabled
         if not follow_enabled:
-            self._follow_offsets.clear()
+            self._follow_anchors.clear()
             self._follow_recent_targets.clear()
             return
         state = scene.get_ego_state_se3_at_iteration(iteration)
         if state is None or self._follow_scene_center is None:
             return
         ego = state.center_se3.point_3d.array.astype(np.float64) - self._follow_scene_center
-        self._follow_current_ego = ego
+        ego_yaw = float(state.center_se3.yaw)
+        self._follow_current_ego = (ego, ego_yaw)
 
         for client in self._server.get_clients().values():
             try:
                 camera_position = np.asarray(client.camera.position, dtype=np.float64)
+                camera_wxyz = np.asarray(client.camera.wxyz, dtype=np.float64)
             except AssertionError:
                 # Camera state has not been received from this client yet.
                 continue
-            offset = self._follow_offsets.get(client.client_id)
-            if offset is None:
+            anchor = self._follow_anchors.get(client.client_id)
+            if anchor is None:
                 # Follow engages from wherever the camera currently is.
-                offset = camera_position - ego
-                self._follow_offsets[client.client_id] = offset
-            target = ego + offset
-            client.camera.position = target
+                anchor = FollowAnchor(ego, ego_yaw, camera_position, camera_wxyz)
+                self._follow_anchors[client.client_id] = anchor
+            target_position, target_wxyz = follow_camera_pose(anchor, ego, ego_yaw)
+            client.camera.position = target_position
+            client.camera.wxyz = target_wxyz
             # Long history (~6 s at 10 Hz): a delayed echo of our own target must
             # never be mistaken for a user camera move, which would re-base the
-            # offset to a lagged position and jerk the viewport.
+            # anchor to a lagged position and jerk the viewport.
             targets = self._follow_recent_targets.setdefault(client.client_id, deque(maxlen=60))
-            targets.append(target)
+            targets.append(target_position)
+
+    def _reset_client_camera(self, client: viser.ClientHandle) -> None:
+        """Place a client camera at the current scene's default viewpoint.
+
+        Position, look-at, and up are set explicitly. Setting a camera orientation
+        via wxyz would make viser keep the PREVIOUS look-at distance (the new look-at
+        is derived as direction times old distance), which put the orbit center at an
+        arbitrary depth instead of on the vehicle.
+        """
+        if self._default_camera_position is None or self._default_camera_look_at is None:
+            return
+        try:
+            client.camera.up_direction = np.array([0.0, 0.0, 1.0])
+            client.camera.position = self._default_camera_position
+            client.camera.look_at = self._default_camera_look_at
+        except AssertionError:
+            # Camera state has not been received from this client yet; the follow
+            # logic will still see the browser-side default near the scene origin.
+            pass
 
     def _on_client_camera_update(self, client: viser.ClientHandle) -> None:
-        """Re-base the follow offset when the browser reports a user camera move.
+        """Re-base the follow anchor when the browser reports a user camera move.
 
         Echoes of our own follow targets arrive delayed; anything matching a
-        recently sent target is ignored, everything else is a manual adjustment
-        and becomes the new camera-to-ego offset.
+        recently sent target position is ignored, everything else is a manual
+        adjustment and becomes the new camera-to-vehicle anchor.
         """
         if not self._follow_enabled or self._follow_current_ego is None:
             return
         try:
             camera_position = np.asarray(client.camera.position, dtype=np.float64)
+            camera_wxyz = np.asarray(client.camera.wxyz, dtype=np.float64)
         except AssertionError:
             return
         targets = self._follow_recent_targets.get(client.client_id)
@@ -345,7 +409,8 @@ class ViserViewer:
             for target in list(targets):
                 if float(np.linalg.norm(camera_position - target)) < 0.5:
                     return
-        self._follow_offsets[client.client_id] = camera_position - self._follow_current_ego
+        ego, ego_yaw = self._follow_current_ego
+        self._follow_anchors[client.client_id] = FollowAnchor(ego, ego_yaw, camera_position, camera_wxyz)
 
     def _on_dark_mode_changed(self, dark_mode: bool) -> None:
         """Handle dark mode toggle from playback controller."""
