@@ -1,9 +1,25 @@
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import cv2
 import numpy as np
 import numpy.typing as npt
+
+# Decoder replacing the built-in one, set by a reader that has a faster PNG library
+# available. None keeps the OpenCV path.
+_png_decoder: Optional[Callable[[bytes], npt.NDArray]] = None
+
+
+def set_png_decoder(decoder: Optional[Callable[[bytes], npt.NDArray]]) -> None:
+    """Use ``decoder`` for full-size PNG decoding, or None for the built-in one.
+
+    Applies to both image and label-map decoding. An image decoder must return an HWC
+    RGB array; a label map comes back as the 2D array the file holds.
+
+    :param decoder: Callable taking PNG binary and returning the decoded array.
+    """
+    global _png_decoder
+    _png_decoder = decoder
 
 
 def is_png_binary(png_binary: bytes) -> bool:
@@ -31,8 +47,11 @@ def decode_image_from_png_binary(png_binary: bytes, scale: Optional[int] = None)
     :param png_binary: The PNG binary data to decode.
     :param scale: Optional downscale denominator, e.g. 2 for half size, 4 for quarter size.
     """
-    image = cv2.imdecode(np.frombuffer(png_binary, np.uint8), cv2.IMREAD_UNCHANGED)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    if _png_decoder is not None:
+        image = _png_decoder(png_binary)
+    else:
+        image = cv2.imdecode(np.frombuffer(png_binary, np.uint8), cv2.IMREAD_UNCHANGED)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     if scale is not None and scale > 1:
         new_h = image.shape[0] // scale
         new_w = image.shape[1] // scale
@@ -80,7 +99,10 @@ def decode_label_map_from_png_binary(png_binary: bytes, scale: Optional[int] = N
     :param scale: Optional downscale denominator. Nearest-neighbour is used so class ids are never blended.
     :return: A 2D (H, W) array of integer class ids with the original dtype (uint8/uint16).
     """
-    label_map = cv2.imdecode(np.frombuffer(png_binary, np.uint8), cv2.IMREAD_UNCHANGED)
+    if _png_decoder is not None:
+        label_map = _png_decoder(png_binary)
+    else:
+        label_map = cv2.imdecode(np.frombuffer(png_binary, np.uint8), cv2.IMREAD_UNCHANGED)
     if scale is not None and scale > 1:
         new_h = label_map.shape[0] // scale
         new_w = label_map.shape[1] // scale
