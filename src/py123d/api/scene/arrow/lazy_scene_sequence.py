@@ -230,7 +230,8 @@ def _null_mask(sync_table: pa.Table, column_name: str, cache: dict) -> np.ndarra
     :return: Boolean array, True where the column is null.
     """
     if column_name not in cache:
-        cache[column_name] = np.asarray(pc.is_null(sync_table.column(column_name)))
+        # to_numpy rather than asarray: the column is chunked, and this is flat by contract.
+        cache[column_name] = pc.is_null(sync_table.column(column_name)).to_numpy(zero_copy_only=False)
     return cache[column_name]
 
 

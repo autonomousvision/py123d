@@ -66,7 +66,7 @@ class ArrowSceneBuilder(SceneBuilder):
         self._logs_root = Path(logs_root)
         self._maps_root = Path(maps_root)
 
-    def get_scenes(self, filter: SceneFilter, executor: Executor, lazy: bool = False) -> Sequence[SceneAPI]:
+    def get_scenes(self, filter: SceneFilter, executor: Executor) -> Sequence[SceneAPI]:
         """Inherited, see superclass."""
 
         # Category 1: Log discovery (filesystem-only)
@@ -77,9 +77,6 @@ class ArrowSceneBuilder(SceneBuilder):
         # Categories 2 & 3: Metadata filtering + scene generation (parallelized across logs)
         # Pre-convert scene UUIDs to binary once (shared across all executor workers)
         target_uuids_binary = scene_uuids_to_binary(filter.scene_uuids) if filter.scene_uuids is not None else None
-        if lazy:
-            return self._get_scenes_lazily(log_paths, filter, executor, target_uuids_binary)
-
         scenes: List[SceneAPI] = executor_map_chunked_list(
             executor,
             partial(
@@ -96,27 +93,35 @@ class ArrowSceneBuilder(SceneBuilder):
         scenes = _apply_post_filters(scenes, filter)
         return scenes
 
-    def _get_scenes_lazily(
-        self,
-        log_paths: List[Path],
-        filter: SceneFilter,
-        executor: Executor,
-        target_uuids_binary: Optional[pa.Array],
-    ) -> Sequence[SceneAPI]:
-        """Enumerate scenes as per-log columns, building none of them.
 
-        :param log_paths: The discovered log directories.
-        :param filter: The scene filter.
-        :param executor: Executor the per-log indexing runs on.
-        :param target_uuids_binary: Pre-converted binary(16) Arrow array of target UUIDs, or None.
-        :return: The scenes, materialized only when indexed.
-        """
+class LazyArrowSceneBuilder(ArrowSceneBuilder):
+    """Builds scenes from Arrow log directories, one scene at a time on access.
+
+    Enumeration keeps a split as a few numpy arrays per log and constructs a
+    :class:`~py123d.api.scene.scene_api.SceneAPI` when the returned sequence is
+    indexed, rather than one per candidate frame up front. Suited to splits
+    whose scene count makes an object per scene expensive; the returned
+    sequence is otherwise interchangeable with the eager builder's list.
+    """
+
+    def get_scenes(self, filter: SceneFilter, executor: Executor) -> Sequence[SceneAPI]:
+        """Inherited, see superclass."""
+
+        # Category 1: Log discovery (filesystem-only)
+        log_paths = _parse_valid_log_dirs(self._logs_root, filter)
+        if len(log_paths) == 0:
+            return []
+
+        # Categories 2 & 3, as per-log columns rather than scene objects
+        target_uuids_binary = scene_uuids_to_binary(filter.scene_uuids) if filter.scene_uuids is not None else None
         log_indices = executor_map_chunked_list(
             executor,
             partial(_index_log_dirs, filter=filter, target_uuids_binary=target_uuids_binary),
             log_paths,
             name="Scene indexing",
         )
+
+        # Category 4: Post-filtering
         return apply_lazy_post_filters(LazySceneSequence(log_indices), filter)
 
 

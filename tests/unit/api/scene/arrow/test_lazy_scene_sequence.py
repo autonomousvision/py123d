@@ -14,7 +14,7 @@ import pyarrow as pa
 import pytest
 from pyarrow import ipc
 
-from py123d.api.scene.arrow.arrow_scene_builder import ArrowSceneBuilder
+from py123d.api.scene.arrow.arrow_scene_builder import ArrowSceneBuilder, LazyArrowSceneBuilder
 from py123d.api.scene.arrow.lazy_scene_sequence import LazySceneSequence
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_filter import SceneFilter
@@ -90,11 +90,11 @@ def _write_log(
 
 
 @pytest.fixture
-def builder(tmp_path: Path) -> ArrowSceneBuilder:
-    """A builder over a handful of logs with differently shaped gaps.
+def builders(tmp_path: Path) -> Tuple[ArrowSceneBuilder, LazyArrowSceneBuilder]:
+    """An eager and a lazy builder over the same logs, with differently shaped gaps.
 
     :param tmp_path: Temporary directory the logs are written to.
-    :return: The builder.
+    :return: The eager builder and the lazy one.
     """
     logs_root = tmp_path / "logs"
     _write_log(logs_root, "log_complete")
@@ -103,7 +103,10 @@ def builder(tmp_path: Path) -> ArrowSceneBuilder:
     _write_log(logs_root, "log_lidar_gaps", lidar_nulls=list(range(0, 24, 3)))
     _write_log(logs_root, "log_short", num_rows=6)
     _write_log(logs_root, "log_no_cameras", front_nulls=list(range(24)), rear_nulls=list(range(24)))
-    return ArrowSceneBuilder(logs_root=logs_root, maps_root=tmp_path / "maps")
+    return (
+        ArrowSceneBuilder(logs_root=logs_root, maps_root=tmp_path / "maps"),
+        LazyArrowSceneBuilder(logs_root=logs_root, maps_root=tmp_path / "maps"),
+    )
 
 
 def _identity(scene: SceneAPI) -> Tuple:
@@ -167,18 +170,20 @@ FILTERS = {
 
 
 @pytest.mark.parametrize("name", list(FILTERS))
-def test_lazy_enumeration_matches_eager(builder: ArrowSceneBuilder, name: str) -> None:
+def test_lazy_enumeration_matches_eager(builders: Tuple[ArrowSceneBuilder, LazyArrowSceneBuilder], name: str) -> None:
     """Both paths select the same scenes, in the same order, with the same metadata."""
+    eager_builder, lazy_builder = builders
     scene_filter = SceneFilter(split_names=[SPLIT_NAME], shuffle=False, **FILTERS[name])
 
-    eager = builder.get_scenes(scene_filter, SequentialExecutor())
-    lazy = builder.get_scenes(scene_filter, SequentialExecutor(), lazy=True)
+    eager = eager_builder.get_scenes(scene_filter, SequentialExecutor())
+    lazy = lazy_builder.get_scenes(scene_filter, SequentialExecutor())
 
     assert [_identity(scene) for scene in lazy] == [_identity(scene) for scene in eager]
 
 
-def test_custom_filter_functions_still_apply(builder: ArrowSceneBuilder) -> None:
+def test_custom_filter_functions_still_apply(builders: Tuple[ArrowSceneBuilder, LazyArrowSceneBuilder]) -> None:
     """A filter function takes a scene, so the lazy path materializes and filters."""
+    eager_builder, lazy_builder = builders
     scene_filter = SceneFilter(
         split_names=[SPLIT_NAME],
         shuffle=False,
@@ -187,33 +192,35 @@ def test_custom_filter_functions_still_apply(builder: ArrowSceneBuilder) -> None
         custom_filter_fns=[lambda scene: scene.log_name == "log_short"],
     )
 
-    eager = builder.get_scenes(scene_filter, SequentialExecutor())
-    lazy = builder.get_scenes(scene_filter, SequentialExecutor(), lazy=True)
+    eager = eager_builder.get_scenes(scene_filter, SequentialExecutor())
+    lazy = lazy_builder.get_scenes(scene_filter, SequentialExecutor())
 
     assert len(eager) > 0
     assert [_identity(scene) for scene in lazy] == [_identity(scene) for scene in eager]
 
 
-def test_anchor_keys_match_the_materialized_scenes(builder: ArrowSceneBuilder) -> None:
+def test_anchor_keys_match_the_materialized_scenes(builders: Tuple[ArrowSceneBuilder, LazyArrowSceneBuilder]) -> None:
     """The pairing keys come from the index, so they must equal what the scenes report."""
+    eager_builder, lazy_builder = builders
     scene_filter = SceneFilter(
         split_names=[SPLIT_NAME], shuffle=False, history_num_iterations=1, future_num_iterations=2
     )
 
-    lazy = builder.get_scenes(scene_filter, SequentialExecutor(), lazy=True)
+    lazy = lazy_builder.get_scenes(scene_filter, SequentialExecutor())
     assert isinstance(lazy, LazySceneSequence)
 
     expected = [(scene.log_name, scene.get_timestamp_at_iteration(0).time_us) for scene in lazy]
     assert lazy.anchor_keys() == expected
 
 
-def test_indexing_is_stable_and_bounded(builder: ArrowSceneBuilder) -> None:
+def test_indexing_is_stable_and_bounded(builders: Tuple[ArrowSceneBuilder, LazyArrowSceneBuilder]) -> None:
     """Indexing builds a scene per call, and out-of-range access is an error."""
+    eager_builder, lazy_builder = builders
     scene_filter = SceneFilter(
         split_names=[SPLIT_NAME], shuffle=False, history_num_iterations=1, future_num_iterations=2
     )
 
-    lazy = builder.get_scenes(scene_filter, SequentialExecutor(), lazy=True)
+    lazy = lazy_builder.get_scenes(scene_filter, SequentialExecutor())
 
     assert _identity(lazy[3]) == _identity(lazy[3])
     assert _identity(lazy[-1]) == _identity(lazy[len(lazy) - 1])
@@ -222,17 +229,18 @@ def test_indexing_is_stable_and_bounded(builder: ArrowSceneBuilder) -> None:
         lazy[len(lazy)]
 
 
-def test_shuffling_draws_the_same_permutation(builder: ArrowSceneBuilder) -> None:
+def test_shuffling_draws_the_same_permutation(builders: Tuple[ArrowSceneBuilder, LazyArrowSceneBuilder]) -> None:
     """Shuffling positions rather than scenes must reproduce the eager order."""
     import random
 
+    eager_builder, lazy_builder = builders
     scene_filter = SceneFilter(
         split_names=[SPLIT_NAME], shuffle=True, history_num_iterations=1, future_num_iterations=2
     )
 
     random.seed(7)
-    eager = builder.get_scenes(scene_filter, SequentialExecutor())
+    eager = eager_builder.get_scenes(scene_filter, SequentialExecutor())
     random.seed(7)
-    lazy = builder.get_scenes(scene_filter, SequentialExecutor(), lazy=True)
+    lazy = lazy_builder.get_scenes(scene_filter, SequentialExecutor())
 
     assert [_identity(scene) for scene in lazy] == [_identity(scene) for scene in eager]

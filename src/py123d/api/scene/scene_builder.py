@@ -12,12 +12,13 @@ class SceneBuilder(abc.ABC):
     """
 
     @abc.abstractmethod
-    def get_scenes(self, filter: SceneFilter, executor: Executor, lazy: bool = False) -> Sequence[SceneAPI]:
+    def get_scenes(self, filter: SceneFilter, executor: Executor) -> Sequence[SceneAPI]:
         """Returns the scenes that match the given filter.
+
+        A sequence rather than a list, so an implementation may build its scenes
+        on access instead of up front.
 
         :param filter: SceneFilter object to filter the scenes.
         :param executor: Executor to parallelize the scene extraction.
-        :param lazy: Whether to build each scene when it is indexed rather than up front. Enumerating a
-            large split this way costs a few arrays per log instead of an object per scene.
-        :return: The matching scenes, as a list unless *lazy* is set.
+        :return: The matching scenes.
         """
