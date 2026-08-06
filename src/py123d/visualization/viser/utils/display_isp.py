@@ -2,10 +2,11 @@
 
 Datasets can attach a display-ISP block to their camera metadata (see
 ``FThetaCameraMetadata.isp``): black/white level, a 3x3 color correction matrix,
-per-channel tone curves given as sparse control points, and optionally the storage gamma
-of the stored images (``storage_gamma``, default 2.2). The stored images carry no color
-processing (gamma-encoded linear data, with the ISP block's levels defined in the
-linearized domain); this module applies the color transform at display time.
+per-channel tone curves given as sparse control points, and optionally ``storage_gamma``
+(default 2.2) — the exponent applied to stored values to reach the domain the block's
+parameters are defined in (1.0 for blocks fitted directly on the stored values). The
+stored images carry no color processing; this module applies the color transform at
+display time.
 
 The pipeline is four OpenCV calls, each SIMD-vectorized and multi-threaded:
 ``cv2.LUT`` (decode gamma + black/white normalization into a uint16 linear domain),
@@ -22,9 +23,8 @@ import numpy as np
 import numpy.typing as npt
 from scipy.interpolate import PchipInterpolator
 
-# Default storage-gamma exponent for ISP blocks that do not declare one (sRGB-style).
-# Kesai logs store the vehicle ISP's gamma-1/3 tone mapping verbatim and declare
-# storage_gamma = 3.0 in their block.
+# Default exponent for ISP blocks that do not declare storage_gamma (sRGB-style). Kesai
+# blocks declare 1.0: their parameters are fitted directly on the stored values.
 _DEFAULT_STORAGE_GAMMA: float = 2.2
 
 # LUTs per distinct ISP block, keyed by a content hash.
