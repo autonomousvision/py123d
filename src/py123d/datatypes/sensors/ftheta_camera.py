@@ -153,6 +153,7 @@ class FThetaCameraMetadata(BaseCameraMetadata):
         "_height",
         "_camera_to_imu_se3",
         "_isp",
+        "_vendor_info",
     )
 
     def __init__(
@@ -164,6 +165,7 @@ class FThetaCameraMetadata(BaseCameraMetadata):
         height: int,
         camera_to_imu_se3: PoseSE3,
         isp: Optional[Dict[str, Any]] = None,
+        vendor_info: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize the f-theta camera metadata.
 
@@ -177,6 +179,8 @@ class FThetaCameraMetadata(BaseCameraMetadata):
             level, color correction matrix, tone curve control points). Describes the
             color transform a viewer should apply on the fly to the stored images; the
             stored images themselves are raw. None if no such transform is defined.
+        :param vendor_info: Optional hardware provenance (e.g. sensor type and serializer
+            serial number), as reported by the recording pipeline. None if unknown.
         """
         self._camera_name = camera_name
         self._camera_id = camera_id
@@ -185,6 +189,7 @@ class FThetaCameraMetadata(BaseCameraMetadata):
         self._height = height
         self._camera_to_imu_se3 = camera_to_imu_se3
         self._isp = isp
+        self._vendor_info = vendor_info
 
     @classmethod
     def from_dict(cls, data_dict: Dict[str, Any]) -> FThetaCameraMetadata:
@@ -204,6 +209,7 @@ class FThetaCameraMetadata(BaseCameraMetadata):
             height=data_dict["height"],
             camera_to_imu_se3=PoseSE3.from_list(data_dict["camera_to_imu_se3"]),
             isp=data_dict.get("isp"),
+            vendor_info=data_dict.get("vendor_info"),
         )
 
     @property
@@ -245,6 +251,16 @@ class FThetaCameraMetadata(BaseCameraMetadata):
     def isp(self) -> Optional[Dict[str, Any]]:
         """Display-ISP parameters a viewer should apply to the stored raw images, if any."""
         return self._isp
+
+    @property
+    def vendor_info(self) -> Optional[Dict[str, Any]]:
+        """Hardware provenance reported by the recording pipeline, if any."""
+        return self._vendor_info
+
+    @vendor_info.setter
+    def vendor_info(self, vendor_info: Optional[Dict[str, Any]]) -> None:
+        """Settable so parsers can attach provenance read from the first decoded frame."""
+        self._vendor_info = vendor_info
 
     def project_to_image(
         self,
@@ -376,4 +392,6 @@ class FThetaCameraMetadata(BaseCameraMetadata):
         data_dict["camera_to_imu_se3"] = self._camera_to_imu_se3.to_list()
         if self._isp is not None:
             data_dict["isp"] = self._isp
+        if self._vendor_info is not None:
+            data_dict["vendor_info"] = self._vendor_info
         return data_dict

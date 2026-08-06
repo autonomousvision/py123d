@@ -202,6 +202,7 @@ class ParsedCamera(BaseModality):
         dataset_root: Optional[Union[str, Path]] = None,
         relative_path: Optional[Union[str, Path]] = None,
         byte_string: Optional[bytes] = None,
+        exposure_factor: Optional[float] = None,
     ) -> None:
         self._metadata = metadata
         self._timestamp = timestamp
@@ -210,6 +211,7 @@ class ParsedCamera(BaseModality):
         self._dataset_root = dataset_root
         self._relative_path = relative_path
         self._byte_string = byte_string
+        self._exposure_factor = exposure_factor
 
         assert self.has_file_path or self.has_byte_string, (
             "Either file path or byte string must be provided for ParsedCamera."
@@ -250,3 +252,12 @@ class ParsedCamera(BaseModality):
     @property
     def has_byte_string(self) -> bool:
         return self._byte_string is not None
+
+    @property
+    def exposure_factor(self) -> Optional[float]:
+        """Per-frame exposure normalization gain applied upstream of the stored image, if known.
+
+        Datasets whose recording pipeline auto-normalizes exposure (e.g. Kesai) record the
+        applied gain here so absolute radiance can be recovered; None when not provided.
+        """
+        return self._exposure_factor

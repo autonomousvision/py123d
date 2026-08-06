@@ -302,7 +302,7 @@ class BaseCameraMetadata(BaseModalityMetadata, abc.ABC):
 class Camera(BaseModality):
     """A camera observation: image, extrinsic pose, timestamp, and model-specific metadata."""
 
-    __slots__ = ("_metadata", "_image", "_camera_to_global_se3", "_timestamp")
+    __slots__ = ("_metadata", "_image", "_camera_to_global_se3", "_timestamp", "_exposure_factor")
 
     def __init__(
         self,
@@ -310,6 +310,7 @@ class Camera(BaseModality):
         image: npt.NDArray[np.uint8],
         camera_to_global_se3: PoseSE3,
         timestamp: Timestamp,
+        exposure_factor: Optional[float] = None,
     ) -> None:
         """Initialize a Camera instance.
 
@@ -317,16 +318,29 @@ class Camera(BaseModality):
         :param image: The image captured by the camera.
         :param camera_to_global_se3: The extrinsic pose of the camera in global coordinates.
         :param timestamp: The timestamp of the image capture.
+        :param exposure_factor: Per-frame exposure normalization gain applied upstream of
+            the stored image, if known (see :attr:`exposure_factor`).
         """
         self._metadata = metadata
         self._image = image
         self._camera_to_global_se3 = camera_to_global_se3
         self._timestamp = timestamp
+        self._exposure_factor = exposure_factor
 
     @property
     def timestamp(self) -> Timestamp:
         """The :class:`~py123d.datatypes.Timestamp` of the image capture."""
         return self._timestamp
+
+    @property
+    def exposure_factor(self) -> Optional[float]:
+        """Per-frame exposure normalization gain applied upstream of the stored image, if known.
+
+        Recording pipelines with auto-exposure normalization (e.g. Kesai) scale the linear
+        sensor signal by this gain before encoding; dividing the linearized image by it
+        recovers the absolute radiance scale. None when the dataset does not provide it.
+        """
+        return self._exposure_factor
 
     @property
     def metadata(self) -> BaseCameraMetadata:

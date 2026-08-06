@@ -2,8 +2,9 @@
 
 Datasets can attach a display-ISP block to their camera metadata (see
 ``FThetaCameraMetadata.isp``): black/white level, a 3x3 color correction matrix and
-per-channel tone curves given as sparse control points. The stored images are raw
-(gamma-encoded sensor data); this module applies the color transform at display time.
+per-channel tone curves given as sparse control points. The stored images carry no color
+processing (linear data under the storage gamma below, with the ISP block's levels defined
+in that linearized domain); this module applies the color transform at display time.
 
 The pipeline is four OpenCV calls, each SIMD-vectorized and multi-threaded:
 ``cv2.LUT`` (decode gamma + black/white normalization into a uint16 linear domain),

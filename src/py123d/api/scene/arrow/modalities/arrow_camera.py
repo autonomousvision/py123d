@@ -80,6 +80,9 @@ class ArrowCameraWriter(ArrowBaseModalityWriter):
                 (f"{metadata.modality_key}.timestamp_us", pa.int64()),
                 (f"{metadata.modality_key}.data", data_type),
                 (f"{metadata.modality_key}.camera_to_global_se3", pa.list_(pa.float64(), len(PoseSE3Index))),
+                # Per-frame exposure normalization gain (see Camera.exposure_factor); null
+                # for datasets that do not provide it.
+                (f"{metadata.modality_key}.exposure_factor", pa.float32()),
             ]
         )
         schema = add_metadata_to_arrow_schema(schema, metadata)
@@ -119,6 +122,7 @@ class ArrowCameraWriter(ArrowBaseModalityWriter):
                 f"{self._metadata.modality_key}.timestamp_us": [modality.timestamp.time_us],
                 f"{self._metadata.modality_key}.data": [data],
                 f"{self._metadata.modality_key}.camera_to_global_se3": [modality.camera_to_global_se3],
+                f"{self._metadata.modality_key}.exposure_factor": [modality.exposure_factor],
             }
         )
 
@@ -317,6 +321,14 @@ def _deserialize_camera(
     camera_to_global_se3_data = arrow_table[camera_extrinsic_column][index].as_py()
     timestamp_data = arrow_table[camera_timestamp_column][index].as_py()
 
+    # Optional column; absent in logs written before it was added.
+    exposure_factor_column = f"{modality_key}.exposure_factor"
+    exposure_factor = (
+        arrow_table[exposure_factor_column][index].as_py()
+        if exposure_factor_column in arrow_table.column_names
+        else None
+    )
+
     if table_data is None or camera_to_global_se3_data is None:
         return None
     image = _deserialize_data_column(
@@ -334,6 +346,7 @@ def _deserialize_camera(
         image=image,
         camera_to_global_se3=camera_to_global_se3,
         timestamp=Timestamp.from_us(timestamp_data),
+        exposure_factor=exposure_factor,
     )
 
 

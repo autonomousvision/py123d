@@ -5,21 +5,23 @@ import numpy as np
 import numpy.typing as npt
 
 from py123d.datatypes import Radar
-from py123d.datatypes.sensors.radar import RadarFeature
 from py123d.visualization.matplotlib.lidar import _continuous_colormap, _discrete_colormap
 
 logger = logging.getLogger(__name__)
 
+# Signal-quality features (rcs, snr, confidence) lead the list: they are the most relevant
+# radar statistics and belong next to each other in viewer dropdowns.
 RadarColorFeature = Literal[
     "none",
+    "rcs",
+    "snr",
+    "confidence",
     "height",
     "distance",
     "ids",
     "cluster_id",
-    "rcs",
     "velocity",
     "velocity_comp",
-    "snr",
     "timestamps",
 ]
 
@@ -33,8 +35,8 @@ def get_radar_pc_color(
     """Compute per-point RGB colors for a radar point cloud based on a feature.
 
     Mirrors :func:`py123d.visualization.matplotlib.lidar.get_lidar_pc_color`, but exposes radar-native
-    features (RCS, velocity magnitude, SNR, cluster id). Velocity options color by the 2D speed
-    magnitude. A feature that is unavailable on the cloud falls back to the default color.
+    features (RCS, SNR, confidence, velocity magnitude, cluster id). Velocity options color by the 2D
+    speed magnitude. A feature that is unavailable on the cloud falls back to the default color.
 
     :param radar: Radar object containing the point cloud and its metadata.
     :param color_feature: The feature to color the point cloud by.
@@ -76,8 +78,9 @@ def get_radar_pc_color(
         "ids": radar.ids,
         "cluster_id": radar.cluster_id,
         "rcs": radar.rcs,
+        "snr": radar.snr,
+        "confidence": radar.confidence,
         "timestamps": radar.timestamps,
-        "snr": (radar.point_cloud_features or {}).get(RadarFeature.SNR.serialize()),
     }
 
     values = feature_accessor.get(color_feature)
@@ -88,7 +91,7 @@ def get_radar_pc_color(
     if color_feature in discrete_features:
         return _discrete_colormap(values)
 
-    # Continuous features (rcs, timestamps, snr).
+    # Continuous features (rcs, snr, confidence, timestamps).
     if values.dtype == np.uint8:
         values = values.astype(np.float32)
     elif values.dtype == np.int64:
