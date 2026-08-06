@@ -1,10 +1,11 @@
 """On-the-fly display ISP for raw-stored camera images.
 
 Datasets can attach a display-ISP block to their camera metadata (see
-``FThetaCameraMetadata.isp``): black/white level, a 3x3 color correction matrix and
-per-channel tone curves given as sparse control points. The stored images carry no color
-processing (linear data under the storage gamma below, with the ISP block's levels defined
-in that linearized domain); this module applies the color transform at display time.
+``FThetaCameraMetadata.isp``): black/white level, a 3x3 color correction matrix,
+per-channel tone curves given as sparse control points, and optionally the storage gamma
+of the stored images (``storage_gamma``, default 2.2). The stored images carry no color
+processing (gamma-encoded linear data, with the ISP block's levels defined in the
+linearized domain); this module applies the color transform at display time.
 
 The pipeline is four OpenCV calls, each SIMD-vectorized and multi-threaded:
 ``cv2.LUT`` (decode gamma + black/white normalization into a uint16 linear domain),
@@ -21,8 +22,10 @@ import numpy as np
 import numpy.typing as npt
 from scipy.interpolate import PchipInterpolator
 
-# Stored images are sRGB-style gamma encoded with this exponent.
-_STORAGE_GAMMA: float = 2.2
+# Default storage-gamma exponent for ISP blocks that do not declare one (sRGB-style).
+# Kesai logs store the vehicle ISP's gamma-1/3 tone mapping verbatim and declare
+# storage_gamma = 3.0 in their block.
+_DEFAULT_STORAGE_GAMMA: float = 2.2
 
 # LUTs per distinct ISP block, keyed by a content hash.
 _LUT_CACHE: Dict[int, Tuple[npt.NDArray[np.uint16], npt.NDArray[np.float32], npt.NDArray[np.uint8]]] = {}
@@ -32,6 +35,7 @@ def _isp_cache_key(isp: Dict[str, Any]) -> int:
     tone = isp["tone_curve"]
     return hash(
         (
+            float(isp.get("storage_gamma", _DEFAULT_STORAGE_GAMMA)),
             float(isp["black_level"]),
             float(isp["white_level"]),
             tuple(tuple(row) for row in isp["ccm"]),
@@ -47,13 +51,14 @@ def _build_luts(
     isp: Dict[str, Any],
 ) -> Tuple[npt.NDArray[np.uint16], npt.NDArray[np.float32], npt.NDArray[np.uint8]]:
     """Expand an ISP block into the lookup structures used per frame."""
+    storage_gamma = float(isp.get("storage_gamma", _DEFAULT_STORAGE_GAMMA))
     black = float(isp["black_level"])
     white = float(isp["white_level"])
 
     # uint8 pixel -> normalized linear value (decode storage gamma, remove pedestal),
     # quantized to uint16 so the color matrix runs in an integer saturating domain.
     encoded = np.arange(256, dtype=np.float64) / 255.0
-    linear = np.clip((encoded**_STORAGE_GAMMA - black) / (white - black), 0.0, 1.0)
+    linear = np.clip((encoded**storage_gamma - black) / (white - black), 0.0, 1.0)
     input_lut = np.round(linear * 65535.0).astype(np.uint16).reshape(1, 256, 1)
 
     ccm = np.asarray(isp["ccm"], dtype=np.float32)
