@@ -20,16 +20,19 @@ from py123d.visualization.viser.utils.view_utils import get_scene_center_pose
 
 logger = logging.getLogger(__name__)
 
+# Signal-quality features (rcs, snr, confidence) directly after "none": they are the most
+# relevant radar statistics and stay grouped in the dropdown.
 _RADAR_COLOR_OPTIONS = (
     "none",
+    "rcs",
+    "snr",
+    "confidence",
     "height",
     "distance",
     "ids",
     "cluster_id",
-    "rcs",
     "velocity",
     "velocity_comp",
-    "snr",
     "timestamps",
 )
 
@@ -44,14 +47,15 @@ class RadarConfig:
     point_shape: Literal["square", "diamond", "circle", "rounded", "sparkle"] = "circle"
     point_color: Literal[
         "none",
+        "rcs",
+        "snr",
+        "confidence",
         "height",
         "distance",
         "ids",
         "cluster_id",
-        "rcs",
         "velocity",
         "velocity_comp",
-        "snr",
         "timestamps",
     ] = "none"
     stride_step: int = 1
@@ -209,10 +213,15 @@ class RadarElement(ViewerElement):
     def _on_visibility_changed(self, _) -> None:
         assert self._gui_visible is not None
         self._config.visible = self._gui_visible.value
-        for handle in self._handles.values():
-            if handle is not None:
-                handle.visible = self._gui_visible.value
-        if not self._gui_visible.value:
+        if self._gui_visible.value:
+            # The element starts hidden, so no cloud may exist yet (update() skips hidden
+            # elements); rebuilding for the current iteration creates and shows them.
+            # Toggling handle.visible alone would show nothing until the next frame change.
+            self.update(self._current_iteration)
+        else:
+            for handle in self._handles.values():
+                if handle is not None:
+                    handle.visible = False
             self._remove_sensor_frames()
 
     def _on_coloring_changed(self, _) -> None:

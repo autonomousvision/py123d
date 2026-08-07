@@ -394,6 +394,16 @@ class Radar(BaseModality):
         return self._feature(RadarFeature.RCS)  # type: ignore
 
     @property
+    def snr(self) -> Optional[npt.NDArray[np.float32]]:
+        """The point cloud as an Nx1 array of signal-to-noise ratios, if available."""
+        return self._feature(RadarFeature.SNR)  # type: ignore
+
+    @property
+    def confidence(self) -> Optional[npt.NDArray[np.float32]]:
+        """The point cloud as an Nx1 array of detection confidences (dataset-native scale), if available."""
+        return self._feature(RadarFeature.CONFIDENCE)  # type: ignore
+
+    @property
     def velocity(self) -> Optional[npt.NDArray[np.float32]]:
         """The point cloud as an Nx2 array of raw (vx, vy) velocities in m/s, if available."""
         velocity: Optional[npt.NDArray[np.float32]] = None

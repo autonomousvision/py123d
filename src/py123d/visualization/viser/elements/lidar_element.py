@@ -234,9 +234,15 @@ class LidarElement(ViewerElement):
     def _on_visibility_changed(self, _) -> None:
         assert self._gui_visible is not None
         self._config.visible = self._gui_visible.value
-        for handle in self._handles.values():
-            if handle is not None:
-                handle.visible = self._gui_visible.value
+        if self._gui_visible.value:
+            # A cloud may not exist yet when the element was launched hidden (update()
+            # skips hidden elements); rebuild for the current iteration instead of only
+            # toggling handle visibility.
+            self.update(self._current_iteration)
+        else:
+            for handle in self._handles.values():
+                if handle is not None:
+                    handle.visible = False
         if not self._gui_visible.value:
             self._remove_sensor_frames()
 
