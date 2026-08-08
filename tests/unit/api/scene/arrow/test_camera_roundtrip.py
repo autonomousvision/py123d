@@ -6,8 +6,11 @@ from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
+import pytest
 
 from py123d.api.scene.arrow.modalities.arrow_camera import ArrowCameraReader, ArrowCameraWriter
+from py123d.common.io.camera.jpeg_camera_io import is_jpeg_binary
+from py123d.common.io.camera.png_camera_io import encode_image_as_png_binary
 from py123d.datatypes import Timestamp
 from py123d.datatypes.sensors.base_camera import Camera, CameraID
 from py123d.datatypes.sensors.pinhole_camera import PinholeCameraMetadata, PinholeDistortion, PinholeIntrinsics
@@ -200,3 +203,60 @@ class TestCameraMp4Roundtrip:
         result = ArrowCameraReader.read_at_index(0, table, metadata, "test-dataset", log_dir=tmp_path)
         assert result is not None
         np.testing.assert_array_almost_equal(result.camera_to_global_se3, cam.camera_to_global_se3, decimal=10)
+
+
+class TestCameraLazyDecode:
+    """Cameras built from inline binary keep the bytes and decode on first image access."""
+
+    def _write_and_read(self, log_dir: Path, codec: str, cam: Camera) -> Camera:
+        metadata = _make_camera_metadata()
+        writer = ArrowCameraWriter(log_dir=log_dir, metadata=metadata, camera_codec=codec)
+        writer.write_modality(cam)
+        writer.close()
+        table = pa.ipc.open_file(str(log_dir / f"{metadata.modality_key}.arrow")).read_all()
+        result = ArrowCameraReader.read_at_index(0, table, metadata, "test-dataset")
+        assert result is not None
+        return result
+
+    def test_reader_returns_undecoded_binary(self, tmp_path: Path):
+        result = self._write_and_read(tmp_path, "jpeg_binary", _make_camera(1000))
+        assert result.image_binary is not None
+        assert is_jpeg_binary(result.image_binary)
+        assert result.image.shape[:2] == (480, 640)
+
+    def test_binary_construction_decodes_lossless(self):
+        image = _make_random_image()
+        cam = Camera(
+            metadata=_make_camera_metadata(),
+            image_binary=encode_image_as_png_binary(image),
+            camera_to_global_se3=PoseSE3.identity(),
+            timestamp=Timestamp.from_us(1000),
+        )
+        np.testing.assert_array_equal(cam.image, image)
+
+    def test_eager_construction_has_no_binary(self):
+        assert _make_camera(1000).image_binary is None
+
+    def test_exactly_one_image_source(self):
+        image = _make_random_image()
+        with pytest.raises(AssertionError):
+            Camera(
+                metadata=_make_camera_metadata(),
+                image=image,
+                image_binary=encode_image_as_png_binary(image),
+                camera_to_global_se3=PoseSE3.identity(),
+                timestamp=Timestamp.from_us(1000),
+            )
+        with pytest.raises(AssertionError):
+            Camera(
+                metadata=_make_camera_metadata(),
+                camera_to_global_se3=PoseSE3.identity(),
+                timestamp=Timestamp.from_us(1000),
+            )
+
+    def test_rewrite_passes_jpeg_binary_through(self, tmp_path: Path):
+        (tmp_path / "first").mkdir()
+        (tmp_path / "second").mkdir()
+        first = self._write_and_read(tmp_path / "first", "jpeg_binary", _make_camera(1000))
+        rewritten = self._write_and_read(tmp_path / "second", "jpeg_binary", first)
+        assert rewritten.image_binary == first.image_binary

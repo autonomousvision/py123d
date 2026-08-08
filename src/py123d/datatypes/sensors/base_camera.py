@@ -8,6 +8,12 @@ _T = TypeVar("_T")
 import numpy as np
 import numpy.typing as npt
 
+from py123d.common.io.camera.jpeg_camera_io import decode_image_from_jpeg_binary, is_jpeg_binary
+from py123d.common.io.camera.png_camera_io import (
+    decode_image_from_png_binary,
+    decode_label_map_from_png_binary,
+    is_png_binary,
+)
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata, ModalityType
 from py123d.datatypes.sensors.camera_segmentation_label import (
@@ -302,27 +308,39 @@ class BaseCameraMetadata(BaseModalityMetadata, abc.ABC):
 class Camera(BaseModality):
     """A camera observation: image, extrinsic pose, timestamp, and model-specific metadata."""
 
-    __slots__ = ("_metadata", "_image", "_camera_to_global_se3", "_timestamp", "_exposure_factor")
+    __slots__ = ("_metadata", "_image", "_image_binary", "_camera_to_global_se3", "_timestamp", "_exposure_factor")
 
     def __init__(
         self,
         metadata: BaseCameraMetadata,
-        image: npt.NDArray[np.uint8],
-        camera_to_global_se3: PoseSE3,
-        timestamp: Timestamp,
+        image: Optional[npt.NDArray[np.uint8]] = None,
+        camera_to_global_se3: Optional[PoseSE3] = None,
+        timestamp: Optional[Timestamp] = None,
         exposure_factor: Optional[float] = None,
+        image_binary: Optional[bytes] = None,
     ) -> None:
-        """Initialize a Camera instance.
+        """Initialize a Camera instance from decoded pixels or their encoded binary.
+
+        Exactly one of ``image`` and ``image_binary`` must be given. With ``image_binary``
+        the pixels are decoded on first :attr:`image` access, so consumers that never look
+        at them (pose or timestamp scans, byte-level caching) skip the decode entirely.
 
         :param metadata: The camera metadata (determines the camera model).
-        :param image: The image captured by the camera.
+        :param image: The image captured by the camera, as decoded pixels.
         :param camera_to_global_se3: The extrinsic pose of the camera in global coordinates.
         :param timestamp: The timestamp of the image capture.
         :param exposure_factor: Per-frame exposure normalization gain applied upstream of
             the stored image, if known (see :attr:`exposure_factor`).
+        :param image_binary: The image as its stored encoding: JPEG or PNG binary, where a
+            :attr:`~CameraChannelType.SEMANTIC`, :attr:`~CameraChannelType.INSTANCE` or
+            :attr:`~CameraChannelType.DEPTH` channel must be the lossless PNG label encoding.
         """
+        assert (image is None) != (image_binary is None), "Provide exactly one of image and image_binary."
+        assert camera_to_global_se3 is not None, "camera_to_global_se3 is required."
+        assert timestamp is not None, "timestamp is required."
         self._metadata = metadata
         self._image = image
+        self._image_binary = image_binary
         self._camera_to_global_se3 = camera_to_global_se3
         self._timestamp = timestamp
         self._exposure_factor = exposure_factor
@@ -349,8 +367,36 @@ class Camera(BaseModality):
 
     @property
     def image(self) -> npt.NDArray[np.uint8]:
-        """The image captured by the camera, as a numpy array."""
+        """The image captured by the camera, as a numpy array.
+
+        A camera constructed from ``image_binary`` decodes it here on first access and
+        keeps the decoded pixels.
+        """
+        if self._image is None:
+            binary = self._image_binary
+            assert binary is not None
+            if self._metadata.channel_type in (
+                CameraChannelType.SEMANTIC,
+                CameraChannelType.INSTANCE,
+                CameraChannelType.DEPTH,
+            ):
+                self._image = decode_label_map_from_png_binary(binary)
+            elif is_jpeg_binary(binary):
+                self._image = decode_image_from_jpeg_binary(binary)
+            elif is_png_binary(binary):
+                self._image = decode_image_from_png_binary(binary)
+            else:
+                raise ValueError("image_binary is neither in JPEG nor PNG format.")
         return self._image
+
+    @property
+    def image_binary(self) -> Optional[bytes]:
+        """The image as its stored encoding, or None for a camera built from decoded pixels.
+
+        The exact bytes the camera was constructed with: reading them does not decode,
+        and re-encoding decoded pixels is never attempted.
+        """
+        return self._image_binary
 
     @property
     def rgb_image(self) -> Optional[npt.NDArray[np.uint8]]:
@@ -364,26 +410,27 @@ class Camera(BaseModality):
         ``[0, max_depth]`` range, so each modality can be displayed through the regular RGB camera path.
         """
         channel_type = self._metadata.channel_type
+        image = self.image
         if channel_type == CameraChannelType.RGB:
-            result = self._image
+            result = image
         elif channel_type == CameraChannelType.GRAYSCALE:
-            result = np.repeat(self._image[:, :, None], 3, axis=2)
+            result = np.repeat(image[:, :, None], 3, axis=2)
         elif channel_type == CameraChannelType.SEMANTIC:
             # Only SegmentationCameraMetadata carries the taxonomy; access it duck-typed to avoid importing it
             # here (it imports this module, so a direct import would be circular).
             label_class = getattr(self._metadata, "segmentation_label_class", None)
             if label_class is None:
                 raise ValueError("SEMANTIC camera is missing its segmentation_label_class; cannot colorize.")
-            result = colorize_semantic_label_map(self._image, label_class)
+            result = colorize_semantic_label_map(image, label_class)
         elif channel_type == CameraChannelType.INSTANCE:
-            result = colorize_instance_label_map(self._image)
+            result = colorize_instance_label_map(image)
         elif channel_type == CameraChannelType.DEPTH:
             # Deferred import: depth_camera imports this module, so a top-level import would be circular.
             from py123d.datatypes.sensors.depth_camera import colorize_depth_map
 
-            result = colorize_depth_map(self._image, max_raw=getattr(self._metadata, "max_raw", None))
+            result = colorize_depth_map(image, max_raw=getattr(self._metadata, "max_raw", None))
             if getattr(self._metadata, "has_invalid", False):
-                result[np.asarray(self._image) == 0] = 0
+                result[np.asarray(image) == 0] = 0
         else:
             raise ValueError(f"Unsupported channel type {channel_type} for RGB conversion.")
         return result

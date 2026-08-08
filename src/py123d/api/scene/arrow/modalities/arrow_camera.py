@@ -159,6 +159,10 @@ def _get_jpeg_binary_from_camera_modality(camera_data: Union[ParsedCamera, Camer
         else:
             raise NotImplementedError("ParsedCamera must provide byte_string or file path for jpeg_binary codec.")
     elif isinstance(camera_data, Camera):
+        # A camera whose stored binary already is JPEG passes through byte-identical,
+        # instead of paying a decode and a second lossy encode generation.
+        if camera_data.image_binary is not None and is_jpeg_binary(camera_data.image_binary):
+            return camera_data.image_binary
         return encode_image_as_jpeg_binary(camera_data.image)
     else:
         raise NotImplementedError(f"Unsupported camera type for jpeg_binary codec: {type(camera_data)}")
@@ -185,6 +189,9 @@ def _get_png_binary_from_camera_modality(camera_data: Union[ParsedCamera, Camera
         else:
             raise NotImplementedError("ParsedCamera must provide byte_string or file path for png_binary codec.")
     elif isinstance(camera_data, Camera):
+        # A camera whose stored binary already is PNG passes through byte-identical.
+        if camera_data.image_binary is not None and is_png_binary(camera_data.image_binary):
+            return camera_data.image_binary
         return encode_image_as_png_binary(camera_data.image)
     else:
         raise NotImplementedError(f"Unsupported camera type for png_binary codec: {type(camera_data)}")
@@ -331,6 +338,20 @@ def _deserialize_camera(
 
     if table_data is None or camera_to_global_se3_data is None:
         return None
+    camera_to_global_se3 = PoseSE3.from_list(camera_to_global_se3_data)
+    timestamp = Timestamp.from_us(timestamp_data)
+
+    # Inline binary at full size is handed over undecoded: the camera decodes on first
+    # image access, so pose or timestamp reads and byte-level consumers skip the decode.
+    if isinstance(table_data, bytes) and scale is None:
+        return Camera(
+            metadata=camera_metadata,
+            image_binary=table_data,
+            camera_to_global_se3=camera_to_global_se3,
+            timestamp=timestamp,
+            exposure_factor=exposure_factor,
+        )
+
     image = _deserialize_data_column(
         data=table_data,
         dataset=dataset,
@@ -339,13 +360,12 @@ def _deserialize_camera(
         modality_key=modality_key,
         channel_type=camera_metadata.channel_type,
     )
-    camera_to_global_se3 = PoseSE3.from_list(camera_to_global_se3_data)
     assert image is not None, "Failed to load camera image from Arrow table data."
     return Camera(
         metadata=camera_metadata,
         image=image,
         camera_to_global_se3=camera_to_global_se3,
-        timestamp=Timestamp.from_us(timestamp_data),
+        timestamp=timestamp,
         exposure_factor=exposure_factor,
     )
 
