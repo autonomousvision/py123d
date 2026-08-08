@@ -315,4 +315,5 @@ class MapAPI(abc.ABC):
         :param layer: The map layer to search in.
         :return: The map objects of the layer within the radius.
         """
+        layer = MapLayer.from_arbitrary(layer)
         return self.get_map_objects_in_radius(point, radius, [layer]).get(layer, [])
