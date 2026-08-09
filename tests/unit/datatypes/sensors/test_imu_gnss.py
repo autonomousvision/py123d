@@ -153,10 +153,78 @@ class TestGnssArrowRoundTrip:
         assert bare_fix.status is None
         assert bare_fix.position_covariance is None
 
+        # Without has_solution_quality the columns do not exist and the fields read back None.
+        assert f"{metadata.modality_key}.num_satellites" not in table.column_names
+        assert full_fix.num_satellites is None
+        assert full_fix.ground_speed is None
+
+    def test_gnss_round_trip_with_solution_quality(self):
+        log_dir = Path(tempfile.mkdtemp())
+        metadata = GnssMetadata(gnss_name="ublox", has_solution_quality=True)
+        writer = ArrowGnssWriter(log_dir, metadata)
+        writer.write_modality(
+            Gnss(
+                timestamp=Timestamp.from_us(7),
+                metadata=metadata,
+                latitude=49.02037,
+                longitude=8.43765,
+                altitude=162.41,
+                status=1,
+                num_satellites=17,
+                fix_type=3,
+                horizontal_accuracy=1.43,
+                vertical_accuracy=2.10,
+                position_dop=1.45,
+                velocity_ned=np.array([1.039, -0.220, 0.076]),
+            )
+        )
+        # A fix whose solution-quality fields are missing, e.g. no PVT message nearby.
+        writer.write_modality(
+            Gnss(timestamp=Timestamp.from_us(8), metadata=metadata, latitude=49.02038, longitude=8.43766, altitude=1.0)
+        )
+        writer.close()
+
+        table = _read_table(log_dir / "gnss.arrow")
+        restored_metadata = get_metadata_from_arrow_schema(table.schema, GnssMetadata)
+        assert restored_metadata.has_solution_quality
+
+        fix = ArrowGnssReader.read_at_index(0, table, restored_metadata, dataset="test")
+        assert fix.num_satellites == 17
+        assert fix.fix_type == 3
+        assert fix.horizontal_accuracy == pytest.approx(1.43)
+        assert fix.vertical_accuracy == pytest.approx(2.10)
+        assert fix.position_dop == pytest.approx(1.45)
+        np.testing.assert_allclose(fix.velocity_ned, [1.039, -0.220, 0.076])
+        assert fix.ground_speed == pytest.approx(1.062, abs=1e-3)
+
+        unmatched = ArrowGnssReader.read_at_index(1, table, restored_metadata, dataset="test")
+        assert unmatched.num_satellites is None
+        assert unmatched.velocity_ned is None
+        assert unmatched.ground_speed is None
+
+    def test_gnss_solution_quality_dropped_without_flag(self):
+        """A fix carrying quality fields must not be written silently when the flag is off."""
+        log_dir = Path(tempfile.mkdtemp())
+        metadata = GnssMetadata(gnss_name="ublox")
+        writer = ArrowGnssWriter(log_dir, metadata)
+        with pytest.raises(AssertionError, match="has_solution_quality"):
+            writer.write_modality(
+                Gnss(
+                    timestamp=Timestamp.from_us(7),
+                    metadata=metadata,
+                    latitude=49.0,
+                    longitude=8.4,
+                    altitude=162.0,
+                    num_satellites=17,
+                )
+            )
+        writer.close()
+
     def test_gnss_metadata_without_datum(self):
         metadata = GnssMetadata(gnss_name="ublox")
         restored = GnssMetadata.from_dict(metadata.to_dict())
         assert restored.datum_lla is None
+        assert restored.has_solution_quality is False
         assert restored.gnss_name == "ublox"
 
 
