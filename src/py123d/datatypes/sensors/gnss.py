@@ -143,6 +143,7 @@ class Gnss(BaseModality):
         "_vertical_accuracy",
         "_position_dop",
         "_velocity_ned",
+        "_speed_accuracy",
     )
 
     def __init__(
@@ -162,6 +163,7 @@ class Gnss(BaseModality):
         vertical_accuracy: Optional[float] = None,
         position_dop: Optional[float] = None,
         velocity_ned: Optional[npt.NDArray[np.float64]] = None,
+        speed_accuracy: Optional[float] = None,
     ) -> None:
         """Initialize a GNSS fix.
 
@@ -181,6 +183,9 @@ class Gnss(BaseModality):
         :param vertical_accuracy: Optional reported 1-sigma vertical accuracy in meters.
         :param position_dop: Optional position dilution of precision.
         :param velocity_ned: Optional (north, east, down) velocity in m/s.
+        :param speed_accuracy: Optional reported 1-sigma accuracy of that velocity in m/s. The
+            velocity's counterpart to :attr:`horizontal_accuracy`, and what a consumer fusing the
+            velocity needs in order to weight it.
         """
         self._timestamp = timestamp
         self._metadata = metadata
@@ -197,6 +202,7 @@ class Gnss(BaseModality):
         self._vertical_accuracy = vertical_accuracy
         self._position_dop = position_dop
         self._velocity_ned = velocity_ned
+        self._speed_accuracy = speed_accuracy
 
     @property
     def timestamp(self) -> Timestamp:
@@ -277,6 +283,11 @@ class Gnss(BaseModality):
     def velocity_ned(self) -> Optional[npt.NDArray[np.float64]]:
         """(north, east, down) velocity in m/s as a (3,) array, or None if not reported."""
         return self._velocity_ned
+
+    @property
+    def speed_accuracy(self) -> Optional[float]:
+        """Reported 1-sigma accuracy of :attr:`velocity_ned` in m/s, if the receiver supplied it."""
+        return self._speed_accuracy
 
     @property
     def ground_speed(self) -> Optional[float]:
