@@ -192,13 +192,17 @@ class ParsedRadar(BaseModality):
 
 
 class ParsedCamera(BaseModality):
-    """Helper modality to pass cameras to log writer without loading loading an image/video or decoding the bytestring."""
+    """Helper modality to pass cameras to log writer without loading loading an image/video or decoding the bytestring.
+
+    ``camera_to_global_se3`` may be None, in which case the writer stores a null and the reader
+    composes the pose from the log's ego trajectory and the camera's own extrinsic.
+    """
 
     def __init__(
         self,
         metadata: Union[PinholeCameraMetadata, FisheyeMEICameraMetadata, FThetaCameraMetadata],
         timestamp: Timestamp,
-        camera_to_global_se3: PoseSE3,
+        camera_to_global_se3: Optional[PoseSE3],
         dataset_root: Optional[Union[str, Path]] = None,
         relative_path: Optional[Union[str, Path]] = None,
         byte_string: Optional[bytes] = None,
@@ -228,8 +232,13 @@ class ParsedCamera(BaseModality):
         return self._metadata
 
     @property
-    def camera_to_global_se3(self) -> PoseSE3:
-        """Returns the camera-to-global pose associated with this camera data."""
+    def camera_to_global_se3(self) -> Optional[PoseSE3]:
+        """Returns the camera-to-global pose associated with this camera data.
+
+        None where the dataset stores the pose implicitly. It is then written as a null and
+        composed on read from ``ego_state_se3`` and the camera extrinsic, which is what lets a
+        re-estimated ego trajectory reach the camera poses without rewriting the image tables.
+        """
         return self._camera_to_global_se3
 
     @property
