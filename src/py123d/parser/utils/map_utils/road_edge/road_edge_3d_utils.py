@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 import networkx as nx
 import numpy as np
@@ -29,6 +29,9 @@ def get_road_edges_3d_from_drivable_surfaces(
     lane_groups: List[LaneGroup],
     car_parks: List[Carpark],
     generic_drivables: List[GenericDrivable],
+    min_interior_width: float = 0.0,
+    fill_hole_points: Optional[List[Tuple[float, float]]] = None,
+    non_drivable_polygons: Optional[List[shapely.Polygon]] = None,
 ) -> List[Polyline3D]:
     """Generates 3D road edges from drivable surfaces, i.e., lane groups, car parks, and generic drivables.
     This method merges polygons in 2D and lifts them to 3D using the boundaries/outlines of elements.
@@ -38,6 +41,9 @@ def get_road_edges_3d_from_drivable_surfaces(
     :param lane_groups: A list of lane groups in the map.
     :param car_parks: A list of car parks in the map.
     :param generic_drivables: A list of generic drivable areas in the map.
+    :param min_interior_width: Interior rings (holes) with a smaller mean width are dropped, defaults to 0.0.
+    :param fill_hole_points: Interior rings containing one of these points are dropped, defaults to None.
+    :param non_drivable_polygons: Areas subtracted from the drivable union, defaults to None.
     :return: A list of 3D interpolatable polylines representing the road edges.
     """
 
@@ -49,7 +55,12 @@ def get_road_edges_3d_from_drivable_surfaces(
     for map_surface in lane_groups + generic_drivables:
         map_surface: BaseMapSurfaceObject
         drivable_polygons.append(map_surface.shapely_polygon)
-    road_edges_2d = get_road_edge_linear_rings(drivable_polygons)
+    road_edges_2d = get_road_edge_linear_rings(
+        drivable_polygons,
+        min_interior_width=min_interior_width,
+        fill_hole_points=fill_hole_points,
+        non_drivable_polygons=non_drivable_polygons,
+    )
 
     # 3. Collect 3D boundaries of non-conflicting lane groups and other drivable areas
     non_conflicting_boundaries: List[Polyline3D] = []
