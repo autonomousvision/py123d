@@ -113,6 +113,18 @@ class TestComputeRouteData:
         recovered = interpolate_route_at_arc(route.polyline_arc_m, route.polyline_xyz, route.progress_m)
         assert np.linalg.norm(recovered - positions, axis=1).max() < 0.05
 
+    def test_low_frequency_odometry_on_tight_curve(self):
+        # 2 Hz keyframes at ~15 m/s on an R=15 m curve: 7.5 m between samples, the worst
+        # realistic sampling. Fidelity is bounded by the data: chords undershoot the true
+        # arc ~1% and cut the corner by at most the sagitta (~0.5 m).
+        angles = np.arange(0.0, np.pi, 0.5)
+        positions = np.stack([15.0 * np.cos(angles), 15.0 * np.sin(angles), np.zeros_like(angles)], axis=1)
+        route = compute_route_data(positions, resolution_m=1.0)
+        true_arc = 15.0 * (angles[-1] - angles[0])
+        assert route.total_arc_m == pytest.approx(true_arc, rel=0.02)
+        radial_error = np.abs(np.linalg.norm(route.polyline_xyz[:, :2], axis=1) - 15.0)
+        assert radial_error.max() < 0.5
+
 
 # ===========================================================================
 # compute_route_data_from_waypoints / project_onto_polyline
@@ -138,6 +150,17 @@ class TestProvidedRoute:
         assert np.all(np.diff(route.progress_m) >= 0.0)
         # Last ego sample sits at x=4 on the return leg: 50 out + (50 - 4) back.
         assert route.progress_m[-1] == pytest.approx(96.0)
+
+    def test_progress_around_full_roundabout_loop(self):
+        # Closed circle R=20: route start and end coincide spatially, the worst case for
+        # projection. The monotone window must carry progress once around, not snap back.
+        angles = np.linspace(0.0, 2.0 * np.pi, 721)
+        route_xyz = np.stack([20.0 * np.cos(angles), 20.0 * np.sin(angles), np.zeros_like(angles)], axis=1)
+        ego = route_xyz[::36] * 0.985  # drive slightly inside the lane, ~10 deg per frame
+        route = compute_route_data_from_waypoints(route_xyz, ego, resolution_m=1.0)
+        assert route.total_arc_m == pytest.approx(2.0 * np.pi * 20.0, abs=0.1)
+        assert np.all(np.diff(route.progress_m) >= 0.0)
+        assert route.progress_m[-1] == pytest.approx(route.total_arc_m, abs=1.0)
 
     def test_without_ego_positions(self):
         route_xyz = np.stack([np.arange(0.0, 11.0), np.zeros(11), np.zeros(11)], axis=1)
