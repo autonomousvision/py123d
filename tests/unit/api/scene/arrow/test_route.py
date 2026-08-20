@@ -19,7 +19,6 @@ from py123d.api.scene.arrow.utils.route_utils import (
     compute_route_data_from_waypoints,
     interpolate_route_at_arc,
     project_onto_polyline,
-    read_route_arrow,
     read_route_position,
 )
 from py123d.api.scene.arrow.utils.scene_builder_utils import filter_scene_metadata_candidates
@@ -208,24 +207,23 @@ class TestJumpWarning:
 
 
 class TestWriterRoute:
-    def test_route_files_and_sync_index_column(self, tmp_path: Path):
+    def test_route_position_file_and_sync_index_column(self, tmp_path: Path):
         log_dir, _ = _write_log(tmp_path, xs=[2.0 * i for i in range(11)])
         # route_position is a regular modality: sync holds row indices into its file.
         assert _sync_table(log_dir)[ROUTE_POSITION_KEY].to_pylist() == list(range(11))
-        position_metadata, progress = read_route_position(log_dir)
+        route_metadata, progress, remaining = read_route_position(log_dir)
         assert progress.tolist() == [2.0 * i for i in range(11)]
-        assert position_metadata.total_arc_m == pytest.approx(20.0)
+        assert remaining.tolist() == [20.0 - 2.0 * i for i in range(11)]
 
-        route_metadata, arc, xyz = read_route_arrow(log_dir)
+        # The static polyline lives in the modality metadata.
         assert route_metadata.total_arc_m == pytest.approx(20.0)
         assert route_metadata.resolution_m == 1.0
         assert route_metadata.source == "ego_state_se3"
-        assert len(arc) == 21
-        np.testing.assert_allclose(xyz[:, 0], np.arange(21.0))
+        assert len(route_metadata.polyline_arc_m) == 21
+        np.testing.assert_allclose(route_metadata.polyline_xyz[:, 0], np.arange(21.0))
 
     def test_write_route_disabled(self, tmp_path: Path):
         log_dir, _ = _write_log(tmp_path, xs=[0.0, 2.0], config=LogWriterConfig(write_route=False))
-        assert not (log_dir / "route.arrow").exists()
         assert not (log_dir / "route_position.arrow").exists()
         assert ROUTE_POSITION_KEY not in _sync_table(log_dir).column_names
 
@@ -244,21 +242,27 @@ class TestWriterRoute:
         log_dir = tmp_path / log_meta.split / log_meta.log_name
         assert _sync_table(log_dir)[ROUTE_POSITION_KEY].to_pylist() == list(range(6))
         assert read_route_position(log_dir)[1].tolist() == [3.0 * i for i in range(6)]
-        assert (log_dir / "route.arrow").exists()
 
     def test_provided_route_overrides_odometry(self, tmp_path: Path):
         route_xyz = np.stack([np.arange(0.0, 101.0, 5.0), np.zeros(21), np.zeros(21)], axis=1)
         log_dir, _ = _write_log(tmp_path, xs=[2.0 * i for i in range(5)], route_xyz=route_xyz)
-        route_metadata, _, _ = read_route_arrow(log_dir)
+        route_metadata, progress, _ = read_route_position(log_dir)
         assert route_metadata.source == "provided"
         assert route_metadata.total_arc_m == pytest.approx(100.0)
-        assert read_route_position(log_dir)[1].tolist() == pytest.approx([2.0 * i for i in range(5)])
+        assert progress.tolist() == pytest.approx([2.0 * i for i in range(5)])
 
     def test_provided_route_written_even_when_write_route_disabled(self, tmp_path: Path):
         route_xyz = np.stack([np.arange(0.0, 11.0), np.zeros(11), np.zeros(11)], axis=1)
         log_dir, _ = _write_log(tmp_path, xs=[0.0, 1.0], config=LogWriterConfig(write_route=False), route_xyz=route_xyz)
-        route_metadata, _, _ = read_route_arrow(log_dir)
+        route_metadata, _, _ = read_route_position(log_dir)
         assert route_metadata.source == "provided"
+
+    def test_route_metadata_msgpack_roundtrip(self, tmp_path: Path):
+        log_dir, _ = _write_log(tmp_path, xs=[2.0 * i for i in range(11)])
+        route_metadata = ArrowSceneAPI(log_dir).get_route()[0]
+        recovered = type(route_metadata).from_dict(route_metadata.to_dict())
+        np.testing.assert_allclose(recovered.polyline_xyz, route_metadata.polyline_xyz)
+        assert recovered.total_arc_m == route_metadata.total_arc_m
 
     def test_ego_longer_than_sensor_clip(self, tmp_path: Path):
         """physical-ai-av shape: ego motion covers far more than the synced sensor clip.
@@ -294,7 +298,7 @@ class TestWriterRoute:
 
         sync = _sync_table(log_dir)
         assert sync.num_rows == 10  # clip-sized sync, log-sized route:
-        route_metadata, _, _ = read_route_arrow(log_dir)
+        route_metadata, _, _ = read_route_position(log_dir)
         assert route_metadata.total_arc_m == pytest.approx(99.0)
         assert ArrowSceneAPI(log_dir).get_remaining_route_m(0) == pytest.approx(99.0)
 

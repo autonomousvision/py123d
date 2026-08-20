@@ -13,7 +13,7 @@ import pyarrow as pa
 
 from py123d.api.scene.arrow.utils.route_utils import (
     ROUTE_POSITION_KEY,
-    read_route_position,
+    read_remaining_route_m,
 )
 from py123d.api.scene.scene_filter import VALID_MODALITY_SCOPES, AnchorFilterContext, SceneFilter
 from py123d.common.utils.uuid_utils import convert_to_bytes_uuid, convert_to_str_uuid
@@ -435,13 +435,12 @@ def keep_anchors_with_min_remaining_route(
     min_remaining_route_m: float,
     log_dir: Path,
 ) -> np.ndarray:
-    """Select the anchors with enough route left: the route's total arc minus the anchor's
-    progress. Anchors without a route position (ego absent) are dropped — their remaining
-    route cannot be established.
+    """Select the anchors with enough route left, read from the route_position modality's
+    ``remaining_m`` column. Anchors without a route position (ego absent) are dropped —
+    their remaining route cannot be established.
 
-    The total comes from the route_position modality's metadata, not from the synced
-    rows — the route can extend far beyond the sync table (e.g. physical-ai-av ego
-    motion around a short sensor clip).
+    Deliberately reads only the column, never the modality metadata: the polyline blob
+    stays undecoded during scene enumeration.
 
     :param sync_table: The sync Arrow table, with the ``route_position`` index column.
     :param anchors: Candidate anchor rows, int64.
@@ -449,16 +448,14 @@ def keep_anchors_with_min_remaining_route(
     :param log_dir: The log directory holding ``route_position.arrow``.
     :return: Boolean array over ``anchors``, True for the scenes to keep.
     """
-    route_position = read_route_position(log_dir)
-    if route_position is None:
+    remaining_by_row = read_remaining_route_m(log_dir)
+    if remaining_by_row is None:
         return np.zeros(len(anchors), dtype=bool)
-    route_metadata, progress_by_row = route_position
 
     row_indices = sync_table[ROUTE_POSITION_KEY].to_numpy(zero_copy_only=False)  # float64, NaN where null
     anchor_rows = row_indices[anchors]
     keep = ~np.isnan(anchor_rows)
-    anchor_progress = progress_by_row[anchor_rows[keep].astype(np.int64)]
-    keep[keep] = route_metadata.total_arc_m - anchor_progress >= min_remaining_route_m
+    keep[keep] = remaining_by_row[anchor_rows[keep].astype(np.int64)] >= min_remaining_route_m
     return keep
 
 

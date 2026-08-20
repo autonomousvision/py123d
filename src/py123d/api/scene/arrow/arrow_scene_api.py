@@ -27,7 +27,6 @@ from py123d.api.scene.arrow.modalities.sync_utils import (
     get_sync_table,
 )
 from py123d.api.scene.arrow.utils.arrow_scene_caches import _get_complete_log_scene_metadata
-from py123d.api.scene.arrow.utils.route_utils import read_route_arrow
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.utils.arrow_metadata_utils import LogDirectoryMetadata, parse_log_directory_metadata
 from py123d.common.utils.enums import SerialIntEnum
@@ -163,13 +162,25 @@ class ArrowSceneAPI(SceneAPI):
 
     def get_route(self) -> Optional[Tuple[RouteMetadata, np.ndarray, np.ndarray]]:
         """Inherited, see superclass."""
-        return read_route_arrow(self._log_dir)
+        route_metadata = self.get_modality_metadata(ModalityType.ROUTE_POSITION)
+        if not isinstance(route_metadata, RouteMetadata):
+            return None
+        return route_metadata, route_metadata.polyline_arc_m, route_metadata.polyline_xyz
 
     def get_route_progress_at_iteration(self, iteration: int) -> Optional[float]:
         """Inherited, see superclass."""
         return self.get_modality_column_at_iteration(
             iteration,
             column="progress_m",
+            modality_type=ModalityType.ROUTE_POSITION,
+        )
+
+    def get_remaining_route_m(self, iteration: int = 0) -> Optional[float]:
+        """Inherited, see superclass. Reads the stored ``remaining_m`` column directly,
+        so the polyline metadata stays undecoded."""
+        return self.get_modality_column_at_iteration(
+            iteration,
+            column="remaining_m",
             modality_type=ModalityType.ROUTE_POSITION,
         )
 

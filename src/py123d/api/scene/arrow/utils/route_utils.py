@@ -1,9 +1,9 @@
-"""Route polyline: computation, ``route.arrow`` / ``route_position.arrow`` I/O, interpolation.
+"""Route computation, ``route_position.arrow`` I/O, and polyline interpolation.
 
 A log's route is one polyline resampled at a fixed arc-length resolution — the driven
-path derived from ego odometry, or an explicitly provided (planned) route. The log
-writer stores the polyline in ``route.arrow`` (per-log, like ``map.arrow``) and each
-frame's arc-length position on it as the regular ``route_position`` modality.
+path derived from ego odometry, or an explicitly provided (planned) route. It is stored
+entirely in the regular ``route_position`` modality: the static polyline in the modality
+metadata, the dynamic per-frame arc positions in the rows.
 """
 
 import logging
@@ -21,14 +21,9 @@ from py123d.datatypes.modalities.base_modality import ModalityType
 
 logger = logging.getLogger(__name__)
 
-ROUTE_FILE_NAME = "route.arrow"
-
 ROUTE_POSITION_KEY = ModalityType.ROUTE_POSITION.serialize()
 """Modality key of the per-frame route positions (``route_position.arrow``); also the
 sync-table column holding each frame's row index into that file."""
-
-_ROUTE_ARC_COLUMN = "route.arc_m"
-_ROUTE_XYZ_COLUMNS = ("route.x", "route.y", "route.z")
 
 _MIN_SEGMENT_M = 0.05
 """Positions closer than this to the previously kept one are pruned, so standstill
@@ -55,6 +50,17 @@ class RouteData:
     polyline_xyz: npt.NDArray[np.float64]
     progress_m: Optional[npt.NDArray[np.float64]]
     total_arc_m: float
+
+    def to_route_metadata(self, resolution_m: float, source: str) -> RouteMetadata:
+        """Pack the polyline into the modality metadata (static over the log)."""
+        return RouteMetadata(
+            resolution_m=resolution_m,
+            total_arc_m=self.total_arc_m,
+            polyline_x=self.polyline_xyz[:, 0].tolist(),
+            polyline_y=self.polyline_xyz[:, 1].tolist(),
+            polyline_z=self.polyline_xyz[:, 2].tolist(),
+            source=source,
+        )
 
 
 def _resampled_polyline(
@@ -131,6 +137,7 @@ def compute_route_data_from_waypoints(
     progress_m: Optional[npt.NDArray[np.float64]] = None
     if ego_positions_xyz is not None and len(ego_positions_xyz) > 0:
         progress_m = project_onto_polyline(sample_arc, sample_xyz, _as_positions(ego_positions_xyz))
+
     return RouteData(sample_arc, sample_xyz, progress_m, float(kept_arc[-1]))
 
 
@@ -185,47 +192,6 @@ def interpolate_route_at_arc(
     return np.stack([np.interp(query_arc_m, polyline_arc_m, polyline_xyz[:, axis]) for axis in range(3)], axis=1)
 
 
-def write_route_arrow(
-    log_dir: Path,
-    route_data: RouteData,
-    route_metadata: RouteMetadata,
-    ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
-    ipc_compression_level: Optional[int] = None,
-) -> None:
-    """Write a log's route polyline to ``route.arrow``, metadata in the schema metadata."""
-    schema = pa.schema([pa.field(name, pa.float64()) for name in (_ROUTE_ARC_COLUMN, *_ROUTE_XYZ_COLUMNS)])
-    schema = add_metadata_to_arrow_schema(schema, route_metadata)
-    table = pa.table(
-        {
-            _ROUTE_ARC_COLUMN: route_data.polyline_arc_m,
-            **{name: route_data.polyline_xyz[:, axis] for axis, name in enumerate(_ROUTE_XYZ_COLUMNS)},
-        },
-        schema=schema,
-    )
-
-    options = None
-    if ipc_compression is not None:
-        options = pa.ipc.IpcWriteOptions(compression=pa.Codec(ipc_compression, compression_level=ipc_compression_level))
-    with pa.OSFile(str(log_dir / ROUTE_FILE_NAME), "wb") as source:
-        with pa.ipc.new_file(source, schema=schema, options=options) as writer:
-            writer.write_table(table)
-
-
-def read_route_arrow(log_dir: Path) -> Optional[Tuple[RouteMetadata, npt.NDArray[np.float64], npt.NDArray[np.float64]]]:
-    """Read (route metadata, arc per vertex (K,), vertices (K, 3)) from ``route.arrow``,
-    or None when the log has no route file."""
-    from py123d.api.utils.arrow_helper import get_lru_cached_arrow_table
-
-    route_path = Path(log_dir) / ROUTE_FILE_NAME
-    if not route_path.exists():
-        return None
-
-    table = get_lru_cached_arrow_table(str(route_path))
-    route_metadata = get_metadata_from_arrow_schema(table.schema, RouteMetadata)
-    polyline_xyz = np.stack([table[column].to_numpy() for column in _ROUTE_XYZ_COLUMNS], axis=1)
-    return route_metadata, table[_ROUTE_ARC_COLUMN].to_numpy(), polyline_xyz
-
-
 def write_route_position_arrow(
     log_dir: Path,
     timestamps_us: npt.NDArray[np.int64],
@@ -234,18 +200,22 @@ def write_route_position_arrow(
     ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
     ipc_compression_level: Optional[int] = None,
 ) -> None:
-    """Write the per-frame route positions as the regular ``route_position`` modality file."""
+    """Write the ``route_position`` modality file: per-frame progress and remaining route,
+    with the polyline in the schema metadata."""
+    progress_m = np.asarray(progress_m, dtype=np.float64)
     schema = pa.schema(
         [
             pa.field(f"{ROUTE_POSITION_KEY}.timestamp_us", pa.int64()),
             pa.field(f"{ROUTE_POSITION_KEY}.progress_m", pa.float64()),
+            pa.field(f"{ROUTE_POSITION_KEY}.remaining_m", pa.float64()),
         ]
     )
     schema = add_metadata_to_arrow_schema(schema, route_metadata)
     table = pa.table(
         {
             f"{ROUTE_POSITION_KEY}.timestamp_us": np.asarray(timestamps_us, dtype=np.int64),
-            f"{ROUTE_POSITION_KEY}.progress_m": np.asarray(progress_m, dtype=np.float64),
+            f"{ROUTE_POSITION_KEY}.progress_m": progress_m,
+            f"{ROUTE_POSITION_KEY}.remaining_m": route_metadata.total_arc_m - progress_m,
         },
         schema=schema,
     )
@@ -260,9 +230,9 @@ def write_route_position_arrow(
 
 def read_route_position(
     log_dir: Path,
-) -> Optional[Tuple[RouteMetadata, npt.NDArray[np.float64]]]:
-    """Read (route metadata, progress per row (N,)) from ``route_position.arrow``,
-    or None when the log has no route positions."""
+) -> Optional[Tuple[RouteMetadata, npt.NDArray[np.float64], npt.NDArray[np.float64]]]:
+    """Read (route metadata, progress per row (N,), remaining per row (N,)) from
+    ``route_position.arrow``, or None when the log has no route positions."""
     from py123d.api.utils.arrow_helper import get_lru_cached_arrow_table
 
     path = Path(log_dir) / f"{ROUTE_POSITION_KEY}.arrow"
@@ -271,7 +241,26 @@ def read_route_position(
 
     table = get_lru_cached_arrow_table(str(path))
     route_metadata = get_metadata_from_arrow_schema(table.schema, RouteMetadata)
-    return route_metadata, table[f"{ROUTE_POSITION_KEY}.progress_m"].to_numpy()
+    return (
+        route_metadata,
+        table[f"{ROUTE_POSITION_KEY}.progress_m"].to_numpy(),
+        table[f"{ROUTE_POSITION_KEY}.remaining_m"].to_numpy(),
+    )
+
+
+def read_remaining_route_m(log_dir: Path) -> Optional[npt.NDArray[np.float64]]:
+    """Read only the per-row remaining route (N,) from ``route_position.arrow``, or None.
+
+    Filtering uses this to stay off the metadata: the polyline blob is never decoded
+    during scene enumeration.
+    """
+    from py123d.api.utils.arrow_helper import get_lru_cached_arrow_table
+
+    path = Path(log_dir) / f"{ROUTE_POSITION_KEY}.arrow"
+    if not path.exists():
+        return None
+    table = get_lru_cached_arrow_table(str(path))
+    return table[f"{ROUTE_POSITION_KEY}.remaining_m"].to_numpy()
 
 
 def warn_on_position_jumps(

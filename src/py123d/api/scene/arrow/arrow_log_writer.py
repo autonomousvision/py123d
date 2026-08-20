@@ -24,7 +24,6 @@ from py123d.api.scene.arrow.utils.route_utils import (
     compute_route_data,
     compute_route_data_from_waypoints,
     warn_on_position_jumps,
-    write_route_arrow,
     write_route_position_arrow,
 )
 from py123d.api.scene.arrow.utils.scene_builder_utils import (
@@ -38,7 +37,6 @@ from py123d.datatypes import LogMetadata
 from py123d.datatypes.custom.custom_modality import CustomModalityMetadata
 from py123d.datatypes.detections.box_detections_metadata import BoxDetectionsSE3Metadata
 from py123d.datatypes.detections.traffic_light_detections import TrafficLightDetectionsMetadata
-from py123d.datatypes.metadata.route_metadata import RouteMetadata
 from py123d.datatypes.modalities.base_modality import BaseModality, BaseModalityMetadata, ModalityType
 from py123d.datatypes.sensors.barometer import BarometerMetadata
 from py123d.datatypes.sensors.base_camera import BaseCameraMetadata, CameraChannelType
@@ -417,10 +415,13 @@ class ArrowLogWriter(BaseLogWriter):
         return poses[:, : PoseSE3Index.Z + 1], ego_table[f"{ego_key}.timestamp_us"].to_numpy()
 
     def _compute_and_write_route(self) -> None:
-        """Write ``route.arrow`` and keep per-ego-row progress for the sync table build.
+        """Write the ``route_position`` modality: polyline in its metadata, per-frame
+        positions as rows.
 
         The route is the provided waypoints when :meth:`set_route` was called, otherwise
-        the driven path derived from ego odometry (no-op when the log has neither).
+        the driven path derived from ego odometry (no-op when the log has neither). A
+        provided route without ego frames still writes the file — zero rows, polyline in
+        the metadata.
         """
         assert self._state is not None
         resolution_m = self._log_writer_config.route_resolution_m
@@ -440,24 +441,16 @@ class ArrowLogWriter(BaseLogWriter):
         if route_data is None:
             return
 
-        route_metadata = RouteMetadata(resolution_m=resolution_m, total_arc_m=route_data.total_arc_m, source=source)
-        write_route_arrow(
+        has_progress = route_data.progress_m is not None
+        write_route_position_arrow(
             log_dir=self._state.log_dir,
-            route_data=route_data,
-            route_metadata=route_metadata,
+            timestamps_us=ego[1] if has_progress and ego is not None else np.empty(0, dtype=np.int64),
+            progress_m=(route_data.progress_m if has_progress and route_data.progress_m is not None else np.empty(0)),
+            route_metadata=route_data.to_route_metadata(resolution_m, source),
             ipc_compression=self._ipc_compression,
             ipc_compression_level=self._ipc_compression_level,
         )
-        if route_data.progress_m is not None:
-            assert ego is not None
-            write_route_position_arrow(
-                log_dir=self._state.log_dir,
-                timestamps_us=ego[1],
-                progress_m=route_data.progress_m,
-                route_metadata=route_metadata,
-                ipc_compression=self._ipc_compression,
-                ipc_compression_level=self._ipc_compression_level,
-            )
+        if has_progress:
             self._state.route_ego_key = ModalityType.EGO_STATE_SE3.serialize()
 
     # ------------------------------------------------------------------------------------------------------------------
