@@ -22,6 +22,7 @@ from py123d.api.scene.arrow.utils.log_writer_config import LogWriterConfig
 from py123d.api.scene.arrow.utils.route_utils import (
     SYNC_ROUTE_PROGRESS_COLUMN,
     compute_route_data,
+    compute_route_data_from_waypoints,
     write_route_arrow,
 )
 from py123d.api.scene.arrow.utils.scene_builder_utils import (
@@ -119,6 +120,7 @@ class ArrowLogWriterState:
     log_metadata: LogMetadata
     modality_writers: Dict[str, ArrowBaseModalityWriter] = field(default_factory=dict)
     sync_rows: Optional[List[Dict[str, Union[bytes, int, List[int]]]]] = None
+    provided_route_xyz: Optional[np.ndarray] = None
     route_ego_key: Optional[str] = None
     route_progress_by_ego_row: Optional[np.ndarray] = None
 
@@ -369,9 +371,9 @@ class ArrowLogWriter(BaseLogWriter):
         if self._state is not None:
             self._close_writers()
 
-            # Route depends on the finalized ego Arrow file and must precede the sync
-            # table build, which stores each frame's progress on it.
-            if self._log_writer_config.write_route:
+            # Must precede the sync table build: it reads the finalized ego Arrow file
+            # and hands each frame's route progress to the sync table as a column.
+            if self._log_writer_config.write_route or self._state.provided_route_xyz is not None:
                 self._compute_and_write_route()
 
             if self._state.sync_rows is not None:
@@ -387,50 +389,63 @@ class ArrowLogWriter(BaseLogWriter):
     # Route helpers
     # ------------------------------------------------------------------------------------------------------------------
 
-    def _compute_and_write_route(self) -> None:
-        """Compute the driven-route polyline from the written ego poses and write ``route.arrow``.
+    def set_route(self, route_xyz: np.ndarray) -> None:
+        """Provide the log's route explicitly instead of deriving it from ego odometry.
 
-        No-op when the log has no ego odometry. The per-ego-row progress is kept on the
-        writer state so the sync table build can attach it as a per-frame column.
+        Call between :meth:`reset` and :meth:`close`, e.g. with a planner's waypoints.
+        Per-frame progress then becomes the ego's monotone projection onto this route.
+
+        :param route_xyz: Route waypoints in the ego odometry frame, shape (M, 3), in driving order.
         """
+        assert self._state is not None, "Log writer is not initialized. Call reset() first."
+        self._state.provided_route_xyz = np.asarray(route_xyz, dtype=np.float64)
+
+    def _read_ego_positions(self) -> Optional[np.ndarray]:
+        """Read all ego XYZ positions from the finalized ego Arrow file, or None if absent."""
         assert self._state is not None
         ego_key = ModalityType.EGO_STATE_SE3.serialize()
         ego_path = self._state.log_dir / f"{ego_key}.arrow"
         if not ego_path.exists():
-            return
-
-        source = pa.memory_map(str(ego_path), "r")
-        try:
+            return None
+        with pa.memory_map(str(ego_path), "r") as source:
             ego_table = pa.ipc.open_file(source).read_all()
-        finally:
-            source.close()
         if ego_table.num_rows == 0:
+            return None
+        pose_array = ego_table.combine_chunks().column(f"{ego_key}.imu_se3").chunk(0)
+        poses = pose_array.flatten().to_numpy(zero_copy_only=False).reshape(-1, len(PoseSE3Index))
+        return poses[:, : PoseSE3Index.Z + 1]
+
+    def _compute_and_write_route(self) -> None:
+        """Write ``route.arrow`` and keep per-ego-row progress for the sync table build.
+
+        The route is the provided waypoints when :meth:`set_route` was called, otherwise
+        the driven path derived from ego odometry (no-op when the log has neither).
+        """
+        assert self._state is not None
+        resolution_m = self._log_writer_config.route_resolution_m
+        ego_positions = self._read_ego_positions()
+
+        if self._state.provided_route_xyz is not None:
+            route_data = compute_route_data_from_waypoints(self._state.provided_route_xyz, ego_positions, resolution_m)
+            source = "provided"
+        elif ego_positions is not None:
+            route_data = compute_route_data(ego_positions, resolution_m)
+            source = ModalityType.EGO_STATE_SE3.serialize()
+        else:
             return
-
-        pose_array = ego_table.column(f"{ego_key}.imu_se3").combine_chunks()
-        if isinstance(pose_array, pa.ChunkedArray):
-            pose_array = pose_array.chunk(0)
-        positions_xyz = (
-            pose_array.flatten().to_numpy(zero_copy_only=False).reshape(-1, len(PoseSE3Index))[:, : PoseSE3Index.Z + 1]
-        )
-
-        route_data = compute_route_data(positions_xyz, resolution_m=self._log_writer_config.route_resolution_m)
         if route_data is None:
             return
 
         write_route_arrow(
             log_dir=self._state.log_dir,
             route_data=route_data,
-            route_metadata=RouteMetadata(
-                resolution_m=self._log_writer_config.route_resolution_m,
-                total_arc_m=route_data.total_arc_m,
-                source=ego_key,
-            ),
+            route_metadata=RouteMetadata(resolution_m=resolution_m, total_arc_m=route_data.total_arc_m, source=source),
             ipc_compression=self._ipc_compression,
             ipc_compression_level=self._ipc_compression_level,
         )
-        self._state.route_ego_key = ego_key
-        self._state.route_progress_by_ego_row = route_data.progress_m
+        if route_data.progress_m is not None:
+            self._state.route_ego_key = ModalityType.EGO_STATE_SE3.serialize()
+            self._state.route_progress_by_ego_row = route_data.progress_m
 
     # ------------------------------------------------------------------------------------------------------------------
     # Sync table helpers
@@ -447,8 +462,8 @@ class ArrowLogWriter(BaseLogWriter):
         """
         assert self._state is not None
 
-        # Attach each frame's arc-length position on the route polyline, resolved
-        # through the frame's ego row index (null where ego is absent).
+        # Route progress is per ego row; resolve it per frame through the frame's ego
+        # row index (null where ego is absent).
         route_progress = self._state.route_progress_by_ego_row
         route_ego_key = self._state.route_ego_key
         if route_progress is not None and route_ego_key in schema.names:

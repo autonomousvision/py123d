@@ -125,11 +125,9 @@ class SceneFilter:
     or when ``scene_uuids`` is set (one scene per UUID position)."""
 
     min_remaining_route_m: Optional[float] = None
-    """Minimum driven-route meters that must remain in the log after a scene's anchor frame
-    (iteration 0). Checked against the ``sync.route_progress_m`` column written by the log
-    writer; logs without that column are rejected entirely (reconvert or backfill them).
-    Standstill driving accumulates no route, so scenes that stand until the log's end are
-    dropped like scenes near the log's end."""
+    """Minimum route meters that must remain in the log after a scene's anchor frame
+    (iteration 0), read from the ``sync.route_progress_m`` column. Logs without that
+    column are rejected entirely (reconvert or backfill them)."""
 
     required_scene_modalities: Optional[List[str]] = None
     """List of modality requirements that must be satisfied at the scene level (no nulls in scope).

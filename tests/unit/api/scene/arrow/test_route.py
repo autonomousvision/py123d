@@ -1,0 +1,278 @@
+"""Tests for the route polyline: writer output, filter enforcement, scene API access."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import List, Optional
+
+import numpy as np
+import pyarrow as pa
+import pytest
+
+from py123d.api.scene.arrow.arrow_log_writer import ArrowLogWriter, SyncConfig
+from py123d.api.scene.arrow.arrow_scene_api import ArrowSceneAPI
+from py123d.api.scene.arrow.lazy_scene_sequence import build_log_scene_index
+from py123d.api.scene.arrow.utils.log_writer_config import LogWriterConfig
+from py123d.api.scene.arrow.utils.route_utils import (
+    SYNC_ROUTE_PROGRESS_COLUMN,
+    compute_route_data,
+    compute_route_data_from_waypoints,
+    interpolate_route_at_arc,
+    project_onto_polyline,
+    read_route_arrow,
+)
+from py123d.api.scene.arrow.utils.scene_builder_utils import filter_scene_metadata_candidates
+from py123d.api.scene.scene_filter import SceneFilter
+from py123d.datatypes import Timestamp
+from py123d.datatypes.metadata.log_metadata import LogMetadata
+from py123d.datatypes.vehicle_state.dynamic_state import DynamicStateSE3
+from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
+from py123d.geometry.pose import PoseSE3
+from py123d.geometry.vector import Vector3D
+from py123d.parser.base_dataset_parser import ModalitiesSync
+
+from ..conftest import make_ego_metadata, make_log_metadata
+
+TIMESTEP_US = 100_000
+
+
+def _make_ego(ts_us: int, x: float, y: float = 0.0) -> EgoStateSE3:
+    dynamic = DynamicStateSE3(
+        velocity=Vector3D(1.0, 0.0, 0.0),
+        acceleration=Vector3D(0.0, 0.0, 0.0),
+        angular_velocity=Vector3D(0.0, 0.0, 0.0),
+    )
+    return EgoStateSE3.from_imu(
+        imu_se3=PoseSE3.from_list([x, y, 0.0, 1.0, 0.0, 0.0, 0.0]),
+        metadata=make_ego_metadata(),
+        timestamp=Timestamp.from_us(ts_us),
+        dynamic_state_se3=dynamic,
+    )
+
+
+def _write_log(
+    tmp_path: Path,
+    xs: List[float],
+    config: Optional[LogWriterConfig] = None,
+    route_xyz: Optional[np.ndarray] = None,
+) -> tuple[Path, LogMetadata]:
+    """Write a log driving along the x-axis through the given positions."""
+    log_meta = make_log_metadata()
+    writer = ArrowLogWriter(config or LogWriterConfig(), logs_root=tmp_path, sensors_root=tmp_path)
+    writer.reset(log_meta)
+    if route_xyz is not None:
+        writer.set_route(route_xyz)
+    for i, x in enumerate(xs):
+        writer.write_sync(
+            ModalitiesSync(timestamp=Timestamp.from_us(i * TIMESTEP_US), modalities=[_make_ego(i * TIMESTEP_US, x)])
+        )
+    writer.close()
+    return tmp_path / log_meta.split / log_meta.log_name, log_meta
+
+
+def _sync_table(log_dir: Path) -> pa.Table:
+    return pa.ipc.open_file(str(log_dir / "sync.arrow")).read_all()
+
+
+# ===========================================================================
+# compute_route_data
+# ===========================================================================
+
+
+class TestComputeRouteData:
+    def test_straight_drive(self):
+        positions = np.stack([np.arange(11) * 2.0, np.zeros(11), np.zeros(11)], axis=1)
+        route = compute_route_data(positions, resolution_m=1.0)
+        assert route.total_arc_m == pytest.approx(20.0)
+        np.testing.assert_allclose(route.progress_m, np.arange(11) * 2.0)
+        np.testing.assert_allclose(route.polyline_arc_m, np.arange(21.0))
+        np.testing.assert_allclose(route.polyline_xyz[:, 0], np.arange(21.0))
+
+    def test_standstill_jitter_accumulates_nothing(self):
+        rng = np.random.default_rng(0)
+        drive = np.stack([np.arange(10) * 2.0, np.zeros(10), np.zeros(10)], axis=1)
+        stand = np.tile([18.0, 0.0, 0.0], (10, 1)) + rng.uniform(-0.02, 0.02, size=(10, 3))
+        route = compute_route_data(np.concatenate([drive, stand]), resolution_m=1.0)
+        assert route.total_arc_m == pytest.approx(18.0, abs=0.1)
+        assert np.all(np.diff(route.progress_m) >= 0.0)
+        assert route.progress_m[-1] == route.progress_m[10]
+
+    def test_pure_standstill_yields_single_vertex(self):
+        route = compute_route_data(np.zeros((5, 3)), resolution_m=1.0)
+        assert route.total_arc_m == 0.0
+        assert len(route.polyline_arc_m) == 1
+        np.testing.assert_allclose(route.progress_m, np.zeros(5))
+
+    def test_empty_positions(self):
+        assert compute_route_data(np.empty((0, 3)), resolution_m=1.0) is None
+
+    def test_interpolation_recovers_positions(self):
+        angles = np.linspace(0.0, np.pi, 200)
+        positions = np.stack([50.0 * np.cos(angles), 50.0 * np.sin(angles), np.zeros(200)], axis=1)
+        route = compute_route_data(positions, resolution_m=1.0)
+        recovered = interpolate_route_at_arc(route.polyline_arc_m, route.polyline_xyz, route.progress_m)
+        assert np.linalg.norm(recovered - positions, axis=1).max() < 0.05
+
+
+# ===========================================================================
+# compute_route_data_from_waypoints / project_onto_polyline
+# ===========================================================================
+
+
+class TestProvidedRoute:
+    def test_progress_by_projection(self):
+        route_xyz = np.stack([np.arange(0.0, 101.0, 5.0), np.zeros(21), np.zeros(21)], axis=1)
+        ego = np.stack([np.arange(11) * 2.0, np.full(11, 0.5), np.zeros(11)], axis=1)  # 0.5 m beside the route
+        route = compute_route_data_from_waypoints(route_xyz, ego, resolution_m=1.0)
+        assert route.total_arc_m == pytest.approx(100.0)
+        np.testing.assert_allclose(route.progress_m, np.arange(11) * 2.0, atol=1e-6)
+
+    def test_progress_monotone_on_self_crossing_route(self):
+        # Figure-eight-like: out along +x, back along the same line.
+        out = np.stack([np.arange(0.0, 51.0), np.zeros(51), np.zeros(51)], axis=1)
+        back = np.stack([np.arange(49.0, -1.0, -1.0), np.zeros(50), np.zeros(50)], axis=1)
+        route_xyz = np.concatenate([out, back])
+        ego = np.concatenate([out[::5], back[::5]])
+        route = compute_route_data_from_waypoints(route_xyz, ego, resolution_m=1.0)
+        assert route.total_arc_m == pytest.approx(100.0)
+        assert np.all(np.diff(route.progress_m) >= 0.0)
+        # Last ego sample sits at x=4 on the return leg: 50 out + (50 - 4) back.
+        assert route.progress_m[-1] == pytest.approx(96.0)
+
+    def test_without_ego_positions(self):
+        route_xyz = np.stack([np.arange(0.0, 11.0), np.zeros(11), np.zeros(11)], axis=1)
+        route = compute_route_data_from_waypoints(route_xyz, None, resolution_m=1.0)
+        assert route.progress_m is None
+        assert route.total_arc_m == pytest.approx(10.0)
+
+    def test_projection_clamps_before_route_start(self):
+        polyline_arc = np.arange(11.0)
+        polyline_xyz = np.stack([np.arange(11.0), np.zeros(11), np.zeros(11)], axis=1)
+        progress = project_onto_polyline(polyline_arc, polyline_xyz, np.array([[-5.0, 0.0, 0.0], [3.5, 0.0, 0.0]]))
+        assert progress[0] == pytest.approx(0.0)
+        assert progress[1] == pytest.approx(3.5)
+
+
+# ===========================================================================
+# Writer round-trip
+# ===========================================================================
+
+
+class TestWriterRoute:
+    def test_route_file_and_progress_column(self, tmp_path: Path):
+        log_dir, _ = _write_log(tmp_path, xs=[2.0 * i for i in range(11)])
+        sync = _sync_table(log_dir)
+        assert sync[SYNC_ROUTE_PROGRESS_COLUMN].to_pylist() == [2.0 * i for i in range(11)]
+
+        route_metadata, arc, xyz = read_route_arrow(log_dir)
+        assert route_metadata.total_arc_m == pytest.approx(20.0)
+        assert route_metadata.resolution_m == 1.0
+        assert route_metadata.source == "ego_state_se3"
+        assert len(arc) == 21
+        np.testing.assert_allclose(xyz[:, 0], np.arange(21.0))
+
+    def test_write_route_disabled(self, tmp_path: Path):
+        log_dir, _ = _write_log(tmp_path, xs=[0.0, 2.0], config=LogWriterConfig(write_route=False))
+        assert not (log_dir / "route.arrow").exists()
+        assert SYNC_ROUTE_PROGRESS_COLUMN not in _sync_table(log_dir).column_names
+
+    def test_deferred_sync_gets_progress(self, tmp_path: Path):
+        log_meta = make_log_metadata()
+        writer = ArrowLogWriter(
+            LogWriterConfig(),
+            logs_root=tmp_path,
+            sensors_root=tmp_path,
+            sync_config=SyncConfig(reference_column="ego_state_se3.timestamp_us"),
+        )
+        writer.reset(log_meta)
+        for i in range(6):
+            writer.write_async(_make_ego(i * TIMESTEP_US, 3.0 * i))
+        writer.close()
+        log_dir = tmp_path / log_meta.split / log_meta.log_name
+        assert _sync_table(log_dir)[SYNC_ROUTE_PROGRESS_COLUMN].to_pylist() == [3.0 * i for i in range(6)]
+        assert (log_dir / "route.arrow").exists()
+
+    def test_provided_route_overrides_odometry(self, tmp_path: Path):
+        route_xyz = np.stack([np.arange(0.0, 101.0, 5.0), np.zeros(21), np.zeros(21)], axis=1)
+        log_dir, _ = _write_log(tmp_path, xs=[2.0 * i for i in range(5)], route_xyz=route_xyz)
+        route_metadata, _, _ = read_route_arrow(log_dir)
+        assert route_metadata.source == "provided"
+        assert route_metadata.total_arc_m == pytest.approx(100.0)
+        assert _sync_table(log_dir)[SYNC_ROUTE_PROGRESS_COLUMN].to_pylist() == pytest.approx(
+            [2.0 * i for i in range(5)]
+        )
+
+    def test_provided_route_written_even_when_write_route_disabled(self, tmp_path: Path):
+        route_xyz = np.stack([np.arange(0.0, 11.0), np.zeros(11), np.zeros(11)], axis=1)
+        log_dir, _ = _write_log(tmp_path, xs=[0.0, 1.0], config=LogWriterConfig(write_route=False), route_xyz=route_xyz)
+        route_metadata, _, _ = read_route_arrow(log_dir)
+        assert route_metadata.source == "provided"
+
+
+# ===========================================================================
+# SceneFilter.min_remaining_route_m
+# ===========================================================================
+
+
+class TestRouteFilter:
+    def test_lazy_drops_anchors_short_of_route(self, tmp_path: Path):
+        # 18 m total; anchors at progress 0,2,...; remaining >= 10 keeps progress <= 8.
+        log_dir, _ = _write_log(tmp_path, xs=[2.0 * i for i in range(10)])
+        index = build_log_scene_index(log_dir, SceneFilter(future_num_iterations=2, min_remaining_route_m=10.0))
+        assert index.anchor_indices.tolist() == [0, 1, 2, 3, 4]
+
+    def test_lazy_boundary_is_inclusive(self, tmp_path: Path):
+        log_dir, _ = _write_log(tmp_path, xs=[2.0 * i for i in range(10)])
+        index = build_log_scene_index(log_dir, SceneFilter(future_num_iterations=1, min_remaining_route_m=18.0))
+        assert index.anchor_indices.tolist() == [0]
+
+    def test_eager_matches_lazy(self, tmp_path: Path):
+        from py123d.api.scene.arrow.utils.scene_builder_utils import generate_scene_metadatas
+
+        log_dir, log_meta = _write_log(tmp_path, xs=[2.0 * i for i in range(10)])
+        sync = _sync_table(log_dir)
+        candidates = generate_scene_metadatas(
+            sync, log_meta, future_iterations=2, history_iterations=0, iteration_duration_s=0.1
+        )
+        kept = filter_scene_metadata_candidates(candidates, SceneFilter(min_remaining_route_m=10.0), sync)
+        assert [scene.initial_idx for scene in kept] == [0, 1, 2, 3, 4]
+
+    def test_standstill_log_dropped_for_positive_minimum(self, tmp_path: Path):
+        log_dir, _ = _write_log(tmp_path, xs=[0.0] * 5)
+        assert build_log_scene_index(log_dir, SceneFilter(future_num_iterations=1, min_remaining_route_m=1.0)) is None
+        index = build_log_scene_index(log_dir, SceneFilter(future_num_iterations=1, min_remaining_route_m=0.0))
+        assert index is not None  # remaining 0 >= 0
+
+    def test_log_without_column_rejected(self, tmp_path: Path):
+        log_dir, _ = _write_log(tmp_path, xs=[2.0 * i for i in range(5)], config=LogWriterConfig(write_route=False))
+        assert build_log_scene_index(log_dir, SceneFilter(future_num_iterations=1, min_remaining_route_m=1.0)) is None
+        assert build_log_scene_index(log_dir, SceneFilter(future_num_iterations=1)) is not None
+
+    def test_negative_minimum_raises(self):
+        with pytest.raises(ValueError, match="min_remaining_route_m must be >= 0"):
+            SceneFilter(min_remaining_route_m=-1.0)
+
+
+# ===========================================================================
+# Scene API access
+# ===========================================================================
+
+
+class TestSceneApiRoute:
+    def test_route_accessors(self, tmp_path: Path):
+        log_dir, _ = _write_log(tmp_path, xs=[2.0 * i for i in range(11)])
+        api = ArrowSceneAPI(log_dir)
+        assert api.get_route_metadata().total_arc_m == pytest.approx(20.0)
+        arc, xyz = api.get_route_polyline()
+        assert len(arc) == len(xyz) == 21
+        assert api.get_route_progress_at_iteration(5) == pytest.approx(10.0)
+        assert api.get_remaining_route_m(0) == pytest.approx(20.0)
+        assert api.get_remaining_route_m(5) == pytest.approx(10.0)
+
+    def test_route_accessors_without_route(self, tmp_path: Path):
+        log_dir, _ = _write_log(tmp_path, xs=[0.0, 2.0], config=LogWriterConfig(write_route=False))
+        api = ArrowSceneAPI(log_dir)
+        assert api.get_route_metadata() is None
+        assert api.get_route_polyline() is None
+        assert api.get_route_progress_at_iteration(0) is None
+        assert api.get_remaining_route_m(0) is None

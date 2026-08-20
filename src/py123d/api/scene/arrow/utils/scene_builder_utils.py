@@ -431,15 +431,13 @@ def keep_anchors_with_min_remaining_route(
     anchors: np.ndarray,
     min_remaining_route_m: float,
 ) -> np.ndarray:
-    """Select the anchors with enough driven route left in the log.
-
-    A scene's remaining route is the log's final route progress minus the progress at
-    the scene's anchor frame. Anchors without a progress value (ego absent at the frame)
-    are dropped: their remaining route cannot be established.
+    """Select the anchors with enough route left: final route progress in the log minus
+    the anchor's progress. Anchors without a progress value (ego absent) are dropped —
+    their remaining route cannot be established.
 
     :param sync_table: The sync Arrow table, with the ``sync.route_progress_m`` column.
     :param anchors: Candidate anchor rows, int64.
-    :param min_remaining_route_m: Minimum remaining driven route in meters.
+    :param min_remaining_route_m: Minimum remaining route in meters.
     :return: Boolean array over ``anchors``, True for the scenes to keep.
     """
     progress = sync_table[SYNC_ROUTE_PROGRESS_COLUMN].to_numpy(zero_copy_only=False)
