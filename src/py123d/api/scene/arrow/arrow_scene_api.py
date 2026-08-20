@@ -159,15 +159,9 @@ class ArrowSceneAPI(SceneAPI):
     # 3. Route
     # ------------------------------------------------------------------------------------------------------------------
 
-    def get_route_metadata(self) -> Optional[RouteMetadata]:
+    def get_route(self) -> Optional[Tuple[RouteMetadata, np.ndarray, np.ndarray]]:
         """Inherited, see superclass."""
-        route = read_route_arrow(self._log_dir)
-        return route[0] if route is not None else None
-
-    def get_route_polyline(self) -> Optional[Tuple[np.ndarray, np.ndarray]]:
-        """Inherited, see superclass."""
-        route = read_route_arrow(self._log_dir)
-        return (route[1], route[2]) if route is not None else None
+        return read_route_arrow(self._log_dir)
 
     def get_route_progress_at_iteration(self, iteration: int) -> Optional[float]:
         """Inherited, see superclass."""

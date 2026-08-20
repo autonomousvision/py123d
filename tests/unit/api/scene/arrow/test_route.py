@@ -262,8 +262,8 @@ class TestSceneApiRoute:
     def test_route_accessors(self, tmp_path: Path):
         log_dir, _ = _write_log(tmp_path, xs=[2.0 * i for i in range(11)])
         api = ArrowSceneAPI(log_dir)
-        assert api.get_route_metadata().total_arc_m == pytest.approx(20.0)
-        arc, xyz = api.get_route_polyline()
+        route_metadata, arc, xyz = api.get_route()
+        assert route_metadata.total_arc_m == pytest.approx(20.0)
         assert len(arc) == len(xyz) == 21
         assert api.get_route_progress_at_iteration(5) == pytest.approx(10.0)
         assert api.get_remaining_route_m(0) == pytest.approx(20.0)
@@ -272,7 +272,6 @@ class TestSceneApiRoute:
     def test_route_accessors_without_route(self, tmp_path: Path):
         log_dir, _ = _write_log(tmp_path, xs=[0.0, 2.0], config=LogWriterConfig(write_route=False))
         api = ArrowSceneAPI(log_dir)
-        assert api.get_route_metadata() is None
-        assert api.get_route_polyline() is None
+        assert api.get_route() is None
         assert api.get_route_progress_at_iteration(0) is None
         assert api.get_remaining_route_m(0) is None
