@@ -11,7 +11,10 @@ from typing import FrozenSet, List, Optional, Set, Tuple
 import numpy as np
 import pyarrow as pa
 
-from py123d.api.scene.arrow.utils.route_utils import SYNC_ROUTE_PROGRESS_COLUMN
+from py123d.api.scene.arrow.utils.route_utils import (
+    SYNC_ROUTE_PROGRESS_COLUMN,
+    read_route_metadata_from_sync_schema,
+)
 from py123d.api.scene.scene_filter import VALID_MODALITY_SCOPES, AnchorFilterContext, SceneFilter
 from py123d.common.utils.uuid_utils import convert_to_bytes_uuid, convert_to_str_uuid
 from py123d.datatypes.metadata import SceneMetadata
@@ -431,9 +434,13 @@ def keep_anchors_with_min_remaining_route(
     anchors: np.ndarray,
     min_remaining_route_m: float,
 ) -> np.ndarray:
-    """Select the anchors with enough route left: final route progress in the log minus
-    the anchor's progress. Anchors without a progress value (ego absent) are dropped —
-    their remaining route cannot be established.
+    """Select the anchors with enough route left: the route's total arc minus the anchor's
+    progress. Anchors without a progress value (ego absent) are dropped — their remaining
+    route cannot be established.
+
+    The total comes from the RouteMetadata stamped into the sync schema — the route can
+    extend far beyond the sync rows (e.g. physical-ai-av ego motion around a short sensor
+    clip) — falling back to the last synced progress for logs without the stamp.
 
     :param sync_table: The sync Arrow table, with the ``sync.route_progress_m`` column.
     :param anchors: Candidate anchor rows, int64.
@@ -443,7 +450,8 @@ def keep_anchors_with_min_remaining_route(
     progress = sync_table[SYNC_ROUTE_PROGRESS_COLUMN].to_numpy(zero_copy_only=False)
     if np.all(np.isnan(progress)):
         return np.zeros(len(anchors), dtype=bool)
-    total_arc_m = np.nanmax(progress)
+    route_metadata = read_route_metadata_from_sync_schema(sync_table.schema)
+    total_arc_m = route_metadata.total_arc_m if route_metadata is not None else np.nanmax(progress)
     anchor_progress = progress[anchors]
     return ~np.isnan(anchor_progress) & (total_arc_m - anchor_progress >= min_remaining_route_m)
 

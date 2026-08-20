@@ -6,6 +6,7 @@ writer stores it in ``route.arrow`` and each frame's arc-length position on it i
 ``sync.route_progress_m`` column.
 """
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional, Tuple
@@ -17,10 +18,18 @@ import pyarrow as pa
 from py123d.api.utils.arrow_metadata_utils import add_metadata_to_arrow_schema, get_metadata_from_arrow_schema
 from py123d.datatypes.metadata.route_metadata import RouteMetadata
 
+logger = logging.getLogger(__name__)
+
 ROUTE_FILE_NAME = "route.arrow"
 
 SYNC_ROUTE_PROGRESS_COLUMN = "sync.route_progress_m"
 """Sync-table column: each frame's arc-length position on the route polyline in meters."""
+
+SYNC_ROUTE_METADATA_KEY = b"route_metadata"
+"""Sync schema metadata key holding the :class:`RouteMetadata`. The ego file (and hence
+the route) can extend far beyond the sync table — e.g. physical-ai-av logs carry minutes
+of ego motion around a 30 s sensor clip — so the route total must not be inferred from
+the sync rows alone."""
 
 _ROUTE_ARC_COLUMN = "route.arc_m"
 _ROUTE_XYZ_COLUMNS = ("route.x", "route.y", "route.z")
@@ -32,6 +41,9 @@ odometry jitter accumulates no arc-length."""
 _PROJECTION_WINDOW_M = 50.0
 """Forward search window when projecting ego positions onto a provided route; keeps the
 projection monotone even where the route crosses itself."""
+
+_MAX_PLAUSIBLE_SPEED_MPS = 100.0
+"""Implied speeds above this (360 km/h) are treated as localization jumps."""
 
 
 @dataclass(frozen=True)
@@ -216,3 +228,40 @@ def read_route_arrow(log_dir: Path) -> Optional[Tuple[RouteMetadata, npt.NDArray
     route_metadata = get_metadata_from_arrow_schema(table.schema, RouteMetadata)
     polyline_xyz = np.stack([table[column].to_numpy() for column in _ROUTE_XYZ_COLUMNS], axis=1)
     return route_metadata, table[_ROUTE_ARC_COLUMN].to_numpy(), polyline_xyz
+
+
+def read_route_metadata_from_sync_schema(sync_schema: pa.Schema) -> Optional[RouteMetadata]:
+    """Read the :class:`RouteMetadata` stamped into a sync table's schema, or None."""
+    try:
+        return get_metadata_from_arrow_schema(sync_schema, RouteMetadata, SYNC_ROUTE_METADATA_KEY)
+    except ValueError:
+        return None
+
+
+def warn_on_position_jumps(
+    positions_xyz: npt.NDArray[np.float64],
+    timestamps_us: npt.NDArray[np.int64],
+    context: str,
+    max_speed_mps: float = _MAX_PLAUSIBLE_SPEED_MPS,
+) -> None:
+    """Warn once when consecutive positions imply physically implausible speed.
+
+    Localization teleports silently inflate the driven route's arc-length; this flags
+    them without correcting anything, since the right fix is upstream in the data.
+    """
+    dt_s = np.diff(np.asarray(timestamps_us, dtype=np.float64)) / 1e6
+    distances = np.linalg.norm(np.diff(positions_xyz, axis=0), axis=1)
+    valid = dt_s > 0.0
+    jumps = valid & (distances > max_speed_mps * dt_s)
+    if jumps.any():
+        worst = int(np.argmax(np.where(jumps, distances / np.where(valid, dt_s, np.inf), 0.0)))
+        logger.warning(
+            "%s: %d ego position jump(s) above %.0f m/s (worst: %.1f m in %.3f s at row %d); "
+            "the route arc-length is inflated accordingly.",
+            context,
+            int(jumps.sum()),
+            max_speed_mps,
+            float(distances[worst]),
+            float(dt_s[worst]),
+            worst,
+        )

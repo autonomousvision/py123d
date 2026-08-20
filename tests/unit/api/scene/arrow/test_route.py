@@ -176,6 +176,31 @@ class TestProvidedRoute:
         assert progress[1] == pytest.approx(3.5)
 
 
+class TestJumpWarning:
+    def _positions(self, xs):
+        return np.stack([np.asarray(xs, dtype=np.float64), np.zeros(len(xs)), np.zeros(len(xs))], axis=1)
+
+    def test_teleport_warns(self, caplog):
+        import logging
+
+        from py123d.api.scene.arrow.utils.route_utils import warn_on_position_jumps
+
+        timestamps = np.arange(5) * 100_000
+        with caplog.at_level(logging.WARNING):
+            warn_on_position_jumps(self._positions([0.0, 1.0, 2.0, 102.0, 103.0]), timestamps, context="log_x")
+        assert "position jump" in caplog.text and "log_x" in caplog.text
+
+    def test_plausible_motion_does_not_warn(self, caplog):
+        import logging
+
+        from py123d.api.scene.arrow.utils.route_utils import warn_on_position_jumps
+
+        timestamps = np.arange(5) * 100_000  # 3 m per 0.1 s = 30 m/s
+        with caplog.at_level(logging.WARNING):
+            warn_on_position_jumps(self._positions([0.0, 3.0, 6.0, 9.0, 12.0]), timestamps, context="log_x")
+        assert caplog.text == ""
+
+
 # ===========================================================================
 # Writer round-trip
 # ===========================================================================
@@ -230,6 +255,49 @@ class TestWriterRoute:
         log_dir, _ = _write_log(tmp_path, xs=[0.0, 1.0], config=LogWriterConfig(write_route=False), route_xyz=route_xyz)
         route_metadata, _, _ = read_route_arrow(log_dir)
         assert route_metadata.source == "provided"
+
+    def test_ego_longer_than_sensor_clip(self, tmp_path: Path):
+        """physical-ai-av shape: ego motion covers far more than the synced sensor clip.
+
+        The sync table only spans the sensor reference (here: traffic lights over 1 s),
+        but the route and remaining-route filtering must use the full ego motion.
+        """
+        from py123d.datatypes import TrafficLightDetection, TrafficLightDetections, TrafficLightStatus
+
+        from ..conftest import make_traffic_light_metadata
+
+        log_meta = make_log_metadata()
+        writer = ArrowLogWriter(
+            LogWriterConfig(),
+            logs_root=tmp_path,
+            sensors_root=tmp_path,
+            sync_config=SyncConfig(reference_column="traffic_light_detections.timestamp_us"),
+        )
+        writer.reset(log_meta)
+        for i in range(100):  # ego: 100 frames, 1 m apart -> 99 m route
+            writer.write_async(_make_ego(i * TIMESTEP_US, float(i)))
+        tl_meta = make_traffic_light_metadata()
+        for i in range(10):  # sensor reference: only the first 10 frames
+            writer.write_async(
+                TrafficLightDetections(
+                    detections=[TrafficLightDetection(lane_id=1, status=TrafficLightStatus.GREEN)],
+                    timestamp=Timestamp.from_us(i * TIMESTEP_US),
+                    metadata=tl_meta,
+                )
+            )
+        writer.close()
+        log_dir = tmp_path / log_meta.split / log_meta.log_name
+
+        sync = _sync_table(log_dir)
+        assert sync.num_rows == 10  # clip-sized sync, log-sized route:
+        route_metadata, _, _ = read_route_arrow(log_dir)
+        assert route_metadata.total_arc_m == pytest.approx(99.0)
+        assert ArrowSceneAPI(log_dir).get_remaining_route_m(0) == pytest.approx(99.0)
+
+        # Remaining route counts the ego motion beyond the clip, so a 50 m requirement
+        # keeps every anchor even though synced progress only reaches 9 m.
+        index = build_log_scene_index(log_dir, SceneFilter(future_num_iterations=2, min_remaining_route_m=50.0))
+        assert index is not None and index.anchor_indices.tolist() == list(range(8))
 
 
 # ===========================================================================
