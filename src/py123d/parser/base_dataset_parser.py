@@ -71,6 +71,14 @@ class BaseLogParser(abc.ABC):
         for modalities_sync in self.iter_modalities_sync():
             yield from modalities_sync.modalities
 
+    def get_route_xyz(self):
+        """Optionally returns the log's route as XYZ waypoints (N, 3) in the ego odometry
+        frame — a planned route, or full-horizon odometry a synced conversion would
+        otherwise truncate. The orchestrator forwards it to ``writer.set_route``; the
+        default None derives the route from the written ego poses instead.
+        """
+        return None
+
 
 class ModalitiesSync:
     """Helper class for passing synchronized modalities to log writers, without loading all data into memory at once."""
