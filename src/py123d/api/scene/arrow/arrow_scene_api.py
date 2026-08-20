@@ -26,6 +26,7 @@ from py123d.api.scene.arrow.modalities.sync_utils import (
     get_sync_table,
 )
 from py123d.api.scene.arrow.utils.arrow_scene_caches import _get_complete_log_scene_metadata
+from py123d.api.scene.arrow.utils.route_utils import SYNC_ROUTE_PROGRESS_COLUMN, read_route_arrow
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.utils.arrow_metadata_utils import LogDirectoryMetadata, parse_log_directory_metadata
 from py123d.common.utils.enums import SerialIntEnum
@@ -35,6 +36,7 @@ from py123d.datatypes import (
     LogMetadata,
     MapMetadata,
     ModalityType,
+    RouteMetadata,
     Timestamp,
     get_modality_key,
 )
@@ -152,6 +154,27 @@ class ArrowSceneAPI(SceneAPI):
     def get_map_api(self) -> Optional[MapAPI]:
         """Inherited, see superclass."""
         return get_map_api_for_log(self._log_dir, self.get_log_metadata(), maps_root=self._maps_root)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # 3. Route
+    # ------------------------------------------------------------------------------------------------------------------
+
+    def get_route_metadata(self) -> Optional[RouteMetadata]:
+        """Inherited, see superclass."""
+        route = read_route_arrow(self._log_dir)
+        return route[0] if route is not None else None
+
+    def get_route_polyline(self) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        """Inherited, see superclass."""
+        route = read_route_arrow(self._log_dir)
+        return (route[1], route[2]) if route is not None else None
+
+    def get_route_progress_at_iteration(self, iteration: int) -> Optional[float]:
+        """Inherited, see superclass."""
+        sync_table = get_sync_table(self._log_dir)
+        if SYNC_ROUTE_PROGRESS_COLUMN not in sync_table.column_names:
+            return None
+        return sync_table[SYNC_ROUTE_PROGRESS_COLUMN][self._get_sync_index(iteration)].as_py()
 
     # ------------------------------------------------------------------------------------------------------------------
     # 4. General modality access

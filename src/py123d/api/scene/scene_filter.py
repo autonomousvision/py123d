@@ -124,6 +124,13 @@ class SceneFilter:
     scenes at every raw frame (maximum overlap). Ignored if ``timestamp_threshold_s`` is provided
     or when ``scene_uuids`` is set (one scene per UUID position)."""
 
+    min_remaining_route_m: Optional[float] = None
+    """Minimum driven-route meters that must remain in the log after a scene's anchor frame
+    (iteration 0). Checked against the ``sync.route_progress_m`` column written by the log
+    writer; logs without that column are rejected entirely (reconvert or backfill them).
+    Standstill driving accumulates no route, so scenes that stand until the log's end are
+    dropped like scenes near the log's end."""
+
     required_scene_modalities: Optional[List[str]] = None
     """List of modality requirements that must be satisfied at the scene level (no nulls in scope).
 
@@ -214,6 +221,9 @@ class SceneFilter:
             logger.warning(
                 "Both timestamp_threshold_s and iteration_threshold set; timestamp_threshold_s takes priority."
             )
+
+        if self.min_remaining_route_m is not None and self.min_remaining_route_m < 0:
+            raise ValueError(f"min_remaining_route_m must be >= 0, got {self.min_remaining_route_m}.")
 
         # Validate modality requirement syntax early.
         for req in self.required_scene_modalities or []:

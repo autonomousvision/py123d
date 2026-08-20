@@ -3,6 +3,9 @@ from __future__ import annotations
 import abc
 from typing import Dict, Iterator, List, Literal, Optional, Tuple, TypeVar, Union
 
+import numpy as np
+import numpy.typing as npt
+
 from py123d.api.map.map_api import MapAPI
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.datatypes import (
@@ -35,6 +38,7 @@ from py123d.datatypes import (
     TrafficLightDetectionsMetadata,
 )
 from py123d.datatypes.metadata import SceneMetadata
+from py123d.datatypes.metadata.route_metadata import RouteMetadata
 
 T = TypeVar("T")
 
@@ -218,6 +222,46 @@ class SceneAPI(abc.ABC):
         :return: Iterator of modality entries in the range. Empty if the modality is not available
             or no entries fall within the range.
         """
+
+    # 1.4 Route (driven-route polyline, optional derived data)
+    # ------------------------------------------------------------------------------------------------------------------
+
+    def get_route_metadata(self) -> Optional[RouteMetadata]:
+        """Returns the :class:`~py123d.datatypes.RouteMetadata` of the log's driven route, if available.
+
+        :return: The route metadata, or None if the log has no route.
+        """
+        return None
+
+    def get_route_polyline(self) -> Optional[Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]]:
+        """Returns the log's driven-route polyline, if available.
+
+        The polyline covers the whole log and is resampled at the resolution stored in the
+        route metadata. Positions are in the ego odometry frame.
+
+        :return: Tuple of (arc-length per vertex (K,), vertices (K, 3)), or None if the log has no route.
+        """
+        return None
+
+    def get_route_progress_at_iteration(self, iteration: int) -> Optional[float]:
+        """Returns the ego's arc-length position on the route polyline at a given iteration.
+
+        :param iteration: The iteration to get the route progress for (supports negative for history).
+        :return: The arc-length position in meters, or None if unavailable at the iteration.
+        """
+        return None
+
+    def get_remaining_route_m(self, iteration: int = 0) -> Optional[float]:
+        """Returns the driven-route meters remaining in the log after a given iteration.
+
+        :param iteration: The iteration to measure from, defaults to the scene's anchor (0).
+        :return: The remaining route in meters, or None if unavailable.
+        """
+        route_metadata = self.get_route_metadata()
+        route_progress = self.get_route_progress_at_iteration(iteration)
+        if route_metadata is None or route_progress is None:
+            return None
+        return route_metadata.total_arc_m - route_progress
 
     # ------------------------------------------------------------------------------------------------------------------
     # 2. Per-modality access methods.

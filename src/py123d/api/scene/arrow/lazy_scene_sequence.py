@@ -21,6 +21,7 @@ from py123d.api.scene.arrow.utils.scene_builder_utils import (
     _resolve_requirement,
     check_log_passes_metadata_filters,
     infer_iteration_duration_s,
+    keep_anchors_with_min_remaining_route,
     resolve_iteration_counts,
     resolve_iteration_stride,
     resolve_scene_step_size,
@@ -251,7 +252,7 @@ def _keep_anchors(
     stride: int,
     log_dir: Path,
 ) -> np.ndarray:
-    """Select the anchors whose scenes satisfy every modality and custom requirement.
+    """Select the anchors whose scenes satisfy every modality, route, and custom requirement.
 
     Checks all anchors of a log at once: the scoped frames of a scene are its
     anchor plus a fixed set of offsets, so completeness is one lookup into the
@@ -270,7 +271,10 @@ def _keep_anchors(
     if len(anchors) == 0:
         return keep
 
-    if filter.required_scene_modalities is not None:
+    if filter.min_remaining_route_m is not None:
+        keep &= keep_anchors_with_min_remaining_route(sync_table, anchors, filter.min_remaining_route_m)
+
+    if filter.required_scene_modalities is not None and keep.any():
         sync_column_set = set(sync_table.column_names)
         mask_cache: dict = {}
         for requirement in filter.required_scene_modalities:

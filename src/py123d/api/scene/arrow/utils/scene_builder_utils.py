@@ -11,6 +11,7 @@ from typing import FrozenSet, List, Optional, Set, Tuple
 import numpy as np
 import pyarrow as pa
 
+from py123d.api.scene.arrow.utils.route_utils import SYNC_ROUTE_PROGRESS_COLUMN
 from py123d.api.scene.scene_filter import VALID_MODALITY_SCOPES, AnchorFilterContext, SceneFilter
 from py123d.common.utils.uuid_utils import convert_to_bytes_uuid, convert_to_str_uuid
 from py123d.datatypes.metadata import SceneMetadata
@@ -288,6 +289,15 @@ def check_log_passes_metadata_filters(
             elif body not in sync_column_set:
                 return False
 
+    if filter.min_remaining_route_m is not None and SYNC_ROUTE_PROGRESS_COLUMN not in sync_column_names:
+        logger.warning(
+            "Log '%s' has no '%s' column, required by min_remaining_route_m; the log is rejected. "
+            "Reconvert it with write_route enabled or backfill its sync table.",
+            log_metadata.log_name,
+            SYNC_ROUTE_PROGRESS_COLUMN,
+        )
+        return False
+
     return True
 
 
@@ -416,6 +426,30 @@ def generate_scene_metadatas(
 # --- Category 3c: Scene-level filtering ---
 
 
+def keep_anchors_with_min_remaining_route(
+    sync_table: pa.Table,
+    anchors: np.ndarray,
+    min_remaining_route_m: float,
+) -> np.ndarray:
+    """Select the anchors with enough driven route left in the log.
+
+    A scene's remaining route is the log's final route progress minus the progress at
+    the scene's anchor frame. Anchors without a progress value (ego absent at the frame)
+    are dropped: their remaining route cannot be established.
+
+    :param sync_table: The sync Arrow table, with the ``sync.route_progress_m`` column.
+    :param anchors: Candidate anchor rows, int64.
+    :param min_remaining_route_m: Minimum remaining driven route in meters.
+    :return: Boolean array over ``anchors``, True for the scenes to keep.
+    """
+    progress = sync_table[SYNC_ROUTE_PROGRESS_COLUMN].to_numpy(zero_copy_only=False)
+    if np.all(np.isnan(progress)):
+        return np.zeros(len(anchors), dtype=bool)
+    total_arc_m = np.nanmax(progress)
+    anchor_progress = progress[anchors]
+    return ~np.isnan(anchor_progress) & (total_arc_m - anchor_progress >= min_remaining_route_m)
+
+
 def filter_scene_metadata_candidates(
     scene_metadatas: List[SceneMetadata],
     filter: SceneFilter,
@@ -443,7 +477,13 @@ def filter_scene_metadata_candidates(
             else:  # "any"
                 result = [s for s in result if _scene_has_any_complete_modality(s, sync_table, columns, scope)]
 
-    # 2. Custom anchor filter functions, grouped by future count: candidates
+    # 2. Remaining driven route after each scene's anchor frame.
+    if filter.min_remaining_route_m is not None and len(result) > 0:
+        anchors = np.array([scene.initial_idx for scene in result], dtype=np.int64)
+        keep = keep_anchors_with_min_remaining_route(sync_table, anchors, filter.min_remaining_route_m)
+        result = [scene for scene, kept in zip(result, keep) if kept]
+
+    # 3. Custom anchor filter functions, grouped by future count: candidates
     # differ in it only when scenes run to the log's end.
     if filter.custom_anchor_filter_fns is not None and len(result) > 0:
         assert log_dir is not None, "custom_anchor_filter_fns filtering requires the log_dir."
