@@ -16,6 +16,7 @@ from py123d.api.scene.arrow.modalities.arrow_imu import ArrowImuReader
 from py123d.api.scene.arrow.modalities.arrow_lidar import ArrowLidarReader
 from py123d.api.scene.arrow.modalities.arrow_magnetometer import ArrowMagnetometerReader
 from py123d.api.scene.arrow.modalities.arrow_radar import ArrowRadarReader
+from py123d.api.scene.arrow.modalities.arrow_route_position import ArrowRoutePositionReader
 from py123d.api.scene.arrow.modalities.arrow_sync import get_timestamp_from_arrow_table
 from py123d.api.scene.arrow.modalities.arrow_traffic_light_detections import ArrowTrafficLightDetectionsReader
 from py123d.api.scene.arrow.modalities.sync_utils import (
@@ -26,7 +27,7 @@ from py123d.api.scene.arrow.modalities.sync_utils import (
     get_sync_table,
 )
 from py123d.api.scene.arrow.utils.arrow_scene_caches import _get_complete_log_scene_metadata
-from py123d.api.scene.arrow.utils.route_utils import SYNC_ROUTE_PROGRESS_COLUMN, read_route_arrow
+from py123d.api.scene.arrow.utils.route_utils import read_route_arrow
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.utils.arrow_metadata_utils import LogDirectoryMetadata, parse_log_directory_metadata
 from py123d.common.utils.enums import SerialIntEnum
@@ -56,6 +57,7 @@ MODALITY_READERS: Dict[ModalityType, Type[ArrowBaseModalityReader]] = {
     ModalityType.GNSS: ArrowGnssReader,
     ModalityType.BAROMETER: ArrowBarometerReader,
     ModalityType.MAGNETOMETER: ArrowMagnetometerReader,
+    ModalityType.ROUTE_POSITION: ArrowRoutePositionReader,
     ModalityType.CUSTOM: ArrowCustomModalityReader,
 }
 
@@ -165,10 +167,11 @@ class ArrowSceneAPI(SceneAPI):
 
     def get_route_progress_at_iteration(self, iteration: int) -> Optional[float]:
         """Inherited, see superclass."""
-        sync_table = get_sync_table(self._log_dir)
-        if SYNC_ROUTE_PROGRESS_COLUMN not in sync_table.column_names:
-            return None
-        return sync_table[SYNC_ROUTE_PROGRESS_COLUMN][self._get_sync_index(iteration)].as_py()
+        return self.get_modality_column_at_iteration(
+            iteration,
+            column="progress_m",
+            modality_type=ModalityType.ROUTE_POSITION,
+        )
 
     # ------------------------------------------------------------------------------------------------------------------
     # 4. General modality access

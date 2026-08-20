@@ -14,12 +14,13 @@ from py123d.api.scene.arrow.arrow_scene_api import ArrowSceneAPI
 from py123d.api.scene.arrow.lazy_scene_sequence import build_log_scene_index
 from py123d.api.scene.arrow.utils.log_writer_config import LogWriterConfig
 from py123d.api.scene.arrow.utils.route_utils import (
-    SYNC_ROUTE_PROGRESS_COLUMN,
+    ROUTE_POSITION_KEY,
     compute_route_data,
     compute_route_data_from_waypoints,
     interpolate_route_at_arc,
     project_onto_polyline,
     read_route_arrow,
+    read_route_position,
 )
 from py123d.api.scene.arrow.utils.scene_builder_utils import filter_scene_metadata_candidates
 from py123d.api.scene.scene_filter import SceneFilter
@@ -207,10 +208,13 @@ class TestJumpWarning:
 
 
 class TestWriterRoute:
-    def test_route_file_and_progress_column(self, tmp_path: Path):
+    def test_route_files_and_sync_index_column(self, tmp_path: Path):
         log_dir, _ = _write_log(tmp_path, xs=[2.0 * i for i in range(11)])
-        sync = _sync_table(log_dir)
-        assert sync[SYNC_ROUTE_PROGRESS_COLUMN].to_pylist() == [2.0 * i for i in range(11)]
+        # route_position is a regular modality: sync holds row indices into its file.
+        assert _sync_table(log_dir)[ROUTE_POSITION_KEY].to_pylist() == list(range(11))
+        position_metadata, progress = read_route_position(log_dir)
+        assert progress.tolist() == [2.0 * i for i in range(11)]
+        assert position_metadata.total_arc_m == pytest.approx(20.0)
 
         route_metadata, arc, xyz = read_route_arrow(log_dir)
         assert route_metadata.total_arc_m == pytest.approx(20.0)
@@ -222,9 +226,10 @@ class TestWriterRoute:
     def test_write_route_disabled(self, tmp_path: Path):
         log_dir, _ = _write_log(tmp_path, xs=[0.0, 2.0], config=LogWriterConfig(write_route=False))
         assert not (log_dir / "route.arrow").exists()
-        assert SYNC_ROUTE_PROGRESS_COLUMN not in _sync_table(log_dir).column_names
+        assert not (log_dir / "route_position.arrow").exists()
+        assert ROUTE_POSITION_KEY not in _sync_table(log_dir).column_names
 
-    def test_deferred_sync_gets_progress(self, tmp_path: Path):
+    def test_deferred_sync_discovers_route_position(self, tmp_path: Path):
         log_meta = make_log_metadata()
         writer = ArrowLogWriter(
             LogWriterConfig(),
@@ -237,7 +242,8 @@ class TestWriterRoute:
             writer.write_async(_make_ego(i * TIMESTEP_US, 3.0 * i))
         writer.close()
         log_dir = tmp_path / log_meta.split / log_meta.log_name
-        assert _sync_table(log_dir)[SYNC_ROUTE_PROGRESS_COLUMN].to_pylist() == [3.0 * i for i in range(6)]
+        assert _sync_table(log_dir)[ROUTE_POSITION_KEY].to_pylist() == list(range(6))
+        assert read_route_position(log_dir)[1].tolist() == [3.0 * i for i in range(6)]
         assert (log_dir / "route.arrow").exists()
 
     def test_provided_route_overrides_odometry(self, tmp_path: Path):
@@ -246,9 +252,7 @@ class TestWriterRoute:
         route_metadata, _, _ = read_route_arrow(log_dir)
         assert route_metadata.source == "provided"
         assert route_metadata.total_arc_m == pytest.approx(100.0)
-        assert _sync_table(log_dir)[SYNC_ROUTE_PROGRESS_COLUMN].to_pylist() == pytest.approx(
-            [2.0 * i for i in range(5)]
-        )
+        assert read_route_position(log_dir)[1].tolist() == pytest.approx([2.0 * i for i in range(5)])
 
     def test_provided_route_written_even_when_write_route_disabled(self, tmp_path: Path):
         route_xyz = np.stack([np.arange(0.0, 11.0), np.zeros(11), np.zeros(11)], axis=1)
@@ -325,7 +329,7 @@ class TestRouteFilter:
         candidates = generate_scene_metadatas(
             sync, log_meta, future_iterations=2, history_iterations=0, iteration_duration_s=0.1
         )
-        kept = filter_scene_metadata_candidates(candidates, SceneFilter(min_remaining_route_m=10.0), sync)
+        kept = filter_scene_metadata_candidates(candidates, SceneFilter(min_remaining_route_m=10.0), sync, log_dir)
         assert [scene.initial_idx for scene in kept] == [0, 1, 2, 3, 4]
 
     def test_standstill_log_dropped_for_positive_minimum(self, tmp_path: Path):

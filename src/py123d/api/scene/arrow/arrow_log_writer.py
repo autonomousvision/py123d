@@ -20,12 +20,12 @@ from py123d.api.scene.arrow.modalities.arrow_radar import ArrowRadarWriter
 from py123d.api.scene.arrow.modalities.arrow_traffic_light_detections import ArrowTrafficLightDetectionsWriter
 from py123d.api.scene.arrow.utils.log_writer_config import LogWriterConfig
 from py123d.api.scene.arrow.utils.route_utils import (
-    SYNC_ROUTE_METADATA_KEY,
-    SYNC_ROUTE_PROGRESS_COLUMN,
+    ROUTE_POSITION_KEY,
     compute_route_data,
     compute_route_data_from_waypoints,
     warn_on_position_jumps,
     write_route_arrow,
+    write_route_position_arrow,
 )
 from py123d.api.scene.arrow.utils.scene_builder_utils import (
     compute_stride_from_duration,
@@ -124,8 +124,6 @@ class ArrowLogWriterState:
     sync_rows: Optional[List[Dict[str, Union[bytes, int, List[int]]]]] = None
     provided_route_xyz: Optional[np.ndarray] = None
     route_ego_key: Optional[str] = None
-    route_progress_by_ego_row: Optional[np.ndarray] = None
-    route_metadata: Optional[RouteMetadata] = None
 
 
 class ArrowLogWriter(BaseLogWriter):
@@ -451,9 +449,16 @@ class ArrowLogWriter(BaseLogWriter):
             ipc_compression_level=self._ipc_compression_level,
         )
         if route_data.progress_m is not None:
+            assert ego is not None
+            write_route_position_arrow(
+                log_dir=self._state.log_dir,
+                timestamps_us=ego[1],
+                progress_m=route_data.progress_m,
+                route_metadata=route_metadata,
+                ipc_compression=self._ipc_compression,
+                ipc_compression_level=self._ipc_compression_level,
+            )
             self._state.route_ego_key = ModalityType.EGO_STATE_SE3.serialize()
-            self._state.route_progress_by_ego_row = route_data.progress_m
-            self._state.route_metadata = route_metadata
 
     # ------------------------------------------------------------------------------------------------------------------
     # Sync table helpers
@@ -470,20 +475,14 @@ class ArrowLogWriter(BaseLogWriter):
         """
         assert self._state is not None
 
-        # Route progress is per ego row; resolve it per frame through the frame's ego
-        # row index (null where ego is absent). The RouteMetadata is stamped into the
-        # schema so filters know the route total without the sync rows covering it
-        # (the ego file can extend far beyond the sensor clip, e.g. physical-ai-av).
-        route_progress = self._state.route_progress_by_ego_row
+        # Route positions are 1:1 with ego rows, so each frame's route_position index is
+        # its ego index. The deferred sync build discovers the modality file itself and
+        # already carries the column; only the sync-rows path needs it added here.
         route_ego_key = self._state.route_ego_key
-        if route_progress is not None and route_ego_key in schema.names:
-            schema = schema.append(pa.field(SYNC_ROUTE_PROGRESS_COLUMN, pa.float64()))
-            schema = add_metadata_to_arrow_schema(schema, self._state.route_metadata, SYNC_ROUTE_METADATA_KEY)
+        if route_ego_key in schema.names and ROUTE_POSITION_KEY not in schema.names:
+            schema = schema.append(pa.field(ROUTE_POSITION_KEY, pa.int64()))
             for row in rows:
-                ego_row_index = row[route_ego_key][0]
-                row[SYNC_ROUTE_PROGRESS_COLUMN] = [
-                    float(route_progress[ego_row_index]) if ego_row_index is not None else None
-                ]
+                row[ROUTE_POSITION_KEY] = [row[route_ego_key][0]]
 
         schema = add_metadata_to_arrow_schema(schema, self._state.log_metadata)
         sync_path = self._state.log_dir / "sync.arrow"

@@ -44,6 +44,7 @@ from py123d.datatypes.metadata import BaseMetadata, MapMetadata, RouteMetadata, 
 # LogMetadata imported after all deps to avoid circular import
 # (log_metadata -> custom_modality -> metadata.base_metadata -> metadata/__init__ cycle)
 from py123d.datatypes.metadata.log_metadata import LogMetadata
+from py123d.datatypes.route import RoutePosition
 from py123d.datatypes.modalities import (
     BaseModality,
     BaseModalityMetadata,
@@ -160,6 +161,7 @@ __all__ = [
     "LogMetadata",
     "MapMetadata",
     "RouteMetadata",
+    "RoutePosition",
     "SceneMetadata",
     # Modalities
     "BaseModality",

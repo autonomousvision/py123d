@@ -272,7 +272,7 @@ def _keep_anchors(
         return keep
 
     if filter.min_remaining_route_m is not None:
-        keep &= keep_anchors_with_min_remaining_route(sync_table, anchors, filter.min_remaining_route_m)
+        keep &= keep_anchors_with_min_remaining_route(sync_table, anchors, filter.min_remaining_route_m, log_dir)
 
     if filter.required_scene_modalities is not None and keep.any():
         sync_column_set = set(sync_table.column_names)

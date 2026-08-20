@@ -1,9 +1,9 @@
-"""Route polyline: computation, ``route.arrow`` I/O, and interpolation.
+"""Route polyline: computation, ``route.arrow`` / ``route_position.arrow`` I/O, interpolation.
 
 A log's route is one polyline resampled at a fixed arc-length resolution — the driven
 path derived from ego odometry, or an explicitly provided (planned) route. The log
-writer stores it in ``route.arrow`` and each frame's arc-length position on it in the
-``sync.route_progress_m`` column.
+writer stores the polyline in ``route.arrow`` (per-log, like ``map.arrow``) and each
+frame's arc-length position on it as the regular ``route_position`` modality.
 """
 
 import logging
@@ -17,19 +17,15 @@ import pyarrow as pa
 
 from py123d.api.utils.arrow_metadata_utils import add_metadata_to_arrow_schema, get_metadata_from_arrow_schema
 from py123d.datatypes.metadata.route_metadata import RouteMetadata
+from py123d.datatypes.modalities.base_modality import ModalityType
 
 logger = logging.getLogger(__name__)
 
 ROUTE_FILE_NAME = "route.arrow"
 
-SYNC_ROUTE_PROGRESS_COLUMN = "sync.route_progress_m"
-"""Sync-table column: each frame's arc-length position on the route polyline in meters."""
-
-SYNC_ROUTE_METADATA_KEY = b"route_metadata"
-"""Sync schema metadata key holding the :class:`RouteMetadata`. The ego file (and hence
-the route) can extend far beyond the sync table — e.g. physical-ai-av logs carry minutes
-of ego motion around a 30 s sensor clip — so the route total must not be inferred from
-the sync rows alone."""
+ROUTE_POSITION_KEY = ModalityType.ROUTE_POSITION.serialize()
+"""Modality key of the per-frame route positions (``route_position.arrow``); also the
+sync-table column holding each frame's row index into that file."""
 
 _ROUTE_ARC_COLUMN = "route.arc_m"
 _ROUTE_XYZ_COLUMNS = ("route.x", "route.y", "route.z")
@@ -230,12 +226,52 @@ def read_route_arrow(log_dir: Path) -> Optional[Tuple[RouteMetadata, npt.NDArray
     return route_metadata, table[_ROUTE_ARC_COLUMN].to_numpy(), polyline_xyz
 
 
-def read_route_metadata_from_sync_schema(sync_schema: pa.Schema) -> Optional[RouteMetadata]:
-    """Read the :class:`RouteMetadata` stamped into a sync table's schema, or None."""
-    try:
-        return get_metadata_from_arrow_schema(sync_schema, RouteMetadata, SYNC_ROUTE_METADATA_KEY)
-    except ValueError:
+def write_route_position_arrow(
+    log_dir: Path,
+    timestamps_us: npt.NDArray[np.int64],
+    progress_m: npt.NDArray[np.float64],
+    route_metadata: RouteMetadata,
+    ipc_compression: Optional[Literal["lz4", "zstd"]] = None,
+    ipc_compression_level: Optional[int] = None,
+) -> None:
+    """Write the per-frame route positions as the regular ``route_position`` modality file."""
+    schema = pa.schema(
+        [
+            pa.field(f"{ROUTE_POSITION_KEY}.timestamp_us", pa.int64()),
+            pa.field(f"{ROUTE_POSITION_KEY}.progress_m", pa.float64()),
+        ]
+    )
+    schema = add_metadata_to_arrow_schema(schema, route_metadata)
+    table = pa.table(
+        {
+            f"{ROUTE_POSITION_KEY}.timestamp_us": np.asarray(timestamps_us, dtype=np.int64),
+            f"{ROUTE_POSITION_KEY}.progress_m": np.asarray(progress_m, dtype=np.float64),
+        },
+        schema=schema,
+    )
+
+    options = None
+    if ipc_compression is not None:
+        options = pa.ipc.IpcWriteOptions(compression=pa.Codec(ipc_compression, compression_level=ipc_compression_level))
+    with pa.OSFile(str(log_dir / f"{ROUTE_POSITION_KEY}.arrow"), "wb") as source:
+        with pa.ipc.new_file(source, schema=schema, options=options) as writer:
+            writer.write_table(table)
+
+
+def read_route_position(
+    log_dir: Path,
+) -> Optional[Tuple[RouteMetadata, npt.NDArray[np.float64]]]:
+    """Read (route metadata, progress per row (N,)) from ``route_position.arrow``,
+    or None when the log has no route positions."""
+    from py123d.api.utils.arrow_helper import get_lru_cached_arrow_table
+
+    path = Path(log_dir) / f"{ROUTE_POSITION_KEY}.arrow"
+    if not path.exists():
         return None
+
+    table = get_lru_cached_arrow_table(str(path))
+    route_metadata = get_metadata_from_arrow_schema(table.schema, RouteMetadata)
+    return route_metadata, table[f"{ROUTE_POSITION_KEY}.progress_m"].to_numpy()
 
 
 def warn_on_position_jumps(

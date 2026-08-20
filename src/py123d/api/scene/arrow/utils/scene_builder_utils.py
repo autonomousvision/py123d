@@ -12,8 +12,8 @@ import numpy as np
 import pyarrow as pa
 
 from py123d.api.scene.arrow.utils.route_utils import (
-    SYNC_ROUTE_PROGRESS_COLUMN,
-    read_route_metadata_from_sync_schema,
+    ROUTE_POSITION_KEY,
+    read_route_position,
 )
 from py123d.api.scene.scene_filter import VALID_MODALITY_SCOPES, AnchorFilterContext, SceneFilter
 from py123d.common.utils.uuid_utils import convert_to_bytes_uuid, convert_to_str_uuid
@@ -292,12 +292,12 @@ def check_log_passes_metadata_filters(
             elif body not in sync_column_set:
                 return False
 
-    if filter.min_remaining_route_m is not None and SYNC_ROUTE_PROGRESS_COLUMN not in sync_column_names:
+    if filter.min_remaining_route_m is not None and ROUTE_POSITION_KEY not in sync_column_names:
         logger.warning(
-            "Log '%s' has no '%s' column, required by min_remaining_route_m; the log is rejected. "
-            "Reconvert it with write_route enabled or backfill its sync table.",
+            "Log '%s' has no '%s' modality, required by min_remaining_route_m; the log is rejected. "
+            "Reconvert it with write_route enabled or backfill it.",
             log_metadata.log_name,
-            SYNC_ROUTE_PROGRESS_COLUMN,
+            ROUTE_POSITION_KEY,
         )
         return False
 
@@ -433,27 +433,33 @@ def keep_anchors_with_min_remaining_route(
     sync_table: pa.Table,
     anchors: np.ndarray,
     min_remaining_route_m: float,
+    log_dir: Path,
 ) -> np.ndarray:
     """Select the anchors with enough route left: the route's total arc minus the anchor's
-    progress. Anchors without a progress value (ego absent) are dropped — their remaining
+    progress. Anchors without a route position (ego absent) are dropped — their remaining
     route cannot be established.
 
-    The total comes from the RouteMetadata stamped into the sync schema — the route can
-    extend far beyond the sync rows (e.g. physical-ai-av ego motion around a short sensor
-    clip) — falling back to the last synced progress for logs without the stamp.
+    The total comes from the route_position modality's metadata, not from the synced
+    rows — the route can extend far beyond the sync table (e.g. physical-ai-av ego
+    motion around a short sensor clip).
 
-    :param sync_table: The sync Arrow table, with the ``sync.route_progress_m`` column.
+    :param sync_table: The sync Arrow table, with the ``route_position`` index column.
     :param anchors: Candidate anchor rows, int64.
     :param min_remaining_route_m: Minimum remaining route in meters.
+    :param log_dir: The log directory holding ``route_position.arrow``.
     :return: Boolean array over ``anchors``, True for the scenes to keep.
     """
-    progress = sync_table[SYNC_ROUTE_PROGRESS_COLUMN].to_numpy(zero_copy_only=False)
-    if np.all(np.isnan(progress)):
+    route_position = read_route_position(log_dir)
+    if route_position is None:
         return np.zeros(len(anchors), dtype=bool)
-    route_metadata = read_route_metadata_from_sync_schema(sync_table.schema)
-    total_arc_m = route_metadata.total_arc_m if route_metadata is not None else np.nanmax(progress)
-    anchor_progress = progress[anchors]
-    return ~np.isnan(anchor_progress) & (total_arc_m - anchor_progress >= min_remaining_route_m)
+    route_metadata, progress_by_row = route_position
+
+    row_indices = sync_table[ROUTE_POSITION_KEY].to_numpy(zero_copy_only=False)  # float64, NaN where null
+    anchor_rows = row_indices[anchors]
+    keep = ~np.isnan(anchor_rows)
+    anchor_progress = progress_by_row[anchor_rows[keep].astype(np.int64)]
+    keep[keep] = route_metadata.total_arc_m - anchor_progress >= min_remaining_route_m
+    return keep
 
 
 def filter_scene_metadata_candidates(
@@ -467,8 +473,9 @@ def filter_scene_metadata_candidates(
     :param scene_metadatas: List of candidate SceneMetadata objects.
     :param filter: The scene filter.
     :param sync_table: The sync Arrow table.
-    :param log_dir: The log directory; required when the filter carries custom
-        anchor filter functions.
+    :param log_dir: The log directory; required when the filter reads per-frame data
+        beyond the sync table (min_remaining_route_m) or carries custom anchor
+        filter functions.
     :return: Filtered list of SceneMetadata objects.
     """
 
@@ -483,10 +490,11 @@ def filter_scene_metadata_candidates(
             else:  # "any"
                 result = [s for s in result if _scene_has_any_complete_modality(s, sync_table, columns, scope)]
 
-    # 2. Remaining driven route after each scene's anchor frame.
+    # 2. Remaining route after each scene's anchor frame.
     if filter.min_remaining_route_m is not None and len(result) > 0:
+        assert log_dir is not None, "min_remaining_route_m filtering requires the log_dir."
         anchors = np.array([scene.initial_idx for scene in result], dtype=np.int64)
-        keep = keep_anchors_with_min_remaining_route(sync_table, anchors, filter.min_remaining_route_m)
+        keep = keep_anchors_with_min_remaining_route(sync_table, anchors, filter.min_remaining_route_m, log_dir)
         result = [scene for scene, kept in zip(result, keep) if kept]
 
     # 3. Custom anchor filter functions, grouped by future count: candidates
