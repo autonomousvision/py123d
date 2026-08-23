@@ -23,6 +23,7 @@ _SOLUTION_QUALITY_FIELDS: tuple = (
     ("vertical_accuracy", pa.float64()),
     ("position_dop", pa.float64()),
     ("velocity_ned", pa.list_(pa.float64(), _VELOCITY_SIZE)),
+    ("speed_accuracy", pa.float64()),
 )
 
 # ------------------------------------------------------------------------------------------------------------------
@@ -137,6 +138,7 @@ class ArrowGnssReader(ArrowBaseModalityReader):
             vertical_accuracy=_optional("vertical_accuracy"),
             position_dop=_optional("position_dop"),
             velocity_ned=np.asarray(velocity_ned, dtype=np.float64) if velocity_ned is not None else None,
+            speed_accuracy=_optional("speed_accuracy"),
         )
 
     @staticmethod
