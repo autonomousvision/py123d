@@ -464,7 +464,12 @@ def filter_scene_metadata_candidates(
                     future_iterations=int(future_iterations),
                     stride=result[0].target_iteration_stride,
                 )
-                keep[kept_group] = np.asarray(filter_fn(context), dtype=bool)
+                mask = np.asarray(filter_fn(context), dtype=bool)
+                if mask.shape != context.anchors.shape:
+                    raise ValueError(
+                        f"custom anchor filter returned shape {mask.shape} for {len(context.anchors)} anchors"
+                    )
+                keep[kept_group] = mask
         result = [scene for scene, kept in zip(result, keep) if kept]
 
     return result

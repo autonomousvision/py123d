@@ -256,6 +256,30 @@ def test_custom_anchor_filter_context_contents(builders: Tuple[ArrowSceneBuilder
     assert list(context.anchors) == [scene.scene_metadata.initial_idx for scene in lazy]
 
 
+def test_anchor_filter_result_shape_is_validated(
+    builders: Tuple[ArrowSceneBuilder, LazyArrowSceneBuilder], caplog
+) -> None:
+    """A scalar result must not silently broadcast over all anchors; the log is rejected instead."""
+    import logging
+
+    eager_builder, lazy_builder = builders
+    scene_filter = SceneFilter(
+        split_names=[SPLIT_NAME],
+        shuffle=False,
+        history_num_iterations=1,
+        future_num_iterations=2,
+        custom_anchor_filter_fns=[lambda context: np.array(True)],
+    )
+
+    with caplog.at_level(logging.WARNING):
+        lazy = lazy_builder.get_scenes(scene_filter, SequentialExecutor())
+        eager = eager_builder.get_scenes(scene_filter, SequentialExecutor())
+
+    assert len(lazy) == 0
+    assert len(eager) == 0
+    assert "shape" in caplog.text
+
+
 def test_anchor_keys_match_the_materialized_scenes(builders: Tuple[ArrowSceneBuilder, LazyArrowSceneBuilder]) -> None:
     """The pairing keys come from the index, so they must equal what the scenes report."""
     eager_builder, lazy_builder = builders

@@ -14,7 +14,12 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class AnchorFilterContext:
-    """One log's surviving candidate anchors, handed to each custom anchor filter function."""
+    """One log's surviving candidate anchors, handed to each custom anchor filter function.
+
+    All anchors of a call share their iteration counts; scenes with different future lengths
+    (scenes running to the log's end) arrive in separate calls, so a filter must judge each
+    anchor on its own.
+    """
 
     log_dir: Path
     """The log directory the anchors belong to."""
@@ -138,7 +143,7 @@ class SceneFilter:
 
     # NOTE: Not compatible with Hydra override.
     custom_anchor_filter_fns: Optional[List[Callable[[AnchorFilterContext], np.ndarray]]] = None
-    """Like ``custom_filter_fns``, but called once per log instead of once per scene: takes an
+    """Like ``custom_filter_fns``, but called with a whole log's candidate scenes at once: takes an
     :class:`AnchorFilterContext`, returns one bool per candidate scene."""
 
     # 4. Category: Post-filtering options (applied after scenes are filtered by the above criteria, e.g. for sampling or shuffling).

@@ -311,7 +311,12 @@ def _keep_anchors(
                 future_iterations=future_iterations,
                 stride=stride,
             )
-            keep[keep] = np.asarray(filter_fn(context), dtype=bool)
+            result = np.asarray(filter_fn(context), dtype=bool)
+            if result.shape != context.anchors.shape:
+                raise ValueError(
+                    f"custom anchor filter returned shape {result.shape} for {len(context.anchors)} anchors"
+                )
+            keep[keep] = result
     return keep
 
 
