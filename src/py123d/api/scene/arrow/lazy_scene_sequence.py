@@ -27,7 +27,7 @@ from py123d.api.scene.arrow.utils.scene_builder_utils import (
     resolve_scene_uuid_indices,
 )
 from py123d.api.scene.scene_api import SceneAPI
-from py123d.api.scene.scene_filter import SceneFilter
+from py123d.api.scene.scene_filter import AnchorFilterContext, SceneFilter
 from py123d.api.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.api.utils.arrow_metadata_utils import get_metadata_from_arrow_schema
 from py123d.common.utils.uuid_utils import convert_to_str_uuid
@@ -249,8 +249,9 @@ def _keep_anchors(
     history_iterations: int,
     future_iterations: int,
     stride: int,
+    log_dir: Path,
 ) -> np.ndarray:
-    """Select the anchors whose scenes satisfy every modality requirement.
+    """Select the anchors whose scenes satisfy every modality and custom requirement.
 
     Checks all anchors of a log at once: the scoped frames of a scene are its
     anchor plus a fixed set of offsets, so completeness is one lookup into the
@@ -262,39 +263,55 @@ def _keep_anchors(
     :param history_iterations: History iterations every candidate carries.
     :param future_iterations: Future iterations every candidate carries.
     :param stride: Raw sync frames per logical iteration.
+    :param log_dir: The log directory, handed to the custom anchor filter functions.
     :return: Boolean array over ``anchors``, True for the scenes to keep.
     """
     keep = np.ones(len(anchors), dtype=bool)
-    if filter.required_scene_modalities is None or len(anchors) == 0:
+    if len(anchors) == 0:
         return keep
 
-    sync_column_set = set(sync_table.column_names)
-    mask_cache: dict = {}
-    for requirement in filter.required_scene_modalities:
-        columns, quantifier, scope = _resolve_requirement(requirement, sync_column_set)
-        if len(columns) == 0:
-            # An "all" requirement over no columns is vacuously satisfied; an
-            # "any" requirement over no columns keeps nothing.
-            if quantifier != "all":
-                keep[:] = False
-                break
-            continue
+    if filter.required_scene_modalities is not None:
+        sync_column_set = set(sync_table.column_names)
+        mask_cache: dict = {}
+        for requirement in filter.required_scene_modalities:
+            columns, quantifier, scope = _resolve_requirement(requirement, sync_column_set)
+            if len(columns) == 0:
+                # An "all" requirement over no columns is vacuously satisfied; an
+                # "any" requirement over no columns keeps nothing.
+                if quantifier != "all":
+                    keep[:] = False
+                    break
+                continue
 
-        offsets = _scope_offsets(scope, history_iterations, future_iterations, stride)
-        frames = anchors[:, None] + offsets[None, :]
-        complete: Optional[np.ndarray] = None
-        for column_name in columns:
-            column_complete = ~_null_mask(sync_table, column_name, mask_cache)[frames].any(axis=1)
-            if complete is None:
-                complete = column_complete
-            elif quantifier == "all":
-                complete &= column_complete
-            else:
-                complete |= column_complete
-        assert complete is not None
-        keep &= complete
-        if not keep.any():
-            break
+            offsets = _scope_offsets(scope, history_iterations, future_iterations, stride)
+            frames = anchors[:, None] + offsets[None, :]
+            complete: Optional[np.ndarray] = None
+            for column_name in columns:
+                column_complete = ~_null_mask(sync_table, column_name, mask_cache)[frames].any(axis=1)
+                if complete is None:
+                    complete = column_complete
+                elif quantifier == "all":
+                    complete &= column_complete
+                else:
+                    complete |= column_complete
+            assert complete is not None
+            keep &= complete
+            if not keep.any():
+                break
+
+    if filter.custom_anchor_filter_fns is not None:
+        for filter_fn in filter.custom_anchor_filter_fns:
+            if not keep.any():
+                break
+            context = AnchorFilterContext(
+                log_dir=log_dir,
+                sync_table=sync_table,
+                anchors=anchors[keep],
+                history_iterations=history_iterations,
+                future_iterations=future_iterations,
+                stride=stride,
+            )
+            keep[keep] = np.asarray(filter_fn(context), dtype=bool)
     return keep
 
 
@@ -349,6 +366,7 @@ def build_log_scene_index(
                         history_iterations,
                         max((num_rows - int(anchor) - 1) // stride, 0),
                         stride,
+                        log_dir,
                     )[0]
                     for anchor in candidates
                 ],
@@ -364,7 +382,7 @@ def build_log_scene_index(
                 if uuid_indices is not None
                 else np.arange(initial_idx, max(end_idx, initial_idx), step_idx, dtype=np.int64)
             )
-            keep = _keep_anchors(sync_table, candidates, filter, history_iterations, future_iterations, stride)
+            keep = _keep_anchors(sync_table, candidates, filter, history_iterations, future_iterations, stride, log_dir)
 
         anchors = candidates[keep] if len(candidates) else candidates
         if len(anchors) == 0:

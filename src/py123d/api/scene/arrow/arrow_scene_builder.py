@@ -311,7 +311,7 @@ def _get_scene_metadatas_from_log(
     )
 
     # Phase 3: Category 3c — scene-level filtering
-    result = filter_scene_metadata_candidates(candidates, filter, sync_table)
+    result = filter_scene_metadata_candidates(candidates, filter, sync_table, log_dir)
     return result
 
 
