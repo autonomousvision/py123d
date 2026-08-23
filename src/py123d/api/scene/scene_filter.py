@@ -1,11 +1,44 @@
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, List, Optional
+
+import numpy as np
+import pyarrow as pa
 
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.common.utils.uuid_utils import convert_to_str_uuid
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class AnchorFilterContext:
+    """One log's surviving candidate anchors, handed to each custom anchor filter function.
+
+    All anchors of a call share their iteration counts; scenes with different future lengths
+    (scenes running to the log's end) arrive in separate calls, so a filter must judge each
+    anchor on its own.
+    """
+
+    log_dir: Path
+    """The log directory the anchors belong to."""
+
+    sync_table: pa.Table
+    """The log's sync Arrow table."""
+
+    anchors: np.ndarray
+    """Sync-table row of each candidate scene's initial frame, ascending, int64."""
+
+    history_iterations: int
+    """History iterations every candidate scene carries."""
+
+    future_iterations: int
+    """Future iterations every candidate scene carries."""
+
+    stride: int
+    """Raw sync frames per logical iteration."""
+
 
 VALID_MODALITY_SCOPES = frozenset({"history", "initial", "future"})
 """Valid temporal segments for a modality requirement's optional ``@scope`` suffix (joined with ``+``)."""
@@ -107,6 +140,11 @@ class SceneFilter:
         - ``"camera.pcam_f0@initial"`` — complete only at the anchor frame (iteration 0).
         - ``"camera:any@initial+future"`` — at least one camera complete across iteration 0 and the future.
     """
+
+    # NOTE: Not compatible with Hydra override.
+    custom_anchor_filter_fns: Optional[List[Callable[[AnchorFilterContext], np.ndarray]]] = None
+    """Like ``custom_filter_fns``, but called with a whole log's candidate scenes at once: takes an
+    :class:`AnchorFilterContext`, returns one bool per candidate scene."""
 
     # 4. Category: Post-filtering options (applied after scenes are filtered by the above criteria, e.g. for sampling or shuffling).
     # Answers: What to do with the scenes after filtering?

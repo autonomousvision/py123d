@@ -5,12 +5,13 @@ Category 3: Scene generation and scene-level filtering
 """
 
 import logging
+from pathlib import Path
 from typing import FrozenSet, List, Optional, Set, Tuple
 
 import numpy as np
 import pyarrow as pa
 
-from py123d.api.scene.scene_filter import VALID_MODALITY_SCOPES, SceneFilter
+from py123d.api.scene.scene_filter import VALID_MODALITY_SCOPES, AnchorFilterContext, SceneFilter
 from py123d.common.utils.uuid_utils import convert_to_bytes_uuid, convert_to_str_uuid
 from py123d.datatypes.metadata import SceneMetadata
 from py123d.datatypes.metadata.log_metadata import LogMetadata
@@ -419,12 +420,15 @@ def filter_scene_metadata_candidates(
     scene_metadatas: List[SceneMetadata],
     filter: SceneFilter,
     sync_table: pa.Table,
+    log_dir: Optional[Path] = None,
 ) -> List[SceneMetadata]:
     """Filter candidate scenes by scene-level criteria (Category 3).
 
     :param scene_metadatas: List of candidate SceneMetadata objects.
     :param filter: The scene filter.
     :param sync_table: The sync Arrow table.
+    :param log_dir: The log directory; required when the filter carries custom
+        anchor filter functions.
     :return: Filtered list of SceneMetadata objects.
     """
 
@@ -438,6 +442,35 @@ def filter_scene_metadata_candidates(
                 result = [s for s in result if _scene_has_complete_modalities(s, sync_table, columns, scope)]
             else:  # "any"
                 result = [s for s in result if _scene_has_any_complete_modality(s, sync_table, columns, scope)]
+
+    # 2. Custom anchor filter functions, grouped by future count: candidates
+    # differ in it only when scenes run to the log's end.
+    if filter.custom_anchor_filter_fns is not None and len(result) > 0:
+        assert log_dir is not None, "custom_anchor_filter_fns filtering requires the log_dir."
+        anchors = np.array([scene.initial_idx for scene in result], dtype=np.int64)
+        futures = np.array([scene.num_future_iterations for scene in result], dtype=np.int64)
+        keep = np.ones(len(result), dtype=bool)
+        for future_iterations in np.unique(futures):
+            group = np.flatnonzero(futures == future_iterations)
+            for filter_fn in filter.custom_anchor_filter_fns:
+                kept_group = group[keep[group]]
+                if len(kept_group) == 0:
+                    break
+                context = AnchorFilterContext(
+                    log_dir=log_dir,
+                    sync_table=sync_table,
+                    anchors=anchors[kept_group],
+                    history_iterations=result[0].num_history_iterations,
+                    future_iterations=int(future_iterations),
+                    stride=result[0].target_iteration_stride,
+                )
+                mask = np.asarray(filter_fn(context), dtype=bool)
+                if mask.shape != context.anchors.shape:
+                    raise ValueError(
+                        f"custom anchor filter returned shape {mask.shape} for {len(context.anchors)} anchors"
+                    )
+                keep[kept_group] = mask
+        result = [scene for scene, kept in zip(result, keep) if kept]
 
     return result
 
