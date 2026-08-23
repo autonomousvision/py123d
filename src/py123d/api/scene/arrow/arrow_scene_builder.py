@@ -116,7 +116,7 @@ class LazyArrowSceneBuilder(ArrowSceneBuilder):
         target_uuids_binary = scene_uuids_to_binary(filter.scene_uuids) if filter.scene_uuids is not None else None
         log_indices = executor_map_chunked_list(
             executor,
-            partial(_index_log_dirs, filter=filter, target_uuids_binary=target_uuids_binary),
+            partial(_index_log_dirs, filter=filter, maps_root=self._maps_root, target_uuids_binary=target_uuids_binary),
             log_paths,
             name="Scene indexing",
         )
@@ -203,16 +203,18 @@ def _discover_split_names(logs_root: Path, filter: SceneFilter) -> List[str]:
 def _index_log_dirs(
     log_dirs: List[Path],
     filter: SceneFilter,
+    maps_root: Optional[Path] = None,
     target_uuids_binary: Optional[pa.Array] = None,
 ) -> List[LogSceneIndex]:
     """Index multiple log directories (chunked batch wrapper).
 
     :param log_dirs: List of log directory paths to index.
     :param filter: The scene filter.
+    :param maps_root: Maps directory the built scenes resolve their map under, defaults to None
     :param target_uuids_binary: Pre-converted binary(16) Arrow array of target UUIDs, or None.
     :return: One index per log that contributes at least one scene.
     """
-    indices = [build_log_scene_index(log_dir, filter, target_uuids_binary) for log_dir in log_dirs]
+    indices = [build_log_scene_index(log_dir, filter, target_uuids_binary, maps_root=maps_root) for log_dir in log_dirs]
     return [index for index in indices if index is not None]
 
 
@@ -259,7 +261,7 @@ def _extract_scenes_from_log_dir(
 
     scenes: List[SceneAPI] = []
     for scene_metadata in scene_metadatas:
-        scenes.append(ArrowSceneAPI(log_dir=log_dir, scene_metadata=scene_metadata))
+        scenes.append(ArrowSceneAPI(log_dir=log_dir, scene_metadata=scene_metadata, maps_root=maps_root))
     return scenes
 
 

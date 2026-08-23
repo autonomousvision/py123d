@@ -61,24 +61,28 @@ MODALITY_READERS: Dict[ModalityType, Type[ArrowBaseModalityReader]] = {
 class ArrowSceneAPI(SceneAPI):
     """Scene API for Arrow-based scenes. Loads each modality from a separate Arrow file in a log directory."""
 
-    __slots__ = ("_log_dir", "_scene_metadata")
+    __slots__ = ("_log_dir", "_scene_metadata", "_maps_root")
 
     def __init__(
         self,
         log_dir: Union[Path, str],
         scene_metadata: Optional[SceneMetadata] = None,
+        maps_root: Optional[Union[Path, str]] = None,
     ) -> None:
         """Initializes the :class:`ArrowSceneAPI`.
 
         :param log_dir: Path to the log directory containing per-modality Arrow files.
         :param scene_metadata: Scene metadata, defaults to None
+        :param maps_root: Root directory the scene's map is resolved under before the
+            global dataset paths, defaults to None
         """
         self._log_dir: Path = Path(log_dir)
         self._scene_metadata: Optional[SceneMetadata] = scene_metadata
+        self._maps_root: Optional[Path] = Path(maps_root) if maps_root is not None else None
 
     def __reduce__(self):
         """Helper for pickling the object."""
-        return (self.__class__, (self._log_dir, self._scene_metadata))
+        return (self.__class__, (self._log_dir, self._scene_metadata, self._maps_root))
 
     # ------------------------------------------------------------------------------------------------------------------
     # Internal Helpers
@@ -147,7 +151,7 @@ class ArrowSceneAPI(SceneAPI):
 
     def get_map_api(self) -> Optional[MapAPI]:
         """Inherited, see superclass."""
-        return get_map_api_for_log(self._log_dir, self.get_log_metadata())
+        return get_map_api_for_log(self._log_dir, self.get_log_metadata(), maps_root=self._maps_root)
 
     # ------------------------------------------------------------------------------------------------------------------
     # 4. General modality access

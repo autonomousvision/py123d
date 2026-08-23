@@ -48,6 +48,9 @@ class LogSceneIndex:
     log_dir: Path
     """Directory the scenes are read from."""
 
+    maps_root: Optional[Path]
+    """Maps directory the scenes resolve their map under before the global dataset paths."""
+
     dataset: str
     """Dataset the log belongs to."""
 
@@ -163,7 +166,11 @@ class LazySceneSequence(Sequence[SceneAPI]):
         log_position = int(np.searchsorted(self._log_starts, flat_index, side="right")) - 1
         log_index = self._log_indices[log_position]
         anchor_index = int(log_index.anchor_indices[flat_index - self._log_starts[log_position]])
-        return ArrowSceneAPI(log_dir=log_index.log_dir, scene_metadata=log_index.scene_metadata_at(anchor_index))
+        return ArrowSceneAPI(
+            log_dir=log_index.log_dir,
+            scene_metadata=log_index.scene_metadata_at(anchor_index),
+            maps_root=log_index.maps_root,
+        )
 
     def anchor_columns(self) -> Tuple[List[str], np.ndarray, np.ndarray]:
         """Identify every scene by its log and initial timestamp, building none of them.
@@ -295,6 +302,7 @@ def build_log_scene_index(
     log_dir: Path,
     filter: SceneFilter,
     target_uuids_binary: Optional[pa.Array] = None,
+    maps_root: Optional[Path] = None,
 ) -> Optional[LogSceneIndex]:
     """Index one log's scenes without building a scene object.
 
@@ -364,6 +372,7 @@ def build_log_scene_index(
         timestamps_us = np.asarray(sync_table["sync.timestamp_us"].to_numpy(), dtype=np.int64)
         return LogSceneIndex(
             log_dir=log_dir,
+            maps_root=maps_root,
             dataset=log_metadata.dataset,
             split=log_metadata.split,
             anchor_indices=anchors,
