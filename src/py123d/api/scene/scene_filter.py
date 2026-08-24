@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Callable, List, Optional
 
 import numpy as np
+import numpy.typing as npt
 import pyarrow as pa
 
 from py123d.api.scene.scene_api import SceneAPI
@@ -27,7 +28,7 @@ class AnchorFilterContext:
     sync_table: pa.Table
     """The log's sync Arrow table."""
 
-    anchors: np.ndarray
+    anchors: npt.NDArray[np.int64]
     """Sync-table row of each candidate scene's initial frame, ascending, int64."""
 
     history_iterations: int
@@ -147,7 +148,7 @@ class SceneFilter:
     """
 
     # NOTE: Not compatible with Hydra override.
-    custom_anchor_filter_fns: Optional[List[Callable[[AnchorFilterContext], np.ndarray]]] = None
+    custom_anchor_filter_fns: Optional[List[Callable[[AnchorFilterContext], npt.NDArray[np.bool_]]]] = None
     """Like ``custom_filter_fns``, but called with a whole log's candidate scenes at once: takes an
     :class:`AnchorFilterContext`, returns one bool per candidate scene."""
 
