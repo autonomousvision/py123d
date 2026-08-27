@@ -216,6 +216,8 @@ def create_stop_zones_from_signals(
             stop_zone_type=stop_zone_type,
             outline=outline,
             lane_ids=[h.lane_id for h in helpers],
+            intersection_id=signal_helper.junction_id,
+            phase_idx=signal_helper.phase_idx,
         )
 
     return stop_zones

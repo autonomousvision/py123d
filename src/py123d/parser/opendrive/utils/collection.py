@@ -665,4 +665,27 @@ def _collect_signals(opendrive: XODR) -> Dict[int, OpenDriveSignalHelper]:
                 merged_lane_ids = sorted(set(existing.lane_ids + helper.lane_ids))
                 existing.lane_ids = merged_lane_ids
 
+    signal_phase_dict = _collect_signal_phases(opendrive)
+    for signal_id, helper in signal_dict.items():
+        junction_id, phase_idx = signal_phase_dict.get(signal_id, (None, None))
+        helper.junction_id = junction_id
+        helper.phase_idx = phase_idx
+
     return signal_dict
+
+
+def _collect_signal_phases(opendrive: XODR) -> Dict[int, Tuple[int, int]]:
+    """Maps signal_id -> (junction_id, phase_idx) via the junction's controller references."""
+    controller_signal_ids: Dict[int, List[int]] = {}
+    for controller in opendrive.controllers:
+        controller_signal_ids[int(controller.id)] = [int(control.signal_id) for control in controller.controls]
+
+    signal_phase_dict: Dict[int, Tuple[int, int]] = {}
+    for junction in opendrive.junctions:
+        for junction_controller in junction.controllers:
+            for signal_id in controller_signal_ids.get(junction_controller.id, []):
+                if signal_id in signal_phase_dict and signal_phase_dict[signal_id] != (junction.id, junction_controller.sequence):
+                    logger.warning(f"Signal {signal_id} referenced by multiple junction controllers, keeping first")
+                    continue
+                signal_phase_dict[signal_id] = (junction.id, junction_controller.sequence)
+    return signal_phase_dict
