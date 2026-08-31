@@ -16,6 +16,7 @@ import numpy.typing as npt
 import pyarrow as pa
 
 from py123d.api.utils.arrow_metadata_utils import add_metadata_to_arrow_schema, get_metadata_from_arrow_schema
+from py123d.datatypes.metadata.computed_from import ComputedFrom
 from py123d.datatypes.metadata.route_metadata import RouteMetadata
 from py123d.datatypes.modalities.base_modality import ModalityType
 
@@ -24,6 +25,10 @@ logger = logging.getLogger(__name__)
 ROUTE_POSITION_KEY = ModalityType.ROUTE_POSITION.serialize()
 """Modality key of the per-frame route positions (``route_position.arrow``); also the
 sync-table column holding each frame's row index into that file."""
+
+ROUTE_PRODUCER = "py123d:route_from_ego_state_se3@1"
+"""Producer identifier recorded in the route's ``ComputedFrom``. Bump the version suffix
+whenever the route computation changes in a way that makes existing routes wrong."""
 
 _MIN_SEGMENT_M = 0.05
 """Positions closer than this to the previously kept one are pruned, so standstill
@@ -51,7 +56,7 @@ class RouteData:
     progress_m: Optional[npt.NDArray[np.float64]]
     total_arc_m: float
 
-    def to_route_metadata(self, resolution_m: float, source: str) -> RouteMetadata:
+    def to_route_metadata(self, resolution_m: float, source: str, computed_from: ComputedFrom) -> RouteMetadata:
         """Pack the polyline into the modality metadata (static over the log)."""
         return RouteMetadata(
             resolution_m=resolution_m,
@@ -59,6 +64,7 @@ class RouteData:
             polyline_x=self.polyline_xyz[:, 0].tolist(),
             polyline_y=self.polyline_xyz[:, 1].tolist(),
             polyline_z=self.polyline_xyz[:, 2].tolist(),
+            computed_from=computed_from,
             source=source,
         )
 
