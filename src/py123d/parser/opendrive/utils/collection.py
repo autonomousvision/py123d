@@ -1,12 +1,16 @@
+import dataclasses
+import heapq
 import logging
+import re
 from copy import copy
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 from scipy.interpolate import splev, splprep
 
 from py123d.geometry.polyline import Polyline3D, PolylineSE2
 from py123d.geometry.utils.polyline_utils import get_points_2d_yaws, offset_points_perpendicular
+from py123d.geometry.utils.units import kmph_to_mps
 from py123d.parser.opendrive.utils.id_system import (
     build_lane_id,
     derive_lane_section_id,
@@ -23,7 +27,7 @@ from py123d.parser.opendrive.utils.signal_helper import (
     OpenDriveSignalHelper,
     get_signal_reference_helper,
 )
-from py123d.parser.opendrive.xodr_parser.lane import XODRRoadMark
+from py123d.parser.opendrive.xodr_parser.lane import XODRLane, XODRLaneSection, XODRRoadMark, XODRWidth
 from py123d.parser.opendrive.xodr_parser.opendrive import XODR, Junction
 from py123d.parser.opendrive.xodr_parser.reference import XODRReferenceLine
 from py123d.parser.opendrive.xodr_parser.road import XODRRoad
@@ -47,6 +51,9 @@ def collect_element_helpers(
     # 1. Fill the road and junction dictionaries
     road_dict: Dict[int, XODRRoad] = {road.id: road for road in opendrive.roads}
     junction_dict: Dict[int, Junction] = {junction.id: junction for junction in opendrive.junctions}
+
+    # 1.5. Split lane sections at speed signs so limit zones start exactly at the signs
+    _split_lane_sections_at_speed_signs(road_dict, _collect_speed_signs_by_road(road_dict))
 
     # 2. Create lane helpers from the roads and collect center lane road marks
     lane_helper_dict: Dict[str, OpenDriveLaneHelper] = {}
@@ -89,9 +96,11 @@ def collect_element_helpers(
     _deduplicate_connections(lane_helper_dict)
     # 3.4. Remove invalid connections based on centerline distances
     _post_process_connections(lane_helper_dict, connection_distance_threshold)
-    # 3.5. Propagate speed limits to junction lanes (they often lack <type> elements)
+    # 3.5. Speed-sign zones override road-type design speeds (CARLA encodes enforced limits as sign objects)
+    _apply_speed_sign_limits(lane_helper_dict, road_dict)
+    # 3.6. Propagate speed limits to junction lanes (they often lack <type> elements)
     _propagate_speed_limits_to_junction_lanes(lane_helper_dict, road_dict)
-    # 3.6. Correct lanes with no connections
+    # 3.7. Correct lanes with no connections
     _correct_lanes_with_no_connections(lane_helper_dict)
 
     # 4. Collect lane groups from lane helpers
@@ -320,6 +329,289 @@ def _post_process_connections(
             else:
                 valid_predecessor_lane_ids.append(predecessor_lane_id)
         lane_helper_dict[lane_id].predecessor_lane_ids = valid_predecessor_lane_ids
+
+
+SPEED_SIGN_NAME_PATTERN = re.compile(r"^[Ss]peed_(\d+)$")
+MIN_SECTION_SPLIT_LENGTH_M = 1.0
+
+
+def _rebase_widths(widths: List[XODRWidth], split_offset: float) -> List[XODRWidth]:
+    """Shift width cubics to a new section origin at split_offset (s_offsets are section-relative)."""
+    rebased: List[XODRWidth] = []
+    active: Optional[XODRWidth] = None
+    for width in widths:
+        if width.s_offset <= split_offset + 1e-9:
+            active = width
+        else:
+            rebased.append(
+                XODRWidth(s_offset=width.s_offset - split_offset, a=width.a, b=width.b, c=width.c, d=width.d)
+            )
+    if active is not None:
+        u = split_offset - active.s_offset
+        rebased.insert(
+            0,
+            XODRWidth(
+                s_offset=0.0,
+                a=active.a + active.b * u + active.c * u * u + active.d * u**3,
+                b=active.b + 2.0 * active.c * u + 3.0 * active.d * u * u,
+                c=active.c + 3.0 * active.d * u,
+                d=active.d,
+            ),
+        )
+    return rebased
+
+
+def _shift_road_marks(road_marks: List[XODRRoadMark], split_offset: float) -> List[XODRRoadMark]:
+    shifted: List[XODRRoadMark] = []
+    active: Optional[XODRRoadMark] = None
+    for mark in sorted(road_marks, key=lambda m: m.s_offset):
+        if mark.s_offset <= split_offset + 1e-9:
+            active = mark
+        else:
+            shifted.append(dataclasses.replace(mark, s_offset=mark.s_offset - split_offset))
+    if active is not None:
+        shifted.insert(0, dataclasses.replace(active, s_offset=0.0))
+    return shifted
+
+
+def _split_lane(lane: XODRLane, split_offset: float) -> Tuple[XODRLane, XODRLane]:
+    """Split one lane at a section-relative offset; the halves link to each other by their own id."""
+    first = XODRLane(
+        id=lane.id,
+        type=lane.type,
+        level=lane.level,
+        widths=list(lane.widths),
+        road_marks=list(lane.road_marks),
+        predecessor=lane.predecessor,
+        successor=lane.id,
+    )
+    second = XODRLane(
+        id=lane.id,
+        type=lane.type,
+        level=lane.level,
+        widths=_rebase_widths(lane.widths, split_offset),
+        road_marks=_shift_road_marks(lane.road_marks, split_offset),
+        predecessor=lane.id,
+        successor=lane.successor,
+    )
+    return first, second
+
+
+def _split_lane_sections_at_speed_signs(
+    road_dict: Dict[int, XODRRoad],
+    signs_by_road: Dict[int, List[Tuple[float, str, float]]],
+) -> None:
+    """
+    Split lane sections at speed-sign positions so limit zones start exactly at the signs.
+
+    Zone limits are assigned per lane, so without splitting a zone boundary lands at a lane
+    edge instead of the sign, and a short zone inside one lane disappears entirely. A sign
+    closer than MIN_SECTION_SPLIT_LENGTH_M to an existing boundary keeps that boundary.
+    """
+    for road_id in sorted(signs_by_road):
+        road = road_dict[road_id]
+        sections = road.lanes.lane_sections
+        for sign_s, _, _ in signs_by_road[road_id]:
+            section_idx = 0
+            for idx in range(len(sections)):
+                if sections[idx].s <= sign_s:
+                    section_idx = idx
+            section = sections[section_idx]
+            section_end = sections[section_idx + 1].s if section_idx + 1 < len(sections) else road.length
+            if sign_s - section.s < MIN_SECTION_SPLIT_LENGTH_M or section_end - sign_s < MIN_SECTION_SPLIT_LENGTH_M:
+                continue
+            split_offset = sign_s - section.s
+            first_lanes: Dict[str, List[XODRLane]] = {"left": [], "center": [], "right": []}
+            second_lanes: Dict[str, List[XODRLane]] = {"left": [], "center": [], "right": []}
+            for side, lanes in [
+                ("left", section.left_lanes),
+                ("center", section.center_lanes),
+                ("right", section.right_lanes),
+            ]:
+                for lane in lanes:
+                    first, second = _split_lane(lane, split_offset)
+                    first_lanes[side].append(first)
+                    second_lanes[side].append(second)
+            sections[section_idx] = XODRLaneSection(
+                s=section.s,
+                left_lanes=first_lanes["left"],
+                center_lanes=first_lanes["center"],
+                right_lanes=first_lanes["right"],
+            )
+            sections.insert(
+                section_idx + 1,
+                XODRLaneSection(
+                    s=sign_s,
+                    left_lanes=second_lanes["left"],
+                    center_lanes=second_lanes["center"],
+                    right_lanes=second_lanes["right"],
+                ),
+            )
+
+
+def _collect_speed_signs_by_road(road_dict: Dict[int, XODRRoad]) -> Dict[int, List[Tuple[float, str, float]]]:
+    """
+    Collect CARLA speed-sign objects per road as (s, orientation, limit_mps) sorted by s.
+
+    CARLA town maps encode enforced speed limits as roadside <object> entries named
+    "Speed_XX" with the limit in km/h; the road-level <type><speed> elements only carry
+    engineering design speeds.
+    """
+    signs_by_road: Dict[int, List[Tuple[float, str, float]]] = {}
+    for road_id in sorted(road_dict):
+        road = road_dict[road_id]
+        signs: List[Tuple[float, str, float]] = []
+        for road_object in road.objects:
+            match = SPEED_SIGN_NAME_PATTERN.match(road_object.name or "")
+            if match is None:
+                continue
+            sign_s = min(max(road_object.s, 0.0), road.length)
+            signs.append((sign_s, road_object.orientation or "none", kmph_to_mps(float(match.group(1)))))
+        if signs:
+            signs.sort()
+            signs_by_road[road_id] = signs
+    return signs_by_road
+
+
+def _fix_lane_limits_for_side(
+    lane_helper_dict: Dict[str, OpenDriveLaneHelper],
+    lane_ids: List[str],
+    side: str,
+    side_signs: List[Tuple[float, float]],
+    fixed_limits: Dict[str, float],
+    zone_entry_sources: List[Tuple[str, float]],
+) -> None:
+    """
+    Fix each lane's limit to its last-passed sign (midpoint rule); a sign standing in a
+    lane's far half governs no lane on this road yet, so it seeds that lane's traffic
+    successors as zone entry points instead.
+
+    Right-side lanes travel along +s, left-side lanes against it; side_signs are sorted by s.
+    """
+    for lane_id in sorted(lane_ids):
+        s_min, s_max = lane_helper_dict[lane_id].s_range
+        s_mid = 0.5 * (s_min + s_max)
+        if side == "right":
+            passed_limits = [limit for sign_s, limit in side_signs if sign_s <= s_mid]
+        else:
+            passed_limits = [limit for sign_s, limit in reversed(side_signs) if sign_s >= s_mid]
+        if passed_limits:
+            fixed_limits[lane_id] = passed_limits[-1]
+
+        last_sign: Optional[Tuple[float, float]] = None
+        for sign_s, sign_limit in side_signs:
+            if not (s_min <= sign_s <= s_max):
+                continue
+            # side_signs ascend in s; travel-direction-last contained sign is max-s (right) / min-s (left)
+            if side == "right" or last_sign is None:
+                last_sign = (sign_s, sign_limit)
+        if last_sign is None:
+            continue
+        sign_s, sign_limit = last_sign
+        sign_past_midpoint = sign_s > s_mid if side == "right" else sign_s < s_mid
+        if sign_past_midpoint:
+            for successor_id in lane_helper_dict[lane_id].successor_lane_ids:
+                zone_entry_sources.append((successor_id, sign_limit))
+
+
+def _propagate_sign_zones(
+    lane_helper_dict: Dict[str, OpenDriveLaneHelper],
+    fixed_limits: Dict[str, float],
+    zone_entry_sources: List[Tuple[str, float]],
+) -> None:
+    """
+    Spread each sign zone downstream via multi-source Dijkstra over traffic successors.
+
+    A lane fixed by its own sign is never overwritten; every other reached lane takes the
+    limit of its nearest upstream sign (ties broken toward the lower limit for determinism).
+    """
+    best_dist: Dict[str, float] = {}
+    best_limit: Dict[str, float] = {}
+    heap: List[Tuple[float, float, str]] = []
+    for lane_id in sorted(fixed_limits):
+        best_dist[lane_id] = 0.0
+        best_limit[lane_id] = fixed_limits[lane_id]
+        heapq.heappush(heap, (0.0, fixed_limits[lane_id], lane_id))
+    for lane_id, limit in sorted(zone_entry_sources):
+        if lane_id in fixed_limits:
+            continue
+        if lane_id not in best_dist or limit < best_limit[lane_id]:
+            best_dist[lane_id] = 0.0
+            best_limit[lane_id] = limit
+            heapq.heappush(heap, (0.0, limit, lane_id))
+
+    while heap:
+        dist, limit, lane_id = heapq.heappop(heap)
+        if dist != best_dist[lane_id] or limit != best_limit[lane_id]:
+            continue
+        s_min, s_max = lane_helper_dict[lane_id].s_range
+        successor_dist = dist + max(s_max - s_min, 0.0)
+        for successor_id in lane_helper_dict[lane_id].successor_lane_ids:
+            if successor_id in fixed_limits:
+                continue
+            improves = (
+                successor_id not in best_dist
+                or successor_dist < best_dist[successor_id]
+                or (successor_dist == best_dist[successor_id] and limit < best_limit[successor_id])
+            )
+            if improves:
+                best_dist[successor_id] = successor_dist
+                best_limit[successor_id] = limit
+                heapq.heappush(heap, (successor_dist, limit, successor_id))
+
+    for lane_id, limit in best_limit.items():
+        lane_helper_dict[lane_id].speed_limit_mps = limit
+
+
+def _apply_speed_sign_limits(
+    lane_helper_dict: Dict[str, OpenDriveLaneHelper],
+    road_dict: Dict[int, XODRRoad],
+) -> None:
+    """
+    Override road-type design speeds with the speed limits CARLA actually enforces.
+
+    A speed sign governs one driving direction from its s-position onward, and its zone
+    extends through successor lanes until the next sign. Lanes with no sign upstream keep
+    the road-type design speed already set at lane-helper construction.
+
+    Direction convention observed across CARLA town files: orientation "-" governs
+    right-side lanes (traffic along +s) and "+" governs left-side lanes (traffic against s);
+    on roads with driving lanes on a single side, every sign governs that carriageway
+    regardless of orientation (a handful of one-way ramps carry inconsistent orientations).
+    """
+    signs_by_road = _collect_speed_signs_by_road(road_dict)
+    if not signs_by_road:
+        return
+
+    lanes_by_road_side: Dict[Tuple[int, str], List[str]] = {}
+    driving_sides_by_road: Dict[int, Set[str]] = {}
+    for lane_id, lane_helper in lane_helper_dict.items():
+        road_idx, _, side, _ = lane_id.split("_")
+        road_idx = int(road_idx)
+        lanes_by_road_side.setdefault((road_idx, side), []).append(lane_id)
+        if lane_helper.type == "driving":
+            driving_sides_by_road.setdefault(road_idx, set()).add(side)
+
+    fixed_limits: Dict[str, float] = {}
+    zone_entry_sources: List[Tuple[str, float]] = []
+    for road_id, signs in signs_by_road.items():
+        governs_both = len(driving_sides_by_road.get(road_id, set())) < 2
+        for side in ("right", "left"):
+            lane_ids = lanes_by_road_side.get((road_id, side), [])
+            if not lane_ids:
+                continue
+            expected_orientations = ("-", "none") if side == "right" else ("+", "none")
+            side_signs = [
+                (sign_s, limit)
+                for sign_s, orientation, limit in signs
+                if governs_both or orientation in expected_orientations
+            ]
+            if side_signs:
+                _fix_lane_limits_for_side(
+                    lane_helper_dict, lane_ids, side, side_signs, fixed_limits, zone_entry_sources
+                )
+
+    _propagate_sign_zones(lane_helper_dict, fixed_limits, zone_entry_sources)
 
 
 def _propagate_speed_limits_to_junction_lanes(
@@ -684,7 +976,10 @@ def _collect_signal_phases(opendrive: XODR) -> Dict[int, Tuple[int, int]]:
     for junction in opendrive.junctions:
         for junction_controller in junction.controllers:
             for signal_id in controller_signal_ids.get(junction_controller.id, []):
-                if signal_id in signal_phase_dict and signal_phase_dict[signal_id] != (junction.id, junction_controller.sequence):
+                if signal_id in signal_phase_dict and signal_phase_dict[signal_id] != (
+                    junction.id,
+                    junction_controller.sequence,
+                ):
                     logger.warning(f"Signal {signal_id} referenced by multiple junction controllers, keeping first")
                     continue
                 signal_phase_dict[signal_id] = (junction.id, junction_controller.sequence)
