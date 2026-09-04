@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Dict, List
 
 import numpy as np
 import numpy.typing as npt
 
-import py123d
+from py123d.datatypes.metadata.cache_source import CacheSourceInfo
 from py123d.datatypes.modalities.base_modality import BaseModalityMetadata, ModalityType
 
 
@@ -26,8 +26,9 @@ class RouteMetadata(BaseModalityMetadata):
     :param polyline_x: X coordinate per polyline vertex, in the ego odometry frame.
     :param polyline_y: Y coordinate per polyline vertex.
     :param polyline_z: Z coordinate per polyline vertex.
+    :param cache_source_info: What the route was computed from. Required, so a reader can detect
+        that the ego odometry changed after the route was written.
     :param source: Origin of the route: the modality key it was derived from, or ``"provided"``.
-    :param version: py123d version that wrote the route.
     """
 
     resolution_m: float
@@ -35,8 +36,8 @@ class RouteMetadata(BaseModalityMetadata):
     polyline_x: List[float]
     polyline_y: List[float]
     polyline_z: List[float]
+    cache_source_info: CacheSourceInfo
     source: str = "ego_state_se3"
-    version: str = field(default_factory=lambda: str(py123d.__version__))
 
     @property
     def modality_type(self) -> ModalityType:
@@ -67,8 +68,29 @@ class RouteMetadata(BaseModalityMetadata):
     @classmethod
     def from_dict(cls, data_dict: Dict[str, Any]) -> RouteMetadata:
         """Inherited, see superclass."""
-        return cls(**data_dict)
+        if "cache_source_info" not in data_dict:
+            raise ValueError(
+                "Route metadata without 'cache_source_info'. The route was written by an older py123d version; "
+                "recompute it."
+            )
+        return cls(
+            resolution_m=data_dict["resolution_m"],
+            total_arc_m=data_dict["total_arc_m"],
+            polyline_x=data_dict["polyline_x"],
+            polyline_y=data_dict["polyline_y"],
+            polyline_z=data_dict["polyline_z"],
+            cache_source_info=CacheSourceInfo.from_dict(data_dict["cache_source_info"]),
+            source=data_dict["source"],
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Inherited, see superclass."""
-        return asdict(self)
+        return {
+            "resolution_m": self.resolution_m,
+            "total_arc_m": self.total_arc_m,
+            "polyline_x": self.polyline_x,
+            "polyline_y": self.polyline_y,
+            "polyline_z": self.polyline_z,
+            "cache_source_info": self.cache_source_info.to_dict(),
+            "source": self.source,
+        }

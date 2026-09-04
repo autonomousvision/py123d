@@ -21,6 +21,7 @@ from py123d.api.scene.arrow.modalities.arrow_traffic_light_detections import Arr
 from py123d.api.scene.arrow.utils.log_writer_config import LogWriterConfig
 from py123d.api.scene.arrow.utils.route_utils import (
     ROUTE_POSITION_KEY,
+    ROUTE_PRODUCER,
     compute_route_data,
     compute_route_data_from_waypoints,
     warn_on_position_jumps,
@@ -32,6 +33,7 @@ from py123d.api.scene.arrow.utils.scene_builder_utils import (
 )
 from py123d.api.scene.base_log_writer import BaseLogWriter
 from py123d.api.utils.arrow_metadata_utils import _NON_MODALITY_FILES, add_metadata_to_arrow_schema
+from py123d.api.utils.cache_source_utils import build_cache_source_info
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.datatypes import LogMetadata
 from py123d.datatypes.custom.custom_modality import CustomModalityMetadata
@@ -430,23 +432,32 @@ class ArrowLogWriter(BaseLogWriter):
         if ego is not None:
             warn_on_position_jumps(ego[0], ego[1], context=str(self._state.log_dir.name))
 
+        ego_key = ModalityType.EGO_STATE_SE3.serialize()
+        external_sources: Optional[List[str]] = None
         if self._state.provided_route_xyz is not None:
             route_data = compute_route_data_from_waypoints(self._state.provided_route_xyz, ego_positions, resolution_m)
             source = "provided"
+            external_sources = ["route waypoints provided via ArrowLogWriter.set_route"]
         elif ego_positions is not None:
             route_data = compute_route_data(ego_positions, resolution_m)
-            source = ModalityType.EGO_STATE_SE3.serialize()
+            source = ego_key
         else:
             return
         if route_data is None:
             return
 
         has_progress = route_data.progress_m is not None
+        cache_source_info = build_cache_source_info(
+            log_dir=self._state.log_dir,
+            computed_by=ROUTE_PRODUCER,
+            source_columns={ego_key: ["imu_se3"]} if ego is not None else {},
+            external_sources=external_sources,
+        )
         write_route_position_arrow(
             log_dir=self._state.log_dir,
             timestamps_us=ego[1] if has_progress and ego is not None else np.empty(0, dtype=np.int64),
             progress_m=(route_data.progress_m if has_progress and route_data.progress_m is not None else np.empty(0)),
-            route_metadata=route_data.to_route_metadata(resolution_m, source),
+            route_metadata=route_data.to_route_metadata(resolution_m, source, cache_source_info),
             ipc_compression=self._ipc_compression,
             ipc_compression_level=self._ipc_compression_level,
         )

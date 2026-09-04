@@ -31,6 +31,7 @@ from py123d.api.scene.scene_builder import SceneBuilder
 from py123d.api.scene.scene_filter import SceneFilter
 from py123d.api.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.api.utils.arrow_metadata_utils import get_metadata_from_arrow_schema
+from py123d.api.utils.cache_source_utils import check_cache_source_modalities
 from py123d.common.execution import Executor
 from py123d.common.execution.utils import executor_map_chunked_list
 from py123d.common.runtime import get_dataset_paths
@@ -251,7 +252,10 @@ def _extract_scenes_from_log_dir(
     :param maps_root: Root directory for map files.
     :param target_uuids_binary: Pre-converted binary(16) Arrow array of target UUIDs, or None.
     :return: List of SceneAPI objects for this log.
+    :raises StaleModalityError: If a source modality changed after a derived modality was written.
     """
+    check_cache_source_modalities(log_dir)
+
     try:
         scene_metadatas = _get_scene_metadatas_from_log(log_dir, filter, target_uuids_binary)
     except Exception as e:
