@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Callable, List, Optional
 
 import numpy as np
+import numpy.typing as npt
 import pyarrow as pa
 
 from py123d.api.scene.scene_api import SceneAPI
@@ -27,7 +28,7 @@ class AnchorFilterContext:
     sync_table: pa.Table
     """The log's sync Arrow table."""
 
-    anchors: np.ndarray
+    anchors: npt.NDArray[np.int64]
     """Sync-table row of each candidate scene's initial frame, ascending, int64."""
 
     history_iterations: int
@@ -124,6 +125,11 @@ class SceneFilter:
     scenes at every raw frame (maximum overlap). Ignored if ``timestamp_threshold_s`` is provided
     or when ``scene_uuids`` is set (one scene per UUID position)."""
 
+    min_remaining_route_m: Optional[float] = None
+    """Minimum route meters that must remain in the log after a scene's anchor frame
+    (iteration 0), read from the ``sync.route_progress_m`` column. Logs without that
+    column are rejected entirely (reconvert or backfill them)."""
+
     required_scene_modalities: Optional[List[str]] = None
     """List of modality requirements that must be satisfied at the scene level (no nulls in scope).
 
@@ -142,7 +148,7 @@ class SceneFilter:
     """
 
     # NOTE: Not compatible with Hydra override.
-    custom_anchor_filter_fns: Optional[List[Callable[[AnchorFilterContext], np.ndarray]]] = None
+    custom_anchor_filter_fns: Optional[List[Callable[[AnchorFilterContext], npt.NDArray[np.bool_]]]] = None
     """Like ``custom_filter_fns``, but called with a whole log's candidate scenes at once: takes an
     :class:`AnchorFilterContext`, returns one bool per candidate scene."""
 
@@ -214,6 +220,9 @@ class SceneFilter:
             logger.warning(
                 "Both timestamp_threshold_s and iteration_threshold set; timestamp_threshold_s takes priority."
             )
+
+        if self.min_remaining_route_m is not None and self.min_remaining_route_m < 0:
+            raise ValueError(f"min_remaining_route_m must be >= 0, got {self.min_remaining_route_m}.")
 
         # Validate modality requirement syntax early.
         for req in self.required_scene_modalities or []:

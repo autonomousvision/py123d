@@ -41,6 +41,10 @@ class ModalityType(SerialIntEnum):
     MAGNETOMETER = 13
     """Magnetic field stream."""
 
+    ROUTE_POSITION = 14
+    """Ego's arc-length position on the log's route polyline (``route.arrow``), derived
+    by the log writer from ego odometry or a provided route — no parser emits it."""
+
 
 class BaseModalityMetadata(BaseMetadata):
     """Base class for modality metadata."""

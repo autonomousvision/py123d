@@ -21,6 +21,7 @@ from py123d.api.scene.arrow.utils.scene_builder_utils import (
     _resolve_requirement,
     check_log_passes_metadata_filters,
     infer_iteration_duration_s,
+    keep_anchors_with_min_remaining_route,
     resolve_iteration_counts,
     resolve_iteration_stride,
     resolve_scene_step_size,
@@ -30,6 +31,7 @@ from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_filter import AnchorFilterContext, SceneFilter
 from py123d.api.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.api.utils.arrow_metadata_utils import get_metadata_from_arrow_schema
+from py123d.api.utils.cache_source_utils import check_cache_source_modalities
 from py123d.common.utils.uuid_utils import convert_to_str_uuid
 from py123d.datatypes.metadata import SceneMetadata
 from py123d.datatypes.metadata.log_metadata import LogMetadata
@@ -251,7 +253,7 @@ def _keep_anchors(
     stride: int,
     log_dir: Path,
 ) -> np.ndarray:
-    """Select the anchors whose scenes satisfy every modality and custom requirement.
+    """Select the anchors whose scenes satisfy every modality, route, and custom requirement.
 
     Checks all anchors of a log at once: the scoped frames of a scene are its
     anchor plus a fixed set of offsets, so completeness is one lookup into the
@@ -270,7 +272,10 @@ def _keep_anchors(
     if len(anchors) == 0:
         return keep
 
-    if filter.required_scene_modalities is not None:
+    if filter.min_remaining_route_m is not None:
+        keep &= keep_anchors_with_min_remaining_route(sync_table, anchors, filter.min_remaining_route_m, log_dir)
+
+    if filter.required_scene_modalities is not None and keep.any():
         sync_column_set = set(sync_table.column_names)
         mask_cache: dict = {}
         for requirement in filter.required_scene_modalities:
@@ -332,7 +337,10 @@ def build_log_scene_index(
     :param filter: The scene filter.
     :param target_uuids_binary: Pre-converted binary(16) Arrow array of target UUIDs, or None.
     :return: The log's index, or None when the log contributes no scene.
+    :raises StaleModalityError: If a source modality changed after a derived modality was written.
     """
+    check_cache_source_modalities(log_dir)
+
     try:
         sync_table = get_lru_cached_arrow_table(str(log_dir / "sync.arrow"))
         log_metadata = get_metadata_from_arrow_schema(sync_table.schema, LogMetadata)
