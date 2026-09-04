@@ -33,7 +33,7 @@ from py123d.api.scene.arrow.utils.scene_builder_utils import (
 )
 from py123d.api.scene.base_log_writer import BaseLogWriter
 from py123d.api.utils.arrow_metadata_utils import _NON_MODALITY_FILES, add_metadata_to_arrow_schema
-from py123d.api.utils.provenance_utils import build_provenance
+from py123d.api.utils.cache_source_utils import build_cache_source_info
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.datatypes import LogMetadata
 from py123d.datatypes.custom.custom_modality import CustomModalityMetadata
@@ -447,9 +447,9 @@ class ArrowLogWriter(BaseLogWriter):
             return
 
         has_progress = route_data.progress_m is not None
-        provenance = build_provenance(
+        cache_source_info = build_cache_source_info(
             log_dir=self._state.log_dir,
-            producer=ROUTE_PRODUCER,
+            computed_by=ROUTE_PRODUCER,
             source_columns={ego_key: ["imu_se3"]} if ego is not None else {},
             external_sources=external_sources,
         )
@@ -457,7 +457,7 @@ class ArrowLogWriter(BaseLogWriter):
             log_dir=self._state.log_dir,
             timestamps_us=ego[1] if has_progress and ego is not None else np.empty(0, dtype=np.int64),
             progress_m=(route_data.progress_m if has_progress and route_data.progress_m is not None else np.empty(0)),
-            route_metadata=route_data.to_route_metadata(resolution_m, source, provenance),
+            route_metadata=route_data.to_route_metadata(resolution_m, source, cache_source_info),
             ipc_compression=self._ipc_compression,
             ipc_compression_level=self._ipc_compression_level,
         )

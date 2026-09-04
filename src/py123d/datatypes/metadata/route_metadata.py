@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 import numpy as np
 import numpy.typing as npt
 
-from py123d.datatypes.metadata.provenance import Provenance
+from py123d.datatypes.metadata.cache_source import CacheSourceInfo
 from py123d.datatypes.modalities.base_modality import BaseModalityMetadata, ModalityType
 
 
@@ -26,9 +26,8 @@ class RouteMetadata(BaseModalityMetadata):
     :param polyline_x: X coordinate per polyline vertex, in the ego odometry frame.
     :param polyline_y: Y coordinate per polyline vertex.
     :param polyline_z: Z coordinate per polyline vertex.
-    :param provenance: The producer and every source modality the route was computed from.
-        The route is a cache of that computation, so the record is required: without it a
-        reader cannot tell that the ego odometry has changed underneath it.
+    :param cache_source_info: What the route was computed from. Required, so a reader can detect
+        that the ego odometry changed after the route was written.
     :param source: Origin of the route: the modality key it was derived from, or ``"provided"``.
     """
 
@@ -37,7 +36,7 @@ class RouteMetadata(BaseModalityMetadata):
     polyline_x: List[float]
     polyline_y: List[float]
     polyline_z: List[float]
-    provenance: Provenance
+    cache_source_info: CacheSourceInfo
     source: str = "ego_state_se3"
 
     @property
@@ -69,10 +68,10 @@ class RouteMetadata(BaseModalityMetadata):
     @classmethod
     def from_dict(cls, data_dict: Dict[str, Any]) -> RouteMetadata:
         """Inherited, see superclass."""
-        if "provenance" not in data_dict:
+        if "cache_source_info" not in data_dict:
             raise ValueError(
-                "Route metadata without a 'provenance' record. The route was written by code that predates "
-                "source tracking; recompute it so its source modalities can be verified."
+                "Route metadata without 'cache_source_info'. The route was written by an older py123d version; "
+                "recompute it."
             )
         return cls(
             resolution_m=data_dict["resolution_m"],
@@ -80,7 +79,7 @@ class RouteMetadata(BaseModalityMetadata):
             polyline_x=data_dict["polyline_x"],
             polyline_y=data_dict["polyline_y"],
             polyline_z=data_dict["polyline_z"],
-            provenance=Provenance.from_dict(data_dict["provenance"]),
+            cache_source_info=CacheSourceInfo.from_dict(data_dict["cache_source_info"]),
             source=data_dict["source"],
         )
 
@@ -92,6 +91,6 @@ class RouteMetadata(BaseModalityMetadata):
             "polyline_x": self.polyline_x,
             "polyline_y": self.polyline_y,
             "polyline_z": self.polyline_z,
-            "provenance": self.provenance.to_dict(),
+            "cache_source_info": self.cache_source_info.to_dict(),
             "source": self.source,
         }

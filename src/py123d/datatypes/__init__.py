@@ -41,11 +41,11 @@ from py123d.datatypes.map_objects import (
 )
 from py123d.datatypes.metadata import (
     BaseMetadata,
+    CacheSourceInfo,
+    CacheSourceModality,
     MapMetadata,
-    Provenance,
     RouteMetadata,
     SceneMetadata,
-    SourceModality,
 )
 
 # LogMetadata imported after all deps to avoid circular import
@@ -165,13 +165,13 @@ __all__ = [
     "Walkway",
     # Metadata
     "BaseMetadata",
+    "CacheSourceInfo",
+    "CacheSourceModality",
     "LogMetadata",
     "MapMetadata",
-    "Provenance",
     "RouteMetadata",
     "RoutePosition",
     "SceneMetadata",
-    "SourceModality",
     # Modalities
     "BaseModality",
     "BaseModalityMetadata",

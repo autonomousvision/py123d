@@ -1,16 +1,16 @@
 from py123d.datatypes.metadata.base_metadata import BaseMetadata
+from py123d.datatypes.metadata.cache_source import CacheSourceInfo, CacheSourceModality
 from py123d.datatypes.metadata.map_metadata import MapMetadata
-from py123d.datatypes.metadata.provenance import Provenance, SourceModality
 from py123d.datatypes.metadata.scene_metadata import SceneMetadata
 
 __all__ = [
     "BaseMetadata",
+    "CacheSourceInfo",
+    "CacheSourceModality",
     "LogMetadata",
     "MapMetadata",
-    "Provenance",
     "RouteMetadata",
     "SceneMetadata",
-    "SourceModality",
 ]
 
 
