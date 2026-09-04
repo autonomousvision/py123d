@@ -1,4 +1,4 @@
-"""Tests for the ``ComputedFrom`` record: fingerprinting, staleness detection, enforcement."""
+"""Tests for the ``Provenance`` record: fingerprinting, staleness detection, enforcement."""
 
 from __future__ import annotations
 
@@ -15,15 +15,15 @@ from py123d.api.scene.arrow.utils.log_writer_config import LogWriterConfig
 from py123d.api.scene.arrow.utils.route_utils import read_route_position
 from py123d.api.scene.scene_filter import SceneFilter
 from py123d.api.utils.arrow_metadata_utils import parse_log_directory_metadata
-from py123d.api.utils.computed_from_utils import (
+from py123d.api.utils.provenance_utils import (
     StaleModalityError,
-    build_computed_from,
-    get_computed_from,
+    build_provenance,
+    get_provenance,
     hash_modality_columns,
     verify_log_consistency,
 )
 from py123d.datatypes import Timestamp
-from py123d.datatypes.metadata.computed_from import ComputedFrom
+from py123d.datatypes.metadata.provenance import Provenance, SourceModality
 from py123d.datatypes.metadata.route_metadata import RouteMetadata
 from py123d.datatypes.modalities.base_modality import ModalityType
 from py123d.datatypes.vehicle_state.dynamic_state import DynamicStateSE3
@@ -83,19 +83,19 @@ def _rewrite_ego_positions(log_dir: Path, scale: float) -> None:
     parse_log_directory_metadata.cache_clear()
 
 
-class TestComputedFromRecord:
+class TestProvenanceRecord:
     def test_producer_identifier_must_be_namespaced_and_versioned(self) -> None:
         with pytest.raises(AssertionError):
-            ComputedFrom(computed_by="route_backfill", input_hashes=[], computed_at="2026-08-31T09:14:22Z")
+            Provenance(producer="route_backfill", source_modalities=[], produced_at="2026-08-31T09:14:22Z")
 
     def test_round_trips_through_a_dictionary(self) -> None:
-        record = ComputedFrom(
-            computed_by="garage:route_backfill@3",
-            input_hashes=[(EGO_KEY, "imu_se3", "abc123")],
-            computed_at="2026-08-31T09:14:22Z",
-            external_inputs=["nav database snapshot 2026-08-01"],
+        record = Provenance(
+            producer="garage:route_backfill@3",
+            source_modalities=[SourceModality(modality_key=EGO_KEY, columns=["imu_se3"], digest="abc123")],
+            produced_at="2026-08-31T09:14:22Z",
+            external_sources=["nav database snapshot 2026-08-01"],
         )
-        assert ComputedFrom.from_dict(record.to_dict()) == record
+        assert Provenance.from_dict(record.to_dict()) == record
 
 
 class TestFingerprinting:
@@ -109,16 +109,18 @@ class TestFingerprinting:
         second = _write_log(tmp_path / "b", xs=[3.0 * i for i in range(5)])
         assert hash_modality_columns(first, EGO_KEY, ["imu_se3"]) != hash_modality_columns(second, EGO_KEY, ["imu_se3"])
 
-    def test_missing_input_modality_raises(self, tmp_path: Path) -> None:
+    def test_missing_source_modality_raises(self, tmp_path: Path) -> None:
         log_dir = _write_log(tmp_path, xs=[0.0, 1.0])
         with pytest.raises(FileNotFoundError):
             hash_modality_columns(log_dir, "lidar.lidar_merged", ["timestamp_us"])
 
-    def test_build_records_every_declared_input(self, tmp_path: Path) -> None:
+    def test_build_records_every_declared_source(self, tmp_path: Path) -> None:
         log_dir = _write_log(tmp_path, xs=[0.0, 1.0])
-        record = build_computed_from(log_dir, "garage:probe@1", {EGO_KEY: ["imu_se3", "timestamp_us"]})
-        assert [(key, columns) for key, columns, _ in record.input_hashes] == [(EGO_KEY, "imu_se3,timestamp_us")]
-        assert record.computed_at.endswith("Z")
+        record = build_provenance(log_dir, "garage:probe@1", {EGO_KEY: ["imu_se3", "timestamp_us"]})
+        assert [(source.modality_key, source.columns) for source in record.source_modalities] == [
+            (EGO_KEY, ["imu_se3", "timestamp_us"])
+        ]
+        assert record.produced_at.endswith("Z")
 
 
 class TestRouteEnforcement:
@@ -127,7 +129,7 @@ class TestRouteEnforcement:
             RouteMetadata(resolution_m=1.0, total_arc_m=1.0, polyline_x=[], polyline_y=[], polyline_z=[])
 
     def test_route_metadata_without_a_record_cannot_be_deserialized(self) -> None:
-        with pytest.raises(ValueError, match="computed_from"):
+        with pytest.raises(ValueError, match="provenance"):
             RouteMetadata.from_dict(
                 {"resolution_m": 1.0, "total_arc_m": 1.0, "polyline_x": [], "polyline_y": [], "polyline_z": []}
             )
@@ -135,12 +137,14 @@ class TestRouteEnforcement:
     def test_the_writer_records_the_ego_poses_it_consumed(self, tmp_path: Path) -> None:
         log_dir = _write_log(tmp_path, xs=[2.0 * i for i in range(5)])
         route_metadata, _, _ = read_route_position(log_dir)
-        record = route_metadata.computed_from
-        assert record.computed_by == "py123d:route_from_ego_state_se3@1"
-        assert [(key, columns) for key, columns, _ in record.input_hashes] == [(EGO_KEY, "imu_se3")]
-        assert record.input_hashes[0][2] == hash_modality_columns(log_dir, EGO_KEY, ["imu_se3"])
+        record = route_metadata.provenance
+        assert record.producer == "py123d:route_from_ego_state_se3@1"
+        assert [(source.modality_key, source.columns) for source in record.source_modalities] == [
+            (EGO_KEY, ["imu_se3"])
+        ]
+        assert record.source_modalities[0].digest == hash_modality_columns(log_dir, EGO_KEY, ["imu_se3"])
 
-    def test_a_provided_route_states_its_external_input(self, tmp_path: Path) -> None:
+    def test_a_provided_route_states_its_external_source(self, tmp_path: Path) -> None:
         log_meta = make_log_metadata()
         writer = ArrowLogWriter(LogWriterConfig(), logs_root=tmp_path, sensors_root=tmp_path)
         writer.reset(log_meta)
@@ -154,7 +158,7 @@ class TestRouteEnforcement:
         writer.close()
 
         route_metadata, _, _ = read_route_position(tmp_path / log_meta.split / log_meta.log_name)
-        assert route_metadata.computed_from.external_inputs == ["route waypoints provided via ArrowLogWriter.set_route"]
+        assert route_metadata.provenance.external_sources == ["route waypoints provided via ArrowLogWriter.set_route"]
 
 
 class TestVerification:
@@ -176,7 +180,7 @@ class TestVerification:
     def test_a_log_without_a_route_verifies(self, tmp_path: Path) -> None:
         log_dir = _write_log(tmp_path, xs=[0.0, 1.0], write_route=False)
         verify_log_consistency(log_dir)
-        assert get_computed_from(parse_log_directory_metadata(log_dir).get(EGO_KEY)) is None
+        assert get_provenance(parse_log_directory_metadata(log_dir).get(EGO_KEY)) is None
 
     def test_an_unreadable_log_is_not_reported_as_stale(self, tmp_path: Path) -> None:
         log_dir = tmp_path / "broken"

@@ -33,7 +33,7 @@ from py123d.api.scene.arrow.utils.scene_builder_utils import (
 )
 from py123d.api.scene.base_log_writer import BaseLogWriter
 from py123d.api.utils.arrow_metadata_utils import _NON_MODALITY_FILES, add_metadata_to_arrow_schema
-from py123d.api.utils.computed_from_utils import build_computed_from
+from py123d.api.utils.provenance_utils import build_provenance
 from py123d.common.utils.uuid_utils import create_deterministic_uuid
 from py123d.datatypes import LogMetadata
 from py123d.datatypes.custom.custom_modality import CustomModalityMetadata
@@ -433,11 +433,11 @@ class ArrowLogWriter(BaseLogWriter):
             warn_on_position_jumps(ego[0], ego[1], context=str(self._state.log_dir.name))
 
         ego_key = ModalityType.EGO_STATE_SE3.serialize()
-        external_inputs: Optional[List[str]] = None
+        external_sources: Optional[List[str]] = None
         if self._state.provided_route_xyz is not None:
             route_data = compute_route_data_from_waypoints(self._state.provided_route_xyz, ego_positions, resolution_m)
             source = "provided"
-            external_inputs = ["route waypoints provided via ArrowLogWriter.set_route"]
+            external_sources = ["route waypoints provided via ArrowLogWriter.set_route"]
         elif ego_positions is not None:
             route_data = compute_route_data(ego_positions, resolution_m)
             source = ego_key
@@ -447,17 +447,17 @@ class ArrowLogWriter(BaseLogWriter):
             return
 
         has_progress = route_data.progress_m is not None
-        computed_from = build_computed_from(
+        provenance = build_provenance(
             log_dir=self._state.log_dir,
-            computed_by=ROUTE_PRODUCER,
-            inputs={ego_key: ["imu_se3"]} if ego is not None else {},
-            external_inputs=external_inputs,
+            producer=ROUTE_PRODUCER,
+            source_columns={ego_key: ["imu_se3"]} if ego is not None else {},
+            external_sources=external_sources,
         )
         write_route_position_arrow(
             log_dir=self._state.log_dir,
             timestamps_us=ego[1] if has_progress and ego is not None else np.empty(0, dtype=np.int64),
             progress_m=(route_data.progress_m if has_progress and route_data.progress_m is not None else np.empty(0)),
-            route_metadata=route_data.to_route_metadata(resolution_m, source, computed_from),
+            route_metadata=route_data.to_route_metadata(resolution_m, source, provenance),
             ipc_compression=self._ipc_compression,
             ipc_compression_level=self._ipc_compression_level,
         )

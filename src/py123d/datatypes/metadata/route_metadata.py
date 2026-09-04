@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 import numpy as np
 import numpy.typing as npt
 
-from py123d.datatypes.metadata.computed_from import ComputedFrom
+from py123d.datatypes.metadata.provenance import Provenance
 from py123d.datatypes.modalities.base_modality import BaseModalityMetadata, ModalityType
 
 
@@ -26,9 +26,9 @@ class RouteMetadata(BaseModalityMetadata):
     :param polyline_x: X coordinate per polyline vertex, in the ego odometry frame.
     :param polyline_y: Y coordinate per polyline vertex.
     :param polyline_z: Z coordinate per polyline vertex.
-    :param computed_from: Record of the producer and of every log input the route was
-        computed from. The route is a cache of that computation, so the record is required:
-        without it a reader cannot tell that the ego odometry has changed underneath it.
+    :param provenance: The producer and every source modality the route was computed from.
+        The route is a cache of that computation, so the record is required: without it a
+        reader cannot tell that the ego odometry has changed underneath it.
     :param source: Origin of the route: the modality key it was derived from, or ``"provided"``.
     """
 
@@ -37,7 +37,7 @@ class RouteMetadata(BaseModalityMetadata):
     polyline_x: List[float]
     polyline_y: List[float]
     polyline_z: List[float]
-    computed_from: ComputedFrom
+    provenance: Provenance
     source: str = "ego_state_se3"
 
     @property
@@ -69,10 +69,10 @@ class RouteMetadata(BaseModalityMetadata):
     @classmethod
     def from_dict(cls, data_dict: Dict[str, Any]) -> RouteMetadata:
         """Inherited, see superclass."""
-        if "computed_from" not in data_dict:
+        if "provenance" not in data_dict:
             raise ValueError(
-                "Route metadata without a 'computed_from' record. The route was written by code that predates "
-                "input tracking; recompute it so its inputs can be verified."
+                "Route metadata without a 'provenance' record. The route was written by code that predates "
+                "source tracking; recompute it so its source modalities can be verified."
             )
         return cls(
             resolution_m=data_dict["resolution_m"],
@@ -80,7 +80,7 @@ class RouteMetadata(BaseModalityMetadata):
             polyline_x=data_dict["polyline_x"],
             polyline_y=data_dict["polyline_y"],
             polyline_z=data_dict["polyline_z"],
-            computed_from=ComputedFrom.from_dict(data_dict["computed_from"]),
+            provenance=Provenance.from_dict(data_dict["provenance"]),
             source=data_dict["source"],
         )
 
@@ -92,6 +92,6 @@ class RouteMetadata(BaseModalityMetadata):
             "polyline_x": self.polyline_x,
             "polyline_y": self.polyline_y,
             "polyline_z": self.polyline_z,
-            "computed_from": self.computed_from.to_dict(),
+            "provenance": self.provenance.to_dict(),
             "source": self.source,
         }

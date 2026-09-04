@@ -1,15 +1,16 @@
 from py123d.datatypes.metadata.base_metadata import BaseMetadata
-from py123d.datatypes.metadata.computed_from import ComputedFrom
 from py123d.datatypes.metadata.map_metadata import MapMetadata
+from py123d.datatypes.metadata.provenance import Provenance, SourceModality
 from py123d.datatypes.metadata.scene_metadata import SceneMetadata
 
 __all__ = [
     "BaseMetadata",
-    "ComputedFrom",
     "LogMetadata",
     "MapMetadata",
+    "Provenance",
     "RouteMetadata",
     "SceneMetadata",
+    "SourceModality",
 ]
 
 

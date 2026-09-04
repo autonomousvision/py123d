@@ -31,7 +31,7 @@ from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_filter import AnchorFilterContext, SceneFilter
 from py123d.api.utils.arrow_helper import get_lru_cached_arrow_table
 from py123d.api.utils.arrow_metadata_utils import get_metadata_from_arrow_schema
-from py123d.api.utils.computed_from_utils import verify_log_consistency
+from py123d.api.utils.provenance_utils import verify_log_consistency
 from py123d.common.utils.uuid_utils import convert_to_str_uuid
 from py123d.datatypes.metadata import SceneMetadata
 from py123d.datatypes.metadata.log_metadata import LogMetadata
@@ -337,7 +337,7 @@ def build_log_scene_index(
     :param filter: The scene filter.
     :param target_uuids_binary: Pre-converted binary(16) Arrow array of target UUIDs, or None.
     :return: The log's index, or None when the log contributes no scene.
-    :raises StaleModalityError: If a derived modality no longer matches the inputs it was computed from.
+    :raises StaleModalityError: If a derived modality no longer matches its source modalities.
     """
     verify_log_consistency(log_dir)
 

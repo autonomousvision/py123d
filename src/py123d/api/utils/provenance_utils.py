@@ -1,9 +1,9 @@
-"""Producing and verifying the :class:`ComputedFrom` record of derived modalities.
+"""Producing and verifying the :class:`Provenance` record of derived modalities.
 
-A derived modality is written once and read many times, so its inputs are fingerprinted
-at write time and re-fingerprinted when the log is opened. The fingerprint covers only
-the columns the producer actually consumed, so an unrelated fix elsewhere in the input
-modality does not invalidate the derived data.
+A derived modality is written once and read many times, so its source modalities are
+fingerprinted at write time and re-fingerprinted when the log is opened. The fingerprint
+covers only the columns the producer actually consumed, so an unrelated fix elsewhere in
+the source modality does not invalidate the derived data.
 """
 
 from __future__ import annotations
@@ -16,14 +16,14 @@ from typing import Dict, List, Optional, Sequence
 
 import pyarrow as pa
 
-from py123d.datatypes.metadata.computed_from import ComputedFrom
+from py123d.datatypes.metadata.provenance import Provenance, SourceModality
 from py123d.datatypes.modalities.base_modality import BaseModalityMetadata
 
 _HASH_DIGEST_SIZE = 16
 
 
 class StaleModalityError(ValueError):
-    """Raised when a derived modality's inputs no longer match its recorded fingerprint."""
+    """Raised when a derived modality's source modalities no longer match their recorded fingerprints."""
 
 
 def utc_now_iso() -> str:
@@ -31,10 +31,10 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def get_computed_from(modality_metadata: BaseModalityMetadata) -> Optional[ComputedFrom]:
-    """The :class:`ComputedFrom` record of a modality metadata, or None for raw modalities."""
-    computed_from = getattr(modality_metadata, "computed_from", None)
-    return computed_from if isinstance(computed_from, ComputedFrom) else None
+def get_provenance(modality_metadata: BaseModalityMetadata) -> Optional[Provenance]:
+    """The :class:`Provenance` record of a modality metadata, or None for raw modalities."""
+    provenance = getattr(modality_metadata, "provenance", None)
+    return provenance if isinstance(provenance, Provenance) else None
 
 
 def _column_bytes(column: pa.ChunkedArray, qualified_name: str) -> bytes:
@@ -42,7 +42,7 @@ def _column_bytes(column: pa.ChunkedArray, qualified_name: str) -> bytes:
 
     Only primitive and fixed-size-list-of-primitive columns are supported, which covers
     the numeric streams derived modalities consume. Anything else raises, so a producer
-    learns at write time that its input cannot be fingerprinted.
+    learns at write time that its source cannot be fingerprinted.
     """
     array = column.combine_chunks()
     if pa.types.is_fixed_size_list(array.type):
@@ -79,44 +79,48 @@ def hash_modality_columns(log_dir: Path, modality_key: str, columns: Sequence[st
     return digest.hexdigest()
 
 
-def build_computed_from(
+def build_provenance(
     log_dir: Path,
-    computed_by: str,
-    inputs: Dict[str, Sequence[str]],
-    external_inputs: Optional[List[str]] = None,
-) -> ComputedFrom:
-    """Fingerprint every consumed input and stamp the record for a derived modality.
+    producer: str,
+    source_columns: Dict[str, Sequence[str]],
+    external_sources: Optional[List[str]] = None,
+) -> Provenance:
+    """Fingerprint every consumed source modality and stamp the record for a derived modality.
 
-    :param log_dir: The log directory the inputs are read from.
-    :param computed_by: Namespaced producer identifier, e.g. ``"garage:route_backfill@3"``.
-    :param inputs: Mapping of modality key to the columns the producer consumed.
-    :param external_inputs: Descriptions of inputs outside the log, which stay unverified.
+    :param log_dir: The log directory the source modalities are read from.
+    :param producer: Namespaced producer identifier, e.g. ``"garage:route_backfill@3"``.
+    :param source_columns: Mapping of source modality key to the columns the producer consumed.
+    :param external_sources: Descriptions of sources outside the log, which stay unverified.
     """
-    input_hashes = [
-        (modality_key, ",".join(columns), hash_modality_columns(log_dir, modality_key, columns))
-        for modality_key, columns in sorted(inputs.items())
+    source_modalities = [
+        SourceModality(
+            modality_key=modality_key,
+            columns=list(columns),
+            digest=hash_modality_columns(log_dir, modality_key, columns),
+        )
+        for modality_key, columns in sorted(source_columns.items())
     ]
-    return ComputedFrom(
-        computed_by=computed_by,
-        input_hashes=input_hashes,
-        computed_at=utc_now_iso(),
-        external_inputs=external_inputs,
+    return Provenance(
+        producer=producer,
+        source_modalities=source_modalities,
+        produced_at=utc_now_iso(),
+        external_sources=external_sources,
     )
 
 
 @lru_cache(maxsize=10_000)
 def verify_log_consistency(log_dir: Path) -> None:
-    """Re-fingerprint the declared inputs of every derived modality in a log directory.
+    """Re-fingerprint the declared source modalities of every derived modality in a log directory.
 
-    Modalities without a :class:`ComputedFrom` record are raw and skipped. The result is
+    Modalities without a :class:`Provenance` record are raw and skipped. The result is
     cached per process, so a log is checked once no matter how often it is opened.
 
     Staleness is the only condition raised here. A log that cannot be read at all, or
-    whose declared input is missing, is a broken log rather than a stale one, and is left
+    whose declared source is missing, is a broken log rather than a stale one, and is left
     to the caller's own error handling.
 
     :param log_dir: The log directory to check.
-    :raises StaleModalityError: If any input no longer matches its recorded fingerprint.
+    :raises StaleModalityError: If any source modality no longer matches its recorded fingerprint.
     """
     from py123d.api.utils.arrow_metadata_utils import parse_log_directory_metadata
 
@@ -127,17 +131,18 @@ def verify_log_consistency(log_dir: Path) -> None:
         return
 
     for modality_key, modality_metadata in modality_metadatas.items():
-        computed_from = get_computed_from(modality_metadata)
-        if computed_from is None:
+        provenance = get_provenance(modality_metadata)
+        if provenance is None:
             continue
-        for input_key, columns, expected_hash in computed_from.input_hashes:
+        for source in provenance.source_modalities:
             try:
-                actual_hash = hash_modality_columns(log_dir, input_key, columns.split(","))
+                actual_digest = hash_modality_columns(log_dir, source.modality_key, source.columns)
             except (FileNotFoundError, KeyError, TypeError):
                 continue
-            if actual_hash != expected_hash:
+            if actual_digest != source.digest:
                 raise StaleModalityError(
-                    f"'{modality_key}' in {log_dir} is stale: its input '{input_key}.{columns}' hashes to "
-                    f"{actual_hash} but was {expected_hash} when '{computed_from.computed_by}' wrote it on "
-                    f"{computed_from.computed_at}. Recompute '{modality_key}' with '{computed_from.computed_by}'."
+                    f"'{modality_key}' in {log_dir} is stale: its source '{source.modality_key}' "
+                    f"(columns {', '.join(source.columns)}) hashes to {actual_digest} but was {source.digest} when "
+                    f"'{provenance.producer}' produced it on {provenance.produced_at}. "
+                    f"Recompute '{modality_key}' with '{provenance.producer}'."
                 )
