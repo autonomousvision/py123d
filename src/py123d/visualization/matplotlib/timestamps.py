@@ -95,9 +95,9 @@ def plot_scene_timestamps(
     for mt in grouped:
         grouped[mt] = [k for k in grouped[mt] if k in key_timestamps]
         grouped[mt].sort(
-            key=lambda k: key_timestamps[k][key_timestamps[k] >= 0][0]
-            if np.any(key_timestamps[k] >= 0)
-            else float("inf")
+            key=lambda k: (
+                key_timestamps[k][key_timestamps[k] >= 0][0] if np.any(key_timestamps[k] >= 0) else float("inf")
+            )
         )
 
     # (label, modality_type_name, times, color)

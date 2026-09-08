@@ -30,6 +30,11 @@ class CameraChannelType(SerialIntEnum):
     """A single-channel, per-pixel panoptic/instance label map (lossless integer image). For datasets
     that pack semantics into the instance id (e.g. KITTI-360 ``semanticId * 1000 + instanceId``) the
     raw packed value is stored verbatim; recover ``semantic = value // 1000``, ``instance = value % 1000``."""
+    DEPTH = 4
+    """A single-channel, per-pixel metric depth map, quantized to a lossless integer image (uint8 or
+    uint16). The continuous depth in metres is recovered via
+    :meth:`~py123d.datatypes.DepthCameraMetadata.decode_depth`, whose quantization
+    contract (far plane and bit depth) is carried by the accompanying ``DepthCameraMetadata``."""
 
 
 class CameraModel(SerialIntEnum):
@@ -99,6 +104,9 @@ class CameraID(SerialIntEnum):
     FTCAM_F0 = 12
     """Front F-theta camera."""
 
+    FTCAM_B0 = 20
+    """Back F-theta camera."""
+
     FTCAM_TELE_F0 = 13
     """Front telephoto F-theta camera."""
 
@@ -116,6 +124,12 @@ class CameraID(SerialIntEnum):
 
     FTCAM_R1 = 17
     """Right F-theta camera, second from front to back."""
+
+    FTCAM_L2 = 21
+    """Left F-theta camera, third from front to back."""
+
+    FTCAM_R2 = 22
+    """Right F-theta camera, third from front to back."""
 
 
 ALL_PINHOLE_CAMERA_IDS = [
@@ -139,12 +153,15 @@ ALL_FISHEYE_MEI_CAMERA_IDS = [
 
 ALL_FTHETA_CAMERA_IDS = [
     CameraID.FTCAM_F0,
+    CameraID.FTCAM_B0,
     CameraID.FTCAM_TELE_F0,
     CameraID.FTCAM_TELE_B0,
     CameraID.FTCAM_L0,
     CameraID.FTCAM_L1,
+    CameraID.FTCAM_L2,
     CameraID.FTCAM_R0,
     CameraID.FTCAM_R1,
+    CameraID.FTCAM_R2,
 ]
 
 # ---------------------------------------------------------------------------
@@ -225,16 +242,19 @@ class BaseCameraMetadata(BaseModalityMetadata, abc.ABC):
         """Returns the type of the modality that this metadata describes.
 
         The channel type drives the modality: a :attr:`CameraChannelType.SEMANTIC` camera is a
-        per-pixel semantic segmentation stream (:attr:`ModalityType.CAMERA_SEMANTIC`) and a
+        per-pixel semantic segmentation stream (:attr:`ModalityType.CAMERA_SEMANTIC`), a
         :attr:`CameraChannelType.INSTANCE` camera a per-pixel panoptic/instance stream
-        (:attr:`ModalityType.CAMERA_INSTANCE`), each written to its own Arrow file so it
-        sits alongside — and never collides with — the RGB camera that shares its :attr:`camera_id`.
-        All other channel types are regular :attr:`ModalityType.CAMERA`.
+        (:attr:`ModalityType.CAMERA_INSTANCE`), and a :attr:`CameraChannelType.DEPTH` camera a
+        per-pixel metric depth stream (:attr:`ModalityType.CAMERA_DEPTH`), each written to its own
+        Arrow file so it sits alongside — and never collides with — the RGB camera that shares its
+        :attr:`camera_id`. All other channel types are regular :attr:`ModalityType.CAMERA`.
         """
         if self.channel_type == CameraChannelType.SEMANTIC:
             modality_type = ModalityType.CAMERA_SEMANTIC
         elif self.channel_type == CameraChannelType.INSTANCE:
             modality_type = ModalityType.CAMERA_INSTANCE
+        elif self.channel_type == CameraChannelType.DEPTH:
+            modality_type = ModalityType.CAMERA_DEPTH
         else:
             modality_type = ModalityType.CAMERA
         return modality_type
@@ -282,7 +302,7 @@ class BaseCameraMetadata(BaseModalityMetadata, abc.ABC):
 class Camera(BaseModality):
     """A camera observation: image, extrinsic pose, timestamp, and model-specific metadata."""
 
-    __slots__ = ("_metadata", "_image", "_camera_to_global_se3", "_timestamp")
+    __slots__ = ("_metadata", "_image", "_camera_to_global_se3", "_timestamp", "_exposure_factor")
 
     def __init__(
         self,
@@ -290,6 +310,7 @@ class Camera(BaseModality):
         image: npt.NDArray[np.uint8],
         camera_to_global_se3: PoseSE3,
         timestamp: Timestamp,
+        exposure_factor: Optional[float] = None,
     ) -> None:
         """Initialize a Camera instance.
 
@@ -297,16 +318,29 @@ class Camera(BaseModality):
         :param image: The image captured by the camera.
         :param camera_to_global_se3: The extrinsic pose of the camera in global coordinates.
         :param timestamp: The timestamp of the image capture.
+        :param exposure_factor: Per-frame exposure normalization gain applied upstream of
+            the stored image, if known (see :attr:`exposure_factor`).
         """
         self._metadata = metadata
         self._image = image
         self._camera_to_global_se3 = camera_to_global_se3
         self._timestamp = timestamp
+        self._exposure_factor = exposure_factor
 
     @property
     def timestamp(self) -> Timestamp:
         """The :class:`~py123d.datatypes.Timestamp` of the image capture."""
         return self._timestamp
+
+    @property
+    def exposure_factor(self) -> Optional[float]:
+        """Per-frame exposure normalization gain applied upstream of the stored image, if known.
+
+        Recording pipelines with auto-exposure normalization (e.g. Kesai) scale the linear
+        sensor signal by this gain before encoding; dividing the linearized image by it
+        recovers the absolute radiance scale. None when the dataset does not provide it.
+        """
+        return self._exposure_factor
 
     @property
     def metadata(self) -> BaseCameraMetadata:
@@ -326,7 +360,8 @@ class Camera(BaseModality):
         colorized with the canonical Cityscapes palette: each raw class id is mapped to its
         :class:`~py123d.datatypes.camera_segmentation_label.DefaultCameraSegmentationLabel` and then to a
         color. An ``INSTANCE`` label map is colorized by cycling a Tableau-20 palette over the raw ids
-        (id ``0`` rendered black), so each modality can be displayed through the regular RGB camera path.
+        (id ``0`` rendered black). A ``DEPTH`` raster is colorized with a TURBO ramp over the full
+        ``[0, max_depth]`` range, so each modality can be displayed through the regular RGB camera path.
         """
         channel_type = self._metadata.channel_type
         if channel_type == CameraChannelType.RGB:
@@ -342,6 +377,13 @@ class Camera(BaseModality):
             result = colorize_semantic_label_map(self._image, label_class)
         elif channel_type == CameraChannelType.INSTANCE:
             result = colorize_instance_label_map(self._image)
+        elif channel_type == CameraChannelType.DEPTH:
+            # Deferred import: depth_camera imports this module, so a top-level import would be circular.
+            from py123d.datatypes.sensors.depth_camera import colorize_depth_map
+
+            result = colorize_depth_map(self._image, max_raw=getattr(self._metadata, "max_raw", None))
+            if getattr(self._metadata, "has_invalid", False):
+                result[np.asarray(self._image) == 0] = 0
         else:
             raise ValueError(f"Unsupported channel type {channel_type} for RGB conversion.")
         return result

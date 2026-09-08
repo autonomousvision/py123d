@@ -14,6 +14,11 @@ from py123d.datatypes.sensors.camera_segmentation_label import (
     DefaultCameraSegmentationLabel,
     register_camera_segmentation_label,
 )
+from py123d.datatypes.sensors.depth_camera import (
+    DEPTH_BITS,
+    DepthCameraMetadata,
+    colorize_depth_map,
+)
 from py123d.datatypes.sensors.fisheye_mei_camera import (
     FisheyeMEICameraMetadata,
     FisheyeMEIDistortion,
@@ -32,6 +37,22 @@ from py123d.datatypes.sensors.lidar import (
     LidarID,
     LidarMergedMetadata,
     LidarMetadata,
+)
+from py123d.datatypes.sensors.barometer import (
+    Barometer,
+    BarometerMetadata,
+)
+from py123d.datatypes.sensors.gnss import (
+    Gnss,
+    GnssMetadata,
+)
+from py123d.datatypes.sensors.imu import (
+    Imu,
+    ImuMetadata,
+)
+from py123d.datatypes.sensors.magnetometer import (
+    Magnetometer,
+    MagnetometerMetadata,
 )
 from py123d.datatypes.sensors.lidar_segmentation_label import (
     LIDAR_SEGMENTATION_LABEL_REGISTRY,
@@ -68,6 +89,10 @@ __all__ = [
     "CameraID",
     "CameraModel",
     "camera_metadata_from_dict",
+    # Camera depth
+    "DepthCameraMetadata",
+    "DEPTH_BITS",
+    "colorize_depth_map",
     # Camera segmentation
     "SegmentationCameraMetadata",
     "CameraSegmentationLabel",
@@ -95,6 +120,18 @@ __all__ = [
     "LidarID",
     "LidarMergedMetadata",
     "LidarMetadata",
+    # Barometer
+    "Barometer",
+    "BarometerMetadata",
+    # Magnetometer
+    "Magnetometer",
+    "MagnetometerMetadata",
+    # IMU
+    "Imu",
+    "ImuMetadata",
+    # GNSS
+    "Gnss",
+    "GnssMetadata",
     # Radar
     "Radar",
     "RadarFeature",

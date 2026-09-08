@@ -1,13 +1,27 @@
 from __future__ import annotations
 
 import abc
-from typing import Dict, FrozenSet, Iterable, Iterator, List, Literal, Optional, Union
+from typing import Dict, FrozenSet, Iterable, Iterator, List, Literal, Optional, Sequence, Union, overload
 
 import networkx as nx
 import shapely.geometry as geom
 
 from py123d.datatypes import MapMetadata
-from py123d.datatypes.map_objects import BaseMapObject, MapLayer
+from py123d.datatypes.map_objects import (
+    BaseMapObject,
+    Carpark,
+    Crosswalk,
+    GenericDrivable,
+    Intersection,
+    Lane,
+    LaneGroup,
+    MapLayer,
+    RoadEdge,
+    RoadLine,
+    SpeedBump,
+    StopZone,
+    Walkway,
+)
 from py123d.datatypes.map_objects.base_map_objects import MapObjectIDType
 from py123d.geometry import Point2D, Point3D
 
@@ -234,3 +248,72 @@ class MapAPI(abc.ABC):
     def available_map_layers(self) -> List[MapLayer]:
         """The available :class:`~py123d.datatypes.MapLayer` in the map."""
         return self.get_available_map_layers()
+
+    @overload
+    def get_layer_objects_in_radius(
+        self, point: Union[Point2D, Point3D], radius: float, layer: Literal[MapLayer.LANE]
+    ) -> Sequence[Lane]: ...
+
+    @overload
+    def get_layer_objects_in_radius(
+        self, point: Union[Point2D, Point3D], radius: float, layer: Literal[MapLayer.LANE_GROUP]
+    ) -> Sequence[LaneGroup]: ...
+
+    @overload
+    def get_layer_objects_in_radius(
+        self, point: Union[Point2D, Point3D], radius: float, layer: Literal[MapLayer.INTERSECTION]
+    ) -> Sequence[Intersection]: ...
+
+    @overload
+    def get_layer_objects_in_radius(
+        self, point: Union[Point2D, Point3D], radius: float, layer: Literal[MapLayer.CROSSWALK]
+    ) -> Sequence[Crosswalk]: ...
+
+    @overload
+    def get_layer_objects_in_radius(
+        self, point: Union[Point2D, Point3D], radius: float, layer: Literal[MapLayer.WALKWAY]
+    ) -> Sequence[Walkway]: ...
+
+    @overload
+    def get_layer_objects_in_radius(
+        self, point: Union[Point2D, Point3D], radius: float, layer: Literal[MapLayer.CARPARK]
+    ) -> Sequence[Carpark]: ...
+
+    @overload
+    def get_layer_objects_in_radius(
+        self, point: Union[Point2D, Point3D], radius: float, layer: Literal[MapLayer.GENERIC_DRIVABLE]
+    ) -> Sequence[GenericDrivable]: ...
+
+    @overload
+    def get_layer_objects_in_radius(
+        self, point: Union[Point2D, Point3D], radius: float, layer: Literal[MapLayer.STOP_ZONE]
+    ) -> Sequence[StopZone]: ...
+
+    @overload
+    def get_layer_objects_in_radius(
+        self, point: Union[Point2D, Point3D], radius: float, layer: Literal[MapLayer.ROAD_EDGE]
+    ) -> Sequence[RoadEdge]: ...
+
+    @overload
+    def get_layer_objects_in_radius(
+        self, point: Union[Point2D, Point3D], radius: float, layer: Literal[MapLayer.ROAD_LINE]
+    ) -> Sequence[RoadLine]: ...
+
+    @overload
+    def get_layer_objects_in_radius(
+        self, point: Union[Point2D, Point3D], radius: float, layer: Literal[MapLayer.SPEED_BUMP]
+    ) -> Sequence[SpeedBump]: ...
+
+    def get_layer_objects_in_radius(
+        self, point: Union[Point2D, Point3D], radius: float, layer: MapLayer
+    ) -> Sequence[BaseMapObject]:
+        """Returns the map objects of one :class:`~py123d.datatypes.MapLayer` within a given radius
+            around a center point, typed as the layer's concrete object class.
+
+        :param point: The center point to search around.
+        :param radius: The radius to search within.
+        :param layer: The map layer to search in.
+        :return: The map objects of the layer within the radius.
+        """
+        layer = MapLayer.from_arbitrary(layer)
+        return self.get_map_objects_in_radius(point, radius, [layer]).get(layer, [])

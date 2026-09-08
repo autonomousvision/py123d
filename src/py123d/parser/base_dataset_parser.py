@@ -71,6 +71,14 @@ class BaseLogParser(abc.ABC):
         for modalities_sync in self.iter_modalities_sync():
             yield from modalities_sync.modalities
 
+    def get_route_xyz(self):
+        """Optionally returns the log's route as XYZ waypoints (N, 3) in the ego odometry
+        frame — a planned route, or full-horizon odometry a synced conversion would
+        otherwise truncate. The orchestrator forwards it to ``writer.set_route``; the
+        default None derives the route from the written ego poses instead.
+        """
+        return None
+
 
 class ModalitiesSync:
     """Helper class for passing synchronized modalities to log writers, without loading all data into memory at once."""
@@ -192,16 +200,21 @@ class ParsedRadar(BaseModality):
 
 
 class ParsedCamera(BaseModality):
-    """Helper modality to pass cameras to log writer without loading loading an image/video or decoding the bytestring."""
+    """Helper modality to pass cameras to log writer without loading loading an image/video or decoding the bytestring.
+
+    ``camera_to_global_se3`` may be None, in which case the writer stores a null and the reader
+    composes the pose from the log's ego trajectory and the camera's own extrinsic.
+    """
 
     def __init__(
         self,
         metadata: Union[PinholeCameraMetadata, FisheyeMEICameraMetadata, FThetaCameraMetadata],
         timestamp: Timestamp,
-        camera_to_global_se3: PoseSE3,
+        camera_to_global_se3: Optional[PoseSE3],
         dataset_root: Optional[Union[str, Path]] = None,
         relative_path: Optional[Union[str, Path]] = None,
         byte_string: Optional[bytes] = None,
+        exposure_factor: Optional[float] = None,
     ) -> None:
         self._metadata = metadata
         self._timestamp = timestamp
@@ -210,6 +223,7 @@ class ParsedCamera(BaseModality):
         self._dataset_root = dataset_root
         self._relative_path = relative_path
         self._byte_string = byte_string
+        self._exposure_factor = exposure_factor
 
         assert self.has_file_path or self.has_byte_string, (
             "Either file path or byte string must be provided for ParsedCamera."
@@ -226,8 +240,13 @@ class ParsedCamera(BaseModality):
         return self._metadata
 
     @property
-    def camera_to_global_se3(self) -> PoseSE3:
-        """Returns the camera-to-global pose associated with this camera data."""
+    def camera_to_global_se3(self) -> Optional[PoseSE3]:
+        """Returns the camera-to-global pose associated with this camera data.
+
+        None where the dataset stores the pose implicitly. It is then written as a null and
+        composed on read from ``ego_state_se3`` and the camera extrinsic, which is what lets a
+        re-estimated ego trajectory reach the camera poses without rewriting the image tables.
+        """
         return self._camera_to_global_se3
 
     @property
@@ -250,3 +269,12 @@ class ParsedCamera(BaseModality):
     @property
     def has_byte_string(self) -> bool:
         return self._byte_string is not None
+
+    @property
+    def exposure_factor(self) -> Optional[float]:
+        """Per-frame exposure normalization gain applied upstream of the stored image, if known.
+
+        Datasets whose recording pipeline auto-normalizes exposure (e.g. Kesai) record the
+        applied gain here so absolute radiance can be recovered; None when not provided.
+        """
+        return self._exposure_factor

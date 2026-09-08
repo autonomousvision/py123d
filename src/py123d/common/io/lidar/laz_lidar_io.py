@@ -5,6 +5,8 @@ import laspy
 import numpy as np
 import numpy.typing as npt
 
+from py123d.common.io.lidar.point_cloud_codec_config import PointCloudCodecConfig
+
 # Prefix added to feature names that collide with standard LAS dimension names (e.g. "intensity").
 _EXTRA_PREFIX = "extra_"
 
@@ -22,6 +24,7 @@ def is_laz_binary(laz_binary: bytes) -> bool:
 def encode_point_cloud_as_laz_binary(
     point_cloud_3d: npt.NDArray[np.float32],
     point_cloud_features: Optional[Dict[str, npt.NDArray]] = None,
+    config: Optional[PointCloudCodecConfig] = None,
 ) -> bytes:
     """Encode a point cloud (xyz + optional features) into a single LAZ binary blob.
 
@@ -30,9 +33,14 @@ def encode_point_cloud_as_laz_binary(
 
     :param point_cloud_3d: The Lidar point cloud data, as a numpy array of shape (N, 3).
     :param point_cloud_features: Optional dictionary of per-point features.
+    :param config: Codec settings; defaults to :class:`PointCloudCodecConfig`.
     :return: The compressed LAZ binary data.
     """
-    las = laspy.create(point_format=3, file_version="1.4")
+    config = config if config is not None else PointCloudCodecConfig()
+
+    las = laspy.create(point_format=config.laz_point_format, file_version="1.4")
+    las.header.scales = np.asarray(config.laz_scales, dtype=np.float64)
+    las.header.offsets = np.asarray(config.laz_offsets, dtype=np.float64)
     las.x = point_cloud_3d[:, 0]
     las.y = point_cloud_3d[:, 1]
     las.z = point_cloud_3d[:, 2]

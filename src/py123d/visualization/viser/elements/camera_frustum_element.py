@@ -11,6 +11,8 @@ from py123d.datatypes.sensors.base_camera import (
     ALL_PINHOLE_CAMERA_IDS,
 )
 from py123d.visualization.viser.elements.base_element import ElementContext, ViewerElement
+from py123d.visualization.viser.utils.display_isp import apply_display_isp
+from py123d.visualization.viser.utils.parallel_fetch import fetch_parallel
 from py123d.visualization.viser.utils.view_utils import decompose_camera_pose, get_scene_center_pose
 
 logger = logging.getLogger(__name__)
@@ -96,17 +98,11 @@ class CameraFrustumElement(ViewerElement):
 
         scene_center_pose = get_scene_center_pose(self._context.scene_center_array)
 
-        def _update_frustum(camera_type: CameraID) -> None:
-            assert self._server is not None
-            assert self._server.scene is not None
-
-            camera_cb = self._gui_camera_checkboxes.get(camera_type)
-            if camera_cb is not None and not camera_cb.value:
-                return
-
+        def _fetch_frustum_data(camera_type: CameraID):
+            """Heavy part (image decode, ISP, pose math); runs on the worker pool."""
             camera = self._context.scene.get_camera_at_iteration(iteration, camera_type, scale=self._config.image_scale)
             if camera is None:
-                return
+                return None
 
             camera_position, camera_quaternion = decompose_camera_pose(camera, scene_center_pose)
 
@@ -119,21 +115,29 @@ class CameraFrustumElement(ViewerElement):
                 aspect = camera.metadata.aspect_ratio
             elif isinstance(camera.metadata, FThetaCameraMetadata):
                 fov = camera.metadata.fov_y
-                aspect = camera.metadata.aspect_ratio  # or camera.metadata.aspect_ratio
+                aspect = camera.metadata.aspect_ratio
             else:
                 raise ValueError(f"Unsupported camera metadata type: {type(camera.metadata)}")
+
+            image = apply_display_isp(camera.image, getattr(camera.metadata, "isp", None))
+            return camera_position, camera_quaternion, fov, aspect, image
+
+        def _apply_frustum_data(camera_type: CameraID, data) -> None:
+            """Handle creation/updates; runs sequentially on the calling thread."""
+            assert self._server is not None
+            camera_position, camera_quaternion, fov, aspect, image = data
 
             if camera_type in self._frustum_handles:
                 self._frustum_handles[camera_type].position = camera_position
                 self._frustum_handles[camera_type].wxyz = camera_quaternion
-                self._frustum_handles[camera_type].image = camera.image
+                self._frustum_handles[camera_type].image = image
             else:
                 self._frustum_handles[camera_type] = self._server.scene.add_camera_frustum(
                     f"camera_frustums/{camera_type.serialize()}",
                     fov=fov,  # type: ignore
                     aspect=aspect,
                     scale=self._config.frustum_scale,
-                    image=camera.image,
+                    image=image,
                     position=camera_position,
                     cast_shadow=False,
                     receive_shadow=False,
@@ -143,15 +147,9 @@ class CameraFrustumElement(ViewerElement):
             show_frames = self._gui_show_frames_handle is not None and self._gui_show_frames_handle.value
             if show_frames:
                 if camera_type in self._frame_handles:
-                    # _camera_position, _camera_quaternion = get_static_camera_pose(
-                    #     self._context.scene, scene_center_pose, camera_type, iteration
-                    # )
                     self._frame_handles[camera_type].position = camera_position
                     self._frame_handles[camera_type].wxyz = camera_quaternion
                 else:
-                    # _camera_position, _camera_quaternion = get_static_camera_pose(
-                    #     self._context.scene, scene_center_pose, camera_type, iteration
-                    # )
                     self._frame_handles[camera_type] = self._server.scene.add_frame(
                         f"camera_frames/{camera_type.serialize()}",
                         axes_length=0.5,
@@ -160,9 +158,13 @@ class CameraFrustumElement(ViewerElement):
                         wxyz=camera_quaternion,
                     )
 
-        for camera_id, cb in self._gui_camera_checkboxes.items():
-            if cb.value:
-                _update_frustum(camera_id)
+        # Fetch all selected cameras concurrently (separate arrow files, GIL-releasing
+        # decode/ISP), then apply the handle updates on this thread.
+        selected_ids = [camera_id for camera_id, cb in self._gui_camera_checkboxes.items() if cb.value]
+        results = fetch_parallel(_fetch_frustum_data, selected_ids)
+        for camera_id, data in zip(selected_ids, results):
+            if data is not None:
+                _apply_frustum_data(camera_id, data)
 
     def remove(self) -> None:
         for handle in self._frustum_handles.values():

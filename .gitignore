@@ -3,6 +3,7 @@
 **/__pycache__/
 .pytest_cache/*
 .pydevproject
+.python-version
 
 # IDE
 .vscode/*
@@ -44,6 +45,8 @@ docs/build/
 _build/
 .doctrees/
 
+# uv
+*.lock
 
 # ruff
 .ruff_cache/*

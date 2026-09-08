@@ -1,5 +1,5 @@
 import abc
-from typing import List
+from typing import Sequence
 
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.api.scene.scene_filter import SceneFilter
@@ -12,10 +12,13 @@ class SceneBuilder(abc.ABC):
     """
 
     @abc.abstractmethod
-    def get_scenes(self, filter: SceneFilter, executor: Executor) -> List[SceneAPI]:
-        """Returns a list of scenes that match the given filter.
+    def get_scenes(self, filter: SceneFilter, executor: Executor) -> Sequence[SceneAPI]:
+        """Returns the scenes that match the given filter.
+
+        A sequence rather than a list, so an implementation may build its scenes
+        on access instead of up front.
 
         :param filter: SceneFilter object to filter the scenes.
         :param executor: Executor to parallelize the scene extraction.
-        :return: List of SceneAPI objects.
+        :return: The matching scenes.
         """

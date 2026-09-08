@@ -3,6 +3,9 @@ from __future__ import annotations
 import abc
 from typing import Dict, Iterator, List, Literal, Optional, Tuple, TypeVar, Union
 
+import numpy as np
+import numpy.typing as npt
+
 from py123d.api.map.map_api import MapAPI
 from py123d.common.utils.enums import SerialIntEnum
 from py123d.datatypes import (
@@ -15,6 +18,7 @@ from py123d.datatypes import (
     CameraID,
     CustomModality,
     CustomModalityMetadata,
+    DepthCameraMetadata,
     EgoStateSE3,
     EgoStateSE3Metadata,
     Lidar,
@@ -34,6 +38,7 @@ from py123d.datatypes import (
     TrafficLightDetectionsMetadata,
 )
 from py123d.datatypes.metadata import SceneMetadata
+from py123d.datatypes.metadata.route_metadata import RouteMetadata
 
 T = TypeVar("T")
 
@@ -217,6 +222,28 @@ class SceneAPI(abc.ABC):
         :return: Iterator of modality entries in the range. Empty if the modality is not available
             or no entries fall within the range.
         """
+
+    # 1.4 Route (whole-log route polyline, optional derived data)
+    # ------------------------------------------------------------------------------------------------------------------
+
+    def get_route(self) -> Optional[Tuple[RouteMetadata, npt.NDArray[np.float64], npt.NDArray[np.float64]]]:
+        """Returns the log's route as (metadata, arc-length per vertex (K,), vertices (K, 3))
+        in the ego odometry frame, or None if the log has no route."""
+        return None
+
+    def get_route_progress_at_iteration(self, iteration: int) -> Optional[float]:
+        """Returns the ego's arc-length position in meters on the route polyline at a given
+        iteration (negative for history), or None if unavailable there."""
+        return None
+
+    def get_remaining_route_m(self, iteration: int = 0) -> Optional[float]:
+        """Returns the route meters remaining in the log after a given iteration (default:
+        the scene's anchor), or None if unavailable."""
+        route = self.get_route()
+        route_progress = self.get_route_progress_at_iteration(iteration)
+        if route is None or route_progress is None:
+            return None
+        return route[0].total_arc_m - route_progress
 
     # ------------------------------------------------------------------------------------------------------------------
     # 2. Per-modality access methods.
@@ -628,7 +655,98 @@ class SceneAPI(abc.ABC):
         )
         return checked_optional_cast(camera, Camera)
 
-    # 2.7 Lidar
+    # 2.7 Camera Depth (per-pixel quantized metric depth maps)
+    # ------------------------------------------------------------------------------------------------------------------
+
+    def get_camera_depth_metadatas(self) -> Dict[CameraID, DepthCameraMetadata]:
+        """Returns per-camera metadata for all depth cameras in the scene.
+
+        :return: A dictionary mapping camera IDs to their :class:`~py123d.datatypes.DepthCameraMetadata`.
+        """
+        camera_depth_metadatas = {
+            metadata.camera_id: metadata
+            for metadata in self.get_all_modality_metadatas().values()
+            if metadata.modality_type == ModalityType.CAMERA_DEPTH and isinstance(metadata, DepthCameraMetadata)
+        }
+        return camera_depth_metadatas
+
+    def get_all_camera_depth_timestamps(
+        self, camera_id: Union[str, CameraID], include_history: bool = False
+    ) -> List[Timestamp]:
+        """Returns all depth-camera timestamps within the current scene.
+
+        :param camera_id: The camera ID, as a :class:`~py123d.datatypes.CameraID` or its lowercase name
+            (e.g. ``"pcam_f0"``).
+        :param include_history: If True, include history iterations before the scene start.
+        :return: All depth-camera timestamps in the scene, ordered by time.
+        """
+        camera_id = CameraID.from_arbitrary(camera_id)
+        return self.get_all_modality_timestamps(
+            modality_type=ModalityType.CAMERA_DEPTH, modality_id=camera_id, include_history=include_history
+        )
+
+    def get_camera_depth_at_iteration(
+        self,
+        iteration: int,
+        camera_id: Union[str, CameraID],
+        scale: Optional[int] = None,
+    ) -> Optional[Camera]:
+        """Returns a depth :class:`~py123d.datatypes.Camera` at a given iteration, if available.
+
+        The returned camera's :attr:`~py123d.datatypes.sensors.Camera.image` is the *quantized integer*
+        depth raster, not metres. Recover metric depth with
+        :meth:`~py123d.datatypes.DepthCameraMetadata.decode_depth`; the corresponding
+        :attr:`~py123d.datatypes.sensors.Camera.rgb_image` colorizes it with a TURBO ramp::
+
+            camera = scene.get_camera_depth_at_iteration(iteration, camera_id=CameraID.PCAM_F0)
+            depth_m = camera.metadata.decode_depth(camera.image)
+
+        :param iteration: The iteration to get the depth camera for.
+        :param camera_id: The camera ID, as a :class:`~py123d.datatypes.CameraID` or its lowercase name
+            (e.g. ``"pcam_f0"``).
+        :param scale: Optional downscale denominator, e.g. 2 for half size, 4 for quarter size.
+        :return: The depth camera, or None if not available.
+        """
+        camera_id = CameraID.from_arbitrary(camera_id)
+        camera = self.get_modality_at_iteration(
+            iteration,
+            modality_type=ModalityType.CAMERA_DEPTH,
+            modality_id=camera_id,
+            scale=scale,
+        )
+        return checked_optional_cast(camera, Camera)
+
+    def get_camera_depth_at_timestamp(
+        self,
+        timestamp: Union[Timestamp, int],
+        camera_id: Union[str, CameraID],
+        criteria: Literal["exact", "nearest", "forward", "backward"] = "exact",
+        scale: Optional[int] = None,
+    ) -> Optional[Camera]:
+        """Returns a depth :class:`~py123d.datatypes.Camera` at a given timestamp, if available.
+
+        :param timestamp: The timestamp to get the depth camera for, as a Timestamp object or integer microseconds.
+        :param camera_id: The camera ID, as a :class:`~py123d.datatypes.CameraID` or its lowercase name
+            (e.g. ``"pcam_f0"``).
+        :param criteria: Criteria for matching the timestamp if an exact match is not found. One of:
+            - "exact": Only return data if an exact timestamp match is found.
+            - "nearest": Return data from the nearest timestamp.
+            - "forward": Return data from the nearest timestamp that is greater than or equal to the requested timestamp.
+            - "backward": Return data from the nearest timestamp that is less than or equal to the requested timestamp.
+        :param scale: Optional downscale denominator, e.g. 2 for half size, 4 for quarter size.
+        :return: The depth camera, or None if not available.
+        """
+        camera_id = CameraID.from_arbitrary(camera_id)
+        camera = self.get_modality_at_timestamp(
+            timestamp,
+            modality_type=ModalityType.CAMERA_DEPTH,
+            modality_id=camera_id,
+            criteria=criteria,
+            scale=scale,
+        )
+        return checked_optional_cast(camera, Camera)
+
+    # 2.8 Lidar
     # ------------------------------------------------------------------------------------------------------------------
 
     def get_lidar_metadatas(self) -> Dict[LidarID, LidarMetadata]:
@@ -709,7 +827,7 @@ class SceneAPI(abc.ABC):
         )
         return checked_optional_cast(lidar, Lidar)
 
-    # 2.8 Radar
+    # 2.9 Radar
     # ------------------------------------------------------------------------------------------------------------------
 
     def get_radar_metadatas(self) -> Dict[RadarID, RadarMetadata]:
@@ -790,7 +908,7 @@ class SceneAPI(abc.ABC):
         )
         return checked_optional_cast(radar, Radar)
 
-    # 2.9 Custom Modalities
+    # 2.10 Custom Modalities
     # ------------------------------------------------------------------------------------------------------------------
 
     def get_all_custom_modality_metadatas(self) -> Dict[str, CustomModalityMetadata]:
@@ -933,10 +1051,23 @@ class SceneAPI(abc.ABC):
         return [camera.camera_name for camera in self.get_camera_instance_metadatas().values()]
 
     @property
+    def available_camera_depth_ids(self) -> List[CameraID]:
+        """List of camera IDs with a depth stream."""
+        return list(self.get_camera_depth_metadatas().keys())
+
+    @property
+    def available_camera_depth_names(self) -> List[str]:
+        """List of camera names with a depth stream."""
+        return [camera.camera_name for camera in self.get_camera_depth_metadatas().values()]
+
+    @property
     def available_lidar_ids(self) -> List[LidarID]:
         """List of available :class:`~py123d.datatypes.LidarID`."""
         available_lidar_ids = list(self.get_lidar_metadatas().keys())
-        if self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED) is not None:
+        if (
+            self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED) is not None
+            and LidarID.LIDAR_MERGED not in available_lidar_ids
+        ):
             available_lidar_ids += [LidarID.LIDAR_MERGED]
         return available_lidar_ids
 
@@ -946,8 +1077,12 @@ class SceneAPI(abc.ABC):
         available_lidar_names: List[str] = [
             lidar_metadata.lidar_name for lidar_metadata in self.get_lidar_metadatas().values()
         ]
-        if self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED) is not None:
-            available_lidar_names.append(LidarID.LIDAR_MERGED.serialize())
+        lidar_merged_name = LidarID.LIDAR_MERGED.serialize()
+        if (
+            self.get_modality_metadata(ModalityType.LIDAR, LidarID.LIDAR_MERGED) is not None
+            and lidar_merged_name not in available_lidar_names
+        ):
+            available_lidar_names.append(lidar_merged_name)
         return available_lidar_names
 
     @property

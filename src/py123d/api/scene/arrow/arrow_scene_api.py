@@ -5,13 +5,18 @@ import numpy as np
 
 from py123d.api.map.arrow.arrow_map_api import get_map_api_for_log
 from py123d.api.map.map_api import MapAPI
+from py123d.api.scene.arrow.modalities.arrow_barometer import ArrowBarometerReader
 from py123d.api.scene.arrow.modalities.arrow_base import ArrowBaseModalityReader
 from py123d.api.scene.arrow.modalities.arrow_box_detections_se3 import ArrowBoxDetectionsSE3Reader
 from py123d.api.scene.arrow.modalities.arrow_camera import ArrowCameraReader
 from py123d.api.scene.arrow.modalities.arrow_custom_modality import ArrowCustomModalityReader
 from py123d.api.scene.arrow.modalities.arrow_ego_state_se3 import ArrowEgoStateSE3Reader
+from py123d.api.scene.arrow.modalities.arrow_gnss import ArrowGnssReader
+from py123d.api.scene.arrow.modalities.arrow_imu import ArrowImuReader
 from py123d.api.scene.arrow.modalities.arrow_lidar import ArrowLidarReader
+from py123d.api.scene.arrow.modalities.arrow_magnetometer import ArrowMagnetometerReader
 from py123d.api.scene.arrow.modalities.arrow_radar import ArrowRadarReader
+from py123d.api.scene.arrow.modalities.arrow_route_position import ArrowRoutePositionReader
 from py123d.api.scene.arrow.modalities.arrow_sync import get_timestamp_from_arrow_table
 from py123d.api.scene.arrow.modalities.arrow_traffic_light_detections import ArrowTrafficLightDetectionsReader
 from py123d.api.scene.arrow.modalities.sync_utils import (
@@ -31,6 +36,7 @@ from py123d.datatypes import (
     LogMetadata,
     MapMetadata,
     ModalityType,
+    RouteMetadata,
     Timestamp,
     get_modality_key,
 )
@@ -43,8 +49,14 @@ MODALITY_READERS: Dict[ModalityType, Type[ArrowBaseModalityReader]] = {
     ModalityType.CAMERA: ArrowCameraReader,
     ModalityType.CAMERA_SEMANTIC: ArrowCameraReader,
     ModalityType.CAMERA_INSTANCE: ArrowCameraReader,
+    ModalityType.CAMERA_DEPTH: ArrowCameraReader,
     ModalityType.LIDAR: ArrowLidarReader,
     ModalityType.RADAR: ArrowRadarReader,
+    ModalityType.IMU: ArrowImuReader,
+    ModalityType.GNSS: ArrowGnssReader,
+    ModalityType.BAROMETER: ArrowBarometerReader,
+    ModalityType.MAGNETOMETER: ArrowMagnetometerReader,
+    ModalityType.ROUTE_POSITION: ArrowRoutePositionReader,
     ModalityType.CUSTOM: ArrowCustomModalityReader,
 }
 
@@ -52,24 +64,28 @@ MODALITY_READERS: Dict[ModalityType, Type[ArrowBaseModalityReader]] = {
 class ArrowSceneAPI(SceneAPI):
     """Scene API for Arrow-based scenes. Loads each modality from a separate Arrow file in a log directory."""
 
-    __slots__ = ("_log_dir", "_scene_metadata")
+    __slots__ = ("_log_dir", "_scene_metadata", "_maps_root")
 
     def __init__(
         self,
         log_dir: Union[Path, str],
         scene_metadata: Optional[SceneMetadata] = None,
+        maps_root: Optional[Union[Path, str]] = None,
     ) -> None:
         """Initializes the :class:`ArrowSceneAPI`.
 
         :param log_dir: Path to the log directory containing per-modality Arrow files.
         :param scene_metadata: Scene metadata, defaults to None
+        :param maps_root: Root directory the scene's map is resolved under before the
+            global dataset paths, defaults to None
         """
         self._log_dir: Path = Path(log_dir)
         self._scene_metadata: Optional[SceneMetadata] = scene_metadata
+        self._maps_root: Optional[Path] = Path(maps_root) if maps_root is not None else None
 
     def __reduce__(self):
         """Helper for pickling the object."""
-        return (self.__class__, (self._log_dir, self._scene_metadata))
+        return (self.__class__, (self._log_dir, self._scene_metadata, self._maps_root))
 
     # ------------------------------------------------------------------------------------------------------------------
     # Internal Helpers
@@ -138,7 +154,35 @@ class ArrowSceneAPI(SceneAPI):
 
     def get_map_api(self) -> Optional[MapAPI]:
         """Inherited, see superclass."""
-        return get_map_api_for_log(self._log_dir, self.get_log_metadata())
+        return get_map_api_for_log(self._log_dir, self.get_log_metadata(), maps_root=self._maps_root)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # 3. Route
+    # ------------------------------------------------------------------------------------------------------------------
+
+    def get_route(self) -> Optional[Tuple[RouteMetadata, np.ndarray, np.ndarray]]:
+        """Inherited, see superclass."""
+        route_metadata = self.get_modality_metadata(ModalityType.ROUTE_POSITION)
+        if not isinstance(route_metadata, RouteMetadata):
+            return None
+        return route_metadata, route_metadata.polyline_arc_m, route_metadata.polyline_xyz
+
+    def get_route_progress_at_iteration(self, iteration: int) -> Optional[float]:
+        """Inherited, see superclass."""
+        return self.get_modality_column_at_iteration(
+            iteration,
+            column="progress_m",
+            modality_type=ModalityType.ROUTE_POSITION,
+        )
+
+    def get_remaining_route_m(self, iteration: int = 0) -> Optional[float]:
+        """Inherited, see superclass. Reads the stored ``remaining_m`` column directly,
+        so the polyline metadata stays undecoded."""
+        return self.get_modality_column_at_iteration(
+            iteration,
+            column="remaining_m",
+            modality_type=ModalityType.ROUTE_POSITION,
+        )
 
     # ------------------------------------------------------------------------------------------------------------------
     # 4. General modality access

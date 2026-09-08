@@ -116,6 +116,26 @@ class RadarFeature(SerialIntEnum):
     EXIST_PROBABILITY = 18
     """Detection existence probability feature index."""
 
+    CONFIDENCE = 19
+    """Detection confidence feature index (dataset-native scale)."""
+
+    MULTI_TARGET_PROBABILITY = 20
+    """Probability that the detection covers multiple targets feature index."""
+
+    AZIMUTH_STD = 21
+    """Azimuth angle standard deviation feature index, in radians."""
+
+    ELEVATION_STD = 22
+    """Elevation angle standard deviation feature index, in radians."""
+
+    RADIAL_VELOCITY = 23
+    """Raw radial (line-of-sight) velocity feature index, in m/s. Unprojected scalar measurement;
+    datasets that only provide this may additionally derive :attr:`VELOCITY_X`/:attr:`VELOCITY_Y`
+    by projecting it onto the detection azimuth."""
+
+    RECEIVED_SIGNAL_STRENGTH = 24
+    """Received signal strength feature index, in dBm."""
+
 
 RADAR_FEATURE_DTYPES: Dict[RadarFeature, Type] = {
     RadarFeature.IDS: np.uint8,
@@ -137,6 +157,12 @@ RADAR_FEATURE_DTYPES: Dict[RadarFeature, Type] = {
     RadarFeature.VY_RMS: np.float32,
     RadarFeature.SNR: np.float32,
     RadarFeature.EXIST_PROBABILITY: np.float32,
+    RadarFeature.CONFIDENCE: np.float32,
+    RadarFeature.MULTI_TARGET_PROBABILITY: np.float32,
+    RadarFeature.AZIMUTH_STD: np.float32,
+    RadarFeature.ELEVATION_STD: np.float32,
+    RadarFeature.RADIAL_VELOCITY: np.float32,
+    RadarFeature.RECEIVED_SIGNAL_STRENGTH: np.float32,
 }
 
 
@@ -366,6 +392,16 @@ class Radar(BaseModality):
     def rcs(self) -> Optional[npt.NDArray[np.float32]]:
         """The point cloud as an Nx1 array of radar cross section values (dBsm), if available."""
         return self._feature(RadarFeature.RCS)  # type: ignore
+
+    @property
+    def snr(self) -> Optional[npt.NDArray[np.float32]]:
+        """The point cloud as an Nx1 array of signal-to-noise ratios, if available."""
+        return self._feature(RadarFeature.SNR)  # type: ignore
+
+    @property
+    def confidence(self) -> Optional[npt.NDArray[np.float32]]:
+        """The point cloud as an Nx1 array of detection confidences (dataset-native scale), if available."""
+        return self._feature(RadarFeature.CONFIDENCE)  # type: ignore
 
     @property
     def velocity(self) -> Optional[npt.NDArray[np.float32]]:

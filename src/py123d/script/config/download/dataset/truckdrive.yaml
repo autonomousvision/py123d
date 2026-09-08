@@ -1,0 +1,20 @@
+downloader:
+  _target_: py123d.parser.truckdrive.truckdrive_download.TruckDriveDownloader
+  _convert_: 'all'
+
+  output_dir: ${dataset_paths.truckdrive_data_root}
+  dry_run: false
+  scenes:
+    - scene_28_1
+  modalities:
+    - camera
+    - lidar
+    - poses
+    - calibrations
+    - annotations
+  revision: main
+  hf_token: null            # falls back to $HF_TOKEN / $HUGGINGFACE_HUB_TOKEN
+  hf_login: true            # when token is provided, call huggingface_hub.login
+  max_workers: 4
+  unzip: true
+  overwrite: false

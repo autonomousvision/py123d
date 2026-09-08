@@ -136,6 +136,23 @@ def load_scene_index(vehicle_root: Union[str, Path]) -> List[Tuple[str, List[str
     return scenes
 
 
+def town_from_scene_name(scene_name: str) -> str:
+    """Extract the CARLA town from a full Griffin scene name.
+
+    Scene names embed the town as ``scene-{idx:04d}-{Town}-{seq}``
+    (e.g. ``scene-0026-Town07-001`` -> ``Town07``). The town doubles as the
+    log's ``location``, linking it to the matching global Griffin map.
+
+    :param scene_name: Full scene identifier, e.g. ``scene-0026-Town07-001``.
+    :return: The CARLA town name, e.g. ``Town07``.
+    :raises ValueError: If no town component is found in ``scene_name``.
+    """
+    for part in scene_name.split("-"):
+        if part.startswith("Town"):
+            return part
+    raise ValueError(f"Could not extract CARLA town from Griffin scene name: {scene_name}")
+
+
 def load_split_scene_names(split_file: Union[str, Path], kind: str) -> List[str]:
     """Read the official split file and return the scene names for one partition.
 

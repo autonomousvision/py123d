@@ -10,3 +10,4 @@ Sensors
    04_ftheta_camera
    05_lidar
    06_radar
+   07_depth_camera

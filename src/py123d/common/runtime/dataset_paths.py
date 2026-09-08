@@ -31,6 +31,7 @@ _ENV_VAR_MAP: Dict[str, str] = {
     "nuscenes_data_root": "NUSCENES_DATA_ROOT",
     "nureasoning_data_root": "NUREASONING_DATA_ROOT",
     "griffin_data_root": "GRIFFIN_DATA_ROOT",
+    "truckdrive_data_root": "TRUCKDRIVE_DATA_ROOT",
 }
 
 
@@ -61,6 +62,7 @@ class DatasetPaths:
     nuscenes_data_root: Optional[Path] = None
     nureasoning_data_root: Optional[Path] = None
     griffin_data_root: Optional[Path] = None
+    truckdrive_data_root: Optional[Path] = None
 
     # 2. Derived paths (if not explicitly set, will be derived from primary roots in __post_init__)
     py123d_logs_root: Optional[Path] = field(default=None, repr=False)
@@ -148,6 +150,7 @@ class DatasetPaths:
             # nuReasoning stores cameras (jpeg_binary) and lidar (path) under the data root.
             "nureasoning": self.nureasoning_data_root,
             "griffin": self.griffin_data_root,
+            "truckdrive": self.truckdrive_data_root,
         }
         return mapping.get(dataset)
 

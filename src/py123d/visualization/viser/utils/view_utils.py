@@ -1,12 +1,14 @@
-from typing import Tuple
+from typing import Dict, NamedTuple, Tuple
 
 import numpy as np
 import numpy.typing as npt
+import viser.transforms as vtf
 
 from py123d.api.scene.scene_api import SceneAPI
 from py123d.datatypes.sensors.base_camera import Camera
 from py123d.datatypes.vehicle_state.ego_state import EgoStateSE3
 from py123d.geometry import EulerAngles, PoseSE3Index, Vector3D
+from py123d.geometry.geometry_index import BoundingBoxSE3Index
 from py123d.geometry.pose import PoseSE3
 from py123d.geometry.rotation import Quaternion
 from py123d.geometry.transform.transform_se3 import abs_to_rel_se3_array, translate_se3_along_body_frame
@@ -27,6 +29,60 @@ def get_scene_center_pose(scene_center_array: npt.NDArray[np.float64]) -> PoseSE
     return PoseSE3.from_R_t(rotation=Quaternion.identity(), translation=scene_center_array)
 
 
+def get_default_camera_state(
+    initial_ego_state: EgoStateSE3,
+) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Default viewpoint on scene load: behind and above the ego along its body yaw,
+    looking at the center of the vehicle's 3D box.
+
+    Uses the ego body yaw (not the smoothed path heading), so the camera is exactly
+    behind the vehicle. Returned as (camera position, look-at point) in scene-centered
+    coordinates; orientation should be derived by the caller from position + look-at
+    so the look-at point lands exactly on the vehicle.
+    """
+    scene_center = initial_ego_state.center_se3.point_3d.array.astype(np.float64)
+    box_center = initial_ego_state.bounding_box_se3.array[BoundingBoxSE3Index.XYZ].astype(np.float64) - scene_center
+    yaw = float(initial_ego_state.center_se3.yaw)
+    offset = vtf.SO3.from_z_radians(yaw) @ np.array([-12.0, 0.0, 7.0])
+    return box_center + offset, box_center
+
+
+class FollowAnchor(NamedTuple):
+    """Snapshot binding a camera pose to the ego pose at follow-engage time.
+
+    All values are in scene-centered world coordinates; ``ego_yaw`` is the planar
+    vehicle heading. Shared by the playback ego-follow and the render "Follow" view
+    so both attach the camera identically.
+    """
+
+    ego_position: npt.NDArray[np.float64]
+    ego_yaw: float
+    camera_position: npt.NDArray[np.float64]
+    camera_wxyz: npt.NDArray[np.float64]
+
+
+def follow_camera_pose(
+    anchor: FollowAnchor, ego_position: npt.NDArray[np.float64], ego_yaw: float
+) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Camera pose rigidly attached to the vehicle's planar (yaw) body frame.
+
+    The camera keeps its engage-time position and orientation relative to the
+    vehicle frame, so it translates AND rotates with the ego: the look-at point
+    stays fixed in vehicle coordinates. Only the yaw of the ego is applied --
+    body pitch/roll (braking dip, cornering roll, vibration) would shake the
+    horizon and cannot be represented reliably by the viser camera protocol.
+
+    :param anchor: Engage-time snapshot of the ego and camera pose.
+    :param ego_position: Current scene-centered ego position.
+    :param ego_yaw: Current planar ego heading in radians.
+    :return: Tuple of (camera position, camera wxyz quaternion).
+    """
+    rotation = vtf.SO3.from_z_radians(ego_yaw - anchor.ego_yaw)
+    position = ego_position + rotation @ (anchor.camera_position - anchor.ego_position)
+    wxyz = (rotation @ vtf.SO3(np.asarray(anchor.camera_wxyz, dtype=np.float64))).wxyz
+    return position, wxyz
+
+
 def get_ego_3rd_person_view_position(
     scene: SceneAPI,
     iteration: int,
@@ -34,9 +90,13 @@ def get_ego_3rd_person_view_position(
 ) -> PoseSE3:
     """Position camera 15m behind and 15m above ego vehicle with 30 degree pitch."""
     scene_center_array = initial_ego_state.center_se3.point_3d.array
-    ego_pose = scene.get_ego_state_se3_at_iteration(iteration).imu_se3.array
-    ego_pose[PoseSE3Index.XYZ] -= scene_center_array
-    ego_pose_se3 = PoseSE3.from_array(ego_pose)
+    ego_center = scene.get_ego_state_se3_at_iteration(iteration).center_se3.array.copy()
+    ego_center[PoseSE3Index.XYZ] -= scene_center_array
+    ego_pose_se3 = PoseSE3.from_array(ego_center)
+
+    planar_euler_angles = EulerAngles(0.0, 0.0, _get_planar_heading(scene, iteration))
+    ego_pose_se3._array[PoseSE3Index.QUATERNION] = planar_euler_angles.quaternion.array
+
     ego_pose_se3 = translate_se3_along_body_frame(ego_pose_se3, Vector3D(-10.0, 0.0, 9.0))
     ego_pose_se3 = _pitch_se3_by_degrees(ego_pose_se3, 25.0)
 
@@ -84,3 +144,57 @@ def _pitch_se3_by_degrees(pose_se3: PoseSE3, degrees: float) -> PoseSE3:
         qy=quaternion.qy,
         qz=quaternion.qz,
     )
+
+
+# The heading at a frame is the direction of the path chord spanning +/- _PATH_WINDOW_M
+# of arc length around it: slow motion uses a long time window, driving a short one, so
+# the heading is defined by path geometry instead of frame-to-frame localization noise.
+# Only frames where even that chord is shorter than _MIN_PATH_MOTION_M (static scene,
+# reversal cusp) fall back to the ego yaw.
+_PATH_WINDOW_M = 2.0
+_MIN_PATH_MOTION_M = 0.5
+_HEADING_SMOOTH_HALF_WINDOW = 5  # frames on each side in the circular moving average
+
+_path_heading_cache: Dict[str, npt.NDArray[np.float64]] = {}
+
+
+def _compute_path_headings(scene: SceneAPI) -> npt.NDArray[np.float64]:
+    num_iterations = scene.number_of_iterations
+    xy = np.empty((num_iterations, 2), dtype=np.float64)
+    ego_yaw = np.empty(num_iterations, dtype=np.float64)
+    for i in range(num_iterations):
+        state = scene.get_ego_state_se3_at_iteration(i)
+        assert state is not None, "Ego state must be available at every iteration."
+        xy[i] = state.center_se3.array[PoseSE3Index.XY]
+        ego_yaw[i] = state.center_se3.yaw
+
+    if num_iterations < 2:
+        return ego_yaw
+
+    arc_length = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))])
+
+    headings = np.empty(num_iterations, dtype=np.float64)
+    for i in range(num_iterations):
+        forward = min(int(np.searchsorted(arc_length, arc_length[i] + _PATH_WINDOW_M, side="left")), num_iterations - 1)
+        backward = max(int(np.searchsorted(arc_length, arc_length[i] - _PATH_WINDOW_M, side="right")) - 1, 0)
+        chord_xy = xy[forward] - xy[backward]
+        if np.linalg.norm(chord_xy) < _MIN_PATH_MOTION_M:
+            headings[i] = ego_yaw[i]
+        else:
+            headings[i] = np.arctan2(chord_xy[1], chord_xy[0])
+
+    # Circular moving average on unit vectors; plain averaging would break at the +/-pi wrap.
+    directions = np.stack([np.cos(headings), np.sin(headings)], axis=1)
+    padded = np.pad(directions, ((_HEADING_SMOOTH_HALF_WINDOW, _HEADING_SMOOTH_HALF_WINDOW), (0, 0)), mode="edge")
+    kernel = np.ones(2 * _HEADING_SMOOTH_HALF_WINDOW + 1) / (2 * _HEADING_SMOOTH_HALF_WINDOW + 1)
+    smoothed_cos = np.convolve(padded[:, 0], kernel, mode="valid")
+    smoothed_sin = np.convolve(padded[:, 1], kernel, mode="valid")
+    return np.arctan2(smoothed_sin, smoothed_cos)
+
+
+def _get_planar_heading(scene: SceneAPI, iteration: int) -> float:
+    headings = _path_heading_cache.get(scene.scene_uuid)
+    if headings is None:
+        headings = _compute_path_headings(scene)
+        _path_heading_cache[scene.scene_uuid] = headings
+    return float(headings[iteration])

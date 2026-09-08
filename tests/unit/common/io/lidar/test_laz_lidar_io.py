@@ -1,10 +1,15 @@
+import io
+
+import laspy
 import numpy as np
+import pytest
 
 from py123d.common.io.lidar.laz_lidar_io import (
     encode_point_cloud_as_laz_binary,
     is_laz_binary,
     load_point_cloud_from_laz_binary,
 )
+from py123d.common.io.lidar.point_cloud_codec_config import PointCloudCodecConfig
 
 
 class TestIsLazBinary:
@@ -142,3 +147,57 @@ class TestLazWithFeaturesRoundtrip:
         laz_binary = encode_point_cloud_as_laz_binary(point_cloud)
         _, decoded_features = load_point_cloud_from_laz_binary(laz_binary)
         assert decoded_features is None
+
+
+def _sample_point_cloud(num_points: int) -> np.ndarray:
+    """Deterministic point cloud spanning a plausible sensor range, so blob sizes are reproducible."""
+    rng = np.random.default_rng(0)
+    return (rng.random((num_points, 3), dtype=np.float32) - 0.5) * 100.0
+
+
+class TestLazCodecConfig:
+    """Test that the LAZ codec settings are honoured."""
+
+    def test_defaults_match_legacy_encoder(self):
+        """Test that the defaults reproduce the historical point format and scale."""
+        config = PointCloudCodecConfig()
+        assert config.laz_point_format == 3
+        assert config.laz_scales == (0.01, 0.01, 0.01)
+
+    def test_config_is_written_to_header(self):
+        """Test that the configured point format and scale land in the LAS header."""
+        point_cloud = _sample_point_cloud(100)
+        config = PointCloudCodecConfig(laz_point_format=0, laz_scales=(0.1, 0.1, 0.1))
+        laz_binary = encode_point_cloud_as_laz_binary(point_cloud, config=config)
+
+        header = laspy.read(io.BytesIO(laz_binary)).header
+        assert header.point_format.id == 0
+        assert np.allclose(header.scales, [0.1, 0.1, 0.1])
+
+    def test_coarser_scale_shrinks_blob_within_tolerance(self):
+        """Test that a coarser scale alone compresses better, within half a quantization step."""
+        point_cloud = _sample_point_cloud(5000)
+        # Vary only the scale; the point format stays at its default.
+        config = PointCloudCodecConfig(laz_scales=(0.1, 0.1, 0.1))
+
+        default_binary = encode_point_cloud_as_laz_binary(point_cloud)
+        coarse_binary = encode_point_cloud_as_laz_binary(point_cloud, config=config)
+        assert len(coarse_binary) < len(default_binary)
+
+        decoded, _ = load_point_cloud_from_laz_binary(coarse_binary)
+        assert np.abs(decoded - point_cloud).max() <= 0.05 + 1e-6
+
+    def test_leaner_point_format_shrinks_blob(self):
+        """Test that a leaner point format alone compresses better, dropping the unused LAS dimensions."""
+        point_cloud = _sample_point_cloud(5000)
+        # Vary only the point format; the scale stays at its default.
+        config = PointCloudCodecConfig(laz_point_format=0)
+
+        default_binary = encode_point_cloud_as_laz_binary(point_cloud)
+        lean_binary = encode_point_cloud_as_laz_binary(point_cloud, config=config)
+        assert len(lean_binary) < len(default_binary)
+
+    def test_invalid_scale_rejected(self):
+        """Test that a non-positive scale is rejected."""
+        with pytest.raises(AssertionError):
+            PointCloudCodecConfig(laz_scales=(0.0, 0.1, 0.1))

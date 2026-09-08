@@ -26,6 +26,25 @@ class ModalityType(SerialIntEnum):
     RADAR = 8
     """Radar point cloud, potentially with additional attributes like velocity, radar cross section, etc."""
 
+    CAMERA_DEPTH = 9
+    """Per-pixel metric depth image, pixel-aligned to a sibling :attr:`CAMERA` stream."""
+
+    IMU = 10
+    """Inertial measurement unit stream: gyroscope, accelerometer, optional fused orientation."""
+
+    GNSS = 11
+    """Global navigation satellite system fixes: geodetic position and fix quality."""
+
+    BAROMETER = 12
+    """Barometric pressure stream, with optional derived altitude and environmental readings."""
+
+    MAGNETOMETER = 13
+    """Magnetic field stream."""
+
+    ROUTE_POSITION = 14
+    """Ego's arc-length position on the log's route polyline (``route.arrow``), derived
+    by the log writer from ego odometry or a provided route — no parser emits it."""
+
 
 class BaseModalityMetadata(BaseMetadata):
     """Base class for modality metadata."""

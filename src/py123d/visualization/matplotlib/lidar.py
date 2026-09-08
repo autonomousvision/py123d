@@ -1,5 +1,5 @@
 import logging
-from typing import Literal, Optional, Type
+from typing import Dict, Literal, Optional, Tuple, Type
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,26 +12,55 @@ from py123d.visualization.color.default import DEFAULT_LIDAR_SEGMENTATION_COLORS
 logger = logging.getLogger(__name__)
 
 
+# Exponentially smoothed normalization ranges keyed by caller-chosen id (e.g. per
+# sensor and feature). Smoothing the per-frame quantile bounds keeps colors stable
+# across consecutive frames instead of flickering with each frame's distribution.
+_RANGE_SMOOTHING_ALPHA = 0.2
+_smoothed_ranges: Dict[str, Tuple[float, float]] = {}
+
+
 def _continuous_colormap(
     values: npt.NDArray,
     cmap_name: str = "viridis",
     vmin: float = None,
     vmax: float = None,
+    cmap_range: Tuple[float, float] = (0.0, 1.0),
+    range_smoothing_key: Optional[str] = None,
 ) -> npt.NDArray[np.uint8]:
     """Map continuous values to RGB colors using a matplotlib colormap.
 
+    By default the 10th/90th percentiles of the values span the full colormap and
+    values outside saturate at the palette ends. This spends the whole palette on the
+    bulk of the data instead of letting a few outliers compress it.
+
     :param values: 1D array of continuous values.
     :param cmap_name: Name of the matplotlib colormap to use.
-    :param vmin: Minimum value for normalization. Defaults to values.min().
-    :param vmax: Maximum value for normalization. Defaults to values.max().
+    :param vmin: Minimum value for normalization. Defaults to the 10th percentile.
+    :param vmax: Maximum value for normalization. Defaults to the 90th percentile.
+    :param cmap_range: Fraction of the colormap to use, as (low, high). Use to cut off
+        palette ends that are too dark to see against the viewer background.
+    :param range_smoothing_key: If set, the derived (vmin, vmax) is blended with the
+        previous range stored under this key (EMA), suppressing frame-to-frame color
+        flicker during playback and in recordings. Explicit vmin/vmax are not smoothed.
     :return: Nx3 array of RGB uint8 values.
     """
-    min_val = vmin if vmin is not None else values.min()
-    max_val = vmax if vmax is not None else values.max()
+    if values.size == 0:
+        return np.zeros((0, 3), dtype=np.uint8)
+    min_val = vmin if vmin is not None else float(np.quantile(values, 0.10))
+    max_val = vmax if vmax is not None else float(np.quantile(values, 0.90))
+    if range_smoothing_key is not None and vmin is None and vmax is None:
+        previous = _smoothed_ranges.get(range_smoothing_key)
+        if previous is not None:
+            min_val = (1.0 - _RANGE_SMOOTHING_ALPHA) * previous[0] + _RANGE_SMOOTHING_ALPHA * min_val
+            max_val = (1.0 - _RANGE_SMOOTHING_ALPHA) * previous[1] + _RANGE_SMOOTHING_ALPHA * max_val
+        _smoothed_ranges[range_smoothing_key] = (min_val, max_val)
     if max_val - min_val < 1e-8:
         normalized = np.zeros_like(values, dtype=np.float64)
     else:
         normalized = np.clip((values - min_val) / (max_val - min_val), 0.0, 1.0)
+    range_low, range_high = cmap_range
+    if (range_low, range_high) != (0.0, 1.0):
+        normalized = range_low + normalized * (range_high - range_low)
     colormap = plt.get_cmap(cmap_name)
     colors = colormap(normalized)
     return (colors[:, :3] * 255).astype(np.uint8)
@@ -124,15 +153,21 @@ def get_lidar_pc_color(
         "instance",
     ] = "none",
     dark_mode: bool = False,
+    stride: int = 1,
+    range_smoothing_key: Optional[str] = None,
 ) -> npt.NDArray[np.uint8]:
     """Compute per-point RGB colors for a lidar point cloud based on a feature.
 
     :param lidar: Lidar object containing the point cloud and its metadata.
     :param color_feature: The feature to color the point cloud by.
     :param dark_mode: If True, use white as the default color; otherwise use black.
+    :param stride: Color only every stride-th point (matching ``point_cloud_3d[::stride]``),
+        so display-side subsampling does not pay for coloring the full cloud.
     :return: Nx3 array of RGB uint8 values.
     """
     point_cloud_3d = lidar.point_cloud_3d
+    if stride > 1:
+        point_cloud_3d = point_cloud_3d[::stride]
     n_points = len(point_cloud_3d)
 
     default_value = 255 if dark_mode else 0
@@ -141,11 +176,23 @@ def get_lidar_pc_color(
     if color_feature == "none":
         return default_color
     elif color_feature == "height":
-        return _continuous_colormap(-point_cloud_3d[:, 2], cmap_name="viridis", vmin=-6.0, vmax=2.0)
+        # Turbo spans blue -> green -> yellow -> red (viridis has no red); quantile
+        # normalization spreads it over the actual per-frame height distribution.
+        # The outer 8%/10% of turbo are cut off: those tails darken to navy/dark red,
+        # which is nearly invisible against the dark viewer background.
+        return _continuous_colormap(
+            -point_cloud_3d[:, 2],
+            cmap_name="turbo",
+            cmap_range=(0.08, 0.90),
+            range_smoothing_key=f"{range_smoothing_key}:height" if range_smoothing_key is not None else None,
+        )
     elif color_feature == "distance":
         distances = -np.linalg.norm(point_cloud_3d, axis=-1)
         distances = np.clip(distances, -50.0, 0.0)
-        return _continuous_colormap(distances)
+        return _continuous_colormap(
+            distances,
+            range_smoothing_key=f"{range_smoothing_key}:distance" if range_smoothing_key is not None else None,
+        )
 
     # Features that require point_cloud_features to be present
     discrete_features = {"ids", "channel", "instance"}
@@ -165,6 +212,8 @@ def get_lidar_pc_color(
     if values is None:
         logger.warning(f"LiDAR point cloud does not contain {color_feature} feature. Falling back to black.")
         return default_color
+    if stride > 1:
+        values = values[::stride]
 
     # Semantic ids are colored with the Cityscapes palette via the dataset taxonomy attached to the
     # lidar metadata (raw id -> unified default label -> color). If the taxonomy is unavailable (e.g. a
@@ -181,6 +230,9 @@ def get_lidar_pc_color(
             values = values.astype(np.float32)
         elif values.dtype == np.int64:
             values = values.astype(np.float64)
-        return _continuous_colormap(values)
+        return _continuous_colormap(
+            values,
+            range_smoothing_key=f"{range_smoothing_key}:{color_feature}" if range_smoothing_key is not None else None,
+        )
 
     raise ValueError(f"Unknown feature: {color_feature}")

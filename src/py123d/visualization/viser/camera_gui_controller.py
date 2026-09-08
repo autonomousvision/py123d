@@ -6,6 +6,7 @@ import viser
 
 from py123d.datatypes.sensors.base_camera import Camera, CameraID
 from py123d.visualization.viser.elements.base_element import ElementContext
+from py123d.visualization.viser.utils.display_isp import apply_display_isp
 
 logger = logging.getLogger(__name__)
 
@@ -41,17 +42,20 @@ class CameraGuiController:
         self._camera_names: List[str] = list(self._camera_ids.keys())
 
         # Map each selectable modality to the scene getter that fetches it (shared signature). Each fetched
-        # stream is displayed through Camera.rgb_image, so the GUI renders camera/semantic/instance uniformly.
+        # stream is displayed through Camera.rgb_image, so the GUI renders camera/semantic/instance/depth
+        # uniformly (rgb_image colorizes label maps and depth rasters for us).
         self._modality_getters: Dict[str, Callable[..., Optional[Camera]]] = {
             "camera": context.scene.get_camera_at_iteration,
             "semantic": context.scene.get_camera_semantic_at_iteration,
             "instance": context.scene.get_camera_instance_at_iteration,
+            "depth": context.scene.get_camera_depth_at_iteration,
         }
         # Only offer a modality whose metadata is present in the scene.
         modality_available: Dict[str, bool] = {
             "camera": len(self._camera_ids) > 0,
             "semantic": len(context.scene.get_camera_semantic_metadatas()) > 0,
             "instance": len(context.scene.get_camera_instance_metadatas()) > 0,
+            "depth": len(context.scene.get_camera_depth_metadatas()) > 0,
         }
         self._modality_names: List[str] = [name for name in self._modality_getters if modality_available[name]]
 
@@ -60,7 +64,7 @@ class CameraGuiController:
         if len(self._camera_names) == 0:
             return
 
-        self._folder = self._server.gui.add_folder("Camera Image", expand_by_default=False)
+        self._folder = self._server.gui.add_folder("Camera Image")
         with self._folder:
             self._gui_visible = self._server.gui.add_checkbox("Visible", self._config.visible)
             self._gui_camera_dropdown = self._server.gui.add_dropdown(
@@ -140,6 +144,9 @@ class CameraGuiController:
             getter(self._current_iteration, camera_id, scale=self._config.image_scale) if getter is not None else None
         )
         image = camera.rgb_image if camera is not None else None
+        if image is not None and camera is not None:
+            # Only true camera streams carry a display-ISP block; label/depth maps do not.
+            image = apply_display_isp(image, getattr(camera.metadata, "isp", None))
         if image is None:
             # The selected camera/modality pair is unavailable: hide any stale frame.
             if self._image_handle is not None:
